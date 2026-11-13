@@ -1,5 +1,5 @@
+import type { AbilityName, StatblockDefinitionV1_Input } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { useState } from "react";
-import type { AbilityName, StatblockDefinitionV1_Output } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { ProtectedStructureBlock } from "./ProtectedStructureBlock";
 import {
   createEditorStateFromOutput,
@@ -14,6 +14,7 @@ import {
   setRuleElementName,
   setRuleElementRulesText,
   type StatblockEditorState,
+  type EditableStatblockDefinition,
 } from "./statblockEditorState";
 import "./StatblockDefinitionEditor.css";
 
@@ -26,11 +27,11 @@ const ABILITY_NAMES: AbilityName[] = [
   "charisma",
 ];
 
-export type StatblockDefinitionEditorProps = {
-  output: StatblockDefinitionV1_Output;
+export type StatblockDefinitionEditorProps<D extends EditableStatblockDefinition = StatblockDefinitionV1_Input> = {
+  output: D;
   recoveryHint?: string;
-  editorState?: StatblockEditorState;
-  onEditorStateChange?: (state: StatblockEditorState) => void;
+  editorState?: StatblockEditorState<D>;
+  onEditorStateChange?: (state: StatblockEditorState<D>) => void;
 };
 
 function readPrimaryArmorClassValue(defenses: StatblockEditorState["workingCopy"]["defenses"]): number {
@@ -67,18 +68,18 @@ function ruleElementProtectedStructure(
   return structure;
 }
 
-export function StatblockDefinitionEditor({
+export function StatblockDefinitionEditor<D extends EditableStatblockDefinition>({
   output,
   editorState: controlledState,
   onEditorStateChange,
   recoveryHint,
-}: StatblockDefinitionEditorProps) {
+}: StatblockDefinitionEditorProps<D>) {
   const [uncontrolledState, setUncontrolledState] = useState(() => createEditorStateFromOutput(output));
   const state = controlledState ?? uncontrolledState;
   const workingCopy = state.workingCopy;
   const uiStatus = getUiStatus(state);
 
-  const commit = (next: StatblockEditorState) => {
+  const commit = (next: StatblockEditorState<D>) => {
     if (controlledState !== undefined) {
       onEditorStateChange?.(next);
       return;

@@ -3,7 +3,6 @@ import type {
   StatblockDefinitionV1_Input,
   StatblockDefinitionV1_Output,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
-import { definitionOutputToInput } from "./definitionOutputToInput";
 
 export type ValidationUiStatus =
   | "clean_unvalidated"
@@ -26,13 +25,21 @@ export type ValidationReceiptStatus =
 
 export type ValidationAttempt = "none" | "validating" | "unavailable";
 
-export type StatblockEditorState = {
-  sourceOutput: StatblockDefinitionV1_Output;
+export type EditableStatblockDefinition = Omit<StatblockDefinitionV1_Input, "movement"> & {
+  movement: StatblockDefinitionV1_Input["movement"] | null;
+};
+
+export type EditableStatblockOutput = Omit<StatblockDefinitionV1_Output, "movement"> & {
+  movement: StatblockDefinitionV1_Output["movement"] | null;
+};
+
+export type StatblockEditorState<D extends EditableStatblockDefinition = StatblockDefinitionV1_Input> = {
+  sourceOutput: EditableStatblockOutput;
   baselineFingerprint: string;
-  workingCopy: StatblockDefinitionV1_Input;
+  workingCopy: D;
   stateRevision: number;
-  undoStack: StatblockDefinitionV1_Input[];
-  redoStack: StatblockDefinitionV1_Input[];
+  undoStack: D[];
+  redoStack: D[];
   /**
    * Revision bound to an authoritative validation receipt.
    * Set only for validated | validated_with_warnings | validated_with_errors.
@@ -57,15 +64,15 @@ function stableStringify(value: unknown): string {
   });
 }
 
-export function fingerprintDefinition(definition: StatblockDefinitionV1_Input): string {
+export function fingerprintDefinition(definition: EditableStatblockDefinition): string {
   return stableStringify(definition);
 }
 
-export function getLocalFingerprint(state: StatblockEditorState): string {
+export function getLocalFingerprint<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>): string {
   return fingerprintDefinition(state.workingCopy);
 }
 
-function isDirty(state: StatblockEditorState): boolean {
+function isDirty<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>): boolean {
   return getLocalFingerprint(state) !== state.baselineFingerprint;
 }
 
@@ -77,7 +84,7 @@ function isReceiptBearingUiStatus(status: ValidationUiStatus): status is Validat
   );
 }
 
-function deriveUiStatus(state: StatblockEditorState): ValidationUiStatus {
+function deriveUiStatus<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>): ValidationUiStatus {
   if (
     state.validatedRevision !== null &&
     state.stateRevision === state.validatedRevision &&
@@ -94,11 +101,11 @@ function deriveUiStatus(state: StatblockEditorState): ValidationUiStatus {
   return isDirty(state) ? "dirty_unvalidated" : "clean_unvalidated";
 }
 
-function cloneWorkingCopy(copy: StatblockDefinitionV1_Input): StatblockDefinitionV1_Input {
+function cloneWorkingCopy<D extends EditableStatblockDefinition>(copy: D): D {
   return structuredClone(copy);
 }
 
-function pushUndo(state: StatblockEditorState, snapshot: StatblockDefinitionV1_Input): StatblockEditorState {
+function pushUndo<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>, snapshot: D): StatblockEditorState<D> {
   return {
     ...state,
     undoStack: [...state.undoStack, cloneWorkingCopy(snapshot)],
@@ -106,8 +113,8 @@ function pushUndo(state: StatblockEditorState, snapshot: StatblockDefinitionV1_I
   };
 }
 
-function clearAttemptAndAssociation(): Pick<
-  StatblockEditorState,
+function clearAttemptAndAssociation<D extends EditableStatblockDefinition>(): Pick<
+  StatblockEditorState<D>,
   "validatedRevision" | "validationAttempt" | "validationUiStatus"
 > {
   return {
@@ -117,13 +124,13 @@ function clearAttemptAndAssociation(): Pick<
   };
 }
 
-function applyWorkingCopy(
-  state: StatblockEditorState,
-  nextWorkingCopy: StatblockDefinitionV1_Input,
+function applyWorkingCopy<D extends EditableStatblockDefinition>(
+  state: StatblockEditorState<D>,
+  nextWorkingCopy: D,
   options?: { skipUndo?: boolean },
-): StatblockEditorState {
+): StatblockEditorState<D> {
   const withUndo = options?.skipUndo ? state : pushUndo(state, state.workingCopy);
-  const next: StatblockEditorState = {
+  const next: StatblockEditorState<D> = {
     ...withUndo,
     workingCopy: cloneWorkingCopy(nextWorkingCopy),
     stateRevision: state.stateRevision + 1,
@@ -133,8 +140,8 @@ function applyWorkingCopy(
   return next;
 }
 
-export function clearValidationAssociation(state: StatblockEditorState): StatblockEditorState {
-  const next: StatblockEditorState = {
+export function clearValidationAssociation<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>): StatblockEditorState<D> {
+  const next: StatblockEditorState<D> = {
     ...state,
     validatedRevision: null,
     validationAttempt: "none",
@@ -147,7 +154,7 @@ export function clearValidationAssociation(state: StatblockEditorState): Statblo
 export const clearValidationEligibility = clearValidationAssociation;
 
 /** Pending validate call — no receipt, no associated revision. */
-export function beginValidationAttempt(state: StatblockEditorState): StatblockEditorState {
+export function beginValidationAttempt<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>): StatblockEditorState<D> {
   return {
     ...state,
     validatedRevision: null,
@@ -157,7 +164,7 @@ export function beginValidationAttempt(state: StatblockEditorState): StatblockEd
 }
 
 /** Transport/dependency failure — retain working copy, no receipt association. */
-export function markValidationUnavailable(state: StatblockEditorState): StatblockEditorState {
+export function markValidationUnavailable<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>): StatblockEditorState<D> {
   return {
     ...state,
     validatedRevision: null,
@@ -170,10 +177,10 @@ export function markValidationUnavailable(state: StatblockEditorState): Statbloc
  * Associate an authoritative Server receipt with the current working-copy revision.
  * Accepts clean valid, warnings, or invalid receipt outcomes — never validating or unavailable.
  */
-export function markValidationAssociated(
-  state: StatblockEditorState,
+export function markValidationAssociated<D extends EditableStatblockDefinition>(
+  state: StatblockEditorState<D>,
   uiStatus: ValidationReceiptStatus,
-): StatblockEditorState {
+): StatblockEditorState<D> {
   return {
     ...state,
     validatedRevision: state.stateRevision,
@@ -182,8 +189,8 @@ export function markValidationAssociated(
   };
 }
 
-export function createEditorStateFromOutput(output: StatblockDefinitionV1_Output): StatblockEditorState {
-  const workingCopy = definitionOutputToInput(output);
+export function createEditorStateFromOutput<D extends EditableStatblockDefinition>(output: D): StatblockEditorState<D> {
+  const workingCopy = structuredClone(output);
   const baselineFingerprint = fingerprintDefinition(workingCopy);
   return {
     sourceOutput: output,
@@ -198,16 +205,16 @@ export function createEditorStateFromOutput(output: StatblockDefinitionV1_Output
   };
 }
 
-export function updateWorkingCopy(
-  state: StatblockEditorState,
-  updater: (current: StatblockDefinitionV1_Input) => StatblockDefinitionV1_Input,
-): StatblockEditorState {
+export function updateWorkingCopy<D extends EditableStatblockDefinition>(
+  state: StatblockEditorState<D>,
+  updater: (current: D) => D,
+): StatblockEditorState<D> {
   const draft = cloneWorkingCopy(state.workingCopy);
   const updated = updater(draft);
   return applyWorkingCopy(state, updated);
 }
 
-export function setIdentityName(state: StatblockEditorState, name: string): StatblockEditorState {
+export function setIdentityName<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>, name: string): StatblockEditorState<D> {
   return updateWorkingCopy(state, (current) => ({
     ...current,
     identity: {
@@ -217,7 +224,7 @@ export function setIdentityName(state: StatblockEditorState, name: string): Stat
   }));
 }
 
-export function setAbility(state: StatblockEditorState, ability: AbilityName, value: number): StatblockEditorState {
+export function setAbility<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>, ability: AbilityName, value: number): StatblockEditorState<D> {
   return updateWorkingCopy(state, (current) => ({
     ...current,
     abilities: {
@@ -227,17 +234,17 @@ export function setAbility(state: StatblockEditorState, ability: AbilityName, va
   }));
 }
 
-export function primaryArmorClassIndexForDisplay(defenses: StatblockDefinitionV1_Input["defenses"]): number {
+export function primaryArmorClassIndexForDisplay(defenses: EditableStatblockDefinition["defenses"]): number {
   const defaultIndex = defenses.armor_classes.findIndex((entry) => entry.default);
   return defaultIndex >= 0 ? defaultIndex : 0;
 }
 
-function primaryArmorClassIndex(defenses: StatblockDefinitionV1_Input["defenses"]): number {
+function primaryArmorClassIndex(defenses: EditableStatblockDefinition["defenses"]): number {
   return primaryArmorClassIndexForDisplay(defenses);
 }
 
 /** Mutates `defenses.armor_classes[primaryArmorClassIndex(defenses)].value` only. */
-export function setPrimaryArmorClassValue(state: StatblockEditorState, value: number): StatblockEditorState {
+export function setPrimaryArmorClassValue<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>, value: number): StatblockEditorState<D> {
   return updateWorkingCopy(state, (current) => {
     const index = primaryArmorClassIndex(current.defenses);
     if (current.defenses.armor_classes.length === 0) {
@@ -257,13 +264,13 @@ export function setPrimaryArmorClassValue(state: StatblockEditorState, value: nu
 }
 
 /** Maximum HP uses the same rounded dice average as authoritative validation. */
-export function readHitPointsMax(hitPoints: StatblockDefinitionV1_Input["vitality"]["hit_points"]): number {
+export function readHitPointsMax(hitPoints: EditableStatblockDefinition["vitality"]["hit_points"]): number {
   if (hitPoints.method === "fixed") return hitPoints.fixed_value ?? 0;
   const formula = hitPoints.formula;
   return formula ? Math.floor(formula.count * (formula.die + 1) / 2) + (formula.modifier ?? 0) : 0;
 }
 
-export function setHitPointsMax(state: StatblockEditorState, value: number): StatblockEditorState {
+export function setHitPointsMax<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>, value: number): StatblockEditorState<D> {
   if (!Number.isFinite(value) || !Number.isInteger(value)) return state;
   const original = state.workingCopy.vitality.hit_points;
   if (original.method === "formula" && !original.formula) return state;
@@ -280,7 +287,7 @@ export function setHitPointsMax(state: StatblockEditorState, value: number): Sta
   });
 }
 
-export function setRuleElementName(state: StatblockEditorState, elementKey: string, name: string): StatblockEditorState {
+export function setRuleElementName<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>, elementKey: string, name: string): StatblockEditorState<D> {
   return updateWorkingCopy(state, (current) => ({
     ...current,
     rule_elements: current.rule_elements.map((element) =>
@@ -289,11 +296,11 @@ export function setRuleElementName(state: StatblockEditorState, elementKey: stri
   }));
 }
 
-export function setRuleElementRulesText(
-  state: StatblockEditorState,
+export function setRuleElementRulesText<D extends EditableStatblockDefinition>(
+  state: StatblockEditorState<D>,
   elementKey: string,
   rulesText: string,
-): StatblockEditorState {
+): StatblockEditorState<D> {
   return updateWorkingCopy(state, (current) => ({
     ...current,
     rule_elements: current.rule_elements.map((element) =>
@@ -302,13 +309,13 @@ export function setRuleElementRulesText(
   }));
 }
 
-export function undo(state: StatblockEditorState): StatblockEditorState {
+export function undo<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>): StatblockEditorState<D> {
   if (state.undoStack.length === 0) {
     return state;
   }
   const previous = state.undoStack[state.undoStack.length - 1];
   const undoStack = state.undoStack.slice(0, -1);
-  const next: StatblockEditorState = {
+  const next: StatblockEditorState<D> = {
     ...state,
     workingCopy: cloneWorkingCopy(previous),
     undoStack,
@@ -320,13 +327,13 @@ export function undo(state: StatblockEditorState): StatblockEditorState {
   return next;
 }
 
-export function redo(state: StatblockEditorState): StatblockEditorState {
+export function redo<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>): StatblockEditorState<D> {
   if (state.redoStack.length === 0) {
     return state;
   }
   const nextCopy = state.redoStack[state.redoStack.length - 1];
   const redoStack = state.redoStack.slice(0, -1);
-  const next: StatblockEditorState = {
+  const next: StatblockEditorState<D> = {
     ...state,
     workingCopy: cloneWorkingCopy(nextCopy),
     redoStack,
@@ -338,14 +345,14 @@ export function redo(state: StatblockEditorState): StatblockEditorState {
   return next;
 }
 
-export function getUiStatus(state: StatblockEditorState): ValidationUiStatus {
+export function getUiStatus<D extends EditableStatblockDefinition>(state: StatblockEditorState<D>): ValidationUiStatus {
   return deriveUiStatus(state);
 }
 
 /** Protected identity fields excluding the dedicated `name` control. */
 export function identityProtectedRemainder(
-  identity: StatblockDefinitionV1_Input["identity"],
-): Omit<StatblockDefinitionV1_Input["identity"], "name"> {
+  identity: EditableStatblockDefinition["identity"],
+): Omit<EditableStatblockDefinition["identity"], "name"> {
   const { name: _name, ...remainder } = identity;
   return remainder;
 }

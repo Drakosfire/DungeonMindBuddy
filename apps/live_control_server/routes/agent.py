@@ -2185,11 +2185,11 @@ def post_validate_build_pdf_statblock(world_id: str, body: dict, request: Reques
     candidate, regions = _authorized_pdf_statblock(world_id, body, request)
     from apps.live_control_server.services.statblock_definition_validation import validate_definition
 
-    validation = validate_definition(definition=candidate.definition)
+    validation = validate_definition(definition=candidate)
     return {"validation": validation.model_dump(mode="json", by_alias=True), "regions": regions}
 
 
-def _authorized_pdf_statblock(world_id: str, body: dict, request: Request):
+def _authorized_pdf_statblock(world_id: str, body: dict, request: Request, *, allow_unresolved_movement: bool = False):
     from apps.live_control_server.services.statblock_definition_validation import (
         ValidateDefinitionBuddyRequestV1,
     )
@@ -2204,7 +2204,13 @@ def _authorized_pdf_statblock(world_id: str, body: dict, request: Request):
     ):
         raise HTTPException(status_code=422, detail={"code": "invalid_pdf_statblock_request"})
     try:
-        candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": body["definition"]})
+        definition = body["definition"]
+        if allow_unresolved_movement and isinstance(definition, dict) and definition.get("movement") is None:
+            from apps.live_control_server.services.build_pdf_statblock_extraction import PdfStatblockDraftDefinition
+
+            candidate = PdfStatblockDraftDefinition.model_validate(definition)
+        else:
+            candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": definition}).definition
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail={"code": "invalid_statblock_definition"}) from exc
 
@@ -2226,11 +2232,12 @@ def put_pdf_statblock_review(world_id: str, review_id: UUID, body: dict, request
         raise HTTPException(status_code=422, detail={"code": "invalid_review_revision"})
     candidate, regions = _authorized_pdf_statblock(
         world_id, {key: value for key, value in body.items() if key != "expected_revision"}, request,
+        allow_unresolved_movement=True,
     )
     try:
         return save_review(
             world_id=_verified_world_id(world_id), review_id=review_id, expected_revision=expected_revision,
-            definition=candidate.definition.model_dump(mode="json", by_alias=True), regions=regions,
+            definition=candidate.model_dump(mode="json", by_alias=True), regions=regions,
         )
     except ApplicationStateConflictError as exc:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"}) from exc
