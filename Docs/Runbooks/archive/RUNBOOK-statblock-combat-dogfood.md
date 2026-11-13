@@ -3,8 +3,7 @@
 > **Historical local alpha procedure.** For current local setup, use the
 > [local Play runbook](../RUNBOOK-local-play-dogfood.md). For World-owned encounter
 > checks, use the [Combat Tracker smoke](../../../apps/live-control-ui/README.md#combat-tracker).
-> The optional HTTP probe below calls the retired checkout-local Combat endpoint,
-> which now returns HTTP 410. The reset steps describe the old session-file workflow.
+> The reset steps describe the old session-file workflow.
 
 ## Purpose
 
@@ -58,14 +57,6 @@ The read-only checker prints backend import status, live-session file status, mo
 ```bash
 uv run python scripts/live_dogfood_check.py \
   --session-dir evals/c2_live_prep/live/session_22
-```
-
-If the backend is already running, add the HTTP check:
-
-```bash
-uv run python scripts/live_dogfood_check.py \
-  --session-dir evals/c2_live_prep/live/session_22 \
-  --server-url http://127.0.0.1:8000
 ```
 
 ## Reset before a dogfood run
