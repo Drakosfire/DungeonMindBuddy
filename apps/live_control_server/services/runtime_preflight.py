@@ -141,7 +141,7 @@ def _format_detail_value(value: PreflightDetailValue) -> str:
 
 
 def _check_app_state(*, load_env: bool, include_runbooks: bool = True) -> RuntimePreflightCheck:
-    readiness = inspect_readiness(load_env=load_env, include_runbooks=include_runbooks)
+    readiness = inspect_readiness(load_env=load_env, include_runbooks=include_runbooks, periodic=not include_runbooks)
     details: dict[str, PreflightDetailValue] = {}
     if readiness.coordinates is not None:
         details["host"] = readiness.coordinates.host

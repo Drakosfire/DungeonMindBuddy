@@ -160,9 +160,9 @@ def _probe_target_database(dsn: str) -> tuple[bool | None, bool | None, str | No
             return (None, False, "unavailable")
 
 
-def _schema_status(dsn: str) -> tuple[str | None, str, str]:
+def _schema_status(dsn: str, *, periodic: bool = False) -> tuple[str | None, str, str]:
     head = _alembic_head()
-    current = _read_current_revision(dsn)
+    current = _read_current_revision(dsn, periodic=True) if periodic else _read_current_revision(dsn)
     if current == head:
         return current, head, "ready"
     return current, head, "missing" if current is None else "revision_mismatch"
@@ -198,7 +198,7 @@ def _readiness_after_schema(
     return "PLAY CONTENT NOT READY"
 
 
-def inspect_readiness(*, load_env: bool = True, include_runbooks: bool = True) -> ReadinessReport:
+def inspect_readiness(*, load_env: bool = True, include_runbooks: bool = True, periodic: bool = False) -> ReadinessReport:
     _load_env(load_env=load_env)
     raw = os.environ.get(APPLICATION_STATE_DSN_ENV, "").strip()
     if not raw:
@@ -230,21 +230,22 @@ def inspect_readiness(*, load_env: bool = True, include_runbooks: bool = True) -
         coordinates=coordinates_from_dsn(dsn),
         dsn_for_redaction=dsn,
     )
-    exists, reachable, error_kind = _probe_target_database(dsn)
-    report.database_exists = exists
-    report.database_reachable = reachable
-    if reachable is False or error_kind == "unavailable":
-        report.play_readiness = "UNAVAILABLE"
-        report.notes.append("PostgreSQL is unavailable")
-        return report
-    if exists is False:
-        report.schema_status = "missing"
-        report.play_readiness = "NEEDS BOOTSTRAP"
-        report.notes.append("target logical database does not exist")
-        return report
+    if not periodic:
+        exists, reachable, error_kind = _probe_target_database(dsn)
+        report.database_exists = exists
+        report.database_reachable = reachable
+        if reachable is False or error_kind == "unavailable":
+            report.play_readiness = "UNAVAILABLE"
+            report.notes.append("PostgreSQL is unavailable")
+            return report
+        if exists is False:
+            report.schema_status = "missing"
+            report.play_readiness = "NEEDS BOOTSTRAP"
+            report.notes.append("target logical database does not exist")
+            return report
 
     try:
-        current, head, schema_status = _schema_status(dsn)
+        current, head, schema_status = _schema_status(dsn, periodic=True) if periodic else _schema_status(dsn)
     except ApplicationStateUnavailableError as exc:
         report.play_readiness = "UNAVAILABLE"
         report.notes.append(redact_secrets(str(exc), dsn))

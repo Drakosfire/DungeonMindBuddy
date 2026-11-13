@@ -459,11 +459,28 @@ def test_schema_readiness_can_skip_runbook_inventory(
     calls = []
     monkeypatch.setattr(bootstrap, "count_startable_runbooks", lambda: calls.append(1) or 1)
 
-    periodic = bootstrap.inspect_readiness(load_env=False, include_runbooks=False)
+    import psycopg
+
+    connect = psycopg.connect
+    connections = []
+
+    def record_connection(dsn, **kwargs):
+        connections.append(kwargs)
+        return connect(dsn, **kwargs)
+
+    monkeypatch.setattr(psycopg, "connect", record_connection)
+    periodic = bootstrap.inspect_readiness(
+        load_env=False, include_runbooks=False, periodic=True
+    )
+    assert connections == [
+        {"autocommit": True, "connect_timeout": 2, "options": "-c statement_timeout=1000"}
+    ]
+    connections.clear()
     assert periodic.schema_status == "ready"
     assert periodic.startable_runbooks is None
     assert calls == []
 
     operator = bootstrap.inspect_readiness(load_env=False)
     assert operator.startable_runbooks == 1
+    assert len(connections) == 2
     assert calls == [1]
