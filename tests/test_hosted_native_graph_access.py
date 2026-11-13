@@ -1309,6 +1309,49 @@ def test_hosted_chronology_requires_world_owner(hosted, session, status):
         assert packet["assertions"] == []
 
 
+def test_hosted_owner_opens_exact_admitted_source_span(hosted):
+    from datetime import UTC, datetime
+    from worldkeeper.application import contracts as wk
+    from graph_memory.vnext.domain_runtime import CAMPAIGN_SCOPE_AXIS
+
+    lane = hosted.lane
+    evidence_id = lane.support_ids["first"]
+    meta = wk.AssertionMetadata(
+        scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, lane.run.campaign_id),),
+        visibility=wk.Visibility("labels_any", ("dungeonbuddy.visibility:gm",)),
+        epistemic_basis="speculative",
+        claim_mode="dungeonbuddy.claim:belief",
+        standing="provisional",
+        temporal_scope=wk.TemporalScope(kind="unknown"),
+        evidence_ref_ids=(evidence_id,),
+    )
+    runtime = explorer_service.transport.runtime(
+        lane.repo, lane.domain, lane.profile,
+        now=datetime.now(UTC), operation_id="hosted-chronology-evidence",
+    )
+    intent = wk.WorldChangeIntent(
+        lane.bound["native_world_id"], "fixture", (
+            wk.CreateObject("fixture", (
+                wk.CreateFact("name", "dnd5e:name", wk.LiteralFactValue("Fixture"), meta),
+            )),
+        ),
+    )
+    result = runtime.commit_prepared_change(runtime.prepare_change(intent), confirmed_by="local_operator")
+    body = _inspection_payload(hosted)
+    body["selection"] = {
+        "kind": "source", "assertion_id": result.assertion_results[0].durable_assertion_id,
+        "evidence_ref_id": evidence_id,
+    }
+    response = hosted.client.request("POST", INSPECTION, json=body)
+    assert response.status_code == 200, response.text
+    packet = response.json()
+    assert packet["scope"] == body["scope"]
+    assert packet["source"]["text"] == lane.text.splitlines(keepends=True)[0]
+    assert "body_text" not in packet["source"]
+    denied = hosted.client.request("POST", INSPECTION, session="other-session", json=body)
+    assert denied.status_code == 403, denied.text
+
+
 def test_guessed_source_selection_cannot_open_source(
     hosted, monkeypatch
 ):

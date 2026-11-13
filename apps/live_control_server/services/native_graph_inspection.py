@@ -88,12 +88,24 @@ def inspect(request, principal):
     selection = request.selection
     if selection.kind == "chronology":
         listing = EntityReadService().list_entities(read)
-        assertions = []
-        for identity in listing.admitted_assertion_ids:
-            parsed = access.parsed.get_assertion(identity)
-            if parsed.predicate != "dungeonbuddy.custom:on_timeline":
+        admitted = [
+            access.parsed.get_assertion(identity)
+            for identity in listing.admitted_assertion_ids
+        ]
+        event_ids = set()
+        for parsed in admitted:
+            if parsed.predicate != "dnd5e:classification":
                 continue
-            assertions.append(native.assertion_contract(parsed).model_dump(mode="json"))
+            value = native.assertion_contract(parsed).value
+            if value.kind == "term_ref" and value.term in {"dnd5e:event", "dungeonbuddy:event"}:
+                event_ids.add(parsed.subject_entity_id)
+        assertions = []
+        for parsed in admitted:
+            if parsed.subject_entity_id not in event_ids:
+                continue
+            assertion = native.assertion_contract(parsed)
+            if parsed.predicate == "dungeonbuddy.custom:on_timeline" or assertion.metadata.temporal_scope is not None:
+                assertions.append(assertion.model_dump(mode="json"))
         return _response(
             bound, pin, schema="dmb_native_graph_chronology_v1",
             assertions=assertions,
