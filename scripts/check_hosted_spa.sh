@@ -7,7 +7,7 @@ html_file=$(mktemp)
 trap 'rm -f -- "$html_file"' EXIT
 
 for path in / /graph; do
-  result=$(curl -fsS -H 'Accept: text/html' -o "$html_file" -w '%{http_code} %{content_type}' "$origin$path")
+  result=$(curl --connect-timeout 5 --max-time 15 -fsS -H 'Accept: text/html' -o "$html_file" -w '%{http_code} %{content_type}' "$origin$path")
   case "$result" in
     '200 text/html'|'200 text/html;'*) ;;
     *) printf 'Unexpected Buddy shell response at %s: %s\n' "$path" "$result" >&2; exit 1 ;;
@@ -23,7 +23,7 @@ for path in / /graph; do
     printf 'Built JavaScript entry missing at %s\n' "$path" >&2
     exit 1
   fi
-  result=$(curl -fsS -o /dev/null -w '%{http_code} %{content_type}' "$origin$asset")
+  result=$(curl --connect-timeout 5 --max-time 15 -fsS -o /dev/null -w '%{http_code} %{content_type}' "$origin$asset")
   case "$result" in
     '200 text/javascript'|'200 text/javascript;'*|'200 application/javascript'|'200 application/javascript;'*)
       printf 'Verified %s and %s\n' "$path" "$asset"
