@@ -2221,3 +2221,16 @@ def test_surface_refresh_reads_each_artifact_once(isolated_session, monkeypatch)
     assert result["state"] == load_json(isolated_session / "current_state.json")
     assert result["catalog"] == load_json(isolated_session / "live_packet.json")["surface_catalog"]
     assert result["layout"] == load_json(isolated_session / "surface_layout.json")
+
+
+def test_live_state_derivation_leaves_snapshot_bytes_untouched(isolated_session):
+    path = isolated_session / "current_state.json"
+    before = path.read_bytes()
+    derived = session_store.derive_current_state(*session_store.load_session(isolated_session))
+
+    assert path.read_bytes() == before
+    refreshed = session_store.refresh_current_state(isolated_session)
+    assert refreshed == load_json(path)
+    assert {k: v for k, v in derived.items() if k != "generated_at"} == {
+        k: v for k, v in refreshed.items() if k != "generated_at"
+    }
