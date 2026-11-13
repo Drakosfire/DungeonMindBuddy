@@ -1072,7 +1072,9 @@ describe("NativeGraphDemo", () => {
     render(<NativeGraphDemo api={api} />);
 
     await screen.findByRole("heading", { name: "The living graph" });
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "é".repeat(80) } });
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: " " + "é".repeat(64) + " " } });
+    expect(screen.getByRole("button", { name: "Prepare object" })).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "é".repeat(65) } });
     expect(screen.getByRole("alert")).toHaveTextContent("Names must use 128 UTF-8 bytes or fewer");
     expect(screen.getByRole("button", { name: "Prepare object" })).toBeDisabled();
     expect(uuid).not.toHaveBeenCalled();

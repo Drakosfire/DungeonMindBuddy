@@ -41,6 +41,10 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 const PREDICATE_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const PREDICATE_PATTERN_HTML = "[a-z0-9]+([._-][a-z0-9]+)*";
 const MAX_NATIVE_NAME_UTF8_BYTES = 128;
+
+function exceedsNativeNameByteLimit(name: string): boolean {
+  return new TextEncoder().encode(name.trim()).length > MAX_NATIVE_NAME_UTF8_BYTES;
+}
 const CUSTOM_PREDICATE_OPTION = "__custom_predicate__";
 const OBJECT_KINDS: readonly NativeObjectKind[] = ["person", "location", "event"];
 
@@ -1069,7 +1073,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (!graph || pendingRef.current || !graph.capabilities.create || !isNativeKindSupported(graph, draft.objectKind)) return;
     const name = draft.objectName.trim();
     if (!name) return;
-    if (new TextEncoder().encode(name).length > MAX_NATIVE_NAME_UTF8_BYTES) {
+    if (exceedsNativeNameByteLimit(name)) {
       setNotice({ kind: "warning", text: `Names must use ${MAX_NATIVE_NAME_UTF8_BYTES} UTF-8 bytes or fewer. Your draft is still editable.` });
       return;
     }
@@ -1484,6 +1488,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
           ? `${graphNavigationHelp} Drag a connector dot to another node to draft a relationship. ${graphZoomHelp}`
           : `${graphNavigationHelp} ${graphZoomHelp}`;
 
+  const nameExceedsByteLimit = exceedsNativeNameByteLimit(draft.objectName);
   const createPanel = (
     <section className="native-demo-action-card" aria-labelledby="native-demo-create-title">
       <p className="native-demo-eyebrow">AUTHOR A NODE</p>
@@ -1498,7 +1503,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         <label htmlFor="native-demo-name">Name</label>
         <input ref={createNameInputRef} id="native-demo-name" name="name" autoComplete="off" maxLength={120} required value={draft.objectName}
           onChange={(event) => updateDraft({ objectName: event.target.value })} disabled={Boolean(pendingOperation)} placeholder="e.g. Mara" />
-        {new TextEncoder().encode(draft.objectName.trim()).length > MAX_NATIVE_NAME_UTF8_BYTES
+        {nameExceedsByteLimit
           ? <p className="native-demo-limitation" role="alert">Names must use {MAX_NATIVE_NAME_UTF8_BYTES} UTF-8 bytes or fewer. Shorten this draft to prepare a review.</p>
           : null}
         <label htmlFor="native-demo-kind">Type</label>
@@ -1509,7 +1514,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         </select>
         {graph.capabilities.create && !graph.capabilities.object_kinds.length ? <p className="native-demo-limitation">This graph profile has no supported object types to create.</p> : null}
         {!isNativeKindSupported(graph, "event") ? <p className="native-demo-limitation">{embedded ? "Event typing is not supported by this DungeonMind profile." : "Event typing is not supported by this DungeonMind profile yet. This demo is incomplete until the native profile accepts it."}</p> : null}
-        <button className="native-demo-button native-demo-button--gold" type="submit" disabled={!graph.capabilities.create || !isNativeKindSupported(graph, draft.objectKind) || new TextEncoder().encode(draft.objectName.trim()).length > MAX_NATIVE_NAME_UTF8_BYTES || Boolean(pendingOperation) || pendingStatus === "not_sent"}>
+        <button className="native-demo-button native-demo-button--gold" type="submit" disabled={!graph.capabilities.create || !isNativeKindSupported(graph, draft.objectKind) || nameExceedsByteLimit || Boolean(pendingOperation) || pendingStatus === "not_sent"}>
           {pendingOperation?.kind === "create_object" ? "Review is in progress" : "Prepare object"}
         </button>
       </form>
