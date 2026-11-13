@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Add a read-only check for the generated corpus index and anchor
+
+[#2747](https://github.com/Drakosfire/DungeonMindBuddy/pull/2747) added a read-only check for both outputs using the recorded generation timestamp and a checkout-relative root. Disposable checks verified stale index and anchor failures without writes. [#2748](https://github.com/Drakosfire/DungeonMindBuddy/pull/2748) regenerated the outputs and synchronized the design-agent anchor. The freshness check and byte comparison passed on merged main.
+
 ## [DONE] Retire or re-anchor two legacy Graph projection dogfood runners
 
 [PR #2745](https://github.com/Drakosfire/DungeonMindBuddy/pull/2745) removed the two runners that imported the retired adapter. Historical references point to the pinned revision containing both runners and their adapter. The caller scan found only pinned links and test inventory passed. The generated output directory conventions and captured fixtures were preserved for the other consumers named in the audit.
