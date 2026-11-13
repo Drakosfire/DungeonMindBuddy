@@ -1708,6 +1708,7 @@ export async function commitGraphObjectAuthoringWrite(
 
 export async function getGoldGraphProjection(
   query: GoldGraphProjectionQuery,
+  signal?: AbortSignal,
 ): Promise<GoldGraphProjectionResponse> {
   const params = new URLSearchParams({
     campaign_id: query.campaignId,
@@ -1715,6 +1716,7 @@ export async function getGoldGraphProjection(
   });
   return apiFetch<GoldGraphProjectionResponse>(
     `/api/live/graph-preview/gold-review/projection?${params.toString()}`,
+    { signal },
   );
 }
 
