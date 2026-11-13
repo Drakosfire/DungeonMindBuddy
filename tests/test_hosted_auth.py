@@ -722,3 +722,26 @@ def test_hosted_launch_denies_deferred_product_apis(monkeypatch):
         assert response.json()["detail"]["code"] == HOSTED_WORLD_ROUTE_POLICY_ERROR
     assert client.get("/api/live/play-runs").status_code == 403
     assert app.openapi_url is None
+
+
+def test_hosted_cache_headers_follow_asset_fingerprints(tmp_path, monkeypatch):
+    from apps.live_control_server import main
+
+    apps = tmp_path / "apps"
+    monkeypatch.setattr(main, "__file__", str(apps / "server" / "main.py"))
+    dist = apps / "live-control-ui" / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<html>Buddy</html>")
+    (dist / "assets" / "index-Abc_1234.js").write_text("export {};")
+    (dist / "assets" / "stable.js").write_text("export {};")
+    client = _AsyncASGITestClient(main.create_app())
+    for path in ("/", "/graph", "/index.html", "/assets/stable.js"):
+        response = client.get(path, headers={"Accept": "text/html"})
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-cache"
+    response = client.get("/assets/index-Abc_1234.js")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "public, max-age=31536000, immutable"
+    response = client.get("/assets/missing-Abc_1234.js", headers={"Accept": "text/html"})
+    assert response.status_code == 404
+    assert "cache-control" not in response.headers
