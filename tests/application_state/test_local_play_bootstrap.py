@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import importlib.util
-import sys
 import uuid
 from collections.abc import Iterator
-from pathlib import Path
 from urllib.parse import urlparse
 
 import pytest
+
+from application_state import local_play_bootstrap as bootstrap
 
 from apps.live_control_server.services.play_run_registry import (
     create_or_replay_play_run,
@@ -32,7 +31,6 @@ from tests.application_state.conftest import (
 )
 from tests.application_state.play_runtime_helpers import RUN_ID_A
 
-_BOOTSTRAP_PATH = Path(__file__).resolve().parents[2] / "scripts" / "bootstrap_local_play.py"
 
 V2_BREACH_MARKDOWN = "\n".join(
     [
@@ -58,18 +56,6 @@ V2_BREACH_MARKDOWN = "\n".join(
 )
 
 SECRET_PASSWORD = "super-secret-df0-password"
-
-
-def load_bootstrap():
-    spec = importlib.util.spec_from_file_location("bootstrap_local_play", _BOOTSTRAP_PATH)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-bootstrap = load_bootstrap()
 
 
 def _database_exists(admin_dsn: str, name: str) -> bool:
