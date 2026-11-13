@@ -364,12 +364,12 @@ def test_retry_history_excludes_unrelated_turns(application_state_dsn):
 
 def test_retry_history_hydrates_populated_page(application_state_dsn):
     from application_state.agent_conversation.types import TurnFailure, TurnSubmission
-    from tests.application_state.test_agent_conversation_service import _submitted_intent
+    from tests.application_state.test_agent_conversation_service import _ref, _submitted_intent
 
     world = "world-one"
     service = AgentConversationService()
     cid = new(service)
-    provenance = _provenance().model_copy(update={"surface_id": "build"})
+    provenance = _provenance().model_copy(update={"surface_id": "build", "primary_work": _ref("build", "draft", "revision")})
 
     def accept():
         return service.accept_turn(
@@ -427,3 +427,12 @@ def test_retry_history_hydrates_populated_page(application_state_dsn):
     )
     assert older["turns"] == page["turns"][:1]
     assert older["next_before_sequence"] is None
+
+    contexts = [row["retry_context"] for row in page["turns"]]
+    assert [context["ordinal"] for context in contexts] == [0, 1]
+    assert [context["successor_id"] for context in contexts] == [
+        str(middle.turn_id), str(selected.turn_id)
+    ]
+    assert all(context["reason"] == "inactive" for context in contexts)
+    transcript = library.read_turns(world, cid)
+    assert transcript["turns"][:2] == page["turns"]
