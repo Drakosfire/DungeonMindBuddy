@@ -166,6 +166,31 @@ def _make_unit(artifact: SourceArtifact, anchor: SourceAnchor, *, stage: str) ->
     )
 
 
+def _eligible_stages(session):
+    for stage, record in sorted((session.get("stages") or {}).items()):
+        if isinstance(record, dict) and record.get("exists"):
+            route = str(record.get("route") or "")
+            if route:
+                yield stage, route, record
+
+
+def list_ingestion_source_sessions(*, root: Path, campaign_id: str) -> list[int]:
+    library = build_library(root=root)
+    sessions = {
+        int(session.get("session") or 0)
+        for campaign in library.get("campaigns", [])
+        if campaign.get("campaign_id") == campaign_id
+        for session in campaign.get("sessions", [])
+        if any(_eligible_stages(session))
+    }
+    activation = library.get("retrieval_activation", {})
+    for key in ("c2s23_planning_manifest", "c2s23_dogfood_full_manifest"):
+        manifest = activation.get(key, {})
+        if manifest.get("exists") and manifest.get("planning_session") is not None:
+            sessions.add(int(manifest["planning_session"]))
+    return sorted(sessions, reverse=True)
+
+
 def build_ingestion_source_bundle(
     *,
     root: Path | None = None,
@@ -192,12 +217,7 @@ def build_ingestion_source_bundle(
         for session in campaign.get("sessions", []):
             session_number = int(session.get("session") or 0)
             tier_counts[str(session.get("pipeline_tier") or "unknown")] += 1
-            for stage, record in sorted((session.get("stages") or {}).items()):
-                if not isinstance(record, dict) or not record.get("exists"):
-                    continue
-                route = str(record.get("route") or "")
-                if not route:
-                    continue
+            for stage, route, record in _eligible_stages(session):
                 kind, layer, _unit_kind = _STAGE_KIND.get(
                     stage, ("unknown", "diagnostic_layer", "diagnostic_record")
                 )

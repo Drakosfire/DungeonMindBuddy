@@ -85,7 +85,11 @@ from src.live_play.projections import (
 )
 from src.live_play.projections.artifacts import ArtifactReadError
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
-from src.live_play.source_bundle import IngestionSourceBundle, build_ingestion_source_bundle
+from src.live_play.source_bundle import (
+    IngestionSourceBundle,
+    build_ingestion_source_bundle,
+    list_ingestion_source_sessions,
+)
 
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -344,6 +348,11 @@ def post_citation_freshness(body: CitationFreshnessRequest) -> dict[str, Any]:
     except OSError as exc:
         raise HTTPException(status_code=500, detail="citation freshness check failed") from exc
     return response.model_dump(mode="json")
+
+@router.get("/source-bundle/sessions")
+def get_ingestion_source_sessions(campaign_id: str = Query(min_length=1)) -> list[int]:
+    return list_ingestion_source_sessions(root=repo_root(), campaign_id=campaign_id)
+
 
 @router.get(
     "/source-bundle",
