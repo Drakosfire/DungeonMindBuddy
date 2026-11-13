@@ -92,6 +92,21 @@ def assert_at_head(*, dsn: str | None = None) -> None:
     _require_current_revision(current, head)
 
 
+def assert_connection_at_head(conn) -> None:
+    """Validate the live revision in the caller's transaction."""
+    import psycopg
+
+    try:
+        current = _revision_from_connection(conn)
+    except psycopg.errors.UndefinedTable:
+        current = None
+    except psycopg.Error as exc:
+        raise ApplicationStateUnavailableError(
+            f"application-state PostgreSQL is unavailable: {exc}"
+        ) from exc
+    _require_current_revision(current, _alembic_head())
+
+
 def _require_current_revision(current: str | None, head: str) -> None:
     if current != head:
         raise ApplicationStateMigrationError(
