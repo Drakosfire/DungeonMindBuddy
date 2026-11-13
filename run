@@ -228,13 +228,22 @@ start_buddy_ui() {
   PID_FILES+=("$RUN_DIR/buddy-ui.pid")
 }
 
+check_owned_services() {
+  local i
+  for i in "${!PIDS[@]}"; do
+    if ! kill -0 "${PIDS[i]}" 2>/dev/null; then
+      die "service exited — check ${PID_FILES[i]%.pid}.log"
+    fi
+  done
+}
+
 wait_http() {
   local url="$1"
   local label="$2"
-  local tries="${3:-40}"
-  local i
-  for ((i = 1; i <= tries; i++)); do
+  while (( SECONDS < startup_deadline )); do
+    check_owned_services
     if curl -fsS --max-time 1 -o /dev/null "$url" 2>/dev/null; then
+      check_owned_services
       log "$label ready ($url)"
       return 0
     fi
@@ -252,15 +261,16 @@ start_dms
 start_buddy_api
 start_buddy_ui
 
+startup_deadline=$((SECONDS + 90))
 stack_status="local stack up"
 if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
-  wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer API health" 60 || die "DungeonMindServer API health unavailable"
-  wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API health" 60 || die "DungeonBuddy API health unavailable"
-  wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" 60 || die "DungeonBuddy UI unavailable"
+  wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer API health" || die "DungeonMindServer API health unavailable"
+  wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API health" || die "DungeonBuddy API health unavailable"
+  wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" || die "DungeonBuddy UI unavailable"
 else
-  wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer" 60 || stack_status="local stack partially ready"
-  wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API" 60 || stack_status="local stack partially ready"
-  wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" 60 || {
+  wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer" || stack_status="local stack partially ready"
+  wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API" || stack_status="local stack partially ready"
+  wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" || {
     stack_status="local stack partially ready"
     [[ -z "${BUDDY_UI_PID:-}" ]] || die "DungeonBuddy UI unavailable — check $RUN_DIR/buddy-ui.log"
   }
@@ -298,10 +308,6 @@ fi
 log "Ctrl+C to stop processes started by this script"
 # Keep the launcher alive while children run.
 while true; do
-  for pid in "${PIDS[@]:-}"; do
-    if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
-      die "process $pid exited early — check $RUN_DIR/*.log"
-    fi
-  done
+  check_owned_services
   sleep 2
 done
