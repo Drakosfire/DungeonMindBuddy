@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Control shell overrides during production Compose interpolation. [#2567](https://github.com/Drakosfire/DungeonMindBuddy/pull/2567) isolated release and rollback interpolation. [#2721](https://github.com/Drakosfire/DungeonMindBuddy/pull/2721) recorded a Compose 2.40.3 rehearsal where conflicting inherited values selected the wrong mount and port before sanitization and the approved values afterward. Pre-start JSON validation and running mount checks are in the deployment runbook. The release operator owns the selected-host verification.
+
 - Rehearse the production image rollback commands. [#2564](https://github.com/Drakosfire/DungeonMindBuddy/pull/2564) added image identity checks. Stub rehearsals rejected configured-tag mismatch, local image mismatch, failed startup, and running image mismatch, and accepted matching inputs. The full host exercise remains under **Rehearse rollback of an approved Buddy release**.
 
 - Record the full rollback configuration for each Buddy release. [#2566](https://github.com/Drakosfire/DungeonMindBuddy/pull/2566) documented the release-scoped inputs. [#2600](https://github.com/Drakosfire/DungeonMindBuddy/pull/2600) recorded a disposable Compose 2.40.3 rehearsal that restored the prior configuration, verified both running image IDs, and received HTTP 200 from liveness on both releases. Readiness and proxy checks remain with the release operator.
