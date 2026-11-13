@@ -2351,17 +2351,27 @@ def get_pdf_statblock_publication(world_id: str, review_id: UUID, request: Reque
     from application_state.pdf_statblock_review import read_review
     from application_state.world_mechanics.service import list_current
 
+    from apps.live_control_server.services import native_threat_creation as creature
+
     enforce_native_graph_gm(request)
     world_id = _verified_world_id(world_id)
     if read_review(world_id=world_id, review_id=review_id) is None:
         raise HTTPException(status_code=404, detail={"code": "pdf_statblock_review_not_found"})
     draft_id = _pdf_review_creature_draft_id(world_id, review_id)
+    bound = creature.native.binding(world_id)
+    prior = creature.existing(creature.native.read_repository(), bound, draft_id)
+    if prior is None:
+        return None
+    published = creature.published(bound, draft_id, prior, replayed=True)
     associations = [
         association for association in list_current(world_id=world_id)
         if str(association.request.draft_id) == str(draft_id)
         and association.request.target.campaign_scope is None
+        and association.request.target.node_id == published["node_id"]
+        and association.request.target.native_world_id == published["native_world_id"]
+        and association.request.target.binding_version == published["binding_version"]
     ]
-    if len(associations) != 1:
+    if len(associations) != 1 or creature.native.binding(world_id) != bound:
         return None
     return {"draft_id": draft_id, "revision_id": associations[0].proof.locator.revision_id}
 
