@@ -68,21 +68,21 @@ Save the override with the release record. Apply only the production migrations 
 
 ```bash
 "${buddy_compose[@]}" up -d --no-build --pull never --wait --wait-timeout 180 buddy
-buddy_container=$("${buddy_compose[@]}" ps -q buddy)
-test "$(docker inspect "$buddy_container" --format '{{.Image}}')" = "$buddy_image_id"
-test "$("${buddy_compose[@]}" port buddy 8000)" = "127.0.0.1:$buddy_port"
-buddy_local="http://127.0.0.1:$buddy_port"
-curl -fsS "$buddy_local/health/live"
-curl -fsS "$buddy_local/health/ready"
 (
   set -e
+  buddy_container=$("${buddy_compose[@]}" ps -q buddy)
+  test "$(docker inspect "$buddy_container" --format '{{.Image}}')" = "$buddy_image_id"
+  test "$("${buddy_compose[@]}" port buddy 8000)" = "127.0.0.1:$buddy_port"
+  buddy_local="http://127.0.0.1:$buddy_port"
+  curl -fsS "$buddy_local/health/live"
+  curl -fsS "$buddy_local/health/ready"
   for buddy_path in / /graph; do
     buddy_status=$(curl -fsS -H 'Accept: text/html' -o /dev/null -w '%{http_code}' "$buddy_local$buddy_path")
     printf '%s %s\n' "$buddy_status" "$buddy_path"
     test "$buddy_status" = 200
   done
-) &&
-test "$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")" = 401
+  test "$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")" = 401
+)
 ```
 
 Require the expected image ID, a loopback binding, successful health and SPA requests, and a signed-out `401`. If readiness fails, check database connectivity, schema revisions, and directory access before continuing.
