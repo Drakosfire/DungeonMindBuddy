@@ -6,6 +6,7 @@ import {
   ZipWriter,
 } from "@zip.js/zip.js";
 import {
+  encodeLocalWorldPackageV1,
   isLocalWorldPackageMemberPath,
   LOCAL_WORLD_PACKAGE_V1,
   parseLocalWorldPackageV1,
@@ -169,8 +170,24 @@ function mapFromInput(input: ReadonlyMap<string, Uint8Array>): Map<string, Uint8
 }
 
 export async function encodeLocalWorldPackageZipV1(input: ReadonlyMap<string, Uint8Array>): Promise<EncodeLocalWorldPackageZipV1Result> {
+  return writeLocalWorldPackageZip(input, false);
+}
+
+/** Encode and archive a World without exposing its freshly allocated member buffers. */
+export async function exportLocalWorldPackageZipV1(
+  ...args: Parameters<typeof encodeLocalWorldPackageV1>
+): Promise<EncodeLocalWorldPackageZipV1Result> {
+  const encoded = await encodeLocalWorldPackageV1(...args);
+  if (encoded.status !== "encoded") return { status: "error", code: "invalid-package", message: encoded.message };
+  return writeLocalWorldPackageZip(encoded.members, true);
+}
+
+async function writeLocalWorldPackageZip(
+  input: ReadonlyMap<string, Uint8Array>,
+  ownsMembers: boolean,
+): Promise<EncodeLocalWorldPackageZipV1Result> {
   try {
-    const members = mapFromInput(input); // capture all caller-owned bytes before the first await
+    const members = ownsMembers ? input : mapFromInput(input);
     const parsed = await validateOwnedLocalWorldPackageV1(members);
     if (parsed.status !== "valid") fail(parsed.code === "unsupported-version" ? "unsupported-version" : "invalid-package", parsed.message);
     const writer = new BlobWriter("application/zip");
