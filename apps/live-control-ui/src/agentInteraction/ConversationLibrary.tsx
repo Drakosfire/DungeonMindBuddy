@@ -21,6 +21,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  useEffect(()=>{pendingResume.current=null;pendingOperation.current=null;continueInFlight.current=false;setContinuing(false);},[worldId]);
  const dialog=useRef<HTMLDialogElement>(null),mounted=useRef(true),scope=useRef({worldId});
  if(scope.current.worldId!==worldId)scope.current={worldId};
+ const listRequest=useRef<AbortController|null>(null);
  const listEpoch=useRef(0),detailEpoch=useRef(0),pageBusy=useRef(false);
  const [filter,setFilter]=useState<'all'|'archived'|'trashed'>('all'),[items,setItems]=useState<ConversationSummary[]>([]),[listOwner,setListOwner]=useState(worldId);
  const [next,setNext]=useState<string|null>(null),[listing,setListing]=useState(true),[listError,setListError]=useState('');
@@ -45,14 +46,17 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  async function loadList(older=false){
   if(older&&pageBusy.current)return;
   const owner=scope.current,epoch=++listEpoch.current;pageBusy.current=true;setListing(true);setListError('');
-  try{const page=await listConversations(worldId,filter,older?next??undefined:undefined);
+  listRequest.current?.abort();
+  const request=new AbortController();
+  listRequest.current=request;
+  try{const page=await listConversations(worldId,filter,older?next??undefined:undefined,request.signal);
    if(!alive(owner)||epoch!==listEpoch.current)return;
    setListOwner(worldId);setItems(old=>older?[...new Map([...old,...page.items].map(item=>[item.conversation_id,item])).values()]:page.items);setNext(page.next_before);
    if(!older&&page.items.length)void select(page.items.find(item=>item.status==='active')?.conversation_id??page.items[0].conversation_id);
   }catch(reason){if(alive(owner)&&epoch===listEpoch.current)setListError(message(reason));}
-  finally{if(alive(owner)&&epoch===listEpoch.current){setListing(false);pageBusy.current=false;}}
+  finally{if(listRequest.current===request)listRequest.current=null;if(alive(owner)&&epoch===listEpoch.current){setListing(false);pageBusy.current=false;}}
  }
- useEffect(()=>{detailEpoch.current++;setItems([]);setSelected(null);setDetail(null);setTurns([]);setNext(null);void loadList();return()=>{listEpoch.current++;detailEpoch.current++;};},[worldId,filter]);
+ useEffect(()=>{detailEpoch.current++;setItems([]);setSelected(null);setDetail(null);setTurns([]);setNext(null);void loadList();return()=>{listEpoch.current++;detailEpoch.current++;listRequest.current?.abort();};},[worldId,filter]);
  async function olderTurns(){
   if(!selected||before===null||loading)return;
   const owner=scope.current,epoch=detailEpoch.current,id=selected,cursor=before;setLoading(true);setError('');
