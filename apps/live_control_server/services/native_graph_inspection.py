@@ -6,6 +6,7 @@ from dungeonmind.application.vnext import (
     EntityReadService,
     EvidenceReadService,
     open_admitted_native_text,
+    open_native_text_source_access_context,
 )
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import _repository
 from fastapi.encoders import jsonable_encoder
@@ -216,10 +217,22 @@ def complete_object(body: NativeCompleteObjectRead, principal):
         or request.admissibility != principal.role
     ):
         raise InspectionUnavailable("native_complete_object_scope_mismatch")
-    bound, _, access, pin = _pinned(scope, principal)
-    head = native.read_repository().get_head(pin.native_world_id)
+    require_native_graph_gm(principal)
+    bound = native.binding(scope.managed_world_id)
+    if (scope.native_world_id, scope.binding_version) != (
+        bound["native_world_id"], bound["binding_version"],
+    ):
+        raise InspectionUnavailable("native_inspection_binding_changed")
+    pin = scope
+    repo = native.read_repository()
+    head = repo.get_head(pin.native_world_id)
     if head is None:
         raise InspectionUnavailable("native_inspection_head_unavailable")
+    domain, _ = native.descriptors(repo, pin.native_world_id, pin.revision_id)
+    access = open_native_text_source_access_context(
+        repository=repo, space_id=pin.native_world_id, revision_id=pin.revision_id,
+        domain_contract=domain, audience_labels=(native.GM_LABEL, native.PLAYER_LABEL),
+    )
     result = project_complete_world_object_vnext(
         parsed_revision=access.parsed,
         source_reader=access.source_view,
