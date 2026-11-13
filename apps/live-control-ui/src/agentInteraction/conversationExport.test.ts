@@ -55,7 +55,7 @@ it('diagnostics includes exact bound prompts and labels unavailable traces',asyn
  vi.mocked(getWorldAgentTurnPrompt).mockResolvedValue({schema:'dmb_agent_prompt_evidence_v1',world_id:world,conversation_id:id,turn_id:uuid(1),trace_id:'trace',attempt:1,reference,payload_json:'{}'});
  const data=JSON.parse((await collectConversationExport(world,id,'diagnostic',()=>{})).content);
  expect(data.turns).toHaveLength(2);expect(data.diagnostics[0].prompts[0].evidence.payload_json).toBe('{}');expect(data.diagnostics[0].trace.attempts[0].capture_failure_code).toBe('capture_gap');expect(data.diagnostics[1].unavailable).toBe('No trace retained');
- expect(getWorldAgentTurnPrompt).toHaveBeenCalledWith(world,uuid(1),'trace','call');
+ expect(getWorldAgentTurnPrompt).toHaveBeenCalledWith(world,uuid(1),'trace','call',undefined);
 });
 it('does not export prompt bytes belonging to another conversation',async()=>{
  vi.mocked(getWorldAgentTurnContextTrace).mockResolvedValue({schema:'dmb_agent_turn_context_trace_response_v1',world_id:world,turn_id:uuid(1),attempts:[trace()]});
