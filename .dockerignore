@@ -12,6 +12,7 @@ node_modules/
 **/node_modules/
 dist/
 **/dist/
+apps/live-control-ui/dist-native-demo/
 out/
 **/out/
 # Exclude campaign data at the repository root. Keep the src/corpus package.
