@@ -63,6 +63,7 @@ def main() -> int:
     parser.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--no-update-latest", action="store_true", help="Leave checkout-local latest artifacts untouched.")
     args = parser.parse_args()
 
     manifest = load_manifest(args.manifest.resolve())
@@ -111,14 +112,15 @@ def main() -> int:
     }
     summary_name = "c2s23_manifest_query_context_summary.json"
     (out_dir / summary_name).write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
-    last = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_manifest_query_context_summary.json"
-    last.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    if not args.no_update_latest:
+        last = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_manifest_query_context_summary.json"
+        last.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print(
         json.dumps(
             {
                 "ok": True,
-                "output_dir": str(out_dir.relative_to(ROOT)),
+                "output_dir": str(out_dir.relative_to(ROOT) if out_dir.is_relative_to(ROOT) else out_dir),
                 "summary": summary_name,
                 "packet_count": len(packets),
             },
