@@ -55,7 +55,11 @@ export function BuildSurfacePage() {
         const file = files.length === 1 ? files[0] : undefined;
         if (!file || !(file.type === "application/pdf" || (!file.type && /\.pdf$/i.test(file.name)))) return;
         event.preventDefault();
-        if (worldId) setDroppedPdf(previous => ({ file, worldId, version: (previous?.version ?? 0) + 1 }));
+        if (worldId) {
+          setDroppedPdf(previous => ({ file, worldId, version: (previous?.version ?? 0) + 1 }));
+        } else {
+          window.dispatchEvent(new CustomEvent("dmb:build-pdf-drop", {detail: file}));
+        }
       }}>
       {pdfReviewId && reviewWorldId ? (
         <BuildPdfStatblockReview key={`${reviewWorldId}:${pdfReviewId}`} worldId={reviewWorldId} reviewId={pdfReviewId} />
