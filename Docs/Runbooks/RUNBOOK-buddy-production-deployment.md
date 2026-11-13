@@ -119,15 +119,28 @@ approved release record. This requires Python 3 on the deployment host.
 import json
 import sys
 
-volumes = json.load(sys.stdin)["services"]["buddy"].get("volumes", [])
+service = json.load(sys.stdin)["services"]["buddy"]
+volumes = service.get("volumes", [])
 mounts = [mount for mount in volumes if mount.get("target") == "/var/lib/buddy"]
 if len(mounts) != 1 or mounts[0].get("type") != "bind" or mounts[0].get("source") != sys.argv[1]:
     sys.exit("Resolved Buddy persistent mount does not match the approved path")
+
+ports = service.get("ports", [])
+if len(ports) != 1:
+    sys.exit("Expected exactly one published Buddy port")
+port = ports[0]
+published = str(port.get("published", ""))
+if (port.get("host_ip") != "127.0.0.1" or port.get("target") != 8000
+    or port.get("protocol", "tcp") != "tcp"
+    or not published.isascii() or not published.isdecimal()
+    or len(published) > 5 or not 1 <= int(published) <= 65535):
+    sys.exit("Expected a fixed Buddy loopback TCP binding to container port 8000")
+print(f"Resolved Buddy upstream: http://127.0.0.1:{published}")
 ' "$approved_root"
 )
 ```
 
-Require the mount identity check to pass before continuing.
+Require the mount and port checks to pass before continuing.
 
 Before applying migrations or starting Buddy, check the configured mount with
 the release image's default user. This checks permissions without writing files
