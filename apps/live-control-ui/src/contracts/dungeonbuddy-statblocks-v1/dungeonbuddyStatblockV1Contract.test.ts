@@ -19,7 +19,10 @@ import { combatMinimums } from "./combatMinimums";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const vendoredClientPath = resolve(here, "client.ts");
-const serverRoot = resolve(here, "../../../../../../DungeonMindServer");
+const configuredServerRoot = process.env.DMB_STATBLOCK_CONTRACT_SERVER_ROOT?.trim();
+const serverRoot = configuredServerRoot
+  ? resolve(configuredServerRoot)
+  : resolve(here, "../../../../../../DungeonMindServer");
 const serverClientPath = resolve(
   serverRoot,
   "generated/dungeonbuddy-statblocks-v1/client.ts",
@@ -173,7 +176,7 @@ describe("DungeonBuddy statblock v1 contract consumer", () => {
     if (!existsSync(serverClientPath)) {
       throw new Error(
         `Sibling Server client missing at ${serverClientPath}. ` +
-          "Consumer drift proof requires a DungeonMindServer checkout beside DungeonMindBuddy.",
+          "Set DMB_STATBLOCK_CONTRACT_SERVER_ROOT to the pinned DungeonMindServer checkout or export described in the UI README.",
       );
     }
     const serverClient = readFileSync(serverClientPath, "utf8");
