@@ -33,7 +33,7 @@ def test_create_world_persists_exact_identity_without_source_folder(root):
     assert created.source_root_relpath == "corpus/the-glass-orchard-markdown"
     assert created.schema_version == "dmb_world_container_record_v3"
     assert list_world_containers() == [created]
-    assert get_world_container(root, created.world_id) == created
+    assert get_world_container(created.world_id) == created
     assert not legacy_world_catalog_path(root).exists()
     assert not (root / created.source_root_relpath).exists()
 
@@ -41,7 +41,7 @@ def test_create_world_persists_exact_identity_without_source_folder(root):
 def test_reload_from_another_checkout_uses_the_same_database(root):
     created = create_world_container(name="One-Shot Vale")
     assert list_world_containers() == [created]
-    assert get_world_container(root / "does-not-exist", created.world_id) == created
+    assert get_world_container(created.world_id) == created
 
 
 def test_empty_and_whitespace_names_fail_closed(root):
@@ -89,11 +89,11 @@ def test_missing_malformed_and_old_world_files_never_select_metadata(root, conte
     original = path.read_bytes()
     assert list_world_containers() == [created]
     with pytest.raises(WorldContainerRegistryError) as error:
-        get_world_container(root, "shadow")
+        get_world_container("shadow")
     assert error.value.status_code == 404
     moved = path.with_name("retained-copy.json")
     path.rename(moved)
-    assert get_world_container(root, created.world_id) == created
+    assert get_world_container(created.world_id) == created
     assert moved.read_bytes() == original
 
 
@@ -166,7 +166,7 @@ def test_fresh_world_reservation_is_durable_private_and_unique(root: Path) -> No
     assert isinstance(reserved, NativeGraphProvisioningRecord)
     assert reserved.native_world_id != first.world_id
     assert "validated_head_revision_id" not in reserved.model_dump()
-    assert get_world_container(root, first.world_id).native_graph_binding == reserved
+    assert get_world_container(first.world_id).native_graph_binding == reserved
     assert create_world_container(name="first fresh world") == first
     other = create_world_container(name="Second fresh World")
     assert other.native_graph_binding.native_world_id != reserved.native_world_id
@@ -202,7 +202,7 @@ def test_reservation_grants_source_identity_without_graph_read_or_binding_author
     target = first_world_native_target(root, world.world_id)
     assert target.native_world_id == reserved.native_world_id
     assert target.provisioning_id == reserved.provisioning_id
-    assert get_world_container(root, world.world_id) == world
+    assert get_world_container(world.world_id) == world
 
 
 def test_reservation_cannot_be_duplicated_in_registry(root: Path) -> None:

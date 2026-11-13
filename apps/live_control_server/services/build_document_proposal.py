@@ -117,7 +117,7 @@ def _model():
 
 def _source(request):
     root = managed_world_data_root()
-    get_world_container(root, request.basis.world_id)
+    get_world_container(request.basis.world_id)
     snapshot = get_committed_page_snapshot(root, request.basis.document_id)
     record = snapshot.record
     basis = request.basis

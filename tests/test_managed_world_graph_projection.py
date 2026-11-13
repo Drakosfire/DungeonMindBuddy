@@ -86,7 +86,7 @@ def test_active_binding_reads_native_world_and_returns_unchanged_projection(
     monkeypatch.setattr(
         managed_projection,
         "get_world_container",
-        lambda _root, _world_id: bound,
+        lambda _world_id: bound,
     )
     native_projection = _native_projection()
     seen_requests: list[WorldGraphProjectionRequest] = []
@@ -123,7 +123,7 @@ def test_shared_binding_resolver_does_not_read_native_graph(
     managed = create_world_container(name="The Glass Orchard")
     bound = _record_with_binding(managed)
     monkeypatch.setattr(
-        managed_projection, "get_world_container", lambda _root, _world_id: bound
+        managed_projection, "get_world_container", lambda _world_id: bound
     )
     monkeypatch.setattr(
         managed_projection, "project_world_graph",
@@ -155,7 +155,7 @@ def test_unresolvable_or_unverified_binding_fails_before_native_read(
     elif state == "wrong-world":
         record = _record_with_binding(managed).model_copy(update={"world_id": "other-world"})
 
-    def resolve(_root: Path, _world_id: str) -> WorldContainerRecord:
+    def resolve(_world_id: str) -> WorldContainerRecord:
         if state == "missing-record":
             raise WorldContainerRegistryError("not found", status_code=404)
         return record
@@ -196,7 +196,7 @@ def test_binding_change_during_projection_discards_native_result(
     monkeypatch.setattr(
         managed_projection,
         "get_world_container",
-        lambda _root, _world_id: next(records),
+        lambda _world_id: next(records),
     )
     monkeypatch.setattr(
         managed_projection,

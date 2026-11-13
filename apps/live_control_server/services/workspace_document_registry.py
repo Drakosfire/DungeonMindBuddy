@@ -611,7 +611,7 @@ def create_world_owned_plan_v2(
     from application_state.errors import ApplicationStateError
 
     try:
-        world = get_world_container(root, cleaned_world)
+        world = get_world_container(cleaned_world)
         if world.world_id != cleaned_world:
             raise WorkspaceDocumentRegistryError(
                 "selected World identity does not match the managed World record",
@@ -651,7 +651,7 @@ def list_world_owned_plans_v2(
     from application_state.errors import ApplicationStateError
 
     try:
-        world = get_world_container(root, cleaned_world)
+        world = get_world_container(cleaned_world)
         if world.world_id != cleaned_world:
             raise WorkspaceDocumentRegistryError(
                 "selected World identity does not match the managed World record",
@@ -688,7 +688,7 @@ def create_world_owned_runbook_v2(
     from application_state.errors import ApplicationStateError
 
     try:
-        world = get_world_container(root, cleaned_world)
+        world = get_world_container(cleaned_world)
         if world.world_id != cleaned_world:
             raise WorkspaceDocumentRegistryError(
                 "selected World identity does not match the managed World record",
@@ -725,7 +725,7 @@ def list_world_owned_runbooks_v2(
     from application_state.unit_of_work import unit_of_work
 
     try:
-        world = get_world_container(root, cleaned_world)
+        world = get_world_container(cleaned_world)
         if world.world_id != cleaned_world:
             raise WorkspaceDocumentRegistryError(
                 "selected World identity does not match the managed World record",
@@ -768,7 +768,7 @@ def get_world_owned_runbook_v2(
     )
 
     try:
-        world = get_world_container(root, cleaned_world)
+        world = get_world_container(cleaned_world)
         if world.world_id != cleaned_world:
             raise WorkspaceDocumentRegistryError(
                 "selected World identity does not match the managed World record",

@@ -122,7 +122,7 @@ def admit_managed_world(repo: Path, world_id: str):
             status_code=422,
         )
     try:
-        record = get_world_container(repo, cleaned)
+        record = get_world_container(cleaned)
     except WorldContainerRegistryError as exc:
         raise WorldbuildingWritePlanError(
             f"world {cleaned!r} is not a managed world",
@@ -303,7 +303,7 @@ def resolve_first_world_capability(
             reason=str(exc),
         )
     state: FirstWorldGraphState
-    record = get_world_container(repo, cleaned)
+    record = get_world_container(cleaned)
     recovering = (isinstance(record.native_graph_binding, NativeGraphProvisioningRecord)
                   and probed.initialization_id == target.provisioning_id)
     if probed.state == "initialized" and not recovering:

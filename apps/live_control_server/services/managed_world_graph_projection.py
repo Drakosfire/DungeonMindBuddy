@@ -83,7 +83,7 @@ class ManagedWorldSourceIdentity:
 
 def _verified_managed_record(root: Path, managed_world_id: str) -> WorldContainerRecord:
     try:
-        record = get_world_container(root, managed_world_id)
+        record = get_world_container(managed_world_id)
     except WorldContainerRegistryError as exc:
         code = (
             "managed_world_not_found"

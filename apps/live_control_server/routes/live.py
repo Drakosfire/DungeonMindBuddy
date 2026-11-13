@@ -817,7 +817,7 @@ def post_live_query(body: LiveQueryRequest, request: Request) -> Any:
     managed_world = None
     if not legacy_shape:
         try:
-            managed_world = get_world_container(repo_root(), body.campaign_id)
+            managed_world = get_world_container(body.campaign_id)
         except WorldContainerRegistryError as exc:
             if exc.status_code != 404:
                 raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -1071,7 +1071,7 @@ def get_live_plan_view(
     if world_id is not None:
         world_root = repo_root()
         try:
-            world = get_world_container(world_root, world_id)
+            world = get_world_container(world_id)
         except WorldContainerRegistryError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
         if scope_mode == "world":
@@ -1224,7 +1224,7 @@ def _read_plan_action_prompt(request: Request, world_id: str, action_id: UUID, p
     if list(request.query_params.keys()) != ["world_id"] or len(request.query_params.getlist("world_id")) != 1:
         raise HTTPException(status_code=422, detail="Only one managed world_id is accepted")
     try:
-        get_world_container(repo_root(), world_id)
+        get_world_container(world_id)
         payload = (prompt_index(world_id, action_id) if provider_attempt_id is None
                    else prompt_body(world_id, action_id, provider_attempt_id))
         return JSONResponse(payload, headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
@@ -1254,7 +1254,7 @@ def get_plan_action_terminal_diagnostic(request: Request, action_id: UUID,
     if list(request.query_params.keys()) != ["world_id"] or len(request.query_params.getlist("world_id")) != 1:
         raise HTTPException(status_code=422, detail="Only one managed world_id is accepted", headers=headers)
     try:
-        get_world_container(repo_root(), world_id)
+        get_world_container(world_id)
         return JSONResponse(terminal_diagnostic(world_id, action_id), headers=headers)
     except (ApplicationStateError, WorldContainerRegistryError) as exc:
         raise HTTPException(status_code=404, detail={"code": "action_diagnostic_unavailable"}, headers=headers) from exc

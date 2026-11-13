@@ -573,7 +573,7 @@ def _resolve_world_play_surface_context_v2(
     )
 
     try:
-        world = get_world_container(root, request.world_id)
+        world = get_world_container(request.world_id)
     except WorldContainerRegistryError as exc:
         raise WorldPlaySurfaceContextError(str(exc)) from exc
     if world.world_id != request.world_id:
@@ -713,7 +713,7 @@ def resolve_world_play_session_turn_snapshot(
     )
 
     try:
-        world = get_world_container(root, world_id)
+        world = get_world_container(world_id)
         record = get_world_play_run(root, world_id=world_id, run_id=run_id)
         run, content = read_context_snapshot(run_id=run_id, world_id=world_id)
     except Exception as exc:
@@ -867,7 +867,7 @@ def resolve_historical_world_play_turn_snapshot(
     """Reconstruct the accepted moment from its immutable Runbook pin."""
     from apps.live_control_server.services.world_container_registry import get_world_container
 
-    world = get_world_container(root, world_id)
+    world = get_world_container(world_id)
     if world.world_id != world_id:
         raise WorldPlaySurfaceContextError("Historical Play World identity changed")
     if isinstance(receipt, PlayRunTurnContextReceiptV2):

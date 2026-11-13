@@ -231,7 +231,8 @@ def _load_exact_snapshot(
             "The committed source bytes changed; refresh or reselect it before admission",
         )
     try:
-        get_world_container(config.managed_world_data_root(root), record.world_id)
+        config.managed_world_data_root(root)
+        get_world_container(record.world_id)
     except config.ManagedWorldDataRootError as exc:
         raise NativeWorldSourceAdmissionError(
             "managed_world_unavailable", "Managed World storage is unavailable",
@@ -458,8 +459,9 @@ def admit_native_world_source(
         raise _authority_failure(exc, default_code="native_status_failed") from exc
     if existing_head is None:
         domain, profile = _genesis_descriptors()
+        config.managed_world_data_root(root)
         created_at = _parse_timestamp(
-            get_world_container(config.managed_world_data_root(root), world_id).created_at,
+            get_world_container(world_id).created_at,
             field="managed World created_at",
         )
         initialization_id = _stable_id("dmb-world-genesis", native_world_id)

@@ -66,7 +66,7 @@ def test_managed_ask_uses_exact_world_packet_not_c2(
 ) -> None:
     world_id = "of-conks-cons-demo"
     calls: list[dict] = []
-    monkeypatch.setattr(live, "get_world_container", lambda _root, _id: SimpleNamespace(world_id=world_id))
+    monkeypatch.setattr(live, "get_world_container", lambda _id: SimpleNamespace(world_id=world_id))
     monkeypatch.setattr(
         live,
         "get_workspace_document",
@@ -112,7 +112,7 @@ def test_legacy_c2_query_does_not_require_managed_world_registry(
     monkeypatch.setattr(
         live,
         "get_world_container",
-        lambda _root, _id: pytest.fail("legacy query consulted managed World registry"),
+        lambda _id: pytest.fail("legacy query consulted managed World registry"),
     )
     monkeypatch.setattr(
         live,

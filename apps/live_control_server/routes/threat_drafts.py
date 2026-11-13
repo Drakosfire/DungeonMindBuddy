@@ -45,7 +45,7 @@ def _admit_world_scope(world_id: str, revision_id: str | None) -> None:
     """Admit ownership, not model grounding. Legacy campaign drafts are unchanged."""
     try:
         world_root = managed_world_data_root(default=repo_root())
-        get_world_container(world_root, world_id)
+        get_world_container(world_id)
     except ManagedWorldDataRootError as exc:
         raise HTTPException(status_code=503, detail="Managed World storage unavailable") from exc
     except WorldContainerRegistryError as exc:

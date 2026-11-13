@@ -165,7 +165,8 @@ def _owner_resolver(body: AgentTurnRequest) -> Mapping[str, Any] | None:
             status_code=422,
         )
     try:
-        record = get_world_container(_managed_world_root(), owner.world_id)
+        _managed_world_root()
+        record = get_world_container(owner.world_id)
     except WorldContainerRegistryError as exc:
         raise AgentTurnServiceError(
             str(exc),
@@ -649,7 +650,8 @@ def _graph_resolver(
                     status_code=422,
                 )
         try:
-            get_world_container(_managed_world_root(), requested_world_id)
+            _managed_world_root()
+            get_world_container(requested_world_id)
         except WorldContainerRegistryError as exc:
             raise AgentTurnServiceError(
                 str(exc), code="world_owner_unavailable", status_code=exc.status_code
@@ -828,7 +830,7 @@ def _plan_context_resolver(
             provider_dispatched=False,
         ) from exc
     try:
-        initial = get_world_container(registry_root, managed_world_id)
+        initial = get_world_container(managed_world_id)
     except WorldContainerRegistryError as exc:
         raise AgentTurnServiceError(
             str(exc),
@@ -978,7 +980,7 @@ def _plan_context_resolver(
         if trace else None
     )
     try:
-        current = get_world_container(registry_root, managed_world_id)
+        current = get_world_container(managed_world_id)
     except WorldContainerRegistryError as exc:
         raise AgentTurnServiceError(
             "Managed World binding changed during Graph retrieval.",
@@ -1229,7 +1231,7 @@ def _plan_context_resolver(
     # Source-index construction can outlive the earlier binding check. Reject
     # a retargeted World before creating a durable retrieval session.
     try:
-        final_world = get_world_container(registry_root, managed_world_id)
+        final_world = get_world_container(managed_world_id)
     except WorldContainerRegistryError as exc:
         raise AgentTurnServiceError(
             "Managed World binding changed during Graph retrieval.",
@@ -1312,7 +1314,8 @@ def _conversation_service(request: Request) -> AgentConversationService:
 
 def _verified_world_id(world_id: str) -> str:
     try:
-        return get_world_container(_managed_world_root(), world_id).world_id
+        _managed_world_root()
+        return get_world_container(world_id).world_id
     except WorldContainerRegistryError as exc:
         raise HTTPException(
             status_code=exc.status_code,
