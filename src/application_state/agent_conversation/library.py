@@ -432,23 +432,20 @@ def read_retry_attempts(
     world, conversation, turn_id, *, limit=50, before_sequence=None
 ):
     from . import repository as repo
-    from .retry import library_contexts, _incoming_edge
+    from .retry import library_contexts
 
     if not 1 <= limit <= 50 or before_sequence is not None and before_sequence < 1:
         raise ApplicationStateValidationError("Invalid retry history cursor")
     with unit_of_work(_ready_dsn()) as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-        owner = repo.get_conversation(conn, world, conversation)
-        turn = repo.get_turn(conn, world, turn_id)
-        meta = getattr(turn, "envelope", turn)
-        if owner is None or turn is None or meta.conversation_id != conversation:
+        anchor = repo.get_retry_history_anchor(conn, world, conversation, turn_id)
+        if anchor is None:
             raise ApplicationStateNotFoundError(
                 "Retry history unavailable in this conversation"
             )
-        incoming = _incoming_edge(conn, meta)
-        root = incoming[0] if incoming else turn_id
-        before = meta.sequence if before_sequence is None else before_sequence
-        if before > meta.sequence:
+        sequence, root = anchor
+        before = sequence if before_sequence is None else before_sequence
+        if before > sequence:
             raise ApplicationStateValidationError(
                 "Retry history cursor follows its selected attempt"
             )

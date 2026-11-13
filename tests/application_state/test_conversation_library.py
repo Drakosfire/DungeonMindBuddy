@@ -360,6 +360,10 @@ def test_retry_history_excludes_unrelated_turns(application_state_dsn):
 
     assert page["turns"] == []
     assert page["next_before_sequence"] is None
+    other = new(service)
+    with pytest.raises(ApplicationStateNotFoundError):
+        library.read_retry_attempts("world-one", other, selected.turn_id)
+
 
 
 def test_retry_history_hydrates_populated_page(application_state_dsn):

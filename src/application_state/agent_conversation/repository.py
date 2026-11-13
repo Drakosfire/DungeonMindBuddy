@@ -911,6 +911,23 @@ def list_turns(
     return [_turn_from_row(conn, row, references=references[row["turn_id"]]) for row in reversed(rows)]
 
 
+def get_retry_history_anchor(
+    conn: psycopg.Connection, world_id: str, conversation_id: UUID, turn_id: UUID
+) -> tuple[int, UUID] | None:
+    return conn.execute(
+        """
+        SELECT t.sequence, COALESCE(r.root_id, t.turn_id)
+        FROM agent.turn t
+        JOIN agent.conversation c USING (world_id, conversation_id)
+        LEFT JOIN agent.turn_retry r
+          ON r.successor_id = t.turn_id AND r.world_id = t.world_id
+          AND r.conversation_id = t.conversation_id
+        WHERE t.world_id = %s AND t.conversation_id = %s AND t.turn_id = %s
+        """,
+        (world_id, conversation_id, turn_id),
+    ).fetchone()
+
+
 def list_retry_attempt_page(
     conn: psycopg.Connection,
     world_id: str,
