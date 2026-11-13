@@ -43,7 +43,11 @@ from uuid import UUID
 import psycopg
 from psycopg.rows import dict_row
 
-from application_state.cli import _alembic_head, assert_at_head
+from application_state.cli import (
+    _alembic_head,
+    _require_current_revision,
+    _revision_from_connection,
+)
 from application_state.config import load_runtime_dsn
 from application_state.engine import connect
 from application_state.errors import (
@@ -262,18 +266,21 @@ def _fingerprint_table(
 def compute_fingerprint(dsn: str | None = None) -> ApplicationStateFingerprint:
     """Compute the deterministic APP-STATE fingerprint. Requires schema at head."""
     target = dsn or load_runtime_dsn()
-    assert_at_head(dsn=target)
     head = _alembic_head()
     conn = connect(target)
     try:
         conn.read_only = True
         conn.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
         with conn.transaction():
-            cursor = conn.cursor(row_factory=dict_row)
-            current_row = cursor.execute(
-                "SELECT version_num FROM application_state.schema_migrations"
-            ).fetchone()
-            current = str(current_row["version_num"])
+            try:
+                current = _revision_from_connection(conn)
+            except psycopg.errors.UndefinedTable:
+                current = None
+            except psycopg.Error as exc:
+                raise ApplicationStateUnavailableError(
+                    f"application-state PostgreSQL is unavailable: {exc}"
+                ) from exc
+            _require_current_revision(current, head)
             domains = tuple(
                 _fingerprint_table(conn, domain, table, order_by)
                 for domain, table, order_by in _DOMAIN_TABLES
