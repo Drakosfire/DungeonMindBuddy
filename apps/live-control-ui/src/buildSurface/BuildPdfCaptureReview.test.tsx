@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from "@testing-library/react";
+import {fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {expect, it, vi} from "vitest";
 import {authenticatedApiFetch} from "../api/liveApi";
-import {CropOcr} from "./BuildPdfPreview";
+import {BuildPdfPreview, CropOcr} from "./BuildPdfPreview";
 
 vi.mock("../api/liveApi", () => ({authenticatedApiFetch: vi.fn()}));
 
@@ -81,4 +81,60 @@ it("keeps image-only OCR as an image result without a statblock candidate", asyn
   fireEvent.click(screen.getByRole("button", {name: "Read capture with OCR"}));
   expect(await screen.findByText("OCR found an image in this region without transcribing any text.")).toBeInTheDocument();
   expect(screen.queryByRole("button", {name: "Preview statblock fields"})).toBeNull();
+});
+
+vi.mock("pdfjs-dist", () => ({ GlobalWorkerOptions: {}, getDocument: vi.fn() }));
+
+it("validates a repeat capture without reloading PDF.js", async () => {
+  const {getDocument} = await import("pdfjs-dist");
+  const load = vi.mocked(getDocument);
+  load.mockReturnValue({
+    promise: Promise.resolve({
+      numPages: 1,
+      getPage: async () => ({
+        getViewport: () => ({width: 100, height: 100}),
+        render: () => ({promise: Promise.resolve(), cancel: vi.fn()}),
+        getTextContent: async () => ({items: []}),
+      }),
+    }),
+    destroy: async () => {},
+  } as unknown as ReturnType<typeof getDocument>);
+  const fetch = vi.mocked(authenticatedApiFetch);
+  fetch.mockClear();
+  const result = (response: Response) => ({response}) as Awaited<ReturnType<typeof authenticatedApiFetch>>;
+  fetch.mockResolvedValueOnce(result(Response.json(region)))
+    .mockResolvedValueOnce(result(new Response(null, {status: 204})));
+  const file = new File(["%PDF-fixture"], "fixture.pdf");
+  Object.defineProperty(file, "arrayBuffer", {value: async () => new TextEncoder().encode("%PDF-fixture").buffer});
+  const context = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({drawImage: vi.fn()} as unknown as CanvasRenderingContext2D);
+  const image = vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue("data:image/png;base64,");
+  try {
+    render(<BuildPdfPreview worldId="repeat-fixture" initialFile={file} />);
+    const canvas = await screen.findByLabelText("PDF page 1");
+    canvas.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100);
+    Object.defineProperty(canvas, "setPointerCapture", {value: vi.fn()});
+    function point(type: string, x: number) {
+      const event = new MouseEvent(type, {bubbles: true, clientX: x, clientY: x});
+      Object.defineProperty(event, "pointerId", {value: 1});
+      fireEvent(canvas, event);
+    }
+    await waitFor(() => {
+      point("pointerdown", 10);
+      point("pointerup", 60);
+      expect(screen.getByRole("button", {name: "Capture region"})).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", {name: "Capture region"}));
+    fireEvent.click(screen.getByRole("button", {name: "Retain PDF source", hidden: true}));
+    const validate = await screen.findByRole("button", {name: "Reopen retained region", hidden: true});
+    fireEvent.click(validate);
+    await waitFor(() => expect(validate).toBeEnabled());
+    expect(fetch.mock.calls[1][0]).toContain("/region:validate");
+    expect(load).toHaveBeenCalledTimes(1);
+  } finally {
+    context.mockRestore();
+    image.mockRestore();
+    for (const key of Object.keys(localStorage)) {
+      if (key.includes("repeat-fixture")) localStorage.removeItem(key);
+    }
+  }
 });

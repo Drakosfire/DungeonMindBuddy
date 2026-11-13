@@ -88,7 +88,6 @@ function PdfPages({ file, worldId, restored, onRetained }: {
   file: File; worldId?: string; restored?: PdfLocator;
   onRetained: (locator: PdfLocator) => void;
 }) {
-  const [sourceFile, setSourceFile] = useState(file);
   const [admission] = useState(() => ({ id: crypto.randomUUID(), createdAt: new Date().toISOString() }));
   const [receipt, setReceipt] = useState<PdfReceipt | undefined>(restored);
   const [sourcePending, setSourcePending] = useState(false);
@@ -119,17 +118,17 @@ function PdfPages({ file, worldId, restored, onRetained }: {
         const admitted = await retainSource();
         onRetained(captureLocator(admitted, page, selected));
       } else {
-        const { response } = await authenticatedApiFetch(`${path}/open`, {
+        const locator = captureLocator(receipt, page, selected);
+        const { response } = await authenticatedApiFetch(`${path}/region:validate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(captureLocator(receipt, page, selected)),
+          body: JSON.stringify(locator),
         });
-        if (!response.ok) throw new Error();
-        onRetained(captureLocator(receipt, page, selected));
-        setSourceFile(new File([await response.blob()], file.name, { type: "application/pdf" }));
+        if (response.status !== 204) throw new Error();
+        onRetained(locator);
       }
     } catch {
-      setSourceError(receipt ? "Could not reopen the retained PDF." : "Could not retain this PDF.");
+      setSourceError(receipt ? "Could not validate this retained PDF region." : "Could not retain this PDF.");
     } finally {
       setSourcePending(false);
     }
@@ -192,11 +191,11 @@ function PdfPages({ file, worldId, restored, onRetained }: {
     let destroy: (() => Promise<void>) | undefined;
     async function load() {
       try {
-        if (sourceFile.size > 32 * 1024 * 1024) {
+        if (file.size > 32 * 1024 * 1024) {
           if (!cancelled) setError("Choose a PDF that is 32 MiB or smaller.");
           return;
         }
-        const data = new Uint8Array(await sourceFile.arrayBuffer());
+        const data = new Uint8Array(await file.arrayBuffer());
         if (new TextDecoder().decode(data.subarray(0, 5)) !== "%PDF-") {
           throw new Error("Invalid PDF header");
         }
@@ -216,7 +215,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
       cancelled = true;
       void destroy?.().catch(() => {});
     };
-  }, [sourceFile]);
+  }, [file]);
 
   useEffect(() => {
     if (!document) return;
