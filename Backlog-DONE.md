@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Verify orphaned Graph Review components
+
+[PR #2817](https://github.com/Drakosfire/DungeonMindBuddy/pull/2817) removed the unused run picker and relationship card. Main had no code callers. None of the 49 checked open PR diffs added a caller, and all 90 local checkout revisions with references inherited them from their branch bases. The historical links resolve to the pre-removal Git revision. All 686 Graph Review tests and the application TypeScript check passed locally. GitHub reported no checks for the PR.
+
 ## [DONE] Measure active conversation pointer and owner lookup
 
 [PR #2807](https://github.com/Drakosfire/DungeonMindBuddy/pull/2807) gave the service and active message reader a shared World-scoped statement. A committed pointer switch reproduced mismatched results with the old two reads under read committed. The joined read returned a matching pointer and owner. Across 500 warm local PostgreSQL 16 calls, median lookup latency fell from 0.0566 ms to 0.0324 ms. Four targeted PostgreSQL tests, Rules-only regression, and legacy import CI passed.
