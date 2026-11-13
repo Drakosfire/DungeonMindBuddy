@@ -297,7 +297,6 @@ def output_frame(host, provider):
 def compact_passages(frame, supports):
     """Share exact source text while retaining every original citation handle."""
     from collections import defaultdict
-    from tiktoken import get_encoding
 
     evidence = frame["native_body_evidence"]
     rows = evidence["excerpts"]
@@ -351,10 +350,9 @@ def compact_passages(frame, supports):
         "passages": passages, "excerpts": projected,
         "passage_scope": "Passage lines are 1-based. Each excerpt starts at passage_line_start and covers line_end minus line_start plus one lines. Cite its excerpt handle.",
     }
-    encode = get_encoding("o200k_base").encode_ordinary
-    def tokens(value):
-        return len(encode(json.dumps(value, ensure_ascii=False, separators=(",", ":"))))
-    return frame | {"native_body_evidence": compact} if tokens(compact) < tokens(evidence) else frame
+    original_size = len(json.dumps(evidence, ensure_ascii=False, separators=(",", ":")).encode())
+    compact_size = len(json.dumps(compact, ensure_ascii=False, separators=(",", ":")).encode())
+    return frame | {"native_body_evidence": compact} if compact_size < original_size else frame
 
 
 def _inline_qualifications(frame):
