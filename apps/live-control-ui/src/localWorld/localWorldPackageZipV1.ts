@@ -10,6 +10,7 @@ import {
   LOCAL_WORLD_PACKAGE_V1,
   parseLocalWorldPackageV1,
   validateLocalWorldPackageMemberPaths,
+  validateOwnedLocalWorldPackageV1,
   type ParseLocalWorldPackageV1Result,
 } from "./localWorldPackageV1";
 
@@ -170,8 +171,8 @@ function mapFromInput(input: ReadonlyMap<string, Uint8Array>): Map<string, Uint8
 export async function encodeLocalWorldPackageZipV1(input: ReadonlyMap<string, Uint8Array>): Promise<EncodeLocalWorldPackageZipV1Result> {
   try {
     const members = mapFromInput(input); // capture all caller-owned bytes before the first await
-    const parsed = await parseLocalWorldPackageV1(members);
-    if (parsed.status !== "staged") fail(parsed.code === "unsupported-version" ? "unsupported-version" : "invalid-package", parsed.message);
+    const parsed = await validateOwnedLocalWorldPackageV1(members);
+    if (parsed.status !== "valid") fail(parsed.code === "unsupported-version" ? "unsupported-version" : "invalid-package", parsed.message);
     const writer = new BlobWriter("application/zip");
     const zip = new ZipWriter(writer, { zip64: false, dataDescriptor: false, extendedTimestamp: false, useUnicodeFileNames: true, level: 0, useCompressionStream: false, useWebWorkers: false });
     for (const [path, bytes] of [...members].sort(([a], [b]) => a.localeCompare(b))) {
