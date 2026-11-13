@@ -7,7 +7,7 @@ import type {
   NativeRunbookChoiceV2,
   NativeRunbookReadyV2,
 } from "../runbook/nativeRunbookProjection";
-import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN, breachDogfoodManifestV2 } from "./breachDogfoodFixture";
+import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN, breachDogfoodManifestV2 } from "../../test/breachDogfoodFixture";
 import {
   choiceBranchRelevance,
   choiceTargetIds,
