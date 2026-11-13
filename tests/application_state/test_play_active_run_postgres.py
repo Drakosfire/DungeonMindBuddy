@@ -323,7 +323,6 @@ def test_new_app_instance_and_different_root_resume_exact_current_moment(
     snapshot = create_committed_runbook(tmp_path)
     created = create_run(tmp_path, snapshot)
     progressed = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=created.run_revision,
         progress=gate_progress(),

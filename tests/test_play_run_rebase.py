@@ -316,7 +316,6 @@ def test_surviving_refs_rebase_replaces_binding_and_manifest(tmp_path: Path) -> 
     source = _create_committed_runbook(tmp_path)
     _seal(tmp_path, source)
     before = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -369,7 +368,6 @@ def test_removed_refs_block_before_intent(tmp_path: Path) -> None:
     source = _create_committed_runbook(tmp_path)
     _seal(tmp_path, source)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -391,7 +389,6 @@ def test_operator_clears_blocker_then_rebase_succeeds(tmp_path: Path) -> None:
     source = _create_committed_runbook(tmp_path)
     _seal(tmp_path, source)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -400,7 +397,6 @@ def test_operator_clears_blocker_then_rebase_succeeds(tmp_path: Path) -> None:
     with pytest.raises(PlayRunRebaseError):
         _rebase(tmp_path, target, expected_run_revision=2)
     cleared = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=2,
         progress=PlayRunProgress(
@@ -445,7 +441,6 @@ def test_missing_source_manifest_with_progress_is_409(tmp_path: Path) -> None:
     source = _create_committed_runbook(tmp_path)
     created = _create_run(tmp_path, source)
     progressed = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=created.run_revision,
         progress=_progress(),
@@ -497,7 +492,6 @@ def test_p2b2_can_select_target_only_id_after_rebase(tmp_path: Path) -> None:
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
     rebased = _rebase(tmp_path, target, expected_run_revision=1)
     updated = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=rebased.run_revision,
         progress=_progress(
@@ -599,7 +593,6 @@ def test_each_progress_field_blocks_before_intent(
     source = _create_committed_runbook(tmp_path)
     _seal(tmp_path, source)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=progress,
@@ -638,7 +631,6 @@ def test_progress_and_rebase_linearize_on_run_lock(tmp_path: Path) -> None:
         try:
             results.append(
                 replace_play_run_progress(
-                    tmp_path,
                     run_id=RUN_ID_A,
                     expected_run_revision=1,
                     progress=_progress(
@@ -717,7 +709,6 @@ def test_unsorted_persisted_resolved_beats_are_not_legitimized(
     source = _create_committed_runbook(tmp_path)
     _seal(tmp_path, source)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(selections={}, notes_by_element_id={}),
@@ -761,7 +752,6 @@ def test_progress_mutation_is_not_completed_rebase_replay(tmp_path: Path) -> Non
     source = _create_committed_runbook(tmp_path, markdown=SURVIVING_TARGET_MARKDOWN)
     _seal(tmp_path, source)
     progressed = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(

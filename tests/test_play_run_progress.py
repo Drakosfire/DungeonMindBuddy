@@ -201,7 +201,6 @@ def test_valid_snapshot_persists_and_reloads(tmp_path: Path) -> None:
     )
 
     updated = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -241,7 +240,6 @@ def test_unknown_and_cross_membership_references_are_422_without_write(
     for progress in cases:
         with pytest.raises(PlayRunRegistryError) as exc_info:
             replace_play_run_progress(
-                tmp_path,
                 run_id=RUN_ID_A,
                 expected_run_revision=1,
                 progress=progress,
@@ -267,7 +265,6 @@ def test_missing_manifest_is_409_without_auto_seal_or_workspace(
     )
 
     updated = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -315,7 +312,6 @@ def test_runbook_advance_is_irrelevant_after_seal(
     )
 
     updated = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -342,7 +338,6 @@ def test_concurrent_cas_has_one_winner(tmp_path: Path) -> None:
         try:
             results.append(
                 replace_play_run_progress(
-                    tmp_path,
                     run_id=RUN_ID_A,
                     expected_run_revision=1,
                     progress=progress,
@@ -375,14 +370,12 @@ def test_current_token_same_state_is_byte_preserving_noop(tmp_path: Path) -> Non
     snapshot = _create_committed_runbook(tmp_path)
     _seal(tmp_path, snapshot)
     first = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
     )
 
     replayed = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=2,
         progress=_progress(resolved_beat_ids=["beat:briefing", "beat:briefing"]),
@@ -398,14 +391,12 @@ def test_lost_response_replay_does_not_increment_again(tmp_path: Path) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     _seal(tmp_path, snapshot)
     first = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
     )
 
     replayed = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -420,7 +411,6 @@ def test_stale_different_state_is_409(tmp_path: Path) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     _seal(tmp_path, snapshot)
     first = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -428,7 +418,6 @@ def test_stale_different_state_is_409(tmp_path: Path) -> None:
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
             progress=_progress(current_beat_id=None),
@@ -444,7 +433,6 @@ def test_create_replay_after_progress_does_not_reset(tmp_path: Path) -> None:
     created = _create_run(tmp_path, snapshot)
     seal_or_replay_play_run_reference_manifest(RUN_ID_A)
     progressed = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -471,7 +459,6 @@ def test_persisted_ghost_reference_fails_closed_on_reads(
     snapshot = _create_committed_runbook(tmp_path)
     _seal(tmp_path, snapshot)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -491,7 +478,6 @@ def test_persisted_ghost_reference_fails_closed_on_reads(
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=2,
             progress=_progress(),
@@ -507,7 +493,6 @@ def test_persisted_cross_choice_selection_fails_closed(
     snapshot = _create_committed_runbook(tmp_path)
     _seal(tmp_path, snapshot)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -536,7 +521,6 @@ def test_persisted_resolved_beats_must_be_duplicate_free_and_sorted(
     snapshot = _create_committed_runbook(tmp_path)
     _seal(tmp_path, snapshot)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(resolved_beat_ids=["beat:briefing", "beat:arrival"]),
@@ -556,7 +540,6 @@ def test_persisted_resolved_beats_must_be_duplicate_free_and_sorted(
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=2,
             progress=_progress(resolved_beat_ids=["beat:arrival", "beat:briefing"]),
@@ -574,7 +557,6 @@ def test_legacy_record_without_progress_reads_empty_and_can_mutate(
     assert loaded.progress == empty_play_run_progress()
 
     updated = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_progress(),
@@ -588,7 +570,6 @@ def test_legacy_record_without_progress_reads_empty_and_can_mutate(
 def test_unknown_run_is_404(tmp_path: Path) -> None:
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
             progress=_progress(),
@@ -651,7 +632,6 @@ def test_v1_beat_only_progress_still_rejected(tmp_path: Path) -> None:
     _seal(tmp_path, snapshot)
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
             progress=_progress(current_scene_id=None, current_beat_id="beat:arrival"),
@@ -664,7 +644,6 @@ def test_v1_beat_only_progress_still_rejected(tmp_path: Path) -> None:
 def test_v2_beat_only_progress_is_admitted(tmp_path: Path) -> None:
     _seal_v2(tmp_path)
     updated = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_v2_progress(),
@@ -678,7 +657,6 @@ def test_v2_beat_only_progress_is_admitted(tmp_path: Path) -> None:
 def test_v2_beat_and_same_beat_scene_is_admitted(tmp_path: Path) -> None:
     _seal_v2(tmp_path)
     updated = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_v2_progress(current_scene_id="scene:a"),
@@ -691,7 +669,6 @@ def test_v2_cross_beat_scene_is_rejected(tmp_path: Path) -> None:
     _seal_v2(tmp_path)
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
             progress=_v2_progress(current_scene_id="scene:b"),
@@ -704,7 +681,6 @@ def test_v2_unknown_ids_are_rejected(tmp_path: Path) -> None:
     _seal_v2(tmp_path)
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
             progress=_v2_progress(current_beat_id="beat:ghost"),
@@ -715,7 +691,6 @@ def test_v2_unknown_ids_are_rejected(tmp_path: Path) -> None:
 def test_v2_valid_decision_option_selection_is_admitted(tmp_path: Path) -> None:
     _seal_v2(tmp_path)
     updated = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_v2_progress(selections={"choice:x": "option:x1"}),
@@ -728,7 +703,6 @@ def test_v2_foreign_option_is_rejected(tmp_path: Path) -> None:
     _seal_v2(tmp_path)
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
             progress=_v2_progress(selections={"choice:x": "option:ghost"}),
@@ -739,7 +713,6 @@ def test_v2_foreign_option_is_rejected(tmp_path: Path) -> None:
 def test_v2_note_anchors_are_admitted(tmp_path: Path) -> None:
     _seal_v2(tmp_path)
     updated = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_v2_progress(
@@ -773,14 +746,12 @@ def test_v2_malformed_unknown_manifest_fails_closed(tmp_path: Path, application_
 def test_v2_ready_run_rejects_empty_progress_clear(tmp_path: Path) -> None:
     _seal_v2(tmp_path, name="v2-empty-clear")
     seeded = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_v2_progress(),
     )
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=seeded.run_revision,
             progress=empty_play_run_progress(),
