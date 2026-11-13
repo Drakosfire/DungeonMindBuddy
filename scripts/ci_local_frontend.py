@@ -95,7 +95,8 @@ def git(repo, *args):
 
 
 def digest(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    with Path(path).open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
 @contextmanager
@@ -315,15 +316,23 @@ def validate(report_path, expected_sha, suite, max_age=86400):
         or report["suite"] != suite
     ):
         raise ValueError("stale or mismatched source/suite evidence")
-    receipt_path = path.parent / "run-receipt.json"
-    if report["artifacts"].get(receipt_path.name) != digest(receipt_path) or json.loads(
-        receipt_path.read_text()
-    ) != {key: value for key, value in report.items() if key != "artifacts"}:
-        raise ValueError("run receipt/source provenance mismatch")
-    provenance_path = path.parent / "source-provenance.json"
-    if report["artifacts"].get(provenance_path.name) != digest(provenance_path):
-        raise ValueError("unbound source provenance")
-    provenance = json.loads(provenance_path.read_text())
+    checked = set()
+
+    def read_artifact(name, error):
+        if Path(name).name != name or name not in report["artifacts"]:
+            raise ValueError(error)
+        data = (path.parent / name).read_bytes()
+        if hashlib.sha256(data).hexdigest() != report["artifacts"][name]:
+            raise ValueError(error)
+        checked.add(name)
+        return json.loads(data.decode("utf-8"))
+
+    receipt_error = "run receipt/source provenance mismatch"
+    if read_artifact("run-receipt.json", receipt_error) != {
+        key: value for key, value in report.items() if key != "artifacts"
+    }:
+        raise ValueError(receipt_error)
+    provenance = read_artifact("source-provenance.json", "unbound source provenance")
     if (
         provenance["sha"],
         provenance["suite"],
@@ -405,22 +414,15 @@ def validate(report_path, expected_sha, suite, max_age=86400):
         or report["build"]["exit_code"] != 0
     ):
         raise ValueError("test/build failure")
-    for name, expected in report["artifacts"].items():
-        if Path(name).name != name or digest(path.parent / name) != expected:
-            raise ValueError("missing or mismatched evidence artifact")
     frontend = Path(report["source_frontend_path"])
     for step in report["tests"]:
-        names = [step["inventory_file"], step["results_file"]]
-        if any(
-            Path(name).name != name or name not in report["artifacts"] for name in names
-        ):
-            raise ValueError("unbound test evidence")
         expected = inventory_keys(
-            json.loads((path.parent / names[0]).read_text()), frontend
+            read_artifact(step["inventory_file"], "missing or mismatched evidence artifact"),
+            frontend,
         )
         parity = case_parity(
             expected,
-            json.loads((path.parent / names[1]).read_text()),
+            read_artifact(step["results_file"], "missing or mismatched evidence artifact"),
             frontend,
             step["argv"],
         )
@@ -431,6 +433,11 @@ def validate(report_path, expected_sha, suite, max_age=86400):
             or sum(expected.values()) != step["discovered_cases"]
         ):
             raise ValueError("discovery/result mismatch")
+    for name, expected in report["artifacts"].items():
+        if name not in checked and (
+            Path(name).name != name or digest(path.parent / name) != expected
+        ):
+            raise ValueError("missing or mismatched evidence artifact")
     return report
 
 
