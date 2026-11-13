@@ -271,6 +271,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         if (abort.signal.aborted) return;
         setEditor(createEditorStateFromOutput(result.definition));
         setReview(result);
+        setRegion(result.regions[0]);
       } catch {
         if (!abort.signal.aborted) setError("Could not open the statblock review.");
       }
