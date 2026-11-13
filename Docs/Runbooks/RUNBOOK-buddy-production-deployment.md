@@ -21,11 +21,13 @@ Check free space on the Docker filesystem and the persistent data filesystem. Co
 Use separate PostgreSQL database identities for Buddy application state and DungeonMind WorldGraph. With operator-configured PostgreSQL service aliases named `buddy-app` and `buddy-worldgraph`, verify the targets:
 
 ```bash
-for db_service in buddy-app buddy-worldgraph; do
-  psql "service=$db_service" -X -v ON_ERROR_STOP=1 \
-    -c 'SELECT current_database(), current_user;' \
-    -c 'SELECT extname, extversion FROM pg_extension ORDER BY extname;'
-done
+(
+  for db_service in buddy-app buddy-worldgraph; do
+    psql "service=$db_service" -X -v ON_ERROR_STOP=1 \
+      -c 'SELECT current_database(), current_user;' \
+      -c 'SELECT extname, extversion FROM pg_extension ORDER BY extname;' || exit
+  done
+)
 ```
 
 Compare the identities, extensions, and current migration revisions with the pinned releases. Check Buddy application state using the [authority recovery runbook](RUNBOOK-application-state-authority-recovery.md). Use the WorldGraph owner's migration and recovery procedure for that database. Record the approved command and expected revision for each authority in the release record.
