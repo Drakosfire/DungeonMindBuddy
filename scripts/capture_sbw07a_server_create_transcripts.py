@@ -352,20 +352,20 @@ def main() -> None:
         "create-persistence-validation-failed.json": invalid_body,
         "create-invalid-request.json": bad_req_res.json(),
     }
-    _prepare_output_dirs(out_dir, fixtures_dir, scratch=args.out_subdir is not None)
-    for name, payload in leaf.items():
-        (fixtures_dir / name).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
-
-    for name, payload in transcripts.items():
-        (out_dir / f"{name}.json").write_text(
-            json.dumps(payload, indent=2, sort_keys=True) + "\n"
-        )
-
     # Prove create request body is an untransformed copy of the source fixture definition.
     if create_req["definition"] != definition:
         raise SystemExit(
             "Capture mutated simple_bruiser definition before create; refuse to write transcripts."
         )
+
+    leaf_bytes = {
+        name: (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        for name, payload in leaf.items()
+    }
+    transcript_bytes = {
+        f"{name}.json": (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        for name, payload in transcripts.items()
+    }
 
     manifest = {
         "schema": "sbw07a_server_create_transcript_manifest_v1",
@@ -415,10 +415,7 @@ def main() -> None:
         "transcripts": sorted(transcripts.keys()),
         "leaf_fixtures": sorted(leaf.keys()),
         "leaf_fixture_sha256": {
-            name: _sha256_bytes(
-                json.dumps(payload, indent=2, sort_keys=True).encode("utf-8") + b"\n"
-            )
-            for name, payload in leaf.items()
+            name: _sha256_bytes(payload) for name, payload in leaf_bytes.items()
         },
         "notes": [
             "Transcripts were recorded from a clean DungeonMindServer checkout TestClient.",
@@ -428,7 +425,13 @@ def main() -> None:
             "validation_failed is terminal only when details.is_persistence_ready is exactly false.",
         ],
     }
-    (out_dir / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    manifest_bytes = (json.dumps(manifest, indent=2) + "\n").encode("utf-8")
+    _prepare_output_dirs(out_dir, fixtures_dir, scratch=args.out_subdir is not None)
+    for name, payload in leaf_bytes.items():
+        (fixtures_dir / name).write_bytes(payload)
+    for name, payload in transcript_bytes.items():
+        (out_dir / name).write_bytes(payload)
+    (out_dir / "MANIFEST.json").write_bytes(manifest_bytes)
     print(
         json.dumps(
             {
