@@ -598,21 +598,37 @@ def _levenshtein_at_most_two(left: str, right: str) -> bool:
     return previous[-1] <= 2
 
 
-def _span_links_for_nodes(
-    paragraph: str,
-    span_ref_id: str,
-    nodes: Mapping[str, RecapGraphNode],
-    aliases_by_node: Mapping[str, list[str]],
-) -> list[RecapGraphLink]:
-    link_candidates: list[tuple[int, int, int, RecapGraphLink]] = []
+def _prepare_node_matchers(
+    nodes: Mapping[str, RecapGraphNode], aliases_by_node: Mapping[str, list[str]],
+) -> list[tuple[RecapGraphNode, list[re.Pattern[str]], list[str]]]:
+    matchers = []
     for object_id, aliases in aliases_by_node.items():
         node = nodes.get(object_id)
         if not node:
             continue
-        for alias in sorted(set(aliases), key=len, reverse=True):
-            if not alias or not alias[0].isupper():
-                continue
-            for match in re.finditer(rf"(?<![\w]){re.escape(alias)}(?![\w])", paragraph):
+        exact = [
+            re.compile(rf"(?<![\w]){re.escape(alias)}(?![\w])")
+            for alias in sorted(set(aliases), key=len, reverse=True)
+            if alias and alias[0].isupper()
+        ]
+        fuzzy = [
+            alias for alias in aliases if alias.isalpha() and len(alias) >= 5
+        ] if node.role in {"pc", "npc"} else []
+        matchers.append((node, exact, fuzzy))
+    return matchers
+
+
+def _span_links_for_nodes(
+    paragraph: str,
+    span_ref_id: str,
+    matchers: list[tuple[RecapGraphNode, list[re.Pattern[str]], list[str]]],
+) -> list[RecapGraphLink]:
+    link_candidates: list[tuple[int, int, int, RecapGraphLink]] = []
+    words = None
+    for node, exact, fuzzy_aliases in matchers:
+        object_id = node.object_id
+        for pattern in exact:
+            for match in pattern.finditer(paragraph):
                 link_candidates.append(
                     (
                         match.start(),
@@ -629,10 +645,11 @@ def _span_links_for_nodes(
                         ),
                     )
                 )
-        if node.role not in {"pc", "npc"}:
+        if not fuzzy_aliases:
             continue
-        fuzzy_aliases = [alias for alias in aliases if alias.isalpha() and len(alias) >= 5 and " " not in alias]
-        for word_match in re.finditer(r"\b[A-Z][A-Za-z]{4,}\b", paragraph):
+        if words is None:
+            words = list(re.finditer(r"\b[A-Z][A-Za-z]{4,}\b", paragraph))
+        for word_match in words:
             word = word_match.group(0)
             for alias in fuzzy_aliases:
                 if word == alias or word[0].lower() != alias[0].lower():
@@ -1005,12 +1022,13 @@ def build_recap_graph_presentation(
         aliases_by_node.setdefault(object_id, seeded_aliases.get(object_id, [node.label]))
 
     lines = recap_lines.copy()
+    matchers = _prepare_node_matchers(nodes, aliases_by_node)
     all_links: list[RecapGraphLink] = []
     for span_ref_id, span in span_lookup.items():
         paragraph = _paragraph_text_for_span(recap_lines, span)
         if paragraph.lstrip().startswith("---"):
             continue
-        span_links = _span_links_for_nodes(paragraph, span_ref_id, nodes, aliases_by_node)
+        span_links = _span_links_for_nodes(paragraph, span_ref_id, matchers)
         if not span_links:
             continue
         start = int(span["line_start"])
