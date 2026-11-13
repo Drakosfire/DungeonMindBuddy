@@ -941,13 +941,17 @@ def list_retry_attempt_page(
         cur.execute(
             f"""
             SELECT {_TURN_COLS_T}
-            FROM agent.turn t LEFT JOIN agent.turn_retry r ON r.successor_id = t.turn_id
-            WHERE t.world_id = %s AND t.conversation_id = %s
-              AND (t.turn_id = %s OR r.root_id = %s)
-              AND t.sequence < %s
+            FROM (
+                SELECT successor_id AS turn_id FROM agent.turn_retry
+                WHERE root_id = %s AND world_id = %s AND conversation_id = %s
+                UNION ALL SELECT %s::uuid
+            ) lineage
+            JOIN agent.turn t ON t.turn_id = lineage.turn_id
+            WHERE t.world_id = %s AND t.conversation_id = %s AND t.sequence < %s
             ORDER BY t.sequence DESC LIMIT %s
             """,
-            (world_id, conversation_id, root_id, root_id, before_sequence, limit + 1),
+            (root_id, world_id, conversation_id, root_id,
+             world_id, conversation_id, before_sequence, limit + 1),
         )
         rows = cur.fetchall()
     page = rows[:limit]
