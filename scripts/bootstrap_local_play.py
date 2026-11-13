@@ -149,9 +149,7 @@ def _probe_target_database(dsn: str) -> tuple[bool | None, bool | None, str | No
             return (row is not None, True, None)
     except InvalidCatalogName:
         return (None, False, "unavailable")
-    except psycopg.Error as exc:
-        if isinstance(exc, InvalidCatalogName):
-            return (None, False, "unavailable")
+    except psycopg.Error:
         try:
             with psycopg.connect(dsn, autocommit=True, connect_timeout=5) as conn:
                 conn.execute("SELECT 1")
@@ -167,8 +165,6 @@ def _schema_status(dsn: str) -> tuple[str | None, str, str]:
     current = _read_current_revision(dsn)
     if current == head:
         return current, head, "ready"
-    if current is None:
-        return current, head, "behind"
     return current, head, "behind"
 
 
@@ -345,8 +341,8 @@ def apply_bootstrap(*, load_env: bool = True) -> ReadinessReport:
         report.database_exists = True
 
     try:
-        upgrade_to_head(dsn=dsn)
-        current, head, schema_status = _schema_status(dsn)
+        current, head = upgrade_to_head(dsn=dsn)
+        schema_status = "ready"
     except (ApplicationStateMigrationError, ApplicationStateUnavailableError) as exc:
         report.play_readiness = "BLOCKED"
         report.notes.append(redact_secrets(str(exc), dsn))
