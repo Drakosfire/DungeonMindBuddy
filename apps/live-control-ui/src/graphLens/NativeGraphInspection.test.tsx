@@ -142,3 +142,16 @@ it.each(['pending','ready'])('removes a %s source when entity-only presentation 
  expect(listWorldMechanicsAssociations).toHaveBeenCalledTimes(loads);
  expect(inspectNativeGraph).toHaveBeenCalledTimes(1);
 });
+
+it('opens a pinned PDF crop in the existing source disclosure', async () => {
+ vi.mocked(inspectNativeGraph).mockImplementation(async (_pin, selection) => selection.kind === 'entity' ? detail() : ({
+  schema: 'dmb_native_graph_pdf_region_v1', scope, evidence_ref_id: 'ev',
+  region: {source_revision_id:'srev:pdf',content_sha256:'a'.repeat(64),page:2,left:0,top:0,right:1,bottom:1},
+  png_base64: 'iVBORw0KGgo=',
+ }));
+ render(<LoadedWorldGraphExplorer/>);
+ fireEvent.click(screen.getByRole('button',{name:'Explore graph'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Object 0'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Read supporting source'}));
+ expect(await screen.findByRole('img',{name:'PDF evidence · Page 2'})).toHaveAttribute('src','data:image/png;base64,iVBORw0KGgo=');
+});

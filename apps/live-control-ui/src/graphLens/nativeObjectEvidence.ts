@@ -13,7 +13,12 @@ export function nativeObjectEvidenceChoices(detail:NativeGraphEntity, records:re
   seen.add(id);
   choices.push({key:id,number:choices.length+1,title:'Supporting source · exact excerpt',label:'Read supporting source',kind:'passage',load:async()=>{
    const packet=await inspectNativeGraph(detail.scope,{kind:'source',assertion_id:assertion.assertion_id,evidence_ref_id:id});
-   if(packet.schema!=='dmb_native_graph_source_v1'||!sameInspectionPin(packet.scope,detail.scope)) throw new Error('Source unavailable');
+   if(!sameInspectionPin(packet.scope,detail.scope)) throw new Error('Source unavailable');
+   if(packet.schema==='dmb_native_graph_pdf_region_v1' && packet.evidence_ref_id===id &&
+      Number.isInteger(packet.region.page) && packet.region.page>0 && /^[A-Za-z0-9+/]+={0,2}$/.test(packet.png_base64)) {
+    return {title:`PDF evidence · Page ${packet.region.page}`,pngBase64:packet.png_base64};
+   }
+   if(packet.schema!=='dmb_native_graph_source_v1') throw new Error('Source unavailable');
    return packet.source.text;
   }});
  }

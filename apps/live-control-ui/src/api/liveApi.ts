@@ -2,7 +2,7 @@ import type { PdfLocator } from "./retainedPdfRegions";
 import {verifyNativeThreatReply,type NativeThreatReply,type PreparedNativeThreat,type PublishedNativeThreat} from './nativeThreatCreation';
 import {verifyWorldCreatureCatalog} from './worldMechanicsTypes';
 import type {NativeSourceCatalog,NativeSourceBody,NativeSourceSelection} from './nativeSourceInspection';
-import type {InspectionScope,InspectionPin,InspectionSelection,NativeGraphCatalog,NativeGraphEntity,NativeGraphSource} from "./nativeGraphInspection";
+import type {InspectionScope,InspectionPin,InspectionSelection,NativeGraphCatalog,NativeGraphEntity,NativeGraphSource,NativeGraphPdfRegion} from "./nativeGraphInspection";
 import {readBuildConstructionStream,ConstructionStreamError,type BuildObjectConstructionProgress} from './buildConstructionStream';
 import type {
   ArtifactReadResponse,
@@ -3194,7 +3194,7 @@ export async function getAgentNativeAssertionSource(worldId:string,turnId:string
 export function getNativeGraphCatalog(scope:InspectionScope,signal?:AbortSignal):Promise<NativeGraphCatalog> {
  return apiFetch('/api/live/native-graph-inspection/catalog',{method:'POST',signal,body:JSON.stringify(scope)});
 }
-export function inspectNativeGraph(scope:InspectionPin,selection:InspectionSelection,signal?:AbortSignal):Promise<NativeGraphEntity|NativeGraphSource> {
+export function inspectNativeGraph(scope:InspectionPin,selection:InspectionSelection,signal?:AbortSignal):Promise<NativeGraphEntity|NativeGraphSource|NativeGraphPdfRegion> {
  return apiFetch('/api/live/native-graph-inspection/read',{method:'POST',signal,body:JSON.stringify({scope,selection})});
 }
 
