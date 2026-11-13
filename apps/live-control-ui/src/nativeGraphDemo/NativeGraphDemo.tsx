@@ -1315,13 +1315,21 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     const presentation = nativeGraphPresentation(node);
     return {
       node,
+      names: [node.name, presentation.displayName, ...presentation.recordedNames]
+        .map(name => name.trim().toLocaleLowerCase()),
       text: `${node.name} ${node.kind} ${node.id} ${presentation.displayName} ${presentation.displayKind} ${presentation.recordedNames.join(" ")}`.toLocaleLowerCase(),
     };
   }) ?? [], [searchNodes]);
   const matchingObjects = useMemo(() => {
     const query = objectQuery.trim().toLocaleLowerCase();
     if (!query) return searchNodes ?? [];
-    return objectSearchIndex.filter(({ text }) => text.includes(query)).map(({ node }) => node);
+    const exact = [];
+    const partial = [];
+    for (const { node, names, text } of objectSearchIndex) {
+      if (names.includes(query)) exact.push(node);
+      else if (text.includes(query)) partial.push(node);
+    }
+    return exact.concat(partial);
   }, [objectQuery, objectSearchIndex, searchNodes]);
   const searchPageSize = 20;
   const lastObjectPage = Math.max(0, Math.ceil(matchingObjects.length / searchPageSize) - 1);
