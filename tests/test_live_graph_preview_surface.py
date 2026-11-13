@@ -197,6 +197,31 @@ def test_latest_surface_prefers_resolvable_run() -> None:
         assert payload.health.resolvable_evidence_ref_count > 0
 
 
+def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch):
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "candidate_output.json").write_text(dumps({"nodes": []}))
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    index_path = bundle / "source_span_index.json"
+    index_path.write_text(dumps({"spans": []}))
+    record = SimpleNamespace(default_graph_run_uri="run", run_bundle_uri="bundle", source_recap_path=None)
+    read = Mock(wraps=graph_preview_surface._load_json)
+    recap = Mock(return_value=("First line.\nSecond line.", "recap.md"))
+    monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", lambda *args, **kwargs: record)
+    monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
+    monkeypatch.setattr(graph_preview_surface, "_load_json", read)
+    monkeypatch.setattr(graph_preview_surface, "_recap_text_for_run_bundle", recap)
+    monkeypatch.setattr(graph_preview_surface, "_route_seed_nodes", lambda *args: ({}, {}))
+
+    payload = build_recap_graph_presentation(tmp_path)
+
+    assert payload.markdown == "First line.\nSecond line."
+    assert payload.recap_source_path == "recap.md"
+    assert sum(call.args == (index_path,) for call in read.call_args_list) == 1
+    recap.assert_called_once_with(tmp_path, bundle, source_recap_path=None)
+
+
 def test_build_recap_graph_presentation_links_node_labels() -> None:
     sync_recap_artifacts_registry(repo_root())
     payload = build_recap_graph_presentation(
