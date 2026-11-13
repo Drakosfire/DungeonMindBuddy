@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Verify database aliases against the actual release targets. [#2719](https://github.com/Drakosfire/DungeonMindBuddy/pull/2719) added a credential-free comparison from the release container and fail-fast alias checks. Compose 2.40.3, PostgreSQL 16, and the slim image verified both matches and rejected a mismatched WorldGraph target. Shell fixtures covered failure of either alias. The release operator owns the production rehearsal.
+
 - Align the hosted browser smoke with the local-only route list. [#2535](https://github.com/Drakosfire/DungeonMindBuddy/pull/2535) added Build, Ingest, and Combat to the production runbook. Verified current main lists all six guarded paths and links the independent local Chat smoke. The signed-in rehearsal remains assigned to the release operator.
 
 - Verify the hosted SPA entry and a built asset in the release smoke. [#2556](https://github.com/Drakosfire/DungeonMindBuddy/pull/2556) added shell and JavaScript checks. [#2722](https://github.com/Drakosfire/DungeonMindBuddy/pull/2722) recorded a successful loopback run against slim-image assets for both routes. Fixtures rejected unrelated HTML and HTML served at the asset URL. The public rehearsal remains with the release operator.
