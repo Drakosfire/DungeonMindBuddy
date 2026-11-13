@@ -168,8 +168,7 @@ def artifacts_root(root: Path) -> Path:
     return root / DEFAULT_ARTIFACTS_REL
 
 
-def _paragraph_text_for_span(recap_text: str, span: Mapping[str, Any]) -> str:
-    lines = recap_text.splitlines()
+def _paragraph_text_for_span(lines: list[str], span: Mapping[str, Any]) -> str:
     start = int(span.get("line_start") or span.get("start_line") or 0)
     end = int(span.get("line_end") or span.get("end_line") or 0)
     if start < 1 or end < start:
@@ -734,7 +733,7 @@ def _enrich_evidence_ref(
     ref: Mapping[str, Any],
     *,
     span_lookup: Mapping[str, Mapping[str, Any]],
-    recap_text: str,
+    recap_lines: list[str],
     recap_path: str,
     entity_label: str | None,
 ) -> GraphPreviewEvidenceRef:
@@ -747,7 +746,7 @@ def _enrich_evidence_ref(
         span = span_lookup[spref]
         line_start = int(span.get("line_start") or span.get("start_line") or 0) or None
         line_end = int(span.get("line_end") or span.get("end_line") or 0) or None
-        paragraph = _paragraph_text_for_span(recap_text, span)
+        paragraph = _paragraph_text_for_span(recap_lines, span)
 
     anchor_quotes = coerce_anchor_quotes(ref.get("anchor_quotes"))
     raw_matches = list(ref.get("anchor_quote_matches") or [])
@@ -782,7 +781,7 @@ def _build_candidates(
     graph: Mapping[str, Any],
     *,
     span_lookup: Mapping[str, Mapping[str, Any]],
-    recap_text: str,
+    recap_lines: list[str],
     recap_path: str,
 ) -> list[GraphPreviewCandidateRow]:
     rows: list[GraphPreviewCandidateRow] = []
@@ -795,7 +794,7 @@ def _build_candidates(
                 _enrich_evidence_ref(
                     ref,
                     span_lookup=span_lookup,
-                    recap_text=recap_text,
+                    recap_lines=recap_lines,
                     recap_path=recap_path,
                     entity_label=label,
                 )
@@ -838,7 +837,7 @@ def _build_graph_preview_surface(
     run_bundle_dir: Path | None = None,
     artifact_record: RecapArtifactRecord | None = None,
     _loaded_run: _LoadedRun | None = None,
-) -> tuple[GraphPreviewSurfaceResponse, dict[str, Mapping[str, Any]], str]:
+) -> tuple[GraphPreviewSurfaceResponse, dict[str, Mapping[str, Any]], list[str]]:
     if _loaded_run is None:
         resolved_run = _resolve_run_dir(root, run_dir)
         validation, graph = _load_run_graph(resolved_run)
@@ -873,10 +872,11 @@ def _build_graph_preview_surface(
         source_recap_path=artifact_record.source_recap_path if artifact_record else None,
     )
 
+    recap_lines = recap_text.splitlines()
     candidates = _build_candidates(
         graph,
         span_lookup=span_lookup,
-        recap_text=recap_text,
+        recap_lines=recap_lines,
         recap_path=recap_path,
     )
 
@@ -916,7 +916,7 @@ def _build_graph_preview_surface(
         health=health,
         candidates=candidates,
     )
-    return surface, span_lookup, recap_text
+    return surface, span_lookup, recap_lines
 
 
 def build_latest_graph_preview_surface(
@@ -999,7 +999,7 @@ def build_recap_graph_presentation(
         run, loaded_run = picked
         selected_run = run.run_dir
 
-    surface, span_lookup, recap_text = _build_graph_preview_surface(
+    surface, span_lookup, recap_lines = _build_graph_preview_surface(
         root,
         selected_run,
         run_bundle_dir=bundle,
@@ -1012,10 +1012,10 @@ def build_recap_graph_presentation(
         nodes.setdefault(object_id, node)
         aliases_by_node.setdefault(object_id, seeded_aliases.get(object_id, [node.label]))
 
-    lines = recap_text.splitlines()
+    lines = recap_lines.copy()
     all_links: list[RecapGraphLink] = []
     for span_ref_id, span in span_lookup.items():
-        paragraph = _paragraph_text_for_span(recap_text, span)
+        paragraph = _paragraph_text_for_span(recap_lines, span)
         if paragraph.lstrip().startswith("---"):
             continue
         span_links = _span_links_for_nodes(paragraph, span_ref_id, nodes, aliases_by_node)
