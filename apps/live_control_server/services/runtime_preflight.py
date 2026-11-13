@@ -94,10 +94,10 @@ def run_runtime_preflight(
     include_runbooks: bool = True,
     include_operator_diagnostics: bool = True,
 ) -> RuntimePreflightReport:
-    checks = (
-        _check_app_state(load_env=load_env, include_runbooks=include_runbooks),
-        _check_dungeonmind_world(require_world=require_world),
-    )
+    checks = (_check_app_state(load_env=load_env, include_runbooks=include_runbooks),)
+    if not include_operator_diagnostics and overall_status(checks) != "READY":
+        return RuntimePreflightReport(status="NOT READY", checks=checks)
+    checks += (_check_dungeonmind_world(require_world=require_world),)
     if include_operator_diagnostics:
         checks += (
             _check_campaign_registry(),

@@ -464,3 +464,23 @@ def test_list_world_heads_uses_repository_ports(
         ("alpha", "head-a"),
         ("beta", None),
     ]
+
+
+@pytest.mark.parametrize("operator_diagnostics, expected_world_calls", [(False, 0), (True, 1)])
+def test_app_state_failure_skips_world_check_only_for_periodic_probe(
+    tmp_path: Path, operator_diagnostics: bool, expected_world_calls: int,
+) -> None:
+    unavailable = RuntimePreflightCheck(
+        id="app_state", label="Application state", required=True,
+        status="UNAVAILABLE", summary="Database unavailable",
+    )
+    with (
+        patch("apps.live_control_server.services.runtime_preflight._check_app_state", return_value=unavailable),
+        patch("apps.live_control_server.services.runtime_preflight._check_dungeonmind_world", return_value=unavailable) as world,
+    ):
+        report = run_runtime_preflight(
+            repo_root=tmp_path, load_env=False, include_runbooks=False,
+            include_operator_diagnostics=operator_diagnostics,
+        )
+    assert report.status == "NOT READY"
+    assert world.call_count == expected_world_calls
