@@ -419,7 +419,7 @@ def test_held_review_package_remains_readable(
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
     monkeypatch.setattr(
         source_artifact_registry, "get_source_artifact",
-        lambda _root, _id: SimpleNamespace(content_sha256="a" * 64),
+        lambda _id: SimpleNamespace(content_sha256="a" * 64),
     )
 
     def record_rejection(run_id, *, expected_revision, basis, decision):

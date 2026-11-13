@@ -244,7 +244,7 @@ def _fixture(
             source_span_index_path=_component_path(root, run, "source_span_index"),
         )
         return SimpleNamespace(run=runs[run_id],
-            source_artifact=graph_run_registry.get_source_artifact(root, runs[run_id].source_artifact_id),
+            source_artifact=graph_run_registry.get_source_artifact(runs[run_id].source_artifact_id),
             source_bytes=resolved.normalized_recap_path.read_bytes(),
             candidate_bytes=outputs[(run_id, "candidate_graph")] if (run_id, "candidate_graph") in outputs else resolved.candidate_graph_path.read_bytes(),
             span_bytes=resolved.source_span_index_path.read_bytes(),
