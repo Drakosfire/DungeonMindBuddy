@@ -224,3 +224,17 @@ it("saves and reopens edits with movement unspecified", async () => {
   expect(screen.getByRole("button", { name: "Validate mechanics" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Create creature draft from review" })).toBeDisabled();
 });
+
+it("restores the published revision when opening a saved review", async () => {
+  vi.mocked(authenticatedApiFetch).mockImplementation(async path => ({
+    response: Response.json(path.endsWith("/publication")
+      ? { draft_id: "published-draft", revision_id: "published-revision" }
+      : { revision: 4, definition: baseCandidateDefinition(), regions: [] }),
+  }) as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+
+  render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
+  expect(await screen.findByRole("link", { name: "Open published statblock" })).toHaveAttribute(
+    "href", "/statblock?world=elderwyld&draft=published-draft&revision=published-revision",
+  );
+  expect(await screen.findByRole("button", { name: "Publish", exact: true })).toBeDisabled();
+});
