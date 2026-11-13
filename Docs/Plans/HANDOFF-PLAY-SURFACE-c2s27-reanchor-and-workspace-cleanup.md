@@ -256,9 +256,9 @@ Every changed canonical design/source-set document and its export copy must be b
 
 ```bash
 diff Docs/Design/ARCHITECTURE-playable-material-and-runtime.md Docs/Sources/design-agent/ACTIVE_AUTHORITY/ARCHITECTURE-playable-material-and-runtime.md
-diff Docs/Roadmaps/ROADMAP-con-ready.md Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-con-ready.md
-diff Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-playable-hoist-dungeonmind-kernel.md
-diff Docs/Plans/STEWARDS-ANCHOR-con-ready.md Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md
+diff Docs/Roadmaps/ROADMAP-con-ready.md <(git show '19424706b02166aec8592fd17fd66b36c20835d3:Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-con-ready.md')
+diff Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md <(git show '19424706b02166aec8592fd17fd66b36c20835d3:Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-playable-hoist-dungeonmind-kernel.md')
+diff Docs/Plans/STEWARDS-ANCHOR-con-ready.md <(git show '19424706b02166aec8592fd17fd66b36c20835d3:Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md')
 diff Docs/Design/DESIGN-play-surface-projection.md Docs/Sources/design-agent/ACTIVE_REFERENCE/DESIGN-play-surface-projection.md
 diff Docs/Design/DESIGN-playable-authoring-and-adoption.md Docs/Sources/design-agent/ACTIVE_REFERENCE/DESIGN-playable-authoring-and-adoption.md
 diff Docs/Design/ANCHOR-runbook-lantern.md Docs/Sources/design-agent/ACTIVE_REFERENCE/ANCHOR-runbook-lantern.md
