@@ -21,5 +21,5 @@
     "noUncheckedSideEffectImports": true
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/localWorld/worldGraphCanvas/fullGraphOverview.benchmark.tsx", "src/test", "src/**/*.stories.tsx"]
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/localWorld/worldGraphCanvas/fullGraphOverview.benchmark.tsx", "src/test", "src/**/*.stories.tsx", "src/nativeGraphDemo/nativeGraphDemoEntry.tsx"]
 }

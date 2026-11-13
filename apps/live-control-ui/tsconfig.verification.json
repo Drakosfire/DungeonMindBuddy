@@ -3,6 +3,6 @@
   "compilerOptions": {
     "composite": false
   },
-  "include": ["src/**/*.stories.tsx", ".ladle/**/*.tsx"],
+  "include": ["src/**/*.stories.tsx", ".ladle/**/*.tsx", "src/nativeGraphDemo/nativeGraphDemoEntry.tsx"],
   "exclude": []
 }
