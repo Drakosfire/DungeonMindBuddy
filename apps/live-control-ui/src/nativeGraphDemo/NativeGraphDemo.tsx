@@ -230,32 +230,40 @@ function writeLayout(worldId: string, positions: Readonly<Record<string, { reado
  * native IDs are copied verbatim, the published revision comes from the server,
  * and browser state is limited to presentation layout and recoverable form drafts.
  */
-function toCanvasRecord(graph: NativeGraph, layout: LayoutState): LocalWorldRecord {
+function toCanvasSnapshot(graph: NativeGraph): LocalWorldRecord["snapshot"] {
   const worldId = graph.world_id as LocalWorldId;
   return {
-    snapshot: {
-      worldId,
-      title: "DungeonMind native graph",
-      objects: graph.nodes.map((node) => {
-        const presentation = nativeGraphPresentation(node);
-        return {
-          id: node.id as LocalObjectId,
-          name: presentation.displayName,
-          kind: presentation.displayKind,
-          properties: {
-            recordedNames: [...presentation.recordedNames],
-            recordedClassifications: [...presentation.classificationTerms],
-          },
-        };
-      }),
-      relationships: graph.edges.map((edge) => ({
-        id: edge.id as LocalRelationshipId,
-        fromObjectId: edge.source_id as LocalObjectId,
-        toObjectId: edge.target_id as LocalObjectId,
-        kind: edge.predicate,
-        properties: {},
-      })),
-    },
+  worldId,
+  title: "DungeonMind native graph",
+  objects: graph.nodes.map((node) => {
+    const presentation = nativeGraphPresentation(node);
+    return {
+      id: node.id as LocalObjectId,
+      name: presentation.displayName,
+      kind: presentation.displayKind,
+      properties: {
+        recordedNames: [...presentation.recordedNames],
+        recordedClassifications: [...presentation.classificationTerms],
+      },
+    };
+  }),
+  relationships: graph.edges.map((edge) => ({
+    id: edge.id as LocalRelationshipId,
+    fromObjectId: edge.source_id as LocalObjectId,
+    toObjectId: edge.target_id as LocalObjectId,
+    kind: edge.predicate,
+    properties: {},
+  })),
+  };
+}
+
+function toCanvasRecord(
+  graph: NativeGraph,
+  snapshot: LocalWorldRecord["snapshot"],
+  layout: LayoutState,
+): LocalWorldRecord {
+  return {
+    snapshot,
     // This field exists only for the legacy canvas contract; it is not a native or local semantic revision.
     localRevision: 0,
     publishedRevisionId: graph.revision_id as PublishedRevisionId,
@@ -1285,7 +1293,13 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     }
   }
 
-  const record = useMemo(() => graph ? toCanvasRecord(graph, layout) : null, [graph, layout]);
+  const canvasSnapshot = useMemo(() => graph ? toCanvasSnapshot(graph) : null, [graph]);
+  const record = useMemo(
+    () => graph && canvasSnapshot ? toCanvasRecord(graph, canvasSnapshot, layout) : null,
+    [graph, canvasSnapshot, layout],
+  );
+  const graphNodes = graph?.nodes;
+  const allowedLayoutIds = useMemo(() => new Set(graphNodes?.map((node) => node.id)), [graphNodes]);
   const connectionOptions = useMemo(() => graph?.nodes.map((node) => {
     const { displayName, displayKind } = nativeGraphPresentation(node);
     return { id: node.id, label: `${displayName} · ${displayKind}` };
@@ -1310,12 +1324,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const limitations = graph ? detailLimitations(graph) : [];
 
   const saveLayout = useCallback(async (_record: LocalWorldRecord, changedPositions: Readonly<Record<string, { readonly x: number; readonly y: number }>>): Promise<WriteLayoutResult> => {
-    if (!graph) return { status: "missing" };
+    if (!graph || !canvasSnapshot) return { status: "missing" };
     const current = layout.worldId === graph.world_id ? layout : { worldId: graph.world_id, positions: {}, revision: 0 };
     const mergedPositions: Record<string, { x: number; y: number }> = { ...current.positions };
-    const allowedIds = new Set(graph.nodes.map((node) => node.id));
     for (const [id, position] of Object.entries(changedPositions)) {
-      if (!allowedIds.has(id) || !Number.isFinite(position.x) || !Number.isFinite(position.y)) continue;
+      if (!allowedLayoutIds.has(id) || !Number.isFinite(position.x) || !Number.isFinite(position.y)) continue;
       mergedPositions[id] = {
         x: Math.max(0, Math.min(MAX_COORDINATE, position.x)),
         y: Math.max(0, Math.min(MAX_COORDINATE, position.y)),
@@ -1323,12 +1336,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     }
     const nextLayout: LayoutState = { worldId: graph.world_id, positions: mergedPositions, revision: current.revision + 1 };
     setLayout(nextLayout);
-    const nextRecord = toCanvasRecord(graph, nextLayout);
+    const nextRecord = toCanvasRecord(graph, canvasSnapshot, nextLayout);
     if (!writeLayout(graph.world_id, mergedPositions, stateScopeId)) {
       return { status: "error", message: "This arrangement is visible for now, but the browser could not save its presentation-only layout." };
     }
     return { status: "written", record: nextRecord };
-  }, [graph, layout, stateScopeId]);
+  }, [graph, canvasSnapshot, allowedLayoutIds, layout, stateScopeId]);
 
   const creationKinds = graph?.capabilities.create
     ? graph.capabilities.object_kinds.map((kind) => ({ kind, label: kind.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) }))
