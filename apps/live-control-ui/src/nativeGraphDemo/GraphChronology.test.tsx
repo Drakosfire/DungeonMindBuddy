@@ -11,6 +11,7 @@ it("orders reviewed Campaign placements and opens the selected Event", async () 
         presentation: { recorded_names: [], classification_terms: ["dungeonbuddy:campaign"] } },
       { id: "late", name: "Arrival", kind: "event" },
       { id: "early", name: "Departure", kind: "event" },
+      { id: "conflict", name: "Disputed meeting", kind: "event" },
     ],
     edges: [],
   } as unknown as NativeGraph;
@@ -26,7 +27,7 @@ it("orders reviewed Campaign placements and opens the selected Event", async () 
     };
   }
   const catalogue = {
-    assertions: [placement("late", 12), placement("early", 2)],
+    assertions: [placement("late", 12), placement("early", 2), placement("conflict", 3), placement("conflict", 5)],
     completeness: { status: "complete" },
   } as NativeGraphChronology;
   const explore = vi.fn();
@@ -34,7 +35,14 @@ it("orders reviewed Campaign placements and opens the selected Event", async () 
   await screen.findByRole("option", { name: "Elderwyld Campaign" });
   fireEvent.change(screen.getByRole("combobox", { name: "Campaign" }), { target: { value: "campaign" } });
   const buttons = within(screen.getByRole("list")).getAllByRole("button");
-  expect(buttons.map(button => button.textContent)).toEqual(["Departure", "Arrival"]);
+  expect(buttons.map(button => button.textContent)).toEqual(["Departure", "Arrival", "Disputed meeting"]);
+  const spiral = screen.getByText("Campaign session spiral").closest("details")!;
+  spiral.open = true;
+  expect(within(spiral).getAllByRole("button").map(marker => marker.getAttribute("aria-label")))
+    .toEqual(["Go to Session 2", "Go to Session 12"]);
+  fireEvent.keyDown(within(spiral).getByRole("button", { name: "Go to Session 2" }), { key: "Enter" });
+  expect(document.activeElement).toBe(buttons[0]);
+  expect(screen.getByText(/Conflicting placements/)).toHaveTextContent("Session 3, Session 5");
   fireEvent.click(buttons[0]!);
   expect(explore).toHaveBeenCalledWith("early");
 });
