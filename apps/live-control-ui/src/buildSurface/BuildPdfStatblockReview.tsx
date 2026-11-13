@@ -406,7 +406,10 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         {saved && <span role="status">Draft saved</span>}
         {editor && review && <button type="button" disabled={pending || published || publishBlockers.length > 0}
           onClick={() => void acceptMechanics(true)}>Publish</button>}
-        {published && <span role="status">Creature and statblock published</span>}
+        {published && <>
+          <span role="status">Creature and statblock published</span>
+          {acceptedLink && <a href={acceptedLink}>Open published statblock</a>}
+        </>}
       </header>
       {!published && publishBlockers.length > 0 && <ul aria-label="What blocks publication">
         {publishBlockers.map((blocker, index) => <li key={index}>{blocker}</li>)}
@@ -530,7 +533,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
               {(selectedDraft?.workflow_state !== "mechanics_saved" || hasInitialAttempt) &&
                 <button type="button" disabled={!mechanicsResolved || !draftId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
                 onClick={() => void acceptMechanics()}>{selectedDraft?.workflow_state === "mechanics_saved" ? "Recover initial acceptance" : "Accept mechanics"}</button>}
-              {acceptedLink && <a href={acceptedLink}>Open accepted statblock</a>}
+              {!published && acceptedLink && <a href={acceptedLink}>Open accepted statblock</a>}
             </>}
           </section>}
           <StatblockDefinitionEditor editRuleMechanics output={review.definition} editorState={editor}
