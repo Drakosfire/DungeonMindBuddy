@@ -1405,7 +1405,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
   const exportSnapshot = useCallback(() => {
     if (!graph) return;
-    const positions = readLayout(graph.world_id, stateScopeId);
+    const currentLayout = layout.worldId === graph.world_id ? layout : null;
     const snapshot = {
       format: "dungeonmind-index-graph-snapshot-v1",
       kind: "read-only-revision-pinned-snapshot",
@@ -1415,22 +1415,25 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       revision_id: graph.revision_id,
       graph_sha256: graph.graph_sha256,
       graph,
-      presentation: { layout_revision: layout.worldId === graph.world_id ? layout.revision : 0, positions },
+      presentation: { layout_revision: currentLayout?.revision ?? 0, positions: currentLayout?.positions ?? {} },
       ...(mode === "managed" ? { selected_world_title: worldTitle ?? null } : {}),
     };
+    let url: string | undefined;
     try {
-      const url = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" }));
+      url = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" }));
       const anchor = document.createElement("a");
       const slug = (mode === "managed" ? worldTitle ?? "world" : "playground").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "graph";
       anchor.href = url;
       anchor.download = `dungeonmind-${slug}-${graph.revision_id}.json`;
       anchor.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      const downloadUrl = url;
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
       setNotice({ kind: "success", text: `Read-only snapshot of revision ${graph.revision_id} downloaded with this browser's canvas layout. It is not a restorable World backup.` });
     } catch (error) {
+      if (url) URL.revokeObjectURL(url);
       setNotice({ kind: "error", text: `The snapshot could not be downloaded: ${describeError(error)}` });
     }
-  }, [graph, layout, mode, stateScopeId, worldTitle]);
+  }, [graph, layout, mode, worldTitle]);
   const refreshFromContext = useCallback(() => { void refreshGraph(); }, [refreshGraph]);
 
   const searchContent = <div className="native-demo-context__search">
