@@ -438,9 +438,9 @@ export function createManagedNativeGraphApi(
 
   const baseApi = createNativeGraphDemoApi({ transport });
   const api: NativeGraphDemoApi = {
-    async readGraph() {
+    async readGraph(signal) {
       const startedGeneration = generation;
-      return registerSnapshot(await baseApi.readGraph(), startedGeneration);
+      return registerSnapshot(await baseApi.readGraph(signal), startedGeneration);
     },
     async prepare(input) {
       const startedGeneration = generation;

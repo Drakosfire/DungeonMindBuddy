@@ -118,7 +118,7 @@ type CapabilityReader = () => string;
 export type NativeGraphDemoTransport = (path: string, init: RequestInit) => Promise<Response>;
 
 export interface NativeGraphDemoApi {
-  readGraph(): Promise<NativeGraph>;
+  readGraph(signal?: AbortSignal): Promise<NativeGraph>;
   /** Read native records from this exact returned graph snapshot, when supported. */
   inspectNode?(graph: NativeGraph, nodeId: string, signal?: AbortSignal): Promise<NativeGraphEntity>;
   prepare(input: NativePrepareRequest): Promise<PrepareResult>;
@@ -261,8 +261,8 @@ export function createNativeGraphDemoApi(options: {
   }
 
   return {
-    async readGraph() {
-      const value = await request<unknown>("/api/graph");
+    async readGraph(signal) {
+      const value = await request<unknown>("/api/graph", { signal });
       if (!isNativeGraph(value)) throw invalidResponse();
       return value;
     },
