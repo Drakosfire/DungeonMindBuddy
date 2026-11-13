@@ -202,6 +202,7 @@ prepare_buddy_ui_dependencies() {
     return 0
   fi
   log "installing UI deps (npm ci)…"
+  rm -f -- "$stamp" || die "cannot invalidate UI dependency stamp"
   npm --prefix "$ui" ci || die "UI dependency installation failed"
   printf '%s\n' "$fingerprint" >"$stamp"
 }
