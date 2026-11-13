@@ -240,29 +240,49 @@ def test_ordinary_batch_full_read_fulfills_selected_sections_without_false_failu
     handle = next(h for h in batch.selected_handles if h.startswith('native-body:'))
     assert nav._fulfilled_in_current_selection(handle)
     assert nav.select([handle])['body_text_exposed'] is False
-    acquired = nav._acquired_extents()
-    # No completed read, a read from an earlier decision, or an incomplete
-    # interval cannot replace this section's acknowledged acquisition.
-    for replacement in ((), tuple((read.model_copy(update={'sequence':batch.sequence-1}),catalog)
-            for read,catalog in acquired), tuple((read.model_copy(update={'excerpt':read.excerpt.model_copy(update={
-                'section':read.excerpt.section.model_copy(update={'byte_end':0})})}),catalog)
-            for read,catalog in acquired)):
+    acquired = acquired_body_reads(prefix)
+    read_ids = {read.event_id for read in acquired}
+
+    def assert_unfulfilled(replacement):
+        replacements = {read.event_id: read for read in replacement}
+        events = tuple(
+            replacements.get(event.event_id, event)
+            for event in prefix.events
+            if event.event_id not in read_ids or event.event_id in replacements
+        )
+        changed = prefix.model_copy(update={"events": events})
         with monkeypatch.context() as patch:
-            patch.setattr(nav,'_acquired_extents',lambda:replacement)
+            patch.setattr(nav.adapter.fence, "turn", turn.model_copy(
+                update={"graph_context_execution": changed},
+            ))
             assert not nav._fulfilled_in_current_selection(handle)
+
+    assert_unfulfilled(())
+    assert_unfulfilled(
+        read.model_copy(update={"sequence": batch.sequence - 1}) for read in acquired
+    )
+    assert_unfulfilled(
+        read.model_copy(update={"excerpt": read.excerpt.model_copy(update={
+            "section": read.excerpt.section.model_copy(update={"byte_end": 0}),
+        })})
+        for read in acquired
+    )
     # Identical bytes in a distinct source, revision or digest are not fulfillment.
-    for field in ('source_artifact_id','source_revision_id','content_sha256'):
-        altered=[]
-        for read,catalog in acquired:
-            source=catalog.source
-            key='artifact_json' if field=='source_artifact_id' else 'revision_json'
-            import json
-            value=json.loads(getattr(source,key))
-            value[field]='0'*64 if field=='content_sha256' else 'foreign'
-            altered.append((read,catalog.model_copy(update={'source':source.model_copy(update={key:json.dumps(value)})})))
-        with monkeypatch.context() as patch:
-            patch.setattr(nav,'_acquired_extents',lambda:tuple(altered))
-            assert not nav._fulfilled_in_current_selection(handle)
+    import json
+
+    for field in ("source_artifact_id", "source_revision_id", "content_sha256"):
+        altered = []
+        for read in acquired:
+            catalog = read.catalog
+            source = catalog.source
+            key = "artifact_json" if field == "source_artifact_id" else "revision_json"
+            value = json.loads(getattr(source, key))
+            value[field] = "0" * 64 if field == "content_sha256" else "foreign"
+            changed_source = source.model_copy(update={key: json.dumps(value)})
+            altered.append(read.model_copy(update={
+                "catalog": catalog.model_copy(update={"source": changed_source}),
+            }))
+        assert_unfulfilled(altered)
     with monkeypatch.context() as patch:
         unselected=batch.model_copy(update={'selected_handles':tuple(h for h in batch.selected_handles if h!=handle)})
         patch.setattr('application_state.agent_conversation.plan_jev_decision.current_selection',lambda _:unselected)
