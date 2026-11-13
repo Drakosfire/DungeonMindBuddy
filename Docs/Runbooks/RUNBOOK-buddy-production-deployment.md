@@ -178,11 +178,14 @@ deployment shell configuration as the prior release.
 ```bash
 (
   set -e
+  read -r -p 'Prior release commit SHA: ' prior_commit
   read -r -p 'Prior Compose project: ' prior_project
   read -r -p 'Absolute path to prior protected environment file: ' prior_env
   read -r -p 'Absolute path to prior image override: ' prior_override
   read -r -p 'Prior image tag: ' prior_tag
   read -r -p 'Prior image ID: ' prior_id
+  test "$(git rev-parse HEAD)" = "$prior_commit"
+  test -z "$(git status --porcelain)"
   test -n "$prior_project"
   test "${prior_env:0:1}" = / && test -r "$prior_env" || exit 1
   test "${prior_override:0:1}" = / && test -r "$prior_override" || exit 1
