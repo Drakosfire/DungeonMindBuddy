@@ -4,7 +4,7 @@ import { nativeObjectEvidenceChoices } from "../graphLens/nativeObjectEvidence";
 import { projectNativeObject } from "../graphLens/nativeObjectProjection";
 import { SourceCitationEvidence } from "../planSurface/components/SourceCitationEvidence";
 import { NativeObjectStatblock } from "../graphLens/NativeObjectStatblock";
-import { assertionStatus, compactNodeLabel } from "./graphNodeExplorer";
+import { assertionStatus, compactNodeLabel } from "./graphNodeExplorerModel";
 
 import type { NativeGraphNode, NativeGraphEdge } from "./nativeGraphDemoApi";
 import { nativeGraphPresentation } from "./nativeGraphPresentation";
