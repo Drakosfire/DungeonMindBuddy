@@ -52,13 +52,9 @@ from src.graph_memory.vocabulary import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_REPORT_PATH = (
-    REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-C2S23-MIREWARD.md"
-)
-DEFAULT_JSON_ARTIFACT_PATH = (
-    REPO_ROOT
-    / "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/c2s23_mireward_vocabulary_ablation.json"
-)
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "out/graph_memory/vocabulary_ablation"
+DEFAULT_REPORT_PATH = DEFAULT_OUTPUT_DIR / "GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-C2S23-MIREWARD.md"
+DEFAULT_JSON_ARTIFACT_PATH = DEFAULT_OUTPUT_DIR / "c2s23_mireward_vocabulary_ablation.json"
 RECAP_SOURCE_LABEL = (
     "evals/graph_memory_layer/examples/session_23_recap_ingest/expected_normalized_recap.md"
 )
@@ -784,7 +780,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run C2S23 Mireward vocabulary ablation dogfood comparison")
     parser.add_argument("--model", default=None, help="Override graph extraction model id")
     parser.add_argument("--report-path", type=Path, default=DEFAULT_REPORT_PATH)
-    parser.add_argument("--json-artifact-path", type=Path, default=DEFAULT_JSON_ARTIFACT_PATH)
+    parser.add_argument("--json-artifact-path", type=Path, default=DEFAULT_JSON_ARTIFACT_PATH,
+                        help="Set the checked-in Graph Gold Review fixture path to refresh it explicitly.")
     args = parser.parse_args()
 
     load_dungeonmindbuddy_dotenv()
