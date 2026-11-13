@@ -31,8 +31,9 @@ services:
       test:
         - CMD
         - python
-        - -c
-        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=5)
+        - /app/scripts/probe_buddy_health.py
+        - ready
+        - "5"
       interval: 60s
       timeout: 10s
       start_period: 90s
