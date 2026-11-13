@@ -263,6 +263,9 @@ export function BuildDocumentCreateControl({
 
   const pdfWorldId = resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined;
   const pdfPreviewKey = JSON.stringify([pdfWorldId, droppedPdf?.sequence]);
+  useEffect(() => {
+    setOpenPdfPreviewKey(undefined);
+  }, [pdfPreviewKey]);
 
   const handleImportSubmit = (event: React.FormEvent) => {
     event.preventDefault();
