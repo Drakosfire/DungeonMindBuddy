@@ -2348,15 +2348,9 @@ def get_pdf_statblock_review(world_id: str, review_id: UUID, request: Request):
     return review
 
 
-def _require_resolved_pdf_statblock(review: dict) -> dict:
+def _require_confirmed_pdf_statblock(review: dict) -> dict:
     if review.get("source_confirmation_required") and not review.get("source_confirmed"):
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_source_confirmation_required"})
-    if review["definition"].get("ruleset") is None:
-        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_edition_unresolved"})
-    if review["definition"].get("movement") is None:
-        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_movement_unresolved"})
-    if review["definition"]["challenge"]["proficiency_bonus"] is None:
-        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_proficiency_bonus_unresolved"})
     return review
 
 
@@ -2377,7 +2371,7 @@ def post_pdf_statblock_creature_draft(
     world_id = _verified_world_id(world_id)
     if review["revision"] != expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
-    definition = _require_resolved_pdf_statblock(review)["definition"]
+    definition = _require_confirmed_pdf_statblock(review)["definition"]
     name = definition["identity"]["name"]
     draft_request = CreateWorldThreatDraftRequest(
         scope_mode="world", world_id=world_id, campaign_id=None,
@@ -2406,7 +2400,7 @@ def post_validate_pdf_statblock_review(
     review = get_pdf_statblock_review(world_id, review_id, request)
     if review["revision"] != expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
-    _require_resolved_pdf_statblock(review)
+    _require_confirmed_pdf_statblock(review)
     candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": review["definition"]})
     validation = validate_definition(definition=candidate.definition)
     return {
@@ -2472,7 +2466,7 @@ def post_accept_pdf_statblock_review(
     review = get_pdf_statblock_review(world_id, review_id, request)
     if review["revision"] != body.expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
-    _require_resolved_pdf_statblock(review)
+    _require_confirmed_pdf_statblock(review)
     return begin_or_resume_acceptance(
         root,
         draft_id=draft_key,
@@ -2500,7 +2494,7 @@ def post_append_pdf_statblock_review(
     world_id = _verified_world_id(world_id)
     return _revision_call(
         append_pdf_review, draft_id=str(draft_id), world_id=world_id, review_id=review_id,
-        request=body, load_review=lambda: _require_resolved_pdf_statblock(
+        request=body, load_review=lambda: _require_confirmed_pdf_statblock(
             get_pdf_statblock_review(world_id, review_id, request),
         ),
     )

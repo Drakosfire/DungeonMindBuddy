@@ -378,9 +378,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   }
 
   const publishBlockers = editor && review ? [
-    ...(!editor.workingCopy.ruleset ? ["Choose a D&D edition to validate and publish mechanics."] : []),
-    ...(!editor.workingCopy.movement ? ["Resolve walking speed."] : []),
-    ...(editor.workingCopy.challenge.proficiency_bonus == null ? ["Enter a proficiency bonus."] : []),
     ...(getLocalFingerprint(editor) !== editor.baselineFingerprint ? ["Save your edits."] : []),
     ...(review.source_confirmation_required && !review.source_confirmed ? ["Check the source and save your confirmation."] : []),
     ...issues.filter(issue => issue.severity === "error").map(issue => issue.message),
@@ -417,8 +414,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       </>}
         </section>
         <section aria-label="Statblock fields" className="pdf-statblock-review__pane" tabIndex={0}>
-      {editor && !mechanicsResolved && <ul aria-label="Fields needed before publishing">
-        {!editor.workingCopy.movement && <li>Movement is unresolved. Enter the walking speed from the crop.</li>}
+      {editor && !mechanicsResolved && <ul aria-label="Fields needed for combat adoption">
+        {!editor.workingCopy.movement && <li>Movement is unspecified. Enter a speed if the source supports it.</li>}
         {editor.workingCopy.challenge.proficiency_bonus == null &&
           <li>Proficiency bonus is missing. Enter the bonus for the reviewed ruleset.</li>}
       </ul>}
@@ -433,7 +430,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         setSourceChecked(false);
         setSaved(false);
       }}>
-        <p>Movement is unspecified. You can save the review now or enter a speed to validate mechanics.</p>
+        <p>Movement is unspecified. You can publish with movement unspecified.</p>
         <label>Walking speed (feet)
           <input disabled={pending} name="walkSpeed" type="number" min="0" step="1" required />
         </label>
