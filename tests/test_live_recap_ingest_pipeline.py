@@ -25,10 +25,8 @@ from src.live_play.recap_ingest_pipeline import (
     inspect_recap_ingest_status,
     run_pipeline,
 )
-from scripts.materialize_session_memory import (
-    _materialize_one as materialize_session_memory_one,
-    main as materialize_session_memory_main,
-)
+from scripts.materialize_session_memory import main as materialize_session_memory_main
+from src.live_play.session_memory_materializer import _materialize_one as materialize_session_memory_one
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW_FIXTURE = ROOT / "tests/fixtures/live_recap_ingest/session_22_raw_recap.md"
