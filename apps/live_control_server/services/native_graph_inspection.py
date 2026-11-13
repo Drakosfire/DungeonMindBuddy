@@ -1,10 +1,16 @@
 """Faithful native inspection; Core owns admission, identity and source access."""
 
+from base64 import b64encode
+
 from dungeonmind.application.vnext import (
     EntityReadService,
     EvidenceReadService,
     open_admitted_native_text,
 )
+from dungeonmind.application.vnext.native_pdf_access import open_native_pdf_region
+from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
+from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import _repository
+from apps.live_control_server.services.build_pdf_region_render import render_region
 from fastapi.encoders import jsonable_encoder
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
@@ -100,6 +106,30 @@ def inspect(request, principal):
         for e in result.evidence
     ):
         raise InspectionUnavailable("native_inspection_evidence_unavailable")
+    evidence = access.parsed.get_evidence(selection.evidence_ref_id)
+    if evidence is not None and evidence.evidence_ref_id.startswith("pdf-region:"):
+        try:
+            region = NativePdfRegionV1.model_validate_json(evidence.source_locator)
+            if region.source_revision_id != evidence.source_revision_id:
+                raise ValueError("PDF evidence revision differs from its locator")
+            pdf = open_native_pdf_region(
+                region,
+                authorized_space_id=pin.native_world_id,
+                audience=frozenset(),
+                declared_labels=frozenset(),
+                load=_repository().get_native_pdf_source,
+            )
+            if pdf is None:
+                raise ValueError("Retained PDF unavailable")
+            image = render_region(pdf, region)
+        except ValueError as exc:
+            raise InspectionUnavailable("native_inspection_source_unavailable") from exc
+        return _response(
+            bound, pin, schema="dmb_native_graph_pdf_region_v1",
+            evidence_ref_id=evidence.evidence_ref_id,
+            region=region.model_dump(mode="json"),
+            png_base64=b64encode(image).decode("ascii"),
+        )
     opened = open_admitted_native_text(access, selection.evidence_ref_id)
     if opened.status != "available":
         raise InspectionUnavailable("native_inspection_source_unavailable")

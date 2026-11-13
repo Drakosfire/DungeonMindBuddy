@@ -2,11 +2,11 @@ import {useId,useLayoutEffect,useRef,useState} from 'react';
 import {SourceCitation} from './SourceCitation';
 import {WorldPlanAgentAnswer} from './WorldPlanAgentAnswer';
 
-export type CitationChoice={key:string;number:number;segmentIndex?:number;title:string;label:string;kind:'passage'|'section';load:()=>Promise<string|{content:string;title:string}>};
+export type CitationChoice={key:string;number:number;segmentIndex?:number;title:string;label:string;kind:'passage'|'section';load:()=>Promise<string|{content:string;title:string}|{pngBase64:string;title:string}>};
 /** One disclosure owner; transport adapters must verify the exact cited bytes. */
 export function SourceCitationEvidence({identity,statements,answer,displaySegments,allowedInternalLinks=[]}:{identity:string;statements:{text?:string;choices:CitationChoice[]}[];answer?:string;displaySegments?:readonly string[];allowedInternalLinks?:readonly string[]}) {
   const panel=useId(),epoch=useRef(0);
-  const [opened,setOpened]=useState<{choice:CitationChoice;status:'loading'|'ready'|'unavailable';content?:string;title?:string}|null>(null);
+  const [opened,setOpened]=useState<{choice:CitationChoice;status:'loading'|'ready'|'unavailable';content?:string;title?:string;pngBase64?:string}|null>(null);
   useLayoutEffect(()=>{epoch.current++;setOpened(null);return()=>{epoch.current++;};},[identity]);
   function close(){epoch.current++;setOpened(null);}
   async function open(choice:CitationChoice) {
@@ -39,6 +39,7 @@ export function SourceCitationEvidence({identity,statements,answer,displaySegmen
       <header><strong>{opened.title ?? opened.choice.title}</strong><button type="button" onClick={close}>Close {opened.choice.kind}</button></header>
       {opened.status==='loading' ? <p>Opening {opened.choice.kind}…</p> : opened.status==='unavailable'
         ? <p>The exact cited {opened.choice.kind} is unavailable. No newer text has been substituted.</p>
+        : opened.pngBase64 ? <img src={`data:image/png;base64,${opened.pngBase64}`} alt={opened.title}/>
         : <WorldPlanAgentAnswer answer={opened.content ?? ''}/>}
     </section>:null}
   </div>;
