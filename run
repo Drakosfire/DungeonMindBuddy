@@ -252,14 +252,16 @@ start_dms
 start_buddy_api
 start_buddy_ui
 
+stack_status="local stack up"
 if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
   wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer API health" 60 || die "DungeonMindServer API health unavailable"
   wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API health" 60 || die "DungeonBuddy API health unavailable"
   wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" 60 || die "DungeonBuddy UI unavailable"
 else
-  wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer" 60 || true
-  wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API" 60 || true
+  wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer" 60 || stack_status="local stack partially ready"
+  wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API" 60 || stack_status="local stack partially ready"
   wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" 60 || {
+    stack_status="local stack partially ready"
     [[ -z "${BUDDY_UI_PID:-}" ]] || die "DungeonBuddy UI unavailable — check $RUN_DIR/buddy-ui.log"
   }
 fi
@@ -268,7 +270,6 @@ if [[ -n "${BUDDY_UI_PID:-}" ]] && ! kill -0 "$BUDDY_UI_PID" 2>/dev/null; then
   die "DungeonBuddy UI exited during startup — check $RUN_DIR/buddy-ui.log"
 fi
 
-stack_status="local stack up"
 if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
   stack_status="local stack health checks passed"
 fi
