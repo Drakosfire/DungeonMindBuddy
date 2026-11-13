@@ -215,7 +215,7 @@ Before a handoff may become `ACTIVE`, these answers must be concrete:
 - **Write lease:** Can every expected changed path be named, with only a precisely bounded discovery exception if needed?
 - **Parallel ownership:** Once ACTIVE, would §4 overlap another active lane? What runtime/state resources are shared?
 - **Contract semantics:** Are applicable identity, state/fallback, persistence/replay, predecessor mapping, and commit-point questions resolved?
-- **Proof:** Does each material invariant clause have evidence at its owning boundary?
+- **Verification plan:** How will each material invariant be checked at its owning boundary? Record any evidence needed to establish a named start prerequisite. Evidence produced by this slice belongs at review, merge, or delivery, not activation.
 - **Stop conditions:** Does the future worker know when to stop rather than absorb adjacent work or spawn a successor PR?
 - **State-sync set:** Which mutable workstream authorities are expected to change after merge?
 
@@ -223,7 +223,7 @@ If the mission/invariant/contract itself is unresolved, split, reconnaissance, o
 
 ## 5. Write and pin the HANDOFF
 
-Copy the canonical template and fill §1–§9. The handoff is a **slice payload**, not a tutorial.
+The handoff is a **slice payload**, not a tutorial. Use the canonical template for work that needs it. An existing durable pinned assignment or a short pinned brief is enough for routine, explicitly authorized, single-PR work when it records the outcome, invariant, write ownership, any real start prerequisite, and how the result will be verified. Serial is the default; call out stacked or parallel work explicitly. Do not require a separate handoff PR.
 
 The designing steward owns the handoff until its exact content is durably addressable on a pinned ref. The handoff may be on `main`, a branch, a PR, or another durable repository location. The default sequence is:
 
