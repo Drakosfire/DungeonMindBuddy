@@ -1810,3 +1810,17 @@ it("places the creation palette using letterboxed and transformed SVG coordinate
   Object.defineProperty(svg, "getScreenCTM", { configurable: true, value: () => ({ a: 2, b: 0, c: 0, d: 2, e: 100, f: 50 }) });
   expectPaletteAt(150, 75);
 });
+
+it("pans through a transformed SVG when release first crosses the drag threshold", async () => {
+  const { record } = await graphRecord();
+  render(<WorldGraphCanvas record={record} />);
+  const svg = screen.getByRole("group", { name: /world graph$/ });
+  Object.defineProperty(svg, "getScreenCTM", { configurable: true, value: () => ({ a: 2, b: 0, c: 0, d: 2, e: 100, f: 50 }) });
+  const scene = screen.getByTestId("graph-scene");
+  const before = cameraFromScene(scene);
+  dispatchPointer(svg, "pointerdown", { pointerId: 102, button: 0, clientX: 400, clientY: 200 });
+  dispatchPointer(svg, "pointermove", { pointerId: 102, clientX: 401, clientY: 201 });
+  expect(cameraFromScene(scene)).toEqual(before);
+  dispatchPointer(svg, "pointerup", { pointerId: 102, clientX: 440, clientY: 220 });
+  expect(cameraFromScene(scene)).toEqual({ ...before, x: before.x + 20, y: before.y + 10 });
+});
