@@ -116,11 +116,14 @@ def _provider_schema() -> dict:
 
 
 async def extract_statblock(
-    transcriptions: list[str], instruction: str = "", *, transport=None,
+    transcriptions: list[str], instruction: str = "", *, transport=None, edition: str | None = None,
 ) -> StatblockExtractionOutput:
     if not transcriptions or any(not isinstance(text, str) or not text.strip() for text in transcriptions):
         raise StatblockExtractionError("pdf_statblock_ocr_unavailable")
     prompt = extraction_prompt(transcriptions, instruction)
+    instructions = INSTRUCTIONS
+    if edition is not None:
+        instructions += f" The author explicitly selected D&D 5e edition {edition}. Use that edition without treating it as PDF evidence. All other fields must still be supported by the transcription."
     schema = _provider_schema()
     authorized = None
 
@@ -144,7 +147,7 @@ async def extract_statblock(
                 and sha256(prepared.body).hexdigest() == prepared.body_sha256
                 and body.get("model") == model
                 and body.get("input") == prompt
-                and body.get("instructions") == INSTRUCTIONS
+                and body.get("instructions") == instructions
                 and not body.get("tools")
                 and output_format == {
                     "type": "json_schema", "name": SCHEMA_NAME,
@@ -176,7 +179,7 @@ async def extract_statblock(
     try:
         result = await client.generate_structured(TextRequest(
             provider="openai", model=model, user_prompt=prompt,
-            system_prompt=INSTRUCTIONS, temperature=None, reasoning_effort="low",
+            system_prompt=instructions, temperature=None, reasoning_effort="low",
             json_schema=schema, schema_name=SCHEMA_NAME,
             max_conformance_retries=0, max_transport_retries=0,
         ))
