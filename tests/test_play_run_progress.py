@@ -146,7 +146,6 @@ def _create_committed_runbook(
 def _create_run(root: Path, snapshot: WorkspaceDocumentSnapshot):
     revision_n, sha = playable_binding(snapshot)
     return create_or_replay_play_run(
-        root,
         run_id=RUN_ID_A,
         playable_artifact_id=snapshot.record.document_id,
         expected_playable_revision=revision_n,
@@ -439,7 +438,6 @@ def test_create_replay_after_progress_does_not_reset(tmp_path: Path) -> None:
     )
 
     replayed = create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=created.playable_artifact_id,
         expected_playable_revision=created.playable_revision,

@@ -76,7 +76,6 @@ def _create_committed_run(root: Path, *, run_id: str, name: str):
     )
     revision_n, sha = playable_binding(snapshot)
     return create_or_replay_play_run(
-        root,
         run_id=run_id,
         playable_artifact_id=document.document_id,
         expected_playable_revision=revision_n,

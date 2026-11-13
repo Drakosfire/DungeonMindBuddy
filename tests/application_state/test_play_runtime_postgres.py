@@ -124,7 +124,6 @@ def test_get_and_list_ignore_absent_legacy_files(
 ) -> None:
     first = create_run(tmp_path, create_committed_runbook(tmp_path, name="list-a"))
     create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_B,
         playable_artifact_id=first.playable_artifact_id,
         expected_playable_revision=first.playable_revision,
@@ -315,7 +314,6 @@ def test_play_runtime_latency_samples(
     def start_and_seal() -> None:
         run_id = str(uuid4())
         create_or_replay_play_run(
-            tmp_path,
             run_id=run_id,
             playable_artifact_id=snapshot.record.document_id,
             expected_playable_revision=revision_n,

@@ -354,7 +354,6 @@ def test_second_apply_does_not_mutate_existing_run(
     document_id = str(record.work_object_id)
     committed = get_committed_playable_revision(document_id)
     created = create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=document_id,
         expected_playable_revision=committed.revision_n,
@@ -387,7 +386,6 @@ def test_bootstrap_then_normal_content_to_native_ready_play(
     assert bootstrap.main(["check"], load_env=False) == 0
     capsys.readouterr()
     create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=document_id,
         expected_playable_revision=committed.revision_n,

@@ -179,7 +179,6 @@ def test_divergent_working_copy_blocks_start_run_but_not_existing_run_n(
         expected_revision=created.object_revision,
     )
     run = create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=str(created.work_object_id),
         expected_playable_revision=revision.revision_n,
@@ -193,7 +192,6 @@ def test_divergent_working_copy_blocks_start_run_but_not_existing_run_n(
     )
     with pytest.raises(PlayRunRegistryError) as start_exc:
         create_or_replay_play_run(
-            tmp_path,
             run_id="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
             playable_artifact_id=str(created.work_object_id),
             expected_playable_revision=1,
@@ -405,7 +403,6 @@ def test_runbook_playable_latency(
     historical_ms = (time.perf_counter() - started) * 1000
     started = time.perf_counter()
     create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=runbook.document_id,
         expected_playable_revision=current.revision_n,

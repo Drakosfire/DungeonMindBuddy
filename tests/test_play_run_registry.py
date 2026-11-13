@@ -130,7 +130,6 @@ def _create_run(
     except WorkspaceDocumentRegistryError:
         revision_n, sha = snapshot.loaded_revision, snapshot.content_sha256
     return create_or_replay_play_run(
-        root,
         run_id=run_id,
         playable_artifact_id=snapshot.record.document_id,
         expected_playable_revision=revision_n,
@@ -229,7 +228,6 @@ def test_stale_revision_after_real_workspace_commit_fails_without_run(
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         create_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=old.record.document_id,
             expected_playable_revision=old_revision,
@@ -247,7 +245,6 @@ def test_stale_sha_with_current_revision_fails_without_run(tmp_path: Path) -> No
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         create_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=snapshot.record.document_id,
             expected_playable_revision=_playable(snapshot)[0],
@@ -415,7 +412,6 @@ def test_noncanonical_uuid_and_sha_are_rejected_before_workspace_read(
 
     with pytest.raises(PlayRunRegistryError) as uuid_exc:
         create_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A.upper(),
             playable_artifact_id=snapshot.record.document_id,
             expected_playable_revision=_playable(snapshot)[0],
@@ -425,7 +421,6 @@ def test_noncanonical_uuid_and_sha_are_rejected_before_workspace_read(
 
     with pytest.raises(PlayRunRegistryError) as sha_exc:
         create_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=snapshot.record.document_id,
             expected_playable_revision=_playable(snapshot)[0],
