@@ -188,6 +188,23 @@ describe("PlanGraphLoadPanel", () => {
     expect(window.location.search).not.toMatch(/session=longmont-c2:40/);
   });
 
+  it("shows a fast campaign before a slow focused campaign finishes", async () => {
+    window.history.replaceState({}, "", "/plan?campaigns=longmont-c1,longmont-c2&session=longmont-c2:24");
+    let resolveSlow!: (sessions: number[]) => void;
+    const slow = new Promise<number[]>((resolve) => { resolveSlow = resolve; });
+    const loadSessions = vi.fn((campaign: string) =>
+      campaign === "longmont-c1" ? Promise.resolve([3]) : slow,
+    );
+    render(<PlanGraphLoadPanel projectionState="ready" nodeCount={45} />, { wrapper: wrapper(loadSessions) });
+    await screen.findByRole("option", { name: "C1 · Session 3" });
+    expect(new URLSearchParams(window.location.search).get("session")).toBe("longmont-c2:24");
+    await userEvent.selectOptions(screen.getByLabelText("Focus session"), "longmont-c1:3");
+    expect(new URLSearchParams(window.location.search).get("session")).toBe("longmont-c1:3");
+    resolveSlow([24]);
+    await screen.findByRole("option", { name: "C2 · Session 24" });
+    expect(screen.getByLabelText("Focus session")).toHaveValue("longmont-c1:3");
+  });
+
   it("retains successful campaign sessions when retrying another campaign", async () => {
     window.history.replaceState({}, "", "/plan?campaigns=longmont-c1,longmont-c2&session=longmont-c2:24");
     let c2Calls = 0;
@@ -198,7 +215,7 @@ describe("PlanGraphLoadPanel", () => {
     });
     render(<PlanGraphLoadPanel projectionState="ready" nodeCount={45} />, { wrapper: wrapper(loadSessions) });
     await screen.findByRole("option", { name: "C1 · Session 3" });
-    await userEvent.click(screen.getByRole("button", { name: "Retry validation" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Retry validation" }));
     await screen.findByRole("option", { name: "C2 · Session 24" });
     expect(screen.getByRole("option", { name: "C1 · Session 3" })).toBeInTheDocument();
     expect(loadSessions.mock.calls.map(([campaignId]) => campaignId)).toEqual([
