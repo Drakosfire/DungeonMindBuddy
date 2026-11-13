@@ -37,6 +37,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
 
   const [versions, setVersions] = useState<SavedMechanicsVersionList>();
   const [parentId, setParentId] = useState("");
+  const mechanicsResolved = Boolean(editor?.workingCopy.movement)
+    && editor?.workingCopy.challenge.proficiency_bonus != null;
   const selectedDraft = drafts.find(item => item.draft_id === draftId);
   const savedParents = versions ? [
     ...versions.operations.flatMap(operation => operation.state === "committed" && operation.result ? [operation.result] : []),
@@ -396,7 +398,22 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       </form>}
       {review && editor && <>
         <fieldset disabled={pending}>
-          <button type="button" disabled={!editor.workingCopy.movement} onClick={() => void validate()}>Validate mechanics</button>
+          <label>Proficiency bonus
+            <input type="number" min="0" step="1"
+              value={editor.workingCopy.challenge.proficiency_bonus ?? ""}
+              onChange={event => {
+                const value = event.currentTarget.valueAsNumber;
+                if (event.currentTarget.value !== "" && (!Number.isSafeInteger(value) || value < 0)) return;
+                setEditor(updateWorkingCopy(editor, current => ({
+                  ...current, challenge: { ...current.challenge, proficiency_bonus: Number.isNaN(value) ? null : value },
+                })));
+                setSourceChecked(false);
+                setSaved(false);
+                setValidation("");
+                setIssues([]);
+              }} />
+          </label>
+          <button type="button" disabled={!mechanicsResolved} onClick={() => void validate()}>Validate mechanics</button>
           {validation && <span role="status">{validation}</span>}
           {issues.length > 0 && <ul aria-label="Mechanics validation issues">
             {issues.map((issue, index) => (
@@ -421,9 +438,9 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
           </label>}
           <button type="button" onClick={() => void save()}>Save review draft</button>
           {saved && <span role="status">Draft saved</span>}
-          <button type="button" disabled={!editor.workingCopy.movement || createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+          <button type="button" disabled={!mechanicsResolved || createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}
             onClick={() => void createDraft()}>Create creature draft from review</button>
-          {!acceptOpen && <button type="button" disabled={!editor.workingCopy.movement} onClick={() => void openAcceptance()}>Choose creature draft</button>}
+          {!acceptOpen && <button type="button" disabled={!mechanicsResolved} onClick={() => void openAcceptance()}>Choose creature draft</button>}
           {acceptOpen && <>
             <label>Creature draft
               <select value={draftId} onChange={event => void chooseDraft(event.target.value)}>
@@ -440,11 +457,11 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
                   </option>)}
                 </select>
               </label>
-              <button type="button" disabled={!editor.workingCopy.movement || !parentId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+              <button type="button" disabled={!mechanicsResolved || !parentId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
                 onClick={() => void appendMechanics()}>Append mechanics revision</button>
             </> : null}
             {(selectedDraft?.workflow_state !== "mechanics_saved" || hasInitialAttempt) &&
-              <button type="button" disabled={!editor.workingCopy.movement || !draftId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+              <button type="button" disabled={!mechanicsResolved || !draftId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
               onClick={() => void acceptMechanics()}>{selectedDraft?.workflow_state === "mechanics_saved" ? "Recover initial acceptance" : "Accept mechanics"}</button>}
             {acceptedLink && <a href={acceptedLink}>Open accepted statblock</a>}
           </>}

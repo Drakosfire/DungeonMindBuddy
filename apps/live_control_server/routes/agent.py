@@ -2189,7 +2189,7 @@ def post_validate_build_pdf_statblock(world_id: str, body: dict, request: Reques
     return {"validation": validation.model_dump(mode="json", by_alias=True), "regions": regions}
 
 
-def _authorized_pdf_statblock(world_id: str, body: dict, request: Request, *, allow_unresolved_movement: bool = False):
+def _authorized_pdf_statblock(world_id: str, body: dict, request: Request, *, allow_unresolved: bool = False):
     from apps.live_control_server.services.statblock_definition_validation import (
         ValidateDefinitionBuddyRequestV1,
     )
@@ -2205,7 +2205,7 @@ def _authorized_pdf_statblock(world_id: str, body: dict, request: Request, *, al
         raise HTTPException(status_code=422, detail={"code": "invalid_pdf_statblock_request"})
     try:
         definition = body["definition"]
-        if allow_unresolved_movement and isinstance(definition, dict) and definition.get("movement") is None:
+        if allow_unresolved:
             from apps.live_control_server.services.build_pdf_statblock_extraction import PdfStatblockDraftDefinition
 
             candidate = PdfStatblockDraftDefinition.model_validate(definition)
@@ -2235,7 +2235,7 @@ def put_pdf_statblock_review(world_id: str, review_id: UUID, body: dict, request
     confirmation_required = bool(existing and existing.get("source_confirmation_required"))
     candidate, regions = _authorized_pdf_statblock(
         world_id, {key: value for key, value in body.items() if key not in {"expected_revision", "source_confirmed"}}, request,
-        allow_unresolved_movement=True,
+        allow_unresolved=True,
     )
     try:
         return save_review(
@@ -2317,7 +2317,8 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_output_invalid"})
     try:
         definition = extracted.definition.model_dump(mode="json", by_alias=True)
-        if extracted.definition.movement is not None:
+        if (extracted.definition.movement is not None
+                and extracted.definition.challenge.proficiency_bonus is not None):
             candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": definition})
             definition = candidate.definition.model_dump(mode="json", by_alias=True)
         return save_review(
@@ -2349,6 +2350,8 @@ def _require_resolved_pdf_statblock(review: dict) -> dict:
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_source_confirmation_required"})
     if review["definition"].get("movement") is None:
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_movement_unresolved"})
+    if review["definition"]["challenge"]["proficiency_bonus"] is None:
+        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_proficiency_bonus_unresolved"})
     return review
 
 
