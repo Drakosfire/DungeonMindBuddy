@@ -1005,7 +1005,8 @@ def build_recap_graph_presentation(
     seeded_nodes, seeded_aliases = _route_seed_nodes(root, recap_path)
     for object_id, node in seeded_nodes.items():
         nodes.setdefault(object_id, node)
-        aliases_by_node.setdefault(object_id, seeded_aliases.get(object_id, [node.label]))
+        aliases = aliases_by_node.setdefault(object_id, [])
+        aliases.extend(alias for alias in seeded_aliases.get(object_id, [node.label]) if alias not in aliases)
 
     source = "\n".join(recap_lines)
     protected_ranges = markdown_protected_ranges(source)
