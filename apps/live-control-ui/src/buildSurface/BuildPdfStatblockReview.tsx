@@ -503,7 +503,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
               onClick={() => void acceptMechanics()}>{selectedDraft?.workflow_state === "mechanics_saved" ? "Recover initial acceptance" : "Accept mechanics"}</button>}
             {acceptedLink && <a href={acceptedLink}>Open accepted statblock</a>}
           </>}
-          <StatblockDefinitionEditor output={review.definition} editorState={editor}
+          <StatblockDefinitionEditor editRuleMechanics output={review.definition} editorState={editor}
             onEditorStateChange={state => { setSourceChecked(false); setEditor(state); setSaved(false); setValidation(""); setIssues([]); }}
             recoveryHint="Save the review draft to keep your edits." />
         </fieldset>
