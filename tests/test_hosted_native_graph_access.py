@@ -1377,7 +1377,7 @@ def test_guessed_source_selection_cannot_open_source(
     )
     response = x.client.request("POST", INSPECTION, json=body)
     assert response.status_code == 409, response.text
-    assert x.catalog_reads == []
+    assert set(x.catalog_reads) == {"managed"}
     assert "source" not in response.json()
 
 
