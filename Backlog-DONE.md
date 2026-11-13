@@ -7,6 +7,12 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Simplify the connected-page recovery import
+
+Recovery now uses the existing static API import. The API was already loaded by
+the component, so the dynamic import created no separate chunk. The stale-response
+and error guards remain in the effect. All 69 focused Build, Plan, and API tests passed.
+
 ## [DONE] Measure repeated Graph ingest manifest discovery
 
 PRs #2634–#2639 and #2641 reduced redundant manifest reads, deduplicated overlapping paths, handled concurrent removal, selected the latest preview in one pass, shared validation, and removed repeated descriptor work. The primary checkout replay covered 59 manifests and 23 filters. Nine fallback reads opened 18 connections on disposable PostgreSQL 16. Only one scan had multiple distinct IDs, so batching could save at most two connections in that replay. For two registered synthetic descriptors, the median was 10.95 ms individually and 5.36 ms batched over 15 repetitions per mode. Retained per-ID lookup for the observed workload. The live trace and failure isolation criteria are tracked in [Backlog.md](Backlog.md). See [the benchmark disposition](https://github.com/Drakosfire/DungeonMindBuddy/pull/2645) for the decision.
