@@ -1,4 +1,5 @@
-import {fireEvent,render,screen} from '@testing-library/react';
+import type { LibraryTurns } from '../api/conversationLibraryApi';
+import {act,fireEvent,render,screen} from '@testing-library/react';
 import {it,expect,vi,beforeEach} from 'vitest';
 import {ConversationRetryAttempts} from './ConversationRetryAttempts';
 import {readRetryAttempts,type TurnRetryContext} from '../api/conversationRetryApi';
@@ -15,7 +16,7 @@ it('loads bounded previous attempts only on expansion, then deliberate paginatio
  const details=screen.getByText('Previous attempts · 2').closest('details')!;details.open=true;fireEvent(details,new Event('toggle'));
  await screen.findByText('Attempt 2 · interrupted');expect(readRetryAttempts).toHaveBeenCalledTimes(1);
  fireEvent.click(screen.getByRole('button',{name:'Earlier attempts'}));await screen.findByText('Attempt 1 · interrupted');
- expect(readRetryAttempts).toHaveBeenLastCalledWith('world','conversation','leaf',2);expect(screen.queryByRole('button',{name:'Retry question'})).not.toBeInTheDocument();
+ expect(readRetryAttempts).toHaveBeenLastCalledWith('world','conversation','leaf',2,expect.any(AbortSignal));expect(screen.queryByRole('button',{name:'Retry question'})).not.toBeInTheDocument();
 });
 it('rejects foreign chain content',async()=>{
  const value=page('bad',0,null);value.turns[0].retry_context.root_id='foreign';
@@ -53,4 +54,36 @@ it('still rejects a foreign ancestor trace response',async()=>{
  const trace=screen.getByText('Trace').closest('details')!;trace.open=true;fireEvent(trace,new Event('toggle'));
  expect(await screen.findByRole('alert')).toHaveTextContent('Execution trace is unavailable');
  expect(screen.queryByText('How Buddy built this reply')).not.toBeInTheDocument();
+});
+
+it('keeps the current request loading when an earlier request for the same turn resolves', async () => {
+  const context: TurnRetryContext = {
+    world_id: 'world', conversation_id: 'conversation', turn_id: 'A', root_id: 'root',
+    revision: 1, ordinal: 1, predecessor_id: 'previous', successor_id: null,
+    eligible: false, reason: 'retried',
+  };
+  const pending: { signal: AbortSignal; resolve: (page: LibraryTurns) => void }[] = [];
+  vi.mocked(readRetryAttempts).mockImplementation((_world, _conversation, _turn, _before, signal) =>
+    new Promise(resolve => pending.push({ signal: signal!, resolve })));
+  const { container, rerender, unmount } = render(<ConversationRetryAttempts context={context} />);
+  const panel = container.querySelector('details')!;
+  const open = () => {
+    panel.open = true;
+    fireEvent(panel, new Event('toggle'));
+  };
+
+  open();
+  rerender(<ConversationRetryAttempts context={{ ...context, turn_id: 'B' }} />);
+  open();
+  rerender(<ConversationRetryAttempts context={context} />);
+  open();
+  expect(pending.map(request => request.signal.aborted)).toEqual([true, true, false]);
+
+  await act(async () => pending[0].resolve({
+    schema: 'dmb_conversation_library_turns_v3', world_id: 'world',
+    conversation_id: 'conversation', turns: [], next_before_sequence: null,
+  }));
+  expect(screen.getByText('Loading previous attempts…')).toBeVisible();
+  unmount();
+  expect(pending[2].signal.aborted).toBe(true);
 });

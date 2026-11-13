@@ -41,9 +41,9 @@ export async function readRetryContext(world:string,conversation:string,ids:stri
  for(const row of v.turns){if(!exact(row,['turn_id','context'])||!ids.includes(row.turn_id)||rows.has(row.turn_id))throw new Error('Retry history has a different attempt.');rows.set(row.turn_id,decodeRetryContext(row.context,world,conversation,row.turn_id));}
  return rows;
 }
-export async function readRetryAttempts(world:string,conversation:string,turn:string,before?:number){
+export async function readRetryAttempts(world:string,conversation:string,turn:string,before?:number,signal?:AbortSignal){
  const q=new URLSearchParams({limit:'50'});if(before!==undefined)q.set('before_sequence',String(before));
- const {response}=await authenticatedApiFetch('/api/live/agent/worlds/'+encodeURIComponent(world)+'/conversations/'+encodeURIComponent(conversation)+'/turns/'+encodeURIComponent(turn)+'/retry-attempts?'+q,{cache:'no-store'});
+ const {response}=await authenticatedApiFetch('/api/live/agent/worlds/'+encodeURIComponent(world)+'/conversations/'+encodeURIComponent(conversation)+'/turns/'+encodeURIComponent(turn)+'/retry-attempts?'+q,{cache:'no-store',signal});
  const v=await response.json();if(!response.ok)throw new LiveApiError(typeof v.detail==='string'?v.detail:'Earlier attempts are unavailable.',response.status);
  const {decodeLibraryTurns}=await import('./conversationLibraryApi');return decodeLibraryTurns(v,world,conversation,before);
 }

@@ -8,23 +8,27 @@ import {BuddyContextTraceLoader} from '../planSurface/components/BuddyContextTra
 export function ConversationRetryAttempts({context}:{context:TurnRetryContext}){
  const key=JSON.stringify([context.world_id,context.conversation_id,context.turn_id,context.root_id,context.ordinal]);
  const current=useRef(key);current.current=key;
+ const activeRequest=useRef<AbortController|null>(null);
  const [rows,setRows]=useState<LibraryTurn[]>([]),[cursor,setCursor]=useState<number|null>(null);
  const [loading,setLoading]=useState(false),[error,setError]=useState('');
  const loaded=useRef(false),busy=useRef(false);
- useEffect(()=>{current.current=key;loaded.current=false;busy.current=false;setRows([]);setCursor(null);setError('');setLoading(false);return()=>{current.current='';};},[key]);
+ useEffect(()=>{current.current=key;loaded.current=false;busy.current=false;setRows([]);setCursor(null);setError('');setLoading(false);return()=>{current.current='';activeRequest.current?.abort();activeRequest.current=null;};},[key]);
  async function load(older=false){
   if(busy.current||!older&&loaded.current)return;
   const owner=key;busy.current=true;setLoading(true);setError('');
+  const request=new AbortController();
+  activeRequest.current=request;
+  const ownsRequest=()=>current.current===owner&&activeRequest.current===request;
   try{
-   const page=await readRetryAttempts(context.world_id,context.conversation_id,context.turn_id,older?cursor??undefined:undefined);
-   if(current.current!==owner)return;
+   const page=await readRetryAttempts(context.world_id,context.conversation_id,context.turn_id,older?cursor??undefined:undefined,request.signal);
+   if(!ownsRequest())return;
    if(page.turns.some(t=>!['failed','interrupted'].includes(t.status)||!t.retry_context||t.retry_context.root_id!==context.root_id||t.retry_context.ordinal>=context.ordinal))throw new Error('Earlier attempts differ from this request.');
    setRows(prior=>older?[...page.turns,...prior]:page.turns);setCursor(page.next_before_sequence);loaded.current=true;
-  }catch(reason){if(current.current===owner)setError(reason instanceof Error?reason.message:'Earlier attempts are unavailable.');}
-  finally{if(current.current===owner){busy.current=false;setLoading(false);}}
+  }catch(reason){if(ownsRequest())setError(reason instanceof Error?reason.message:'Earlier attempts are unavailable.');}
+  finally{if(ownsRequest()){activeRequest.current=null;busy.current=false;setLoading(false);}}
  }
  if(!context.ordinal)return null;
- return <details onToggle={e=>{if(e.currentTarget.open)void load();}}><summary>Previous attempts · {context.ordinal}</summary>
+ return <details onToggle={e=>{if(e.currentTarget.open)void load();else if(activeRequest.current){activeRequest.current.abort();activeRequest.current=null;busy.current=false;setLoading(false);}}}><summary>Previous attempts · {context.ordinal}</summary>
   {loading&&<p role="status">Loading previous attempts…</p>}
   {error&&<p role="alert">{error}<button type="button" disabled={loading} onClick={()=>void load()}>Retry history read</button></p>}
   {cursor!==null&&<button type="button" disabled={loading} onClick={()=>void load(true)}>Earlier attempts</button>}
