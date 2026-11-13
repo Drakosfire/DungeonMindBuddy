@@ -41,7 +41,7 @@ dependencies = [
     "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@ef9c50f2d6aa89a35e9408f83fc4d0ba47825ca2",
     # Exact source pin: GenerationEngine #38 adds safe HTTP status/request-ID logs
     # for OpenAI-compatible provider failures; public errors remain generic.
-    "generationengine[openai,openrouter,typesafe,fal,vercel] @ git+https://github.com/Drakosfire/GenerationEngine.git@c0060ab1f4d12ff196f835eca0e88741387f5d80",
+    "generationengine[openai,openrouter,typesafe,fal,vercel] @ git+https://github.com/Drakosfire/GenerationEngine.git@ab511c8a35bd3a76aecb7cb5b9d8b549fcbbbc2f",
     "psycopg[binary]>=3.2",
     "pillow>=10",
     "alembic>=1.16",
