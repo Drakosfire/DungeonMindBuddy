@@ -380,6 +380,24 @@ def read_active_messages(
     }
 
 
+def _turn_row(turn, world, conversation):
+    from .authored_graph_references import reference_input
+
+    meta = getattr(turn, "envelope", turn)
+    row = {
+        "turn_id": str(meta.turn_id),
+        "sequence": meta.sequence,
+        "status": meta.status,
+        "user_text": meta.user_text,
+        "assistant_text": turn.assistant_text,
+        "reply_object": _reply_object(turn, world, conversation),
+    }
+    captured = reference_input(turn)
+    if captured is not None:
+        row["authored_references"] = captured.model_dump(mode="json", by_alias=True)
+    return row
+
+
 def read_turns(
     world: str,
     conversation: UUID,
@@ -391,22 +409,7 @@ def read_turns(
     turns = service.list_turns(
         world, conversation, limit=limit, before_sequence=before_sequence
     )
-    from .authored_graph_references import reference_input
-    rows = []
-    for turn in turns:
-        meta = getattr(turn, "envelope", turn)
-        captured = reference_input(turn)
-        rows.append(
-            {
-                **({'authored_references':captured.model_dump(mode='json',by_alias=True)} if captured is not None else {}),
-                "turn_id": str(meta.turn_id),
-                "sequence": meta.sequence,
-                "status": meta.status,
-                "user_text": meta.user_text,
-                "assistant_text": turn.assistant_text,
-                "reply_object": _reply_object(turn, world, conversation),
-            }
-        )
+    rows = [_turn_row(turn, world, conversation) for turn in turns]
     from .retry import context
 
     with unit_of_work(_ready_dsn()) as conn:
@@ -451,24 +454,11 @@ def read_retry_attempts(
         turns, more = repo.list_retry_attempt_page(
             conn, world, conversation, root, before_sequence=before, limit=limit
         )
-        active = False  # Library inspection never grants a retry control.
-        from .authored_graph_references import reference_input
         rows = []
         for item in turns:
-            m = getattr(item, "envelope", item)
-            captured = reference_input(item)
-            rows.append(
-                {
-                    **({'authored_references':captured.model_dump(mode='json',by_alias=True)} if captured is not None else {}),
-                    "turn_id": str(m.turn_id),
-                    "sequence": m.sequence,
-                    "status": m.status,
-                    "user_text": m.user_text,
-                    "assistant_text": item.assistant_text,
-                    "reply_object": _reply_object(item, world, conversation),
-                    "retry_context": context(conn, item, active=active),
-                }
-            )
+            row = _turn_row(item, world, conversation)
+            row["retry_context"] = context(conn, item, active=False)
+            rows.append(row)
         return {
             "schema": "dmb_conversation_library_turns_v3",
             "world_id": world,
