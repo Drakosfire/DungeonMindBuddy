@@ -1,6 +1,7 @@
 """Tests for graph preview surface API."""
 from __future__ import annotations
 
+from json import JSONDecodeError
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -112,6 +113,39 @@ def test_latest_surface_discovers_only_when_unpinned(tmp_path, monkeypatch, pinn
         with pytest.raises(graph_preview_surface.GraphPreviewSurfaceError) as error:
             build_latest_graph_preview_surface(tmp_path)
         assert error.value.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("canonical", "evidence", "winner", "probed"),
+    [
+        ({0, 2}, {0, 2, 3}, 2, [3, 2]),
+        ({0, 2}, {1, 3}, 3, [3, 2, 0]),
+        ({0, 2}, set(), 2, [3, 2, 1, 0]),
+        (set(), set(), 3, [3, 2, 1, 0]),
+    ],
+)
+def test_preview_ranking_probes_only_runs_that_can_win(tmp_path, monkeypatch, canonical, evidence, winner, probed):
+    runs = [SimpleNamespace(run_dir=str(i), canonical_ir_valid=i in canonical) for i in range(4)]
+    probe = Mock(side_effect=lambda _root, run_dir: int(run_dir) in evidence)
+    monkeypatch.setattr(graph_preview_surface, "_run_has_resolvable_evidence", probe)
+    assert graph_preview_surface._pick_latest_run(tmp_path, runs) is runs[winner]
+    assert [int(call.args[1]) for call in probe.call_args_list] == probed
+
+
+def test_preview_ranking_skips_malformed_older_artifact_after_top_tier_match(tmp_path, monkeypatch):
+    older = SimpleNamespace(run_dir="older", canonical_ir_valid=True)
+    newer = SimpleNamespace(run_dir="newer", canonical_ir_valid=True)
+    malformed = JSONDecodeError("malformed fixture", "{", 1)
+
+    def probe(_root, run_dir):
+        if run_dir == older.run_dir:
+            raise malformed
+        return True
+
+    monkeypatch.setattr(graph_preview_surface, "_run_has_resolvable_evidence", probe)
+    assert graph_preview_surface._pick_latest_run(tmp_path, [older, newer]) is newer
+    with pytest.raises(JSONDecodeError):
+        graph_preview_surface._pick_latest_run(tmp_path, [older])
 
 
 def test_latest_surface_prefers_resolvable_run() -> None:
