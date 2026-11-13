@@ -84,6 +84,7 @@
       "apps/live-control-ui/src/buildSurface/BuildPageProposal.test.tsx",
       "apps/live-control-ui/src/buildSurface/BuildPdfCaptureReview.test.tsx",
       "apps/live-control-ui/src/buildSurface/BuildPdfStatblockReview.test.tsx",
+      "apps/live-control-ui/src/buildSurface/publishPdfStatblock.test.ts",
       "apps/live-control-ui/src/buildSurface/BuildRecapConfiguration.test.tsx",
       "apps/live-control-ui/src/buildSurface/BuildRecapLaunch.test.tsx",
       "apps/live-control-ui/src/buildSurface/BuildRecapPublication.test.tsx",
