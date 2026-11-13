@@ -62,6 +62,15 @@ The CLI checks that the required executable exists. This procedure covers
 same-major recovery. Qualify cross-major restores independently before using
 them for APP-STATE.
 
+## Client deadlines and cancellation
+
+Pass `--timeout-seconds N` to `backup` or `restore` to limit the PostgreSQL
+client subprocess. The default leaves the client deadline unset. The option
+does not time database inspection or fingerprinting. Ctrl-C during the client
+call reports an interruption. After a timeout or interruption, use a fresh
+backup output path or discard and recreate the disposable restore target
+before retrying. A timed-out restore can have applied part of the dump.
+
 ## Routine backup
 
 Choose a fresh dump path in an existing directory on a filesystem that supports

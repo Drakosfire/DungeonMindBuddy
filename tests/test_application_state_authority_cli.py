@@ -122,3 +122,25 @@ def test_backup_stages_and_preserves_existing_set(tmp_path, monkeypatch):
     with pytest.raises(authority.ApplicationStateIntegrityError, match="destination already exists"):
         authority.backup_authority(source_dsn=dsn, out_path=out)
     assert {path: path.read_bytes() for path in tmp_path.iterdir()} == before
+
+
+def test_recovery_client_deadline_and_interrupt(monkeypatch):
+    import pytest
+    from application_state import authority
+
+    def timeout(argv, **kwargs):
+        assert kwargs["timeout"] == 3
+        raise authority.subprocess.TimeoutExpired(argv, 3)
+
+    monkeypatch.setattr(authority.subprocess, "run", timeout)
+    with pytest.raises(authority.ApplicationStateUnavailableError, match="timed out after 3 seconds"):
+        authority._run_recovery_client(["pg_dump"], env={}, timeout_seconds=3, failure_hint="Retry.")
+
+    def interrupt(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(authority.subprocess, "run", interrupt)
+    with pytest.raises(authority.ApplicationStateUnavailableError, match="recreate the target"):
+        authority._run_recovery_client(
+            ["pg_restore"], env={}, timeout_seconds=None, failure_hint="Discard and recreate the target.",
+        )
