@@ -32,6 +32,16 @@ export function BuildSurfacePage() {
 
   return (
     <AppChrome activeRoute="build" editorTools={editorTools} editToolboxLayout="dock" workspaceLayout="bounded">
+      <div style={{display: "contents"}} onDragOver={event => {
+        if (!pdfReviewId && event.dataTransfer.types.includes("Files")) event.preventDefault();
+      }} onDrop={event => {
+        if (pdfReviewId || event.defaultPrevented) return;
+        const files = Array.from(event.dataTransfer.files);
+        const file = files.length === 1 ? files[0] : undefined;
+        if (!file || !(file.type === "application/pdf" || (!file.type && /\.pdf$/i.test(file.name)))) return;
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent("dmb:build-pdf-drop", {detail: file}));
+      }}>
       {pdfReviewId && reviewWorldId ? (
         <BuildPdfStatblockReview key={`${reviewWorldId}:${pdfReviewId}`} worldId={reviewWorldId} reviewId={pdfReviewId} />
       ) : controller.activeDocumentId ? (
@@ -55,6 +65,7 @@ export function BuildSurfacePage() {
           <BuildReferenceCapability documentId={null} />
         </>
       )}
+      </div>
     </AppChrome>
   );
 }

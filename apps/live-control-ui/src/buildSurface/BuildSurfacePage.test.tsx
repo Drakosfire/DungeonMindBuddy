@@ -1,3 +1,5 @@
+vi.mock("./BuildPdfPreview", () => ({ BuildPdfPreview: ({initialFile}: {initialFile?: File}) => initialFile?.name ?? null }));
+import { fireEvent } from "@testing-library/react";
 import { StrictMode, useState } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -218,6 +220,14 @@ describe("BuildSurfacePage", () => {
       schema_version: "dmb_workspace_document_registry_v1",
       records: [],
     });
+  });
+
+  it("opens the PDF import viewer on a canvas file drop", async () => {
+    renderBuildPage();
+    const canvas = await screen.findByRole("heading", {name: /Start with a spark/});
+    fireEvent.drop(canvas, {dataTransfer: {files: [new File(["%PDF"], "creature.pdf", {type: "application/pdf"})]}});
+    expect(await screen.findByText("creature.pdf")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", {name: "World"})).toBeInTheDocument();
   });
 
   it("E2: bare /build shows a framed landing and shared conversation dock without creating", async () => {

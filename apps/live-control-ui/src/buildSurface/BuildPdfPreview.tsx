@@ -398,8 +398,8 @@ function PdfPages({ file, worldId, restored, onRetained }: {
   );
 }
 
-export function BuildPdfPreview({ worldId }: { worldId?: string }) {
-  const [selection, setSelection] = useState<{ file: File; version: number; restored?: PdfLocator }>();
+export function BuildPdfPreview({ worldId, initialFile }: { worldId?: string; initialFile?: File }) {
+  const [selection, setSelection] = useState<{ file: File; version: number; restored?: PdfLocator } | undefined>(() => initialFile ? { file: initialFile, version: 0 } : undefined);
   const [reopenError, setReopenError] = useState("");
   const [reopening, setReopening] = useState(false);
   const [retained, setRetained] = useState<RetainedPdf[]>(() =>

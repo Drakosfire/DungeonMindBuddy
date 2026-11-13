@@ -113,6 +113,18 @@ export function BuildDocumentCreateControl({
   onRetryImport,
   disabled = false,
 }: BuildDocumentCreateControlProps) {
+  const [droppedPdf, setDroppedPdf] = useState<{file: File; sequence: number}>();
+  useEffect(() => {
+    function openPdf(event: Event) {
+      if (disabled || creating) return;
+      const file = (event as CustomEvent<File>).detail;
+      setDroppedPdf(previous => ({file, sequence: (previous?.sequence ?? 0) + 1}));
+      setDestinationSelection({value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions), provenance: "derived"});
+      setImportOpen(true);
+    }
+    window.addEventListener("dmb:build-pdf-drop", openPdf);
+    return () => window.removeEventListener("dmb:build-pdf-drop", openPdf);
+  }, [creating, disabled, destinationOptions, suggestedDestinationValue]);
   const [createOpen, setCreateOpen] = useState(false);
   const [starter, setStarter] = useState(true);
   useEffect(() => {
@@ -267,7 +279,7 @@ export function BuildDocumentCreateControl({
   const sharedFields = (
     <>
       <label className="build-document-create__field build-document-create__field--destination">
-        <span>Destination</span>
+        <span>World</span>
         <select
           data-testid="build-document-create-destination"
           value={destinationValue}
@@ -487,7 +499,7 @@ export function BuildDocumentCreateControl({
       </SurfaceContextPopover>
       <SurfaceContextPopover
         open={importOpen}
-        onOpenChange={setImportOpen}
+        onOpenChange={open => { setImportOpen(open); if (!open) setDroppedPdf(undefined); }}
         title="Import source"
         align="end"
         placement="below"
@@ -500,7 +512,7 @@ export function BuildDocumentCreateControl({
           />
         }
       >
-        <BuildPdfPreview key={resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined} worldId={resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined} />
+        <BuildPdfPreview initialFile={droppedPdf?.file} key={JSON.stringify([resolvedDestination?.kind === "world" ? resolvedDestination.worldId : null, droppedPdf?.sequence])} worldId={resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined} />
         {importForm}
       </SurfaceContextPopover>
     </div>
