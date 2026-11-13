@@ -3,6 +3,14 @@
   "compilerOptions": {
     "composite": false
   },
-  "include": ["src/**/*.stories.tsx", ".ladle/**/*.tsx", "src/nativeGraphDemo/nativeGraphDemoEntry.tsx"],
+  "include": [
+    "src/**/*.stories.tsx",
+    ".ladle/**/*.tsx",
+    "src/nativeGraphDemo/nativeGraphDemoEntry.tsx",
+    "src/localWorld/**/*.browserHarness.ts",
+    "src/localWorld/**/*.browserHarness.tsx",
+    "src/localWorld/worldGraphCanvas/fullGraphOverview.benchmark.tsx",
+    "src/planSurface/graphReviewWorkbench/graphReviewLiveStateTestHarness.tsx"
+  ],
   "exclude": []
 }
