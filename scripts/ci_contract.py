@@ -83,9 +83,18 @@ def validate_inventory(root: Path = ROOT) -> dict:
     for name, expected in expected_scripts.items():
         if scripts.get(name) != expected:
             raise ValueError(f"frontend discovery command changed: {name}; review inventory")
-    return {"discovered_test_files": len(found), "lane_file_counts": {
-        lane: len(files) for lane, files in inventory["lanes"].items()
-    }}
+    browser_candidates = sorted(
+        path for path in found
+        if path.startswith("apps/live-control-ui/tests/") and path.endswith(".pw.ts")
+    )
+    # The config fingerprint above guards this suite's reviewed testMatch.
+    visual_files = [path for path in browser_candidates if Path(path).name == "ui-visual.pw.ts"]
+    return {
+        "discovered_test_files": len(found),
+        "lane_file_counts": {lane: len(files) for lane, files in inventory["lanes"].items()},
+        "browser_candidate_files": len(browser_candidates),
+        "playwright_visual_files": len(visual_files),
+    }
 
 
 def sha(root: Path = ROOT) -> str:
