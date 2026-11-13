@@ -1,12 +1,10 @@
 import { useState, type ReactNode } from "react";
 import type {
-  GraphProjectionAdjacencyCandidate,
   GraphProjectionEvidenceBadge,
   GraphProjectionNodeView,
   GraphProjectionSuggestedExpansion,
 } from "../../api/types";
 import {
-  adjacencyThreadLabel,
   buildRecapNodePresentation,
   DEFAULT_SUGGESTED_EXPANSION_DISPLAY_CAP,
   expansionPresentationLabel,
@@ -66,34 +64,6 @@ function EvidenceBadgeRow({
       ) : (
         <div className="union-supergraph-evidence-button">{content}</div>
       )}
-    </li>
-  );
-}
-
-export function GraphNodeAdjacencyRow({
-  candidate,
-  onSelect,
-  selected,
-}: {
-  candidate: GraphProjectionAdjacencyCandidate;
-  onSelect: (nodeId: string) => void;
-  selected: boolean;
-}) {
-  return (
-    <li className="union-supergraph-adjacency-item" data-focus={candidate.anchored_to_focus_session}>
-      <button
-        type="button"
-        className={`union-supergraph-adjacency-button${selected ? " selected" : ""}`}
-        onClick={() => onSelect(candidate.node_id)}
-      >
-        <strong>{candidate.label}</strong>
-        <span>{adjacencyThreadLabel(candidate)}</span>
-        {candidate.anchored_to_focus_session ? (
-          <em className="union-supergraph-focus-tag">current session</em>
-        ) : (
-          <em className="union-supergraph-context-tag">prior context</em>
-        )}
-      </button>
     </li>
   );
 }
