@@ -219,7 +219,7 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
             self.splits += 1
             return super().splitlines(keepends)
 
-    source = CountedRecap("First line.\r\nSee Mara.\r\nAsk Mara.\r\n")
+    source = CountedRecap("First line.\r\nSee Mara.\r\nAsk Mara. [Mara](https://example.test/Mara) and `Mara`.\r\n")
     recap = Mock(return_value=(source, "recap.md"))
     monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", lambda *args, **kwargs: record)
     monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
@@ -229,7 +229,7 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
 
     payload = build_recap_graph_presentation(tmp_path)
 
-    assert payload.markdown == "First line.\nSee [Mara](dmb-node:npc_mara).\nAsk [Mara](dmb-node:npc_mara)."
+    assert payload.markdown == "First line.\nSee [Mara](dmb-node:npc_mara).\nAsk [Mara](dmb-node:npc_mara). [Mara](https://example.test/Mara) and `Mara`."
     assert [(link.source_span_ref_id, link.char_start, link.char_end) for link in payload.links] == [("first", 16, 20), ("span", 4, 8)]
     assert payload.recap_source_path == "recap.md"
     assert sum(call.args == (index_path,) for call in read.call_args_list) == 1

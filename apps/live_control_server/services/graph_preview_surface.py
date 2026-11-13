@@ -8,6 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, NamedTuple
 
+from graph_memory.projection.markdown_mentions import markdown_protected_ranges
 from pydantic import BaseModel, Field
 
 from apps.live_control_server.config import repo_root
@@ -628,6 +629,7 @@ def _span_links_for_nodes(
     span_ref_id: str,
     matchers: list[tuple[RecapGraphNode, list[re.Pattern[str]], list[str]]],
     within_two_edits: Callable[[str, str], bool],
+    protected_ranges: list[tuple[int, int]],
 ) -> list[RecapGraphLink]:
     link_candidates: list[tuple[int, int, int, RecapGraphNode]] = []
     words = None
@@ -665,9 +667,9 @@ def _span_links_for_nodes(
     links: list[RecapGraphLink] = []
     occupied_until = -1
     for start, negative_length, priority, node in sorted(link_candidates, key=lambda item: item[:3]):
-        if start < occupied_until:
-            continue
         end = start - negative_length
+        if start < occupied_until or any(start < stop and end > begin for begin, stop in protected_ranges):
+            continue
         evidence_kind = "mention" if priority == 0 else "fuzzy-mention"
         links.append(RecapGraphLink(
             href=f"dmb-node:{node.object_id}",
@@ -1003,6 +1005,7 @@ def build_recap_graph_presentation(
         aliases_by_node.setdefault(object_id, seeded_aliases.get(object_id, [node.label]))
 
     source = "\n".join(recap_lines)
+    protected_ranges = markdown_protected_ranges(source)
     line_offsets = [0]
     for line in recap_lines:
         line_offsets.append(line_offsets[-1] + len(line) + 1)
@@ -1014,11 +1017,17 @@ def build_recap_graph_presentation(
         paragraph = _paragraph_text_for_span(recap_lines, span)
         if paragraph.lstrip().startswith("---"):
             continue
-        span_links = _span_links_for_nodes(paragraph, span_ref_id, matchers, within_two_edits)
-        if not span_links:
-            continue
         start, _ = _span_line_bounds(span)
+        if not paragraph:
+            continue
         offset = line_offsets[start - 1]
+        span_end = offset + len(paragraph)
+        protected_in_span = [
+            (begin - offset, end - offset)
+            for begin, end in protected_ranges
+            if begin < span_end and end > offset
+        ]
+        span_links = _span_links_for_nodes(paragraph, span_ref_id, matchers, within_two_edits, protected_in_span)
         edits.extend((offset + link.char_start, offset + link.char_end, link) for link in span_links)
     chunks: list[str] = []
     cursor = 0
