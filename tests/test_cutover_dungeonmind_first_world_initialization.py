@@ -1375,7 +1375,9 @@ def test_fresh_source_receipt_survives_reviewed_graph_activation(native_first_wo
     client, _, repo, dsn = native_first_world_client
     _, plan = _prepare_native_plan(client, repo)
     source_id = plan["workspaceDocumentId"]
-    snapshot = native.get_workspace_document_snapshot(repo, source_id)
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+
+    snapshot = get_workspace_document_snapshot(repo, source_id)
     admitted = native.admit_native_world_source(repo, source_id,
         expected_revision=snapshot.loaded_revision, expected_body_sha256=snapshot.content_sha256)
     before = get_world_container(plan["worldId"]).native_graph_binding
