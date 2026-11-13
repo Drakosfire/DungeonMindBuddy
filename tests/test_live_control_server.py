@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import json
 import shutil
 from pathlib import Path
@@ -9,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
+from apps.live_control_server import session_store
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.schema_validation import LiveRowValidationError, validate_before_append
@@ -580,6 +582,41 @@ def test_complete_job_marks_queued_job_complete(client: TestClient, isolated_ses
     persisted = json.loads(jobs_on_disk[0])
     assert persisted["status"] == "complete"
     assert persisted["job_type"] == "benchmark_candidate"
+
+
+def test_queue_mutations_hold_the_same_lock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    queue = tmp_path / "job_queue.jsonl"
+    packet = {"campaign_id": "test", "session": 1}
+    append = session_store.append_jsonl
+    rewrite = session_store._rewrite_jsonl
+
+    def assert_locked(path: Path) -> None:
+        with path.with_name(f".{path.name}.lock").open("a") as handle:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def checked_append(path: Path, row: dict[str, Any]) -> None:
+        assert path == queue
+        assert_locked(path)
+        append(path, row)
+
+    def checked_rewrite(path: Path, rows: list[dict[str, Any]]) -> None:
+        assert_locked(path)
+        rewrite(path, rows)
+
+    monkeypatch.setattr(session_store, "append_jsonl", checked_append)
+    monkeypatch.setattr(session_store, "_rewrite_jsonl", checked_rewrite)
+    first = session_store.queue_packet_rebuild_job(tmp_path, packet)
+    second = session_store.queue_packet_rebuild_job(tmp_path, packet)
+    session_store.append_events_and_jobs(tmp_path, [], [{**second, "id": "third"}])
+    session_store.complete_job(tmp_path, first["id"])
+
+    rows = [json.loads(line) for line in queue.read_text().splitlines()]
+    assert [(row["id"], row["status"]) for row in rows] == [
+        (first["id"], "complete"),
+        (second["id"], "queued"),
+        ("third", "queued"),
+    ]
 
 
 def test_complete_job_returns_404_for_missing_id(client: TestClient) -> None:
