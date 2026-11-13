@@ -30,7 +30,7 @@ Buddy APP-STATE and DungeonMind World are separate authorities. Never point Budd
 
 ```bash
 # 1. Start the durable substrate
-docker compose -f compose.postgres.app-state.yml up -d
+docker compose -f compose.postgres.app-state.yml up -d --wait
 
 # 2. Point this shell at the durable authority (local dev default credentials)
 export DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL=\
@@ -44,6 +44,8 @@ uv run python scripts/application_state_authority.py check
 # OBSERVED. Capture the fingerprint JSON if you will need a later READY check:
 uv run python scripts/application_state_authority.py fingerprint --out out/application_state/birth.fingerprint.json
 ```
+
+The startup command waits for PostgreSQL to accept TCP connections. Before migrating or checking a restore, use the intended DSN to confirm that an authenticated query succeeds.
 
 ## PostgreSQL client prerequisites
 
