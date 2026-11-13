@@ -381,8 +381,8 @@ def test_process_live_query_injects_runtime_once(tmp_path: Path, monkeypatch) ->
         lambda *args, **kwargs: READY_ENVELOPE,
     )
     monkeypatch.setattr(
-        "apps.live_control_server.services.live_agent_loop.load_session",
-        lambda *_args, **_kwargs: (PACKET, None, [], []),
+        "apps.live_control_server.services.live_agent_loop.load_session_packet",
+        lambda *_args, **_kwargs: PACKET,
     )
     response = process_live_query(
         "Where is Tripod?",
@@ -410,8 +410,8 @@ def test_process_live_query_trace_identity_follows_runtime_descriptor(
         lambda *args, **kwargs: READY_ENVELOPE,
     )
     monkeypatch.setattr(
-        "apps.live_control_server.services.live_agent_loop.load_session",
-        lambda *_args, **_kwargs: (PACKET, None, [], []),
+        "apps.live_control_server.services.live_agent_loop.load_session_packet",
+        lambda *_args, **_kwargs: PACKET,
     )
     response = process_live_query(
         "Where is Tripod?",

@@ -437,8 +437,8 @@ def test_process_live_query_descriptor_is_not_hermes(tmp_path: Path, monkeypatch
         lambda *args, **kwargs: READY_ENVELOPE,
     )
     monkeypatch.setattr(
-        "apps.live_control_server.services.live_agent_loop.load_session",
-        lambda *_args, **_kwargs: (PACKET, None, [], []),
+        "apps.live_control_server.services.live_agent_loop.load_session_packet",
+        lambda *_args, **_kwargs: PACKET,
     )
     response = process_live_query(
         "Where is Tripod?",

@@ -30,6 +30,10 @@ def _paths(base: Path) -> dict[str, Path]:
     }
 
 
+def load_session_packet(base: Path) -> dict[str, Any]:
+    return load_json(_paths(base)["packet"])
+
+
 def load_session_events(base: Path) -> list[dict[str, Any]]:
     path = _paths(base)["events"]
     return iter_jsonl(path) if path.is_file() else []
@@ -42,7 +46,7 @@ def load_session_jobs(base: Path) -> list[dict[str, Any]]:
 
 def load_session(base: Path) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     paths = _paths(base)
-    packet = load_json(paths["packet"])
+    packet = load_session_packet(base)
     layout = load_json(paths["layout"])
     events = load_session_events(base)
     jobs = load_session_jobs(base)
