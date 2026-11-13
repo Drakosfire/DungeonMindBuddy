@@ -9,7 +9,7 @@ import type {TourOwnerReading} from '../../guidedTour/GuidedTour';
 const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
 const generatedBinding=vi.hoisted(()=>({current:null as import('../../guidedTour/protocol').GeneratedMechanicsScope|null}));
 vi.mock('../../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null,captureMechanicsScope:()=>generatedBinding.current}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
-import {baseCandidateDefinition} from '../editor/editorFixtures';
+import {baseCandidateDefinition} from '../../test/statblockEditorFixtures';
 import type {OpenSavedMechanicsVersion,RevisionSaveOutcome,SavedMechanicsVersionList} from './savedMechanicsRevisionTypes';
 vi.mock('../../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn(),listWorldCreatures:vi.fn(),listWorldMechanicsAssociations:vi.fn(),getThreatDraft:vi.fn(),associateWorldMechanics:vi.fn(),findWorldMechanicsAssociationRequest:vi.fn()}));
 const portrait='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

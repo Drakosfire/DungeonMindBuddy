@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { authenticatedApiFetch, createThreatDraft, listSavedMechanicsVersions, LiveApiError } from "../api/liveApi";
-import { baseCandidateDefinition } from "../statblocks/editor/editorFixtures";
+import { baseCandidateDefinition } from "../test/statblockEditorFixtures";
 import { BuildPdfStatblockReview } from "./BuildPdfStatblockReview";
 
 vi.mock("../api/liveApi", async importOriginal => ({ ...await importOriginal<typeof import("../api/liveApi")>(), createThreatDraft: vi.fn(), authenticatedApiFetch: vi.fn(), listSavedMechanicsVersions: vi.fn() }));

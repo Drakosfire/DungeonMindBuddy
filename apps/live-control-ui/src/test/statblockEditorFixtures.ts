@@ -3,8 +3,8 @@ import type {
   GeneratedStatblockCandidateV1,
   RuleElement_Output,
   StatblockDefinitionV1_Output,
-} from "../../contracts/dungeonbuddy-statblocks-v1/client";
-import fixture from "../../../../../tests/fixtures/statblocks/v1/candidate-response.json";
+} from "../contracts/dungeonbuddy-statblocks-v1/client";
+import fixture from "../../../../tests/fixtures/statblocks/v1/candidate-response.json";
 
 const candidate = fixture as GeneratedStatblockCandidateV1;
 
