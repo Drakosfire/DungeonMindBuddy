@@ -500,7 +500,7 @@ No other path is implicitly leased.
 |---|---|
 | `corpus/eldyrwild-markdown/**` | Exact source bytes are experimental authority; do not edit corpus to improve extraction. |
 | `_normalized/**`, breadcrumb/session-memory derivatives | Not cohort authorities. |
-| `evals/graph_memory_layer/examples/session_1_candidate_graph_gold/**` | Evaluator-only frozen witness; never edit to fit output. |
+| `evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/**` | Evaluator-only frozen witness; never edit to fit output. |
 | `MODEL_POLICY.json` | This is an explicit experiment model, not production model policy. |
 | production UI / Plan / Play / Ingest styling | Graph rehearsal only. |
 | Agent tuning | Separate capability. |

@@ -68,7 +68,7 @@ Runs land under `out/graph_memory/runs/<campaign>/<session-id>/<UTC-timestamp>/`
 
 ## 3. Verified current state — Session 23 (the baseline to beat)
 
-**Gold fixture:** `evals/graph_memory_layer/examples/session_23_candidate_graph_gold/candidate_graph_gold.json`
+**Gold fixture:** `evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-23/candidate_graph_gold.json`
 Gold totals: **42 nodes / 21 edges / 14 beats / 16 proposed writes / 3 ignored / 6 deferred**. The gold is hand-authored and weighted toward **structural relationships** (`member_of` party roster, `located_in` containment, `governs`, `leads`, `parent_of`, `threatens`, `knows_about`).
 
 **Runs on disk** (`out/graph_memory/runs/longmont-c2/session-23/`), oldest→newest, raw manifest counts:
@@ -117,7 +117,7 @@ This is the deep-dive target: **the relationship/beat layer, not the node layer.
   from evals.graph_memory_layer.live_vs_gold_compare import compare_parts, parts_from_raw_graph
   import json
   from pathlib import Path
-  gold = json.loads(Path("evals/graph_memory_layer/examples/session_23_candidate_graph_gold/candidate_graph_gold.json").read_text())
+  gold = json.loads(Path("evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-23/candidate_graph_gold.json").read_text())
   live = json.loads(Path("out/graph_memory/runs/longmont-c2/session-23/20260629T144508Z/candidate_graph.json").read_text())
   rep = compare_parts(parts_from_raw_graph(live), parts_from_raw_graph(gold))
   print(rep["scores"]); print(len(rep["soft_misses"]), "soft misses")
@@ -143,7 +143,7 @@ This is the deep-dive target: **the relationship/beat layer, not the node layer.
 - **The two concrete gaps already isolated:**
   1. **No party `member_of` / structural edges.** Party PCs exist as nodes with corpus refs but the `edge_pass` does not emit `member_of <party>` (gold expects 7). The party anchors are injected at consolidation but a "Heroes / party" collective node + roster edges are not. Investigate: does `party_context` inject a party *node*? Does the `edge_pass` prompt know the roster? (`src/graph_memory/extraction/category_candidate_graph_extractor.py`, the edge pass + `party_context.py`.)
   2. **Empty `involved_node_ids` on beats** kills beat recall. The `beat_pass` emits beats with evidence spans but no node linkage; the comparator's `beat_match_score` needs endpoints. Investigate the beat pass output contract vs `src/graph_memory/identity_resolution.py: beat_match_score`.
-- **Gold authoring rationale** (so you tune toward the *right* target, not just higher numbers): the gold manifest `notes[]` in `evals/graph_memory_layer/examples/session_23_candidate_graph_gold/session_23_candidate_graph_gold_manifest.json` explains the edge-layer philosophy (durable structural/semantic relationships; moment-to-moment combat stays in beats, not edges) and the corpus-resolvability model for entities.
+- **Gold authoring rationale** (so you tune toward the *right* target, not just higher numbers): the gold manifest `notes[]` in `evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-23/source_manifest.json` explains the edge-layer philosophy (durable structural/semantic relationships; moment-to-moment combat stays in beats, not edges) and the corpus-resolvability model for entities.
 - **Reference contracts:** `evals/graph_memory_layer/examples/multi_pass_extraction_contract/` (broader 9-pass design) and `evals/graph_memory_layer/FIXTURE-STATUS.md`.
 
 ---
