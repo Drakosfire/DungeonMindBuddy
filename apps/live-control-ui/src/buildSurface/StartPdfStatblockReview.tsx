@@ -14,6 +14,7 @@ export function StartPdfStatblockReview({
   const [saved, setSaved] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [error, setError] = useState("");
+  const [edition, setEdition] = useState("");
   const [instruction, setInstruction] = useState("");
 
   function describeFailure(detail: unknown): string {
@@ -53,7 +54,7 @@ export function StartPdfStatblockReview({
       const source = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/statblock-reviews/${id}/from-regions`;
       const { response } = await authenticatedApiFetch(source, {
         method: "POST",
-        body: JSON.stringify({ regions, instruction }),
+        body: JSON.stringify({ regions, instruction, ...(edition ? { edition } : {}) }),
       });
       if (response.status === 409) {
         setConflict(true);
@@ -84,6 +85,13 @@ export function StartPdfStatblockReview({
     {saved || conflict ? <a target="_blank" rel="noopener" href={`/build?${new URLSearchParams({ world: worldId, pdfReview: id }).toString()}`}>
       {conflict ? "Open existing statblock review" : "Open statblock review"}
     </a> : <>
+      <label>D&D edition (optional)
+        <select value={edition} onChange={event => setEdition(event.target.value)} disabled={pending}>
+          <option value="">Use source edition</option>
+          <option value="2014">2014</option>
+          <option value="2024">2024</option>
+        </select>
+      </label>
       <label>Guidance for Buddy (optional)
         <textarea rows={2} value={instruction} onChange={event => setInstruction(event.target.value)} disabled={pending} />
       </label>

@@ -2251,7 +2251,9 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     enforce_native_graph_gm(request)
     instruction = body.get("instruction", "")
     regions_body = body.get("regions")
-    if (set(body) != {"regions", "instruction"} or not isinstance(instruction, str)
+    edition = body.get("edition")
+    if (set(body) - {"regions", "instruction", "edition"}
+            or edition not in (None, "2014", "2024") or not isinstance(instruction, str)
             or not isinstance(regions_body, list) or not regions_body
             or any(not isinstance(region, dict) for region in regions_body)):
         raise HTTPException(status_code=422, detail={"code": "invalid_pdf_statblock_extraction_request"})
@@ -2262,7 +2264,9 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         _, authorized_regions = _authorized_pdf_statblock(
             world_id, {"definition": existing["definition"], "regions": regions_body}, request,
         )
-        if authorized_regions == existing["regions"]:
+        if authorized_regions == existing["regions"] and (
+            edition is None or existing["definition"]["ruleset"]["edition"] == edition
+        ):
             return existing
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
 
@@ -2279,7 +2283,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         authorized_regions.append(region.model_dump(mode="json"))
 
     try:
-        extracted = run_awaitable_sync(lambda: extract_statblock(transcriptions, instruction))
+        extracted = run_awaitable_sync(lambda: extract_statblock(transcriptions, instruction, **({"edition": edition} if edition else {})))
     except StatblockExtractionError as exc:
         status_code = 502 if exc.code == "pdf_statblock_output_invalid" else 503
         raise HTTPException(status_code=status_code, detail={"code": exc.code}) from exc
@@ -2288,6 +2292,8 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
             "code": "pdf_statblock_extraction_incomplete",
             "missing_details": extracted.missing_details,
         })
+    if edition is not None and extracted.definition.ruleset.edition != edition:
+        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_output_invalid"})
     try:
         candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": extracted.definition})
     except ValidationError as exc:
