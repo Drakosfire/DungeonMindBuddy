@@ -32,7 +32,7 @@ def _existing_unbound_world(
 ):
     """Explicit retained unbound fixture for the existing-Graph binding contract."""
     created = _create_provisioned_world(
-        root, name=name, owner_subject=owner_subject
+        name=name, owner_subject=owner_subject
     )
     return store_world(created.model_copy(update={"native_graph_binding": None}))
 
