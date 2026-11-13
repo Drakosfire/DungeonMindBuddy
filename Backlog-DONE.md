@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Scope streaming proxy settings to routes that stream. [#2717](https://github.com/Drakosfire/DungeonMindBuddy/pull/2717) updated the hosted template for ordinary proxy traffic. Disposable Nginx syntax validation passed, and a Graph request reached the upstream with the expected forwarded headers. Effective-host checks and any future Agent streaming rehearsal remain with the edge owner.
+
 - Use one source for the Buddy deployment bind port. The [deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md) validates the resolved loopback TCP binding, compares it to the running binding, and uses it for local smoke and the expected Nginx upstream. Recorded fixtures covered six smoke cases, seven preflight cases, and binding drift. The release operator will rehearse default and custom ports under **Verify Compose interpolation on the release host**.
 
 - Control shell overrides during production Compose interpolation. [#2567](https://github.com/Drakosfire/DungeonMindBuddy/pull/2567) isolated release and rollback interpolation. [#2721](https://github.com/Drakosfire/DungeonMindBuddy/pull/2721) recorded a Compose 2.40.3 rehearsal where conflicting inherited values selected the wrong mount and port before sanitization and the approved values afterward. Pre-start JSON validation and running mount checks are in the deployment runbook. The release operator owns the selected-host verification.
