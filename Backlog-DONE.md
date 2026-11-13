@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Use one source for the Buddy deployment bind port. The [deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md) validates the resolved loopback TCP binding, compares it to the running binding, and uses it for local smoke and the expected Nginx upstream. Recorded fixtures covered six smoke cases, seven preflight cases, and binding drift. The release operator will rehearse default and custom ports under **Verify Compose interpolation on the release host**.
+
 - Control shell overrides during production Compose interpolation. [#2567](https://github.com/Drakosfire/DungeonMindBuddy/pull/2567) isolated release and rollback interpolation. [#2721](https://github.com/Drakosfire/DungeonMindBuddy/pull/2721) recorded a Compose 2.40.3 rehearsal where conflicting inherited values selected the wrong mount and port before sanitization and the approved values afterward. Pre-start JSON validation and running mount checks are in the deployment runbook. The release operator owns the selected-host verification.
 
 - Rehearse the production image rollback commands. [#2564](https://github.com/Drakosfire/DungeonMindBuddy/pull/2564) added image identity checks. Stub rehearsals rejected configured-tag mismatch, local image mismatch, failed startup, and running image mismatch, and accepted matching inputs. The full host exercise remains under **Rehearse rollback of an approved Buddy release**.
