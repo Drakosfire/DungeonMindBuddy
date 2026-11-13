@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Align the hosted browser smoke with the local-only route list. [#2535](https://github.com/Drakosfire/DungeonMindBuddy/pull/2535) added Build, Ingest, and Combat to the production runbook. Verified current main lists all six guarded paths and links the independent local Chat smoke. The signed-in rehearsal remains assigned to the release operator.
+
 - Verify the hosted SPA entry and a built asset in the release smoke. [#2556](https://github.com/Drakosfire/DungeonMindBuddy/pull/2556) added shell and JavaScript checks. [#2722](https://github.com/Drakosfire/DungeonMindBuddy/pull/2722) recorded a successful loopback run against slim-image assets for both routes. Fixtures rejected unrelated HTML and HTML served at the asset URL. The public rehearsal remains with the release operator.
 
 - Verify HTTPS on each advertised Buddy address family. The [production deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md) now checks every A and AAAA result with curl --resolve while preserving hostname verification. The recorded stub rehearsal covered IPv4-only, dual stack, failed IPv6, empty results, and DNS failure. External verification remains under **Rehearse HTTPS on every published Buddy address**.
