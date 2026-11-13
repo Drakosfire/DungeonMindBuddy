@@ -1286,6 +1286,10 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }
 
   const record = useMemo(() => graph ? toCanvasRecord(graph, layout) : null, [graph, layout]);
+  const connectionOptions = useMemo(() => graph?.nodes.map((node) => {
+    const { displayName, displayKind } = nativeGraphPresentation(node);
+    return { id: node.id, label: `${displayName} · ${displayKind}` };
+  }) ?? [], [graph?.nodes]);
   const matchingObjects = useMemo(() => {
     const query = objectQuery.trim().toLocaleLowerCase();
     return (graph?.nodes ?? []).filter((node) => {
@@ -1543,13 +1547,13 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         <select id="native-demo-source" value={draft.sourceId} required disabled={Boolean(pendingOperation)}
           onChange={(event) => updateDraft({ sourceId: event.target.value })}>
           <option value="">Choose an object</option>
-          {graph.nodes.map((node) => <option key={node.id} value={node.id}>{nativeGraphPresentation(node).displayName} · {nativeGraphPresentation(node).displayKind}</option>)}
+          {connectionOptions.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
         </select>
         <label htmlFor="native-demo-target">To</label>
         <select id="native-demo-target" value={draft.targetId} required disabled={Boolean(pendingOperation)}
           onChange={(event) => updateDraft({ targetId: event.target.value })}>
           <option value="">Choose an object</option>
-          {graph.nodes.map((node) => <option key={node.id} value={node.id}>{nativeGraphPresentation(node).displayName} · {nativeGraphPresentation(node).displayKind}</option>)}
+          {connectionOptions.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
         </select>
         <label htmlFor={showPredicateOptions ? "native-demo-predicate-choice" : "native-demo-predicate"}>Relationship</label>
         {showPredicateOptions ? (
