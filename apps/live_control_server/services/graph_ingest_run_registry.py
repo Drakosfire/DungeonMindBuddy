@@ -410,6 +410,16 @@ def _iter_manifest_paths(repo: Path, *, include_eval_roots: bool):
                 yield path
 
 
+def _validate_manifest_payload(
+    manifest_path: Path,
+) -> tuple[GraphIngestRunManifest, dict[str, Any]] | None:
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = GraphIngestRunManifest.model_validate(payload)
+    if validate_graph_ingest_run_manifest(payload)["errors"]:
+        return None
+    return manifest, payload
+
+
 def _manifest_health_issue(
     repo: Path,
     manifest_path: Path,
@@ -417,14 +427,13 @@ def _manifest_health_issue(
     try:
         safe_manifest_path = _resolve_repo_contained_path(manifest_path, repo)
         rel_path = _repo_relative(safe_manifest_path, repo)
-        payload = json.loads(safe_manifest_path.read_text(encoding="utf-8"))
-        manifest = GraphIngestRunManifest.model_validate(payload)
-        validation = validate_graph_ingest_run_manifest(payload)
-        if validation["errors"]:
+        validated = _validate_manifest_payload(safe_manifest_path)
+        if validated is None:
             return GraphIngestManifestHealthIssue(
                 manifest_path=rel_path,
                 reason="manifest_validation_failed",
             )
+        manifest, _ = validated
         _preview_union_store_path(repo, manifest)
         return None
     except json.JSONDecodeError:
@@ -469,11 +478,10 @@ def _summarize_manifest(
 ) -> tuple[GraphIngestRunSummary, dict[str, Any]] | None:
     try:
         safe_manifest_path = _resolve_repo_contained_path(manifest_path, repo)
-        payload = json.loads(safe_manifest_path.read_text(encoding="utf-8"))
-        manifest = GraphIngestRunManifest.model_validate(payload)
-        validation = validate_graph_ingest_run_manifest(payload)
-        if validation["errors"]:
+        validated = _validate_manifest_payload(safe_manifest_path)
+        if validated is None:
             return None
+        manifest, payload = validated
         preview_path = _preview_union_store_path(repo, manifest)
     except (OSError, json.JSONDecodeError, ValidationError, ValueError):
         return None
