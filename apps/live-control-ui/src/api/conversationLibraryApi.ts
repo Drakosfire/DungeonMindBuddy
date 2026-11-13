@@ -32,14 +32,14 @@ export async function listConversations(world:string,status:'all'|'archived'|'tr
  if(value.schema!=='dmb_conversation_library_v1'||value.world_id!==world||value.status!==status||!Array.isArray(value.items)||value.items.length>25||!(value.next_before===null||uuid(value.next_before)))throw new Error('Conversation list differs from this World.');
  value.items.forEach((item:any)=>summary(item,world));return value as LibraryPage;
 }
-export async function readConversationName(world:string,id:string){const value=summary(await read(path(world)+'/'+encodeURIComponent(id)+'/name'),world);if(value.conversation_id!==id)throw new Error('Conversation name differs from the selection.');return value;}
+export async function readConversationName(world:string,id:string,signal?:AbortSignal){const value=summary(await read(path(world)+'/'+encodeURIComponent(id)+'/name',{signal}),world);if(value.conversation_id!==id)throw new Error('Conversation name differs from the selection.');return value;}
 export async function renameConversation(world:string,id:string,title:string,expected_revision:number){
  const value=summary(await read(path(world)+'/'+encodeURIComponent(id)+'/name',{method:'PUT',body:JSON.stringify({title,expected_revision})}),world);
  if(value.conversation_id!==id||value.title!==title.trim()||value.name_revision!==expected_revision+1)throw new Error('The exact name save could not be confirmed.');return value;
 }
-export async function readConversationTurns(world:string,id:string,before?:number){
+export async function readConversationTurns(world:string,id:string,before?:number,signal?:AbortSignal){
  const q=new URLSearchParams({limit:'50'});if(before!==undefined)q.set('before_sequence',String(before));
- const value=await read(path(world)+'/'+encodeURIComponent(id)+'/turns?'+q);
+ const value=await read(path(world)+'/'+encodeURIComponent(id)+'/turns?'+q,{signal});
  return decodeLibraryTurns(value,world,id,before);
 }
 export function decodeLibraryTurns(value:any,world:string,id:string,before?:number):LibraryTurns {
@@ -92,9 +92,9 @@ export async function changeConversationLifecycle(command:ResumeConversationComm
 
 export type ConversationMessage=Pick<LibraryTurn,'turn_id'|'sequence'|'status'|'user_text'|'assistant_text'>;
 export interface ConversationMessages{schema:'dmb_conversation_messages_v1';world_id:string;conversation_id:string;messages:ConversationMessage[];next_before_sequence:number|null}
-export async function readConversationMessages(world:string,id:string,before?:number):Promise<ConversationMessages>{
+export async function readConversationMessages(world:string,id:string,before?:number,signal?:AbortSignal):Promise<ConversationMessages>{
  const q=new URLSearchParams({limit:'50'});if(before!==undefined)q.set('before_sequence',String(before));
- const value=await read(path(world)+'/'+encodeURIComponent(id)+'/messages?'+q);
+ const value=await read(path(world)+'/'+encodeURIComponent(id)+'/messages?'+q,{signal});
  if(!exactObject(value,['schema','world_id','conversation_id','messages','next_before_sequence'])||value.schema!=='dmb_conversation_messages_v1'||value.world_id!==world||value.conversation_id!==id||!Array.isArray(value.messages)||value.messages.length>50
   ||!(value.next_before_sequence===null||Number.isInteger(value.next_before_sequence)&&value.next_before_sequence>0))throw new Error('Message preview differs from the selected conversation.');
  let last=0;for(const t of value.messages){if(!exactObject(t,['turn_id','sequence','status','user_text','assistant_text'])||!uuid(t.turn_id)||!Number.isInteger(t.sequence)||t.sequence<=last||(before!==undefined&&t.sequence>=before)||!['accepted','running','completed','failed','interrupted'].includes(t.status)||typeof t.user_text!=='string'||!(t.assistant_text===null||typeof t.assistant_text==='string'))throw new Error('Message preview order or content is invalid.');last=t.sequence;}

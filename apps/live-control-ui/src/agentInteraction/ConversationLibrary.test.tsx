@@ -43,7 +43,7 @@ it('ignores a late transcript after another selection',async()=>{
 });
 it('loads earlier turns and traces only on request',async()=>{
  vi.mocked(api.readConversationMessages).mockResolvedValueOnce({...messages(),messages:[{...messages().messages[0],sequence:51}],next_before_sequence:51}).mockResolvedValueOnce({...messages(),messages:[{...messages().messages[0],turn_id:'44444444-4444-4444-8444-444444444444',user_text:'Earlier question'}]});
- render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);fireEvent.click(await screen.findByRole('button',{name:'Earlier messages'}));await screen.findByText('Earlier question');expect(api.readConversationMessages).toHaveBeenLastCalledWith('world-one',current,51);
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);fireEvent.click(await screen.findByRole('button',{name:'Earlier messages'}));await screen.findByText('Earlier question');expect(api.readConversationMessages).toHaveBeenLastCalledWith('world-one',current,51,expect.any(AbortSignal));
  expect(screen.queryByText('Explicit trace')).not.toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Load saved details'}));await screen.findByText('Full saved details');fireEvent.click(screen.getAllByText('Trace')[0]);await screen.findByText('Explicit trace');
 });
 
@@ -112,7 +112,7 @@ it('retries uncertain Trash using the same command and does not substitute Resto
 
 it('keeps previews lightweight and loads full saved detail only on request',async()=>{
  render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);await screen.findByText('Current question');expect(api.readConversationMessages).toHaveBeenCalled();expect(api.readConversationTurns).not.toHaveBeenCalled();expect(screen.queryByText('Trace')).not.toBeInTheDocument();
- fireEvent.click(screen.getByRole('button',{name:'Load saved details'}));await screen.findByText('Full saved details');expect(api.readConversationTurns).toHaveBeenCalledWith('world-one',current,undefined);expect(screen.getByText('Trace')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Load saved details'}));await screen.findByText('Full saved details');expect(api.readConversationTurns).toHaveBeenCalledWith('world-one',current,undefined,expect.any(AbortSignal));expect(screen.getByText('Trace')).toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:'Show message preview'}));await screen.findByText(/Saved-message preview/);expect(screen.queryByText('Trace')).not.toBeInTheDocument();
 });
 
@@ -145,4 +145,17 @@ it('aborts a superseded list read on filter change and the active read on close'
  expect(requests.map(signal=>signal.aborted)).toEqual([true,false]);
  unmount();
  expect(requests.map(signal=>signal.aborted)).toEqual([true,true]);
+});
+
+it('cancels a pending detail read when the library closes', async () => {
+ let pendingSignal: AbortSignal | undefined;
+ vi.mocked(api.readConversationMessages).mockImplementation((_world,_id,_before,signal)=>{
+  pendingSignal=signal;
+  return new Promise(()=>{});
+ });
+ const {unmount}=render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
+ await waitFor(()=>expect(pendingSignal).toBeDefined());
+ expect(pendingSignal?.aborted).toBe(false);
+ unmount();
+ expect(pendingSignal?.aborted).toBe(true);
 });
