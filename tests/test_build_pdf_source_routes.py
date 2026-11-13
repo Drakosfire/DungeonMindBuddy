@@ -207,3 +207,37 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
         assert validated[0].model_dump(mode="json", by_alias=True) == saved.json()["definition"]
         records.clear()
         assert client.get(review_route, headers=auth).status_code == 404
+
+
+def test_saved_pdf_review_creature_draft_replays_at_exact_revision(monkeypatch, tmp_path):
+    from application_state import pdf_statblock_review
+    from apps.live_control_server.routes import statblock_storage
+
+    def authorize(request):
+        if request.headers.get("authorization") != "Bearer fixture":
+            raise HTTPException(status_code=401)
+
+    monkeypatch.setattr(agent, "enforce_native_graph_gm", authorize)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(statblock_storage, "statblock_data_root", lambda _: tmp_path)
+    review = {"revision": 2, "regions": [], "definition": {
+        "identity": {"name": "Fixture tree"},
+        "ruleset": {"system": "dnd5e", "edition": "2024"},
+        "movement": {"walk": 0}, "challenge": {"proficiency_bonus": 2},
+    }}
+    monkeypatch.setattr(pdf_statblock_review, "read_review",
+                        lambda *, world_id, review_id: review if world_id == "world-a" else None)
+    app = FastAPI()
+    app.include_router(agent.router)
+    route = ("/agent/worlds/world-a/build-pdf-sources/statblock-reviews/"
+             "00000000-0000-4000-8000-000000000001/creature-draft")
+    auth = {"Authorization": "Bearer fixture"}
+    with TestClient(app) as client:
+        assert client.post(route, params={"expected_revision": 2}).status_code == 401
+        assert client.post(route, params={"expected_revision": 1}, headers=auth).status_code == 409
+        assert client.post(route.replace("world-a", "world-b"), params={"expected_revision": 2},
+                           headers=auth).status_code == 404
+        created = client.post(route, params={"expected_revision": 2}, headers=auth)
+        assert created.status_code == 200, created.text
+        replay = client.post(route, params={"expected_revision": 2}, headers=auth)
+        assert replay.status_code == 200 and replay.json() == created.json()
