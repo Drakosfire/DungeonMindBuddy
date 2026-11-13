@@ -67,8 +67,13 @@ buddy_compose=(docker compose --project-name "$buddy_project" --env-file "$buddy
 Save the override with the release record. Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
 
 ```bash
-"${buddy_compose[@]}" up -d --no-build --pull never --wait --wait-timeout 330 buddy &&
-buddy_container=$("${buddy_compose[@]}" ps -q buddy) &&
+"${buddy_compose[@]}" up -d --no-build --pull never --wait --wait-timeout 330 buddy
+```
+
+Run the following smoke block only after the wait succeeds.
+
+```bash
+buddy_container=$("${buddy_compose[@]}" ps -q buddy)
 test "$(docker inspect "$buddy_container" --format '{{.Image}}')" = "$buddy_image_id"
 test "$("${buddy_compose[@]}" port buddy 8000)" = "127.0.0.1:$buddy_port"
 buddy_local="http://127.0.0.1:$buddy_port"
