@@ -32,7 +32,7 @@ from apps.live_control_server.config import (
     session_dir,
     world_graph_root,
 )
-from apps.live_control_server.services.build_pdf_ocr import PdfCropRequest, read_crop
+from apps.live_control_server.services.build_pdf_ocr import read_crop_png
 from apps.live_control_server.models.build_document_proposal import BuildDocumentProposalRequest
 from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryResponse,
@@ -2153,11 +2153,10 @@ def _render_build_pdf_region(pdf, region):
 
 @router.post("/worlds/{world_id}/build-pdf-sources/ocr")
 def post_read_build_pdf_region(world_id: str, body: dict, request: Request):
-    from base64 import b64encode
 
     pdf, region = _authorized_build_pdf_region(world_id, body, request)
     png = _render_build_pdf_region(pdf, region)
-    return read_crop(PdfCropRequest(png_base64=b64encode(png).decode("ascii")))
+    return read_crop_png(png)
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/review")
@@ -2262,7 +2261,6 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     )
     from src.llm.generation_sync import run_awaitable_sync
     from apps.live_control_server.services.build_pdf_region_render import read_region_text
-    from base64 import b64encode
 
     enforce_native_graph_gm(request)
     instruction = body.get("instruction", "")
@@ -2293,7 +2291,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     for locator in regions_body:
         pdf, region = _authorized_build_pdf_region(world_id, locator, request)
         png = _render_build_pdf_region(pdf, region)
-        transcription = read_crop(PdfCropRequest(png_base64=b64encode(png).decode("ascii")))
+        transcription = read_crop_png(png)
         text = transcription.get("text") if isinstance(transcription, dict) else None
         if not isinstance(text, str) or not text.strip():
             raise HTTPException(status_code=503, detail={"code": "pdf_statblock_ocr_unavailable"})

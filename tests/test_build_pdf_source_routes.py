@@ -75,13 +75,11 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
         assert rendered.content == b"fixture PNG"
         assert calls == [(body, 1)]
 
-        from base64 import b64decode
-
         def read_crop(crop):
-            assert b64decode(crop.png_base64) == b"fixture PNG"
+            assert crop == b"fixture PNG"
             return {"text": "Armor Class 16"}
 
-        monkeypatch.setattr(agent, "read_crop", read_crop)
+        monkeypatch.setattr(agent, "read_crop_png", read_crop)
         calls.clear()
         ocr_path = path + "/ocr"
         assert client.post(ocr_path, json=locator).status_code == 401

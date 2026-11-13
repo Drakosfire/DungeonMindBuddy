@@ -207,10 +207,10 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch, unres
     monkeypatch.setattr(agent, "_render_build_pdf_region", lambda pdf, region: b"verified crop")
 
     def read_crop(crop):
-        calls.append(("ocr", crop.png_base64))
+        calls.append(("ocr", crop))
         return {"text": f"OCR for region {len(calls)}"}
 
-    monkeypatch.setattr(agent, "read_crop", read_crop)
+    monkeypatch.setattr(agent, "read_crop_png", read_crop)
 
     definition = candidate.model_dump(mode="json", by_alias=True)
     if unresolved == "movement":
@@ -266,8 +266,8 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch, unres
     assert response["regions"] == [
         {"schema_version": "dm_native_pdf_region_v1", **region} for region in regions
     ]
-    assert calls[:4] == [("open", 1), ("ocr", "dmVyaWZpZWQgY3JvcA=="),
-                         ("open", 2), ("ocr", "dmVyaWZpZWQgY3JvcA==")]
+    assert calls[:4] == [("open", 1), ("ocr", b"verified crop"),
+                         ("open", 2), ("ocr", b"verified crop")]
     assert calls[4] == ("extract", ["OCR for region 2", "OCR for region 4"],
                         "Keep the printed names.")
     assert len(saved) == 1
@@ -301,7 +301,7 @@ def test_incomplete_pdf_statblock_extraction_does_not_save(monkeypatch):
                "page": 1, "left": 0.0, "top": 0.0, "right": 1.0, "bottom": 1.0}
     monkeypatch.setattr(agent, "_authorized_build_pdf_region", lambda *args: (b"PDF", Region()))
     monkeypatch.setattr(agent, "_render_build_pdf_region", lambda *args: b"PNG")
-    monkeypatch.setattr(agent, "read_crop", lambda crop: {"text": "partial transcription"})
+    monkeypatch.setattr(agent, "read_crop_png", lambda crop: {"text": "partial transcription"})
 
     async def incomplete(transcriptions, instruction):
         return extraction.StatblockExtractionOutput(
@@ -360,9 +360,9 @@ def test_pdf_statblock_failures_never_save_a_review(monkeypatch, failure):
                 calls.append("ocr")
                 raise HTTPException(status_code=503, detail={"code": "pdf_statblock_ocr_unavailable"})
 
-            monkeypatch.setattr(agent, "read_crop", reject_ocr)
+            monkeypatch.setattr(agent, "read_crop_png", reject_ocr)
         else:
-            monkeypatch.setattr(agent, "read_crop", lambda crop: {"text": "Ironhide Brute"})
+            monkeypatch.setattr(agent, "read_crop_png", lambda crop: {"text": "Ironhide Brute"})
 
             async def reject_model(transcriptions, instruction):
                 calls.append("model")
