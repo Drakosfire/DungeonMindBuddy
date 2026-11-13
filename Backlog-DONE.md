@@ -15,6 +15,8 @@ Sort newest → oldest within each status.
 
 [PR #2819](https://github.com/Drakosfire/DungeonMindBuddy/pull/2819) removed the unused adjacency row, its exclusive selectors, and the unused Surface Context label and barrel export. The local branch diffs and 49 open PR diffs added no callers. The affected frontend selection had 71 passes and the same seven failure IDs on both revisions. GitHub reported no checks.
 
+Follow-up: #2823 and #2824 corrected the seven inherited recap test failures. On the tested #2824 revision, all 92 Graph Preview and Surface Context tests passed across 14 files using a checkout-local copy of the existing dependencies. With symlinked dependencies, Vite denied the PDF worker because its resolved path was outside the checkout. The original symlink was restored after verification.
+
 ## [DONE] Verify orphaned Graph Review components
 
 [PR #2817](https://github.com/Drakosfire/DungeonMindBuddy/pull/2817) removed the unused run picker and relationship card. Main had no code callers. None of the 49 checked open PR diffs added a caller, and all 90 local checkout revisions with references inherited them from their branch bases. The historical links resolve to the pre-removal Git revision. All 686 Graph Review tests and the application TypeScript check passed locally. GitHub reported no checks for the PR.
