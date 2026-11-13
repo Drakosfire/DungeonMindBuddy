@@ -81,7 +81,7 @@ def test_active_binding_reads_native_world_and_returns_unchanged_projection(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    managed = create_world_container(tmp_path, name="The Glass Orchard")
+    managed = create_world_container(name="The Glass Orchard")
     bound = _record_with_binding(managed)
     monkeypatch.setattr(
         managed_projection,
@@ -120,7 +120,7 @@ def test_active_binding_reads_native_world_and_returns_unchanged_projection(
 def test_shared_binding_resolver_does_not_read_native_graph(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    managed = create_world_container(tmp_path, name="The Glass Orchard")
+    managed = create_world_container(name="The Glass Orchard")
     bound = _record_with_binding(managed)
     monkeypatch.setattr(
         managed_projection, "get_world_container", lambda _root, _world_id: bound
@@ -146,7 +146,7 @@ def test_unresolvable_or_unverified_binding_fails_before_native_read(
     monkeypatch: pytest.MonkeyPatch,
     state: str,
 ) -> None:
-    managed = create_world_container(tmp_path, name="The Glass Orchard")
+    managed = create_world_container(name="The Glass Orchard")
     record = managed
     if state == "unbound":
         record = managed.model_copy(update={"native_graph_binding": None})
@@ -185,7 +185,7 @@ def test_binding_change_during_projection_discards_native_result(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    managed = create_world_container(tmp_path, name="The Glass Orchard")
+    managed = create_world_container(name="The Glass Orchard")
     initial = _record_with_binding(
         managed, native_world_id="eldyrwild", binding_version=1
     )

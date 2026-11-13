@@ -26,7 +26,7 @@ pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
 def _parent(monkeypatch, root):
     fixture = _load_fixture()
-    world = create_world_container(root, name="Eldyrwild")
+    world = create_world_container(name="Eldyrwild")
     source = _admit_worldbuilding(root, fixture["source_text"] + "\nAn unrelated second paragraph.\n")
     span_id = _first_paragraph_span_id(source)
     result = _run_with_pass_outputs(root, source=source,

@@ -2548,7 +2548,7 @@ def test_concurrent_route_both_miss_dispatches_provider_once(
         create_world_container,
     )
 
-    world = create_world_container(tmp_path, name="Concurrent Receipt World")
+    world = create_world_container(name="Concurrent Receipt World")
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "sessions")
     service = AgentConversationService()
@@ -2640,7 +2640,7 @@ def test_agent_route_persists_shared_world_history_and_provider_segments(
     )
 
     assert application_state_dsn
-    world = create_world_container(tmp_path, name="Conversation Route World")
+    world = create_world_container(name="Conversation Route World")
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "sessions")
     token = "test-local-operator-token-with-adequate-length"
@@ -2935,7 +2935,7 @@ def test_late_plan_completion_keeps_frozen_revision_and_plan_segment(
     )
 
     assert application_state_dsn
-    world = create_world_container(tmp_path, name="Late Plan Completion World")
+    world = create_world_container(name="Late Plan Completion World")
     plan_a = create_world_plan(title="Plan A", world_id=world.world_id)
     plan_b = create_world_plan(title="Plan B", world_id=world.world_id)
     object_a_v1, revision_a_v1 = commit_plan(
@@ -3133,7 +3133,7 @@ def test_interrupted_provider_attempt_can_retry_same_durable_turn(
     )
 
     assert application_state_dsn
-    world = create_world_container(tmp_path, name="Interrupted Agent Turn World")
+    world = create_world_container(name="Interrupted Agent Turn World")
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "sessions")
     service = AgentConversationService()

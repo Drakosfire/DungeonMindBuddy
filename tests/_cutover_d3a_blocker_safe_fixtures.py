@@ -178,7 +178,7 @@ def register_glass_orchard(repo: Path):
     )
 
 
-    return create_world_container(repo, name="The Glass Orchard")
+    return create_world_container(name="The Glass Orchard")
 
 
 def first_world_decisions(

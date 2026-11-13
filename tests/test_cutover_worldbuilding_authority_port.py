@@ -710,7 +710,7 @@ def _install_worldbuilding_repo(monkeypatch, tmp_path: Path, native_id=DEFAULT_W
     repo = tmp_path / "repo"
     repo.mkdir()
     from apps.live_control_server.services.world_container_registry import create_world_container
-    world = create_world_container(repo, name="Publication Managed")
+    world = create_world_container(name="Publication Managed")
     store_world(world.model_copy(update={"native_graph_binding": {
         "native_world_id": native_id, "binding_version": 1,
         "status": "active", "validated_at": "2026-10-14T00:00:00Z",
@@ -1731,7 +1731,7 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
 
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path, native_id="native-alpha")
     managed_a = "publication-managed"
-    managed_b = create_world_container(repo, name="Second Publication Managed").world_id
+    managed_b = create_world_container(name="Second Publication Managed").world_id
     managed_to_native = {
         managed_a: "native-alpha",
         managed_b: "native-beta",

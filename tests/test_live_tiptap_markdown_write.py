@@ -303,8 +303,8 @@ def test_world_plan_write_is_bound_to_exact_world_before_prepare_and_commit(
         create_world_owned_plan_v2,
     )
 
-    world_a = create_world_container(tmp_path, name="World A")
-    world_b = create_world_container(tmp_path, name="World B")
+    world_a = create_world_container(name="World A")
+    world_b = create_world_container(name="World B")
     plan = create_world_owned_plan_v2(
         tmp_path, world_id=world_a.world_id, title="A Plan"
     )
@@ -400,7 +400,7 @@ def test_omitted_write_mode_remains_authoring_for_worldbuilding(tmp_path: Path):
 def test_source_import_write_mode_threads_through_prepare_commit(tmp_path: Path):
 
     from apps.live_control_server.services.world_container_registry import create_world_container
-    create_world_container(tmp_path, name="Eldyrwild")
+    create_world_container(name="Eldyrwild")
     assert not (tmp_path / "corpus" / "eldyrwild-markdown").exists()
     record = create_page_fixture(
         tmp_path,

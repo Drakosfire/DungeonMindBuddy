@@ -51,7 +51,7 @@ def get_world_containers(request: Request = None) -> dict[str, Any]:
 @router.post("/world-containers", response_model=WorldContainerPublicRecord)
 def post_world_container(body: CreateWorldContainerRequest) -> dict[str, Any]:
     try:
-        record = create_world_container(repo_root(), name=body.name)
+        record = create_world_container(name=body.name)
     except WorldContainerRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return WorldContainerPublicRecord.from_record(record).model_dump(mode="json")

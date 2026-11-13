@@ -1372,7 +1372,7 @@ def test_mounted_initialized_selection_reports_context_unavailable_without_an_ed
     from apps.live_control_server.routes import agent as agent_route
     from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
 
-    world = create_world_container(tmp_path, name="Sourced selection world")
+    world = create_world_container(name="Sourced selection world")
     client = _client(monkeypatch, tmp_path)
     document_id, saved = _create_saved_world_plan(
         client, world.world_id, title="Sourced Plan",
@@ -1448,7 +1448,7 @@ def test_mounted_initialized_selection_dispatches_one_harness_action_and_returns
     from apps.live_control_server.services.agent_turn_service import AgentPlanWorldGraphBootstrap
     from graph_memory.interaction.session import CoverageState, GraphRetrievalSession, SessionSnapshot
 
-    world = create_world_container(tmp_path, name="Initialized edit world")
+    world = create_world_container(name="Initialized edit world")
     client = _client(monkeypatch, tmp_path)
     draft = "# Plan\n\nThe observatory door is locked.\n"
     document_id, saved = _create_saved_world_plan(
@@ -2183,7 +2183,7 @@ def test_world_plan_route_uses_real_saved_world_plan_and_never_writes(
     monkeypatch: pytest.MonkeyPatch,
     application_state_dsn: str,
 ) -> None:
-    world = create_world_container(tmp_path, name="Reviewed Apply route world")
+    world = create_world_container(name="Reviewed Apply route world")
     client = _client(monkeypatch, tmp_path)
     created = client.post(
         "/api/live/workspace-documents/world-plans",
@@ -2338,7 +2338,7 @@ def test_late_provider_result_loses_expired_action_fence_without_payload(
     monkeypatch: pytest.MonkeyPatch,
     application_state_dsn: str,
 ) -> None:
-    world = create_world_container(tmp_path, name="Late Plan action world")
+    world = create_world_container(name="Late Plan action world")
     client = _client(monkeypatch, tmp_path)
     created = client.post(
         "/api/live/workspace-documents/world-plans",
@@ -2496,8 +2496,8 @@ def test_same_key_is_world_scoped_and_foreign_retry_leaves_expired_action_untouc
     monkeypatch: pytest.MonkeyPatch,
     application_state_dsn: str,
 ) -> None:
-    world_a = create_world_container(tmp_path, name="Idempotency World A")
-    world_b = create_world_container(tmp_path, name="Idempotency World B")
+    world_a = create_world_container(name="Idempotency World A")
+    world_b = create_world_container(name="Idempotency World B")
     client = _client(monkeypatch, tmp_path)
     document_a, saved_a = _create_saved_world_plan(
         client, world_a.world_id, title="Plan A", markdown="# Plan A\n"

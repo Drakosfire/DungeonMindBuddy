@@ -36,7 +36,7 @@ def lane(request, tmp_path, monkeypatch, application_state_dsn):
                        "DMB_AGENT_GRAPH_AUTH_MODE": "local_operator", "DMB_AGENT_GRAPH_AUTH_ENVIRONMENT": "local",
                        "DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN": TOKEN}.items():
         monkeypatch.setenv(key, value)
-    world = create_world_container(tmp_path, name="Opaque source keys", owner_subject="fixture")
+    world = create_world_container(name="Opaque source keys", owner_subject="fixture")
     space = world.native_graph_binding.native_world_id
     repo = InMemoryNativeSourceEvidenceRepository()
     initialize_empty_knowledge_space(repository=repo, space_id=space, initialization_id="fixture",

@@ -60,8 +60,8 @@ def test_same_registry_and_database_filter_two_worlds(
             f"apps.live_control_server.routes.{route}.repo_root", lambda: tmp_path
         )
     client = TestClient(create_app(), client=("127.0.0.1", 50000))
-    world_a = create_world_container(tmp_path, name="Synthetic World A")
-    world_b = create_world_container(tmp_path, name="Synthetic World B")
+    world_a = create_world_container(name="Synthetic World A")
+    world_b = create_world_container(name="Synthetic World B")
 
     for world in (world_a, world_b):
         source = create_workspace_document(
