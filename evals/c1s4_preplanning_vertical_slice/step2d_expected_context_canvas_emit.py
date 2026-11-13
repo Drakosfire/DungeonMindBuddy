@@ -30,6 +30,8 @@ def main() -> int:
         default=default_cursor_canvas_path("c1s4-expected-context-benchmark.canvas.tsx"),
     )
     args = parser.parse_args()
+    if args.check and args.payload_out:
+        parser.error("--check cannot be combined with --payload-out")
 
     report = load_report(args.report)
     gold = load_gold(args.gold) if args.gold else None
@@ -39,7 +41,9 @@ def main() -> int:
         raise SystemExit("\n".join(errs))
 
     generated = render_generated_block(payload)
-    canvas_path = ensure_canvas_file_for_patch(args.canvas_tsx)
+    canvas_path = args.canvas_tsx if args.check else ensure_canvas_file_for_patch(args.canvas_tsx)
+    if args.check and not canvas_path.is_file():
+        parser.error(f"canvas file does not exist: {canvas_path}")
     before = canvas_path.read_text(encoding="utf-8")
     after = update_canvas_text(before, generated)
 
