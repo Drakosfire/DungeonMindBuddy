@@ -254,6 +254,18 @@ def test_recap_seed_session_uses_filename(path, session):
     assert graph_preview_surface._session_from_recap_path(path) == session
 
 
+@pytest.mark.parametrize(("span_id", "session"), [
+    ("spref:c1s1:001", 1),
+    ("spref:c2s23-recap:001", 23),
+    ("spref:campaign:session-22:001", 22),
+    ("spref:c2s23-other:001", None),
+    ("unknown:23", None),
+    (None, None),
+])
+def test_recap_evidence_session_from_known_span_ids(span_id, session):
+    assert graph_preview_surface._session_from_span_ref(span_id) == session
+
+
 def test_build_recap_graph_presentation_links_node_labels() -> None:
     sync_recap_artifacts_registry(repo_root())
     payload = build_recap_graph_presentation(
