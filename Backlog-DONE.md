@@ -11,6 +11,7 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Keep deferred Play editor failures inside the tool. **Fixed.** [#3104](https://github.com/Drakosfire/DungeonMindBuddy/pull/3104) adds independent recovery boundaries for the visual editor and Image Studio. All 11 focused tests passed. The Play regression injects a visual loader failure and verifies retry preserves pending Markdown and leaves Image Studio unloaded.
 - Separate the Glowkindle projection report from its comparison fixture. **Fixed.** [#3101](https://github.com/Drakosfire/DungeonMindBuddy/pull/3101) restores Event profile verification, refreshes the comparison JSON, and rejects a missing fixture in comparison mode. [#3102](https://github.com/Drakosfire/DungeonMindBuddy/pull/3102) removes 4,317 bytes of generated Markdown, pins the historical copy, and routes report writes to ignored output. Seven projection tests passed, both report writers ran, and exact JSON comparison passed on main.
 - Validate local service port overrides before startup. **Fixed.** The launcher rejected malformed, out-of-range, and duplicate ports. The local stack passed Server health on 47861, Buddy API OpenAPI on 48001, and Buddy UI on 45173. With the integration enabled and the Server development credential configured, Buddy's statblock client returned `ready` from the real Server on 47861. The README documents matching local ports and preserving remote URLs.
 
