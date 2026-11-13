@@ -64,6 +64,11 @@ def validate_inventory(root: Path = ROOT) -> dict:
     if any(problems.values()):
         raise ValueError(json.dumps(problems, indent=2))
     config = inventory["discovery_config"]
+    if set(config) != {
+        "apps/live-control-ui/vite.config.ts",
+        "apps/live-control-ui/playwright.ui.config.ts",
+    }:
+        raise ValueError("discovery configuration paths must include Vite and Playwright")
     pytest_config = tomllib.loads((root / "pyproject.toml").read_text())["tool"]["pytest"]["ini_options"]
     if pytest_config["testpaths"] != ["tests"] or pytest_config.get("python_files", ["test_*.py", "*_test.py"]) != ["test_*.py", "*_test.py"]:
         raise ValueError("pytest discovery changed: review the inventory discovery contract")
