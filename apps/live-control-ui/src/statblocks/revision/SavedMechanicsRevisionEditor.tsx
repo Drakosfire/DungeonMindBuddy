@@ -15,7 +15,7 @@ import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {listSavedMechanicsVersions,openSavedMechanicsVersion,saveMechanicsRevision,recoverMechanicsRevision,inspectMechanicsRevision,validateStatblockDefinition} from '../../api/liveApi';
 import {StatblockDefinitionEditor} from '../editor/StatblockDefinitionEditor';
 import {StatblockRenderer} from '../render/StatblockRenderer';
-import {createEditorStateFromOutput,fingerprintDefinition,type StatblockEditorState} from '../editor/statblockEditorState';
+import {createEditorStateFromOutput,fingerprintDefinition,updateWorkingCopy,type StatblockEditorState} from '../editor/statblockEditorState';
 import type {ValidationIssueV1} from '../../contracts/dungeonbuddy-statblocks-v1/client';
 import type {SavedMechanicsVersionList,OpenSavedMechanicsVersion,RevisionSaveOutcome} from './savedMechanicsRevisionTypes';
 
@@ -219,6 +219,23 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,ini
             <button type="button" onClick={()=>{try{remember(editor,summary,null);setPortraitAssetId(null);setMessage('The saved portrait will be kept.');}catch{setMessage('Could not update portrait recovery. Your choice remains retained.');}}}>Keep saved portrait</button>
           </>}
         </section>
+        {opened.resource.definition.ruleset === null && <label>D&D edition
+          <select value={editor.workingCopy.ruleset?.edition ?? ""} onChange={event => {
+            const edition = event.currentTarget.value;
+            const next = updateWorkingCopy(editor, current => ({
+              ...current,
+              ruleset: edition === "2014" || edition === "2024" ? {system: "dnd5e", edition} : null,
+            }));
+            setEditor(next);
+            setValidated(null);
+            setIssues([]);
+            try { remember(next); } catch { setMessage('Browser recovery storage is unavailable. Keep this editor open.'); }
+          }}>
+            <option value="">Unspecified</option>
+            <option value="2014">2014</option>
+            <option value="2024">2024</option>
+          </select>
+        </label>}
         <StatblockDefinitionEditor output={opened.resource.definition} editorState={editor}
           recoveryHint={writer.recoverable?"Unsaved edits are retained in this browser tab for this creature and source version.":"Browser recovery is unavailable. Keep this editor open."}
           onEditorStateChange={next=>{setEditor(next);setValidated(null);setIssues([]);try{remember(next);}catch{setMessage('Browser recovery storage is unavailable. Keep this editor open.');}}}/>

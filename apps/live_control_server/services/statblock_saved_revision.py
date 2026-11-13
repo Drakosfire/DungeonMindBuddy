@@ -187,7 +187,7 @@ def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None):
         if not same_mechanics_locator(base.model_dump(),request.base):
             raise ApplicationStateConflictError('Selected source version changed')
         exact=_exact(active,base)
-        if request.definition.ruleset != exact.definition.ruleset:
+        if exact.definition.ruleset is not None and request.definition.ruleset != exact.definition.ruleset:
             raise ApplicationStateConflictError('Manual revision cannot change the creature ruleset')
         bindings=_asset_bindings(exact,request.portrait_asset_id,media_owner)
         validation=validate_definition(definition=request.definition,client=active)
