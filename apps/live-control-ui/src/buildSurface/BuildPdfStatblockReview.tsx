@@ -282,6 +282,26 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   }, [reviewPath]);
 
   useEffect(() => {
+    const abort = new AbortController();
+    void (async () => {
+      try {
+        const { response } = await authenticatedApiFetch(`${reviewPath}/publication`, { signal: abort.signal });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (!abort.signal.aborted && result?.draft_id && result.revision_id) {
+          const link = `/statblock?${new URLSearchParams({
+            world: worldId, draft: result.draft_id, revision: result.revision_id,
+          })}`;
+          setPublishedLink(current => current || link);
+        }
+      } catch {
+        // Publication can still be resumed when status lookup is unavailable.
+      }
+    })();
+    return () => abort.abort();
+  }, [reviewPath, worldId]);
+
+  useEffect(() => {
     if (!region) return;
     const abort = new AbortController();
     let url: string | undefined;
