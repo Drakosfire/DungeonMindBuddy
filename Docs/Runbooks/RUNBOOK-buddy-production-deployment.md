@@ -111,7 +111,8 @@ Before probing permissions, verify the resolved bind source against the
 approved release record. This requires Python 3 on the deployment host.
 
 ```bash
-(
+unset expected_binding
+expected_binding=$(
   set -e -o pipefail
   read -r -p 'Approved absolute persistent root from the release record: ' approved_root
   test "${approved_root:0:1}" = /
@@ -135,7 +136,7 @@ if (port.get("host_ip") != "127.0.0.1" or port.get("target") != 8000
     or not published.isascii() or not published.isdecimal()
     or len(published) > 5 or not 1 <= int(published) <= 65535):
     sys.exit("Expected a fixed Buddy loopback TCP binding to container port 8000")
-print(f"Resolved Buddy upstream: http://127.0.0.1:{published}")
+print(f"127.0.0.1:{published}")
 ' "$approved_root"
 )
 ```
@@ -166,6 +167,7 @@ Apply only the production migrations confirmed in step 2 through their owning pr
 ```bash
 (
   set -e
+  : "${expected_binding:?Run the resolved mount and port checks first}"
   "${buddy_compose[@]}" up -d --no-build --pull never --wait --wait-timeout 330 buddy
   buddy_container=$("${buddy_compose[@]}" ps -q buddy)
   actual_image=$(docker inspect "$buddy_container" --format '{{.Image}}')
@@ -180,6 +182,10 @@ Apply only the production migrations confirmed in step 2 through their owning pr
   actual_binding=$("${buddy_compose[@]}" port buddy 8000)
   if [[ ! "$actual_binding" =~ ^127\.0\.0\.1:([1-9][0-9]{0,4})$ ]] || (( BASH_REMATCH[1] > 65535 )); then
     printf 'Expected a single Buddy loopback binding, found %s\n' "$actual_binding" >&2
+    exit 1
+  fi
+  if [[ "$actual_binding" != "$expected_binding" ]]; then
+    printf 'Buddy binding changed: expected %s, found %s\n' "$expected_binding" "$actual_binding" >&2
     exit 1
   fi
   buddy_local="http://$actual_binding"
