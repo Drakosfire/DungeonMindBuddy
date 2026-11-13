@@ -1220,14 +1220,14 @@ export function WorldGraphCanvas({
     const occupied: CaptionBounds[] = [];
     const captions = new Map<string, ReturnType<typeof edgeCaption>>();
     const selected = (edge: ProjectedGraphEdge) => selectedIds.includes(edge.fromObjectId) || selectedIds.includes(edge.toObjectId);
-    const nodeBounds = [...positions.values()].map(point => {
-      const inset = nodeShape === "circle" ? CIRCLE_RADIUS - (point.radius ?? CIRCLE_RADIUS) : 0;
-      return { left: point.x + inset, top: point.y + inset,
-        right: point.x + dimensions.width - inset, bottom: point.y + dimensions.height - inset };
-    });
+    const captionEdges = edgeLabelDetail === "none" ? [] : renderedEdges.filter(({ edge }) =>
+      selected(edge) || (edgeLabelDetail === "all" && (!fullCorpus || allRelationships)));
+    const nodeBounds = captionEdges.length && nodeShape !== "circle" ? [...positions.values()].map(point => ({
+      left: point.x, top: point.y, right: point.x + dimensions.width, bottom: point.y + dimensions.height,
+    })) : [];
     // Selected connections take precedence; obscured captions remain in the full accessible record.
-    for (const { edge, geometry } of [...renderedEdges].sort((a, b) => Number(selected(b.edge)) - Number(selected(a.edge)))) {
-      if (edgeLabelDetail === "none" || (edgeLabelDetail === "selected" && !selected(edge)) || (fullCorpus && !allRelationships && !selected(edge))) continue;
+    captionEdges.sort((a, b) => Number(selected(b.edge)) - Number(selected(a.edge)));
+    for (const { edge, geometry } of captionEdges) {
       // Try the central span first, then slide the phrase along the same directed arrow.
       // One blocked midpoint must not silence an otherwise spacious relationship.
       for (const fraction of [.5, .35, .65, .2, .8]) {
