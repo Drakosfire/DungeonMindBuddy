@@ -8,12 +8,12 @@ beforeEach(()=>{vi.resetAllMocks();vi.mocked(collectConversationExport).mockReso
 it('collects only after click and preserves the composer',async()=>{
  render(<><textarea aria-label="Composer" defaultValue="Newer unsent work"/><ConversationExport worldId="world" conversationId="one"/></>);
  expect(collectConversationExport).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Export conversation',exact:true}));
- await screen.findByText('Conversation download prepared.');expect(collectConversationExport).toHaveBeenCalledWith('world','one','readable',expect.any(Function));expect(downloadConversationExport).toHaveBeenCalledWith(file);expect(screen.getByLabelText('Composer')).toHaveValue('Newer unsent work');
+ await screen.findByText('Conversation download prepared.');expect(collectConversationExport).toHaveBeenCalledWith('world','one','readable',expect.any(Function),expect.any(AbortSignal));expect(downloadConversationExport).toHaveBeenCalledWith(file);expect(screen.getByLabelText('Composer')).toHaveValue('Newer unsent work');
 });
 it('suppresses download and notices for retired selection',async()=>{
  let resolve!:(result:typeof file)=>void;vi.mocked(collectConversationExport).mockReturnValue(new Promise(r=>resolve=r));
  const view=render(<ConversationExport worldId="world" conversationId="one"/>);fireEvent.click(screen.getByRole('button',{name:'Export with diagnostics'}));
- expect(screen.getByRole('button',{name:'Export conversation',exact:true})).toBeDisabled();view.rerender(<ConversationExport worldId="world" conversationId="two"/>);await act(async()=>resolve(file));
+ expect(screen.getByRole('button',{name:'Export conversation',exact:true})).toBeDisabled();view.rerender(<ConversationExport worldId="world" conversationId="two"/>);expect(vi.mocked(collectConversationExport).mock.calls[0][4]?.aborted).toBe(true);await act(async()=>resolve(file));
  expect(downloadConversationExport).not.toHaveBeenCalled();expect(screen.queryByText('Conversation download prepared.')).toBeNull();
 });
 it('makes a failed read retryable without download',async()=>{
