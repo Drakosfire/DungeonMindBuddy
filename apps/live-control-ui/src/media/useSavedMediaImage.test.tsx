@@ -66,3 +66,19 @@ it('rejects a late original after asset replacement',async()=>{
  await act(async()=>finish({response:original(),csrf:null,requestEpoch:0}));
  expect(URL.createObjectURL).not.toHaveBeenCalled();
 });
+
+it('shares pending reads without aborting them when one occurrence leaves', async () => {
+ const first=renderHook(()=>useSavedMediaImage(id));
+ const second=renderHook(()=>useSavedMediaImage(id));
+ const signal=fetcher.mock.calls[0][1]?.signal;
+ first.unmount();
+ expect(signal?.aborted).toBe(false);
+ await waitFor(()=>expect(second.result.current.url).toBe('blob:private'));
+ expect(fetcher).toHaveBeenCalledTimes(2);
+ expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+ second.unmount();
+ expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:private');
+ const third=renderHook(()=>useSavedMediaImage(id));
+ await waitFor(()=>expect(third.result.current.url).toBe('blob:private'));
+ expect(fetcher).toHaveBeenCalledTimes(4);
+});
