@@ -133,3 +133,16 @@ it('disables exports while full details are loading and enables them after the o
  expect(screen.getByRole('button',{name:'Export conversation',exact:true})).toBeDisabled();expect(screen.getByRole('button',{name:'Export with diagnostics'})).toBeDisabled();expect(screen.getByRole('button',{name:'Rename conversation'})).toBeDisabled();
  await act(async()=>finish(page()));await waitFor(()=>expect(screen.getByRole('button',{name:'Export conversation',exact:true})).not.toBeDisabled());
 });
+
+it('aborts a superseded list read on filter change and the active read on close',()=>{
+ const requests: AbortSignal[]=[];
+ vi.mocked(api.listConversations).mockImplementation((_world,_status,_before,signal)=>{
+  requests.push(signal!);
+  return new Promise(()=>{});
+ });
+ const {unmount}=render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
+ fireEvent.change(screen.getByLabelText('Show'),{target:{value:'archived'}});
+ expect(requests.map(signal=>signal.aborted)).toEqual([true,false]);
+ unmount();
+ expect(requests.map(signal=>signal.aborted)).toEqual([true,true]);
+});

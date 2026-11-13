@@ -26,9 +26,9 @@ function summary(value:any,world:string):ConversationSummary{
   ||!Number.isInteger(value.turn_count)||value.turn_count<0||!Number.isFinite(Date.parse(value.created_at))||!Number.isFinite(Date.parse(value.updated_at)))throw new Error('Conversation name has a different owner or invalid metadata.');
  return value;
 }
-export async function listConversations(world:string,status:'all'|'archived'|'trashed',before?:string){
+export async function listConversations(world:string,status:'all'|'archived'|'trashed',before?:string,signal?:AbortSignal){
  const q=new URLSearchParams({status,limit:'25'});if(before)q.set('before',before);
- const value=await read(path(world)+'?'+q);
+ const value=await read(path(world)+'?'+q,{signal});
  if(value.schema!=='dmb_conversation_library_v1'||value.world_id!==world||value.status!==status||!Array.isArray(value.items)||value.items.length>25||!(value.next_before===null||uuid(value.next_before)))throw new Error('Conversation list differs from this World.');
  value.items.forEach((item:any)=>summary(item,world));return value as LibraryPage;
 }
