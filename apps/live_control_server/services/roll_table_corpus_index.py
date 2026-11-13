@@ -9,10 +9,10 @@ from pydantic import BaseModel, Field
 from apps.live_control_server.services.corpus_index_helpers import (
     _display_path,
     _mtime_iso,
-    _parse_scalar,
     _safe_under,
     _text_value,
     _title_from_body,
+    parse_loose_frontmatter,
 )
 from src.ingestion.frontmatter import FrontmatterParseError, split_frontmatter
 
@@ -59,21 +59,6 @@ class RollTableCorpusIndexResponse(BaseModel):
     diagnostics: list[str] = Field(default_factory=list)
 
 
-def _parse_loose_frontmatter_block(block: str) -> dict[str, Any]:
-    payload: dict[str, Any] = {}
-    for line in block.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") and ":" not in stripped:
-            continue
-        if ":" not in stripped:
-            continue
-        key, raw_value = stripped.split(":", 1)
-        key = key.strip().lstrip("#").strip()
-        if key:
-            payload[key] = _parse_scalar(raw_value)
-    return payload
-
-
 def _dice_from_text(*values: str | None) -> str | None:
     for value in values:
         if not value:
@@ -103,7 +88,7 @@ def _read_markdown_with_frontmatter(
     try:
         block, body = split_frontmatter(text)
         if block is not None:
-            frontmatter = _parse_loose_frontmatter_block(block)
+            frontmatter = parse_loose_frontmatter(block, allow_commented_fields=True)
     except FrontmatterParseError:
         pass
     return frontmatter, body, None
