@@ -78,7 +78,15 @@ prepare_buddy_release() {
   buddy_image_id=$(docker image inspect "$buddy_tag" --format '{{.Id}}') || return
   buddy_override=$(mktemp) || return
   printf 'services:\n  buddy:\n    image: %s\n' "$buddy_tag" > "$buddy_override" || return
-  local -a candidate_compose=(docker compose --project-name "$buddy_project" --env-file "$buddy_env"
+  local -a candidate_compose=(env
+    -u AUTH_TRUSTED_FRONTEND_ORIGINS
+    -u BUDDY_HTTP_BIND_PORT
+    -u BUDDY_PERSISTENT_ROOT
+    -u DMB_HOSTED_WORLD_ACCESS_JSON
+    -u DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL
+    -u DUNGEONMIND_SERVER_API_ORIGIN
+    -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL
+    docker compose --project-name "$buddy_project" --env-file "$buddy_env"
     -f deploy/production/compose.production.yaml -f "$buddy_override")
   "${candidate_compose[@]}" config --quiet || return
   buddy_compose=("${candidate_compose[@]}")
@@ -87,6 +95,8 @@ prepare_buddy_release() {
 prepare_buddy_release
 ```
 
+The Compose command clears inherited values for the production file’s
+interpolation variables so the protected environment file supplies them.
 Continue only if release preparation succeeds. Save the override with the release record. Record the exact checkout commit
 and base Compose path, the Compose project name, and the absolute paths to
 the saved override and protected environment file. Keep a release-specific
@@ -194,8 +204,7 @@ Restore the prior image with its saved Compose configuration only after verifyin
 
 For a compatible image rollback, run this from the prior release's reviewed
 checkout. Use its saved project name, protected environment file, image
-override, image tag, and image ID from the release record. Use the same
-deployment shell configuration as the prior release.
+override, image tag, and image ID from the release record. Use the same Docker context as the prior release.
 
 ```bash
 (
@@ -213,7 +222,15 @@ deployment shell configuration as the prior release.
   test "${prior_override:0:1}" = / && test -r "$prior_override" || exit 1
   test -n "$prior_tag"
   test -n "$prior_id"
-  prior_compose=(docker compose --project-name "$prior_project" --env-file "$prior_env"
+  prior_compose=(env
+    -u AUTH_TRUSTED_FRONTEND_ORIGINS
+    -u BUDDY_HTTP_BIND_PORT
+    -u BUDDY_PERSISTENT_ROOT
+    -u DMB_HOSTED_WORLD_ACCESS_JSON
+    -u DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL
+    -u DUNGEONMIND_SERVER_API_ORIGIN
+    -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL
+    docker compose --project-name "$prior_project" --env-file "$prior_env"
     -f deploy/production/compose.production.yaml -f "$prior_override")
   configured_image=$("${prior_compose[@]}" config --images buddy)
   test "$configured_image" = "$prior_tag"
