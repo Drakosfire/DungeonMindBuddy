@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Explain unreadable local verifier test reports
+
+Verifier evidence identifies the results filename and records a bounded reason for report read, decoding, or structural failures. End-to-end verifier tests cover missing files, invalid JSON, and malformed reports, including rejection by the evidence validator.
+
 ## [DONE] Publish verifier evidence atomically
 
 The verifier writes complete JSON to a sibling temporary file before replacing the published report. The verifier suite covers visibility before replacement and cleanup after a failed replacement.

@@ -729,3 +729,32 @@ def test_publish_evidence_keeps_old_report_until_replace(tmp_path, monkeypatch, 
         local.publish_evidence(destination, new_report)
         assert json.loads(destination.read_text()) == new_report
     assert list(tmp_path.iterdir()) == [destination]
+
+
+@pytest.mark.parametrize(
+    ("payload", "reason"),
+    [(None, "missing"), ("{", "invalid JSON"), ("{}", "unexpected report structure"),
+     ('{"testResults": null}', "unexpected report structure")],
+)
+def test_invalid_vitest_report_records_reason(sandbox, monkeypatch, payload, reason):
+    args, _, fake = sandbox
+
+    def command(argv, cwd, log, env):
+        result = fake(argv, cwd, log, env)
+        if "--reporter=json" in argv:
+            path = Path(next(arg.split("=", 1)[1] for arg in argv if arg.startswith("--outputFile=")))
+            if payload is None:
+                path.unlink()
+            else:
+                path.write_text(payload)
+        return result
+
+    monkeypatch.setattr(local, "command", command)
+    assert local.verify(args) == 1
+    evidence = Path(args.output) / "evidence.json"
+    step = json.loads(evidence.read_text())["tests"][0]
+    assert step["results_file"].endswith(".json")
+    assert step["results_error"] == reason
+    assert step["collection_parity"] is False
+    with pytest.raises(ValueError):
+        local.validate(evidence, args.sha, args.suite)
