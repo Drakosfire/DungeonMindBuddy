@@ -147,7 +147,7 @@ def test_list_ignores_legacy_registry_without_migration_or_mind_call(
         lambda _world_id: pytest.fail("WorldContainer list must not contact MIND"),
     )
 
-    response = world_containers.get_world_containers()
+    response = world_containers.get_world_containers().model_dump(mode="json")
 
     assert response["records"] == []
     assert path.read_bytes() == original
