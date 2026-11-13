@@ -365,7 +365,7 @@ def project_recap_extraction_run(
             # output bytes from any run. Unselected outputs grant no authority
             # and cannot block the requested source; matching bytes are still
             # fully verified below by the existing source/component owner.
-            source = get_source_artifact(root, run.source_artifact_id)
+            source = get_source_artifact(run.source_artifact_id)
             if normalize_content_digest(
                 source.content_sha256
             ) != normalize_content_digest(source_content_sha256):

@@ -128,7 +128,7 @@ def test_source_artifact_reads_committed_page_not_client_markdown(tmp_path: Path
     assert artifact.uri == f"object://{artifact.source_artifact_id}"
     assert artifact.workspace_document_revision == record.revision
     assert artifact.session_id is None
-    loaded = get_source_artifact(tmp_path, artifact.source_artifact_id)
+    loaded = get_source_artifact(artifact.source_artifact_id)
     assert loaded.source_artifact_id == artifact.source_artifact_id
 
 
@@ -193,7 +193,7 @@ def test_source_artifact_idempotent_and_collision_safe(tmp_path: Path) -> None:
         _register_source_input(content=content,
             artifact=first.model_copy(update={"campaign_id": "other-world"}))
     assert exc.value.status_code == 409
-    assert get_source_artifact(tmp_path, first.source_artifact_id) == first
+    assert get_source_artifact(first.source_artifact_id) == first
 
 
 def test_worldbuilding_span_persists_and_resolves(tmp_path: Path) -> None:

@@ -391,9 +391,7 @@ def resume_admission(
 def _selected_source(selection: SourceSelection, context, session):
     # APP owns the descriptor and immutable bytes; URI and body frontmatter are
     # never alternative selectors or scope authorities.
-    descriptor = get_source_artifact(
-        config.artifact_data_root(), selection.source_artifact_id
-    )
+    descriptor = get_source_artifact(selection.source_artifact_id)
     source = sources.get_source_markdown(
         source_artifact_id=selection.source_artifact_id,
         content_sha256=selection.content_sha256,

@@ -289,7 +289,7 @@ def _fixture(
         # This unit fixture stubs storage boundaries; real PostgreSQL source
         # reads and missing-file behavior are exercised in test_source_body_database.
         from apps.live_control_server.services.source_artifact_registry import get_source_artifact
-        stored = get_source_artifact(root, kwargs["source_artifact_id"])
+        stored = get_source_artifact(kwargs["source_artifact_id"])
         return SimpleNamespace(
             source_artifact_id=stored.source_artifact_id,
             content_sha256=stored.content_sha256,

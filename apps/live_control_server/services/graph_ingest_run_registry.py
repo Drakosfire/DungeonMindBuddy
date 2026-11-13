@@ -332,7 +332,7 @@ def _manifest_matches_source_recap(
             )
 
             try:
-                artifact = get_source_artifact(repo, artifact_id)
+                artifact = get_source_artifact(artifact_id)
             except SourceArtifactRegistryError:
                 return False
             if normalize_content_digest(artifact.content_sha256) == requested_digest:

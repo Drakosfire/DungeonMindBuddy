@@ -411,9 +411,7 @@ def _initialization_request(
     rematerialized,
     resolved,
 ) -> WorldGraphInitializationRequest:
-    artifact = get_source_artifact(
-        live_config.repo_root(), plan.source_artifact_id
-    )
+    artifact = get_source_artifact(plan.source_artifact_id)
     return WorldGraphInitializationRequest(
         world_id=plan.native_target.native_world_id,
         campaign_id=None,

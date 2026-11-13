@@ -126,7 +126,7 @@ def test_registered_build_prepare_admits_exact_world_source_and_confirm_only_pro
         get_source_artifact,
     )
 
-    registered = get_source_artifact(root, admitted.source_artifact_id)
+    registered = get_source_artifact(admitted.source_artifact_id)
     assert registered.world_id == registered.campaign_id == "publication-managed"
     from apps.live_control_server.services import (
         worldbuilding_graph_publication as publication,

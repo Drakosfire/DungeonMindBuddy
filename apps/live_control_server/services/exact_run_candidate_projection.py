@@ -357,7 +357,7 @@ def _build(
         or resolve_managed_world_binding(managed_world_id) != binding
     ):
         _fail("The run or World binding changed during inspection.")
-    current_artifact = get_source_artifact(root, run.source_artifact_id)
+    current_artifact = get_source_artifact(run.source_artifact_id)
     if current_artifact != artifact:
         _fail("The registered source changed during inspection.")
     return ExactRunCandidateProjection(

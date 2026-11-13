@@ -1512,7 +1512,7 @@ def _buddy_source_artifact(resolved: Any):
     )
 
     try:
-        return get_source_artifact(repo_root(), str(resolved.source_artifact_id))
+        return get_source_artifact(str(resolved.source_artifact_id))
     except SourceArtifactRegistryError as exc:
         raise GraphObjectAuthoringError(
             str(exc),

@@ -163,7 +163,7 @@ def cross_check_workspace_lineage(
     expected_world_id: str,
 ) -> FirstWorldLineage:
     """Prove SourceArtifact ↔ active worldbuilding workspace document lineage."""
-    artifact = get_source_artifact(repo, source_artifact_id)
+    artifact = get_source_artifact(source_artifact_id)
     document_id = (artifact.workspace_document_id or "").strip()
     if not document_id:
         raise WorldbuildingWritePlanError(

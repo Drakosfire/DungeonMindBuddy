@@ -384,7 +384,7 @@ def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
     try:
-        artifact = get_source_artifact(root, run.source_artifact_id)
+        artifact = get_source_artifact(run.source_artifact_id)
     except SourceArtifactRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
