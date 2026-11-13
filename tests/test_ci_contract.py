@@ -137,3 +137,33 @@ def test_node_runner_propagates_failure_without_git_or_later_steps(tmp_path):
     assert result.returncode == 9
     assert not (tmp_path / "must-not-run").exists()
     assert json.loads(result.stdout.splitlines()[-1])["sha"] == "reviewed-sha"
+
+
+@pytest.mark.parametrize(
+    ("argv", "field", "detail"),
+    [
+        (["./missing-ci-command"], "spawn_error", "ENOENT"),
+        (["node", "-e", "process.kill(process.pid, 'SIGTERM')"], "signal", "SIGTERM"),
+    ],
+)
+def test_node_runner_reports_abnormal_exit(tmp_path, argv, field, detail):
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "ci").mkdir()
+    runner = "scripts/ci_frontend_contract.mjs"
+    shutil.copyfile(ci.ROOT / runner, tmp_path / runner)
+    steps = [{"cwd": ".", "argv": argv}]
+    catalog = {"version": 1, "contracts": {"hosted-frontend": {"steps": steps}}}
+    (tmp_path / "ci/contracts.json").write_text(json.dumps(catalog))
+
+    result = subprocess.run(
+        ["node", runner],
+        cwd=tmp_path,
+        env={**os.environ, "GITHUB_SHA": "reviewed-sha"},
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    report = json.loads(result.stdout.splitlines()[-1])
+    assert report["exit_code"] == 1
+    assert detail in report[field]
