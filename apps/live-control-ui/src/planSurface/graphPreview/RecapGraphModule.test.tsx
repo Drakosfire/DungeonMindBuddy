@@ -123,7 +123,7 @@ describe("RecapGraphModule", () => {
         admissibility: "gm",
       });
     });
-    expect(await screen.findByLabelText("Published recap")).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Focus session" })).toBeInTheDocument();
   });
 
   it("defaults to the latest ingested recap artifact when no URL session is provided", async () => {
@@ -150,7 +150,7 @@ describe("RecapGraphModule", () => {
 
     render(<RecapGraphModule context={context} />);
 
-    expect(await screen.findByLabelText("Published recap")).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Focus session" })).toBeInTheDocument();
     expect(await findRecapPill(/Caelynn/i)).toBeInTheDocument();
   }, 15000);
 
@@ -211,7 +211,7 @@ describe("RecapGraphModule", () => {
 
     render(<RecapGraphModule context={context} />);
 
-    await screen.findByLabelText("Published recap");
+    await screen.findByRole("combobox", { name: "Focus session" });
     expect(window.location.search).toContain("campaign=longmont-c1");
     expect(window.location.search).toContain("session=session-1");
     expect(window.location.search).toContain("campaigns=longmont-c1%2Clongmont-c2");
@@ -251,13 +251,13 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
 
     render(<RecapGraphModule context={context} />);
-    await screen.findByLabelText("Published recap");
+    await screen.findByRole("combobox", { name: "Focus session" });
   });
 
   it("does not put Continue in Build on the ordinary recap Peek", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
     render(<RecapGraphModule context={context} />);
-    await screen.findByLabelText("Published recap");
+    await screen.findByRole("combobox", { name: "Focus session" });
     fireEvent.click(await findRecapPill(/Caelynn/i));
     await waitFor(() => {
       expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(
@@ -283,7 +283,7 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
   it("does not render preview-candidate or recap-lens metadata copy", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
     render(<RecapGraphModule context={context} />);
-    expect(await screen.findByLabelText("Published recap")).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Focus session" })).toBeInTheDocument();
     expect(screen.queryByText(/Session focus lens/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Published World Graph · session recap/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/graph mentions projected/i)).not.toBeInTheDocument();
