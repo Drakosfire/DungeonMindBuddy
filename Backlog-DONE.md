@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Reuse verified migration status in local bootstrap reports
+
+[PR #2545](https://github.com/Drakosfire/DungeonMindBuddy/pull/2545) made bootstrap consume the revision already verified by the migration, reducing explicit post-upgrade target revision reads from two to one. Stubbed matching, older, and missing revision cases each performed one read. All 20 local Play bootstrap tests passed against disposable PostgreSQL 16 during implementation.
+
 ## [DONE] Consolidate identical Play evidence screenshots
 
 [PR #2579](https://github.com/Drakosfire/DungeonMindBuddy/pull/2579) retained all three witness labels and pinned the original screenshot paths. Verified both retired paths share the retained 123,598-byte Git blob. Checkout payload fell from 370,794 to 123,598 bytes.
