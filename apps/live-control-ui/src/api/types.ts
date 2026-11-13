@@ -2468,94 +2468,6 @@ export interface CombatEncounterState {
   updated_at: string;
 }
 
-export interface CombatEntityPatchRequest {
-  name?: string | null;
-  team?: CombatTeam | null;
-  init?: number | null;
-  ac?: number | string | null;
-  hp?: number | string | null;
-  max_hp?: number | string | null;
-  temp_hp?: number | null;
-  defeated?: boolean | null;
-  notes?: string | null;
-  conditions?: string[] | null;
-}
-
-export interface CombatHpDeltaRequest {
-  action: "damage" | "heal" | "set_temp_hp";
-  amount: number;
-}
-
-export interface CombatTurnRequest {
-  direction?: "next" | "previous";
-}
-
-export interface CombatSetActiveRequest {
-  entity_id?: string | null;
-}
-
-export interface CombatMutationResponse {
-  schema_version: "dmb_combat_mutation_v1";
-  encounter: CombatEncounterState;
-  diagnostics: string[];
-}
-
-export interface CombatSaveSummary {
-  save_id: string;
-  title: string;
-  encounter_id: string;
-  entity_count: number;
-  round: number;
-  updated_at?: string | null;
-}
-
-export interface CombatSavesListResponse {
-  schema_version: "dmb_combat_saves_list_v1";
-  saves: CombatSaveSummary[];
-  backups: string[];
-}
-
-export interface CombatSaveSlotResponse {
-  schema_version: "dmb_combat_save_slot_v1";
-  encounter: CombatEncounterState;
-  saves: CombatSaveSummary[];
-  backups: string[];
-  diagnostics: string[];
-}
-
-export interface LoadCombatSaveRequest {
-  save_id: string;
-}
-
-export interface NewCombatEncounterRequest {
-  title?: string | null;
-  encounter_id?: string | null;
-}
-
-export interface SaveCurrentCombatRequest {
-  save_id: string;
-  title?: string | null;
-}
-
-export interface AddGeneratedStatblockCombatRequest {
-  team?: CombatTeam;
-  count?: number;
-  name_override?: string | null;
-  initiative?: number | null;
-  insert_after_entity_id?: string | null;
-  group_key?: string | null;
-  notes?: string | null;
-  hp_override?: number | null;
-  max_hp_override?: number | null;
-}
-
-export interface AddGeneratedStatblockCombatResponse {
-  schema_version: "dmb_add_generated_statblock_to_combat_v1";
-  added_entities: CombatEntity[];
-  encounter: CombatEncounterState;
-  diagnostics: string[];
-}
-
 export interface StatblockPromotionWarning {
   code: string;
   message: string;
@@ -5075,28 +4987,6 @@ export interface ThreatDraftGraphContextSnapshotV1 {
 }
 
 /** Bootstrap lifecycle states from `WorldGraphBootstrapStatusResponse`. */
-export type WorldGraphBootstrapStateV1 =
-  | "ready"
-  | "invalid_bundle"
-  | "active"
-  | "active_head_advanced"
-  | "blocked_existing_world"
-  | "inconsistent_lineage"
-  | "error";
-
-/** CamelCase wire shape from `/api/live/world-graph-bootstrap/status`. */
-export interface WorldGraphBootstrapStatusV1 {
-  schema: "dmb_world_graph_bootstrap_status_v1";
-  state: WorldGraphBootstrapStateV1 | string;
-  worldId: string;
-  campaignId: string;
-  /** False for certification failures (`invalid_bundle`); true when the locked bundle certified. */
-  bundleValid?: boolean;
-  currentHeadRevisionId?: string | null;
-  initialHeadRevisionId?: string | null;
-  diagnostics?: Array<{ code: string; message: string; severity?: string }>;
-}
-
 export interface ThreatDraftFocusV1 {
   session?: number | null;
   prep_label?: string | null;
