@@ -220,6 +220,7 @@ export function createManagedNativeGraphApi(
   let binding: ManagedBinding | null = null;
   let generation = 0;
   let invalidated = false;
+  let lastSnapshot: NativeGraph | null = null;
   const activeControllers = new Set<AbortController>();
   const snapshotPins = new WeakMap<NativeGraph, {
     readonly pin: InspectionPin;
@@ -231,7 +232,7 @@ export function createManagedNativeGraphApi(
     return new NativeGraphDemoApiError(message, "invalid_managed_world_response", 502);
   }
 
-  function registerSnapshot(graph: NativeGraph, startedGeneration: number): NativeGraph {
+  function registerSnapshot(graph: NativeGraph, startedGeneration: number, reuse = false): NativeGraph {
     if (invalidated || startedGeneration !== generation) {
       throw invalidManagedGraph("The selected World changed before this graph snapshot could be used.");
     }
@@ -246,11 +247,21 @@ export function createManagedNativeGraphApi(
       campaign_id: null,
       revision_id: graph.revision_id,
     });
+    const serializedGraph = JSON.stringify(graph);
+    if (reuse && lastSnapshot) {
+      const previous = snapshotPins.get(lastSnapshot);
+      if (previous && sameInspectionPin(previous.pin, pin)
+        && previous.serializedGraph === serializedGraph
+        && JSON.stringify(lastSnapshot) === serializedGraph) {
+        return lastSnapshot;
+      }
+    }
     snapshotPins.set(graph, {
       pin,
       nodeIds: new Set(graph.nodes.map((node) => node.id)),
-      serializedGraph: JSON.stringify(graph),
+      serializedGraph,
     });
+    lastSnapshot = graph;
     return graph;
   }
 
@@ -438,7 +449,7 @@ export function createManagedNativeGraphApi(
   const api: NativeGraphDemoApi = {
     async readGraph(signal) {
       const startedGeneration = generation;
-      return registerSnapshot(await baseApi.readGraph(signal), startedGeneration);
+      return registerSnapshot(await baseApi.readGraph(signal), startedGeneration, true);
     },
     async prepare(input) {
       const startedGeneration = generation;
@@ -501,6 +512,7 @@ export function createManagedNativeGraphApi(
       invalidated = true;
       generation += 1;
       binding = null;
+      lastSnapshot = null;
       for (const controller of activeControllers) controller.abort();
       activeControllers.clear();
     },
