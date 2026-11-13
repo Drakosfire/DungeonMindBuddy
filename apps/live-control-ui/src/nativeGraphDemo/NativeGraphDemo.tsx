@@ -704,7 +704,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         || detail.scope.native_world_id !== snapshot.world_id
         || detail.scope.scope_mode !== "world" || detail.scope.campaign_id !== null
         || !detail.scope.managed_world_id || !Number.isSafeInteger(detail.scope.binding_version) || detail.scope.binding_version < 1
-        || !snapshot.nodes.some((node) => node.id === selectedId)) {
+        || !nodesById.has(selectedId)) {
         throw new Error("The detail response did not match the selected object in this loaded World revision.");
       }
       setSelectedNodeDetail(detail);
@@ -719,7 +719,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       controller.abort();
       if (detailAbortRef.current === controller) detailAbortRef.current = null;
     };
-  }, [api, embedded, graph, mode, selectedNodeId]);
+  }, [api, embedded, graph, mode, nodesById, selectedNodeId]);
 
   useEffect(() => {
     if (!embedded || pendingOperation) return;
