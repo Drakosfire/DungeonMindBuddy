@@ -184,3 +184,23 @@ def test_owned_source_metadata_storage_failure_propagates(application_state_dsn,
     monkeypatch.setattr(repository, 'owned_source_artifacts', unavailable)
     with pytest.raises(psycopg.OperationalError, match='Synthetic metadata'):
         service.owned_source_artifacts(source_artifact_ids=['owned'], world_id='world:one')
+
+
+def test_work_object_keyset_keeps_timestamp_ties_and_world_scope(application_state_dsn):
+    from application_state.content.repository import list_work_objects
+
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("""
+            INSERT INTO content.work_object
+              (work_object_id, kind, world_id, title, status, object_revision, created_at, updated_at)
+            SELECT gen_random_uuid(), 'plan', world_id, 'Plan ' || n, 'active', 1, now(), now()
+            FROM (VALUES ('bench-world'), ('foreign-world')) AS worlds(world_id)
+            CROSS JOIN generate_series(1, 3) AS n
+        """)
+        full = list_work_objects(conn, kind="plan", world_id="bench-world")
+        first = list_work_objects(conn, kind="plan", world_id="bench-world", limit=2)
+        cursor = (first[-1].updated_at, first[-1].work_object_id)
+        second = list_work_objects(conn, kind="plan", world_id="bench-world", limit=2, before=cursor)
+        assert len(first) == 2 and len(second) == 1
+        assert first + second == full
+        assert all(record.world_id == "bench-world" for record in full)
