@@ -581,22 +581,20 @@ def _levenshtein_at_most_two(left: str, right: str) -> bool:
     right = right.lower()
     if abs(len(left) - len(right)) > 2:
         return False
-    previous = list(range(len(right) + 1))
-    for i, left_char in enumerate(left, 1):
-        current = [i]
-        row_min = i
-        for j, right_char in enumerate(right, 1):
-            value = min(
-                previous[j] + 1,
-                current[j - 1] + 1,
-                previous[j - 1] + (left_char != right_char),
+    previous = {column: column for column in range(min(2, len(right)) + 1)}
+    for row, left_char in enumerate(left, 1):
+        # Outside this band, the prefix length difference alone exceeds two edits.
+        current = {0: row} if row <= 2 else {}
+        for column in range(max(1, row - 2), min(len(right), row + 2) + 1):
+            current[column] = min(
+                previous.get(column, 3) + 1,
+                current.get(column - 1, 3) + 1,
+                previous.get(column - 1, 3) + (left_char != right[column - 1]),
             )
-            current.append(value)
-            row_min = min(row_min, value)
-        if row_min > 2:
+        if min(current.values()) > 2:
             return False
         previous = current
-    return previous[-1] <= 2
+    return previous[len(right)] <= 2
 
 
 def _prepare_node_matchers(
