@@ -412,6 +412,45 @@ def test_withdrawn_source_is_withheld_at_same_graph_pin(inspection):
     assert repo.head_events(space) == events
 
 
+def test_native_complete_object_binding_opens_exact_pinned_citation(inspection):
+    x = inspection
+    scope = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
+    response = x.client.post(
+        "/api/live/native-graph-inspection/complete-object",
+        json={
+            "scope": scope,
+            "request": {
+                "schema": "dmb_world_graph_object_projection_request_v1",
+                "worldId": scope["managed_world_id"],
+                "scopeMode": "campaign",
+                "campaignId": scope["campaign_id"],
+                "revisionPin": scope["revision_id"],
+                "nodeId": x.objects["object:0"],
+            },
+        },
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["snapshot"]["revisionId"] == scope["revision_id"]
+    evidence_id = x.lane.support_ids["first"]
+    binding = next(
+        row for row in result["sourceBindings"] if row["evidenceRefId"] == evidence_id
+    )
+    citation = read(x, scope, {
+        "kind": "source",
+        "assertion_id": x.assertions["name:0"],
+        "evidence_ref_id": evidence_id,
+    })
+    assert citation.status_code == 200, citation.text
+    assert citation.json()["scope"] == scope
+    source = citation.json()["source"]
+    expected = x.lane.text.splitlines(keepends=True)[0].encode()
+    assert source["text"].encode() == expected
+    assert source["span_sha256"] == sha256(expected).hexdigest()
+    assert source["source_artifact_id"] == binding["sourceArtifactId"]
+    assert source["body_sha256"] == binding["contentSha256"] == x.lane.digest
+
+
 def test_native_complete_object_requires_matching_pin(inspection, monkeypatch):
     x = inspection
     scope = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
