@@ -548,3 +548,29 @@ def test_historical_discovery_matches_recap_from_one_manifest_read(tmp_path, mon
     )
     assert len(rows) == 1
     assert len(manifest_reads) == 1
+
+
+def test_historical_discovery_skips_manifest_removed_after_read(tmp_path, monkeypatch):
+    from apps.live_control_server.services.graph_ingest_run_registry import (
+        discover_graph_ingest_runs,
+    )
+
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    _, _, source = _write_promotable_run(tmp_path, session_id="21")
+    _write_promotable_run(tmp_path, session_id="22")
+    _write_promotable_run(tmp_path, session_id="23")
+    vanished = source.parent / "graph_ingest_run_manifest.json"
+    expected = [row.manifest_path for row in discover_graph_ingest_runs(tmp_path)]
+    assert len(expected) == 3
+    original_read = Path.read_text
+
+    def read_text(path, *args, **kwargs):
+        content = original_read(path, *args, **kwargs)
+        if path == vanished:
+            path.unlink()
+        return content
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    assert [row.manifest_path for row in discover_graph_ingest_runs(tmp_path)] == [
+        path for path in expected if path != vanished.relative_to(tmp_path).as_posix()
+    ]

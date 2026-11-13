@@ -234,7 +234,11 @@ def discover_graph_ingest_runs(
             summary
         ):
             continue
-        summaries.append((summary, manifest_path.stat().st_mtime))
+        try:
+            modified_at = manifest_path.stat().st_mtime
+        except FileNotFoundError:
+            continue
+        summaries.append((summary, modified_at))
 
     summaries.sort(
         key=lambda item: (
