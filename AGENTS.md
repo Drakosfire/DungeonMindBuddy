@@ -35,8 +35,17 @@ it only when explicitly assigned design/stewardship work.
 
 - `BLOCKED` records a concrete design with unresolved gates. It grants no write
   lease and does not allocate an implementation lane.
-- `ACTIVE` requires explicit authorization, a pinned path/ref, satisfied gates,
-  an expected-path allowlist (§4), verification evidence, and declared PR topology.
+- `ACTIVE` means the slice is authorized to start, not ready to merge. Record
+  explicit authorization, a durable pinned assignment, the bounded write set,
+  and any actual start prerequisite. If there is no prerequisite, work may start;
+  do not wait for evidence the work itself is meant to produce.
+- Record how the slice will be verified at the owning boundary. Collect results
+  during implementation and require the applicable evidence and approvals at
+  review, merge, or delivery. Only a named prerequisite (such as an unmerged
+  dependency or an unresolved write/runtime collision) can block start.
+- Reuse an existing pinned handoff or assignment if it already records the
+  scope and ownership. Routine, explicitly authorized, single-PR work may use
+  a short pinned brief; no separate handoff PR or full template is required.
 - The ACTIVE allowlist is an exclusive expected write lease. Other lanes may
   read those paths but must not edit them without an explicit transfer or split.
 - Before activation, critique the invariant and its failure cases. Re-anchor when
@@ -49,7 +58,8 @@ it only when explicitly assigned design/stewardship work.
 - If required paths or contracts exceed the lease, return to the steward before
   editing. Git conflicts are not an ownership protocol.
 
-Every ACTIVE handoff declares one topology:
+Use **serial** unless explicitly choosing another topology. Record the exact
+parent/order for stacked work or the concurrent lanes checked for parallel work:
 
 - **serial** (default): one open implementation PR in the workstream. A successor
   may be pinned as BLOCKED; it is not dispatched until its recorded gates resolve.
