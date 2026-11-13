@@ -22,7 +22,7 @@ import {
 import type { NativeGraphEntity } from "../api/nativeGraphInspection";
 import { nativeGraphPresentation } from "./nativeGraphPresentation";
 import { NativeGraphNodeExplorer } from "./GraphNodeExplorer";
-import { compactNodeLabel } from "./graphNodeExplorer";
+import { compactNodeLabel } from "./graphNodeExplorerModel";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
 import {
   SurfaceContextAction,

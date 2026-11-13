@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Give the Graph explorer component and helper distinct module names
+
+Renamed the helper to `graphNodeExplorerModel` and updated all callers and test classification. All 123 focused Graph tests passed and CI inventory classified 1,527 test files. The prior explorer lane merged in #2510.
+
 ## [DONE] Simplify the connected-page recovery import
 
 Recovery now uses the existing static API import. The API was already loaded by

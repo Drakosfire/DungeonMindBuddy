@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { NativeAssertion, NativeGraphEntity } from '../api/nativeGraphInspection';
-import { assertionStatus, buildNodeExplorer, compactNodeLabel, sourceContexts } from './graphNodeExplorer';
+import { assertionStatus, buildNodeExplorer, compactNodeLabel, sourceContexts } from './graphNodeExplorerModel';
 const labels = new Map([['lys', 'Lysandra'], ['father', 'Lysandro'], ['guard', 'City guard'], ['cult', 'Cultists']]);
 function assertion(id: string, subject = 'lys', predicate = 'dungeonbuddy.custom:works_with', value: NativeAssertion['value'] = {kind:'entity_ref',entity_id:'guard'}): NativeAssertion {
  return {assertion_id:id,subject_entity_id:subject,predicate,value,metadata:{scope:[{axis:'dungeonbuddy.scope:campaign',value:'longmont-c2'}],visibility:{kind:'labels_any',labels:['gm']},epistemic_basis:'asserted',claim_mode:'dungeonbuddy.claim:fact',standing:'provisional',evidence_ref_ids:['ev:1'],temporal_scope:{kind:'domain_ref',schema:'dungeonbuddy.time:fictional_anchor_v1',payload:{episode:'session-22',qualified:true}},domain_metadata:[]}};

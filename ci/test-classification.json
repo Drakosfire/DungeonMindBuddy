@@ -226,7 +226,7 @@
       "apps/live-control-ui/src/nativeGraphDemo/GraphNodeExplorer.test.tsx",
       "apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.test.tsx",
       "apps/live-control-ui/src/nativeGraphDemo/buddyIndexGraphApi.test.ts",
-      "apps/live-control-ui/src/nativeGraphDemo/graphNodeExplorer.test.ts",
+      "apps/live-control-ui/src/nativeGraphDemo/graphNodeExplorerModel.test.ts",
       "apps/live-control-ui/src/nativeGraphDemo/managedNativeGraphApi.test.ts",
       "apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemoApi.test.ts",
       "apps/live-control-ui/src/planSurface/BuildSavedSectionEvidence.test.tsx",
