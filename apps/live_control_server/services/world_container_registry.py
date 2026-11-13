@@ -249,11 +249,10 @@ def _prune_delegated_grants(record: WorldContainerRecord) -> WorldContainerRecor
 
 
 def grant_world_access(
-    root: Path, world_id: str, *, actor_subject: str | None, subject: str,
+    world_id: str, *, actor_subject: str | None, subject: str,
     permissions: tuple[WorldPermission | str, ...] | list[WorldPermission | str],
 ) -> WorldContainerRecord:
     """Apply the one product grant policy to the latest locked World grants."""
-    del root
     try:
         actor = _validate_subject(actor_subject)
         target = _validate_subject(subject)
@@ -301,10 +300,9 @@ def grant_world_access(
 
 
 def revoke_world_access(
-    root: Path, world_id: str, *, actor_subject: str | None, subject: str,
+    world_id: str, *, actor_subject: str | None, subject: str,
 ) -> WorldContainerRecord:
     """Revoke and cascade using the same serialized access-policy boundary."""
-    del root
     try:
         actor = _validate_subject(actor_subject)
         target = _validate_subject(subject)
