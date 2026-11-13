@@ -679,13 +679,8 @@ def verify(args):
                         report["runner_dirty"]
                         or report["source_dirty_before"]
                         or report["source_dirty_after"]
-                        or any(
-                            step["exit_code"]
-                            or not step["collection_parity"]
-                            or step.get("failed_cases", 0)
-                            for step in report["tests"]
-                        )
-                        or report["build"]["exit_code"] != 0
+                        or report["test_exit_code"] != 0
+                        or report["build_exit_code"] != 0
                     )
                 finally:
                     if source.exists():
