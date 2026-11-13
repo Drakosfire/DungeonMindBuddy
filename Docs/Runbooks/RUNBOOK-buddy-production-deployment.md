@@ -259,8 +259,17 @@ TLS server name and validates the certificate against it.
 ```bash
 (
   set -e -o pipefail
-  buddy_ipv4=$(dig +noall +answer A "$buddy_domain" | awk '$4 == "A" {print $5}')
-  buddy_ipv6=$(dig +noall +answer AAAA "$buddy_domain" | awk '$4 == "AAAA" {print $5}')
+  buddy_addresses() {
+    local record_type=$1 reply
+    reply=$(dig +noall +comments +answer "$record_type" "$buddy_domain") || return 1
+    if [[ "$reply" != *"status: NOERROR,"* ]]; then
+      printf 'DNS lookup failed for %s %s\n%s\n' "$buddy_domain" "$record_type" "$reply" >&2
+      return 1
+    fi
+    awk -v type="$record_type" '$4 == type {print $5}' <<<"$reply"
+  }
+  buddy_ipv4=$(buddy_addresses A)
+  buddy_ipv6=$(buddy_addresses AAAA)
   if [[ -z "$buddy_ipv4" && -z "$buddy_ipv6" ]]; then
     echo "No A or AAAA records found for $buddy_domain" >&2
     exit 1
