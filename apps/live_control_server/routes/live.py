@@ -352,16 +352,15 @@ def post_citation_freshness(body: CitationFreshnessRequest) -> dict[str, Any]:
 def get_ingestion_source_bundle(
     scope: str = Query(default="campaign-ingested", min_length=1),
     campaign_id: str | None = Query(default=None),
-) -> dict[str, Any]:
+) -> IngestionSourceBundle:
     try:
-        response = build_ingestion_source_bundle(
+        return build_ingestion_source_bundle(
             root=repo_root(),
             scope=scope,
             campaign_id=campaign_id,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail="source bundle build failed") from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(

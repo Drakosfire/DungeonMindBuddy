@@ -47,8 +47,10 @@ def test_source_bundle_includes_manifest_reference_units() -> None:
     assert "C2S23 dogfood-full manifest" in labels
 
 
-def test_live_source_bundle_endpoint_returns_contract() -> None:
-    client = TestClient(create_app())
+def test_live_source_bundle_endpoint_returns_contract(monkeypatch) -> None:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
 
     response = client.get("/api/live/source-bundle?campaign_id=longmont-c2")
 
