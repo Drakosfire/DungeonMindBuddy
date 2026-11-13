@@ -38,7 +38,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
 
   const [versions, setVersions] = useState<SavedMechanicsVersionList>();
   const [parentId, setParentId] = useState("");
-  const mechanicsResolved = Boolean(editor?.workingCopy.movement)
+  const mechanicsResolved = Boolean(editor?.workingCopy.movement && editor.workingCopy.ruleset)
     && editor?.workingCopy.challenge.proficiency_bonus != null;
   const selectedDraft = drafts.find(item => item.draft_id === draftId);
   const savedParents = versions ? [
@@ -376,6 +376,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   }
 
   const publishBlockers = editor && review ? [
+    ...(!editor.workingCopy.ruleset ? ["Choose a D&D edition to validate and publish mechanics."] : []),
     ...(!editor.workingCopy.movement ? ["Resolve walking speed."] : []),
     ...(editor.workingCopy.challenge.proficiency_bonus == null ? ["Enter a proficiency bonus."] : []),
     ...(getLocalFingerprint(editor) !== editor.baselineFingerprint ? ["Save your edits."] : []),
@@ -438,6 +439,23 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       </form>}
       {review && editor && <>
         <fieldset disabled={pending}>
+          {!editor.workingCopy.ruleset && <label>D&D edition
+            <select value="" onChange={event => {
+              const edition = event.currentTarget.value;
+              if (edition !== "2014" && edition !== "2024") return;
+              setEditor(updateWorkingCopy(editor, current => ({
+                ...current, ruleset: { system: "dnd5e", edition },
+              })));
+              setSourceChecked(false);
+              setSaved(false);
+              setValidation("");
+              setIssues([]);
+            }}>
+              <option value="">Unspecified in source</option>
+              <option value="2014">2014</option>
+              <option value="2024">2024</option>
+            </select>
+          </label>}
           <label>Proficiency bonus
             <input type="number" min="0" step="1"
               value={editor.workingCopy.challenge.proficiency_bonus ?? ""}

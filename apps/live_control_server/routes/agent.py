@@ -2351,6 +2351,8 @@ def get_pdf_statblock_review(world_id: str, review_id: UUID, request: Request):
 def _require_resolved_pdf_statblock(review: dict) -> dict:
     if review.get("source_confirmation_required") and not review.get("source_confirmed"):
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_source_confirmation_required"})
+    if review["definition"].get("ruleset") is None:
+        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_edition_unresolved"})
     if review["definition"].get("movement") is None:
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_movement_unresolved"})
     if review["definition"]["challenge"]["proficiency_bonus"] is None:
