@@ -5,7 +5,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Literal, Mapping
+from typing import Any, Literal, Mapping, NamedTuple
 
 from pydantic import BaseModel, Field
 
@@ -314,26 +314,25 @@ def discover_graph_preview_runs(
     return deduped
 
 
-def _graph_from_run_dir(root: Path, run_dir: str) -> dict[str, Any] | None:
-    try:
-        resolved = _resolve_run_dir(root, run_dir)
-    except GraphPreviewSurfaceError:
-        return None
+class _LoadedRun(NamedTuple):
+    path: Path
+    validation: dict[str, Any]
+    graph: dict[str, Any] | None
+
+
+def _load_run_graph(resolved: Path) -> tuple[dict[str, Any], dict[str, Any] | None]:
     validation_path = resolved / "validation_report.json"
     candidate_path = resolved / "candidate_output.json"
-    if validation_path.is_file():
-        validation = _load_json(validation_path)
-        if validation.get("reconciled_candidate_graph"):
-            return dict(validation["reconciled_candidate_graph"])
+    validation = _load_json(validation_path) if validation_path.is_file() else {}
+    if validation.get("reconciled_candidate_graph"):
+        return validation, dict(validation["reconciled_candidate_graph"])
     if candidate_path.is_file():
         envelope = _load_json(candidate_path)
-        return dict(envelope.get("candidate_graph") or envelope)
-    return None
+        return validation, dict(envelope.get("candidate_graph") or envelope)
+    return validation, None
 
 
-def _run_has_resolvable_evidence(root: Path, run_dir: str) -> bool:
-    """Cheap probe: does any evidence ref carry a source_span_ref_id?"""
-    graph = _graph_from_run_dir(root, run_dir)
+def _has_evidence_ids(graph: dict[str, Any] | None) -> bool:
     if graph is None:
         return False
     for section in ("nodes", "edges", "beats", "ignored_items", "deferred_items"):
@@ -346,23 +345,32 @@ def _run_has_resolvable_evidence(root: Path, run_dir: str) -> bool:
     return False
 
 
-def _pick_latest_run(root: Path, runs: list[GraphPreviewRunSummary]) -> GraphPreviewRunSummary | None:
-    if not runs:
-        return None
+def _pick_latest_run(
+    root: Path, runs: list[GraphPreviewRunSummary],
+) -> tuple[GraphPreviewRunSummary, _LoadedRun | None] | None:
     newest_canonical = None
     newest_with_evidence = None
-    # Discovery order breaks ties within each tier. A canonical run with
-    # evidence IDs wins immediately, so older artifacts need no probe.
+    newest = None
+    # Retain only payloads that can still win.
     for run in reversed(runs):
-        if run.canonical_ir_valid and newest_canonical is None:
-            newest_canonical = run
         if not run.canonical_ir_valid and newest_with_evidence is not None:
             continue
-        if _run_has_resolvable_evidence(root, run.run_dir):
+        try:
+            resolved = _resolve_run_dir(root, run.run_dir)
+        except GraphPreviewSurfaceError:
+            loaded = None
+        else:
+            loaded = _LoadedRun(resolved, *_load_run_graph(resolved))
+        candidate = (run, loaded)
+        if newest is None:
+            newest = candidate
+        if run.canonical_ir_valid and newest_canonical is None:
+            newest_canonical = candidate
+        if loaded is not None and _has_evidence_ids(loaded.graph):
             if run.canonical_ir_valid:
-                return run
-            newest_with_evidence = run
-    return newest_with_evidence or newest_canonical or runs[-1]
+                return candidate
+            newest_with_evidence = candidate
+    return newest_with_evidence or newest_canonical or newest
 
 
 def _object_id(section: str, obj: Mapping[str, Any]) -> str:
@@ -815,23 +823,16 @@ def build_graph_preview_surface(
     *,
     run_bundle_dir: Path | None = None,
     artifact_record: RecapArtifactRecord | None = None,
+    _loaded_run: _LoadedRun | None = None,
 ) -> GraphPreviewSurfaceResponse:
-    resolved_run = _resolve_run_dir(root, run_dir)
+    if _loaded_run is None:
+        resolved_run = _resolve_run_dir(root, run_dir)
+        validation, graph = _load_run_graph(resolved_run)
+    else:
+        resolved_run, validation, graph = _loaded_run
     rel_run_dir = resolved_run.relative_to(root.resolve()).as_posix()
-
-    validation_path = resolved_run / "validation_report.json"
     run_summary_path = resolved_run / "run_summary.json"
-    candidate_path = resolved_run / "candidate_output.json"
-
-    validation = _load_json(validation_path) if validation_path.is_file() else {}
     run_summary = _load_json(run_summary_path) if run_summary_path.is_file() else {}
-
-    graph: dict[str, Any] | None = None
-    if validation.get("reconciled_candidate_graph"):
-        graph = dict(validation["reconciled_candidate_graph"])
-    elif candidate_path.is_file():
-        envelope = _load_json(candidate_path)
-        graph = dict(envelope.get("candidate_graph") or envelope)
 
     if graph is None:
         raise GraphPreviewSurfaceError(f"no graph artifact in run_dir: {rel_run_dir}")
@@ -917,6 +918,7 @@ def build_latest_graph_preview_surface(
         campaign_id=campaign_id,
         session_id=session_id,
     )
+    loaded_run = None
     run_dir = record.default_graph_run_uri
     if not run_dir:
         runs = discover_graph_preview_runs(
@@ -928,12 +930,14 @@ def build_latest_graph_preview_surface(
         picked = _pick_latest_run(base, runs)
         if picked is None:
             raise GraphPreviewSurfaceError("no graph preview runs discovered", status_code=404)
-        run_dir = picked.run_dir
+        run, loaded_run = picked
+        run_dir = run.run_dir
     return build_graph_preview_surface(
         base,
         run_dir,
         run_bundle_dir=base / record.run_bundle_uri,
         artifact_record=record,
+        _loaded_run=loaded_run,
     )
 
 
@@ -953,6 +957,7 @@ def build_recap_graph_presentation(
         session_id=session_id,
     )
     bundle = run_bundle_dir or (root / record.run_bundle_uri)
+    loaded_run = None
     selected_run = run_dir or record.default_graph_run_uri
     if not selected_run:
         runs = discover_graph_preview_runs(
@@ -976,13 +981,15 @@ def build_recap_graph_presentation(
                 nodes={},
                 links=[],
             )
-        selected_run = picked.run_dir
+        run, loaded_run = picked
+        selected_run = run.run_dir
 
     surface = build_graph_preview_surface(
         root,
         selected_run,
         run_bundle_dir=bundle,
         artifact_record=record,
+        _loaded_run=loaded_run,
     )
     span_index = _load_json(bundle / "source_span_index.json")
     span_lookup = {
