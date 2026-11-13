@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -147,10 +146,9 @@ def _state_from_row(row: object) -> PlayActiveRunState:
     return PlayActiveRunState(run_id=str(row.run_id), selected_at=_iso_z(row.selected_at))
 
 
-def get_play_active_run(root: Path) -> PlayActiveRunState:
+def get_play_active_run() -> PlayActiveRunState:
     """Read the PostgreSQL pointer without inferring or selecting any Run."""
 
-    del root
     try:
         row = play_service.get_play_active_run()
     except ApplicationStateError as exc:
@@ -161,11 +159,10 @@ def get_play_active_run(root: Path) -> PlayActiveRunState:
 
 
 def get_world_play_active_run(
-    root: Path, *, world_id: str
+    *, world_id: str
 ) -> WorldPlayActiveRunState:
     """Read the singleton selection only when it belongs to this exact World."""
 
-    del root
     try:
         row = play_service.get_world_play_active_run(world_id=world_id)
     except ApplicationStateError as exc:
@@ -179,10 +176,9 @@ def get_world_play_active_run(
     )
 
 
-def set_play_active_run(root: Path, *, run_id: str) -> PlayActiveRunState:
+def set_play_active_run(*, run_id: str) -> PlayActiveRunState:
     """Persist focus on an existing PostgreSQL Run after proving its sealed identity."""
 
-    del root
     try:
         canonical_run_id = _canonical_uuid(run_id, field_name="run_id")
     except ValueError as exc:
@@ -195,11 +191,10 @@ def set_play_active_run(root: Path, *, run_id: str) -> PlayActiveRunState:
 
 
 def set_world_play_active_run(
-    root: Path, *, world_id: str, run_id: str
+    *, world_id: str, run_id: str
 ) -> WorldPlayActiveRunState:
     """Select an exact World-owned Run through the existing singleton pointer."""
 
-    del root
     try:
         canonical_run_id = _canonical_uuid(run_id, field_name="run_id")
     except ValueError as exc:
@@ -215,10 +210,9 @@ def set_world_play_active_run(
     )
 
 
-def clear_play_active_run(root: Path) -> PlayActiveRunState:
+def clear_play_active_run() -> PlayActiveRunState:
     """Delete the singleton row. Missing row is the durable null state."""
 
-    del root
     try:
         play_service.clear_play_active_run()
     except ApplicationStateError as exc:
