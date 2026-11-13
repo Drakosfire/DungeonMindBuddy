@@ -43,3 +43,23 @@ def test_recovery_checks_client_before_database_work(tmp_path, monkeypatch):
     with pytest.raises(authority.ApplicationStateIntegrityError, match="pg_restore is required on PATH"):
         authority.restore_authority(target_dsn="synthetic", backup_path=output)
     assert not output.exists()
+
+
+def test_recovery_client_version_errors_include_actionable_guidance():
+    from application_state import authority
+
+    dsn = "postgresql://user:synthetic-secret@localhost/dungeonbuddy_app_state_test"
+    dump = authority._postgres_client_error(
+        "pg_dump", f"aborting because of server version mismatch for {dsn}", dsn,
+    )
+    restore = authority._postgres_client_error(
+        "pg_restore", "unsupported version (1.16) in file header", dsn,
+    )
+    assert "server version mismatch" in dump
+    assert "source server's PostgreSQL major version" in dump
+    assert "synthetic-secret" not in dump
+    assert "unsupported version (1.16) in file header" in restore
+    assert "toolchain that created the dump" in restore
+    assert authority._postgres_client_error("pg_restore", "connection refused", dsn) == (
+        "pg_restore failed: connection refused"
+    )

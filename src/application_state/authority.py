@@ -444,6 +444,15 @@ def _require_postgres_client(command: str) -> str:
     return executable
 
 
+def _postgres_client_error(command: str, stderr: str, dsn: str) -> str:
+    detail = redact_secrets(stderr.strip(), dsn)
+    if command == "pg_dump" and "server version mismatch" in detail:
+        detail += "\nUse pg_dump from the source server's PostgreSQL major version and check PATH."
+    if command == "pg_restore" and "unsupported version" in detail and "file header" in detail:
+        detail += "\nUse pg_restore from the PostgreSQL toolchain that created the dump and check PATH."
+    return f"{command} failed: {detail}"
+
+
 def backup_authority(*, source_dsn: str, out_path: str | Path) -> BackupRecord:
     """External custom-format backup of the APP-STATE authority.
 
@@ -474,7 +483,7 @@ def backup_authority(*, source_dsn: str, out_path: str | Path) -> BackupRecord:
     )
     if result.returncode != 0:
         raise ApplicationStateUnavailableError(
-            "pg_dump failed: " + redact_secrets(result.stderr.strip(), source_dsn)
+            _postgres_client_error("pg_dump", result.stderr, source_dsn)
         )
     after = compute_fingerprint(source_dsn)
     if before.digest != after.digest:
@@ -541,7 +550,7 @@ def restore_authority(
     )
     if result.returncode != 0:
         raise ApplicationStateUnavailableError(
-            "pg_restore failed: " + redact_secrets(result.stderr.strip(), target_dsn)
+            _postgres_client_error("pg_restore", result.stderr, target_dsn)
         )
     try:
         fingerprint = compute_fingerprint(target_dsn)
