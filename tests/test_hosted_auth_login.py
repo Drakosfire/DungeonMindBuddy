@@ -10,6 +10,10 @@ from fastapi import FastAPI
 import pytest
 
 from apps.live_control_server.main import create_app
+from apps.live_control_server.services.dms_principal import (
+    DmsPrincipal,
+    DmsPrincipalResolution,
+)
 from apps.live_control_server.services.hosted_auth import (
     AUTH_MODE_ENV,
     AUTH_SESSION_PATH,
@@ -119,16 +123,20 @@ def test_login_does_not_follow_a_bad_configured_dms_origin(
 @pytest.mark.parametrize(
     ("resolution", "status_code", "payload"),
     [
-        (SimpleNamespace(status="authenticated", principal=SimpleNamespace(subject="synthetic-user")), 200, {"status": "authenticated", "subject": "synthetic-user"}),
-        (SimpleNamespace(status="signed_out", principal=None), 401, {"status": "signed_out"}),
-        (SimpleNamespace(status="unavailable", principal=None), 503, {"status": "unavailable"}),
+        (
+            DmsPrincipalResolution("authenticated", DmsPrincipal("synthetic-user")),
+            200,
+            {"status": "authenticated", "subject": "synthetic-user", "display_name": None},
+        ),
+        (DmsPrincipalResolution("signed_out"), 401, {"status": "signed_out"}),
+        (DmsPrincipalResolution("unavailable"), 503, {"status": "unavailable"}),
     ],
 )
 def test_session_status_distinguishes_login_from_service_failure(
     monkeypatch: pytest.MonkeyPatch,
     resolution: object,
     status_code: int,
-    payload: dict[str, str],
+    payload: dict[str, str | None],
 ) -> None:
     client = _hosted_app(monkeypatch)
     application = client.application
@@ -148,7 +156,7 @@ def test_protected_api_keeps_service_outage_distinct_from_expired_session(
     client = _hosted_app(monkeypatch)
     application = client.application
     application.state.dms_principal_resolver = SimpleNamespace(
-        resolve=_resolved(SimpleNamespace(status="unavailable", principal=None))
+        resolve=_resolved(DmsPrincipalResolution("unavailable"))
     )
 
     response = client.get(CURRENT_USER_PATH)
