@@ -368,8 +368,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[source_text(r) for r in sections])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
             if saved_statblock == "associated":
-                candidate["answer_segments"].append(dict(kind="statblock_pdf_claim",
-                    source="pdf0:0", quote="Hit Points 41"))
+                candidate["answer_segments"] = [dict(kind="statblock_pdf_claim",
+                    source="pdf0:0", quote="Hit Points 41")]
             if native_body or authored_source:
                 from application_state.agent_conversation import native_corpus as corpus
                 acquired = corpus.acquired_body_reads(self.adapter._broker_execution())
@@ -1015,6 +1015,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
         return
+    if saved_statblock == "associated":
+        assert context['completion']['answer_context_status'] == 'source_grounded'
+        assert context['completion']['native_assertion_citations'] == []
+        return SimpleNamespace(client=client, world=world)
     citations = context['completion']['native_assertion_citations']
     assert citations and all(c['read_revision_id'] == current_revision for c in citations)
     opened = client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-assertion-sources/0')
