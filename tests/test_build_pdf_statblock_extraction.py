@@ -214,7 +214,9 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch):
     async def extract(transcriptions, instruction):
         calls.append(("extract", transcriptions, instruction))
         return extraction.StatblockExtractionOutput(
-            status="complete", definition=candidate, missing_details=[],
+            status="complete", definition=extraction.PdfStatblockDraftDefinition.model_validate(
+                {**candidate.model_dump(by_alias=True), "movement": None},
+            ), missing_details=[],
         )
 
     monkeypatch.setattr(extraction, "extract_statblock", extract)
@@ -252,7 +254,7 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch):
         "world-a", UUID(review_id), payload, Request("Bearer fixture"),
     )
     assert response["revision"] == 1
-    assert response["definition"] == candidate.model_dump(mode="json", by_alias=True)
+    assert response["definition"] == {**candidate.model_dump(mode="json", by_alias=True), "movement": None}
     assert response["regions"] == [
         {"schema_version": "dm_native_pdf_region_v1", **region} for region in regions
     ]
