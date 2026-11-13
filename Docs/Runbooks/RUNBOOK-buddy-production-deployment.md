@@ -55,18 +55,25 @@ test -z "$(git status --porcelain)" && \
 Continue after all three checks succeed. For an upgrade, use the existing Compose project name and keep the previous release’s image and override available.
 
 ```bash
-buddy_tag="dungeonmindbuddy:$(git rev-parse HEAD)"
-docker build --target api -f Dockerfile.production -t "$buddy_tag" .
-buddy_image_id=$(docker image inspect "$buddy_tag" --format '{{.Id}}')
-printf 'Release image ID %s\n' "$buddy_image_id"
-buddy_override=$(mktemp)
-printf 'services:\n  buddy:\n    image: %s\n' "$buddy_tag" > "$buddy_override"
-buddy_compose=(docker compose --project-name "$buddy_project" --env-file "$buddy_env"
-  -f deploy/production/compose.production.yaml -f "$buddy_override")
-"${buddy_compose[@]}" config --quiet
+unset buddy_compose
+prepare_buddy_release() {
+  local revision
+  revision=$(git rev-parse HEAD) || return
+  buddy_tag="dungeonmindbuddy:$revision"
+  docker build --target api -f Dockerfile.production -t "$buddy_tag" . || return
+  buddy_image_id=$(docker image inspect "$buddy_tag" --format '{{.Id}}') || return
+  buddy_override=$(mktemp) || return
+  printf 'services:\n  buddy:\n    image: %s\n' "$buddy_tag" > "$buddy_override" || return
+  local -a candidate_compose=(docker compose --project-name "$buddy_project" --env-file "$buddy_env"
+    -f deploy/production/compose.production.yaml -f "$buddy_override")
+  "${candidate_compose[@]}" config --quiet || return
+  buddy_compose=("${candidate_compose[@]}")
+  printf 'Release image ID %s\n' "$buddy_image_id"
+}
+prepare_buddy_release
 ```
 
-Save the override with the release record. Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
+Continue only if release preparation succeeds. Save the override with the release record. Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
 
 ```bash
 "${buddy_compose[@]}" up -d --no-build --pull never --wait --wait-timeout 180 buddy
