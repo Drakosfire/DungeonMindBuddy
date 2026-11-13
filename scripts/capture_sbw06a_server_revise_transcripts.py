@@ -81,22 +81,26 @@ def main() -> None:
         / "apps/live_control_server/integrations/dungeonmind_statblocks/openapi"
         / "dungeonbuddy-statblocks-v1.json"
     )
-    if openapi_path.is_file():
-        from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
-            OPENAPI_FINGERPRINT,
-        )
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+        OPENAPI_FINGERPRINT,
+    )
 
-        buddy_fp = manifest.get("buddy_vendored_openapi_fingerprint")
-        if buddy_fp != OPENAPI_FINGERPRINT:
-            errors.append(
-                "MANIFEST buddy_vendored_openapi_fingerprint does not match "
-                f"generated OPENAPI_FINGERPRINT ({buddy_fp} != {OPENAPI_FINGERPRINT})"
-            )
-        server_fp = (manifest.get("dungeonmind_server") or {}).get("openapi_fingerprint")
-        if server_fp != OPENAPI_FINGERPRINT:
-            errors.append(
-                "MANIFEST server openapi_fingerprint does not match Buddy fingerprint"
-            )
+    if not openapi_path.is_file():
+        errors.append(f"missing OpenAPI snapshot: {openapi_path}")
+    elif _sha256_file(openapi_path) != OPENAPI_FINGERPRINT:
+        errors.append("OpenAPI snapshot digest does not match generated fingerprint")
+
+    buddy_fp = manifest.get("buddy_vendored_openapi_fingerprint")
+    if buddy_fp != OPENAPI_FINGERPRINT:
+        errors.append(
+            "MANIFEST buddy_vendored_openapi_fingerprint does not match "
+            f"generated OPENAPI_FINGERPRINT ({buddy_fp} != {OPENAPI_FINGERPRINT})"
+        )
+    server_fp = (manifest.get("dungeonmind_server") or {}).get("openapi_fingerprint")
+    if server_fp != OPENAPI_FINGERPRINT:
+        errors.append(
+            "MANIFEST server openapi_fingerprint does not match Buddy fingerprint"
+        )
 
     if errors:
         raise SystemExit("Fixture verification failed:\n- " + "\n- ".join(errors))
