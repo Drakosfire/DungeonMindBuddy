@@ -183,10 +183,9 @@ def resolve_worldbuilding_source_span(
 
 
 def get_source_artifacts(
-    root: Path, source_artifact_ids: set[str]
+    source_artifact_ids: set[str]
 ) -> dict[str, GraphMemorySourceArtifact]:
     """Exact metadata lookup from APP; no source bodies or filesystem discovery."""
-    del root
     try:
         rows = source_service.get_source_input_descriptors(
             source_artifact_ids=sorted(source_artifact_ids)
@@ -204,7 +203,7 @@ def get_source_artifacts(
 def get_source_artifact(
     root: Path, source_artifact_id: str
 ) -> GraphMemorySourceArtifact:
-    records = get_source_artifacts(root, {source_artifact_id})
+    records = get_source_artifacts({source_artifact_id})
     artifact = records.get(source_artifact_id)
     if artifact is None:
         raise SourceArtifactRegistryError(
