@@ -73,7 +73,7 @@ DEFAULT_PROMPT_REVIEW_REPORT_PATH = (
     REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-VOCABULARY-ABLATION-PROMPT-REVIEW.md"
 )
 DEFAULT_MANUAL_REVIEW_DIR = (
-    REPO_ROOT / "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review"
+    REPO_ROOT / "evals/graph_memory_layer/examples/vocabulary_ablation/manual_review"
 )
 MANUAL_REVIEW_VARIANTS = ("baseline", "edge_and_node_packet")
 C1S1_SOURCE_LABEL = "evals/graph_memory_layer/examples/session_1_recap_ingest/expected_normalized_recap.md"
@@ -810,7 +810,7 @@ def run_bed(bed: BedConfig, *, model_id: str) -> dict[str, Any]:
 
 def _manual_review_graph_relpath(bed_id: str, variant_name: str) -> str:
     return (
-        f"evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/"
+        f"evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/"
         f"{bed_id}_{variant_name}_candidate_graph.json"
     )
 
