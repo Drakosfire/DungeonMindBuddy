@@ -162,7 +162,6 @@ def test_graph_binding_mutations_preserve_owner_and_access_grants(root: Path) ->
         owner_subject="subject:owner",
     )
     grant_world_access(
-        root,
         world.world_id,
         actor_subject="subject:owner",
         subject="subject:reader",
@@ -550,7 +549,7 @@ def test_corrupt_database_metadata_fails_before_native_validation_without_privat
     import psycopg
     from apps.live_control_server.routes import world_containers
     world = _existing_unbound_world(root, name="Private metadata", owner_subject="subject:owner")
-    grant_world_access(root, world.world_id, actor_subject="subject:owner", subject="subject:reader", permissions=["read"])
+    grant_world_access(world.world_id, actor_subject="subject:owner", subject="subject:reader", permissions=["read"])
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute("UPDATE workspace.managed_world SET owner_subject=NULL WHERE world_id=%s", (world.world_id,))
     _enable_local_auth(monkeypatch)

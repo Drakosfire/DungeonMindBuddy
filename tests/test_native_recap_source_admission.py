@@ -682,7 +682,6 @@ def test_hosted_boundary_refuses_before_sensitive_IO_and_never_falls_back(
     )
 
     grant_world_access(
-        lane.root,
         lane.world.world_id,
         actor_subject="recap-owner",
         subject="recap-reader",
