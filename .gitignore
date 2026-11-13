@@ -26,6 +26,7 @@ Thumbs.db
 
 # Build / dist
 dist/
+/apps/live-control-ui/dist-native-demo/
 build/
 coverage/
 

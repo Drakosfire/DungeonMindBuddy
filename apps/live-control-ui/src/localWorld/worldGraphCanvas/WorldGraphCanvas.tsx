@@ -190,8 +190,7 @@ interface CanvasGesture {
   readonly pointerX: number;
   readonly pointerY: number;
   readonly camera: Camera;
-  readonly scaleX: number;
-  readonly scaleY: number;
+  readonly startPoint: GraphPoint;
   readonly node?: { readonly id: LocalObjectId; readonly x: number; readonly y: number };
   readonly originNodeId?: LocalObjectId;
   readonly sourceId?: LocalObjectId;
@@ -858,12 +857,10 @@ export function WorldGraphCanvas({
   }, [selectedIds, onSelectionChange]);
 
   function graphPointAt(clientX: number, clientY: number, baseCamera: Camera = camera): GraphPoint {
-    const rect = svgRef.current?.getBoundingClientRect();
-    const screenX = rect?.width ? (clientX - rect.left) * viewport.width / rect.width : clientX;
-    const screenY = rect?.height ? (clientY - rect.top) * viewport.height / rect.height : clientY;
+    const point = svgPointAt(clientX, clientY) ?? { x: clientX, y: clientY };
     return {
-      x: Math.max(0, Math.min(MAX_NODE_COORDINATE, (screenX - baseCamera.x) / baseCamera.zoom)),
-      y: Math.max(0, Math.min(MAX_NODE_COORDINATE, (screenY - baseCamera.y) / baseCamera.zoom)),
+      x: Math.max(0, Math.min(MAX_NODE_COORDINATE, (point.x - baseCamera.x) / baseCamera.zoom)),
+      y: Math.max(0, Math.min(MAX_NODE_COORDINATE, (point.y - baseCamera.y) / baseCamera.zoom)),
     };
   }
 
@@ -921,7 +918,7 @@ export function WorldGraphCanvas({
   }
   // The root SVG CTM includes CSS scaling, viewBox alignment and transforms.
   // The fallback mirrors our default xMidYMid meet viewBox, including gutters.
-  function wheelAnchorAt(clientX: number, clientY: number): GraphPoint | null {
+  function svgPointAt(clientX: number, clientY: number): GraphPoint | null {
     if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
     const svg = svgRef.current;
     if (!svg) return null;
@@ -950,7 +947,7 @@ export function WorldGraphCanvas({
         !Number.isFinite(event.deltaY) || event.deltaY === 0) return;
     const unit = event.deltaMode === 0 ? 1 : event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.height : null;
     if (unit === null) return;
-    const anchor = wheelAnchorAt(event.clientX, event.clientY);
+    const anchor = svgPointAt(event.clientX, event.clientY);
     if (!anchor || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) return;
     const pixels = Math.max(-600, Math.min(600, event.deltaY * unit));
     event.preventDefault();
@@ -1056,12 +1053,10 @@ export function WorldGraphCanvas({
     event.preventDefault();
     event.stopPropagation();
     suppressClickRef.current = null;
-    const svg = svgRef.current;
-    const rect = svg?.getBoundingClientRect();
+    const startPoint = svgPointAt(event.clientX, event.clientY) ?? { x: event.clientX, y: event.clientY };
     gestureRef.current = { worldId: record.snapshot.worldId, kind: movesNode ? "node" : "pan", captureTarget: event.currentTarget, pointerId: event.pointerId,
       pointerX: event.clientX, pointerY: event.clientY, camera,
-      scaleX: rect?.width ? viewport.width / rect.width : 1,
-      scaleY: rect?.height ? viewport.height / rect.height : 1,
+      startPoint,
       node: movesNode ? node : undefined, originNodeId: node?.id, moved: false };
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Optional in test DOMs. */ }
   }
@@ -1070,8 +1065,7 @@ export function WorldGraphCanvas({
     if ((event.button ?? 0) !== 0 || gestureRef.current || interactionDisabled || busy || !onConnectRequest) return;
     event.preventDefault();
     event.stopPropagation();
-    const svg = svgRef.current;
-    const rect = svg?.getBoundingClientRect();
+    const startPoint = svgPointAt(event.clientX, event.clientY) ?? { x: event.clientX, y: event.clientY };
     const source = positions.get(sourceId);
     if (!source) return;
     const portPoint = nodeShape === "circle"
@@ -1080,28 +1074,34 @@ export function WorldGraphCanvas({
     gestureRef.current = {
       worldId: record.snapshot.worldId, kind: "connect", sourceId, captureTarget: event.currentTarget, pointerId: event.pointerId,
       pointerX: event.clientX, pointerY: event.clientY, camera,
-      scaleX: rect?.width ? viewport.width / rect.width : 1,
-      scaleY: rect?.height ? viewport.height / rect.height : 1,
+      startPoint,
       moved: false,
     };
     setConnectPreview({ sourceId, point: portPoint });
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Optional in test DOMs. */ }
   }
 
+  function gestureDelta(gesture: CanvasGesture, event: PointerEvent<SVGSVGElement>): GraphPoint {
+    const point = svgPointAt(event.clientX, event.clientY);
+    return point
+      ? { x: point.x - gesture.startPoint.x, y: point.y - gesture.startPoint.y }
+      : { x: event.clientX - gesture.pointerX, y: event.clientY - gesture.pointerY };
+  }
+
   function updateGesture(event: PointerEvent<SVGSVGElement>) {
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
-    const dx = (event.clientX - gesture.pointerX) * gesture.scaleX;
-    const dy = (event.clientY - gesture.pointerY) * gesture.scaleY;
     if (Math.abs(event.clientX - gesture.pointerX) + Math.abs(event.clientY - gesture.pointerY) > 4) gesture.moved = true;
     if (!gesture.moved) return;
     if (gesture.kind === "connect" && gesture.sourceId) {
       setConnectPreview({ sourceId: gesture.sourceId, point: graphPointAt(event.clientX, event.clientY, gesture.camera) });
     } else if (gesture.node) {
+      const { x: dx, y: dy } = gestureDelta(gesture, event);
       setDragPreview({ id: gesture.node.id,
         x: Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.x + dx / gesture.camera.zoom)),
         y: Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.y + dy / gesture.camera.zoom)) });
     } else {
+      const { x: dx, y: dy } = gestureDelta(gesture, event);
       manualCameraRef.current = true;
       setIsPanning(true);
       setCamera({ ...gesture.camera, x: gesture.camera.x + dx, y: gesture.camera.y + dy });
@@ -1125,7 +1125,8 @@ export function WorldGraphCanvas({
   function finishDrag(event: PointerEvent<SVGSVGElement>) {
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
-    updateGesture(event);
+    if (gesture.kind === "pan") updateGesture(event);
+    else if (Math.abs(event.clientX - gesture.pointerX) + Math.abs(event.clientY - gesture.pointerY) > 4) gesture.moved = true;
     gestureRef.current = null;
     setIsPanning(false);
     setConnectPreview(null);
@@ -1137,8 +1138,9 @@ export function WorldGraphCanvas({
       openPalette(graphPointAt(event.clientX, event.clientY, gesture.camera), svgRef.current);
     } else if (gesture.moved && gesture.node && onMoveObjects && !interactionDisabled) {
       suppressClickRef.current = gesture.node.id;
-      const x = Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.x + (event.clientX - gesture.pointerX) * gesture.scaleX / gesture.camera.zoom));
-      const y = Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.y + (event.clientY - gesture.pointerY) * gesture.scaleY / gesture.camera.zoom));
+      const { x: dx, y: dy } = gestureDelta(gesture, event);
+      const x = Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.x + dx / gesture.camera.zoom));
+      const y = Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.y + dy / gesture.camera.zoom));
       void runLayout({ [gesture.node.id]: { x, y } });
     } else setDragPreview(null);
     try { gesture.captureTarget.releasePointerCapture(event.pointerId); } catch { /* Optional in test DOMs. */ }

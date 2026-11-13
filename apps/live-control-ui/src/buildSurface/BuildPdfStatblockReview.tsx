@@ -1,7 +1,8 @@
+import { publishPdfStatblock } from "./publishPdfStatblock";
 import { useEffect, useState } from "react";
 import type { ThreatDraft } from "../api/types";
 import type { SavedMechanicsVersionList } from "../statblocks/revision/savedMechanicsRevisionTypes";
-import { authenticatedApiFetch, createThreatDraft, listSavedMechanicsVersions, LiveApiError } from "../api/liveApi";
+import { authenticatedApiFetch, getThreatDraft, listSavedMechanicsVersions } from "../api/liveApi";
 import type { PdfLocator } from "../api/retainedPdfRegions";
 import type { ValidationIssueV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
 import { StatblockDefinitionEditor } from "../statblocks/editor/StatblockDefinitionEditor";
@@ -32,6 +33,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [drafts, setDrafts] = useState<ThreatDraft[]>([]);
   const [draftId, setDraftId] = useState("");
   const [acceptOpen, setAcceptOpen] = useState(false);
+  const [published, setPublished] = useState(false);
   const [acceptedLink, setAcceptedLink] = useState("");
 
   const [versions, setVersions] = useState<SavedMechanicsVersionList>();
@@ -48,14 +50,14 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     `buddy:pdf-mechanics-accept:${worldId}:${reviewId}:${review?.revision}:${id}`;
   const [hasInitialAttempt, setHasInitialAttempt] = useState(false);
 
-  async function chooseDraft(id: string) {
+  async function chooseDraft(id: string, selected = drafts.find(draft => draft.draft_id === id)) {
     setDraftId(id);
     setAcceptedLink("");
     setVersions(undefined);
     setParentId("");
     setError("");
     setHasInitialAttempt(Boolean(id && localStorage.getItem(acceptanceKey(id))));
-    if (drafts.find(draft => draft.draft_id === id)?.workflow_state !== "mechanics_saved") return;
+    if (selected?.workflow_state !== "mechanics_saved") return;
     setPending(true);
     try {
       const first = await listSavedMechanicsVersions(id, worldId);
@@ -113,6 +115,32 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const createKey = `buddy:pdf-creature-draft:${worldId}:${reviewId}`;
   const [createInFlight, setCreateInFlight] = useState(false);
 
+  async function recoverDraft(revision: number) {
+    const previousDraft = localStorage.getItem(createKey);
+    if (previousDraft === "pending") {
+      throw new Error("Choose the previously created creature draft before continuing.");
+    }
+    let id = previousDraft;
+    if (!id) {
+      const { response } = await authenticatedApiFetch(
+        `${reviewPath}/creature-draft?expected_revision=${revision}`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        const failure = await response.json().catch(() => null);
+        throw new Error(typeof failure?.detail === "string" ? failure.detail :
+          failure?.detail?.code === "pdf_statblock_review_conflict" ? "This review changed. Reopen it before creating a creature." :
+          "Could not create the creature draft. Check the source confirmation and try again.");
+      }
+      const result = await response.json();
+      if (typeof result.draft_id !== "string" || !result.draft_id) throw new Error();
+      id = result.draft_id as string;
+    }
+    const draft = await getThreatDraft(id);
+    if (draft.schema !== "dmb_threat_draft_v2" || draft.world_id !== worldId || draft.draft_id !== id) throw new Error();
+    return draft;
+  }
+
   async function createDraft() {
     if (!review || !editor || pending || createInFlight) return;
     const name = review.definition.identity.name.trim();
@@ -121,31 +149,13 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     setCreateInFlight(true);
     setError("");
     try {
-      if (!navigator.locks) {
-        setError("This browser cannot safely coordinate draft creation across tabs.");
+      const draft = await recoverDraft(review.revision);
+      if (draft.workflow_state === "mechanics_saved") {
+        setDrafts(current => [...current.filter(item => item.draft_id !== draft.draft_id), draft]);
+        setAcceptOpen(true);
+        await chooseDraft(draft.draft_id, draft);
         return;
       }
-      const reserved = await navigator.locks.request(createKey, () => {
-        if (localStorage.getItem(createKey)) return false;
-        localStorage.setItem(createKey, "pending");
-        return true;
-      });
-      if (!reserved) {
-        setError("Check the creature draft list for the previous creation attempt.");
-        return;
-      }
-      const draft = await createThreatDraft({
-        scope_mode: "world", world_id: worldId, campaign_id: null, name,
-        description: name, threat_kind: "creature", intended_roles: [], tags: [],
-        generation_intent: {
-          ruleset: review.definition.ruleset, must_include: [], must_avoid: [],
-        },
-        encounter_context: { terrain_notes: [] },
-        graph_context_snapshot: { graph_revision_id: null, selected_node_ids: [], admitted_source_anchor_ids: [] },
-        created_by: "gm",
-      });
-      if (draft.schema !== "dmb_threat_draft_v2" || draft.world_id !== worldId) throw new Error();
-      localStorage.setItem(createKey, draft.draft_id);
       setDrafts(current => [...current.filter(item => item.draft_id !== draft.draft_id), draft]);
       setDraftId(draft.draft_id);
       setVersions(undefined);
@@ -154,12 +164,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       setAcceptedLink("");
       setAcceptOpen(true);
     } catch (cause) {
-      if (cause instanceof LiveApiError && [401, 403, 404, 422].includes(cause.status)) {
-        localStorage.removeItem(createKey);
-        setError(cause.message);
-        return;
-      }
-      setError("Could not confirm draft creation. Check the creature draft list before creating another.");
+      setError(cause instanceof Error && cause.message ? cause.message :
+        "Could not confirm draft creation. Try again to recover the same draft.");
     } finally {
       setCreateInFlight(false);
       setPending(false);
@@ -184,13 +190,15 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     }
   }
 
-  async function acceptMechanics() {
-    const draft = drafts.find(item => item.draft_id === draftId);
-    if (!draft || !review || !editor || pending || getLocalFingerprint(editor) !== editor.baselineFingerprint) return;
+  async function acceptMechanics(publish = false) {
+    if (!review || !editor || pending || getLocalFingerprint(editor) !== editor.baselineFingerprint) return;
     setPending(true);
     setError("");
-    const key = acceptanceKey(draftId);
     try {
+      const draft = drafts.find(item => item.draft_id === draftId)
+        ?? (publish ? await recoverDraft(review.revision) : undefined);
+      if (!draft) return;
+      const key = acceptanceKey(draft.draft_id);
       let payload = localStorage.getItem(key);
       if (!payload) {
         const { response } = await authenticatedApiFetch(
@@ -217,7 +225,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         localStorage.setItem(key, payload);
       }
       const { response } = await authenticatedApiFetch(
-        `${reviewPath}/accept/${encodeURIComponent(draftId)}`, { method: "POST", body: payload },
+        `${reviewPath}/accept/${encodeURIComponent(draft.draft_id)}`, { method: "POST", body: payload },
       );
       if (response.status === 409) {
         setError("The saved review or acceptance changed. Reopen the review to check its current state.");
@@ -235,11 +243,18 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         setError(result.message || "Mechanics acceptance is unresolved. Select Accept mechanics again to check the same operation.");
         return;
       }
+      if (publish) {
+        const current = await getThreatDraft(draft.draft_id);
+        await publishPdfStatblock(worldId, draft.draft_id, current.version, result.locator);
+        setPublished(true);
+      }
       setAcceptedLink(`/statblock?${new URLSearchParams({
-        world: worldId, draft: draftId, revision: result.locator.revision_id,
+        world: worldId, draft: draft.draft_id, revision: result.locator.revision_id,
       })}`);
-    } catch {
-      setError("Could not confirm mechanics acceptance. Try again to recover the same operation.");
+    } catch (failure) {
+      setError(publish
+        ? (failure instanceof Error ? failure.message : "Publication stopped. Retry Publish to resume.")
+        : "Could not confirm mechanics acceptance. Try again to recover the same operation.");
     } finally {
       setPending(false);
     }
@@ -360,13 +375,27 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     }
   }
 
+  const publishBlockers = editor && review ? [
+    ...(!editor.workingCopy.movement ? ["Resolve walking speed."] : []),
+    ...(editor.workingCopy.challenge.proficiency_bonus == null ? ["Enter a proficiency bonus."] : []),
+    ...(getLocalFingerprint(editor) !== editor.baselineFingerprint ? ["Save your edits."] : []),
+    ...(review.source_confirmation_required && !review.source_confirmed ? ["Check the source and save your confirmation."] : []),
+    ...issues.filter(issue => issue.severity === "error").map(issue => issue.message),
+  ] : [];
+
   return (
     <section className="pdf-statblock-review" aria-label="PDF statblock review">
       <header className="pdf-statblock-review__toolbar">
         <h1>PDF statblock review</h1>
         {editor && <button type="button" disabled={pending} onClick={() => void save()}>Save review draft</button>}
         {saved && <span role="status">Draft saved</span>}
+        {editor && review && <button type="button" disabled={pending || published || publishBlockers.length > 0}
+          onClick={() => void acceptMechanics(true)}>Publish</button>}
+        {published && <span role="status">Creature and statblock published</span>}
       </header>
+      {!published && publishBlockers.length > 0 && <ul aria-label="What blocks publication">
+        {publishBlockers.map((blocker, index) => <li key={index}>{blocker}</li>)}
+      </ul>}
       {error && <p role="alert">{error}</p>}
       {!review && !error && <p role="status">Opening review…</p>}
       <div className="pdf-statblock-review__panes">

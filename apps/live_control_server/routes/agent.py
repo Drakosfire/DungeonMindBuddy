@@ -2358,6 +2358,40 @@ def _require_resolved_pdf_statblock(review: dict) -> dict:
     return review
 
 
+@router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/creature-draft")
+def post_pdf_statblock_creature_draft(
+    world_id: str, review_id: UUID, request: Request,
+    expected_revision: int = Query(ge=1),
+):
+    from uuid import NAMESPACE_URL, uuid5
+
+    from apps.live_control_server.models.threat_draft import CreateWorldThreatDraftRequest
+    from apps.live_control_server.routes.statblock_storage import statblock_data_root
+    from apps.live_control_server.services.threat_draft_store import (
+        ThreatDraftStoreError, create_threat_draft,
+    )
+
+    review = get_pdf_statblock_review(world_id, review_id, request)
+    world_id = _verified_world_id(world_id)
+    if review["revision"] != expected_revision:
+        raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
+    definition = _require_resolved_pdf_statblock(review)["definition"]
+    name = definition["identity"]["name"]
+    draft_request = CreateWorldThreatDraftRequest(
+        scope_mode="world", world_id=world_id, campaign_id=None,
+        name=name, description=name, threat_kind="creature",
+        generation_intent={"ruleset": definition["ruleset"]},
+        graph_context_snapshot={"graph_revision_id": None},
+        created_by="gm",
+    )
+    draft_id = uuid5(NAMESPACE_URL, f"dungeonbuddy:pdf-review:{world_id}:{review_id}")
+    try:
+        draft = create_threat_draft(statblock_data_root(repo_root()), draft_request, stable_id=draft_id)
+    except ThreatDraftStoreError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return {"draft_id": draft.draft_id, "version": draft.version}
+
+
 @router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/validate")
 def post_validate_pdf_statblock_review(
     world_id: str, review_id: UUID, request: Request,

@@ -5564,7 +5564,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByText("Legacy only fact")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Export local history JSON" }));
     expect(createObjectUrl).toHaveBeenCalledWith(expect.objectContaining({ type: "application/json" }));
-    expect(revokeObjectUrl).toHaveBeenCalledWith("blob:legacy-export");
+    await waitFor(() => expect(revokeObjectUrl).toHaveBeenCalledWith("blob:legacy-export"));
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "What is the plan?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     expect(await screen.findByText(/outcome of this Ask is uncertain/)).toBeInTheDocument();

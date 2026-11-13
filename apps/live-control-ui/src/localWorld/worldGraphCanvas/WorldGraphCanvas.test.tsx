@@ -1789,3 +1789,38 @@ it("normalizes wheel units and clamps zoom without jumping above a fitted submin
   expect(cameraFromScene(screen.getByTestId("graph-scene")).zoom).toBe(2.5);
   view.unmount();
 });
+
+it("places the creation palette using letterboxed and transformed SVG coordinates", async () => {
+  const { record } = await graphRecord();
+  render(<WorldGraphCanvas record={record} creationKinds={[{ kind: "person", label: "Person" }]}
+    onCanvasCreateRequest={vi.fn()} />);
+  const svg = screen.getByRole("group", { name: /world graph$/ });
+  vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ left: 100, top: 50, width: 1200, height: 520,
+    x: 100, y: 50, right: 1300, bottom: 570, toJSON: () => ({}) });
+  const camera = cameraFromScene(screen.getByTestId("graph-scene"));
+  const expectPaletteAt = (x: number, y: number) => {
+    dispatchPointer(svg, "pointerdown", { pointerId: 101, button: 0, clientX: 400, clientY: 200 });
+    dispatchPointer(svg, "pointerup", { pointerId: 101, clientX: 400, clientY: 200 });
+    const palette = screen.getByTestId("node-palette");
+    expect(Number(palette.getAttribute("data-position-x"))).toBeCloseTo((x - camera.x) / camera.zoom);
+    expect(Number(palette.getAttribute("data-position-y"))).toBeCloseTo((y - camera.y) / camera.zoom);
+    fireEvent.click(within(palette).getByRole("button", { name: "Cancel placement" }));
+  };
+  expectPaletteAt(180, 150);
+  Object.defineProperty(svg, "getScreenCTM", { configurable: true, value: () => ({ a: 2, b: 0, c: 0, d: 2, e: 100, f: 50 }) });
+  expectPaletteAt(150, 75);
+});
+
+it("pans through a transformed SVG when release first crosses the drag threshold", async () => {
+  const { record } = await graphRecord();
+  render(<WorldGraphCanvas record={record} />);
+  const svg = screen.getByRole("group", { name: /world graph$/ });
+  Object.defineProperty(svg, "getScreenCTM", { configurable: true, value: () => ({ a: 2, b: 0, c: 0, d: 2, e: 100, f: 50 }) });
+  const scene = screen.getByTestId("graph-scene");
+  const before = cameraFromScene(scene);
+  dispatchPointer(svg, "pointerdown", { pointerId: 102, button: 0, clientX: 400, clientY: 200 });
+  dispatchPointer(svg, "pointermove", { pointerId: 102, clientX: 401, clientY: 201 });
+  expect(cameraFromScene(scene)).toEqual(before);
+  dispatchPointer(svg, "pointerup", { pointerId: 102, clientX: 440, clientY: 220 });
+  expect(cameraFromScene(scene)).toEqual({ ...before, x: before.x + 20, y: before.y + 10 });
+});

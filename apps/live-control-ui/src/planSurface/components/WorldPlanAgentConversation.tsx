@@ -1,3 +1,4 @@
+import { downloadBlob } from "../../shared/downloadBlob";
 import { SavedStatblockPdfEvidence } from './SavedStatblockPdfEvidence';
 import { savedStatblockHref } from '../../statblocks/savedStatblockLocation';
 import {SavedCitationAnswer} from './SavedCitationAnswer';
@@ -4932,12 +4933,7 @@ export function WorldPlanAgentConversation({
     const exportFile = new Blob([storedBytes ?? JSON.stringify(thread, null, 2)], {
       type: "application/json",
     });
-    const url = URL.createObjectURL(exportFile);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `world-plan-local-history-${encodeURIComponent(worldId)}-${encodeURIComponent(documentId ?? "plan")}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(exportFile, `world-plan-local-history-${encodeURIComponent(worldId)}-${encodeURIComponent(documentId ?? "plan")}.json`);
   }
 
   function historyTurnProvenanceLabel(turn: WorldAgentConversationHistoryTurnV1): string {
