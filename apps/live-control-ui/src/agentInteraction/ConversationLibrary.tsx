@@ -42,11 +42,11 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   const page=await readConversationMessages(worldId,id,before,signal);
   return {turns:page.messages.map(row=>({...row,reply_object:null,retry_context:null})),next_before_sequence:page.next_before_sequence};
  }
- async function select(id:string,details=fullDetails){
+ async function select(id:string,details=fullDetails,summary?:ConversationSummary){
   const owner=scope.current,epoch=++detailEpoch.current;
   setSelected(id);setRenaming(false);if(id!==selected||detail?.world_id!==worldId)setDetail(null);setTurns([]);setBefore(null);setLoading(true);setSaving(false);setError('');setNotice('');
   const request=startDetailRead();
-  try{const [meta,page]=await Promise.all([readConversationName(worldId,id,request.signal),readPage(id,undefined,details,request.signal)]);
+  try{const [meta,page]=await Promise.all([summary ?? readConversationName(worldId,id,request.signal),readPage(id,undefined,details,request.signal)]);
    if(!alive(owner)||epoch!==detailEpoch.current)return;setDetail(meta);setTitle(meta.title);setTurns(page.turns);setBefore(page.next_before_sequence);
   }catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason));}
   finally{if(detailRequest.current===request){request.abort();detailRequest.current=null;}if(alive(owner)&&epoch===detailEpoch.current)setLoading(false);}
@@ -60,7 +60,10 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   try{const page=await listConversations(worldId,filter,older?next??undefined:undefined,request.signal);
    if(!alive(owner)||epoch!==listEpoch.current)return;
    setListOwner(worldId);setItems(old=>older?[...new Map([...old,...page.items].map(item=>[item.conversation_id,item])).values()]:page.items);setNext(page.next_before);
-   if(!older&&page.items.length)void select(page.items.find(item=>item.status==='active')?.conversation_id??page.items[0].conversation_id);
+   if(!older&&page.items.length){
+    const initial=page.items.find(item=>item.status==='active')??page.items[0];
+    void select(initial.conversation_id,fullDetails,initial);
+   }
   }catch(reason){if(alive(owner)&&epoch===listEpoch.current)setListError(message(reason));}
   finally{if(listRequest.current===request)listRequest.current=null;if(alive(owner)&&epoch===listEpoch.current){setListing(false);pageBusy.current=false;}}
  }
