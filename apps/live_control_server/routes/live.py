@@ -1187,17 +1187,11 @@ def post_complete_job(job_id: str) -> dict[str, Any]:
 @router.post("/resolve-roll")
 def post_resolve_roll(body: ResolveRollRequest) -> dict[str, Any]:
     base = session_dir()
-    packet, _, events_before, jobs_before = load_session(base)
+    packet = load_session_packet(base)
     try:
         resolved = resolve_roll_from_packet(packet, body.command, root=repo_root())
     except RollResolveError as exc:
         raise HTTPException(status_code=422, detail=exc.diagnostic.message) from exc
-
-    _, _, events_after, jobs_after = load_session(base)
-    if len(events_after) != len(events_before) or len(jobs_after) != len(jobs_before):
-        raise HTTPException(
-            status_code=500, detail="resolve-roll must not append events or jobs"
-        )
 
     return {
         "table_id": resolved.table_id,
