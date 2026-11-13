@@ -263,19 +263,8 @@ def inventory_keys(items, frontend):
     )
 
 
-def result_keys(result, frontend):
-    return Counter(
-        (
-            str(Path(file["name"]).relative_to(frontend)),
-            " > ".join([*case["ancestorTitles"], case["title"]]),
-        )
-        for file in result["testResults"]
-        for case in file["assertionResults"]
-    )
-
-
 def case_parity(expected, result, frontend, argv):
-    actual = result_keys(result, frontend)
+    actual = Counter()
     skipped = Counter()
     failed = 0
     for file in result["testResults"]:
@@ -284,6 +273,7 @@ def case_parity(expected, result, frontend, argv):
                 str(Path(file["name"]).relative_to(frontend)),
                 " > ".join([*case["ancestorTitles"], case["title"]]),
             )
+            actual[key] += 1
             if case["status"] in {"skipped", "pending", "todo"}:
                 skipped[key] += 1
             if case["status"] == "failed":
