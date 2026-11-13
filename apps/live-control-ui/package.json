@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.stories.json",
     "preview": "vite preview",
     "ui": "ladle serve",
     "ui:build": "ladle build",
