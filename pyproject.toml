@@ -39,9 +39,9 @@ dependencies = [
     "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@855f23bd8b20c3b91c27d0d065c3a3cfb0fef917",
     # Accepted WK14 exact-intent commit classification; source/standing composition.
     "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@ef9c50f2d6aa89a35e9408f83fc4d0ba47825ca2",
-    # Exact source pin: reviewed GenerationEngine #37 merge (recap deadline opt-out).
-    # This source pin does not update any deployed/serving runtime.
-    "generationengine[openai,openrouter,typesafe,fal,vercel] @ git+https://github.com/Drakosfire/GenerationEngine.git@c6c575cec0bc13f20cad33a2e4c0554397d9a081",
+    # Exact source pin: GenerationEngine #38 adds safe HTTP status/request-ID logs
+    # for OpenAI-compatible provider failures; public errors remain generic.
+    "generationengine[openai,openrouter,typesafe,fal,vercel] @ git+https://github.com/Drakosfire/GenerationEngine.git@c0060ab1f4d12ff196f835eca0e88741387f5d80",
     "psycopg[binary]>=3.2",
     "pillow>=10",
     "alembic>=1.16",

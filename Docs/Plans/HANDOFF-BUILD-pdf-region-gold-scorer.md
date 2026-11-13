@@ -1,9 +1,12 @@
 # HANDOFF — reproduce the selected PDF region gold baseline
 
-Status: ACTIVE, serial, one unstacked PR.
-Base: `origin/main@8bcff4db28f022f66cbb1a89fcfd09f383d36dfc` (re-fetched and confirmed).
-Branch: `codex/reproduce-pdf-region-gold-baseline-20261112`.
-Checkout: existing `DungeonMindBuddy` checkout; no additional worktree.
+Status: SETTLED — PR #2489 merged as `71bcdf3bbd253ece509a5decdf4909de8bd7581f`.
+
+The retained five-region v3 OCR run is scored offline against the exact PDF
+hashes, pages, and regions. No fresh OCR execution, PDF change, gold edit, or
+Graph publication is claimed. The recorded prose denominator discrepancy and
+unscored visual/typed-structure coverage remain limitations of this baseline,
+not unfinished work in the scorer slice.
 
 ## Outcome
 
@@ -58,8 +61,7 @@ outputs only and does not claim a fresh OCR execution.
 
 ## Successor boundary
 
-After this slice, the next independent capability is an ordinary Build path
-from selected OCR region to the existing editable statblock review. Preserve
-exact source locations, expose missing fields for author completion, and keep
-DungeonMind's explicit review/admission as the only publication path. Do not
-build that UI handoff in this slice.
+The selected-region statblock review path is exercised by the current
+diagnostic successor in `HANDOFF-BUILD-adopt-ge-safe-provider-diagnostics.md`.
+The prior ordinary Build attempt still fails at provider generation; scoring
+this retained OCR baseline does not resolve that failure.
