@@ -1406,10 +1406,10 @@ def test_published_graph_recovers_after_activation_write_failure(native_first_wo
     client, _, repo, dsn = native_first_world_client
     run_id, plan = _prepare_native_plan(client, repo)
     reservation = get_world_container(plan["worldId"]).native_graph_binding
-    original = binding._save_cas
+    original = binding._save_binding_record
     def unavailable(*args, **kwargs):
-        raise OSError("synthetic registry write interruption")
-    monkeypatch.setattr(binding, "_save_cas", unavailable)
+        raise binding.WorldGraphBindingError("synthetic registry write interruption", status_code=503)
+    monkeypatch.setattr(binding, "_save_binding_record", unavailable)
     interrupted = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert interrupted.status_code == 503, interrupted.text
     assert interrupted.json()["code"] == "native_graph_activation_pending"
@@ -1420,7 +1420,7 @@ def test_published_graph_recovers_after_activation_write_failure(native_first_wo
     rebuilt = client.post(FIRST_WORLD_PREPARE_URL, json=_first_world_prepare_body(run_id, _first_world_decisions()))
     assert rebuilt.status_code == 200, rebuilt.text
     assert rebuilt.json() == plan
-    monkeypatch.setattr(binding, "_save_cas", original)
+    monkeypatch.setattr(binding, "_save_binding_record", original)
     recovered = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(rebuilt.json()))
     assert recovered.status_code == 200, recovered.text
     assert recovered.json()["outcome"] == "already_initialized"
