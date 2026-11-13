@@ -84,6 +84,31 @@ export function CropOcr({ worldId, region, hasPdfText }: { worldId: string; regi
   );
 }
 
+function CropPreviewImage({ canvas, page }: { canvas: HTMLCanvasElement; page: number }) {
+  const [url, setUrl] = useState<string>();
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | undefined;
+    canvas.toBlob(blob => {
+      if (!active) return;
+      if (!blob) {
+        setFailed(true);
+        return;
+      }
+      objectUrl = URL.createObjectURL(blob);
+      setUrl(objectUrl);
+    });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [canvas]);
+  if (failed) return <p role="alert">Could not generate the crop preview.</p>;
+  if (!url) return <p role="status">Preparing crop preview…</p>;
+  return <img src={url} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />;
+}
+
 function PdfPages({ file, worldId, restored, onRetained }: {
   file: File; worldId?: string; restored?: PdfLocator;
   onRetained: (locator: PdfLocator) => void;
@@ -144,7 +169,8 @@ function PdfPages({ file, worldId, restored, onRetained }: {
     restored && { start: { x: restored.left, y: restored.top },
       end: { x: restored.right, y: restored.bottom } },
   );
-  const [capture, setCapture] = useState<{ image: string; region: PageRectangle }>();
+  const captureSequence = useRef(0);
+  const [capture, setCapture] = useState<{ id: number; canvas: HTMLCanvasElement; region: PageRectangle }>();
   const [capturedText, setCapturedText] = useState<string>();
   const [capturedRuns, setCapturedRuns] = useState<PdfRegionTextRun[]>([]);
   const [completeLines, setCompleteLines] = useState("");
@@ -183,7 +209,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
     setCompleteLines("");
     setClippedText(false);
     setTextError(false);
-    setCapture({ image: crop.toDataURL(), region: rectangle });
+    setCapture({ id: ++captureSequence.current, canvas: crop, region: rectangle });
   }
 
   useEffect(() => {
@@ -356,7 +382,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           </button>}
           {capture && (
             <section aria-label={`Capture from page ${page}`}>
-              <img src={capture.image} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />
+              <CropPreviewImage key={capture.id} canvas={capture.canvas} page={page} />
               {worldId && receipt && <button type="button" onClick={() => {
                 const locator = captureLocator(receipt, page, capture.region);
                 setStatblockRegions(current => current.some(region => pdfRegionKey(region) === pdfRegionKey(locator))
@@ -396,7 +422,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                   clipped={clippedText}
                 />}
                 {worldId && receipt && (textError || capturedText !== undefined) && (
-                  <CropOcr key={capture.image} worldId={worldId} region={captureLocator(receipt, page, capture.region)} hasPdfText={Boolean(capturedText)} />
+                  <CropOcr key={capture.id} worldId={worldId} region={captureLocator(receipt, page, capture.region)} hasPdfText={Boolean(capturedText)} />
                 )}
               </details>
             </section>
