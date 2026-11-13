@@ -208,7 +208,15 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
                                                 {"span_id": "span", "line_start": 2, "line_end": 2}]}))
     record = SimpleNamespace(default_graph_run_uri="run", run_bundle_uri="bundle", source_recap_path=None)
     read = Mock(wraps=graph_preview_surface._load_json)
-    recap = Mock(return_value=("First line.\nAsk Mara.", "recap.md"))
+    class CountedRecap(str):
+        splits = 0
+
+        def splitlines(self, keepends=False):
+            self.splits += 1
+            return super().splitlines(keepends)
+
+    source = CountedRecap("First line.\r\nAsk Mara.\r\n")
+    recap = Mock(return_value=(source, "recap.md"))
     monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", lambda *args, **kwargs: record)
     monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
     monkeypatch.setattr(graph_preview_surface, "_load_json", read)
@@ -221,6 +229,7 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
     assert [(link.source_span_ref_id, link.char_start, link.char_end) for link in payload.links] == [("span", 4, 8)]
     assert payload.recap_source_path == "recap.md"
     assert sum(call.args == (index_path,) for call in read.call_args_list) == 1
+    assert source.splits == 1
     recap.assert_called_once_with(tmp_path, bundle, source_recap_path=None)
 
 
