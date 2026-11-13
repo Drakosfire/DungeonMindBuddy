@@ -204,6 +204,11 @@ Require the access probe to succeed before continuing.
 
 Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
 
+
+The image healthcheck probes `/health/live` with a three-second HTTP timeout.
+Production Compose overrides it with `/health/ready` and a five-second HTTP
+timeout. Readiness includes dependency checks.
+
 ```bash
 (
   set -e
