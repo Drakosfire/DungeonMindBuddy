@@ -944,6 +944,7 @@ describe("WorldGraphCanvas", () => {
     const loop = { ...direct, id: "focus-loop" as LocalWorldRelationship["id"], fromObjectId: hub.id, toObjectId: hub.id };
     const focusedRecord = { ...record, snapshot: { ...record.snapshot, objects: [hub, neighbor], relationships: [direct, loop] } };
     const view = render(<WorldGraphCanvas record={focusedRecord} nodeShape="circle" projectionOptions={{ fullCorpus: true }} />);
+    const initialCamera = screen.getByTestId("graph-scene").getAttribute("transform");
     const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
     fireEvent(graph, new MouseEvent("pointerdown", { button: 0, clientX: 100, clientY: 100, bubbles: true }));
     fireEvent(graph, new MouseEvent("pointermove", { clientX: 900, clientY: 500, bubbles: true }));
@@ -960,6 +961,8 @@ describe("WorldGraphCanvas", () => {
         expect(points[i + 1] * zoom + y).toBeLessThanOrEqual(520);
       }
     }
+    view.rerender(<WorldGraphCanvas record={focusedRecord} nodeShape="circle" projectionOptions={{ fullCorpus: true }} cameraFocusRequest={{ nodeId: null, requestId: 2 }} />);
+    expect(screen.getByTestId("graph-scene").getAttribute("transform")).toBe(initialCamera);
   });
 
   it("keeps full accessible long predicates without opaque plates", async () => {

@@ -507,6 +507,7 @@ export function WorldGraphCanvas({
   const paletteFocusPendingRef = useRef(false);
   const paletteTriggerRef = useRef<HTMLElement | SVGSVGElement | null>(null);
   const originalCameraBeforeFocusRef = useRef<Camera | null>(null);
+  const cancelledPanCameraRef = useRef<Camera | null>(null);
   const lastCameraFocusRequestRef = useRef<number | null>(null);
   const lastCameraFocusClearRequestRef = useRef<number | null>(null);
   const initialFitWorldRef = useRef<string | null>(null);
@@ -706,12 +707,13 @@ export function WorldGraphCanvas({
 
   useLayoutEffect(() => {
     // Release capture and suppress the trailing click before a new revision/authority becomes interactive.
+    cancelledPanCameraRef.current = cameraFocusRequest && lastCameraFocusRequestRef.current !== cameraFocusRequest.requestId && gestureRef.current?.kind === "pan" ? gestureRef.current.camera : null;
     cancelGesture();
     setDragPreview(null);
     setIsPanning(false);
     setConnectPreview(null);
     setPalette(null);
-  }, [record.snapshot.worldId, record.localRevision, record.layoutRevision, interactionDisabled, focusLayoutKey]);
+  }, [record.snapshot.worldId, record.localRevision, record.layoutRevision, interactionDisabled, focusLayoutKey, cameraFocusRequest?.requestId]);
 
   // Both effects share the intended reset baseline; setCamera does not update
   // the following effect's render-time camera closure in the same commit.
@@ -765,7 +767,8 @@ export function WorldGraphCanvas({
       setViewport(measuredViewport);
     }
     if (cameraFocusRequest.selectNode) setSelectedIds([node.id]);
-    const focusBaseline = resetFitCamera ?? camera;
+    const focusBaseline = resetFitCamera ?? cancelledPanCameraRef.current ?? camera;
+    cancelledPanCameraRef.current = null;
     if (!originalCameraBeforeFocusRef.current) originalCameraBeforeFocusRef.current = focusBaseline;
     const zoom = focusedLayoutId ? Math.min(1.35, measuredViewport.width / graphBounds.overview.width, measuredViewport.height / graphBounds.overview.height) : Math.max(focusBaseline.zoom, 1.35);
     const focusPoint = persistedPositions.get(node.id) ?? node;
