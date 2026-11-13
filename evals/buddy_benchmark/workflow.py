@@ -669,12 +669,15 @@ def _present_replay_body_paragraphs(packet):
         excerpts = frame["native_body_evidence"].get("excerpts")
         if not excerpts:
             break
-        for excerpt in excerpts:
-            original = excerpt["text"]
+        passages = frame["native_body_evidence"].get("passages", {})
+        text_fields = [(excerpt, "text") for excerpt in excerpts if "text" in excerpt]
+        text_fields.extend((passages, alias) for alias in passages)
+        for container, key in text_fields:
+            original = container[key]
             paragraphs = re.findall(r".+?(?:\n[ \t]*\n+|\Z)", original, re.DOTALL)
             if not paragraphs or "".join(paragraphs) != original:
                 raise ValueError("Replay paragraphs must preserve the exact admitted text")
-            excerpt["text"] = paragraphs
+            container[key] = paragraphs
         message["content"] = json.dumps(frame, ensure_ascii=False, separators=(",", ":"))
         return
     raise ValueError("Paragraph presentation requires retained native body excerpts")
