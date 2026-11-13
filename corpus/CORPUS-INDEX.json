@@ -1,13 +1,13 @@
 {
   "schema": "dmb_corpus_index_v1",
   "version": "1.0",
-  "generated_at": "2026-06-29T22:06:45Z",
-  "repo_root": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy",
+  "generated_at": "2026-11-13T09:35:22Z",
+  "repo_root": ".",
   "corpus_roots": {
     "primary_markdown": {
       "path": "corpus/eldyrwild-markdown",
       "exists": true,
-      "markdown_file_count": 428,
+      "markdown_file_count": 442,
       "role": "Canonical Eldyrwild + Longmont markdown corpus (read/write target for recap ingest and worldbuilding)."
     },
     "unprocessed_pipeline": {
@@ -51,7 +51,8 @@
           "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 14 - Into the Meat Grinder.md",
           "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 15 - Cult Tunnels and Captain Idris.md",
           "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 16 - Peacemaker Fiddle Meat Pile.md",
-          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 17 - Festival Aftermath Loose Ends.md"
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 17 - Festival Aftermath Loose Ends.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/_normalized/_archive/Session 02 - Stonebridge and Glowkindle Rats__20260706T023942Z.md"
         ],
         "canonical": [
           "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
@@ -64,6 +65,7 @@
           "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
           "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
           "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Stonebridge and Glowkindle Rats.md",
           "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
           "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
           "Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md",
@@ -74,9 +76,9 @@
         ]
       },
       "counts": {
-        "canonical": 17,
+        "canonical": 18,
         "_breadcrumbed": 5,
-        "_normalized": 17
+        "_normalized": 18
       }
     },
     "campaign_2": {
@@ -138,6 +140,9 @@
           "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
           "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - Mireward Gate Battle.md",
           "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 24 - Mireward Gate Battle.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 25 - Mireward Gate Battle II.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 26 - Thrin Pulled Underground Wall Breach.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 27 - Ironveil Warehouse Wall Collapse.md",
           "Longmont Campaign/Campaign 2/Session Recaps/_normalized/_archive/Session 23 - Mireward Gate Battle__20260622T004132Z.md",
           "Longmont Campaign/Campaign 2/Session Recaps/_normalized/_archive/Session 23 - Mireward Gate__20260629T125358Z.md",
           "Longmont Campaign/Campaign 2/Session Recaps/_normalized/_archive/Session 23 - Mireward__20260622T004132Z.md",
@@ -166,6 +171,9 @@
           "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 24 - Mireward Gate Battle.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 25 - Mireward Gate Battle II.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 26 - Thrin Pulled Underground Wall Breach.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 27 - Ironveil Warehouse Wall Collapse.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
           "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
@@ -176,10 +184,10 @@
         ]
       },
       "counts": {
-        "canonical": 25,
+        "canonical": 28,
         "_archive": 7,
         "_breadcrumbed": 18,
-        "_normalized": 32
+        "_normalized": 35
       }
     }
   },
@@ -202,7 +210,11 @@
         },
         "Session Recaps": {
           "path": "Longmont Campaign/Campaign 1/Session Recaps",
-          "markdown_file_count": 39
+          "markdown_file_count": 41
+        },
+        "_ingest_staging": {
+          "path": "Longmont Campaign/Campaign 1/_ingest_staging",
+          "markdown_file_count": 1
         }
       },
       "exists": true
@@ -229,11 +241,11 @@
         },
         "Session Prep": {
           "path": "Longmont Campaign/Campaign 2/Session Prep",
-          "markdown_file_count": 19
+          "markdown_file_count": 23
         },
         "Session Recaps": {
           "path": "Longmont Campaign/Campaign 2/Session Recaps",
-          "markdown_file_count": 82
+          "markdown_file_count": 88
         },
         "Statblocks": {
           "path": "Longmont Campaign/Campaign 2/Statblocks",
@@ -241,7 +253,7 @@
         },
         "_ingest_staging": {
           "path": "Longmont Campaign/Campaign 2/_ingest_staging",
-          "markdown_file_count": 5
+          "markdown_file_count": 6
         }
       },
       "exists": true
