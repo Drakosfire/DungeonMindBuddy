@@ -37,6 +37,17 @@ Compare the identities, extensions, and current migration revisions with the pin
 
 Restore the application-state dump with its checksum and fingerprint sidecars into a fresh isolated target and require fingerprint parity. Restore the WorldGraph database and associated files into isolated targets and verify the migration revision and a known World read. Verify the matching managed World, artifact, session, and WorldGraph files from backup. Record which backups form a consistent restore set and where the evidence is stored. A first deployment with empty authorities still needs a restore rehearsal.
 
+The release operator records the following for the selected host:
+
+- The WorldGraph restore owner and a reference to their approved procedure.
+- The owner and approved recovery procedure for the managed World, artifact,
+  session, and WorldGraph files.
+- The consistent backup set identifier, isolated restore targets, and evidence
+  locations for both database restores and file recovery.
+
+Complete this record and verify the isolated restore results before proceeding
+to production migrations or startup.
+
 Test required migrations against the restored copies. Before applying them to production, record whether the previous release can use the resulting schema and data. If it cannot, record the forward repair or coordinated recovery procedure and its owner.
 
 ## 3. Build and start on loopback
