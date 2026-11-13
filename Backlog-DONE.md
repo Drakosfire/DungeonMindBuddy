@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Audit production Docker context separately from image contents. [#2909](https://github.com/Drakosfire/DungeonMindBuddy/pull/2909) excluded four UI artifact paths. A seeded BuildKit UI COPY probe exported 19,369,700 bytes before and 15,175,396 after, retaining the statblock fixture. The full local production build transferred 28.90 MB and packaged the frontend entry point. Three warm builds transferred 207.87 kB each before, during, and after adding a random 1 MiB file to graph_data. The release builder still needs its own rehearsal under **Verify production context on the release builder**.
+
 - Skip missing objects in Graph inspector history. Already resolved by the snapshot-change reset introduced in [60e1c4b4](https://github.com/Drakosfire/DungeonMindBuddy/commit/60e1c4b4). Both accepted GETs and confirmed server readbacks replace the snapshot through the state setter, and the layout effect clears selection and Back history before paint. A local same-World refresh with a removed history node confirmed that history was cleared. The existing 41-test inspector suite passed.
 
 - Remove the unused previous-position argument from Graph layout. [#2906](https://github.com/Drakosfire/DungeonMindBuddy/pull/2906) removed it from the solver and updated callers. All 179 projection and canvas tests passed, including saved pins and deterministic geometry. GitHub inventory and frontend discovery passed.
