@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Check whether two frontend exports can be private
+
+[PR #2821](https://github.com/Drakosfire/DungeonMindBuddy/pull/2821) made `GraphObjectRelationships` and `CompactCoreStats` module-private. Main had only same-module callers, and checked open PR and worktree diffs added no consumers. All 37 focused frontend tests and the application TypeScript check passed locally. GitHub reported no checks for the PR.
+
 ## [DONE] Verify unused Graph preview and Surface Context primitives
 
 [PR #2819](https://github.com/Drakosfire/DungeonMindBuddy/pull/2819) removed the unused adjacency row, its exclusive selectors, and the unused Surface Context label and barrel export. The local branch diffs and 49 open PR diffs added no callers. The affected frontend selection had 71 passes and the same seven failure IDs on both revisions. GitHub reported no checks.
