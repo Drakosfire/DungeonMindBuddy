@@ -115,7 +115,12 @@ const entityInspectionBody = {
     revision_id: "revision-a", scope_mode: "world", campaign_id: null },
   selection: { kind: "entity", entity_id: "entity-a" },
 };
-const hostedRoutes = [...routes, ["entity-inspection", "/api/live/native-graph-inspection/read", entityInspectionBody]] as const;
+const hostedRoutes = [
+  ...routes,
+  ["entity-inspection", "/api/live/native-graph-inspection/read", entityInspectionBody],
+  ["chronology", "/api/live/native-graph-inspection/read", { ...entityInspectionBody, selection: { kind: "chronology" } }],
+  ["exact-source", "/api/live/native-graph-inspection/read", { ...entityInspectionBody, selection: { kind: "source", assertion_id: "a", evidence_ref_id: "e" } }],
+] as const;
 
 function hostedOrigin(href = "https://buddy.example/") {
   vi.stubGlobal("window", { location: { href }, dispatchEvent: vi.fn() });
@@ -184,7 +189,7 @@ it.each(["https://buddy.example", "https://outside.invalid"])("rejects explicit 
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it("rejects insecure hosted origins, wrong methods, source selections and campaign inspection", async () => {
+it("rejects insecure hosted origins, wrong methods, unknown selections and campaign inspection", async () => {
   const api = await setup();
   const fetch = vi.spyOn(globalThis, "fetch");
   hostedOrigin("http://buddy.example/");
@@ -192,7 +197,7 @@ it("rejects insecure hosted origins, wrong methods, source selections and campai
   hostedOrigin();
   await expect(api.authenticatedApiFetch(routes[0][1], { method: "GET" })).rejects.toThrow(/HTTPS/);
   for (const body of [
-    { ...entityInspectionBody, selection: { kind: "source", assertion_id: "a", evidence_ref_id: "e" } },
+    { ...entityInspectionBody, selection: { kind: "unknown" } },
     { ...entityInspectionBody, scope: { ...entityInspectionBody.scope, scope_mode: "campaign", campaign_id: "c" } },
   ]) {
     await expect(api.authenticatedApiFetch("/api/live/native-graph-inspection/read", { method: "POST", body: JSON.stringify(body) }))

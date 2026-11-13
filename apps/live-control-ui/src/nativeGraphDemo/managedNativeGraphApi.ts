@@ -1,5 +1,5 @@
 import { authenticatedApiFetch } from "../api/liveApi";
-import { sameInspectionPin, type InspectionPin, type NativeGraphEntity } from "../api/nativeGraphInspection";
+import { sameInspectionPin, type InspectionPin, type NativeGraphChronology, type NativeGraphEntity } from "../api/nativeGraphInspection";
 import {
   createNativeGraphDemoApi,
   NativeGraphDemoApiError,
@@ -272,7 +272,7 @@ export function createManagedNativeGraphApi(
     return graph;
   }
 
-  function assertCurrentSnapshot(graph: NativeGraph, nodeId: string): InspectionPin {
+  function assertCurrentSnapshot(graph: NativeGraph, nodeId?: string): InspectionPin {
     if (invalidated) throw invalidManagedGraph("The selected World changed before this graph inspection completed.");
     const snapshot = snapshotPins.get(graph);
     if (!snapshot) throw invalidManagedGraph("This graph was not read from the currently selected managed World client.");
@@ -286,7 +286,7 @@ export function createManagedNativeGraphApi(
     }) || graph.world_id !== snapshot.pin.native_world_id || graph.revision_id !== snapshot.pin.revision_id) {
       throw invalidManagedGraph("The graph snapshot no longer matches its verified managed World pin.");
     }
-    if (!nonEmptyString(nodeId) || !snapshot.nodeIds.has(nodeId)) {
+    if (nodeId !== undefined && (!nonEmptyString(nodeId) || !snapshot.nodeIds.has(nodeId))) {
       throw invalidManagedGraph("The selected object is not part of this exact graph snapshot.");
     }
     return snapshot.pin;
@@ -466,6 +466,25 @@ export function createManagedNativeGraphApi(
       const result = await baseApi.readOperation(operationId);
       if (result.status === "committed" && result.graph) registerSnapshot(result.graph, startedGeneration);
       return result;
+    },
+    async readChronology(graph, signal) {
+      const pin = assertCurrentSnapshot(graph);
+      const { response, body } = await send(INSPECTION_READ_PATH, {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: pin, selection: { kind: "chronology" } }),
+        signal,
+      }, generation);
+      if (signal.aborted) throw abortError();
+      assertCurrentSnapshot(graph);
+      if (!response.ok) await throwInspectionResponseError(response, body);
+      if (!isRecord(body) || body.schema !== "dmb_native_graph_chronology_v1"
+        || !isInspectionPin(body.scope) || !sameInspectionPin(pin, body.scope)
+        || !Array.isArray(body.assertions) || !body.assertions.every(isNativeAssertion) || !isRecord(body.completeness)
+        || !["complete", "partial"].includes(String(body.completeness.status))) {
+        throw invalidManagedGraph("Chronology does not match the selected graph revision. Refresh the graph and try again.");
+      }
+      return body as unknown as NativeGraphChronology;
     },
     async inspectNode(graph, nodeId, signal) {
       if (signal?.aborted) throw abortError();

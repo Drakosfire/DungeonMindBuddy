@@ -86,6 +86,31 @@ def catalog(scope, principal):
 def inspect(request, principal):
     bound, read, access, pin = _pinned(request.scope, principal)
     selection = request.selection
+    if selection.kind == "chronology":
+        listing = EntityReadService().list_entities(read)
+        admitted = [
+            access.parsed.get_assertion(identity)
+            for identity in listing.admitted_assertion_ids
+        ]
+        event_ids = set()
+        for parsed in admitted:
+            if parsed.predicate != "dnd5e:classification":
+                continue
+            value = native.assertion_contract(parsed).value
+            if value.kind == "term_ref" and value.term in {"dnd5e:event", "dungeonbuddy:event"}:
+                event_ids.add(parsed.subject_entity_id)
+        assertions = []
+        for parsed in admitted:
+            if parsed.subject_entity_id not in event_ids:
+                continue
+            assertion = native.assertion_contract(parsed)
+            if parsed.predicate == "dungeonbuddy.custom:on_timeline" or assertion.metadata.temporal_scope is not None:
+                assertions.append(assertion.model_dump(mode="json"))
+        return _response(
+            bound, pin, schema="dmb_native_graph_chronology_v1",
+            assertions=assertions,
+            completeness=jsonable_encoder(listing.completeness),
+        )
     if selection.kind == "entity":
         listing = EntityReadService().list_entities(read)
         if selection.entity_id not in {entity.entity_id for entity in listing.entities}:

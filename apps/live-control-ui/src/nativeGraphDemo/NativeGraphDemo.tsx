@@ -22,6 +22,7 @@ import {
 } from "./nativeGraphDemoApi";
 import type { NativeGraphEntity } from "../api/nativeGraphInspection";
 import { nativeGraphPresentation } from "./nativeGraphPresentation";
+import { GraphChronology } from "./GraphChronology";
 import { NativeGraphNodeExplorer } from "./GraphNodeExplorer";
 import { compactNodeLabel } from "./graphNodeExplorerModel";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
@@ -496,6 +497,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const [activePanel, setActivePanel] = useState<EmbeddedPanel>(null);
   const [placementIntent, setPlacementIntent] = useState<StoredPlacementIntent | null>(null);
   const placementIntentRef = useRef<StoredPlacementIntent | null>(null);
+  const [chronology, setChronology] = useState<{ graph: NativeGraph; relatedTo?: string } | null>(null);
+  const chronologyOpen = chronology !== null && chronology.graph === graph;
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const selectedNodeIdRef = useRef<string | null>(null);
   const [inspectionHistory, setInspectionHistory] = useState<string[]>([]);
@@ -1323,13 +1326,21 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     const presentation = nativeGraphPresentation(node);
     return {
       node,
+      names: [node.name, presentation.displayName, ...presentation.recordedNames]
+        .map(name => name.trim().toLocaleLowerCase()),
       text: `${node.name} ${node.kind} ${node.id} ${presentation.displayName} ${presentation.displayKind} ${presentation.recordedNames.join(" ")}`.toLocaleLowerCase(),
     };
   }) ?? [], [searchNodes]);
   const matchingObjects = useMemo(() => {
     const query = objectQuery.trim().toLocaleLowerCase();
     if (!query) return searchNodes ?? [];
-    return objectSearchIndex.filter(({ text }) => text.includes(query)).map(({ node }) => node);
+    const exact = [];
+    const partial = [];
+    for (const { node, names, text } of objectSearchIndex) {
+      if (names.includes(query)) exact.push(node);
+      else if (text.includes(query)) partial.push(node);
+    }
+    return exact.concat(partial);
   }, [objectQuery, objectSearchIndex, searchNodes]);
   const searchPageSize = 20;
   const lastObjectPage = Math.max(0, Math.ceil(matchingObjects.length / searchPageSize) - 1);
@@ -1701,11 +1712,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     </section>
   );
 
-  const detailsPanel = selectedNode ? <NativeGraphNodeExplorer
+  const detailsPanel = selectedNode ? <>
+    {api.readChronology && <button type="button" className="native-demo-button native-demo-button--quiet"
+      onClick={() => setChronology({ graph, relatedTo: selectedNode.id })}>Show in chronology</button>}
+    <NativeGraphNodeExplorer
     key={`${graph.world_id}:${graph.revision_id}:${selectedNode.id}`}
     node={selectedNode} revision={graph.revision_id} detail={selectedNodeDetail} labels={selectedLabels}
     mode={mode} status={selectedNodeDetailStatus} error={selectedNodeDetailError} connections={selectedConnections}
-    entityOnly={entityOnlyDetails} partial={completeness?.status === "partial"} navigationDisabled={Boolean(pendingOperation)}
+    entityOnly={entityOnlyDetails} sourceReads={Boolean(api.readChronology)} partial={completeness?.status === "partial"} navigationDisabled={Boolean(pendingOperation)}
     headingRef={inspectorHeadingRef} onFocus={() => requestCameraFocus(selectedNode.id)}
     onExitFocus={focusedNodeId ? () => requestCameraFocus(null) : undefined} onClose={closeSelectedDetails}
     previousLabel={selectedLabels.get(inspectionHistory[inspectionHistory.length - 1]!)}
@@ -1724,7 +1738,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       handleCanvasSelectionChange(nodeId as LocalObjectId);
       requestCameraFocus(nodeId);
     }}
-  /> : null;
+  /></> : null;
 
 
   return (
@@ -1777,6 +1791,16 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 </button>
               </div>
             )}
+            {api.readChronology && <button type="button" className="native-demo-button native-demo-button--quiet"
+              aria-expanded={chronologyOpen} onClick={() => setChronology(chronologyOpen ? null : { graph })}>Chronology</button>}
+            {chronologyOpen && api.readChronology && <GraphChronology key={chronology.relatedTo ?? ""}
+              graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} onExplore={nodeId => {
+                if (pendingRef.current) return;
+                setChronology(null);
+                focusInspectorRef.current = true;
+                handleCanvasSelectionChange(nodeId as LocalObjectId);
+                requestCameraFocus(nodeId);
+              }} />}
             {record ? (
               <WorldGraphCanvas
                 key={graph.world_id}

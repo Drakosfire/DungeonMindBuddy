@@ -422,7 +422,7 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     && (scope as Record<string, unknown>).scope_mode === "world"
     && (scope as Record<string, unknown>).campaign_id === null
     && typeof selection === "object" && selection !== null
-    && (selection as Record<string, unknown>).kind === "entity";
+    && ["entity", "chronology", "source"].some(kind => kind === (selection as Record<string, unknown>).kind);
 }
 
 function apiRequestTarget(

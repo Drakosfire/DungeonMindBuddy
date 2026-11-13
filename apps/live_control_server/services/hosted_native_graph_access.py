@@ -110,7 +110,7 @@ async def resolve_hosted_explorer_world(request: Request) -> str:
     # conflicting selectors before invoking this exact code-owned resolver.
     body = _REQUESTS[request.url.path].validate_python(await request.json())
     if isinstance(body, InspectionRead):
-        if body.scope.scope_mode != "world" or body.selection.kind != "entity":
+        if body.scope.scope_mode != "world":
             raise _denied()
         managed_world_id = body.scope.managed_world_id
     else:

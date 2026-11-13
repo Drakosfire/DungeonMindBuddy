@@ -29,3 +29,5 @@ export function isCatalogForWorld(packet:NativeGraphCatalog,worldId:string):bool
 
 export type NativeGraphPdfRegion={schema:"dmb_native_graph_pdf_region_v1";scope:InspectionPin;
  evidence_ref_id:string;region:PdfLocator;png_base64:string};
+
+export type NativeGraphChronology = {schema:"dmb_native_graph_chronology_v1";scope:InspectionPin;assertions:NativeAssertion[];completeness:{status:"complete"|"partial"}};

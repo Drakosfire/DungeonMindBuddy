@@ -221,6 +221,24 @@ describe("NativeGraphDemo", () => {
     expect(api.confirm).not.toHaveBeenCalled();
   });
 
+  it("ranks an exact object name above a page of Event title matches", async () => {
+    const corpus = corpusGraph();
+    const graph = {
+      ...corpus,
+      nodes: [
+        ...corpus.nodes.slice(0, 25).map(node => ({ ...node, name: "An Event involving Lysandra", kind: "event" })),
+        { ...corpus.nodes[25]!, name: "Lysandra" },
+      ],
+      edges: [],
+    };
+    renderEmbeddedDemo({ api: makeApi({ readGraph: vi.fn().mockResolvedValue(graph) }) });
+    fireEvent.click(await screen.findByRole("button", { name: "Find an object · 26 loaded" }));
+    fireEvent.change(screen.getByLabelText("Search loaded objects"), { target: { value: " lysandra " } });
+    const results = within(screen.getByRole("list", { name: "Matching graph objects" })).getAllByRole("button");
+    expect(results[0]).toHaveAccessibleName("Explore Lysandra (entity:25)");
+    expect(screen.getByText(/26 matching objects/)).toBeInTheDocument();
+  });
+
   it("frames the overview after fitting a late isolated neighborhood", async () => {
     const corpus = corpusGraph();
     localStorage.setItem(`dungeonmind-native-demo:layout:${encodeURIComponent(corpus.world_id)}`, JSON.stringify({"entity:1403": {x: 5800, y: 5800}}));

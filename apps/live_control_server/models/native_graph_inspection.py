@@ -41,6 +41,10 @@ class SourceSelection(Closed):
     evidence_ref_id: Text
 
 
+class ChronologySelection(Closed):
+    kind: Literal["chronology"]
+
+
 class InspectionRead(Closed):
     scope: InspectionPin
-    selection: Annotated[EntitySelection | SourceSelection, Field(discriminator="kind")]
+    selection: Annotated[EntitySelection | SourceSelection | ChronologySelection, Field(discriminator="kind")]

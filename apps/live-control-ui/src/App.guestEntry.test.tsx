@@ -775,7 +775,7 @@ describe("canonical local guest entry", () => {
     },
   );
 
-  it("inspects a hosted canvas point at the exact loaded pin without source or statblock requests", async () => {
+  it("inspects a hosted canvas point at the exact loaded pin and opens exact evidence on demand", async () => {
     const dom = (globalThis as unknown as { jsdom: { reconfigure: (options: { url: string }) => void } }).jsdom;
     const originalUrl = window.location.href;
     dom.reconfigure({ url: "https://buddy.example/graph?world=world-a" });
@@ -789,7 +789,14 @@ describe("canonical local guest entry", () => {
         records: [managedWorldRecord("world-a", "Owned World")] });
       if (path === "/api/live/native-graph-explorer/graph") return Response.json(envelope);
       if (path === "/api/live/native-graph-inspection/read") {
-        expect(JSON.parse(String(init?.body))).toEqual({ scope: pin, selection: { kind: "entity", entity_id: "entity:world-a" } });
+        const request = JSON.parse(String(init?.body));
+        if (request.selection.kind === "source") {
+          expect(request).toEqual({ scope: pin, selection: {
+            kind: "source", assertion_id: "assertion:description", evidence_ref_id: "evidence:source",
+          } });
+          return Response.json({ schema: "dmb_native_graph_source_v1", scope: pin, source: { text: "Exact observatory excerpt" } });
+        }
+        expect(request).toEqual({ scope: pin, selection: { kind: "entity", entity_id: "entity:world-a" } });
         return Response.json({ schema: "dmb_native_graph_entity_v1", scope: pin, entity: {
           found: true,
           assertions: [{ assertion_id: "assertion:description", subject_entity_id: "entity:world-a", predicate: "custom:description",
@@ -813,19 +820,21 @@ describe("canonical local guest entry", () => {
       expect(await screen.findByText("custom:description: Keeps the observatory charts.")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Aster" })).toBeInTheDocument();
       expect(screen.getByText(/Record status: belief · reported · provisional/)).toBeInTheDocument();
-      expect(screen.getByText("Source excerpts and linked statblocks are not available for this connection.")).toBeInTheDocument();
+      expect(screen.getByText("Linked statblocks are unavailable for this connection.")).toBeInTheDocument();
       await user.click(screen.getByText("Other recorded information (1)"));
       await user.click(screen.getByText("Evidence and qualifications"));
       await user.click(screen.getByText("Exact record"));
       expect(screen.getByText(/"temporal_scope"/)).toHaveTextContent("unknown");
-      expect(screen.queryByRole("button", { name: "Read supporting source" })).not.toBeInTheDocument();
+      expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/native-graph-inspection/read")).toHaveLength(1);
+      await user.click(screen.getByRole("button", { name: "Read supporting source" }));
+      expect(await screen.findByText("Exact observatory excerpt")).toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Linked statblocks" })).not.toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Focus", exact: true }));
       await user.click(screen.getByRole("button", { name: "Close details" }));
       expect(screen.queryByText("custom:description: Keeps the observatory charts.")).not.toBeInTheDocument();
       const reads = fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/native-graph-inspection/read");
-      expect(reads).toHaveLength(1);
+      expect(reads).toHaveLength(2);
       expect(reads[0][1]).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
       expect(new Headers(reads[0][1]?.headers).has("Authorization")).toBe(false);
       expect(new Headers(reads[0][1]?.headers).has("X-DMB-Graph-CSRF")).toBe(false);
