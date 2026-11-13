@@ -148,6 +148,9 @@ async def extract_statblock(
         instructions += (
             " Embedded PDF text and OCR are two readings of the same regions, paired by position. "
             "Either can misread text. Use both to identify values clearly supported by the source. "
+            "If one reading gives a complete rules term that fits its label, value, and adjacent qualifiers "
+            "and the other reading is incoherent in that context, use the supported reading for review. "
+            "If both readings are plausible in context, preserve the ambiguity. "
             "If competing readings leave a required value ambiguous, report it as incomplete."
         )
     if edition is not None:
