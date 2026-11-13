@@ -250,15 +250,19 @@ it("authenticates native complete-object reads with their exact revision pin", a
     campaignId: "campaign-a",
     revisionPin: "revision-a",
     nodeId: "entity-a",
+    scopeMode: "world",
     admissibility: "gm",
   } satisfies Parameters<typeof api.postNativeWorldGraphCompleteObject>[0];
 
-  await api.postNativeWorldGraphCompleteObject(request);
+  const scope = { ...entityInspectionBody.scope, scope_mode: "world" as const };
+  const signal = new AbortController().signal;
+  await api.postNativeWorldGraphCompleteObject(request, scope, signal);
 
   expect(fetch).toHaveBeenCalledTimes(1);
   const [url, init] = fetch.mock.calls[0]!;
   expect(url).toBe("/api/live/native-graph-inspection/complete-object");
   expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer synthetic-managed-graph-token");
   expect(init).toMatchObject({ method: "POST", credentials: "same-origin", redirect: "error" });
-  expect(JSON.parse(String(init?.body))).toEqual({ request });
+  expect(JSON.parse(String(init?.body))).toEqual({ request, scope });
+  expect(init?.signal).toBe(signal);
 });
