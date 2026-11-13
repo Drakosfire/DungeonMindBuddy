@@ -204,7 +204,7 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch, unres
         return b"verified PDF", Region(locator)
 
     monkeypatch.setattr(agent, "_authorized_build_pdf_region", open_region)
-    monkeypatch.setattr(agent, "_render_build_pdf_region", lambda pdf, region: b"verified crop")
+    monkeypatch.setattr(agent, "_render_build_pdf_region", lambda pdf, region, **kwargs: b"verified crop")
 
     def read_crop(crop):
         calls.append(("ocr", crop))
@@ -300,7 +300,7 @@ def test_incomplete_pdf_statblock_extraction_does_not_save(monkeypatch):
     locator = {"source_revision_id": "srev:one", "content_sha256": "a" * 64,
                "page": 1, "left": 0.0, "top": 0.0, "right": 1.0, "bottom": 1.0}
     monkeypatch.setattr(agent, "_authorized_build_pdf_region", lambda *args: (b"PDF", Region()))
-    monkeypatch.setattr(agent, "_render_build_pdf_region", lambda *args: b"PNG")
+    monkeypatch.setattr(agent, "_render_build_pdf_region", lambda *args, **kwargs: b"PNG")
     monkeypatch.setattr(agent, "read_crop_png", lambda crop: {"text": "partial transcription"})
 
     async def incomplete(transcriptions, instruction):
@@ -354,7 +354,7 @@ def test_pdf_statblock_failures_never_save_a_review(monkeypatch, failure):
                 return {"schema_version": "dm_native_pdf_region_v1", **locator}
 
         monkeypatch.setattr(agent, "_authorized_build_pdf_region", lambda *args: (b"PDF", Region()))
-        monkeypatch.setattr(agent, "_render_build_pdf_region", lambda *args: b"PNG")
+        monkeypatch.setattr(agent, "_render_build_pdf_region", lambda *args, **kwargs: b"PNG")
         if failure == "ocr":
             def reject_ocr(crop):
                 calls.append("ocr")
