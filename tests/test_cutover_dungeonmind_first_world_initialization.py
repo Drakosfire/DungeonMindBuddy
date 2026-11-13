@@ -1610,24 +1610,26 @@ def test_prepare_unavailability_is_not_invalid_choice_feedback(native_first_worl
 @pytest.mark.integration
 @pytest.mark.parametrize("changed", ["commitment", "source", "span_index"])
 def test_frozen_source_changes_never_reach_initializer(native_first_world_client, monkeypatch, changed):
-    from apps.live_control_server.services.promotable_ingest_run import resolve_promotable_ingest_run
-    import json
+    from dataclasses import replace
+    from apps.live_control_server.services import first_world_graph_publication as publication
+
     client, world_root, repo, dsn = native_first_world_client
-    run_id, plan = _prepare_native_plan(client, repo)
-    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    _, plan = _prepare_native_plan(client, repo)
     spy = _install_preflight_spy(monkeypatch, world_root)
     if changed == "commitment":
         plan["sourceEvidenceSha256"] = "sha256:" + "f" * 64
-    elif changed == "source":
-        read_bytes = Path.read_bytes
-        target = resolved.normalized_recap_path
-        monkeypatch.setattr(Path, "read_bytes", lambda path, *args, **kwargs: (
-            b"Changed frozen source." if path == target else read_bytes(path, *args, **kwargs)
-        ))
     else:
-        payload = json.loads(resolved.source_span_index_path.read_text())
-        payload["spans"][0]["start_line"] += 1
-        resolved.source_span_index_path.write_text(json.dumps(payload))
+        load_input = publication._load_worldbuilding_publication_input
+
+        def load_changed_input(*args, **kwargs):
+            evidence = load_input(*args, **kwargs)
+            if changed == "source":
+                return replace(evidence, source_prose=evidence.source_prose + "\nChanged frozen source.")
+            first, *rest = evidence.span_index.spans
+            span = replace(first, start_line=first.start_line + 1)
+            return replace(evidence, span_index=replace(evidence.span_index, spans=(span, *rest)))
+
+        monkeypatch.setattr(publication, "_load_worldbuilding_publication_input", load_changed_input)
     response = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert response.status_code in {409, 422}, response.text
     assert spy.initializations == spy.preflights == 0
