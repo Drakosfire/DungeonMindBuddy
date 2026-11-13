@@ -10,7 +10,8 @@ Base at activation: `3fbf800e0f134ba9a1396156c22c18c614c8f72d`.
 Branch: `codex/graph-edge-phrases-20261112`.
 Topology: parallel-independent implementation with explorer-menu PR #2518;
 release integration follows that predecessor so the reviewed menu remains intact.
-Write lease: this handoff and
+Release re-anchor: `62e6b58c3cf3005ac92dd5bc17ab94865030517d`, including merged header #2518. Header ownership transferred its handoff for truthful backward-looking settlement.
+Write lease: this handoff, `HANDOFF-GRAPH-explorer-menu.md` settlement, and
 `apps/live-control-ui/src/localWorld/worldGraphCanvas/` files
 `WorldGraphCanvas.tsx`, `WorldGraphCanvas.test.tsx`, `worldGraphCanvas.css`,
 `edgeCaption.ts`, `edgeCaption.test.ts`, `focusedGraphLayout.ts`, and

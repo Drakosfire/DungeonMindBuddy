@@ -707,7 +707,7 @@ export function WorldGraphCanvas({
 
   useLayoutEffect(() => {
     // Release capture and suppress the trailing click before a new revision/authority becomes interactive.
-    cancelledPanCameraRef.current = cameraFocusRequest && lastCameraFocusRequestRef.current !== cameraFocusRequest.requestId && gestureRef.current?.kind === "pan" ? gestureRef.current.camera : null;
+    cancelledPanCameraRef.current = cameraFocusRequest && lastCameraFocusRequestRef.current !== cameraFocusRequest.requestId && gestureRef.current?.kind === "pan" && gestureRef.current.worldId === record.snapshot.worldId ? gestureRef.current.camera : null;
     cancelGesture();
     setDragPreview(null);
     setIsPanning(false);
