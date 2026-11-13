@@ -34,7 +34,6 @@ import {
   type ReadWorldResult,
   type WriteLayoutResult,
 } from "./localWorldRepository";
-import { validateLocalWorldRecordForPackage } from "./localWorldPackageV1";
 
 export const LOCAL_WORLD_DATABASE_SCHEMA_VERSION = 3;
 export const LOCAL_WORLD_DATABASE_NAME = "dungeonmindbuddy-local-worlds";
@@ -487,13 +486,15 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
   async restorePackage(recordInput: LocalWorldRecord, dataInput: LocalWorldPackageData): Promise<RestoreLocalWorldPackageResult> {
     let record: LocalWorldRecord;
     let data: LocalWorldPackageData;
+    let invalidRecord: string | null;
     try {
       // Structured copies happen synchronously, before opening/awaiting a transaction.
       record = cloneLocalWorldValue(recordInput);
       data = cloneLocalWorldValue(dataInput);
+      const { validateLocalWorldRecordForPackage } = await import("./localWorldPackageV1");
+      invalidRecord = validateLocalWorldRecordForPackage(record);
     } catch (error) { return { status: "error", message: errorMessage(error) }; }
     const worldId = record.snapshot.worldId;
-    const invalidRecord = validateLocalWorldRecordForPackage(record);
     if (invalidRecord) return { status: "error", message: invalidRecord };
     const invalidData = validateLocalWorldPackageData(data, worldId);
     if (invalidData) return { status: "error", message: invalidData };

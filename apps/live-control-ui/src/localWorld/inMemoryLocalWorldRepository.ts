@@ -34,7 +34,6 @@ import {
   validateLocalWorldSnapshot,
   validateLocalWorldPackageData,
 } from "./localWorldRepository";
-import { validateLocalWorldRecordForPackage } from "./localWorldPackageV1";
 
 /**
  * Shared only by in-memory repository facades. It deliberately has no browser
@@ -155,12 +154,14 @@ export class InMemoryLocalWorldRepository implements LocalWorldPackageRepository
   async restorePackage(recordInput: LocalWorldRecord, dataInput: LocalWorldPackageData): Promise<RestoreLocalWorldPackageResult> {
     let record: LocalWorldRecord;
     let data: LocalWorldPackageData;
+    let invalidRecord: string | null;
     try {
       record = cloneLocalWorldValue(recordInput);
       data = cloneLocalWorldValue(dataInput);
+      const { validateLocalWorldRecordForPackage } = await import("./localWorldPackageV1");
+      invalidRecord = validateLocalWorldRecordForPackage(record);
     } catch (error) { return { status: "error", message: errorMessage(error) }; }
     const worldId = record.snapshot.worldId;
-    const invalidRecord = validateLocalWorldRecordForPackage(record);
     if (invalidRecord) return { status: "error", message: invalidRecord };
     const invalidData = validateLocalWorldPackageData(data, worldId);
     if (invalidData) return { status: "error", message: invalidData };
