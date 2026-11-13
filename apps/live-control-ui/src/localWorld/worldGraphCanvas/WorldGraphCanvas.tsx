@@ -457,7 +457,9 @@ export function WorldGraphCanvas({
     // Only geometry inputs settle the layout. Names, revisions and view state do not.
     const signature = JSON.stringify([
       [...index.objects.keys()].sort(),
-      index.validRelationships.map((edge) => [edge.id, edge.fromObjectId, edge.toObjectId]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      index.validRelationships
+        .map((edge) => JSON.stringify([edge.id, edge.fromObjectId, edge.toObjectId]))
+        .sort((a, b) => a.localeCompare(b)),
       Object.entries(record.layout.positions).filter(([id]) => index.objects.has(id as LocalObjectId))
         .sort(([a], [b]) => a.localeCompare(b)).map(([id, point]) => [id, point.x, point.y]),
     ]);
