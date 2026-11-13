@@ -47,25 +47,12 @@ def _read_current_revision(dsn: str) -> str | None:
 
     try:
         with psycopg.connect(dsn, autocommit=True) as conn:
-            schema = conn.execute(
-                "SELECT 1 FROM information_schema.schemata "
-                "WHERE schema_name = 'application_state'"
-            ).fetchone()
-            if schema is None:
-                return None
-            table = conn.execute(
-                """
-                SELECT 1 FROM information_schema.tables
-                WHERE table_schema = 'application_state'
-                  AND table_name = 'schema_migrations'
-                """
-            ).fetchone()
-            if table is None:
-                return None
             row = conn.execute(
                 "SELECT version_num FROM application_state.schema_migrations LIMIT 1"
             ).fetchone()
             return None if row is None else str(row[0])
+    except psycopg.errors.UndefinedTable:
+        return None
     except psycopg.Error as exc:
         raise ApplicationStateUnavailableError(
             f"application-state PostgreSQL is unavailable: {exc}"
