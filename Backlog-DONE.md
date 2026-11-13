@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Remove the unused previous-position argument from Graph layout. [#2906](https://github.com/Drakosfire/DungeonMindBuddy/pull/2906) removed it from the solver and updated callers. All 179 projection and canvas tests passed, including saved pins and deterministic geometry. GitHub inventory and frontend discovery passed.
+
 - Profile selected-attempt hydration and retry-history page plans. [#2903](https://github.com/Drakosfire/DungeonMindBuddy/pull/2903) reduced preflight from four reads to one scoped projection. [#2904](https://github.com/Drakosfire/DungeonMindBuddy/pull/2904) selects successors by lineage root using existing indexes. With 100,000 synthetic turns and 100 successors, median PostgreSQL selection time across seven runs per query fell from 12.46 to 0.085 ms near the end and 12.41 to 0.078 ms at the midpoint. Ordered IDs matched at both cursors. The benchmark used temporary tables and excluded endpoint hydration. All 17 PostgreSQL library tests and the PR checks passed.
 
 - Simplify retry-history preflight and context reads. [#2899](https://github.com/Drakosfire/DungeonMindBuddy/pull/2899) removed the unused outgoing lookup. [#2900](https://github.com/Drakosfire/DungeonMindBuddy/pull/2900) shared turn-row serialization. [#2901](https://github.com/Drakosfire/DungeonMindBuddy/pull/2901) reduced lineage enrichment from two queries per Build turn to one per populated page by SQL inspection. The PostgreSQL conversation-library suite covered pagination, ordinals, successor IDs, and transcript parity.
