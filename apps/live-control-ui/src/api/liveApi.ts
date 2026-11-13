@@ -1632,6 +1632,18 @@ export async function postManagedWorldGraphProjection(
   );
 }
 
+export async function postNativeWorldGraphCompleteObject(
+  request: WorldGraphObjectProjectionRequest,
+): Promise<WorldGraphObjectProjectionResult> {
+  return apiFetch<WorldGraphObjectProjectionResult>(
+    "/api/live/native-graph-inspection/complete-object",
+    {
+      method: "POST",
+      body: JSON.stringify({ request }),
+    },
+  );
+}
+
 export async function postWorldGraphCompleteObject(
   request: WorldGraphObjectProjectionRequest,
 ): Promise<WorldGraphObjectProjectionResult> {
