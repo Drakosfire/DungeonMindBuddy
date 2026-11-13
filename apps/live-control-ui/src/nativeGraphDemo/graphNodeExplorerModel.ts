@@ -6,5 +6,7 @@ export function compactNodeLabel(node: NativeGraphNode): string {
   const names = [...new Set(node.presentation?.recorded_names.filter(n => n.trim()) ?? [])];
   if (!names.length || names.includes(node.name)) return node.name;
   const support = (name: string) => names.filter(other => (` ${other} `).includes(` ${name} `)).length;
-  return names.sort((a, b) => support(b) - support(a) || a.length - b.length || compare(a, b))[0]!;
+  const scoredNames = names.map((name) => ({ name, support: support(name) }));
+  scoredNames.sort((a, b) => b.support - a.support || a.name.length - b.name.length || compare(a.name, b.name));
+  return scoredNames[0]!.name;
 }

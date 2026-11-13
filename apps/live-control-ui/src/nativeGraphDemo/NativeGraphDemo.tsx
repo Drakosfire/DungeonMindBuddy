@@ -1469,6 +1469,19 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   ) : null;
 
 
+  const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) ?? null : null;
+  const graphEdges = graph?.edges;
+  const selectedLabels = useMemo(
+    () => new Map(graphNodes?.map((node) => [node.id, compactNodeLabel(node)])),
+    [graphNodes],
+  );
+  const selectedConnections = useMemo(
+    () => selectedNodeId
+      ? graphEdges?.filter((edge) => edge.source_id === selectedNodeId || edge.target_id === selectedNodeId) ?? []
+      : [],
+    [graphEdges, selectedNodeId],
+  );
+
   if (loading && !graph) {
     return <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
       {embeddedContext}
@@ -1670,9 +1683,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     </section>
   );
 
-  const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) ?? null : null;
-  const selectedLabels = new Map(graph.nodes.map((node) => [node.id, compactNodeLabel(node)]));
-  const selectedConnections = selectedNode ? graph.edges.filter((edge) => edge.source_id === selectedNode.id || edge.target_id === selectedNode.id) : [];
   const detailsPanel = selectedNode ? <NativeGraphNodeExplorer
     key={`${graph.world_id}:${graph.revision_id}:${selectedNode.id}`}
     node={selectedNode} revision={graph.revision_id} detail={selectedNodeDetail} labels={selectedLabels}
