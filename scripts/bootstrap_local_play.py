@@ -198,7 +198,7 @@ def _readiness_after_schema(
     return "PLAY CONTENT NOT READY"
 
 
-def inspect_readiness(*, load_env: bool = True) -> ReadinessReport:
+def inspect_readiness(*, load_env: bool = True, include_runbooks: bool = True) -> ReadinessReport:
     _load_env(load_env=load_env)
     raw = os.environ.get(APPLICATION_STATE_DSN_ENV, "").strip()
     if not raw:
@@ -256,7 +256,7 @@ def inspect_readiness(*, load_env: bool = True) -> ReadinessReport:
     report.schema_current = current
     report.schema_head = head
     report.schema_status = schema_status
-    if schema_status == "ready":
+    if schema_status == "ready" and include_runbooks:
         report.startable_runbooks = count_startable_runbooks()
     report.play_readiness = _readiness_after_schema(
         schema_status=schema_status,
