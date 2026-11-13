@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Give the full Graph overview benchmark a reproducible entry point
+
+[PR #2785](https://github.com/Drakosfire/DungeonMindBuddy/pull/2785) added the opt-in command and excluded the diagnostic from the application TypeScript file list. Ordinary Vitest discovery still excludes it. The synthetic fixture retains 1,404 projected nodes and 559 edges. Using the renderer's variable radii, it measured zero overlaps and 4.0066 units of minimum clearance. The documented command and all 30 projection tests passed locally. GitHub reported no checks for this diagnostic-only PR.
+
 ## [DONE] Remove retired merge materialization client wrappers
 
 [PR #2782](https://github.com/Drakosfire/DungeonMindBuddy/pull/2782) removed both unused wrappers and their types, and replaced stale workflow tests with coverage for the retirement notice. The checked open Graph PRs added no callers. The Graph Review and API selection went from 817 passes and 13 failures to 818 passes and six failures. The six retained API failures had identical test IDs on the base. [Inventory and frontend discovery passed](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/43409162073).
