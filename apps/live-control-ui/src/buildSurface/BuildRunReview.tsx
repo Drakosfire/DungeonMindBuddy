@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { correctExactRunEvidence, correctRecapRunEvidence, getExactRunReviewPackage, getWorldbuildingFrozenSpans } from '../api/extractPromoteApi';
 import type { ExactRunEvidenceQuoteCorrection, ExactRunReviewPackage,
   ExtractionRunRecord, GraphReviewHandoffPayload, WorkspaceDocumentRecord, WorldbuildingEvidenceCorrectionRequest, WorldbuildingFrozenSpanCatalog } from '../api/types';
@@ -12,7 +12,9 @@ import {WorldbuildingEvidenceCorrection,validFrozenCatalog,validWorldbuildingCor
 import { exactRunCorrectionDigest, worldbuildingEvidenceCorrectionDigest } from '../api/exactRunCorrectionIdentity';
 import { useSelectedWorld } from '../selectedWorld/SelectedWorldContext';
 
-const BuildManualKnowledge=lazy(()=>import('./BuildManualKnowledge').then(m=>({default:m.BuildManualKnowledge})));
+import { deferredComponent } from "../ui/deferredComponent";
+
+const BuildManualKnowledge=deferredComponent(()=>import('./BuildManualKnowledge').then(m=>({default:m.BuildManualKnowledge})), "manual authoring");
 
 type RecapCorrectionRequest = { parentRunId: string; parentCandidateSha256: string; corrections: ExactRunEvidenceQuoteCorrection[] };
 type CorrectionRequest = RecapCorrectionRequest | WorldbuildingEvidenceCorrectionRequest;
@@ -178,9 +180,9 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     {!review && !error && <p role="status">Reading this exact extraction run…</p>}
     {review && <>
       {run.source_domain==='worldbuilding'&&<><button type="button" aria-expanded={manualOpen} onClick={()=>{setManualMounted(true);setManualOpen(v=>!v);}}>Author knowledge from this source</button>
-        {manualMounted&&<div hidden={!manualOpen}><Suspense fallback={<p role="status">Opening manual authoring…</p>}><BuildManualKnowledge
+        {manualMounted&&<div hidden={!manualOpen}><BuildManualKnowledge
           worldId={worldId} document={document} run={run} handoff={handoff} review={review}
-          sourceContentSha256={sourceContentSha256} isScopeCurrent={isScopeCurrent} frozenCatalog={catalog}/></Suspense></div>}</>}
+          sourceContentSha256={sourceContentSha256} isScopeCurrent={isScopeCurrent} frozenCatalog={catalog}/></div>}</>}
       {recovery !== null && !recoveryValid && <p role="alert">{recoveryStorageKey.current===legacyKey?'An earlier correction request is retained; its retired format cannot be submitted.':'Saved correction details are unavailable or do not match this run.'} Abandoning retains the request in this browser; it does not cancel a submitted correction. <button type="button" onClick={abandon}>Abandon saved request</button></p>}
       <GraphReviewExactRunProjection review={review} showSource={false}
         correctionEnabled={run.source_domain==='recap' && review.inspectionStatus === 'invalid_evidence' && !!digest(run.components?.candidate_graph?.sha256)}
