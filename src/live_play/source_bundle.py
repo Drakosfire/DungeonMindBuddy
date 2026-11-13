@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from scripts.build_ingested_corpus_library import build_library
+from scripts.build_ingested_corpus_library import build_library, discover_campaign_sessions, load_retrieval_manifests
 
 
 class OpaqueLocator(BaseModel):
@@ -175,17 +175,15 @@ def _eligible_stages(session):
 
 
 def list_ingestion_source_sessions(*, root: Path, campaign_id: str) -> list[int]:
-    library = build_library(root=root)
+    corpus = root / "corpus/eldyrwild-markdown"
     sessions = {
         int(session.get("session") or 0)
-        for campaign in library.get("campaigns", [])
-        if campaign.get("campaign_id") == campaign_id
-        for session in campaign.get("sessions", [])
+        for campaign_number in (1, 2)
+        if campaign_id == f"longmont-c{campaign_number}"
+        for session in discover_campaign_sessions(corpus, campaign_number)
         if any(_eligible_stages(session))
     }
-    activation = library.get("retrieval_activation", {})
-    for key in ("c2s23_planning_manifest", "c2s23_dogfood_full_manifest"):
-        manifest = activation.get(key, {})
+    for manifest in load_retrieval_manifests(root).values():
         if manifest.get("exists") and manifest.get("planning_session") is not None:
             sessions.add(int(manifest["planning_session"]))
     return sorted(sessions, reverse=True)
