@@ -448,6 +448,16 @@ def source_boundary(source, expected_sha, report, label):
         raise ValueError(f"exact source changed during {label}")
 
 
+SPARSE_FRONTEND_PATHS = (
+    "apps/live-control-ui",
+    "ci",
+    "tests/fixtures",
+    "evals/document_extraction_gold",
+    "evals/c2_live_prep/mireward-prep",
+    "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep",
+)
+
+
 def verify(args):
     repo = Path(args.repo).resolve()
     if (
@@ -457,8 +467,10 @@ def verify(args):
         raise ValueError("a full existing commit SHA is required")
     workspace_root, out, workspace_uuid = allocation_paths(args, repo)
     out.mkdir(parents=True, exist_ok=False)
+    sparse = getattr(args, "sparse_checkout", False)
     report = {
         "version": 1,
+        "sparse_checkout": sparse,
         "verified_sha": args.sha,
         "workspace_root": str(workspace_root),
         "workspace_uuid": workspace_uuid,
@@ -531,12 +543,16 @@ def verify(args):
                             "worktree",
                             "add",
                             "--detach",
+                            *(["--no-checkout"] if sparse else []),
                             str(source),
                             args.sha,
                         ],
                         check=True,
                         env=env,
                     )
+                    if sparse:
+                        git(source, "sparse-checkout", "set", "--cone", *SPARSE_FRONTEND_PATHS)
+                        git(source, "reset", "--hard", args.sha)
                     frontend = source / "apps/live-control-ui"
                     report["source_frontend_path"] = str(frontend)
                     source_boundary(source, args.sha, report, "checkout")
@@ -756,6 +772,11 @@ def main():
     run.add_argument("--output", required=True)
     run.add_argument("--suite", choices=["discovered", "hosted"], default="discovered")
     run.add_argument("--workers", type=int, default=8)
+    run.add_argument(
+        "--sparse-checkout",
+        action="store_true",
+        help="materialize the UI and its known repository fixtures only",
+    )
     run.add_argument(
         "--workspace-root",
         default=str(DEFAULT_WORKSPACE_ROOT),

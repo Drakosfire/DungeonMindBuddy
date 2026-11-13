@@ -142,10 +142,13 @@ def sandbox(tmp_path, monkeypatch):
     return args, calls, fake
 
 
-def test_real_worktree_cleanup_and_source_bound_inventory(sandbox):
+@pytest.mark.parametrize("sparse", [False, True])
+def test_real_worktree_cleanup_and_source_bound_inventory(sandbox, sparse):
     args, calls, _ = sandbox
+    args.sparse_checkout = sparse
     assert local.verify(args) == 0
     report = local.validate(Path(args.output) / "evidence.json", args.sha, "discovered")
+    assert report["sparse_checkout"] is sparse
     assert (
         report["cleanup_complete"]
         and not report["source_dirty_before"]
