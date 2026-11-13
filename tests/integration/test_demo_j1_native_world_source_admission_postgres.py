@@ -57,7 +57,7 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     created = client.post("/api/live/world-containers", json={"name": f"J1 Integration {uuid.uuid4().hex[:10]}"})
     assert created.status_code == 200
     assert created.json()["native_graph_binding"] == {"status": "provisioning", "binding_version": 1}
-    world = get_world_container(tmp_path, created.json()["world_id"])
+    world = get_world_container(created.json()["world_id"])
     # Ordinary create reserves the source identity; there is no preexisting Graph,
     # registry patch, or fake active binding using a source KnowledgeSpace head.
     native_id = world.native_graph_binding.native_world_id
@@ -121,7 +121,7 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     })
     assert replayed.status_code == 200, replayed.text
     replay = native.NativeWorldSourceAdmissionStatus.model_validate(replayed.json())
-    assert get_world_container(tmp_path, world.world_id) == world
+    assert get_world_container(world.world_id) == world
     fresh_repository = PostgresNativeSourceEvidenceRepository(
         PostgresDatabase(disposable_database_url)
     )

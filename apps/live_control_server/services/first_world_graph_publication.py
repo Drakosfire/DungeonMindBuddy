@@ -123,7 +123,8 @@ def _require_first_world_admission(resolved) -> tuple[str, FirstWorldLineage]:
     except WorldGraphInitializationError as exc:
         raise _initialization_error(exc) from exc
     from apps.live_control_server.services.world_container_registry import get_world_container, NativeGraphProvisioningRecord
-    record = get_world_container(live_config.managed_world_data_root(live_config.repo_root()), world_id)
+    live_config.managed_world_data_root(live_config.repo_root())
+    record = get_world_container(world_id)
     recovering = isinstance(record.native_graph_binding, NativeGraphProvisioningRecord) and probed.initialization_id == target.provisioning_id
     if record.native_graph_binding.status == "active" or (probed.state == "initialized" and not recovering):
         raise ExtractPromoteError(
@@ -690,8 +691,9 @@ def confirm_first_world(
     except WorldGraphInitializationError as exc:
         raise _initialization_error(exc) from exc
     from apps.live_control_server.services.world_container_registry import get_world_container
+    live_config.managed_world_data_root(live_config.repo_root())
     current_binding = get_world_container(
-        live_config.managed_world_data_root(live_config.repo_root()), plan.world_id,
+        plan.world_id,
     ).native_graph_binding
     if current_binding.status == "active" and (
         probed.state != "initialized" or probed.initialization_id != target.provisioning_id

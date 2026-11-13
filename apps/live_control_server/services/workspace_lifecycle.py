@@ -22,7 +22,7 @@ from apps.live_control_server.services.workspace_document_registry import (
 
 def _verify_world(root: Path, world_id: str) -> str:
     try:
-        world = get_world_container(root, world_id)
+        world = get_world_container(world_id)
     except Exception as exc:
         if isinstance(exc, WorkspaceDocumentRegistryError):
             raise

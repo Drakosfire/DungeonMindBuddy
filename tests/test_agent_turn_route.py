@@ -472,7 +472,7 @@ def test_world_play_http_turn_replays_without_current_run_or_provider(
     monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
     monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
-    monkeypatch.setattr(route, "get_world_container", lambda _root, _world: SimpleNamespace(world_id="world-a", name="World A"))
+    monkeypatch.setattr(route, "get_world_container", lambda _world: SimpleNamespace(world_id="world-a", name="World A"))
     runtime = FakeRuntime()
     app = create_app()
     app.state.agent_turn_runtime = runtime
@@ -584,15 +584,15 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
     current = {"record": managed.model_copy(update={"native_graph_binding": binding})}
     monkeypatch.setattr(
         world_container_registry, "get_world_container",
-        lambda _root, world_id: current["record"] if world_id == managed.world_id else None,
+        lambda world_id: current["record"] if world_id == managed.world_id else None,
     )
     monkeypatch.setattr(
         route, "get_world_container",
-        lambda _root, world_id: current["record"] if world_id == managed.world_id else None,
+        lambda world_id: current["record"] if world_id == managed.world_id else None,
     )
     monkeypatch.setattr(
         managed_world_graph_projection, "get_world_container",
-        lambda _root, world_id: current["record"] if world_id == managed.world_id else None,
+        lambda world_id: current["record"] if world_id == managed.world_id else None,
     )
     graph = InMemoryWorldGraphRepository()
     first = graph.publish_revision(PublishRevisionCommand(
@@ -1000,7 +1000,7 @@ def test_pending_play_http_retry_uses_frozen_moment_after_run_advances(
     monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
     monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
     monkeypatch.setattr(route, "_conversation_service", lambda _request: service)
-    monkeypatch.setattr(route, "get_world_container", lambda _root, _world: SimpleNamespace(world_id="world-a", name="World A"))
+    monkeypatch.setattr(route, "get_world_container", lambda _world: SimpleNamespace(world_id="world-a", name="World A"))
     runtime = FakeRuntime()
     app = create_app()
     app.state.agent_turn_runtime = runtime
@@ -1356,7 +1356,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(
         world_container_registry, "get_world_container",
-        lambda _root, world_id: bound if world_id == managed.world_id else None,
+        lambda world_id: bound if world_id == managed.world_id else None,
     )
     payload = _payload()
     payload.update({
@@ -2433,7 +2433,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             assert len(graph_reads) == before_history_reads
             monkeypatch.setattr(
                 world_container_registry, "get_world_container",
-                lambda _root, world_id: (
+                lambda world_id: (
                     bound.model_copy(update={"native_graph_binding": None})
                     if world_id == managed.world_id else None
                 ),
@@ -2445,7 +2445,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             assert len(graph_reads) == before_history_reads
             monkeypatch.setattr(
                 world_container_registry, "get_world_container",
-                lambda _root, world_id: bound if world_id == managed.world_id else None,
+                lambda world_id: bound if world_id == managed.world_id else None,
             )
             from application_state.errors import ApplicationStateError
 
@@ -4456,7 +4456,7 @@ def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, lega
         container = container.model_copy(update={"source_root_relpath": "retained/older-layout"})
     monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
 
-    def registered_world(_root, world):
+    def registered_world(world):
         if not registered or world != managed.world_id:
             raise registry.WorldContainerRegistryError("World not found")
         return container

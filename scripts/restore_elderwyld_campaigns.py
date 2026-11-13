@@ -135,7 +135,7 @@ def apply_repair(conn, plan):
 
 def binding(root):
     from apps.live_control_server.services.world_container_registry import get_world_container
-    value = get_world_container(root, NEW).model_dump(mode='json')
+    value = get_world_container(NEW).model_dump(mode='json')
     native = value['native_graph_binding']
     if native['status'] != 'active' or native['native_world_id'] != NEW:
         raise ValueError('Expected active canonical managed binding')

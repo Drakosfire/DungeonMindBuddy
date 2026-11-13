@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from fastapi import HTTPException, Request
 from pydantic import TypeAdapter
 
-from apps.live_control_server.config import repo_root
 from apps.live_control_server.models.native_graph_explorer import (
     NativeGraphExplorerGraphRequest,
     NativeGraphExplorerOperationRequest,
@@ -86,7 +85,7 @@ def _owned_world(subject: str, managed_world_id: str):
         subject, frozenset({managed_world_id}), access=hosted_auth.hosted_world_access()
     )
     try:
-        world = get_world_container(repo_root(), managed_world_id)
+        world = get_world_container(managed_world_id)
     except WorldContainerRegistryError as exc:
         if exc.status_code == 404:
             raise _denied() from None

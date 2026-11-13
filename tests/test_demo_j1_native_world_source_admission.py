@@ -559,7 +559,7 @@ def test_ordinary_fresh_world_source_admission_needs_no_active_graph(
 ) -> None:
     from apps.live_control_server.services.world_container_registry import get_world_container
     world, record = _committed_source(tmp_path, provisioned=True)
-    reservation = get_world_container(tmp_path, world.world_id).native_graph_binding
+    reservation = get_world_container(world.world_id).native_graph_binding
     assert reservation.status == "provisioning"
     before = world_snapshot()
     assert memory_repository.get_head(reservation.native_world_id) is None
@@ -569,7 +569,7 @@ def test_ordinary_fresh_world_source_admission_needs_no_active_graph(
     assert admitted.space_id == reservation.native_world_id != world.world_id
     assert _admit(tmp_path, record.document_id) == admitted
     assert world_snapshot() == before
-    assert get_world_container(tmp_path, world.world_id).native_graph_binding == reservation
+    assert get_world_container(world.world_id).native_graph_binding == reservation
 
 
 def test_reserved_operation_change_during_admission_fails_closed(

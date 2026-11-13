@@ -133,8 +133,7 @@ def list_world_containers() -> list[WorldContainerRecord]:
     return sorted(records, key=lambda record: (record.name.casefold(), record.world_id))
 
 
-def get_world_container(root: Path, world_id: str) -> WorldContainerRecord:
-    del root
+def get_world_container(world_id: str) -> WorldContainerRecord:
     return _stored_world(world_id).record
 
 
@@ -193,7 +192,7 @@ def authorize_world_access(
     permission: WorldPermission | str, resource_world_id: str | None = None,
 ) -> WorldContainerRecord:
     try:
-        record = get_world_container(root, world_id)
+        record = get_world_container(world_id)
     except (TypeError, AttributeError, WorldContainerRegistryError) as exc:
         raise WorldAccessDenied("World access denied") from exc
     return require_world_permission(record, subject=subject, permission=permission,

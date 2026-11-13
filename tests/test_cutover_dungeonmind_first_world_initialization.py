@@ -1376,13 +1376,13 @@ def test_fresh_source_receipt_survives_reviewed_graph_activation(native_first_wo
     snapshot = native.get_workspace_document_snapshot(repo, source_id)
     admitted = native.admit_native_world_source(repo, source_id,
         expected_revision=snapshot.loaded_revision, expected_body_sha256=snapshot.content_sha256)
-    before = get_world_container(repo, plan["worldId"]).native_graph_binding
+    before = get_world_container(plan["worldId"]).native_graph_binding
     assert before.status == "provisioning"
     assert _bundle(dsn).world_graph.get_head(before.native_world_id) is None
     assert admitted.space_id == before.native_world_id != plan["worldId"]
     confirmed = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert confirmed.status_code == 200, confirmed.text
-    active = get_world_container(repo, plan["worldId"]).native_graph_binding
+    active = get_world_container(plan["worldId"]).native_graph_binding
     assert active.status == "active"
     assert active.native_world_id == before.native_world_id
     assert active.provisioning_id == before.provisioning_id
@@ -1403,7 +1403,7 @@ def test_published_graph_recovers_after_activation_write_failure(native_first_wo
     from apps.live_control_server.services.world_container_registry import get_world_container
     client, _, repo, dsn = native_first_world_client
     run_id, plan = _prepare_native_plan(client, repo)
-    reservation = get_world_container(repo, plan["worldId"]).native_graph_binding
+    reservation = get_world_container(plan["worldId"]).native_graph_binding
     original = binding._save_cas
     def unavailable(*args, **kwargs):
         raise OSError("synthetic registry write interruption")
@@ -1411,7 +1411,7 @@ def test_published_graph_recovers_after_activation_write_failure(native_first_wo
     interrupted = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert interrupted.status_code == 503, interrupted.text
     assert interrupted.json()["code"] == "native_graph_activation_pending"
-    assert get_world_container(repo, plan["worldId"]).native_graph_binding == reservation
+    assert get_world_container(plan["worldId"]).native_graph_binding == reservation
     assert _counts(dsn, reservation.native_world_id)["revisions"] == 1
     # Reconstructing exact reviewed choices after restart retains the operation
     # and command; it cannot mint another World or another D0.
@@ -1422,7 +1422,7 @@ def test_published_graph_recovers_after_activation_write_failure(native_first_wo
     recovered = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(rebuilt.json()))
     assert recovered.status_code == 200, recovered.text
     assert recovered.json()["outcome"] == "already_initialized"
-    assert get_world_container(repo, plan["worldId"]).native_graph_binding.status == "active"
+    assert get_world_container(plan["worldId"]).native_graph_binding.status == "active"
     assert _counts(dsn, reservation.native_world_id)["revisions"] == 1
     assert _counts(dsn, reservation.native_world_id)["receipts"] == 1
 
@@ -1434,14 +1434,14 @@ def test_first_publication_rejects_tampered_native_target(native_first_world_cli
     from apps.live_control_server.services.world_container_registry import get_world_container
     client, _, repo, dsn = native_first_world_client
     _, plan = _prepare_native_plan(client, repo)
-    before = get_world_container(repo, plan["worldId"])
+    before = get_world_container(plan["worldId"])
     changed = deepcopy(plan)
     changed["nativeTarget"][field] = value
     rejected = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(changed))
     assert rejected.status_code == 409, rejected.text
     assert rejected.json()["code"] == "native_graph_binding_changed"
     assert _counts(dsn, before.native_graph_binding.native_world_id)["revisions"] == 0
-    assert get_world_container(repo, plan["worldId"]) == before
+    assert get_world_container(plan["worldId"]) == before
 
 
 @pytest.mark.integration

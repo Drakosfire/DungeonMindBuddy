@@ -277,7 +277,7 @@ def adopt(root: Path, raw: bytes, expected_world: dict):
     from apps.live_control_server.integrations.dungeonmind.world_graph_reads import direct_services_from_bundle
     from apps.live_control_server.services.world_graph_binding import bind_native_graph, deactivate_native_graph_binding
     from apps.live_control_server.services.world_container_registry import get_world_container
-    current = get_world_container(root, NEW)
+    current = get_world_container(NEW)
     actual = current.model_dump(mode='json')
     original_binding = expected_world['native_graph_binding']
     actual_binding = actual['native_graph_binding']
@@ -291,7 +291,7 @@ def adopt(root: Path, raw: bytes, expected_world: dict):
     bundle = PostgresRepositoryBundle(PostgresDatabase(os.environ[GRAPH_ENV]))
     receipt = adopt_existing_world(raw, adopted_at=datetime.now(timezone.utc), adoption_repository=bundle.existing_world_adoptions,
         graph_reader=VersionedUnionGraphSnapshotReader(profile_registry=StaticSemanticProfileRegistry([load_builtin_v3_descriptor()])))
-    current = get_world_container(root, NEW)
+    current = get_world_container(NEW)
     binding = current.native_graph_binding
     if binding is None or binding.native_world_id not in (OLD, NEW):
         raise ValueError('Unexpected managed binding')
@@ -325,7 +325,7 @@ def main() -> None:
                 if graph.execute(f'SELECT 1 FROM dungeonmind.{table} WHERE {column}=%s', (NEW,)).fetchone():
                     raise ValueError('Canonical native namespace is occupied')
             from apps.live_control_server.services.world_container_registry import get_world_container
-            world = get_world_container(root, NEW).model_dump(mode='json')
+            world = get_world_container(NEW).model_dump(mode='json')
             if world['native_graph_binding']['native_world_id'] != OLD or world['native_graph_binding']['status'] != 'active':
                 raise ValueError('Expected original active old binding')
             plan = {'tool_sha256': digest(Path(__file__).read_bytes()), 'managed_world': world, 'schema': 'buddy_operator_reset_plan_v1', 'root': str(root),
@@ -366,7 +366,7 @@ def main() -> None:
         write_json(case / 'empty-adoption-receipt.json', receipt)
     elif args.stage == 'retire':
         from apps.live_control_server.services.world_container_registry import get_world_container
-        binding = get_world_container(root, NEW).native_graph_binding
+        binding = get_world_container(NEW).native_graph_binding
         if binding is None or binding.native_world_id != NEW or binding.status != 'active':
             raise ValueError('Canonical binding must be active before old namespace retirement')
         for env, name in ((APP_ENV, 'app'), (GRAPH_ENV, 'graph')):

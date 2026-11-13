@@ -75,7 +75,8 @@ def test_existing_world_registry_reopens_from_two_code_checkouts(
         assert managed_world_data_root(checkout) == operator
         records = world_routes.get_world_containers()["records"]
         assert [record["world_id"] for record in records] == ["elderwyld"]
-        assert get_world_container(managed_world_data_root(checkout), "elderwyld").native_graph_binding.status == "active"
+        managed_world_data_root(checkout)
+        assert get_world_container("elderwyld").native_graph_binding.status == "active"
     monkeypatch.delenv(MANAGED_WORLD_DATA_ROOT_ENV)
     assert managed_world_data_root(tmp_path / "checkout-a") == tmp_path / "checkout-a"
 

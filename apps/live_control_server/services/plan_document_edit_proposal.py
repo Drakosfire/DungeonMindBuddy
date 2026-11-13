@@ -141,7 +141,7 @@ def _resolve_model() -> str:
 
 def _validate_authority(root: Path, request: PlanDocumentEditProposalRequest) -> None:
     try:
-        get_world_container(root, request.world_id)
+        get_world_container(request.world_id)
         snapshot = get_workspace_document_snapshot(root, request.document_id)
     except (WorldContainerRegistryError, WorkspaceDocumentRegistryError) as exc:
         raise PlanDocumentEditProposalError(
@@ -219,7 +219,7 @@ def _validate_world_request_inputs(request: WorldPlanDocumentEditProposalRequest
 
 def _verified_world(root: Path, world_id: str) -> Any:
     try:
-        world = get_world_container(root, world_id)
+        world = get_world_container(world_id)
     except WorldContainerRegistryError as exc:
         raise PlanDocumentEditProposalError(
             "plan_target_unavailable", "Selected Plan or World is unavailable.", status_code=404
@@ -1047,7 +1047,7 @@ def get_world_plan_action_projection(
 ) -> PlanActionProjectionPage:
     """Return status records for the exact server-resolved committed Plan basis."""
     try:
-        world = get_world_container(root, world_id)
+        world = get_world_container(world_id)
         committed = get_committed_playable_revision(
             document_id, kind="plan", expected_world_id=world_id
         )

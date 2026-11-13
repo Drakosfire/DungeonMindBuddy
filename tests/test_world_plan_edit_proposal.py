@@ -1382,7 +1382,7 @@ def test_mounted_initialized_selection_reports_context_unavailable_without_an_ed
     original_world_reader = service.get_world_container
     monkeypatch.setattr(
         service, "get_world_container",
-        lambda root, world_id: SimpleNamespace(
+        lambda world_id: SimpleNamespace(
             world_id=original_world_reader(root, world_id).world_id,
             native_graph_binding=SimpleNamespace(status="active"),
         ),
@@ -1458,7 +1458,7 @@ def test_mounted_initialized_selection_dispatches_one_harness_action_and_returns
     original_world_reader = service.get_world_container
     monkeypatch.setattr(
         service, "get_world_container",
-        lambda root, world_id: SimpleNamespace(
+        lambda world_id: SimpleNamespace(
             world_id=original_world_reader(root, world_id).world_id,
             native_graph_binding=SimpleNamespace(
                 status="active", native_world_id="native-synthetic", binding_version=1,

@@ -171,8 +171,9 @@ async def resolve_native_recap_hosted_world(request: Request) -> str:
         body = RecapIngestRequest.model_validate(payload)
         if not _source_only(body) or not body.managed_world_id:
             raise ValueError("Hosted recap operation is outside source admission")
+    config.managed_world_data_root(repo_root())
     world = get_world_container(
-        config.managed_world_data_root(repo_root()), body.managed_world_id
+        body.managed_world_id
     )
     return world.world_id
 
@@ -209,8 +210,9 @@ def _native_source_actor(body, request):
         raise HTTPException(status_code=401, detail={"code": "authentication_required"})
     hosted_auth.require_hosted_write_origin(request)
     try:
+        config.managed_world_data_root(repo_root())
         world = get_world_container(
-            config.managed_world_data_root(repo_root()), body.managed_world_id
+            body.managed_world_id
         )
         require_world_permission(
             world, subject=principal.subject, permission=WorldPermission.MANAGE

@@ -162,7 +162,7 @@ def test_invalid_reviewed_proof_never_activates(tmp_path, damage):
         _activate(tmp_path, world, target, receipt, services)
     assert world_snapshot() == before
     assert (
-        get_world_container(tmp_path, world.world_id).native_graph_binding.status
+        get_world_container(world.world_id).native_graph_binding.status
         == "provisioning"
     )
 
@@ -188,7 +188,7 @@ def test_same_world_revision_change_during_validation_requires_original_retry(tm
     with pytest.raises(WorldGraphBindingError):
         _activate(tmp_path, world, target, receipt, services, concurrent_write)
     assert (
-        get_world_container(tmp_path, world.world_id).native_graph_binding.status
+        get_world_container(world.world_id).native_graph_binding.status
         == "provisioning"
     )
     assert (
@@ -213,5 +213,5 @@ def test_active_replay_rejects_same_world_metadata_aba(tmp_path):
 
     with pytest.raises(WorldGraphBindingError):
         _activate(tmp_path, world, target, receipt, services, aba)
-    assert get_world_container(tmp_path, world.world_id) == active
+    assert get_world_container(world.world_id) == active
     assert _activate(tmp_path, world, target, receipt, services) == active

@@ -570,7 +570,7 @@ def test_actual_native_authored_source_to_sdk_app(native_first_world_client,monk
     confirmed=client.post(FIRST_WORLD_CONFIRM_URL,json=_first_world_confirm_body(plan))
     assert confirmed.status_code==200,confirmed.text
     world=plan['worldId']
-    binding=get_world_container(repo,world).native_graph_binding
+    binding=get_world_container(world).native_graph_binding
     source=get_workspace_document_snapshot(repo,plan['workspaceDocumentId'])
     monkeypatch.setattr(agent,'_managed_world_root',lambda:repo)
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(repo))
