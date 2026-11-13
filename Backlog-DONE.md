@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Align the release wait deadline with the Compose health schedule. The [deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md) uses 330 seconds for deployment and rollback. The recorded disposable Compose 2.40.3 rehearsal used the production schedule with synthetic probes. Healthy startup took 5.6 seconds and persistent failure reached unhealthy in 221.2 seconds. The release operator owns target-host verification.
+
 - Verify persistent storage access as the release container user. Compose disables automatic bind-source creation. The runbook requires an approved absolute root and probes access as UID/GID 10001. [#2720](https://github.com/Drakosfire/DungeonMindBuddy/pull/2720) recorded a disposable Compose 2.40.3 rehearsal that rejected a missing root without creating it, rejected an unwritable root, and accepted writable directories. The release operator owns the host check.
 
 - Verify database aliases against the actual release targets. [#2719](https://github.com/Drakosfire/DungeonMindBuddy/pull/2719) added a credential-free comparison from the release container and fail-fast alias checks. Compose 2.40.3, PostgreSQL 16, and the slim image verified both matches and rejected a mismatched WorldGraph target. Shell fixtures covered failure of either alias. The release operator owns the production rehearsal.
