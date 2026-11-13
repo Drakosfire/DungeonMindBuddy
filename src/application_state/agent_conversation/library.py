@@ -131,13 +131,20 @@ def rename(world: str, conversation: UUID, change: NameChange):
         ).fetchone()
         if parent is None:
             raise ApplicationStateNotFoundError("Conversation not found in this World")
-        current = _one(conn, world, conversation)
+        saved_name = conn.execute(
+            "SELECT title, revision FROM agent.conversation_name WHERE world_id=%s AND conversation_id=%s",
+            (world, conversation),
+        ).fetchone()
+        revision = saved_name["revision"] if saved_name else 0
         if (
-            current.name_revision == change.expected_revision + 1
-            and current.title == change.title
+            saved_name is not None
+            and revision == change.expected_revision + 1
+            and saved_name["title"] == change.title
         ):
-            return current
-        if current.name_revision != change.expected_revision:
+            current = _one(conn, world, conversation)
+            if current.name_revision == revision and current.title == change.title:
+                return current
+        if revision != change.expected_revision:
             raise ApplicationStateConflictError(
                 "Conversation name changed. Reload its name before replacing it."
             )
