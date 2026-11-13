@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Share the Graph object-name byte limit check. [#2886](https://github.com/Drakosfire/DungeonMindBuddy/pull/2886) reduced render-time encoding from two calls to one and retained submit-time validation through the same predicate. All 41 demo tests passed, including acceptance at a trimmed 128 bytes and rejection at 130 bytes.
+
 - Keep the local Vite listener on the requested port. The launcher uses strictPort, and the installed Vite CLI exited 1 when its loopback port was occupied. [#2884](https://github.com/Drakosfire/DungeonMindBuddy/pull/2884) also checks that a launcher-owned UI process group owns a listening socket before reporting readiness. A real npm/Vite run accepted the owning group and rejected a mismatched group.
 
 - Remove test-only Graph projection counters. [#2880](https://github.com/Drakosfire/DungeonMindBuddy/pull/2880) removed both counters after checking branch callers. [#2882](https://github.com/Drakosfire/DungeonMindBuddy/pull/2882) removed the redundant Local World projection identity after the caller scan and type check. The distinct API projection still provides its World identity. All 78 projection-filtered tests passed after the separate reader test correction in [#2881](https://github.com/Drakosfire/DungeonMindBuddy/pull/2881).
