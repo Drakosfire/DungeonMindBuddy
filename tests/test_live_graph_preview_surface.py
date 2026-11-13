@@ -1,7 +1,7 @@
 """Tests for graph preview surface API."""
 from __future__ import annotations
 
-from json import JSONDecodeError
+from json import JSONDecodeError, dumps
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -101,7 +101,7 @@ def test_latest_surface_discovers_only_when_unpinned(tmp_path, monkeypatch, pinn
 
     assert build_latest_graph_preview_surface(tmp_path) is build.return_value
     build.assert_called_once_with(
-        tmp_path, pinned_uri or "discovered-run", run_bundle_dir=tmp_path / "bundle", artifact_record=record,
+        tmp_path, pinned_uri or "discovered-run", run_bundle_dir=tmp_path / "bundle", artifact_record=record, _loaded_run=None,
     )
     if pinned_uri:
         discovery.assert_not_called()
@@ -126,10 +126,13 @@ def test_latest_surface_discovers_only_when_unpinned(tmp_path, monkeypatch, pinn
 )
 def test_preview_ranking_probes_only_runs_that_can_win(tmp_path, monkeypatch, canonical, evidence, winner, probed):
     runs = [SimpleNamespace(run_dir=str(i), canonical_ir_valid=i in canonical) for i in range(4)]
-    probe = Mock(side_effect=lambda _root, run_dir: int(run_dir) in evidence)
-    monkeypatch.setattr(graph_preview_surface, "_run_has_resolvable_evidence", probe)
-    assert graph_preview_surface._pick_latest_run(tmp_path, runs) is runs[winner]
-    assert [int(call.args[1]) for call in probe.call_args_list] == probed
+    graph = {"nodes": [{"evidence_refs": [{"source_span_ref_id": "source"}]}]}
+    probe = Mock(side_effect=lambda path: ({}, graph if int(path.name) in evidence else None))
+    monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
+    monkeypatch.setattr(graph_preview_surface, "_load_run_graph", probe)
+    picked = graph_preview_surface._pick_latest_run(tmp_path, runs)
+    assert picked[0] is runs[winner]
+    assert [int(call.args[0].name) for call in probe.call_args_list] == probed
 
 
 def test_preview_ranking_skips_malformed_older_artifact_after_top_tier_match(tmp_path, monkeypatch):
@@ -137,15 +140,40 @@ def test_preview_ranking_skips_malformed_older_artifact_after_top_tier_match(tmp
     newer = SimpleNamespace(run_dir="newer", canonical_ir_valid=True)
     malformed = JSONDecodeError("malformed fixture", "{", 1)
 
-    def probe(_root, run_dir):
-        if run_dir == older.run_dir:
+    def probe(path):
+        if path.name == older.run_dir:
             raise malformed
-        return True
+        return {}, {"nodes": [{"evidence_refs": [{"source_span_ref_id": "source"}]}]}
 
-    monkeypatch.setattr(graph_preview_surface, "_run_has_resolvable_evidence", probe)
-    assert graph_preview_surface._pick_latest_run(tmp_path, [older, newer]) is newer
+    monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
+    monkeypatch.setattr(graph_preview_surface, "_load_run_graph", probe)
+    assert graph_preview_surface._pick_latest_run(tmp_path, [older, newer])[0] is newer
     with pytest.raises(JSONDecodeError):
         graph_preview_surface._pick_latest_run(tmp_path, [older])
+
+
+@pytest.mark.parametrize(("filename", "key"), [
+    ("validation_report.json", "reconciled_candidate_graph"),
+    ("candidate_output.json", "candidate_graph"),
+])
+def test_latest_surface_decodes_winning_graph_once(tmp_path, monkeypatch, filename, key):
+    run = tmp_path / "run"
+    run.mkdir()
+    artifact = run / filename
+    artifact.write_text(dumps({key: {"nodes": [{"evidence_refs": [{"source_span_ref_id": "source"}]}]}}))
+    record = SimpleNamespace(
+        artifact_id="artifact", campaign_id="campaign", session_id="session",
+        run_bundle_uri="missing-bundle", default_graph_run_uri=None,
+    )
+    load = Mock(wraps=graph_preview_surface._load_json)
+    monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", lambda *args, **kwargs: record)
+    monkeypatch.setattr(graph_preview_surface, "discover_graph_preview_runs",
+                        lambda *args, **kwargs: [SimpleNamespace(run_dir="run", canonical_ir_valid=True)])
+    monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
+    monkeypatch.setattr(graph_preview_surface, "_load_json", load)
+    with pytest.raises(graph_preview_surface.GraphPreviewSurfaceError, match="run bundle not found"):
+        build_latest_graph_preview_surface(tmp_path)
+    load.assert_called_once_with(artifact)
 
 
 def test_latest_surface_prefers_resolvable_run() -> None:
