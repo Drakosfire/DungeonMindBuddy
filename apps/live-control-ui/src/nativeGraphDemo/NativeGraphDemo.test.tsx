@@ -853,6 +853,29 @@ describe("NativeGraphDemo", () => {
     expect(api.prepare).not.toHaveBeenCalled(); expect(api.confirm).not.toHaveBeenCalled();
   });
 
+  it("retries a failed clamped keyboard save and skips subsequent identical writes", async () => {
+    const scope = "keyboard-layout-retry";
+    const key = `dungeonmind-native-demo:layout:${scope}:${encodeURIComponent(graph.world_id)}`;
+    const original = JSON.stringify({ "entity:mara": { x: 5992, y: 240 } });
+    localStorage.setItem(key, original);
+    renderEmbeddedDemo({ api: makeApi(), stateScopeId: scope });
+    const node = await screen.findByRole("button", { name: /Mara, npc/i });
+    fireEvent.click(graphAction("Move nodes"));
+    const write = vi.spyOn(Storage.prototype, "setItem");
+    try {
+      write.mockImplementationOnce(() => { throw new Error("storage full"); });
+      fireEvent.keyDown(node, { key: "ArrowRight" });
+      await waitFor(() => expect(node).toHaveAttribute("transform", "translate(6000 240)"));
+      expect(localStorage.getItem(key)).toBe(original);
+      fireEvent.keyDown(node, { key: "ArrowRight" });
+      await waitFor(() => expect(localStorage.getItem(key)).toBe(JSON.stringify({ "entity:mara": { x: 6000, y: 240 } })));
+      fireEvent.keyDown(node, { key: "ArrowRight" });
+      expect(write.mock.calls.filter(([storageKey]) => storageKey === key)).toHaveLength(2);
+    } finally {
+      write.mockRestore();
+    }
+  });
+
   it("turns connector-dot drags into a relationship draft without preparing automatically", async () => {
     const api = makeApi();
     renderEmbeddedDemo({ api });
