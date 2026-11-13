@@ -84,8 +84,6 @@ export function writeWorldNotesPackageData(
   markdownBytes: readonly number[],
 ): { readonly status: "written"; readonly data: LocalWorldPackageData } | { readonly status: "error"; readonly message: string } {
   if (markdownBytes.length > LOCAL_WORLD_NOTES_MAX_BYTES) return { status: "error", message: "World notes exceed the 1 MiB local document limit." };
-  const invalid = validateLocalWorldPackageData(data, worldId);
-  if (invalid) return { status: "error", message: invalid };
   const prior = readWorldNotesPackageData(data, worldId);
   if (prior.status === "error") return prior;
   const collidingReferences = data.documents.filter((reference) =>
