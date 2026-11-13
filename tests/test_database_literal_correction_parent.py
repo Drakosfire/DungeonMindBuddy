@@ -74,7 +74,7 @@ def _false_quote_parent(monkeypatch, root, *, beat_id=None, beat_artifact=None):
     assert custom_spans != data.span_bytes
     _reseal_extraction_component_digest(result.run.run_id, kind="source_span_index",
         digest=correction._sha(custom_spans), payload=custom_spans)
-    parent = registry.get_extraction_run(root, result.run.run_id)
+    parent = registry.get_extraction_run(result.run.run_id)
     (root / parent.components["candidate_graph"].uri.removeprefix("repo://")).write_bytes(candidate)
     (root / parent.components["source_span_index"].uri.removeprefix("repo://")).write_bytes(custom_spans)
     monkeypatch.setattr(correction, "repo_root", lambda: root)
@@ -112,7 +112,7 @@ def test_literal_correction_with_parent_files_removed(monkeypatch, tmp_path):
     assert assessment.basis_sha256 == response.semantic_basis_sha256
     review = extract_promote.get_exact_run_review_package(child.run.run_id)
     assert review.inspection_status == "ready" and not review.promotable
-    assert registry.get_extraction_run(tmp_path, parent.run_id) == parent
+    assert registry.get_extraction_run(parent.run_id) == parent
 
 
 @pytest.mark.parametrize("kind", ["source_artifact", "candidate_graph", "source_span_index"])
@@ -163,7 +163,7 @@ def _check_child_storage_recovery(monkeypatch, root, dsn, parent, request, corre
         with pytest.raises(ApplicationStateIntegrityError, match="stored extraction output differs"):
             correct(request)
     assert ingest.list_extraction_runs() == before
-    assert registry.get_extraction_run(root, parent.run_id) == parent
+    assert registry.get_extraction_run(parent.run_id) == parent
 
 
 @pytest.mark.parametrize("kind", ["candidate_graph", "source_span_index"])

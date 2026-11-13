@@ -244,7 +244,7 @@ class ReviewableExtractionData:
 
 def load_reviewable_extraction_data(root: Path, run_id: str) -> ReviewableExtractionData:
     """Read one run's exact database bindings, never its presentation locators."""
-    run = get_extraction_run(root, run_id)
+    run = get_extraction_run(run_id)
     if run.status != ExtractionRunStatus.REVIEWABLE:
         raise GraphRunRegistryError(f"extraction run is not reviewable: {run.status.value}", status_code=422)
     return _load_bound_run_evidence(root, run)
@@ -341,8 +341,7 @@ def _bind_run_to_artifact(
     return artifact
 
 
-def get_extraction_run(root: Path, run_id: str) -> ExtractionRun:
-    del root
+def get_extraction_run(run_id: str) -> ExtractionRun:
     try:
         return ingest_service.get_extraction_run(run_id)
     except ApplicationStateError as exc:

@@ -239,11 +239,11 @@ def test_extraction_run_exact_reload_and_no_latest(tmp_path: Path) -> None:
         campaign_id="eldyrwild",
         session_id=None,
     )
-    loaded = get_extraction_run(tmp_path, run.run_id)
+    loaded = get_extraction_run(run.run_id)
     assert loaded.run_id == run.run_id
     assert loaded.revision == 1
     with pytest.raises(GraphRunRegistryError) as exc_info:
-        get_extraction_run(tmp_path, "missing-run")
+        get_extraction_run("missing-run")
     assert exc_info.value.status_code == 404
 
 
@@ -318,7 +318,7 @@ def test_file_only_outputs_do_not_grant_reviewable(tmp_path: Path) -> None:
         status=ExtractionRunStatus.VALIDATED)
     with pytest.raises(GraphRunRegistryError, match="not durable"):
         update_extraction_run_status(tmp_path, run.run_id, status=ExtractionRunStatus.REVIEWABLE, expected_revision=run.revision)
-    assert get_extraction_run(tmp_path, run.run_id) == run
+    assert get_extraction_run(run.run_id) == run
 
 
 
@@ -423,7 +423,7 @@ def test_get_reviewable_extraction_run_ignores_duplicate_file_records(
     )
     loaded = get_reviewable_extraction_run(tmp_path, duplicate_id)
     assert loaded.run_id == duplicate_id
-    catalog = get_extraction_run(tmp_path, duplicate_id)
+    catalog = get_extraction_run(duplicate_id)
     assert catalog.run_id == duplicate_id
 
 
@@ -507,7 +507,7 @@ def test_stale_revision_and_supersession(tmp_path: Path) -> None:
         prepared.run_id,
         expected_revision=prepared.revision,
     )
-    predecessor = get_extraction_run(tmp_path, prepared.run_id)
+    predecessor = get_extraction_run(prepared.run_id)
     assert predecessor.status == ExtractionRunStatus.SUPERSEDED
     assert predecessor.superseded_by_run_id == successor.run_id
     assert predecessor.components == prior_components
@@ -531,7 +531,7 @@ def test_malformed_registry_fails_closed_on_load(
     )
     _corrupt_ingest_run(application_state_dsn, run.run_id, session_id="session-1")
     with pytest.raises(GraphRunRegistryError, match="malformed|cannot be interpreted|worldbuilding"):
-        get_extraction_run(tmp_path, run.run_id)
+        get_extraction_run(run.run_id)
 
 
 def _advance_to_reviewable(tmp_path: Path, run, components, *, persist=True):
@@ -606,7 +606,7 @@ def test_concurrent_updates_with_same_expected_revision(tmp_path: Path) -> None:
     assert len(failures) == 1
     assert failures[0].status_code == 409
     assert "revision mismatch" in str(failures[0]) or "concurrently" in str(failures[0])
-    loaded = get_extraction_run(tmp_path, run.run_id)
+    loaded = get_extraction_run(run.run_id)
     assert loaded.revision == run.revision + 1
     assert loaded.status == ExtractionRunStatus.PREPARED
 
@@ -645,7 +645,7 @@ def test_supersede_save_failure_leaves_predecessor_unchanged(
             prepared.run_id,
             expected_revision=prepared.revision,
         )
-    predecessor = get_extraction_run(tmp_path, prepared.run_id)
+    predecessor = get_extraction_run(prepared.run_id)
     assert predecessor.status == ExtractionRunStatus.PREPARED
     assert predecessor.superseded_by_run_id is None
     assert predecessor.revision == prepared.revision
@@ -673,11 +673,11 @@ def test_promoted_run_integrity_checked_on_load(tmp_path: Path, application_stat
         status=ExtractionRunStatus.PROMOTED,
         expected_revision=reviewable.revision,
     )
-    assert get_extraction_run(tmp_path, promoted.run_id).status == ExtractionRunStatus.PROMOTED
+    assert get_extraction_run(promoted.run_id).status == ExtractionRunStatus.PROMOTED
 
     graph_path = tmp_path / components["candidate_graph"].uri.removeprefix("repo://")
     graph_path.write_text(json.dumps({"nodes": [{"id": "tampered"}]}), encoding="utf-8")
-    catalog = get_extraction_run(tmp_path, promoted.run_id)
+    catalog = get_extraction_run(promoted.run_id)
     assert catalog.status == ExtractionRunStatus.PROMOTED
     from apps.live_control_server.services.graph_run_registry import (
         assert_run_reviewable_evidence,
@@ -737,7 +737,7 @@ def test_one_sided_supersession_fails_closed_on_load(
         status="prepared",
     )
     with pytest.raises(GraphRunRegistryError, match="lineage|non-reciprocal|missing"):
-        get_extraction_run(tmp_path, successor.run_id)
+        get_extraction_run(successor.run_id)
 
 
 def test_source_artifact_snapshot_survives_later_page_discard(tmp_path: Path) -> None:
@@ -789,7 +789,7 @@ def test_reciprocal_lineage_with_unrelated_artifacts_fails_closed_on_load(
         source_artifact_id="artifact:unrelated",
     )
     with pytest.raises(GraphRunRegistryError, match="lineage|source_artifact_id"):
-        get_extraction_run(tmp_path, prepared.run_id)
+        get_extraction_run(prepared.run_id)
 
 
 def test_reciprocal_lineage_with_non_superseded_predecessor_fails_closed_on_load(
@@ -819,7 +819,7 @@ def test_reciprocal_lineage_with_non_superseded_predecessor_fails_closed_on_load
     )
     _corrupt_ingest_run(application_state_dsn, prepared.run_id, status="prepared")
     with pytest.raises(GraphRunRegistryError, match="lineage|must be superseded"):
-        get_extraction_run(tmp_path, successor.run_id)
+        get_extraction_run(successor.run_id)
 
 
 def _validated_recap_run(
@@ -982,5 +982,5 @@ def test_corrected_child_rejects_substituted_frozen_evidence(tmp_path: Path, app
             tmp_path, child.run_id, status=ExtractionRunStatus.REVIEWABLE,
             expected_revision=child.revision,
         )
-    assert get_extraction_run(tmp_path, child.run_id).status == ExtractionRunStatus.VALIDATED
-    assert get_extraction_run(tmp_path, parent.run_id) == parent
+    assert get_extraction_run(child.run_id).status == ExtractionRunStatus.VALIDATED
+    assert get_extraction_run(parent.run_id) == parent

@@ -644,7 +644,7 @@ def test_recap_runner_persists_sanitized_candidate_and_unchanged_private_respons
         )
     )
 
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     assert loaded.status == ExtractionRunStatus.REVIEWABLE
     from application_state.ingest.components import get_component_bytes
     candidate_ref = loaded.components["candidate_graph"]

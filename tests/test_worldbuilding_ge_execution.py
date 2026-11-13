@@ -328,7 +328,7 @@ def test_real_ge_service_composition_tracks_conformance_and_fails_closed(
     if fail_retention:
         from application_state.ingest.components import list_private_execution_events
         root = service.artifact_data_root(tmp_path)
-        incomplete = get_extraction_run(root, original.run.run_id)
+        incomplete = get_extraction_run(original.run.run_id)
         assert incomplete.status == ExtractionRunStatus.INCOMPLETE
         assert incomplete.lineage["execution_evidence_state"] == "needs_reconciliation"
         assert "execution_evidence_retention_failed" in incomplete.diagnostics.errors

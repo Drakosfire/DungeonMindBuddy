@@ -58,7 +58,7 @@ def _parent(monkeypatch, root):
     assert spans != data.span_bytes
     _reseal_extraction_component_digest(result.run.run_id, kind="source_span_index",
         digest=correction._sha(spans), payload=spans)
-    parent = registry.get_extraction_run(root, result.run.run_id)
+    parent = registry.get_extraction_run(result.run.run_id)
     for kind, raw in (("candidate_graph", candidate), ("source_span_index", spans)):
         (root / parent.components[kind].uri.removeprefix("repo://")).write_bytes(raw)
     monkeypatch.setattr(correction, "repo_root", lambda: root)
@@ -97,7 +97,7 @@ def test_catalog_and_correction_without_parent_evidence_files(monkeypatch, tmp_p
     assert child.source_bytes == expected.source_bytes
     assert child.run.components["source_span_index"] == parent.components["source_span_index"]
     assert correction.correct_exact_run_evidence(request) == response
-    assert registry.get_extraction_run(tmp_path, parent.run_id) == parent
+    assert registry.get_extraction_run(parent.run_id) == parent
 
 
 @pytest.mark.parametrize("kind", ["source_artifact", "candidate_graph", "source_span_index"])
@@ -130,7 +130,7 @@ def test_managed_world_admission_still_required(monkeypatch, tmp_path):
     monkeypatch.setattr(correction, "admit_managed_world", reject)
     with pytest.raises(correction.ExtractPromoteError, match="managed World"):
         correction.correct_exact_run_evidence(request)
-    assert registry.get_extraction_run(tmp_path, parent.run_id) == parent
+    assert registry.get_extraction_run(parent.run_id) == parent
 
 
 @pytest.mark.parametrize("kind", ["candidate_graph", "source_span_index"])

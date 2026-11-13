@@ -82,7 +82,7 @@ import hashlib,sys
 from pathlib import Path
 from apps.live_control_server.services.graph_run_registry import get_extraction_run
 from application_state.ingest.components import get_component_bytes
-root=Path(sys.argv[1]); run=get_extraction_run(root,sys.argv[2])
+root=Path(sys.argv[1]); run=get_extraction_run(sys.argv[2])
 assert run.status.value=='failed'
 ref=run.components['raw_model_response']
 data=get_component_bytes(run_id=run.run_id,kind=ref.kind,content_sha256=ref.sha256)

@@ -336,7 +336,7 @@ def correct_exact_run_evidence(
         exists=True,
     )
     try:
-        child = get_extraction_run(repo, child_id)
+        child = get_extraction_run(child_id)
     except GraphRunRegistryError as exc:
         if exc.status_code != 404:
             raise _reject(f"derived run lookup failed: {exc}") from exc
@@ -355,7 +355,7 @@ def correct_exact_run_evidence(
             )
         except GraphRunRegistryError:
             # An identical concurrent request may have won the create race.
-            child = get_extraction_run(repo, child_id)
+            child = get_extraction_run(child_id)
     if (
         child.lineage != lineage
         or child.components != components
@@ -373,7 +373,7 @@ def correct_exact_run_evidence(
         persist_component_payload(run_id=child_id, expected_revision=child.revision,
                                   kind=kind, payload=data)
     for _ in range(8):
-        child = get_extraction_run(repo, child_id)
+        child = get_extraction_run(child_id)
         if child.status == ExtractionRunStatus.REVIEWABLE:
             break
         if child.status not in _LIFECYCLE:
@@ -515,7 +515,7 @@ def correct_recap_run_evidence(
         exists=True,
     )
     try:
-        child = get_extraction_run(repo, child_id)
+        child = get_extraction_run(child_id)
     except GraphRunRegistryError as exc:
         if exc.status_code != 404:
             raise _reject(f"derived run lookup failed: {exc}") from exc
@@ -533,7 +533,7 @@ def correct_recap_run_evidence(
                 lineage=lineage,
             )
         except GraphRunRegistryError:
-            child = get_extraction_run(repo, child_id)
+            child = get_extraction_run(child_id)
     identity_lineage = {
         key: child.lineage.get(key)
         for key in ("derivation", "parent_run_id", "parent_candidate_sha256", "correction_digest")
@@ -583,7 +583,7 @@ def correct_recap_run_evidence(
         persist_component_payload(run_id=child_id, expected_revision=child.revision,
                                   kind=kind, payload=payload_bytes)
     for _ in range(8):
-        child = get_extraction_run(repo, child_id)
+        child = get_extraction_run(child_id)
         if child.status == ExtractionRunStatus.REVIEWABLE:
             break
         if child.status not in _LIFECYCLE:

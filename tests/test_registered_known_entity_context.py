@@ -85,7 +85,7 @@ def test_registered_known_npc_context_survives_run_readback(tmp_path, applicatio
     )
     assert result.failure_kind is None
     assert str(result.run.status.value) == "reviewable"
-    reopened = get_extraction_run(tmp_path, result.run.run_id)
+    reopened = get_extraction_run(result.run.run_id)
     assert reopened.run_id == result.run.run_id
     assert reopened.status == result.run.status
     child = subprocess.run(

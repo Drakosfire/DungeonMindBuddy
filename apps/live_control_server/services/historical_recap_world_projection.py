@@ -211,7 +211,7 @@ def build_historical_recap_world_projection(
     """
 
     try:
-        run = get_extraction_run(root, run_id)
+        run = get_extraction_run(run_id)
     except GraphRunRegistryError as exc:
         raise _error(
             str(exc),

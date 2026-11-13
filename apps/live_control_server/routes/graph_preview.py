@@ -167,7 +167,7 @@ def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
     )
 
     try:
-        run = get_extraction_run(repo_root(), run_id)
+        run = get_extraction_run(run_id)
     except GraphRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return public_run(run)
@@ -379,7 +379,7 @@ def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
 
     root = repo_root()
     try:
-        run = get_extraction_run(root, run_id)
+        run = get_extraction_run(run_id)
     except GraphRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 

@@ -68,7 +68,7 @@ def adopt_historical_recap_source(
     cleaned_world_id = world_id.strip()
     if not cleaned_world_id:
         raise GraphRunRegistryError("world_id is required for source adoption", status_code=422)
-    run = get_extraction_run(root, run_id)
+    run = get_extraction_run(run_id)
     if run.source_domain != "recap":
         raise GraphRunRegistryError(
             "source adoption is only supported for recap runs",

@@ -189,7 +189,7 @@ def _create_draft_run(
     from apps.live_control_server.services.graph_run_registry import create_extraction_run, get_extraction_run
 
     if reserved_run is not None:
-        current = get_extraction_run(repo_root, reserved_run.run_id)
+        current = get_extraction_run(reserved_run.run_id)
         if (current.status != ExtractionRunStatus.DRAFT or current.revision != reserved_run.revision
                 or current.source_artifact_id != source.source_artifact_id
                 or current.source_domain != source.source_domain or current.campaign_id != source.campaign_id
@@ -337,7 +337,7 @@ def run_production_extraction(
             failure_kind="profile",
             lineage={**(request.initial_lineage or {}), "failure_kind": "profile"},
         )
-        loaded = get_extraction_run(request.repo_root, failed.run_id)
+        loaded = get_extraction_run(failed.run_id)
         return ProductionExtractionResult(
             run=loaded,
             failure_kind="profile",
@@ -381,7 +381,7 @@ def run_production_extraction(
     )
 
     if not request.allow_llm and request.category_client is None:
-        loaded = get_extraction_run(request.repo_root, prepared.run_id)
+        loaded = get_extraction_run(prepared.run_id)
         return ProductionExtractionResult(
             run=loaded,
             source_span_index=span_payload,
@@ -462,7 +462,7 @@ def run_production_extraction(
             },
         )
         return ProductionExtractionResult(
-            run=get_extraction_run(request.repo_root, failed.run_id),
+            run=get_extraction_run(failed.run_id),
             source_span_index=span_payload, failure_kind=failure_kind,
             diagnostics=[message], model_id=model_id,
             profile_id=profile.profile_id, profile_version=profile.profile_version,
@@ -549,7 +549,7 @@ def run_production_extraction(
                     "recap_quote_integrity_error": exc.code,
                 },
             )
-            loaded = get_extraction_run(request.repo_root, failed.run_id)
+            loaded = get_extraction_run(failed.run_id)
             return ProductionExtractionResult(
                 run=loaded,
                 candidate_graph=(
@@ -620,7 +620,7 @@ def run_production_extraction(
                 "reviewable": False,
             },
         )
-        loaded = get_extraction_run(request.repo_root, failed.run_id)
+        loaded = get_extraction_run(failed.run_id)
         return ProductionExtractionResult(
             run=loaded,
             candidate_graph=candidate_graph,
@@ -650,7 +650,7 @@ def run_production_extraction(
                 "reviewable": False,
             },
         )
-        loaded = get_extraction_run(request.repo_root, failed.run_id)
+        loaded = get_extraction_run(failed.run_id)
         return ProductionExtractionResult(
             run=loaded,
             candidate_graph=candidate_graph,
@@ -690,7 +690,7 @@ def run_production_extraction(
                 "typed_issue_count": typed_issue_count,
             },
         )
-        loaded = get_extraction_run(request.repo_root, failed.run_id)
+        loaded = get_extraction_run(failed.run_id)
         return ProductionExtractionResult(
             run=loaded,
             candidate_graph=candidate_graph,
@@ -731,7 +731,7 @@ def run_production_extraction(
                     "profile_validator_exception": type(exc).__name__,
                 },
             )
-            loaded = get_extraction_run(request.repo_root, failed.run_id)
+            loaded = get_extraction_run(failed.run_id)
             return ProductionExtractionResult(
                 run=loaded,
                 candidate_graph=candidate_graph,
@@ -760,7 +760,7 @@ def run_production_extraction(
                     "profile_validation_error_count": len(profile_errors),
                 },
             )
-            loaded = get_extraction_run(request.repo_root, failed.run_id)
+            loaded = get_extraction_run(failed.run_id)
             return ProductionExtractionResult(
                 run=loaded,
                 candidate_graph=candidate_graph,
@@ -798,7 +798,7 @@ def run_production_extraction(
             "reviewable": True,
         },
     )
-    loaded = get_extraction_run(request.repo_root, reviewable.run_id)
+    loaded = get_extraction_run(reviewable.run_id)
     return ProductionExtractionResult(
         run=loaded,
         candidate_graph=candidate_graph,

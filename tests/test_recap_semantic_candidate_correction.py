@@ -195,7 +195,7 @@ def _fixture(
             diagnostics=[],
         )
 
-    def get_run(_root, run_id):
+    def get_run(run_id):
         try:
             return runs[run_id]
         except KeyError as exc:
@@ -1805,7 +1805,7 @@ def test_v3_decision_dispatches_exact_basis_to_appstate_cas(
     child = runs[response.run_id]
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _id: parent)
     seen = []
 
     def record(run_id, *, expected_revision, basis, decision):
@@ -1844,7 +1844,7 @@ def test_v4_decision_dispatches_exact_basis_to_appstate_cas(
     child = runs[response.run_id]
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _id: parent)
     seen = []
 
     def record(run_id, *, expected_revision, basis, decision):
@@ -1885,7 +1885,7 @@ def test_v5_decision_dispatches_span_basis_to_appstate_cas(
     child = runs[response.run_id]
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _id: parent)
     seen = []
 
     def record(run_id, *, expected_revision, basis, decision):
@@ -1926,7 +1926,7 @@ def test_v6_decision_dispatches_evidence_batch_basis_to_appstate_cas(
     child = runs[response.run_id]
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _id: parent)
     seen = []
 
     def record(run_id, *, expected_revision, basis, decision):
@@ -1973,7 +1973,7 @@ def test_edge_tuple_child_cannot_prepare_while_semantic_hold_is_pending(
             binding_version=1, source_root_relpath="corpus/managed-world-markdown",
         ),
     )
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run_id: runs[run_id])
     monkeypatch.setattr(extract_promote, "load_bound_extraction_run", lambda *a, **k: graph_run_registry.load_reviewable_extraction_data(tmp_path, child.run_id))
     with pytest.raises(extract_promote.ExtractPromoteError, match="semantic review") as held:
         extract_promote.prepare(
@@ -2000,7 +2000,7 @@ def test_v2_hold_and_confirm_binding_guard_world_writer(
             binding_version=1, source_root_relpath="corpus/managed-world-markdown",
         ),
     )
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run_id: runs[run_id])
     monkeypatch.setattr(extract_promote, "load_bound_extraction_run", lambda *a, **k: graph_run_registry.load_reviewable_extraction_data(tmp_path, response.run_id))
     with pytest.raises(extract_promote.ExtractPromoteError, match="semantic review") as held:
         extract_promote.prepare(ExtractPromotePrepareRequest(run_id=child.run_id, managed_world_id="managed-world"))
@@ -2242,7 +2242,7 @@ def test_split_decision_dispatches_exact_basis_to_appstate_cas(monkeypatch, tmp_
     child = runs[response.run_id]
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _id: parent)
     seen = []
 
     def record(run_id, *, expected_revision, basis, decision):
@@ -2478,7 +2478,7 @@ def test_http_incremental_description_split_and_strict_acceptance(monkeypatch, t
     app = _split_http_app(monkeypatch)
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, key: runs[key])
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, key: runs[key])
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda key: runs[key])
     monkeypatch.setattr(extract_promote, "resolve_first_world_capability", lambda **_kwargs: SimpleNamespace(world_id="w", world_state="initialized", eligible=True, reason=None))
     # Add only review metadata to the frozen-component resolver; quote validation stays real.
     original_resolver = service.resolve_promotable_ingest_run
@@ -3160,7 +3160,7 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
     assert basis8.operation_basis.inherited_pc_proof_sha256 == inherited_pc_proof_digest(proof8)
     _assert_recap_semantic_basis(v8, v7, basis8, get_ancestor=runs.get)
     monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run_id: runs[run_id])
     original_resolve = extract_promote.resolve_promotable_ingest_run
     def review_resolve(run_id, **kwargs):
         value = original_resolve(run_id, **kwargs)
@@ -3466,7 +3466,7 @@ def test_pc_reference_prepare_and_confirm_reprove_current_basis(monkeypatch, tmp
     }
     child = child.model_copy(update={"lineage": lineage})
     runs[child.run_id] = child
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run_id: runs[run_id])
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     original_resolve = service.resolve_promotable_ingest_run
     def prepare_resolve(run_id, **kwargs):
@@ -3654,7 +3654,7 @@ def test_http_append_child_preserves_pc_proof_and_retry_identity(monkeypatch, tm
     assert basis.digest() == response["semanticBasisSha256"]
     _assert_recap_semantic_basis(child, pc_parent, basis, get_ancestor=runs.get)
     monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run_id: runs[run_id])
     original_resolve = service.resolve_promotable_ingest_run
     def review_resolve(run_id, **kwargs):
         value = original_resolve(run_id, **kwargs)
@@ -3713,7 +3713,7 @@ def test_append_decision_dispatch_uses_distinct_basis_and_stays_guarded(monkeypa
     response = service.correct_recap_candidate(RecapCandidateCorrectionRequestV10.model_validate(body))
     child = runs[response.run_id]
     monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run_id: runs[run_id])
     monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, run_id: runs[run_id])
     seen = []
     def record(run_id, *, expected_revision, basis, decision):
@@ -3834,7 +3834,7 @@ def test_source_supported_actor_recovery_creates_held_child_and_replays(monkeypa
     assert basis.digest() == response.semantic_basis_sha256
 
     monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run_id: runs[run_id])
     original_resolve = service.resolve_promotable_ingest_run
 
     def review_resolve(run_id, **kwargs):
@@ -4001,7 +4001,7 @@ class TestDatabaseCorrectionAuthority:
         monkeypatch.setattr(Path, 'open', guarded_open)
         monkeypatch.setattr(Path, 'mkdir', forbidden)
         first = service.correct_recap_candidate(request)
-        child = graph_run_registry.get_extraction_run(tmp_path, first.run_id)
+        child = graph_run_registry.get_extraction_run(first.run_id)
         assert child.status == ExtractionRunStatus.REVIEWABLE
         assert first.semantic_state == 'held'
         assert service.verify_child_replay(child, parent, tmp_path)
@@ -4009,7 +4009,7 @@ class TestDatabaseCorrectionAuthority:
         payload['nodes'][0]['description'] = 'Mirathorn is a river city.'
         assert actual == payload
         assert service.correct_recap_candidate(request) == first
-        assert graph_run_registry.get_extraction_run(tmp_path, parent.run_id) == parent
+        assert graph_run_registry.get_extraction_run(parent.run_id) == parent
 
     @pytest.mark.parametrize('violation', ['missing', 'corrupt'])
     def test_frozen_child_db_evidence_cannot_be_repaired_by_retry(self, application_state_dsn, monkeypatch, tmp_path, violation):
@@ -4023,7 +4023,7 @@ class TestDatabaseCorrectionAuthority:
                 conn.execute("UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind='candidate_graph'", (b'corrupt', first.run_id))
         with pytest.raises(Exception, match='stored correction component unavailable'):
             service.correct_recap_candidate(request)
-        child = graph_run_registry.get_extraction_run(tmp_path, first.run_id)
+        child = graph_run_registry.get_extraction_run(first.run_id)
         assert child.status == ExtractionRunStatus.REVIEWABLE
         assert not service.verify_child_replay(child, parent, tmp_path)
 
@@ -4031,12 +4031,12 @@ class TestDatabaseCorrectionAuthority:
         from application_state.ingest import service as ingest_service
         parent, _, request = _actual_database_correction_request(monkeypatch, tmp_path)
         first = service.correct_recap_candidate(request)
-        child = graph_run_registry.get_extraction_run(tmp_path, first.run_id)
+        child = graph_run_registry.get_extraction_run(first.run_id)
         basis = ingest_service.RecapSemanticBasisV12.model_validate(child.lineage['semantic_source_binding_basis_v12'])
         decided = ingest_service.record_recap_semantic_disposition(child.run_id, expected_revision=child.revision, basis=basis, decision=ingest_service.RecapSemanticDispositionCommandV1(state='accepted', reviewer_id='synthetic:test-operator', review_decision_ref='synthetic:review'))
         retried = service.correct_recap_candidate(request)
         assert retried.semantic_state == 'accepted'
-        assert graph_run_registry.get_extraction_run(tmp_path, child.run_id) == decided
+        assert graph_run_registry.get_extraction_run(child.run_id) == decided
         assert service.verify_child_replay(decided, parent, tmp_path)
 
     def test_parent_lease_serializes_and_releases(self, application_state_dsn):
@@ -4104,7 +4104,7 @@ class TestDatabaseCorrectionAuthority:
                 service.correct_recap_candidate(request)
         assert fired
         response = service.correct_recap_candidate(request)
-        child = graph_run_registry.get_extraction_run(tmp_path, response.run_id)
+        child = graph_run_registry.get_extraction_run(response.run_id)
         assert response.semantic_state == 'held'
         assert service.verify_child_replay(child, parent, tmp_path)
         assert service.correct_recap_candidate(request) == response
@@ -4116,7 +4116,7 @@ class TestDatabaseCorrectionAuthority:
         typed['nodeTypeReplacements'] = [{'node_id': node['node_id'], 'expected_node_type': node['node_type'], 'replacement_node_type': 'event'}]
         request = RecapCandidateCorrectionRequestV8.model_validate(typed)
         first = service.correct_recap_candidate(request)
-        child = graph_run_registry.get_extraction_run(tmp_path, first.run_id)
+        child = graph_run_registry.get_extraction_run(first.run_id)
         actual = json.loads(output_store.get_component_bytes(run_id=child.run_id, kind='candidate_graph', content_sha256=child.components['candidate_graph'].sha256))
         payload['nodes'][0]['node_type'] = 'event'
         assert actual == payload
@@ -4131,7 +4131,7 @@ class TestDatabaseCorrectionAuthority:
         from apps.live_control_server.services.recap_semantic_disposition import assess_recap_semantics
         parent, _, request = _actual_database_correction_request(monkeypatch, tmp_path)
         response = service.correct_recap_candidate(request)
-        bound = graph_run_registry.get_extraction_run(tmp_path, response.run_id)
+        bound = graph_run_registry.get_extraction_run(response.run_id)
         outer = ingest_service.RecapSemanticBasisV12.model_validate(bound.lineage['semantic_source_binding_basis_v12'])
         legacy_id = str(uuid5(NAMESPACE_URL, f'dmb:{service.DERIVATION_V8}:{parent.run_id}:{response.parent_candidate_sha256}:{response.manifest_sha256}'))
         refs = dict(bound.components)
@@ -4181,7 +4181,7 @@ class TestDatabaseCorrectionAuthority:
             nonlocal decided
             result = original(run_id, **kwargs)
             if run_id != parent.run_id and decided is None:
-                child = graph_run_registry.get_extraction_run(tmp_path, run_id)
+                child = graph_run_registry.get_extraction_run(run_id)
                 basis = ingest_service.RecapSemanticBasisV12.model_validate(child.lineage['semantic_source_binding_basis_v12'])
                 decided = ingest_service.record_recap_semantic_disposition(run_id, expected_revision=child.revision, basis=basis, decision=ingest_service.RecapSemanticDispositionCommandV1(state='accepted', reviewer_id='synthetic:test-operator', review_decision_ref='synthetic:concurrent-review'))
             return result
@@ -4189,7 +4189,7 @@ class TestDatabaseCorrectionAuthority:
         response = service.correct_recap_candidate(request)
         assert decided is not None
         assert response.semantic_state == 'accepted'
-        assert graph_run_registry.get_extraction_run(tmp_path, response.run_id) == decided
+        assert graph_run_registry.get_extraction_run(response.run_id) == decided
 
 
 # Correction source-order capability regression coverage (recovered from2144).

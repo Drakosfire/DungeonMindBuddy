@@ -105,7 +105,7 @@ def test_runner_uses_registered_build_source_and_retains_exact_lineage(tmp_path,
         source_artifact_id=artifact.source_artifact_id,allow_llm=True,category_client=client,profile="category_baseline",ingest_context=context)
     assert result.failure_kind is None
     assert result.run.status.value=="reviewable"
-    assert get_extraction_run(tmp_path,result.run.run_id).lineage==result.run.lineage
+    assert get_extraction_run(result.run.run_id).lineage==result.run.lineage
     assert result.run.source_artifact_id==artifact.source_artifact_id
     # Build configuration belongs to Build launch, not the generic source runner.
     assert "build_document_ingest" not in result.run.lineage

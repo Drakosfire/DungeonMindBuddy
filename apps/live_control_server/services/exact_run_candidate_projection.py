@@ -161,7 +161,7 @@ def _build(
     root: Path, run_id: str, managed_world_id: str
 ) -> ExactRunCandidateProjection:
     root = root.resolve(strict=True)
-    run = get_extraction_run(root, run_id)
+    run = get_extraction_run(run_id)
     if str(run.status) not in {"reviewable", "promoted"}:
         _fail("Only a sealed reviewable or promoted candidate can be inspected.")
     if run.source_domain != "recap" or run.profile_id not in RECAP_READ_PROFILE_IDS:
@@ -353,7 +353,7 @@ def _build(
         if _map_span(start, end, segments) is not None
     ]
     if (
-        get_extraction_run(root, run_id) != run
+        get_extraction_run(run_id) != run
         or resolve_managed_world_binding(managed_world_id) != binding
     ):
         _fail("The run or World binding changed during inspection.")
