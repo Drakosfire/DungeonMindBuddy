@@ -11,7 +11,9 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
-- Batch turn hydration in retry history. [#2897](https://github.com/Drakosfire/DungeonMindBuddy/pull/2897) selects the turn rows directly and batches authored references. The two-turn fixture uses two selection and hydration statements instead of five by SQL inspection. All 17 PostgreSQL conversation library tests and all four PR checks passed. Remaining preflight, retry-context and serialization work is tracked under **Profile retry-history preflight and context reads**.
+- Simplify retry-history preflight and context reads. [#2899](https://github.com/Drakosfire/DungeonMindBuddy/pull/2899) removed the unused outgoing lookup. [#2900](https://github.com/Drakosfire/DungeonMindBuddy/pull/2900) shared turn-row serialization. [#2901](https://github.com/Drakosfire/DungeonMindBuddy/pull/2901) reduced lineage enrichment from two queries per Build turn to one per populated page by SQL inspection. The PostgreSQL conversation-library suite covered pagination, ordinals, successor IDs, and transcript parity. Selected-attempt hydration and page-plan profiling remain in the active backlog.
+
+- Batch turn hydration in retry history. [#2897](https://github.com/Drakosfire/DungeonMindBuddy/pull/2897) selects the turn rows directly and batches authored references. The two-turn fixture uses two selection and hydration statements instead of five by SQL inspection. All 17 PostgreSQL conversation library tests and all four PR checks passed.
 
 - Cancel conversation export reads when their owner changes. [#2894](https://github.com/Drakosfire/DungeonMindBuddy/pull/2894) aborts metadata, both transcript passes, trace, and prompt reads on selection change or unmount. Cancellation exits diagnostic collection. All 16 focused export tests passed, including selection change without a stale download.
 
