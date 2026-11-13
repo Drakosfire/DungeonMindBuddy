@@ -386,6 +386,8 @@ def create_app() -> FastAPI:
             return PlainTextResponse("Not found", status_code=404)
         if requested.is_file():
             return FileResponse(requested)
+        if spa_path == "assets" or spa_path.startswith("assets/"):
+            return PlainTextResponse("Not found", status_code=404)
         if request.headers.get("accept", "").lower().find("text/html") >= 0:
             return FileResponse(index_path)
         return PlainTextResponse("Not found", status_code=404)
