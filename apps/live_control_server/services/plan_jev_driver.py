@@ -339,6 +339,39 @@ class PlanJevDriver:
                 entries.append((target.label, record.request.draft_id, record.proof.locator, ref))
         return entries
 
+    def _published_statblock_reference(self, draft_id, locator):
+        from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1
+        from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+        from application_state.world_mechanics.service import list_current
+        from .world_creature_selection import catalog
+
+        authority = self.adapter.fence.turn.graph_context_receipt.source_authority
+        if not isinstance(authority, NativeCorpusAuthorityV1):
+            return None
+        records = [
+            record for record in list_current(world_id=self.statblock_world)
+            if str(record.request.draft_id) == str(draft_id) and record.proof.locator == locator
+        ]
+        if not records:
+            return None
+        view = catalog(self.statblock_world, revision_id=authority.revision_id)
+        if (view.native_world_id, view.binding_version, view.revision_id) != (
+            authority.native_world_id, authority.binding_version, authority.revision_id
+        ) or view.revision_id != view.head_revision_id:
+            return None
+        matches = [
+            target for record in records for target in view.targets
+            if record.request.target.matches_association_target(target)
+        ]
+        if len(matches) != 1:
+            return None
+        target = matches[0]
+        return AuthoredGraphReferenceV1(
+            managed_world_id=view.managed_world_id, native_world_id=view.native_world_id,
+            binding_version=view.binding_version, graph_revision=view.revision_id,
+            node_id=target.node_id, label=target.label,
+        )
+
     def _read_saved_statblock(self, handle, selection):
         from uuid import UUID, uuid4
         from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
@@ -357,14 +390,15 @@ class PlanJevDriver:
                               draft_id=draft_id, revision_id=locator.revision_id)
         if opened["locator"] != locator.model_dump(mode="json"):
             raise ValueError("Opened statblock differs from its selected saved revision")
-        pdf_support = None
-        if references:
-            from .native_graph_inspection import statblock_pdf_support
-            from .native_pdf_evidence import reviewed_pdf_regions
+        from .native_graph_inspection import statblock_pdf_support
+        from .native_pdf_evidence import reviewed_pdf_regions
 
-            regions = reviewed_pdf_regions(opened["resource"], world_id=self.statblock_world)
-            if regions:
-                pdf_support = statblock_pdf_support(references[0], regions, adapter.native_principal)
+        pdf_support = None
+        regions = reviewed_pdf_regions(opened["resource"], world_id=self.statblock_world)
+        if regions:
+            reference = references[0] if references else self._published_statblock_reference(draft_id, locator)
+            if reference is not None:
+                pdf_support = statblock_pdf_support(reference, regions, adapter.native_principal)
         event = BuildSavedStatblockReadV1(
             event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
             handle=handle, world_id=self.statblock_world, draft_id=UUID(str(draft_id)),

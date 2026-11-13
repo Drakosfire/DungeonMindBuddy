@@ -78,11 +78,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                                  "scope_mode": "world", "campaign_id": None},
                        "support": [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture",
                                     "text": "Hit Points 41"}]}
-        if saved_statblock == "associated":
+        if saved_statblock in {"associated", "by-name"}:
             from apps.live_control_server.services import native_graph_inspection, native_pdf_evidence
             monkeypatch.setattr(native_pdf_evidence, "reviewed_pdf_regions", lambda *args, **kwargs: ("crop",))
             monkeypatch.setattr(native_graph_inspection, "statblock_pdf_support",
-                                lambda *args: pdf_support)
+                                lambda ref, *_: pdf_support | {"scope": pdf_support["scope"] | {"revision_id": ref.graph_revision}})
 
         def open_statblock(root, *, world_id, draft_id, revision_id):
             assert world_id == world and revision_id == locator.revision_id
@@ -132,7 +132,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     selected = AuthoredGraphReferencesV1(references=(AuthoredGraphReferenceV1(managed_world_id=world,
         native_world_id=world, binding_version=1, graph_revision=original_revision,
         node_id=lane.ids['B'], label='DISPLAY ONLY: never evidence'),))
-    if saved_statblock == "associated":
+    if saved_statblock in {"associated", "by-name"}:
         from application_state.world_mechanics import service as associations
         from application_state.world_mechanics.types import WorldMechanicsTarget
         from apps.live_control_server.services import world_creature_selection
@@ -148,10 +148,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         )
         monkeypatch.setattr(associations, "list_current", lambda **kwargs: [record])
         monkeypatch.setattr(world_creature_selection, "catalog", lambda *args, **kwargs: SimpleNamespace(
-            native_world_id=world, binding_version=1, revision_id=original_revision, head_revision_id=original_revision, targets=(target,),
+            managed_world_id=world, native_world_id=world, binding_version=1, revision_id=kwargs["revision_id"], head_revision_id=lane.repo.get_head(world).head_revision_id if saved_statblock == "by-name" else original_revision, targets=(target,),
         ))
         monkeypatch.setattr(statblock_saved_revision, "iter_saved_mechanics", lambda *args, **kwargs: [
-            ("Meat Mind", str(uuid4()), locator.model_copy(update={"revision_id": "rev_wrong"})),
+            *([("Meat Mind", str(uuid4()), locator.model_copy(update={"revision_id": "rev_wrong"}))] if saved_statblock == "associated" else []),
             ("Meat Mind", draft_id, locator),
         ])
     if failure in {'revision','node','reference_world'}:
@@ -330,10 +330,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 else:
                     assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
-            assert (handles or authored_source=='source_only') and 'DISPLAY ONLY' not in str(frame)
+            assert (handles or saved_statblock == "by-name" or authored_source=='source_only') and 'DISPLAY ONLY' not in str(frame)
             if saved_statblock:
                 expected = {"mechanics": definition}
-                if saved_statblock == "associated":
+                if saved_statblock in {"associated", "by-name"}:
                     expected["reviewed_pdf_excerpts"] = [{"source": "pdf0:0", "text": "Hit Points 41"}]
                 assert work["saved_statblocks"] == [expected]
                 assert locator.revision_id not in req.content.decode()
@@ -367,7 +367,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             candidate = dict(schema=NATIVE_ANSWER_POLICY,
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[source_text(r) for r in sections])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
-            if saved_statblock == "associated":
+            if saved_statblock in {"associated", "by-name"}:
                 candidate["answer_segments"] = [dict(kind="statblock_pdf_claim",
                     source="pdf0:0", quote="Hit Points 41")]
             if native_body or authored_source:
@@ -494,7 +494,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             expected_content_sha256=source.content_sha256), client_work_state='saved_clean',
         graph_request=dict(mode='world', world_id=world, campaign_id=None, revision_pin=None,
             focus=dict(kind='none', session_id=None, campaign_id=None)), graph_selection=None,
-        build_authored_references=selected.model_dump(mode='json', by_alias=True), message=message or ('Describe the selected object and source-local episode.' if native_body else 'Describe the object I selected.'))
+        build_authored_references=None if saved_statblock == 'by-name' else selected.model_dump(mode='json', by_alias=True), message=message or ('Describe the selected object and source-local episode.' if native_body else 'Describe the object I selected.'))
     if draft is not None:
         body['build_draft_context']=draft.model_dump(mode='json',by_alias=True)
         body['client_work_state']='saved_dirty'
@@ -930,7 +930,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert context['receipt']['native_query']['reason']=='native_graph_binding_unavailable'
     else:
         assert context['receipt']['native_query']['authority']['revision_id'] == current_revision
-    if authored_source!='source_only':
+    if authored_source!='source_only' and saved_statblock != 'by-name':
         assert context['receipt']['native_query']['authored_targets'][0]['selection_revision_id'] == original_revision
     service = AgentConversationService()
     turn = service.inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
@@ -978,7 +978,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     assert not any(isinstance(e,(t.BuildDraftProviderInclusionV1,t.BuildSectionProviderInclusionV1))
         for e in turn.graph_context_execution.events)
     captures = [event for event in turn.graph_context_execution.events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
-    assert len(captures) == 1 and captures[0].references == selected
+    if saved_statblock == "by-name":
+        assert not captures
+    else:
+        assert len(captures) == 1 and captures[0].references == selected
     if proposal:
         from application_state.agent_conversation.retry import retained_discussion_capture, RetryUnavailableError
         with pytest.raises(RetryUnavailableError,match='authoring target'):
@@ -1026,7 +1029,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
         return
-    if saved_statblock == "associated":
+    if saved_statblock in {"associated", "by-name"}:
         assert context['completion']['answer_context_status'] == 'source_grounded'
         assert context['completion']['native_assertion_citations'] == []
         return SimpleNamespace(client=client, world=world)
@@ -1630,7 +1633,7 @@ def test_native_unresolved_authoring_retry_requires_fresh_capture_and_preserves_
     _fresh_case(lane,tmp_path,monkeypatch,'retry_authoring_selection',True,False,True,retry_mutation=mutation)
 
 
-@pytest.mark.parametrize("mode", [True, "associated"])
+@pytest.mark.parametrize("mode", [True, "associated", "by-name"])
 def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode):
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
         message="This is a challenging question, now we have to design this meat node and it's abilities, see if you can find the statblock for the meat mind.",
@@ -1643,7 +1646,7 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
     assert references[0]["name"] == "Meat Mind"
     assert references[0]["revision_id"] == "rev_meatmind"
     sources = references[0]["pdf_sources"]
-    if mode == "associated":
+    if mode in {"associated", "by-name"}:
         assert "Hit Points 41" in response.json()["messages"][-1]["assistant_text"]
         assert sources["scope"]["managed_world_id"] == case.world
         assert sources["support"] == [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture"}]
