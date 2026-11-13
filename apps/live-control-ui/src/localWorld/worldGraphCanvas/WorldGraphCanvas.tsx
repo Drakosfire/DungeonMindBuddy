@@ -439,9 +439,9 @@ export function WorldGraphCanvas({
   const [unconnectedVisibility, setUnconnectedVisibility] = useState<{ worldId: string; show: boolean } | null>(null);
   const showUnconnected = unconnectedVisibility?.worldId === record.snapshot.worldId
     ? unconnectedVisibility.show : (projectionOptions?.showUnconnected ?? !fullCorpus);
-  const revealObjectIds = useMemo(() => [...new Set([...(clearingSelection ? [] : selectedIds), ...(projectionOptions?.revealObjectIds ?? []),
+  const revealObjectIds = useMemo(() => showUnconnected ? undefined : [...new Set([...(clearingSelection ? [] : selectedIds), ...(projectionOptions?.revealObjectIds ?? []),
     ...(cameraFocusRequest?.nodeId ? [cameraFocusRequest.nodeId] : []), ...(revealObjectId ? [revealObjectId] : [])])],
-    [selectedIds, clearingSelection, projectionOptions?.revealObjectIds, cameraFocusRequest?.nodeId, revealObjectId]);
+    [showUnconnected, selectedIds, clearingSelection, projectionOptions?.revealObjectIds, cameraFocusRequest?.nodeId, revealObjectId]);
   const fallbackRef = useRef<{ worldId: string; signature: string; positions: ReturnType<typeof createGraphFallbackPositions> } | null>(null);
   const fallbackPositions = useMemo(() => {
     if (!fullCorpus) return undefined;

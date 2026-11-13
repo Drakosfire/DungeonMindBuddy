@@ -1337,6 +1337,7 @@ describe("loaded relationship density", () => {
     const { record } = await graphRecord();
     const isolated = { ...record, snapshot: { ...record.snapshot, relationships: [] } };
     const props = { record: isolated, nodeShape: "circle" as const, projectionOptions: { fullCorpus: true } };
+    const project = vi.spyOn(projectionModule, "projectLocalWorldGraph");
     const view = render(<WorldGraphCanvas {...props} />);
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(0);
     expect(screen.getByText(/No connected objects in the loaded snapshot/)).toBeVisible();
@@ -1344,7 +1345,10 @@ describe("loaded relationship density", () => {
     expect(screen.getByRole("checkbox", { name: /Show objects without listed relationships \(4 hidden\)/ })).not.toBeChecked();
     fireEvent.click(screen.getByRole("checkbox", { name: /Show objects without listed relationships/ }));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(4);
+    const projected = project.mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    expect(screen.getByRole("button", { name: "Mara Venn, person" })).toHaveAttribute("aria-pressed", "true");
+    expect(project).toHaveBeenCalledTimes(projected);
     fireEvent.click(screen.getByRole("checkbox", { name: /Show objects without listed relationships/ }));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1);
     view.rerender(<WorldGraphCanvas {...props} cameraFocusRequest={{ nodeId: record.snapshot.objects[1].id, requestId: 1, selectNode: true }} />);
@@ -1353,6 +1357,7 @@ describe("loaded relationship density", () => {
     view.rerender(<WorldGraphCanvas {...props} revealObjectId={record.snapshot.objects[2].id} />);
     expect(screen.getByRole("button", { name: "The Glass Orchard, location" })).toBeInTheDocument();
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(2);
+    project.mockRestore();
   });
 
   it("uses bounded loaded degree area with stable centers, full names and unequal edge endpoints", async () => {
