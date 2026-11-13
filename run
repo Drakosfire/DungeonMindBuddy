@@ -237,13 +237,24 @@ check_owned_services() {
   done
 }
 
+probe_service() {
+  local body
+  body=$(curl -fsS --max-time 1 --max-filesize 8388608 "$1" 2>/dev/null) || return 1
+  case "$2" in
+    dms) python3 -c 'import json, sys; d = json.load(sys.stdin); sys.exit(not (d["service"] == "dungeonmind-api" and d["status"] == "ok"))' <<<"$body" 2>/dev/null ;;
+    api) python3 -c 'import json, sys; sys.exit(json.load(sys.stdin)["info"]["title"] != "DungeonMindBuddy Live Control")' <<<"$body" 2>/dev/null ;;
+    ui) [[ "$body" == *'<title>DungeonMind — Live Control</title>'* && "$body" == *'<div id="root"></div>'* ]] ;;
+    *) return 1 ;;
+  esac
+}
+
 wait_http() {
   local url="$1"
   local label="$2"
   local probe_deadline=$((SECONDS + 30))
   while (( SECONDS < probe_deadline && SECONDS < startup_deadline )); do
     check_owned_services
-    if curl -fsS --max-time 1 -o /dev/null "$url" 2>/dev/null; then
+    if probe_service "$url" "$3"; then
       check_owned_services
       log "$label ready ($url)"
       return 0
@@ -265,13 +276,13 @@ start_buddy_ui
 startup_deadline=$((SECONDS + 90))
 stack_status="local stack up"
 if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
-  wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer API health" || die "DungeonMindServer API health unavailable"
-  wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API health" || die "DungeonBuddy API health unavailable"
-  wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" || die "DungeonBuddy UI unavailable"
+  wait_http "http://127.0.0.1:${DMS_PORT}/health" "DungeonMindServer API health" dms || die "DungeonMindServer API health unavailable"
+  wait_http "http://127.0.0.1:${API_PORT}/openapi.json" "DungeonBuddy API health" api || die "DungeonBuddy API health unavailable"
+  wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" ui || die "DungeonBuddy UI unavailable"
 else
-  wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer" || stack_status="local stack partially ready"
-  wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API" || stack_status="local stack partially ready"
-  wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" || {
+  wait_http "http://127.0.0.1:${DMS_PORT}/health" "DungeonMindServer" dms || stack_status="local stack partially ready"
+  wait_http "http://127.0.0.1:${API_PORT}/openapi.json" "DungeonBuddy API" api || stack_status="local stack partially ready"
+  wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" ui || {
     stack_status="local stack partially ready"
     [[ -z "${BUDDY_UI_PID:-}" ]] || die "DungeonBuddy UI unavailable — check $RUN_DIR/buddy-ui.log"
   }
