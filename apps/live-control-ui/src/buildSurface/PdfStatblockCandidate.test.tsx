@@ -1,6 +1,6 @@
 import {cleanup, fireEvent, render, screen} from "@testing-library/react";
 import {afterEach, expect, it} from "vitest";
-import {PdfStatblockCandidate} from "./PdfStatblockCandidate";
+import {hasRecognizablePdfStatblockStructure, PdfStatblockCandidate} from "./PdfStatblockCandidate";
 
 afterEach(cleanup);
 const locator = {source_revision_id:"srev:test",content_sha256:"a".repeat(64),page:5,left:0,top:0,right:1,bottom:1};
@@ -137,4 +137,10 @@ it("does not offer a statblock preview for a captured name table", () => {
 3 Logan Hunt`} />);
   expect(screen.queryByRole("button", {name:"Preview statblock fields"})).toBeNull();
   expect(screen.queryByRole("region", {name:"Extracted statblock fields"})).toBeNull();
+});
+
+it("recognizes a single OCR substitution in size when the mechanics agree", () => {
+  const text = "Example tree\nHuqe plant, unaligned\nArmor Class 11\nHit Points 39\nSTR DEX CON INT WIS CHA\n17 9 15 7 10 10";
+  expect(hasRecognizablePdfStatblockStructure(text)).toBe(true);
+  expect(hasRecognizablePdfStatblockStructure(text.replace("Hit Points 39\n", ""))).toBe(false);
 });
