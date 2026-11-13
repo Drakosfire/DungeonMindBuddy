@@ -1499,6 +1499,7 @@
       "tests/test_v0_2_dungeonmind_vnext_contract_acceptance.py",
       "tests/test_v6_0_1_dungeonbuddy_evidence_metadata_contract.py",
       "tests/test_v6_1_dungeonbuddy_vnext_domain_runtime.py",
+      "tests/test_v6_2_vnext_complete_object_adapter.py",
       "tests/test_v6_5_evidence_anchor_preservation.py",
       "tests/test_wiki_compiler.py",
       "tests/test_workspace_lifecycle_api.py",

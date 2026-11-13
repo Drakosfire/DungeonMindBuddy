@@ -239,3 +239,26 @@ it("invalidates pending hosted reads and already-returned bodies on account chan
   api.invalidateHostedGraphAccess(null);
   await expect(current.response.json()).rejects.toThrow(/session changed|account changed/);
 });
+
+it("authenticates native complete-object reads with their exact revision pin", async () => {
+  const api = await setup();
+  api.setNativeGraphAccessToken("synthetic-managed-graph-token");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ fixture: true }));
+  const request = {
+    schema: "dmb_world_graph_object_projection_request_v1",
+    worldId: "managed-a",
+    campaignId: "campaign-a",
+    revisionPin: "revision-a",
+    nodeId: "entity-a",
+    admissibility: "gm",
+  } satisfies Parameters<typeof api.postNativeWorldGraphCompleteObject>[0];
+
+  await api.postNativeWorldGraphCompleteObject(request);
+
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toBe("/api/live/native-graph-inspection/complete-object");
+  expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer synthetic-managed-graph-token");
+  expect(init).toMatchObject({ method: "POST", credentials: "same-origin", redirect: "error" });
+  expect(JSON.parse(String(init?.body))).toEqual({ request });
+});

@@ -323,6 +323,7 @@ function isRecapSelectionContextPath(pathname: string): boolean {
 function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
   const pathname = path.split("?", 1)[0];
   if ([
+    "/api/live/native-graph-inspection/complete-object",
     "/api/live/native-graph-explorer/graph",
     "/api/live/native-graph-explorer/prepare",
     "/api/live/native-graph-explorer/confirm",
@@ -1628,6 +1629,18 @@ export async function postManagedWorldGraphProjection(
       signal,
       method: "POST",
       body: JSON.stringify({ schema, managedWorldId, revisionPin, queryText, ...extra }),
+    },
+  );
+}
+
+export async function postNativeWorldGraphCompleteObject(
+  request: WorldGraphObjectProjectionRequest,
+): Promise<WorldGraphObjectProjectionResult> {
+  return apiFetch<WorldGraphObjectProjectionResult>(
+    "/api/live/native-graph-inspection/complete-object",
+    {
+      method: "POST",
+      body: JSON.stringify({ request }),
     },
   );
 }

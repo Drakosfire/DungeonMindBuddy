@@ -410,3 +410,81 @@ def test_withdrawn_source_is_withheld_at_same_graph_pin(inspection):
     assert source["text"] not in after.text
     assert repo.get_head(space) == head
     assert repo.head_events(space) == events
+
+
+def test_native_complete_object_requires_matching_pin(inspection):
+    x = inspection
+    scope = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
+    request = {
+        "schema": "dmb_world_graph_object_projection_request_v1",
+        "worldId": scope["managed_world_id"],
+        "scopeMode": "campaign",
+        "campaignId": scope["campaign_id"],
+        "revisionPin": scope["revision_id"],
+        "nodeId": x.objects["endpoint"],
+    }
+    route = "/api/live/native-graph-inspection/complete-object"
+    response = x.client.post(route, json={"scope": scope, "request": request})
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["found"]
+    assert result["node"]["nodeId"] == request["nodeId"]
+    assert result["snapshot"]["revisionId"] == scope["revision_id"]
+    assert result["snapshot"]["scopeMode"] == "campaign"
+    foreign = x.client.post(
+        route,
+        json={"scope": scope, "request": {**request, "nodeId": x.objects["other-campaign"]}},
+    )
+    assert foreign.status_code == 409, foreign.text
+
+    response = x.client.post(
+        route, json={"scope": scope, "request": {**request, "revisionPin": "rev:other"}}
+    )
+    assert response.status_code == 409
+    response = x.client.post(
+        route, json={"scope": {**scope, "binding_version": scope["binding_version"] + 1},
+                     "request": request}
+    )
+    assert response.status_code == 409
+    repo = x.lane.repo
+    body = "Another later source."
+    publish_native_text_source_evidence(
+        repository=repo,
+        domain_contract=x.lane.domain,
+        semantic_profile=x.lane.profile,
+        request=NativeTextSourceAdmissionV1(
+            space_id=x.lane.bound["native_world_id"],
+            admission_id="later-source",
+            expected_parent_revision_id=repo.get_head(
+                x.lane.bound["native_world_id"]
+            ).head_revision_id,
+            created_at=datetime.now(UTC),
+            body_text=body,
+            expected_body_sha256=sha256(body.encode()).hexdigest(),
+            source_classification="dungeonbuddy.source:session_recap",
+            authority="primary",
+            visibility={"kind": "labels_any", "labels": ["dungeonbuddy.visibility:gm"]},
+            spans=[
+                dict(
+                    client_ref="context",
+                    evidence_role="context",
+                    start_byte=0,
+                    end_byte=len(body),
+                    expected_slice_sha256=sha256(body.encode()).hexdigest(),
+                )
+            ],
+        ),
+    )
+    historical = x.client.post(route, json={"scope": scope, "request": request})
+    assert historical.status_code == 200, historical.text
+    historical_result = historical.json()
+    assert historical_result["node"] == result["node"]
+    assert historical_result["snapshot"]["revisionId"] == scope["revision_id"]
+    assert historical_result["snapshot"]["isHead"] is False
+    resolved = x.client.post(route, json={"request": request})
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["snapshot"] == historical_result["snapshot"]
+    assert resolved.json()["node"] == historical_result["node"]
+
+    x.client.headers.pop("Authorization")
+    assert x.client.post(route, json={"scope": scope, "request": request}).status_code == 401

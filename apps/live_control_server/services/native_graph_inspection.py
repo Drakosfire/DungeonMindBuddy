@@ -6,6 +6,7 @@ from dungeonmind.application.vnext import (
     EntityReadService,
     EvidenceReadService,
     open_admitted_native_text,
+    open_native_text_source_access_context,
 )
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import _repository
 from fastapi.encoders import jsonable_encoder
@@ -14,7 +15,12 @@ from apps.live_control_server.services.build_pdf_region_render import read_regio
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
 )
-from apps.live_control_server.models.native_graph_inspection import InspectionPin
+from apps.live_control_server.models.native_graph_inspection import Closed, InspectionPin
+from apps.live_control_server.models.world_graph_object_projection import WorldGraphObjectProjectionRequest
+from apps.live_control_server.integrations.dungeonmind.vnext_complete_object import (
+    DungeonBuddyVNextReadIdentity,
+    project_complete_world_object_vnext,
+)
 from apps.live_control_server.services.agent_graph_auth import require_native_graph_gm
 
 
@@ -194,3 +200,58 @@ def statblock_pdf_support(reference, regions, principal):
                     "text": read_region_text(pdf, region),
                 }
     return _response(bound, pin, support=list(support.values()))
+
+
+class NativeCompleteObjectRead(Closed):
+    scope: InspectionPin | None = None
+    request: WorldGraphObjectProjectionRequest
+
+
+def complete_object(body: NativeCompleteObjectRead, principal):
+    scope, request = body.scope, body.request
+    if request.admissibility != principal.role:
+        raise InspectionUnavailable("native_complete_object_scope_mismatch")
+    if scope is not None and (
+        request.world_id != scope.managed_world_id
+        or request.scope_mode != scope.scope_mode
+        or (scope.campaign_id is not None and request.campaign_id != scope.campaign_id)
+        or request.revision_pin != scope.revision_id
+    ):
+        raise InspectionUnavailable("native_complete_object_scope_mismatch")
+    require_native_graph_gm(principal)
+    bound = native.binding(request.world_id)
+    space = bound["native_world_id"]
+    version = bound["binding_version"]
+    if scope is not None and (scope.native_world_id, scope.binding_version) != (space, version):
+        raise InspectionUnavailable("native_inspection_binding_changed")
+    repo = native.read_repository()
+    head = repo.get_head(space)
+    if head is None:
+        raise InspectionUnavailable("native_inspection_head_unavailable")
+    pin = scope or InspectionPin(
+        managed_world_id=request.world_id,
+        native_world_id=space,
+        binding_version=version,
+        revision_id=request.revision_pin or head.head_revision_id,
+        scope_mode=request.scope_mode,
+        campaign_id=request.campaign_id if request.scope_mode == "campaign" else None,
+    )
+    domain, _ = native.descriptors(repo, pin.native_world_id, pin.revision_id)
+    access = open_native_text_source_access_context(
+        repository=repo, space_id=pin.native_world_id, revision_id=pin.revision_id,
+        domain_contract=domain, audience_labels=(native.GM_LABEL, native.PLAYER_LABEL),
+    )
+    result = project_complete_world_object_vnext(
+        parsed_revision=access.parsed,
+        source_reader=access.source_view,
+        request=request.model_copy(update={"world_id": pin.native_world_id}),
+        read_identity=DungeonBuddyVNextReadIdentity(
+            space_id=pin.native_world_id,
+            revision_id=pin.revision_id,
+            head_revision_id=head.head_revision_id,
+            is_head=pin.revision_id == head.head_revision_id,
+        ),
+    )
+    if native.binding(pin.managed_world_id) != bound:
+        raise InspectionUnavailable("native_inspection_binding_changed")
+    return result.model_dump(mode="json", by_alias=True)
