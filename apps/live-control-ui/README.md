@@ -232,12 +232,11 @@ and open `http://127.0.0.1:5187/index.html`. Use a separate loopback port
 because the viewer owns legacy page paths, including `/index.html`, and serves
 supporting files from the checkout.
 
-
 ## Statblock v1 upstream contract test
 
 From this UI directory, point the test at a DungeonMindServer checkout or export
 at commit `7273be812c0158b8e4aa645d0ff19acc0e1639b1`. This revision supplies
-the generated client, OpenAPI schema, and fixtures used by the test. Update the
+the generated client, OpenAPI schema, and the vendored human-adjudicated fixture. Update the
 pin when refreshing the vendored contract.
 
 ```bash
@@ -245,4 +244,5 @@ DMB_STATBLOCK_CONTRACT_SERVER_ROOT=/absolute/path/to/pinned/DungeonMindServer \
   npm exec -- vitest run src/contracts/dungeonbuddy-statblocks-v1/dungeonbuddyStatblockV1Contract.test.ts
 ```
 
-Without the override, the test looks for a sibling DungeonMindServer checkout.
+The two fixture tests run from the Buddy checkout. Set the override to also run
+the generated-client and OpenAPI comparison against Server.

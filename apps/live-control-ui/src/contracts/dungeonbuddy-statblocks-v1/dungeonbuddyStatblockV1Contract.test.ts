@@ -27,14 +27,8 @@ const serverClientPath = resolve(
   serverRoot,
   "generated/dungeonbuddy-statblocks-v1/client.ts",
 );
-const apiFixtures = resolve(
-  serverRoot,
-  "Docs/Design/fixtures/dungeonbuddy-statblock-v1-api",
-);
-const humanFixture = resolve(
-  serverRoot,
-  "Docs/Design/fixtures/dungeonbuddy-statblock-v1/human_adjudicated.json",
-);
+const apiFixtures = resolve(here, "../../../../../tests/fixtures/statblocks/v1");
+const humanFixture = resolve(apiFixtures, "human_adjudicated.json");
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -168,7 +162,7 @@ function clientFingerprint(source: string): string {
 }
 
 describe("DungeonBuddy statblock v1 contract consumer", () => {
-  it("keeps the vendored client identical to the Server artifact", () => {
+  it.runIf(Boolean(configuredServerRoot))("keeps the vendored client identical to the Server artifact", () => {
     const vendored = readFileSync(vendoredClientPath, "utf8");
     const fingerprint = clientFingerprint(vendored);
     expect(fingerprint).toMatch(/^sha256:[a-f0-9]{64}$/);
@@ -228,7 +222,7 @@ describe("DungeonBuddy statblock v1 contract consumer", () => {
     expect(revision.statblock_id).toBe(createResponse.statblock.statblock_id);
     expect(revision.revision_id).toBe(createResponse.revision.revision_id);
 
-    const errors = assertErrorEnvelope(loadJson(resolve(apiFixtures, "errors.json")));
+    const errors = assertErrorEnvelope(loadJson(resolve(apiFixtures, "create-persistence-validation-failed.json")));
     expect(errors.error.code).toBe("validation_failed");
 
     const validateRequest: ValidateDefinitionRequestV1 = {
