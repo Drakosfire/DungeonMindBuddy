@@ -138,9 +138,11 @@ export function BuildDocumentCreateControl({
     return () => window.removeEventListener(BUILD_STUDIO_ACTION, open);
   }, [disabled, creating]);
   const [importOpen, setImportOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
   function closeImport() {
     setImportOpen(false);
     setDroppedPdf(undefined);
+    setPdfOpen(false);
   }
   const [destinationSelection, setDestinationSelection] = useState<DestinationSelection>(() => ({
     value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions),
@@ -253,10 +255,16 @@ export function BuildDocumentCreateControl({
     }
   };
 
+  const suggestedImportTitle = importMarkdown
+    .split(/\r?\n/)
+    .find(line => line.trim())
+    ?.trim().replace(/^#{1,6}\s+/, "").slice(0, 120) ?? "";
+  const importTitle = title.trim() || suggestedImportTitle;
+
   const handleImportSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (disabled || creating || !resolvedDestination) return;
-    const trimmedTitle = title.trim();
+    const trimmedTitle = importTitle;
     if (readingImportFile || importFileError || !trimmedTitle) return;
     if (!isMarkdownImportText(importMarkdown)) {
       setImportFileError("Enter non-empty Markdown text.");
@@ -274,13 +282,13 @@ export function BuildDocumentCreateControl({
   const canImportSubmit =
     !disabled &&
     !creating &&
-    Boolean(title.trim()) &&
+    Boolean(importTitle) &&
     !readingImportFile &&
     !importFileError &&
     importMarkdown.trim().length > 0 &&
     resolvedDestination != null;
 
-  const sharedFields = (
+  const worldFields = (
     <>
       <label className="build-document-create__field build-document-create__field--destination">
         <span>World</span>
@@ -322,6 +330,10 @@ export function BuildDocumentCreateControl({
           />
         </label>
       ) : null}
+    </>
+  );
+
+  const titleField = (suggestion?: string) => (
       <label className="build-document-create__field build-document-create__field--title">
         <span>Title</span>
         <input
@@ -329,11 +341,10 @@ export function BuildDocumentCreateControl({
           data-testid="build-document-create-title"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="Ironveil Property"
+          placeholder={suggestion || "Ironveil Property"}
           disabled={disabled || creating}
         />
       </label>
-    </>
   );
 
   const createForm = (
@@ -343,7 +354,8 @@ export function BuildDocumentCreateControl({
       onSubmit={handleCreateSubmit}
     >
       <div className="build-document-create__controls">
-        {sharedFields}
+        {worldFields}
+        {titleField()}
         <div className="build-document-create__actions">
           <button
             type="button"
@@ -395,7 +407,7 @@ export function BuildDocumentCreateControl({
       onSubmit={handleImportSubmit}
     >
       <div className="build-document-create__controls">
-        {sharedFields}
+        {titleField(suggestedImportTitle)}
         <label className="build-document-create__field">
           <span>Choose Markdown file</span>
           <input type="file" accept=".md,.markdown" onChange={handleImportFile}
@@ -413,7 +425,20 @@ export function BuildDocumentCreateControl({
               setImportFileError(null);
               setImportMarkdown(event.target.value);
             }}
-            placeholder="# Source title&#10;&#10;Paste external Markdown here."
+            onDragOver={event => {
+              if (event.dataTransfer.types.includes("Files")) event.preventDefault();
+            }}
+            onDrop={event => {
+              const file = event.dataTransfer.files[0];
+              if (!file) return;
+              event.preventDefault();
+              if (!/\.pdf$/i.test(file.name)) {
+                setImportFileError("Drop a PDF or use the Markdown file picker.");
+                return;
+              }
+              setDroppedPdf(previous => ({ file, sequence: (previous?.sequence ?? 0) + 1 }));
+            }}
+            placeholder="Paste text or drop a PDF here"
             rows={8}
             disabled={disabled || creating}
           />
@@ -516,8 +541,9 @@ export function BuildDocumentCreateControl({
           />
         }
       >
-        <BuildPdfPreview initialFile={droppedPdf?.file} key={JSON.stringify([resolvedDestination?.kind === "world" ? resolvedDestination.worldId : null, droppedPdf?.sequence])} worldId={resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined} />
-        {importForm}
+        {worldFields}
+        <BuildPdfPreview onPdfOpen={() => setPdfOpen(true)} initialFile={droppedPdf?.file} key={JSON.stringify([resolvedDestination?.kind === "world" ? resolvedDestination.worldId : null, droppedPdf?.sequence])} worldId={resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined} />
+        {!droppedPdf && !pdfOpen && importForm}
       </SurfaceContextPopover>
     </div>
   );

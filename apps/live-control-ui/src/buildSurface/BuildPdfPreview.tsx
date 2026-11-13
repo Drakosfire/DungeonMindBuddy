@@ -413,7 +413,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
   );
 }
 
-export function BuildPdfPreview({ worldId, initialFile }: { worldId?: string; initialFile?: File }) {
+export function BuildPdfPreview({ worldId, initialFile, onPdfOpen }: { worldId?: string; initialFile?: File; onPdfOpen?: () => void }) {
   const [selection, setSelection] = useState<{ file: File; version: number; restored?: PdfLocator } | undefined>(() => initialFile ? { file: initialFile, version: 0 } : undefined);
   const [reopenError, setReopenError] = useState("");
   const [reopening, setReopening] = useState(false);
@@ -442,6 +442,7 @@ export function BuildPdfPreview({ worldId, initialFile }: { worldId?: string; in
       });
       if (!response.ok) throw new Error();
       const file = new File([await response.blob()], name, { type: "application/pdf" });
+      onPdfOpen?.();
       setSelection(previous => ({ file, restored, version: (previous?.version ?? 0) + 1 }));
     } catch {
       setReopenError("Could not reopen the retained PDF.");
@@ -450,6 +451,7 @@ export function BuildPdfPreview({ worldId, initialFile }: { worldId?: string; in
     }
   }
   function select(file: File) {
+    onPdfOpen?.();
     setSelection(previous => ({ file, version: (previous?.version ?? 0) + 1 }));
   }
 
