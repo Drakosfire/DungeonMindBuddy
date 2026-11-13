@@ -61,11 +61,15 @@ class RetryContextV2(RetryContext):
     authored_references: AuthoredReferenceInput
 
 
-def _edges(conn, turn):
-    incoming = conn.execute(
+def _incoming_edge(conn, turn):
+    return conn.execute(
         "SELECT root_id,predecessor_id,ordinal FROM agent.turn_retry WHERE successor_id=%s AND world_id=%s AND conversation_id=%s",
         (turn.turn_id, turn.world_id, turn.conversation_id),
     ).fetchone()
+
+
+def _edges(conn, turn):
+    incoming = _incoming_edge(conn, turn)
     outgoing = conn.execute(
         "SELECT successor_id FROM agent.turn_retry WHERE predecessor_id=%s AND world_id=%s AND conversation_id=%s",
         (turn.turn_id, turn.world_id, turn.conversation_id),

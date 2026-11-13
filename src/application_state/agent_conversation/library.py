@@ -428,7 +428,7 @@ def read_retry_attempts(
     world, conversation, turn_id, *, limit=50, before_sequence=None
 ):
     from . import repository as repo
-    from .retry import context, _edges
+    from .retry import context, _incoming_edge
 
     if not 1 <= limit <= 50 or before_sequence is not None and before_sequence < 1:
         raise ApplicationStateValidationError("Invalid retry history cursor")
@@ -441,7 +441,7 @@ def read_retry_attempts(
             raise ApplicationStateNotFoundError(
                 "Retry history unavailable in this conversation"
             )
-        incoming, _ = _edges(conn, meta)
+        incoming = _incoming_edge(conn, meta)
         root = incoming[0] if incoming else turn_id
         before = meta.sequence if before_sequence is None else before_sequence
         if before > meta.sequence:
