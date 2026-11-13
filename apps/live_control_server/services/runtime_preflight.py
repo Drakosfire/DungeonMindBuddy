@@ -31,7 +31,7 @@ from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresReposi
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GRAPH_INGEST_RUNS_ENV,
 )
-from scripts.bootstrap_local_play import inspect_readiness
+from application_state.local_play_bootstrap import inspect_readiness
 
 RuntimePreflightStatus = Literal[
     "READY",
