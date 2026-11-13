@@ -382,3 +382,31 @@ def test_wrong_campaign_cannot_open_an_existing_assertion_source(inspection):
         },
     )
     assert response.status_code == 409
+
+
+def test_withdrawn_source_is_withheld_at_same_graph_pin(inspection):
+    x = inspection
+    pin = catalog(x)["scope"]
+    selection = {
+        "kind": "source",
+        "assertion_id": x.assertions["name:0"],
+        "evidence_ref_id": x.lane.support_ids["first"],
+    }
+    before = read(x, pin, selection)
+    assert before.status_code == 200
+    source = before.json()["source"]
+    assert source["text"] == x.lane.text.splitlines(keepends=True)[0]
+    repo = x.lane.repo
+    space = x.lane.bound["native_world_id"]
+    head = repo.get_head(space)
+    events = repo.head_events(space)
+    repo.withdraw_native_source(
+        space_id=space,
+        source_artifact_id=source["source_artifact_id"],
+        source_revision_id=source["source_revision_id"],
+    )
+    after = read(x, pin, selection)
+    assert after.status_code == 409
+    assert source["text"] not in after.text
+    assert repo.get_head(space) == head
+    assert repo.head_events(space) == events
