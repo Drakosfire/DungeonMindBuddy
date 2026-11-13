@@ -34,9 +34,13 @@ jobs:
         with:
           version: '0.13.5'
           enable-cache: false
-      - name: Locked local-verifier guards and inventory
-        run: |
-          python scripts/prepare_patched_hermes.py
-          uv sync --locked
-          uv run --locked python -m pytest -q tests/test_ci_local_frontend.py tests/test_ci_contract.py
-          uv run --locked python scripts/ci_contract.py inventory
+      - name: Local verifier guards
+        run: >-
+          uv run --no-project --no-config
+          --with pytest==9.0.2 --with pyyaml==6.0.3
+          --with iniconfig==2.3.0 --with packaging==26.0
+          --with pluggy==1.6.0 --with pygments==2.19.2
+          python -m pytest --noconftest -q
+          tests/test_ci_local_frontend.py tests/test_ci_contract.py
+      - name: Test classification inventory
+        run: python scripts/ci_contract.py inventory
