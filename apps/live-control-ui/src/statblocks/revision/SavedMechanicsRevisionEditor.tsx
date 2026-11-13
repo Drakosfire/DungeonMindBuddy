@@ -63,6 +63,13 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,ini
   const showStudio=studioOpen&&studioSource===studioKey;
   useEffect(()=>()=>{epoch.current++;},[]);
   const sourceKey=(revision:string)=>`${scope}:version:${revision}`;
+  function applyEdit(next: StatblockEditorState) {
+    setEditor(next);
+    setValidated(null);
+    setIssues([]);
+    try { remember(next); } catch { setMessage('Browser recovery storage is unavailable. Keep this editor open.'); }
+  }
+
   function remember(state:StatblockEditorState,changeSummary=summary,portrait=portraitAssetId) {
     if(!opened)return;
     localStorage.setItem(sourceKey(opened.locator.revision_id),JSON.stringify({schema:'dmb_manual_mechanics_work_v2',
@@ -226,19 +233,38 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,ini
               ...current,
               ruleset: edition === "2014" || edition === "2024" ? {system: "dnd5e", edition} : null,
             }));
-            setEditor(next);
-            setValidated(null);
-            setIssues([]);
-            try { remember(next); } catch { setMessage('Browser recovery storage is unavailable. Keep this editor open.'); }
+            applyEdit(next);
           }}>
             <option value="">Unspecified</option>
             <option value="2014">2014</option>
             <option value="2024">2024</option>
           </select>
         </label>}
+        {opened.resource.definition.challenge.proficiency_bonus === null && <label>Proficiency bonus
+          <input type="number" min="0" step="1" value={editor.workingCopy.challenge.proficiency_bonus ?? ""}
+            onChange={event => {
+              const value = event.currentTarget.value === "" ? null : event.currentTarget.valueAsNumber;
+              if (value !== null && (!Number.isSafeInteger(value) || value < 0)) return;
+              applyEdit(updateWorkingCopy(editor, current => ({
+                ...current, challenge: {...current.challenge, proficiency_bonus: value},
+              })));
+            }}/>
+        </label>}
+        {opened.resource.definition.movement === null && <label>Walking speed (feet)
+          <input type="number" min="0" step="1" value={editor.workingCopy.movement?.modes[0]?.distance.value ?? ""}
+            onChange={event => {
+              const value = event.currentTarget.value === "" ? null : event.currentTarget.valueAsNumber;
+              if (value !== null && (!Number.isSafeInteger(value) || value < 0)) return;
+              applyEdit(updateWorkingCopy(editor, current => ({
+                ...current, movement: value === null ? null : {
+                  modes: [{key: "walk", mode: "walk", distance: {unit: "feet", value}}],
+                },
+              })));
+            }}/>
+        </label>}
         <StatblockDefinitionEditor output={opened.resource.definition} editorState={editor}
           recoveryHint={writer.recoverable?"Unsaved edits are retained in this browser tab for this creature and source version.":"Browser recovery is unavailable. Keep this editor open."}
-          onEditorStateChange={next=>{setEditor(next);setValidated(null);setIssues([]);try{remember(next);}catch{setMessage('Browser recovery storage is unavailable. Keep this editor open.');}}}/>
+          onEditorStateChange={applyEdit}/>
         <label>Change summary <input value={summary} onChange={event=>{setSummary(event.target.value);try{remember(editor,event.target.value);}catch{setMessage('Browser recovery storage is unavailable.');}}}/></label>
       </fieldset>
       <button type="button" disabled={associationBusy||busy||!!pending||!!successorToOpen} onClick={()=>{try{localStorage.removeItem(sourceKey(opened.locator.revision_id));setEditor(createEditorStateFromOutput(opened.resource.definition));setPortraitAssetId(null);setStudioOpen(false);setStudioSource(null);setSummary('Manual mechanics revision');setValidated(null);setIssues([]);setMessage('Local edits reverted. Saved versions are unchanged.');}catch{setMessage('Could not clear local recovery; edits remain retained.');}}}>Revert local edits</button>
