@@ -87,13 +87,41 @@ def extraction_prompt(transcriptions: list[str], instruction: str) -> str:
     }, ensure_ascii=False)
 
 
+def _provider_schema() -> dict:
+    """Expand the statblock model's local references for Structured Outputs."""
+    schema = make_schema_strict(StatblockExtractionOutput.model_json_schema())
+    definitions = schema.pop("$defs")
+
+    def expand(node: dict, active: frozenset[str] = frozenset()) -> dict:
+        if "$ref" in node:
+            ref = node["$ref"]
+            prefix = "#/$defs/"
+            name = ref.removeprefix(prefix)
+            if not ref.startswith(prefix) or name not in definitions or name in active:
+                raise StatblockExtractionError("pdf_statblock_generation_unavailable")
+            return expand(definitions[name], active | {name})
+        result = dict(node)
+        if "properties" in node:
+            result["properties"] = {
+                name: expand(field, active) for name, field in node["properties"].items()
+            }
+        if "items" in node:
+            result["items"] = expand(node["items"], active)
+        for keyword in ("anyOf", "oneOf", "allOf"):
+            if keyword in node:
+                result[keyword] = [expand(branch, active) for branch in node[keyword]]
+        return result
+
+    return make_schema_strict(expand(schema))
+
+
 async def extract_statblock(
     transcriptions: list[str], instruction: str = "", *, transport=None,
 ) -> StatblockExtractionOutput:
     if not transcriptions or any(not isinstance(text, str) or not text.strip() for text in transcriptions):
         raise StatblockExtractionError("pdf_statblock_ocr_unavailable")
     prompt = extraction_prompt(transcriptions, instruction)
-    schema = make_schema_strict(StatblockExtractionOutput.model_json_schema())
+    schema = _provider_schema()
     authorized = None
 
     try:
