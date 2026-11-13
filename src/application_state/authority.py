@@ -454,7 +454,26 @@ def _postgres_client_error(command: str, stderr: str, dsn: str) -> str:
     return f"{command} failed: {detail}"
 
 
-def backup_authority(*, source_dsn: str, out_path: str | Path) -> BackupRecord:
+def _run_recovery_client(
+    argv: list[str], *, env: dict[str, str], timeout_seconds: int | None, failure_hint: str,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            argv, env=env, capture_output=True, text=True, check=False, timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired:
+        raise ApplicationStateUnavailableError(
+            f"{Path(argv[0]).name} timed out after {timeout_seconds} seconds. {failure_hint}"
+        ) from None
+    except KeyboardInterrupt:
+        raise ApplicationStateUnavailableError(
+            f"{Path(argv[0]).name} was interrupted. {failure_hint}"
+        ) from None
+
+
+def backup_authority(
+    *, source_dsn: str, out_path: str | Path, timeout_seconds: int | None = None,
+) -> BackupRecord:
     """External custom-format backup of the APP-STATE authority.
 
     Fingerprints the source before and after the dump; a source that changes
@@ -472,7 +491,7 @@ def backup_authority(*, source_dsn: str, out_path: str | Path) -> BackupRecord:
     with tempfile.TemporaryDirectory(prefix=".app-state-backup-", dir=out.parent) as directory:
         staged = Path(directory) / out.name
         before = compute_fingerprint(source_dsn)
-        result = subprocess.run(
+        result = _run_recovery_client(
             [
                 executable,
                 "--format=custom",
@@ -483,9 +502,8 @@ def backup_authority(*, source_dsn: str, out_path: str | Path) -> BackupRecord:
                 _pg_conninfo(env),
             ],
             env=env,
-            capture_output=True,
-            text=True,
-            check=False,
+            timeout_seconds=timeout_seconds,
+            failure_hint="Retry backup with a fresh output path.",
         )
         if result.returncode != 0:
             raise ApplicationStateUnavailableError(
@@ -527,6 +545,7 @@ def restore_authority(
     source_dsn: str | None = None,
     expect_fingerprint: ApplicationStateFingerprint | None = None,
     expected_sha256: str | None = None,
+    timeout_seconds: int | None = None,
 ) -> RestoreReport:
     """Restore an external backup into a second clean target and verify.
 
@@ -550,7 +569,7 @@ def restore_authority(
             "destructive restore is not supported — use a second clean target"
         )
     env = _pg_env(target_dsn)
-    result = subprocess.run(
+    result = _run_recovery_client(
         [
             executable,
             "--no-owner",
@@ -560,9 +579,8 @@ def restore_authority(
             str(backup),
         ],
         env=env,
-        capture_output=True,
-        text=True,
-        check=False,
+        timeout_seconds=timeout_seconds,
+        failure_hint="Discard and recreate the disposable restore target before retrying.",
     )
     if result.returncode != 0:
         raise ApplicationStateUnavailableError(

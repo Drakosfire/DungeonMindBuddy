@@ -92,7 +92,7 @@ def _cmd_fingerprint(args: argparse.Namespace) -> int:
 
 def _cmd_backup(args: argparse.Namespace) -> int:
     source = _resolve_dsn(args.source_dsn)
-    record = backup_authority(source_dsn=source, out_path=args.out)
+    record = backup_authority(source_dsn=source, out_path=args.out, timeout_seconds=args.timeout_seconds)
     print(f"source: {record.source}")
     print(f"backup: {record.backup_path}")
     print(f"backup sha256: {record.backup_sha256}")
@@ -112,6 +112,7 @@ def _cmd_restore(args: argparse.Namespace) -> int:
         source_dsn=args.source_dsn,
         expect_fingerprint=expect,
         expected_sha256=args.expect_sha256,
+        timeout_seconds=args.timeout_seconds,
     )
     print(f"target: {report.target}")
     _print_fingerprint(report.fingerprint, dsn=target)
@@ -141,6 +142,13 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     return 2
 
 
+def _positive_seconds(value: str) -> int:
+    seconds = int(value)
+    if seconds < 1:
+        raise argparse.ArgumentTypeError("timeout must be at least one second")
+    return seconds
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -163,11 +171,13 @@ def build_parser() -> argparse.ArgumentParser:
     fingerprint.set_defaults(func=_cmd_fingerprint)
 
     backup = commands.add_parser("backup", help="external custom-format backup")
+    backup.add_argument("--timeout-seconds", type=_positive_seconds, help="deadline for the PostgreSQL client")
     backup.add_argument("--source-dsn", default=None)
     backup.add_argument("--out", required=True, help="dump file path")
     backup.set_defaults(func=_cmd_backup)
 
     restore = commands.add_parser("restore", help="restore into a second clean target")
+    restore.add_argument("--timeout-seconds", type=_positive_seconds, help="deadline for the PostgreSQL client")
     restore.add_argument("--target-dsn", default=None)
     restore.add_argument("--backup", required=True, help="dump file path")
     restore.add_argument("--source-dsn", default=None, help="isolation cross-check")
