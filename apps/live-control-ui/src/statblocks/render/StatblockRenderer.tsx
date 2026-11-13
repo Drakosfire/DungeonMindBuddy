@@ -7,7 +7,7 @@ import type {
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 
 import "./StatblockRenderer.css";
-import "./statblockCampaignTheme.css";
+
 import {
   buildStatblockViewModel,
   formatModifier,
