@@ -6,6 +6,8 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - ci/contracts.json
+      - Dockerfile.production
+      - .github/actions/setup-python-toolchain/action.yml
       - scripts/ci_contract.py
       - tests/test_ci_contract.py
       - scripts/ci_local_frontend.py

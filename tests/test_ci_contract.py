@@ -154,3 +154,16 @@ def test_node_runner_reports_abnormal_exit(tmp_path, argv, field, detail):
     report = json.loads(result.stdout.splitlines()[-1])
     assert report["exit_code"] == 1
     assert detail in report[field]
+
+
+def test_ci_and_production_pin_the_same_uv_version():
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    setup = (root / ".github/actions/setup-python-toolchain/action.yml").read_text()
+    dockerfile = (root / "Dockerfile.production").read_text()
+    ci_pin = re.findall(r"""^\s+version:\s*['"](\d+\.\d+\.\d+)['"]\s*$""", setup, re.M)
+    image_pin = re.findall(r"^FROM ghcr\.io/astral-sh/uv:(\d+\.\d+\.\d+)@sha256:[a-f0-9]{64} AS uv-tool$", dockerfile, re.M)
+    assert len(ci_pin) == len(image_pin) == 1
+    assert ci_pin == image_pin, f"CI uv pin {ci_pin} differs from production {image_pin}"
