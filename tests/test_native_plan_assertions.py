@@ -470,6 +470,8 @@ def _ordinary_native_case(
         from application_state.agent_conversation.authored_graph_references import AuthoredSourceReferenceV1, AuthoredReferencesV2
         from application_state.agent_conversation.native_source_catalog import section_catalog
         human_text='# Opening\nA proposed note.\n# Episode\nThe source describes a source-local episode. 🌿\n'
+        if authored_source == 'overlapping':
+            human_text += 'The recorded witness describes a local event. ' * 80 + '\n'
         raw=human_text.encode()
         admission=publish_native_text_source_evidence(repository=lane.repo,domain_contract=dungeonbuddy_world_domain_contract(),
             semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),request=NativeTextSourceAdmissionV1(
@@ -483,6 +485,9 @@ def _ordinary_native_case(
             source_artifact_id=admission.source_artifact_id,source_revision_id=admission.source_revision_id,evidence_ref_id=meta.evidence_ref_ids[0],content_sha256=sha256(raw).hexdigest(),
             selection_kind='full_document' if authored_source=='full_document' else 'section',section_id=None if authored_source=='full_document' else sections[1].section_id,label='DISPLAY ONLY Plan source')
         selected_references=AuthoredReferencesV2(references=(() if authored_source=='source_only' else selected_references.references)+(source_ref,))
+        if authored_source == 'overlapping':
+            full_reference = source_ref.model_copy(update={'selection_kind': 'full_document', 'section_id': None})
+            selected_references = AuthoredReferencesV2(references=(*selected_references.references, full_reference))
         if authored_source=='source_only':
             from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
             def no_object_binding(_):
@@ -601,10 +606,18 @@ def _ordinary_native_case(
                 limitations=[]
             if authored_source:
                 exposed=frame['native_body_evidence']['excerpts']
-                assert len(exposed)==1 and 'source-local episode' in exposed[0]['text']
+                if authored_source == 'overlapping':
+                    assert len(exposed) == 2
+                    passages = frame['native_body_evidence']['passages']
+                    assert len(passages) == 1
+                    assert next(iter(passages.values())) == human_text
+                    assert len({row['excerpt_handle'] for row in exposed}) == 2
+                    assert all('text' not in row for row in exposed)
+                else:
+                    assert len(exposed)==1 and 'source-local episode' in exposed[0]['text']
                 assert 'DISPLAY ONLY Plan source' not in json.dumps(frame)  # Display selection is not evidence.
                 segments.append({'kind':'native_body_claim','text':'The source describes a source-local episode.',
-                    'excerpt_handles':[exposed[0]['excerpt_handle']]})
+                    'excerpt_handles':[row['excerpt_handle'] for row in exposed]})
             if related_page:
                 from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
                 work_frame=next(item for item in frames if is_semantic_frame(item))
@@ -938,6 +951,13 @@ def _ordinary_native_case(
                     question=turn.user_text,scope_sha256=actual_parent.scope_sha256)
     if authored_source:
         reads=[e for e in turn.graph_context_execution.events if isinstance(e,t.NativeAuthoredSourceReadV1)]
+        if authored_source == 'overlapping':
+            assert len(reads) == 2
+            for index, read in enumerate(reads):
+                opened = client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-body-excerpts/{index}')
+                assert opened.status_code == 200, opened.text
+                assert opened.json()['content'] == read.excerpt.text
+            return
         assert len(reads)==1 and reads[0].catalog.source.revision.source_revision_id==source_ref.source_revision_id
         assert not hasattr(reads[0],'provider_attempt_id')
         writer=next(e for e in turn.graph_context_execution.events if type(e) is NativeWriterAuthorizedV1)
@@ -1224,6 +1244,12 @@ def test_native_navigation_does_not_name_c1_assertion_from_c2_name(lane,monkeypa
         assert next(row.label for row in result.object_matches if row.entity_id==lane.ids['B']).startswith('Unnamed object ')
     # Read identity and qualifications remain Core-owned; labels grant nothing.
     assert all(row.subject_entity_id==lane.ids['B'] for row in summaries)
+
+
+def test_ordinary_plan_writer_compacts_overlapping_reference_and_reopens_both(
+        lane, tmp_path, monkeypatch, native_read_admission_probes):
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False,
+        None, None, False, native_read_admission_probes, authored=True, authored_source='overlapping')
 
 
 def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
