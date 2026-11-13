@@ -249,7 +249,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         if (!response.ok) throw new Error();
         const result: Review = await response.json();
         if (abort.signal.aborted) return;
-        setEditor(createEditorStateFromOutput(result.definition));
+        setEditor(result.definition.movement ? createEditorStateFromOutput(result.definition) : undefined);
         setReview(result);
       } catch {
         if (!abort.signal.aborted) setError("Could not open the statblock review.");
@@ -354,6 +354,36 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       <h1>PDF statblock review</h1>
       {error && <p role="alert">{error}</p>}
       {!review && !error && <p role="status">Opening review…</p>}
+      {review && <>
+          {review.regions.map((locator, index) => (
+            <button type="button" key={index} onClick={() => { setError(""); setRegion(locator); }}>
+              Open source region {index + 1} · Page {locator.page}
+            </button>
+          ))}
+          {image && region && <figure ref={sourcePreviewRef} className="pdf-statblock-review__source-preview"
+            aria-label={`Source evidence · Page ${region.page}`}>
+            <figcaption>Source evidence · Page {region.page}</figcaption>
+            <img src={image} alt={`Exact PDF region on page ${region.page}`}
+              onLoad={() => sourcePreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })} />
+          </figure>}
+      </>}
+      {review && !editor && <form onSubmit={event => {
+        event.preventDefault();
+        const speed = new FormData(event.currentTarget).get("walkSpeed");
+        if (typeof speed !== "string" || !/^\d+$/.test(speed) || !Number.isSafeInteger(Number(speed))) return;
+        const definition = { ...review.definition, movement: { modes: [{
+          key: "walk", mode: "walk" as const, distance: { unit: "feet" as const, value: Number(speed) },
+        }] } };
+        setReview({ ...review, definition });
+        const next = createEditorStateFromOutput(definition);
+        setEditor({ ...next, baselineFingerprint: "" });
+      }}>
+        <p>Movement is unresolved. Check the source region and enter the walking speed you want to use.</p>
+        <label>Walking speed (feet)
+          <input name="walkSpeed" type="number" min="0" step="1" required />
+        </label>
+        <button type="submit">Continue editing</button>
+      </form>}
       {review && editor && <>
         <fieldset disabled={pending}>
           <button type="button" onClick={() => void validate()}>Validate mechanics</button>
@@ -396,17 +426,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
               onClick={() => void acceptMechanics()}>{selectedDraft?.workflow_state === "mechanics_saved" ? "Recover initial acceptance" : "Accept mechanics"}</button>}
             {acceptedLink && <a href={acceptedLink}>Open accepted statblock</a>}
           </>}
-          {review.regions.map((locator, index) => (
-            <button type="button" key={index} onClick={() => { setError(""); setRegion(locator); }}>
-              Open source region {index + 1} · Page {locator.page}
-            </button>
-          ))}
-          {image && region && <figure ref={sourcePreviewRef} className="pdf-statblock-review__source-preview"
-            aria-label={`Source evidence · Page ${region.page}`}>
-            <figcaption>Source evidence · Page {region.page}</figcaption>
-            <img src={image} alt={`Exact PDF region on page ${region.page}`}
-              onLoad={() => sourcePreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })} />
-          </figure>}
           <StatblockDefinitionEditor output={review.definition} editorState={editor}
             onEditorStateChange={state => { setEditor(state); setSaved(false); setValidation(""); setIssues([]); }}
             recoveryHint="Save the review draft to keep your edits." />
