@@ -295,12 +295,13 @@ export function BuildDocumentCreateControl({
         <select
           data-testid="build-document-create-destination"
           value={destinationValue}
-          onChange={(event) =>
+          onChange={(event) => {
+            setPdfOpen(false);
             setDestinationSelection({
               value: event.target.value,
               provenance: "explicit",
-            })
-          }
+            });
+          }}
           disabled={disabled || creating}
           required
         >
