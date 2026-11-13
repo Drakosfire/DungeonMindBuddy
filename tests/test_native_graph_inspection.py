@@ -412,7 +412,7 @@ def test_withdrawn_source_is_withheld_at_same_graph_pin(inspection):
     assert repo.head_events(space) == events
 
 
-def test_native_complete_object_requires_matching_pin(inspection):
+def test_native_complete_object_requires_matching_pin(inspection, monkeypatch):
     x = inspection
     scope = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
     request = {
@@ -424,7 +424,17 @@ def test_native_complete_object_requires_matching_pin(inspection):
         "nodeId": x.objects["endpoint"],
     }
     route = "/api/live/native-graph-inspection/complete-object"
-    response = x.client.post(route, json={"scope": scope, "request": request})
+    calls = []
+    get_revision = x.lane.repo.get_revision
+
+    def counted_revision(space_id, revision_id):
+        calls.append((space_id, revision_id))
+        return get_revision(space_id, revision_id)
+
+    with monkeypatch.context() as capture:
+        capture.setattr(x.lane.repo, "get_revision", counted_revision)
+        response = x.client.post(route, json={"scope": scope, "request": request})
+    assert calls == [(scope["native_world_id"], scope["revision_id"])]
     assert response.status_code == 200, response.text
     result = response.json()
     assert result["found"]
