@@ -2142,11 +2142,11 @@ def _authorized_build_pdf_region(world_id: str, body: dict, request: Request):
     return pdf, region
 
 
-def _render_build_pdf_region(pdf, region):
+def _render_build_pdf_region(pdf, region, **kwargs):
     from apps.live_control_server.services.build_pdf_region_render import render_region
 
     try:
-        return render_region(pdf, region)
+        return render_region(pdf, region, **kwargs)
     except ValueError as exc:
         raise HTTPException(status_code=503, detail={"code": "pdf_region_render_unavailable"}) from exc
 
@@ -2260,7 +2260,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         StatblockExtractionError, extract_statblock,
     )
     from src.llm.generation_sync import run_awaitable_sync
-    from apps.live_control_server.services.build_pdf_region_render import read_region_text
+    from apps.live_control_server.services.build_pdf_region_render import read_region_text, request_page_renderer
 
     enforce_native_graph_gm(request)
     instruction = body.get("instruction", "")
@@ -2288,9 +2288,10 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     transcriptions = []
     embedded_texts = []
     authorized_regions = []
+    render_page = request_page_renderer()
     for locator in regions_body:
         pdf, region = _authorized_build_pdf_region(world_id, locator, request)
-        png = _render_build_pdf_region(pdf, region)
+        png = _render_build_pdf_region(pdf, region, render_page=render_page)
         transcription = read_crop_png(png)
         text = transcription.get("text") if isinstance(transcription, dict) else None
         if not isinstance(text, str) or not text.strip():
