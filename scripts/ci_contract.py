@@ -75,6 +75,14 @@ def validate_inventory(root: Path = ROOT) -> dict:
     for path, expected in config.items():
         if hashlib.sha256((root / path).read_bytes()).hexdigest() != expected:
             raise ValueError(f"discovery configuration changed: {path}; review and refresh inventory")
+    scripts = json.loads((root / "apps/live-control-ui/package.json").read_text())["scripts"]
+    expected_scripts = {
+        "test": "vitest run",
+        "ui:visual": "playwright test --config playwright.ui.config.ts",
+    }
+    for name, expected in expected_scripts.items():
+        if scripts.get(name) != expected:
+            raise ValueError(f"frontend discovery command changed: {name}; review inventory")
     return {"discovered_test_files": len(found), "lane_file_counts": {
         lane: len(files) for lane, files in inventory["lanes"].items()
     }}

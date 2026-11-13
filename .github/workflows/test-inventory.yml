@@ -13,6 +13,7 @@ on:
       - apps/live-control-ui/**/*.test.*
       - apps/live-control-ui/**/*.spec.*
       - apps/live-control-ui/tests/**/*.pw.ts
+      - apps/live-control-ui/package.json
       - apps/live-control-ui/vite.config.ts
       - apps/live-control-ui/playwright.ui.config.ts
 concurrency:
