@@ -625,10 +625,9 @@ def _span_links_for_nodes(
     matchers: list[tuple[RecapGraphNode, list[re.Pattern[str]], list[str]]],
     within_two_edits: Callable[[str, str], bool],
 ) -> list[RecapGraphLink]:
-    link_candidates: list[tuple[int, int, int, RecapGraphLink]] = []
+    link_candidates: list[tuple[int, int, int, RecapGraphNode]] = []
     words = None
     for node, exact, fuzzy_aliases in matchers:
-        object_id = node.object_id
         for pattern in exact:
             for match in pattern.finditer(paragraph):
                 link_candidates.append(
@@ -636,15 +635,7 @@ def _span_links_for_nodes(
                         match.start(),
                         -(match.end() - match.start()),
                         0,
-                        RecapGraphLink(
-                            href=f"dmb-node:{object_id}",
-                            object_id=object_id,
-                            label=node.label,
-                            source_span_ref_id=span_ref_id,
-                            char_start=match.start(),
-                            char_end=match.end(),
-                            evidence_ref_ids=[f"mention:{object_id}:{span_ref_id}"],
-                        ),
+                        node,
                     )
                 )
         if not fuzzy_aliases:
@@ -662,26 +653,28 @@ def _span_links_for_nodes(
                             word_match.start(),
                             -(word_match.end() - word_match.start()),
                             1,
-                            RecapGraphLink(
-                                href=f"dmb-node:{object_id}",
-                                object_id=object_id,
-                                label=node.label,
-                                source_span_ref_id=span_ref_id,
-                                char_start=word_match.start(),
-                                char_end=word_match.end(),
-                                evidence_ref_ids=[f"fuzzy-mention:{object_id}:{span_ref_id}"],
-                            ),
+                            node,
                         )
                     )
                     break
 
     links: list[RecapGraphLink] = []
     occupied_until = -1
-    for _, _, _, link in sorted(link_candidates, key=lambda item: item[:3]):
-        if link.char_start < occupied_until:
+    for start, negative_length, priority, node in sorted(link_candidates, key=lambda item: item[:3]):
+        if start < occupied_until:
             continue
-        links.append(link)
-        occupied_until = link.char_end
+        end = start - negative_length
+        evidence_kind = "mention" if priority == 0 else "fuzzy-mention"
+        links.append(RecapGraphLink(
+            href=f"dmb-node:{node.object_id}",
+            object_id=node.object_id,
+            label=node.label,
+            source_span_ref_id=span_ref_id,
+            char_start=start,
+            char_end=end,
+            evidence_ref_ids=[f"{evidence_kind}:{node.object_id}:{span_ref_id}"],
+        ))
+        occupied_until = end
     return links
 
 
