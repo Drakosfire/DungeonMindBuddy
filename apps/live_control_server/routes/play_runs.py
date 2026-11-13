@@ -165,7 +165,6 @@ def put_play_run_progress_route(
 def put_play_run_rebase(run_id: str, body: RebasePlayRunRequest) -> dict[str, Any]:
     try:
         record = rebase_or_replay_play_run(
-            repo_root(),
             run_id=run_id,
             expected_run_revision=body.expected_run_revision,
             target_playable_revision=body.target_playable_revision,
@@ -312,7 +311,6 @@ def put_world_play_run_rebase_v2(
 ) -> dict[str, Any]:
     try:
         record = rebase_or_replay_world_play_run(
-            repo_root(),
             world_id=world_id,
             run_id=run_id,
             expected_run_revision=body.expected_run_revision,

@@ -214,7 +214,6 @@ def test_file_absence_progress_and_rebase_still_work(
             progress=empty_progress(),
         )
         rebased = rebase_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=updated.run_revision,
             target_playable_revision=target[0],

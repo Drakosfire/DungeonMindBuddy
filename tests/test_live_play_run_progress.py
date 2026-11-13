@@ -421,7 +421,6 @@ def test_native_ready_get_converges_when_rebase_changes_structure_during_first_a
         if not rebased["done"]:
             rebased["done"] = True
             rebase_or_replay_play_run(
-                root,
                 run_id=RUN_ID_A,
                 expected_run_revision=1,
                 target_playable_revision=committed.revision_n,

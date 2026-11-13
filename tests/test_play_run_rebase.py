@@ -252,7 +252,6 @@ def _advance(root: Path, snapshot: WorkspaceDocumentSnapshot, markdown: str):
 
 def _rebase(root: Path, snapshot: WorkspaceDocumentSnapshot, *, expected_run_revision: int):
     return rebase_or_replay_play_run(
-        root,
         run_id=RUN_ID_A,
         expected_run_revision=expected_run_revision,
         target_playable_revision=_playable(snapshot)[0],
@@ -423,7 +422,6 @@ def test_wrong_target_snapshot_is_409(tmp_path: Path) -> None:
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
     with pytest.raises(PlayRunRebaseError) as exc_info:
         rebase_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
             target_playable_revision=_playable(target)[0],

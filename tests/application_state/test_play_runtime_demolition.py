@@ -179,7 +179,6 @@ def _exercise_full_play_chain(root: Path) -> dict:
     later = get_workspace_document_snapshot(root, snapshot.record.document_id)
     target_revision, target_sha = playable_of(later)
     rebased = rebase_or_replay_play_run(
-        root,
         run_id=RUN_ID_A,
         expected_run_revision=progressed.run_revision,
         target_playable_revision=target_revision,
@@ -327,7 +326,6 @@ def test_db_down_does_not_read_or_mutate_contradictory_legacy_files(
     assert set_exc.value.status_code == 503
     with pytest.raises(PlayRunRebaseError) as rebase_exc:
         rebase_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
             target_playable_revision=2,

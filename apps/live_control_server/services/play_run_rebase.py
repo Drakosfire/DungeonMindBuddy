@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -44,14 +43,12 @@ class RebasePlayRunRequest(BaseModel):
 
 
 def rebase_or_replay_play_run(
-    root: Path,
     *,
     run_id: str,
     expected_run_revision: int,
     target_playable_revision: int,
     target_playable_content_sha256: str,
 ) -> PlayRunRecord:
-    del root
     from application_state.errors import ApplicationStateError
     from application_state.play.service import rebase_play_run
     from apps.live_control_server.services.play_run_registry import (
@@ -82,7 +79,6 @@ def rebase_or_replay_play_run(
 
 
 def rebase_or_replay_world_play_run(
-    root: Path,
     *,
     world_id: str,
     run_id: str,
@@ -90,7 +86,6 @@ def rebase_or_replay_world_play_run(
     target_playable_revision: int,
     target_playable_content_sha256: str,
 ) -> WorldPlayRunRecord:
-    del root
     from application_state.errors import ApplicationStateError
     from application_state.play.service import rebase_world_play_run
     from apps.live_control_server.services.play_run_registry import (
