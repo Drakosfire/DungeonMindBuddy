@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from evals.graph_memory_layer.encounter_job_dogfood_fixture import dogfood_result_to_payload, run_glowkindle_encounter_job_dogfood
-from evals.graph_memory_layer.report_encounter_job_dogfood_projection import render_report
+from evals.graph_memory_layer.report_encounter_job_dogfood_projection import DEFAULT_REPORT_PATH, render_report
 
 DEFAULT_OUT_DIR = Path("evals/graph_memory_layer/artifacts/encounter_job_dogfood_projection")
 ARTIFACT_NAME = "c1s1_glowkindle_fixture_candidate_graph.json"
@@ -40,7 +40,9 @@ def write_artifacts(out_dir: Path = DEFAULT_OUT_DIR) -> dict[str, Any]:
     payload = validate_payload(compare_artifact=False)
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / ARTIFACT_NAME).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    (out_dir / REPORT_NAME).write_text(render_report(payload), encoding="utf-8")
+    report_path = DEFAULT_REPORT_PATH if out_dir == DEFAULT_OUT_DIR else out_dir / REPORT_NAME
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(render_report(payload), encoding="utf-8")
     return payload
 
 

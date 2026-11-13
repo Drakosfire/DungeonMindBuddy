@@ -448,7 +448,7 @@ Current rung: Live Extractor Prompt/Harness v0. Purpose: render one-shot/two-sho
 
 ## Encounter/Job Dogfood Projection Fixture
 
-Validates and reports a deterministic no-LLM dogfood projection bundle for the encounter/job extraction stack. The fixture exercises `encounter_job_pass`, deterministic party participation attachment, encounter/job edge guidance, and dynamic node vocabulary selection against a synthetic Glowkindle rat-job source packet.
+Validates and reports a deterministic no-LLM dogfood projection bundle for the encounter/job extraction stack. The fixture exercises `encounter_job_pass`, source-backed party participation, encounter/job edge guidance, and dynamic node vocabulary selection against a synthetic Glowkindle rat-job source packet.
 
 It does not call an LLM, scan corpus files, mutate corpus files, write graph memory, connect `/plan`, connect Agent Interaction, promote facts, promote canon, or change runtime behavior.
 
@@ -456,3 +456,5 @@ It does not call an LLM, scan corpus files, mutate corpus files, write graph mem
 PYTHONPATH=. uv run python -m evals.graph_memory_layer.validate_encounter_job_dogfood_projection
 PYTHONPATH=. uv run python -m evals.graph_memory_layer.report_encounter_job_dogfood_projection
 ```
+
+Use `--write` to save the generated Markdown under `out/graph_memory/encounter_job_dogfood_projection/`. The [historical report](https://github.com/Drakosfire/DungeonMindBuddy/blob/ef271c93d0a1ed50ef7410547a3e487fbf7f173f/evals/graph_memory_layer/artifacts/encounter_job_dogfood_projection/c1s1_glowkindle_fixture_report.md) is pinned in Git.
