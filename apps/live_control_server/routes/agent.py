@@ -2160,6 +2160,7 @@ def post_read_build_pdf_region(world_id: str, body: dict, request: Request):
 @router.post("/worlds/{world_id}/build-pdf-sources/review")
 def post_review_build_pdf_region(world_id: str, body: dict, request: Request):
     from generationengine import GenerationEngineError
+    from generationengine.providers.errors import ProviderError
     from apps.live_control_server.services.build_pdf_capture_review import review_capture
     from src.llm.generation_sync import run_awaitable_sync
 
@@ -2171,8 +2172,11 @@ def post_review_build_pdf_region(world_id: str, body: dict, request: Request):
     png = _render_build_pdf_region(pdf, region)
     try:
         text = run_awaitable_sync(lambda: review_capture(png, instruction))
-    except (GenerationEngineError, ValueError) as exc:
-        raise HTTPException(status_code=503, detail="Buddy could not review this capture.") from exc
+    except (GenerationEngineError, ProviderError, ValueError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Buddy could not review this capture. Check provider configuration and retry.",
+        ) from exc
     return {"text": text, "region": region.model_dump(mode="json")}
 
 

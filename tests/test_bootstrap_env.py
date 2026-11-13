@@ -19,6 +19,28 @@ def test_load_dungeonmindbuddy_dotenv_idempotent() -> None:
     load_dungeonmindbuddy_dotenv()
 
 
+def test_dedicated_buddy_openai_key_supplies_provider_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DUNGEONBUDDY_OPENAI", "dedicated-test-key")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(LOCAL_GRAPH_PROFILE_ENV, "")
+    monkeypatch.setattr("src.bootstrap_env.load_dotenv", lambda *_args, **_kwargs: None)
+
+    load_dungeonmindbuddy_dotenv()
+
+    assert __import__("os").environ["OPENAI_API_KEY"] == "dedicated-test-key"
+
+
+def test_explicit_provider_key_precedes_dedicated_alias(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DUNGEONBUDDY_OPENAI", "dedicated-test-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "explicit-test-key")
+    monkeypatch.setenv(LOCAL_GRAPH_PROFILE_ENV, "")
+    monkeypatch.setattr("src.bootstrap_env.load_dotenv", lambda *_args, **_kwargs: None)
+
+    load_dungeonmindbuddy_dotenv()
+
+    assert __import__("os").environ["OPENAI_API_KEY"] == "explicit-test-key"
+
+
 def _private_profile(tmp_path: Path) -> Path:
     directory = tmp_path / "private"
     directory.mkdir(mode=0o700)

@@ -94,3 +94,7 @@ def load_dungeonmindbuddy_dotenv(*, override: bool = True) -> None:
         # This explicit private overlay owns its six fields even when the
         # ordinary dotenv loader was asked not to override ambient settings.
         os.environ.update(read_local_graph_profile(profile_path))
+    if not os.environ.get("OPENAI_API_KEY", "").strip():
+        dedicated_key = os.environ.get("DUNGEONBUDDY_OPENAI", "").strip()
+        if dedicated_key:
+            os.environ["OPENAI_API_KEY"] = dedicated_key
