@@ -439,12 +439,12 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       </form>}
       {review && editor && <>
         <fieldset disabled={pending}>
-          {!editor.workingCopy.ruleset && <label>D&D edition
-            <select value="" onChange={event => {
+          <label>D&D edition
+            <select value={editor.workingCopy.ruleset?.edition ?? ""} onChange={event => {
               const edition = event.currentTarget.value;
-              if (edition !== "2014" && edition !== "2024") return;
+              if (edition !== "" && edition !== "2014" && edition !== "2024") return;
               setEditor(updateWorkingCopy(editor, current => ({
-                ...current, ruleset: { system: "dnd5e", edition },
+                ...current, ruleset: edition ? { ...current.ruleset, system: "dnd5e", edition } : null,
               })));
               setSourceChecked(false);
               setSaved(false);
@@ -455,7 +455,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
               <option value="2014">2014</option>
               <option value="2024">2024</option>
             </select>
-          </label>}
+          </label>
           <label>Proficiency bonus
             <input type="number" min="0" step="1"
               value={editor.workingCopy.challenge.proficiency_bonus ?? ""}
