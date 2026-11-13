@@ -630,12 +630,8 @@ def test_resolve_roll_weather_16_without_append(
     client: TestClient,
     isolated_session: Path,
 ) -> None:
-    events_before = len(
-        (isolated_session / "event_log.jsonl").read_text(encoding="utf-8").strip().splitlines()
-    )
-    jobs_before = len(
-        (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8").strip().splitlines()
-    )
+    logs = [isolated_session / name for name in ("event_log.jsonl", "job_queue.jsonl")]
+    before = [path.read_bytes() for path in logs]
 
     response = client.post("/api/live/resolve-roll", json={"command": "Weather 16"})
     assert response.status_code == 200
@@ -644,14 +640,26 @@ def test_resolve_roll_weather_16_without_append(
     assert body["roll"] == 16
     assert "Fixed-distance front" in body["row_text"]
 
-    events_after = len(
-        (isolated_session / "event_log.jsonl").read_text(encoding="utf-8").strip().splitlines()
-    )
-    jobs_after = len(
-        (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8").strip().splitlines()
-    )
-    assert events_after == events_before
-    assert jobs_after == jobs_before
+    assert [path.read_bytes() for path in logs] == before
+
+
+def test_roll_preview_allows_unrelated_log_append(isolated_session, monkeypatch):
+    from apps.live_control_server.routes import live
+
+    resolve = live.resolve_roll_from_packet
+    event_log = isolated_session / "event_log.jsonl"
+    unrelated_event = b'{"id":"unrelated"}\n'
+
+    def resolve_with_append(*args, **kwargs):
+        result = resolve(*args, **kwargs)
+        with event_log.open("ab") as handle:
+            handle.write(unrelated_event)
+        return result
+
+    monkeypatch.setattr(live, "resolve_roll_from_packet", resolve_with_append)
+    assert live.post_resolve_roll(live.ResolveRollRequest(command="Weather 16"))["roll"] == 16
+    assert event_log.read_bytes() == unrelated_event
+    assert (isolated_session / "job_queue.jsonl").read_bytes() == b""
 
 
 def test_rebuild_packet_queues_packet_rebuild_job(
