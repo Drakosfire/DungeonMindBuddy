@@ -64,7 +64,7 @@ jobs:
       - name: Verify psycopg import
         run: uv run --locked python -c "import psycopg; print('psycopg import succeeded')"
 
-      - name: Lint hosted auth changes
+      - name: Lint selected hosted auth and recap files
         run: >-
           uv run --locked ruff check
           apps/live_control_server/main.py
