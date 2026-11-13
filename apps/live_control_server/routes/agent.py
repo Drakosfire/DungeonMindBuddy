@@ -2226,25 +2226,21 @@ def _authorized_pdf_statblock(world_id: str, body: dict, request: Request, *, al
 @router.put("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}")
 def put_pdf_statblock_review(world_id: str, review_id: UUID, body: dict, request: Request):
     from application_state.errors import ApplicationStateConflictError
-    from application_state.pdf_statblock_review import read_review, save_review
+    from application_state.pdf_statblock_review import save_review
 
     enforce_native_graph_gm(request)
     expected_revision = body.get("expected_revision")
     if type(expected_revision) is not int or expected_revision < 0:
         raise HTTPException(status_code=422, detail={"code": "invalid_review_revision"})
     world_id = _verified_world_id(world_id)
-    existing = read_review(world_id=world_id, review_id=review_id) if expected_revision else None
-    confirmation_required = bool(existing and existing.get("source_confirmation_required"))
     candidate, regions = _authorized_pdf_statblock(
-        world_id, {key: value for key, value in body.items() if key not in {"expected_revision", "source_confirmed"}}, request,
+        world_id, {key: value for key, value in body.items() if key not in {"expected_revision"}}, request,
         allow_unresolved=True,
     )
     try:
         return save_review(
             world_id=_verified_world_id(world_id), review_id=review_id, expected_revision=expected_revision,
             definition=candidate.model_dump(mode="json", by_alias=True), regions=regions,
-            **({"source_confirmation_required": True, "source_confirmed": body.get("source_confirmed") is True}
-               if confirmation_required else {}),
         )
     except ApplicationStateConflictError as exc:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"}) from exc
@@ -2326,7 +2322,6 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         return save_review(
             world_id=verified_world, review_id=review_id, expected_revision=0,
             definition=definition, regions=authorized_regions,
-            **({"source_confirmation_required": True} if any(embedded_texts) else {}),
         )
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_output_invalid"}) from exc
@@ -2347,12 +2342,6 @@ def get_pdf_statblock_review(world_id: str, review_id: UUID, request: Request):
     return review
 
 
-def _require_confirmed_pdf_statblock(review: dict) -> dict:
-    if review.get("source_confirmation_required") and not review.get("source_confirmed"):
-        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_source_confirmation_required"})
-    return review
-
-
 @router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/creature-draft")
 def post_pdf_statblock_creature_draft(
     world_id: str, review_id: UUID, request: Request,
@@ -2370,7 +2359,7 @@ def post_pdf_statblock_creature_draft(
     world_id = _verified_world_id(world_id)
     if review["revision"] != expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
-    definition = _require_confirmed_pdf_statblock(review)["definition"]
+    definition = review["definition"]
     name = definition["identity"]["name"]
     draft_request = CreateWorldThreatDraftRequest(
         scope_mode="world", world_id=world_id, campaign_id=None,
@@ -2399,7 +2388,6 @@ def post_validate_pdf_statblock_review(
     review = get_pdf_statblock_review(world_id, review_id, request)
     if review["revision"] != expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
-    _require_confirmed_pdf_statblock(review)
     candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": review["definition"]})
     validation = validate_definition(definition=candidate.definition)
     return {
@@ -2465,7 +2453,6 @@ def post_accept_pdf_statblock_review(
     review = get_pdf_statblock_review(world_id, review_id, request)
     if review["revision"] != body.expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
-    _require_confirmed_pdf_statblock(review)
     return begin_or_resume_acceptance(
         root,
         draft_id=draft_key,
@@ -2493,9 +2480,7 @@ def post_append_pdf_statblock_review(
     world_id = _verified_world_id(world_id)
     return _revision_call(
         append_pdf_review, draft_id=str(draft_id), world_id=world_id, review_id=review_id,
-        request=body, load_review=lambda: _require_confirmed_pdf_statblock(
-            get_pdf_statblock_review(world_id, review_id, request),
-        ),
+        request=body, load_review=lambda: get_pdf_statblock_review(world_id, review_id, request),
     )
 
 
