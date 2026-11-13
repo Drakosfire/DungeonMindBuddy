@@ -87,7 +87,7 @@ def main() -> None:
     parser.add_argument(
         "--out-subdir",
         type=Path,
-        help="Scratch directory for both transcripts and leaf fixtures.",
+        help="New scratch directory for both transcripts and leaf fixtures.",
     )
     parser.add_argument(
         "--allow-fingerprint-mismatch",
@@ -341,8 +341,14 @@ def main() -> None:
         "create-persistence-validation-failed.json": invalid_body,
         "create-invalid-request.json": bad_req_res.json(),
     }
-    fixtures_dir.mkdir(parents=True, exist_ok=True)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    if args.out_subdir is None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        try:
+            out_dir.mkdir(parents=True)
+        except FileExistsError as exc:
+            raise SystemExit("Scratch output must be a new directory.") from exc
+        fixtures_dir.mkdir()
     for name, payload in leaf.items():
         (fixtures_dir / name).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
