@@ -469,19 +469,18 @@ export function createManagedNativeGraphApi(
     },
     async readChronology(graph, signal) {
       const pin = assertCurrentSnapshot(graph);
-      const response = await send(INSPECTION_READ_PATH, {
+      const { response, body } = await send(INSPECTION_READ_PATH, {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({ scope: pin, selection: { kind: "chronology" } }),
         signal,
       }, generation);
-      const body = await responseBody(response);
       if (signal.aborted) throw abortError();
       assertCurrentSnapshot(graph);
       if (!response.ok) await throwInspectionResponseError(response, body);
-      if (!record(body) || body.schema !== "dmb_native_graph_chronology_v1"
-        || !record(body.scope) || !sameInspectionPin(pin, body.scope as InspectionPin)
-        || !Array.isArray(body.assertions) || !body.assertions.every(isNativeAssertion) || !record(body.completeness)
+      if (!isRecord(body) || body.schema !== "dmb_native_graph_chronology_v1"
+        || !isInspectionPin(body.scope) || !sameInspectionPin(pin, body.scope)
+        || !Array.isArray(body.assertions) || !body.assertions.every(isNativeAssertion) || !isRecord(body.completeness)
         || !["complete", "partial"].includes(String(body.completeness.status))) {
         throw invalidManagedGraph("Chronology does not match the selected graph revision. Refresh the graph and try again.");
       }
