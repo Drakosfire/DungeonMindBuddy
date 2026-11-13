@@ -54,11 +54,7 @@ jobs:
           version: "0.13.5"
           enable-cache: false
 
-      - name: Prepare pinned patched Hermes source
-        run: python scripts/prepare_patched_hermes.py
-
-      - name: Install locked dependencies
-        run: uv sync --locked
+      - uses: ./.github/actions/install-locked-python
 
       - name: Inventory and validate CI contracts
         if: matrix.suite == 'world-and-content'

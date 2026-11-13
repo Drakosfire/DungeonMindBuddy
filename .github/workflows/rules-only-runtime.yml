@@ -20,6 +20,7 @@ on:
       - patches/hermes-agent/**
       - pyproject.toml
       - uv.lock
+      - .github/actions/install-locked-python/**
       - .github/workflows/rules-only-runtime.yml
   workflow_dispatch:
 
@@ -58,10 +59,7 @@ jobs:
         with:
           version: '0.13.5'
           enable-cache: false
-      - name: Prepare locked dependencies
-        run: |
-          python scripts/prepare_patched_hermes.py
-          uv sync --locked
+      - uses: ./.github/actions/install-locked-python
       - name: Full owning regression and lint
         run: |
           uv run --locked pytest -q tests/test_rules_only_parent.py --durations=10
