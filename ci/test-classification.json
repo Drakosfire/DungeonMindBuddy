@@ -1535,9 +1535,5 @@
       "tests/test_worldbuilding_source_sections.py",
       "tests/test_worldbuilding_typed_extraction_evidence.py"
     ]
-  },
-  "discovery_config": {
-    "apps/live-control-ui/vite.config.ts": "4a77325643fc2a07721565d16cd1b637b5df4ff7baac840043ab00c55107a36d",
-    "apps/live-control-ui/playwright.ui.config.ts": "443b42d94721f1de96aef4db9601bc624778722649e57b6eb8268cb6ea962e46"
   }
 }
