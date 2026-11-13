@@ -26,9 +26,18 @@ export function BuildSurfacePage() {
     }
   }, [controller.activeRecord]);
 
-  const params = new URLSearchParams(window.location.search);
-  const pdfReviewId = params.get("pdfReview");
+  // A review opened inline adds a reload URL without replacing the live import workspace.
+  const [entrySearch, setEntrySearch] = useState(() => window.location.search);
+  useEffect(() => {
+    const syncHistory = () => setEntrySearch(window.location.search);
+    window.addEventListener("popstate", syncHistory);
+    return () => window.removeEventListener("popstate", syncHistory);
+  }, []);
+  const params = new URLSearchParams(entrySearch);
   const reviewWorldId = params.get("world");
+  const pdfReviewId = new URLSearchParams(window.location.search).get("world") === reviewWorldId
+    ? params.get("pdfReview")
+    : null;
 
   return (
     <AppChrome activeRoute="build" editorTools={editorTools} editToolboxLayout="dock" workspaceLayout="bounded">

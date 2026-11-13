@@ -1,5 +1,5 @@
 import { BuildPdfStatblockReview } from "./BuildPdfStatblockReview";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { authenticatedApiFetch } from "../api/liveApi";
 import { pdfRegionKey, type PdfLocator } from "../api/retainedPdfRegions";
 
@@ -11,6 +11,11 @@ export function StartPdfStatblockReview({
   prepareRegions?: () => Promise<PdfLocator[]>;
   onRemoveRegion: (region: PdfLocator) => void;
 }) {
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const [id] = useState(() => crypto.randomUUID());
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -51,6 +56,7 @@ export function StartPdfStatblockReview({
 
   async function start() {
     if ((!regions.length && !prepareRegions) || pending) return;
+    const startUrl = window.location.href;
     setPending(true);
     setInline(Boolean(prepareRegions));
     setError("");
@@ -68,6 +74,12 @@ export function StartPdfStatblockReview({
       const result = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(describeFailure(result?.detail));
+      }
+      if (prepareRegions && mounted.current && window.location.href === startUrl) {
+        const location = new URL(startUrl);
+        location.searchParams.set("world", worldId);
+        location.searchParams.set("pdfReview", id);
+        window.history.replaceState(window.history.state, "", location);
       }
       setSaved(true);
     } catch (failure) {
