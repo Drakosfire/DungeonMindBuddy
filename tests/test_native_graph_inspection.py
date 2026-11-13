@@ -579,6 +579,13 @@ def test_product_complete_object_dispatches_selected_world_to_native(inspection,
     assert expected.status_code == actual.status_code == 200, actual.text
     assert actual.json() == expected.json()
     assert actual.json()["sourceBindings"]
+    other_campaign = {**request, "nodeId": x.objects["other-campaign"]}
+    campaign = x.client.post(route, json=other_campaign)
+    assert campaign.status_code == 409, campaign.text
+    world = x.client.post(route, json={**other_campaign, "scopeMode": "world"})
+    assert world.status_code == 200, world.text
+    assert world.json()["node"]["nodeId"] == other_campaign["nodeId"]
+    assert world.json()["snapshot"]["revisionId"] == scope["revision_id"]
     rejected = x.client.post(route, json={**request, "revisionPin": "rev:unavailable"})
     assert rejected.status_code == 409, rejected.text
     x.client.headers.pop("Authorization")
