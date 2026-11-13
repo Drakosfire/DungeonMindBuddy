@@ -463,7 +463,7 @@ export function WorldGraphCanvas({
     ]);
     const previous = fallbackRef.current?.worldId === record.snapshot.worldId ? fallbackRef.current : undefined;
     if (previous?.signature === signature) return previous.positions;
-    const positions = createGraphFallbackPositions(index, previous?.positions, { savedPositions: record.layout.positions });
+    const positions = createGraphFallbackPositions(index, { savedPositions: record.layout.positions });
     fallbackRef.current = { worldId: record.snapshot.worldId, signature, positions };
     return positions;
   }, [fullCorpus, index, record.snapshot.worldId, record.layout.positions]);

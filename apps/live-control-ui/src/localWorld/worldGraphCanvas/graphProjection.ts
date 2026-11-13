@@ -126,7 +126,6 @@ export interface GraphFallbackOptions {
  */
 export function createGraphFallbackPositions(
   index: LocalWorldGraphIndex,
-  _previousPositions?: GraphFallbackPositions,
   options: GraphFallbackOptions = {},
 ): GraphFallbackPositions {
   type Id = LocalWorldObject["id"];
@@ -306,7 +305,7 @@ export function projectLocalWorldGraph(
   const objects = record.snapshot.objects;
   const focused = Boolean(options.focusObjectId && index.objects.has(options.focusObjectId));
   const fullOverview = options.fullCorpus && !focused;
-  let fallbackPositions = options.fullCorpus ? options.fallbackPositions ?? createGraphFallbackPositions(index, undefined, { savedPositions: record.layout.positions }) : undefined;
+  let fallbackPositions = options.fullCorpus ? options.fallbackPositions ?? createGraphFallbackPositions(index, { savedPositions: record.layout.positions }) : undefined;
   const revealedIds = new Set(options.revealObjectIds ?? []);
   const eligibleObjects = options.showUnconnected === false
     ? objects.filter(object => (index.relationshipCounts.get(object.id) ?? 0) > 0 || revealedIds.has(object.id) || (focused && object.id === options.focusObjectId))
@@ -334,7 +333,7 @@ export function projectLocalWorldGraph(
     const saved = record.layout.positions[object.id];
     let fallback = fallbackPositions?.get(object.id);
     if (options.fullCorpus && (!fallback || !Number.isFinite(fallback.x) || !Number.isFinite(fallback.y))) {
-      fallbackPositions = createGraphFallbackPositions(index, fallbackPositions, { savedPositions: record.layout.positions });
+      fallbackPositions = createGraphFallbackPositions(index, { savedPositions: record.layout.positions });
       fallback = fallbackPositions.get(object.id);
     }
     fallback = fallback ? { x: coordinate(fallback.x), y: coordinate(fallback.y) } : initialPosition(position, visibleObjects.length);
