@@ -872,16 +872,16 @@ describe("WorldGraphCanvas", () => {
     expect(screen.queryByRole("tooltip")).toBeNull();
   });
 
-  it("suppresses colliding phrases and prioritizes the selected connection", async () => {
+  it("slides colliding phrases along arrows and prioritizes the selected connection", async () => {
     const { record } = await graphRecord();
     const objects = record.snapshot.objects.slice(0, 4);
     const positions = Object.fromEntries(objects.map((object, i) => [object.id, [{ x: 100, y: 300 }, { x: 900, y: 300 }, { x: 500, y: 0 }, { x: 500, y: 600 }][i]]));
     const relationships = [0, 1].map(i => ({ ...record.snapshot.relationships[0], id: `cross-${i}` as LocalWorldRelationship["id"], fromObjectId: objects[i * 2].id, toObjectId: objects[i * 2 + 1].id, kind: i ? "travels_to" : "knows_about" }));
     render(<WorldGraphCanvas nodeShape="circle" record={{ ...record, snapshot: { ...record.snapshot, objects, relationships }, layout: { ...record.layout, positions } }} />);
-    expect(document.querySelectorAll(".world-graph-canvas__edge-phrase")).toHaveLength(1);
+    expect(document.querySelectorAll(".world-graph-canvas__edge-phrase")).toHaveLength(2);
     expect(document.querySelector('[data-edge-id="cross-0"] text')).toHaveTextContent("knows about");
     fireEvent.click(screen.getByRole("button", { name: `${objects[2].name}, ${objects[2].kind}` }));
-    expect(document.querySelectorAll(".world-graph-canvas__edge-phrase")).toHaveLength(1);
+    expect(document.querySelectorAll(".world-graph-canvas__edge-phrase")).toHaveLength(2);
     expect(document.querySelector('[data-edge-id="cross-1"] text')).toHaveTextContent("travels to");
     fireEvent.mouseEnter(document.querySelector('[data-edge-id="cross-0"]')!);
     expect(screen.getByRole("tooltip")).toHaveTextContent("knows about");
@@ -901,6 +901,65 @@ describe("WorldGraphCanvas", () => {
     fireEvent(graph, new MouseEvent("pointermove", { clientX: 160, clientY: 140, bubbles: true }));
     fireEvent(graph, new MouseEvent("pointerup", { clientX: 160, clientY: 140, bubbles: true }));
     expect(scene.getAttribute("transform")).not.toBe(before);
+  });
+
+  it("temporarily spreads focused bubbles, never saves their moves, and restores overview pins", async () => {
+    const { record } = await graphRecord();
+    const hub = record.snapshot.objects[0];
+    const save = vi.fn();
+    const baseProps = { record, nodeShape: "circle" as const, onMoveObjects: save };
+    const view = render(<WorldGraphCanvas {...baseProps} projectionOptions={{ fullCorpus: true }} />);
+    const node = () => screen.getByRole("button", { name: `${hub.name}, ${hub.kind}` });
+    const overview = node().getAttribute("transform");
+    view.rerender(<WorldGraphCanvas {...baseProps} projectionOptions={{ fullCorpus: true, focusObjectId: hub.id }} cameraFocusRequest={{ nodeId: hub.id, requestId: 1, selectNode: true }} />);
+    const focused = node().getAttribute("transform");
+    expect(focused).not.toBe(overview);
+    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    fireEvent.keyDown(node(), { key: "ArrowRight" });
+    expect(node().getAttribute("transform")).not.toBe(focused);
+    expect(save).not.toHaveBeenCalled();
+    view.rerender(<WorldGraphCanvas {...baseProps} projectionOptions={{ fullCorpus: true }} cameraFocusRequest={{ nodeId: null, requestId: 2 }} />);
+    expect(node().getAttribute("transform")).toBe(overview);
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("cancels a temporary focus drag on exit before it can save temporary coordinates", async () => {
+    const { record } = await graphRecord();
+    const hub = record.snapshot.objects[0]; const save = vi.fn();
+    const props = { record, nodeShape: "circle" as const, onMoveObjects: save };
+    const view = render(<WorldGraphCanvas {...props} projectionOptions={{ fullCorpus: true, focusObjectId: hub.id }} cameraFocusRequest={{ nodeId: hub.id, requestId: 1 }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    const node = screen.getByRole("button", { name: `${hub.name}, ${hub.kind}` });
+    const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    fireEvent(node, new MouseEvent("pointerdown", { button: 0, clientX: 100, clientY: 100, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 160, clientY: 140, bubbles: true }));
+    view.rerender(<WorldGraphCanvas {...props} projectionOptions={{ fullCorpus: true }} cameraFocusRequest={{ nodeId: null, requestId: 2 }} />);
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 160, clientY: 140, bubbles: true }));
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("fits asymmetric focused neighborhoods and loops even when interrupting an overview pan", async () => {
+    const { record } = await graphRecord(); const [hub, neighbor] = record.snapshot.objects;
+    const direct = record.snapshot.relationships[0];
+    const loop = { ...direct, id: "focus-loop" as LocalWorldRelationship["id"], fromObjectId: hub.id, toObjectId: hub.id };
+    const focusedRecord = { ...record, snapshot: { ...record.snapshot, objects: [hub, neighbor], relationships: [direct, loop] } };
+    const view = render(<WorldGraphCanvas record={focusedRecord} nodeShape="circle" projectionOptions={{ fullCorpus: true }} />);
+    const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    fireEvent(graph, new MouseEvent("pointerdown", { button: 0, clientX: 100, clientY: 100, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 900, clientY: 500, bubbles: true }));
+    view.rerender(<WorldGraphCanvas record={focusedRecord} nodeShape="circle" projectionOptions={{ fullCorpus: true, focusObjectId: hub.id }} cameraFocusRequest={{ nodeId: hub.id, requestId: 1 }} />);
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 900, clientY: 500, bubbles: true }));
+    const transform = screen.getByTestId("graph-scene").getAttribute("transform")!;
+    const [, x, y, zoom] = transform.match(/translate\(([-.\d]+) ([-.\d]+)\) scale\(([-.\d]+)\)/)!.map(Number);
+    for (const path of document.querySelectorAll(".world-graph-canvas__edge > path")) {
+      const points = path.getAttribute("d")!.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+      for (let i = 0; i < points.length; i += 2) {
+        expect(points[i] * zoom + x).toBeGreaterThanOrEqual(0);
+        expect(points[i] * zoom + x).toBeLessThanOrEqual(960);
+        expect(points[i + 1] * zoom + y).toBeGreaterThanOrEqual(0);
+        expect(points[i + 1] * zoom + y).toBeLessThanOrEqual(520);
+      }
+    }
   });
 
   it("keeps full accessible long predicates without opaque plates", async () => {
