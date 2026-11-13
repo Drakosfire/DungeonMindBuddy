@@ -98,6 +98,8 @@ def score(oracle_path, readback_path, manifest, base):
                 raise ValueError(f"Gold item has no witnesses for {case}/{item['id']}")
             witnesses = []
             for witness in item['witnesses']:
+                if not isinstance(witness.get('text'), str) or not witness['text'].strip():
+                    raise ValueError(f"Gold witness has no text for {case}/{item['id']}")
                 present = [e['excerpt_handle'] for e in excerpts if witness['text'] in e['text']]
                 verified = [row['handle'] for row in inventory if row['handle'] in present
                             and any(m['body_sha256'] == witness['source_sha256'] for m in row['reopened_targets'])]
