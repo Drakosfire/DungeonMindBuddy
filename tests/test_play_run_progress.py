@@ -156,7 +156,7 @@ def _create_run(root: Path, snapshot: WorkspaceDocumentSnapshot):
 
 def _seal(root: Path, snapshot: WorkspaceDocumentSnapshot):
     record = _create_run(root, snapshot)
-    manifest = seal_or_replay_play_run_reference_manifest(root, RUN_ID_A)
+    manifest = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
     return record, manifest
 
 
@@ -219,7 +219,7 @@ def test_valid_snapshot_persists_and_reloads(tmp_path: Path) -> None:
     assert updated.progress == _progress()
     reloaded = get_play_run(tmp_path, RUN_ID_A)
     assert reloaded == updated
-    assert get_play_run_reference_manifest(tmp_path, RUN_ID_A) == manifest
+    assert get_play_run_reference_manifest(RUN_ID_A) == manifest
     assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -442,7 +442,7 @@ def test_stale_different_state_is_409(tmp_path: Path) -> None:
 def test_create_replay_after_progress_does_not_reset(tmp_path: Path) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     created = _create_run(tmp_path, snapshot)
-    seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    seal_or_replay_play_run_reference_manifest(RUN_ID_A)
     progressed = replace_play_run_progress(
         tmp_path,
         run_id=RUN_ID_A,

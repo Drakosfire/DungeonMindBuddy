@@ -332,7 +332,7 @@ def test_exact_first_seal_persists_without_mutating_run_or_runbook(tmp_path: Pat
     record = _create_run(tmp_path, snapshot_before)
     run_before = get_play_run(tmp_path, RUN_ID_A)
 
-    manifest = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
 
     assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
     assert manifest.run_id == record.run_id
@@ -352,7 +352,7 @@ def test_exact_first_seal_persists_without_mutating_run_or_runbook(tmp_path: Pat
     assert snapshot_after.content_sha256 == snapshot_before.content_sha256
     assert snapshot_after.markdown == snapshot_before.markdown
 
-    reloaded = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    reloaded = get_play_run_reference_manifest(RUN_ID_A)
     assert reloaded == manifest
 
 
@@ -362,7 +362,7 @@ def test_identical_replay_returns_existing_bytes_and_skips_workspace(
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     _create_run(tmp_path, snapshot)
-    first = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    first = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
 
     def boom(*args: object, **kwargs: object) -> None:
         raise AssertionError("replay must not read current workspace state")
@@ -371,7 +371,7 @@ def test_identical_replay_returns_existing_bytes_and_skips_workspace(
         "apps.live_control_server.services.workspace_document_registry.get_committed_playable_revision",
         boom,
     )
-    second = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    second = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
 
     assert second == first
     assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
@@ -383,7 +383,7 @@ def test_replay_after_runbook_advance_does_not_reread_workspace(
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     record = _create_run(tmp_path, snapshot)
-    first = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    first = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
 
     advanced = _advance_runbook(tmp_path, snapshot, ADVANCED_MARKDOWN)
     assert advanced.loaded_revision > snapshot.loaded_revision
@@ -396,7 +396,7 @@ def test_replay_after_runbook_advance_does_not_reread_workspace(
         "apps.live_control_server.services.workspace_document_registry.get_committed_playable_revision",
         boom,
     )
-    replayed = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    replayed = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
 
     assert replayed == first
     assert replayed.playable_revision == record.playable_revision
@@ -412,7 +412,7 @@ def test_runbook_advance_before_first_seal_still_seals_bound_revision(tmp_path: 
     current = _advance_runbook(tmp_path, old, ADVANCED_MARKDOWN)
     assert _playable(current)[0] == record.playable_revision + 1
 
-    manifest = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
     assert manifest.playable_revision == record.playable_revision
     assert manifest.playable_content_sha256 == record.playable_content_sha256
     assert not leftover_manifest_path(tmp_path, record.run_id).exists()
@@ -420,7 +420,7 @@ def test_runbook_advance_before_first_seal_still_seals_bound_revision(tmp_path: 
 
 def test_get_absent_does_not_create(tmp_path: Path) -> None:
     with pytest.raises(PlayRunRegistryError) as exc_info:
-        get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        get_play_run_reference_manifest(RUN_ID_A)
 
     assert exc_info.value.status_code == 404
     assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
@@ -428,31 +428,31 @@ def test_get_absent_does_not_create(tmp_path: Path) -> None:
 
 def test_unknown_and_invalid_run_ids_fail_closed(tmp_path: Path) -> None:
     with pytest.raises(Exception) as unknown:
-        seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        seal_or_replay_play_run_reference_manifest(RUN_ID_A)
     assert unknown.value.status_code == 404
 
     with pytest.raises(Exception) as invalid:
-        seal_or_replay_play_run_reference_manifest(tmp_path, "not-a-uuid")
+        seal_or_replay_play_run_reference_manifest("not-a-uuid")
     assert invalid.value.status_code == 422
 
 
 def test_filename_and_binding_mismatch_fail_closed(tmp_path: Path) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     record = _create_run(tmp_path, snapshot)
-    first = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    first = get_play_run_reference_manifest(RUN_ID_A)
     leftover = leftover_manifest_path(tmp_path, RUN_ID_A)
     leftover.parent.mkdir(parents=True, exist_ok=True)
     payload = first.model_dump(mode="json", exclude_none=True)
     payload["run_id"] = RUN_ID_B
     leftover.write_text(json.dumps(payload) + "\n", encoding="utf-8")
 
-    loaded = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    loaded = get_play_run_reference_manifest(RUN_ID_A)
     assert loaded == first
 
     payload = first.model_dump(mode="json", exclude_none=True)
     payload["playable_revision"] = record.playable_revision + 9
     leftover.write_text(json.dumps(payload) + "\n", encoding="utf-8")
-    assert get_play_run_reference_manifest(tmp_path, RUN_ID_A) == first
+    assert get_play_run_reference_manifest(RUN_ID_A) == first
     assert leftover.is_file()
 
 
@@ -462,7 +462,7 @@ def test_persisted_membership_must_resolve_inside_manifest(
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     _create_run(tmp_path, snapshot)
-    first = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    first = get_play_run_reference_manifest(RUN_ID_A)
 
     missing_choice = first.model_dump(mode="json", exclude_none=True)
     for element in missing_choice["elements"]:
@@ -470,7 +470,7 @@ def test_persisted_membership_must_resolve_inside_manifest(
             element["choice_id"] = "choice:missing"
     _update_manifest_payload(application_state_dsn, RUN_ID_A, missing_choice)
     with pytest.raises(PlayRunReferenceManifestError) as missing:
-        get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        get_play_run_reference_manifest(RUN_ID_A)
     assert missing.value.status_code == 500
 
     other_scene = first.model_dump(mode="json", exclude_none=True)
@@ -481,7 +481,7 @@ def test_persisted_membership_must_resolve_inside_manifest(
             element["scene_id"] = "scene:harbor"
     _update_manifest_payload(application_state_dsn, RUN_ID_A, other_scene)
     with pytest.raises(PlayRunReferenceManifestError) as crossed:
-        get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        get_play_run_reference_manifest(RUN_ID_A)
     assert crossed.value.status_code == 500
 
     missing_scene = first.model_dump(mode="json", exclude_none=True)
@@ -490,7 +490,7 @@ def test_persisted_membership_must_resolve_inside_manifest(
             element["scene_id"] = "scene:missing"
     _update_manifest_payload(application_state_dsn, RUN_ID_A, missing_scene)
     with pytest.raises(PlayRunReferenceManifestError) as beat:
-        get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        get_play_run_reference_manifest(RUN_ID_A)
     assert beat.value.status_code == 500
 
 
@@ -500,7 +500,7 @@ def test_corrupted_membership_replay_fails_without_rewriting_sidecar(
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     _create_run(tmp_path, snapshot)
-    first = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    first = get_play_run_reference_manifest(RUN_ID_A)
     payload = first.model_dump(mode="json", exclude_none=True)
     for element in payload["elements"]:
         if element["element_id"] == "option:fire":
@@ -508,11 +508,11 @@ def test_corrupted_membership_replay_fails_without_rewriting_sidecar(
     _update_manifest_payload(application_state_dsn, RUN_ID_A, payload)
 
     with pytest.raises(PlayRunReferenceManifestError) as exc_info:
-        seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        seal_or_replay_play_run_reference_manifest(RUN_ID_A)
 
     assert exc_info.value.status_code == 500
     with pytest.raises(PlayRunReferenceManifestError):
-        get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        get_play_run_reference_manifest(RUN_ID_A)
 
 
 def test_corrupt_manifest_fails_closed_without_rebuild(
@@ -524,16 +524,16 @@ def test_corrupt_manifest_fails_closed_without_rebuild(
     _update_manifest_payload(application_state_dsn, RUN_ID_A, {"not": "a manifest"})
 
     with pytest.raises(PlayRunReferenceManifestError) as exc_info:
-        get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        get_play_run_reference_manifest(RUN_ID_A)
     assert exc_info.value.status_code == 500
 
 
 def test_seal_holds_runbook_mutation_lock_through_atomic_write(tmp_path: Path) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     record = _create_run(tmp_path, snapshot)
-    manifest_before = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest_before = get_play_run_reference_manifest(RUN_ID_A)
 
-    sealed = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    sealed = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
 
     advanced = update_workspace_document_metadata(
         tmp_path,
@@ -543,7 +543,7 @@ def test_seal_holds_runbook_mutation_lock_through_atomic_write(tmp_path: Path) -
     )
     assert advanced.title == "Advanced after manifest seal"
     assert sealed == manifest_before
-    assert get_play_run_reference_manifest(tmp_path, RUN_ID_A) == manifest_before
+    assert get_play_run_reference_manifest(RUN_ID_A) == manifest_before
     assert sealed.playable_revision == record.playable_revision
     assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
 
@@ -772,7 +772,7 @@ def test_v2_seal_replay_and_binding(tmp_path: Path) -> None:
         tmp_path, name="v2-seal", markdown=C2S27_SHAPED_V2_MARKDOWN
     )
     record = _create_run(tmp_path, snapshot)
-    manifest = seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
+    manifest = seal_or_replay_play_run_reference_manifest(record.run_id)
     assert isinstance(manifest, PlayRunReferenceManifestV2)
     assert manifest.schema_version == "dmb_play_run_reference_manifest_v2"
     assert manifest.run_id == record.run_id
@@ -785,13 +785,13 @@ def test_v2_seal_replay_and_binding(tmp_path: Path) -> None:
     assert len(manifest.edges) == 2
 
     # Replay returns the identical sealed manifest.
-    replayed = seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
+    replayed = seal_or_replay_play_run_reference_manifest(record.run_id)
     assert replayed == manifest
 
     # Immutable replay: advancing the workspace after seal must not change the
     # sealed sidecar, and replay must not consult current workspace state.
     _advance_runbook(tmp_path, snapshot, ADVANCED_MARKDOWN)
-    loaded = get_play_run_reference_manifest(tmp_path, record.run_id)
+    loaded = get_play_run_reference_manifest(record.run_id)
     assert loaded == manifest
 
 
@@ -802,7 +802,7 @@ def test_v2_duplicate_persisted_edge_blocks_native_ready_without_repair(
         tmp_path, name="v2-duplicate-edge", markdown=C2S27_SHAPED_V2_MARKDOWN
     )
     record = _create_run(tmp_path, snapshot)
-    manifest = get_play_run_reference_manifest(tmp_path, record.run_id)
+    manifest = get_play_run_reference_manifest(record.run_id)
     assert isinstance(manifest, PlayRunReferenceManifestV2)
     assert len(manifest.edges) == 2
     payload = manifest.model_dump(mode="json", exclude_none=True)
@@ -833,7 +833,7 @@ def test_v2_first_seal_still_seals_bound_revision_when_workspace_advanced(tmp_pa
     )
     record = _create_run(tmp_path, snapshot)
     _advance_runbook(tmp_path, snapshot, ADVANCED_MARKDOWN)
-    manifest = seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
+    manifest = seal_or_replay_play_run_reference_manifest(record.run_id)
     assert manifest.playable_revision == record.playable_revision
     assert not leftover_manifest_path(tmp_path, record.run_id).exists()
 
@@ -852,7 +852,7 @@ def test_v2_seal_fails_closed_on_invalid_document(tmp_path: Path) -> None:
     assert excinfo.value.status_code in {409, 422}
     assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
     with pytest.raises(PlayRunRegistryError) as seal_exc:
-        seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        seal_or_replay_play_run_reference_manifest(RUN_ID_A)
     assert seal_exc.value.status_code == 404
 
 
@@ -862,13 +862,13 @@ def test_unknown_manifest_schema_version_fails_closed(
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path, name="v1-unknown-schema")
     record = _create_run(tmp_path, snapshot)
-    manifest = get_play_run_reference_manifest(tmp_path, record.run_id)
+    manifest = get_play_run_reference_manifest(record.run_id)
     payload = manifest.model_dump(mode="json", exclude_none=True)
     payload["schema_version"] = "dmb_play_run_reference_manifest_v99"
     _update_manifest_payload(application_state_dsn, record.run_id, payload)
     assert manifest.run_id == record.run_id
     with pytest.raises(PlayRunReferenceManifestError):
-        get_play_run_reference_manifest(tmp_path, record.run_id)
+        get_play_run_reference_manifest(record.run_id)
 
 
 def test_v2_run_creation_and_seal_leave_progress_untouched(tmp_path: Path) -> None:
@@ -877,9 +877,9 @@ def test_v2_run_creation_and_seal_leave_progress_untouched(tmp_path: Path) -> No
     )
     record = _create_run(tmp_path, snapshot)
     before = record.model_dump(mode="json")
-    manifest = seal_or_replay_play_run_reference_manifest(tmp_path, record.run_id)
+    manifest = seal_or_replay_play_run_reference_manifest(record.run_id)
     assert isinstance(manifest, PlayRunReferenceManifestV2)
-    after = get_play_run_reference_manifest(tmp_path, record.run_id)
+    after = get_play_run_reference_manifest(record.run_id)
     assert after == manifest
     from apps.live_control_server.services.play_run_registry import get_play_run
 

@@ -154,7 +154,7 @@ def test_progress_put_round_trip_and_get_includes_snapshot(
 ) -> None:
     snapshot = _create_committed_runbook(root)
     _create_run(client, root, snapshot)
-    manifest_before = get_play_run_reference_manifest(root, RUN_ID_A)
+    manifest_before = get_play_run_reference_manifest(RUN_ID_A)
 
     response = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/progress",
@@ -174,7 +174,7 @@ def test_progress_put_round_trip_and_get_includes_snapshot(
     listed = client.get("/api/live/play-runs")
     assert listed.status_code == 200
     assert listed.json()["records"] == [body]
-    assert get_play_run_reference_manifest(root, RUN_ID_A) == manifest_before
+    assert get_play_run_reference_manifest(RUN_ID_A) == manifest_before
     assert not leftover_manifest_path(root, RUN_ID_A).exists()
 
 
@@ -353,7 +353,7 @@ def test_native_ready_get_does_not_seed_corrupted_sealed_beat_kind(
 ) -> None:
     snapshot = _create_committed_v2_runbook(root)
     _create_run(client, root, snapshot)
-    manifest = get_play_run_reference_manifest(root, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     payload = manifest.model_dump(mode="json")
     first = payload["beats"][0]
     first["beat_kind"] = "optional" if first.get("beat_kind") == "spine" else "spine"
@@ -377,7 +377,7 @@ def test_native_ready_get_does_not_seed_corrupted_manifest_binding(
 ) -> None:
     snapshot = _create_committed_v2_runbook(root)
     _create_run(client, root, snapshot)
-    manifest = get_play_run_reference_manifest(root, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     payload = manifest.model_dump(mode="json")
     original_sha = payload["playable_content_sha256"]
     payload["playable_content_sha256"] = "0" * 64

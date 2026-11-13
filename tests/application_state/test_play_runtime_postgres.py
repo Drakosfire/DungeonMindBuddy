@@ -61,8 +61,8 @@ def test_create_seals_manifest_atomically_and_writes_no_files(
     assert record.run_revision == 1
     assert record.playable_artifact_id == snapshot.record.document_id
     assert "markdown" not in record.model_dump_json()
-    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
-    replayed = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
+    replayed = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
     assert replayed == manifest
     assert manifest.playable_revision == record.playable_revision
     assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
@@ -287,7 +287,7 @@ def test_create_replay_rejects_corrupt_stored_manifest(
 ) -> None:
     snapshot = create_committed_runbook(tmp_path, name="corrupt-manifest-create")
     created = create_run(tmp_path, snapshot)
-    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     cases = [
         {},
         unknown_schema_manifest(manifest.model_dump(mode="json", exclude_none=True)),
@@ -305,7 +305,7 @@ def test_create_replay_rejects_corrupt_stored_manifest(
             list_play_runs(tmp_path)
         assert list_exc.value.status_code == 500
         with pytest.raises(PlayRunReferenceManifestError) as manifest_exc:
-            get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+            get_play_run_reference_manifest(RUN_ID_A)
         assert manifest_exc.value.status_code == 500
         leftover = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
         assert leftover == before
@@ -329,7 +329,7 @@ def test_play_runtime_latency_samples(
             expected_playable_revision=revision_n,
             expected_playable_content_sha256=sha,
         )
-        seal_or_replay_play_run_reference_manifest(tmp_path, run_id)
+        seal_or_replay_play_run_reference_manifest(run_id)
 
     start_p50, start_p95, start_max = measure_ms(start_and_seal, samples=30)
     durable = create_run(tmp_path, snapshot, run_id=RUN_ID_A)
@@ -618,7 +618,7 @@ def test_v2_native_first_admission_does_not_seed_corrupted_sealed_edges(
         tmp_path, name="bf2-corrupt-kind", markdown=BF2_SPINE_MARKDOWN
     )
     create_run(tmp_path, snapshot)
-    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     payload = manifest.model_dump(mode="json")
     first = payload["beats"][0]
     first["beat_kind"] = "optional" if first.get("beat_kind") == "spine" else "spine"

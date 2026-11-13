@@ -409,7 +409,7 @@ def resolve_agent_play_surface_context(
         )
 
     try:
-        manifest = get_play_run_reference_manifest(root, run_id)
+        manifest = get_play_run_reference_manifest(run_id)
     except Exception:
         return _resolution(
             context=None,
@@ -624,7 +624,7 @@ def _resolve_world_play_surface_context_v2(
 
     try:
         manifest = get_world_play_run_reference_manifest(
-            root, world_id=request.world_id, run_id=request.run_id
+            world_id=request.world_id, run_id=request.run_id
         )
     except Exception as exc:
         raise WorldPlaySurfaceContextError(
@@ -758,7 +758,7 @@ def resolve_world_play_session_turn_snapshot(
         )
     try:
         manifest = get_world_play_run_reference_manifest(
-            root, world_id=world_id, run_id=run_id
+            world_id=world_id, run_id=run_id
         )
     except Exception as exc:
         raise WorldPlaySurfaceContextError(
@@ -929,7 +929,7 @@ def _resolve_historical_world_play_session_turn_snapshot(
         )
         record = get_world_play_run(root, world_id=world_id, run_id=receipt.run_id)
         manifest = get_world_play_run_reference_manifest(
-            root, world_id=world_id, run_id=receipt.run_id
+            world_id=world_id, run_id=receipt.run_id
         )
         committed = get_committed_playable_revision(
             receipt.runbook_object_id,

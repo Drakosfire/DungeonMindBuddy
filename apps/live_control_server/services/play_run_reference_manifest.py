@@ -825,8 +825,7 @@ def derive_play_run_reference_elements_v2(markdown: str) -> DerivedV2Membership:
     )
 
 
-def get_play_run_reference_manifest(root: Path, run_id: str) -> AnyPlayRunReferenceManifest:
-    del root
+def get_play_run_reference_manifest(run_id: str) -> AnyPlayRunReferenceManifest:
     from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
     from application_state.play.service import get_play_run_manifest
     from apps.live_control_server.services.play_run_registry import _validate_run_id
@@ -842,10 +841,8 @@ def get_play_run_reference_manifest(root: Path, run_id: str) -> AnyPlayRunRefere
 
 
 def seal_or_replay_play_run_reference_manifest(
-    root: Path,
     run_id: str,
 ) -> AnyPlayRunReferenceManifest:
-    del root
     from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
     from application_state.play.service import replay_play_run_manifest
     from apps.live_control_server.services.play_run_registry import _validate_run_id
@@ -861,9 +858,8 @@ def seal_or_replay_play_run_reference_manifest(
 
 
 def get_world_play_run_reference_manifest(
-    root: Path, *, world_id: str, run_id: str
+    *, world_id: str, run_id: str
 ) -> AnyPlayRunReferenceManifest:
-    del root
     from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
     from application_state.play.service import get_world_play_run_manifest
     from apps.live_control_server.services.play_run_registry import (

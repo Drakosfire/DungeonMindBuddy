@@ -106,7 +106,7 @@ def test_legacy_file_malformation_is_ignored_by_ordinary_get(tmp_path: Path) -> 
 
 def test_valid_selection_is_idempotent_and_survives_re_read(tmp_path: Path) -> None:
     run = _create_committed_run(tmp_path, run_id=RUN_ID_A, name="north-gate")
-    seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    seal_or_replay_play_run_reference_manifest(RUN_ID_A)
 
     first = set_play_active_run(run_id=run.run_id)
     second = set_play_active_run(run_id=run.run_id)
@@ -121,8 +121,8 @@ def test_valid_selection_is_idempotent_and_survives_re_read(tmp_path: Path) -> N
 def test_different_valid_run_replaces_pointer_without_mutating_runs(tmp_path: Path) -> None:
     run_a = _create_committed_run(tmp_path, run_id=RUN_ID_A, name="north-gate")
     run_b = _create_committed_run(tmp_path, run_id=RUN_ID_B, name="south-wall")
-    seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
-    seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_B)
+    seal_or_replay_play_run_reference_manifest(RUN_ID_A)
+    seal_or_replay_play_run_reference_manifest(RUN_ID_B)
 
     set_play_active_run(run_id=run_a.run_id)
     replaced = set_play_active_run(run_id=run_b.run_id)
