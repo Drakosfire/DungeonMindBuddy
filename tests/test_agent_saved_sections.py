@@ -234,7 +234,7 @@ def test_named_projection_deduplicates_history_metadata_without_changing_targets
         workspace_document_id=basis.document_id, workspace_document_revision=basis.registry_revision,
         visibility_state=basis.visibility, lineage={"source_name": "Original committed source name"})
     calls = []
-    def batch(root, identities):
+    def batch(identities):
         calls.append(identities)
         return {identity: artifact}
     monkeypatch.setattr(registry, "get_source_artifacts", batch)
