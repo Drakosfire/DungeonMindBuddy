@@ -257,6 +257,31 @@ def complete_object(body: NativeCompleteObjectRead, principal):
             is_head=pin.revision_id == head.head_revision_id,
         ),
     )
+    from apps.live_control_server.models.world_graph_object_projection import (
+        object_projection_semantic_fingerprint,
+    )
+
+    for binding in result.source_bindings:
+        if binding.provenance_status != "span_unresolvable":
+            continue
+        opened = open_admitted_native_text(access, binding.evidence_ref_id)
+        if opened.status != "available":
+            continue
+        binding.excerpt = opened.body_text.encode("utf-8")[
+            opened.span_start_byte : opened.span_end_byte
+        ].decode("utf-8")
+        binding.provenance_status = "excerpt_ready"
+        result.telemetry.excerpt_count += 1
+    if result.telemetry.excerpt_count:
+        result.semantic_fingerprint = object_projection_semantic_fingerprint(
+            revision_id=pin.revision_id,
+            node_id=request.node_id,
+            admissibility=request.admissibility,
+            assertions=result.assertions,
+            relationships=result.relationships,
+            related_node_ids=[node.node_id for node in result.related_nodes],
+            source_bindings=result.source_bindings,
+        )
     if native.binding(pin.managed_world_id) != bound:
         raise InspectionUnavailable("native_inspection_binding_changed")
     return result.model_dump(mode="json", by_alias=True)
