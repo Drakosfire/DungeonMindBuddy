@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 import os
+import re
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -388,11 +389,16 @@ def create_app() -> FastAPI:
         if not requested.is_relative_to(static_root):
             return PlainTextResponse("Not found", status_code=404)
         if requested.is_file():
-            return FileResponse(requested)
+            cache_control = "no-cache"
+            if requested.parent == static_root / "assets" and re.fullmatch(
+                r".+-[A-Za-z0-9_-]{8}\.[A-Za-z0-9]+", requested.name
+            ):
+                cache_control = "public, max-age=31536000, immutable"
+            return FileResponse(requested, headers={"Cache-Control": cache_control})
         if spa_path == "assets" or spa_path.startswith("assets/"):
             return PlainTextResponse("Not found", status_code=404)
         if request.headers.get("accept", "").lower().find("text/html") >= 0:
-            return FileResponse(index_path)
+            return FileResponse(index_path, headers={"Cache-Control": "no-cache"})
         return PlainTextResponse("Not found", status_code=404)
 
     application.add_api_route(
