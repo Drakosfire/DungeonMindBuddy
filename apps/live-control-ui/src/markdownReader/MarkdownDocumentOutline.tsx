@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import type { Content, Root } from "mdast";
 import { parseMarkdownAst } from "../tiptap/markdown/parseMarkdownAst";
 import { stripLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
@@ -16,15 +15,4 @@ export function markdownDocumentHeadings(markdown: string, ast?: Root) {
   }
   for (const child of (ast ?? parseMarkdownAst(stripLeadingYamlFrontmatter(markdown).markdown)).children) visit(child);
   return headings;
-}
-
-export function MarkdownDocumentOutline({ markdown }: { markdown: string }) {
-  const headings = useMemo(() => markdownDocumentHeadings(markdown), [markdown]);
-  const minimumDepth = Math.min(...headings.map(heading => heading.depth));
-  return <nav className="markdown-document-outline" aria-label="On this page">
-    {headings.length ? <ol>{headings.map(heading => <li key={heading.id}
-      style={{ paddingInlineStart: `${Math.min(heading.depth - minimumDepth, 2) * 0.75}rem` }}>
-      <a href={`#${heading.id}`}>{heading.text || "Untitled section"}</a>
-    </li>)}</ol> : <p>No headings in this document.</p>}
-  </nav>;
 }
