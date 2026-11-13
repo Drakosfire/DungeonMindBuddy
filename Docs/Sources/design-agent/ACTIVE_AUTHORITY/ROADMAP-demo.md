@@ -709,17 +709,8 @@ that their foundations are absent. Historical slices retain their IDs.
   remained outstanding at that checkpoint. The current exact-head code/test
   evidence and unpassed live/review gates are recorded above; #785 is not
   merge-ready and does not close J4.
-- **DEMO-J1 input-pin recheck:** the local purchased
-  `/home/drakosfire/Downloads/of-conks-cons-v21-gold/specimens/01-cleaned-single-column.md`
-  is still 48,778 bytes / 565 lines, SHA-256
-  `7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1`.
-  It is human-normalized parsed Markdown, not proof of production PDF parsing.
-  `specimens/02-prepared.md` matches its manufactured-target pin; the actual
-  `playable/hempholm-prep.md` remains at the already recorded `c473329d…`
-  rather than its stale local manifest pin. Do not use either manufactured
-  target as real-generation evidence. Browser Import source currently exposes
-  a Markdown paste field, not a file chooser. No new full-source import was
-  submitted in this checkpoint, so the long-file browser witness remains open.
+- **DEMO-J1 input-pin recheck:** use the [portable input verification instructions](https://github.com/Drakosfire/DungeonMindBuddy/blob/3c7adb16d3a74522940542f8c4e94bb02c86fc82/Docs/Roadmaps/ROADMAP-demo.md#verify-the-historical-demo-j1-input).
+  The [historical export checkpoint](https://github.com/Drakosfire/DungeonMindBuddy/blob/3c7adb16d3a74522940542f8c4e94bb02c86fc82/Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md) preserves the specimen details and browser evidence.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
