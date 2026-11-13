@@ -119,6 +119,23 @@ can remain running after the wait expires.
 
 Require the expected image ID, a loopback binding, successful health and SPA requests, and a signed-out `401`. If readiness fails, check database connectivity, schema revisions, and directory access before continuing.
 
+Before public cutover, record the running container's log driver and configured
+rotation limits. Run this on the deployment host:
+
+```bash
+(
+  set -e
+  buddy_container=$("${buddy_compose[@]}" ps -q buddy)
+  test -n "$buddy_container"
+  docker inspect --format '{{with .HostConfig.LogConfig}}{{.Type}} max-size={{index .Config "max-size"}} max-file={{index .Config "max-file"}}{{end}}' "$buddy_container"
+)
+```
+
+For a driver that manages retention outside Docker, verify its policy with the
+host operator. An empty limit in this output requires checking the effective
+policy. If retention is unbounded, agree on a cap and verify rotation and access
+to recent startup logs on a disposable stack before exposing Buddy publicly.
+
 ## 4. Verify DNS, TLS, and the proxy
 
 Record the existing Nginx configuration. Install the [streaming proxy fragment](../../deploy/production/nginx-buddy.conf) in the selected Buddy TLS virtual host and match its upstream port to step 3. Use the edge owner's DNS and certificate procedures for records, issuance, and renewal.
