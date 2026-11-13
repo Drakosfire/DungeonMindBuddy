@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Attempt verifier worktree removal even when final source inspection fails
+
+The frontend verifier attempts Git worktree removal even if final source inspection raises. The regression verifies that the worktree is unregistered and the inspection error remains in the report when cleanup succeeds. If both operations fail, the report surfaces the removal error. All 67 focused local tests and the GitHub verifier guard passed. [PR #2651](https://github.com/Drakosfire/DungeonMindBuddy/pull/2651)
+
 ## [DONE] Measure repeated Graph ingest manifest discovery
 
 PRs #2634–#2639 and #2641 reduced redundant manifest reads, deduplicated overlapping paths, handled concurrent removal, selected the latest preview in one pass, shared validation, and removed repeated descriptor work. The primary checkout replay covered 59 manifests and 23 filters. Nine fallback reads opened 18 connections on disposable PostgreSQL 16. Only one scan had multiple distinct IDs, so batching could save at most two connections in that replay. For two registered synthetic descriptors, the median was 10.95 ms individually and 5.36 ms batched over 15 repetitions per mode. Retained per-ID lookup for the observed workload. The live trace and failure isolation criteria are tracked in [Backlog.md](Backlog.md). See [the benchmark disposition](https://github.com/Drakosfire/DungeonMindBuddy/pull/2645) for the decision.
