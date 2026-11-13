@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.build_ingested_corpus_library import SCHEMA_ID, build_library
+from src.live_play.ingested_corpus_library import SCHEMA_ID, build_library
 
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT = ROOT / "Docs/data/ingested-corpus-library/ingested_corpus_library.json"
