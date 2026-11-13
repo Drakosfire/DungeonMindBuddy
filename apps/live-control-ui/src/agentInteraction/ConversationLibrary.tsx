@@ -59,11 +59,14 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   try{const page=await readPage(id,cursor);if(!alive(owner)||epoch!==detailEpoch.current)return;
    setTurns(old => {
     const incomingIds = new Set(page.turns.map(turn => turn.turn_id));
-    if (incomingIds.size === 0) return old;
     if (
       incomingIds.size === page.turns.length &&
-      (!old.length || page.turns[page.turns.length - 1].sequence < old[0].sequence) &&
-      !old.some(turn => incomingIds.has(turn.turn_id))
+      (!old.length || !page.turns.length || page.turns[page.turns.length - 1].sequence < old[0].sequence) &&
+      old.every(turn => {
+       if (incomingIds.has(turn.turn_id)) return false;
+       incomingIds.add(turn.turn_id);
+       return true;
+      })
     ) {
       return [...page.turns, ...old];
     }
