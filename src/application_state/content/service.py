@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel
 
-from application_state.cli import assert_at_head
+from application_state.cli import assert_at_head, assert_connection_at_head
 from application_state.config import load_runtime_dsn
 from application_state.content import repository as repo
 from application_state.content.types import (
@@ -195,8 +195,8 @@ def create_runbook(
 def get_content_optional(document_id: str) -> WorkObject | None:
     work_object_id = _require_uuid(document_id)
     dsn = load_runtime_dsn()
-    assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        assert_connection_at_head(conn)
         obj = repo.get_work_object(conn, work_object_id)
         return None if obj is None else _require_kind(obj, None)
 
@@ -244,8 +244,8 @@ def list_plans(
             "campaign_id and world_id are mutually exclusive scopes"
         )
     dsn = load_runtime_dsn()
-    assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        assert_connection_at_head(conn)
         return repo.list_work_objects(
             conn, kind="plan", campaign_id=campaign_id, world_id=world_id, status=status
         )
@@ -257,8 +257,8 @@ def list_runbooks(
     status: str | None = "active",
 ) -> list[WorkObject]:
     dsn = load_runtime_dsn()
-    assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        assert_connection_at_head(conn)
         return repo.list_work_objects(
             conn, kind="runbook", campaign_id=campaign_id, status=status
         )
@@ -287,8 +287,8 @@ def _snapshot_body(conn, obj: _StoredContentObject) -> tuple[str, str, bool, Wor
 def snapshot_content(document_id: str) -> ContentSnapshot:
     work_object_id = _require_uuid(document_id)
     dsn = load_runtime_dsn()
-    assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        assert_connection_at_head(conn)
         obj = repo.get_work_object(conn, work_object_id)
         if obj is None:
             raise ApplicationStateNotFoundError(f"workspace document not found: {document_id}")
