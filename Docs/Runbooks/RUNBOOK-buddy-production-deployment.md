@@ -81,7 +81,8 @@ Save the override with the release record. Apply only the production migrations 
     printf '%s %s\n' "$buddy_status" "$buddy_path"
     test "$buddy_status" = 200
   done
-  test "$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")" = 401
+  buddy_status=$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")
+  test "$buddy_status" = 401
 )
 ```
 
