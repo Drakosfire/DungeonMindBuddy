@@ -405,7 +405,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         <section aria-label="PDF source" className="pdf-statblock-review__pane" tabIndex={0}>
       {review && <>
           {review.regions.map((locator, index) => (
-            <button type="button" key={index} onClick={() => { setError(""); setRegion(locator); }}>
+            <button type="button" key={index} onClick={() => { setError(""); setRegion({ ...locator }); }}>
               Open source region {index + 1} · Page {locator.page}
             </button>
           ))}
