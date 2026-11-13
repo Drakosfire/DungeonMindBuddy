@@ -242,6 +242,26 @@ describe("NativeGraphDemo", () => {
     expect(scene.getAttribute("transform")).toBe(revealedOverviewCamera);
   });
 
+  it("aborts an active graph refresh on unmount", async () => {
+    const graph = corpusGraph();
+    const stalled = deferred<NativeGraph>();
+    const readGraph = vi.fn<(signal?: AbortSignal) => Promise<NativeGraph>>()
+      .mockResolvedValueOnce(graph)
+      .mockReturnValueOnce(stalled.promise);
+    const view = renderEmbeddedDemo({ api: makeApi({ readGraph }), mode: "managed", worldTitle: "Corpus", stateScopeId: "managed:world-17" });
+    await screen.findByRole("button", { name: "Find an object · 1404 loaded" });
+    const refresh = graphAction("Refresh");
+    act(() => {
+      refresh.click();
+      refresh.click();
+    });
+    expect(readGraph).toHaveBeenCalledTimes(2);
+    const signal = readGraph.mock.calls[1][0];
+    expect(signal?.aborted).toBe(false);
+    view.unmount();
+    expect(signal?.aborted).toBe(true);
+  });
+
   it.each([false, true])("clears and reframes exploration on revision refresh (after Fit: %s)", async (afterFit) => {
     const corpus = corpusGraph();
     vi.stubGlobal("ResizeObserver", undefined);

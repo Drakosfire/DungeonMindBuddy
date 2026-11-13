@@ -530,6 +530,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const connectPredicateSelectRef = useRef<HTMLSelectElement | null>(null);
   const generationRef = useRef(0);
   const graphRequestGenerationRef = useRef(0);
+  const refreshControllerRef = useRef<AbortController | null>(null);
   const mountedOwnerRef = useRef<number | null>(null);
   const pendingActionRef = useRef<"confirm" | "edit" | null>(null);
   const componentScope = `${mode}:${stateScopeId ?? "default"}`;
@@ -927,6 +928,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   useEffect(() => {
     const owner = ++generationRef.current;
     mountedOwnerRef.current = owner;
+    setRefreshing(false);
     const graphRequest = ++graphRequestGenerationRef.current;
     setLoading(true);
       if (mode === "managed" && !stateScopeId) {
@@ -936,7 +938,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
           if (mountedOwnerRef.current === owner) mountedOwnerRef.current = null;
         };
       }
-    api.readGraph().then(async (loadedGraph) => {
+    const controller = new AbortController();
+    api.readGraph(controller.signal).then(async (loadedGraph) => {
       if (!installReadGraph(loadedGraph, graphRequest, owner)) return;
       const saved = readOnly ? null : safeReadDraft(loadedGraph.world_id, stateScopeId);
       const restoredDraft = saved?.draft ?? EMPTY_DRAFT;
@@ -965,17 +968,22 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       setNotice({ kind: "error", text: describeError(error) });
     });
     return () => {
+      controller.abort();
+      refreshControllerRef.current?.abort();
+      refreshControllerRef.current = null;
       if (mountedOwnerRef.current === owner) mountedOwnerRef.current = null;
     };
   }, [api, componentScope, readOnly, recoverOperation, stateScopeId]);
 
   const refreshGraph = useCallback(async () => {
     const owner = mountedOwnerRef.current;
-    if (!ownsMount(owner) || refreshing || pendingRef.current) return;
+    if (!ownsMount(owner) || refreshControllerRef.current || pendingRef.current) return;
+    const controller = new AbortController();
+    refreshControllerRef.current = controller;
     const graphRequest = ++graphRequestGenerationRef.current;
     setRefreshing(true);
     try {
-      const nextGraph = await api.readGraph();
+      const nextGraph = await api.readGraph(controller.signal);
       if (!ownsMount(owner) || pendingRef.current) return;
       if (!installReadGraph(nextGraph, graphRequest, owner)) return;
       if (nextGraph.world_id !== layout.worldId) {
@@ -1003,9 +1011,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       if (!ownsMount(owner) || graphRequest !== graphRequestGenerationRef.current) return;
       setNotice({ kind: "error", text: `The latest graph could not be loaded. Your draft is unchanged: ${describeError(error)}` });
     } finally {
-      if (ownsMount(owner)) setRefreshing(false);
+      if (refreshControllerRef.current === controller) {
+        refreshControllerRef.current = null;
+        if (ownsMount(owner)) setRefreshing(false);
+      }
     }
-  }, [api, installServerGraph, layout, readOnly, recoverOperation, refreshing, setPendingOperation, setPendingPhase, stateScopeId]);
+  }, [api, layout.worldId, readOnly, recoverOperation, setPendingOperation, stateScopeId]);
 
   function updateDraft(patch: Partial<DemoFormDraft>) {
     setDraftAndPersist({ ...draftRef.current, ...patch });
