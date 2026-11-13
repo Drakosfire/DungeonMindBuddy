@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-import re
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from apps.live_control_server.services.corpus_index_helpers import (
+    _display_path,
+    _mtime_iso,
+    _parse_scalar,
+    _safe_under,
+    _text_value,
+    _title_from_body,
+)
 from src.ingestion.frontmatter import FrontmatterParseError, split_frontmatter
 
 CORPUS_MARKDOWN_ROOT = Path("corpus") / "eldyrwild-markdown"
@@ -17,7 +23,6 @@ CAMPAIGN_2_NPCS_REL = Path("Longmont Campaign/Campaign 2/NPCs")
 
 NpcIndexSection = Literal["mireward_setting", "campaign_2"]
 
-_HEADING_RE = re.compile(r"^#\s+(.+)$", re.M)
 
 
 class NpcCorpusIndexItem(BaseModel):
@@ -44,19 +49,6 @@ class NpcCorpusIndexResponse(BaseModel):
     diagnostics: list[str] = Field(default_factory=list)
 
 
-def _parse_scalar(raw: str) -> str | int | None:
-    value = raw.strip()
-    if value in {"", "null", "NULL", "None", "none", "~"}:
-        return None
-    if (value.startswith('"') and value.endswith('"')) or (
-        value.startswith("'") and value.endswith("'")
-    ):
-        return value[1:-1]
-    if value.isdigit():
-        return int(value)
-    return value
-
-
 def _parse_loose_frontmatter_block(block: str) -> dict[str, Any]:
     payload: dict[str, Any] = {}
     for line in block.splitlines():
@@ -68,37 +60,6 @@ def _parse_loose_frontmatter_block(block: str) -> dict[str, Any]:
         if key:
             payload[key] = _parse_scalar(raw_value)
     return payload
-
-
-def _text_value(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def _title_from_body(body: str) -> str | None:
-    match = _HEADING_RE.search(body)
-    if not match:
-        return None
-    return match.group(1).strip()
-
-
-def _display_path(root: Path, path: Path) -> str:
-    return path.relative_to(root.resolve()).as_posix()
-
-
-def _safe_under(root: Path, path: Path) -> bool:
-    try:
-        path.resolve().relative_to(root.resolve())
-    except ValueError:
-        return False
-    return True
-
-
-def _mtime_iso(path: Path) -> str:
-    ts = path.stat().st_mtime
-    return datetime.fromtimestamp(ts, tz=UTC).isoformat()
 
 
 def _first_existing(hub_dir: Path, patterns: list[str]) -> Path | None:
