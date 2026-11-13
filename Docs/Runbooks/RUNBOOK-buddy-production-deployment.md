@@ -52,7 +52,7 @@ Test required migrations against the restored copies. Before applying them to pr
 
 ## 3. Build and start on loopback
 
-Provision a protected Compose environment file outside the checkout with the variables required by the [production Compose example](../../deploy/production/compose.production.yaml). Use the approved DMS HTTPS origin, trust `https://buddy.dungeonmind.net`, and configure the approved World assignments and both database URLs. Set `BUDDY_PERSISTENT_ROOT` to the durable host directory. Create its `managed`, `artifacts`, `sessions`, and `worldgraph` directories with access for container UID/GID 10001.
+Provision a protected Compose environment file outside the checkout with the variables required by the [production Compose example](../../deploy/production/compose.production.yaml). Use the approved DMS HTTPS origin, trust `https://buddy.dungeonmind.net`, and configure the approved World assignments and both database URLs. Set `BUDDY_PERSISTENT_ROOT` to the absolute path of the approved durable host directory. Create its `managed`, `artifacts`, `sessions`, and `worldgraph` directories with access for container UID/GID 10001.
 
 ```bash
 read -r -p 'Approved release commit: ' buddy_release
@@ -102,7 +102,26 @@ and base Compose path, the Compose project name, and the absolute paths to
 the saved override and protected environment file. Keep a release-specific
 protected copy of the environment file or a reference to an immutable
 version in the approved secret store. Record the image tag and verified
-image ID together. Keep credential values in the protected store. Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
+image ID together. Keep credential values in the protected store. Before applying migrations or starting Buddy, check the configured mount with
+the release image's default user. This checks permissions without writing files
+or starting the application.
+
+```bash
+"${buddy_compose[@]}" run --rm --no-deps --no-build --pull never --entrypoint /bin/sh buddy -ec '
+  test "$(id -u):$(id -g)" = 10001:10001
+  for directory in managed artifacts sessions worldgraph; do
+    path="/var/lib/buddy/$directory"
+    if ! { test -d "$path" && test -r "$path" && test -w "$path" && test -x "$path"; }; then
+      printf "Buddy release user cannot access %s\n" "$path" >&2
+      exit 1
+    fi
+  done
+'
+```
+
+Require the access probe to succeed before continuing.
+
+Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
 
 ```bash
 (
