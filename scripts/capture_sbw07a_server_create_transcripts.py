@@ -21,6 +21,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -89,6 +90,24 @@ def _prepare_output_dirs(out_dir: Path, fixtures_dir: Path, *, scratch: bool) ->
         except FileExistsError as exc:
             raise SystemExit("Scratch output must be a new directory.") from exc
         fixtures_dir.mkdir()
+
+
+def _publish_capture(out_dir: Path, outputs: dict[Path, bytes]) -> None:
+    marker = out_dir / ".capture-in-progress"
+    with tempfile.TemporaryDirectory(prefix=".capture-stage-", dir=out_dir) as directory:
+        staged = Path(directory)
+        for index, payload in enumerate(outputs.values()):
+            (staged / str(index)).write_bytes(payload)
+
+        try:
+            marker.touch(exist_ok=False)
+        except FileExistsError as exc:
+            raise SystemExit(f"Interrupted or active capture: {marker}") from exc
+
+        # Keep the marker on failure. The manifest is the final replacement.
+        for index, target in enumerate(outputs):
+            (staged / str(index)).replace(target)
+        marker.unlink()
 
 
 def main() -> None:
@@ -427,11 +446,10 @@ def main() -> None:
     }
     manifest_bytes = (json.dumps(manifest, indent=2) + "\n").encode("utf-8")
     _prepare_output_dirs(out_dir, fixtures_dir, scratch=args.out_subdir is not None)
-    for name, payload in leaf_bytes.items():
-        (fixtures_dir / name).write_bytes(payload)
-    for name, payload in transcript_bytes.items():
-        (out_dir / name).write_bytes(payload)
-    (out_dir / "MANIFEST.json").write_bytes(manifest_bytes)
+    outputs = {fixtures_dir / name: payload for name, payload in leaf_bytes.items()}
+    outputs.update({out_dir / name: payload for name, payload in transcript_bytes.items()})
+    outputs[out_dir / "MANIFEST.json"] = manifest_bytes
+    _publish_capture(out_dir, outputs)
     print(
         json.dumps(
             {
