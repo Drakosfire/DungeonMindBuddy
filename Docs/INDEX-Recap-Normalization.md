@@ -68,10 +68,10 @@ Using existing manual breadcrumb artifacts (still aligned to **original** recap 
 
 | Gold | Report artifact | `all_ok` |
 |------|-----------------|----------|
-| `gold/breadcrumb_query_natural_c1s1_v1.json` | `evals/sentence_routing_retrieval_falsification/artifacts/c1s1_norm_smoke.json` | true |
-| `gold/breadcrumb_query_natural_c1s2_v1.json` | `artifacts/c1s2_norm_smoke.json` | true |
-| `gold/breadcrumb_query_natural_c1s3_v1.json` | `artifacts/c1s3_norm_smoke.json` | true |
-| `gold/breadcrumb_query_natural_v1.json` (C2S20) | `artifacts/c2s20_norm_smoke.json` | false |
+| `gold/breadcrumb_query_natural_c1s1_v1.json` | [c1s1_norm_smoke.json](https://github.com/Drakosfire/DungeonMindBuddy/blob/baba43211833324949511487b4796ffc454bd11c/evals/sentence_routing_retrieval_falsification/artifacts/c1s1_norm_smoke.json) | true |
+| `gold/breadcrumb_query_natural_c1s2_v1.json` | [c1s2_norm_smoke.json](https://github.com/Drakosfire/DungeonMindBuddy/blob/baba43211833324949511487b4796ffc454bd11c/evals/sentence_routing_retrieval_falsification/artifacts/c1s2_norm_smoke.json) | true |
+| `gold/breadcrumb_query_natural_c1s3_v1.json` | [c1s3_norm_smoke.json](https://github.com/Drakosfire/DungeonMindBuddy/blob/baba43211833324949511487b4796ffc454bd11c/evals/sentence_routing_retrieval_falsification/artifacts/c1s3_norm_smoke.json) | true |
+| `gold/breadcrumb_query_natural_v1.json` (C2S20) | [c2s20_norm_smoke.json](https://github.com/Drakosfire/DungeonMindBuddy/blob/baba43211833324949511487b4796ffc454bd11c/evals/sentence_routing_retrieval_falsification/artifacts/c2s20_norm_smoke.json) | false |
 
 C2S20 run: **Cost:** $0 (retrieval-only, no LLM). Failures are existing `missing_expected_route_hit` / route-gate scenarios (e.g. `q_lysandra_change_unresolved`), not evidence of corpus-path drift from `_normalized/` (breadcrumb file still references `Session 20 - Recap.md`).
 
