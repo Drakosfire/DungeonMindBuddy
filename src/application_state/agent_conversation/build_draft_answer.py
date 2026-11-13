@@ -300,7 +300,7 @@ def native_variants(frame, prose, *, local=False):
     from .native_build_work_view import statblock_pdf_excerpts
     pdf_sources = [excerpt['source'] for _, excerpt in statblock_pdf_excerpts(frame)] if local else []
     if pdf_sources:
-        variants.append(_object({'kind':_literal('statblock_pdf_claim'),'text':prose,
+        variants.append(_object({'kind':_literal('statblock_pdf_claim'),
             'source':_enum(pdf_sources),'quote':prose}))
     lane=frame.get('working_draft_context')
     if lane is not None:

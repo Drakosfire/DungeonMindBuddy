@@ -369,7 +369,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
             if saved_statblock == "associated":
                 candidate["answer_segments"].append(dict(kind="statblock_pdf_claim",
-                    text="Meat Mind has 41 hit points.", source="pdf0:0", quote="Hit Points 41"))
+                    source="pdf0:0", quote="Hit Points 41"))
             if native_body or authored_source:
                 from application_state.agent_conversation import native_corpus as corpus
                 acquired = corpus.acquired_body_reads(self.adapter._broker_execution())
@@ -1594,6 +1594,7 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
     assert references[0]["revision_id"] == "rev_meatmind"
     sources = references[0]["pdf_sources"]
     if mode == "associated":
+        assert "Hit Points 41" in response.json()["messages"][-1]["assistant_text"]
         assert sources["scope"]["managed_world_id"] == case.world
         assert sources["support"] == [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture"}]
     else:

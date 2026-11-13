@@ -211,7 +211,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()
     for row in candidate['answer_segments']:
-        if (not isinstance(row,dict) or row.get('kind') != 'authored_excerpt'
+        if (not isinstance(row,dict) or row.get('kind') not in {'authored_excerpt', 'statblock_pdf_claim'}
                 and (not isinstance(row.get('text'),str) or not row['text'].strip())):
             raise ValueError('Native completion contains an invalid segment')
         if row.get('kind') in {'draft_reference_claim','related_page_claim','saved_source_claim','discussion'}:
@@ -234,11 +234,11 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             from .native_build_work_view import resolve_statblock_pdf_quote
 
             if (execution.policy.action.surface_id != 'build' or not evidence.build_local
-                    or set(row) != {'kind', 'text', 'source', 'quote'}):
+                    or set(row) != {'kind', 'source', 'quote'}):
                 raise ValueError('PDF claim requires the producing Build work frame')
             scope, assertion_id, evidence_ref_id = resolve_statblock_pdf_quote(
                 evidence.work_frame, row['source'], row['quote'])
-            segments.append(StatblockPdfClaim(kind='statblock_pdf_claim', text=row['text'],
+            segments.append(StatblockPdfClaim(kind='statblock_pdf_claim', text=row['quote'],
                 scope=scope, assertion_id=assertion_id, evidence_ref_id=evidence_ref_id))
         elif row.get('kind') in {'authored_excerpt','session_summary'}:
             segments.append(authored_selected_segment(row,blocks=blocks,selectors=selectors,selected_blocks=selected_blocks))
