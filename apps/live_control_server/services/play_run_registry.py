@@ -810,8 +810,7 @@ def world_session_outcome(result):
             "manifest": result.aggregate.manifest.manifest, "receipt": result.receipt}
 
 
-def create_or_replay_world_play_run(root: Path, *, world_id: str, run_id: str, request):
-    del root
+def create_or_replay_world_play_run(*, world_id: str, run_id: str, request):
     from application_state.errors import ApplicationStateError
     from application_state.play.service import create_world_play_run
     try:
@@ -852,14 +851,12 @@ def replace_world_play_run_progress(
 
 
 def create_or_replay_play_run(
-    root: Path,
     *,
     run_id: str,
     playable_artifact_id: str,
     expected_playable_revision: int,
     expected_playable_content_sha256: str,
 ) -> PlayRunRecord:
-    del root
     from application_state.errors import ApplicationStateError
     from application_state.play.service import create_play_run
 

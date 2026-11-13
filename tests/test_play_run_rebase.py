@@ -219,7 +219,6 @@ def _create_committed_runbook(
 
 def _create_run(root: Path, snapshot: WorkspaceDocumentSnapshot):
     return create_or_replay_play_run(
-        root,
         run_id=RUN_ID_A,
         playable_artifact_id=snapshot.record.document_id,
         expected_playable_revision=_playable(snapshot)[0],
@@ -513,7 +512,6 @@ def test_p2a_old_binding_conflicts_after_rebase(tmp_path: Path) -> None:
     _rebase(tmp_path, target, expected_run_revision=1)
     with pytest.raises(PlayRunRegistryError) as exc_info:
         create_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=created.playable_artifact_id,
             expected_playable_revision=_playable(source)[0],
@@ -521,7 +519,6 @@ def test_p2a_old_binding_conflicts_after_rebase(tmp_path: Path) -> None:
         )
     assert exc_info.value.status_code == 409
     replayed = create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=created.playable_artifact_id,
         expected_playable_revision=_playable(target)[0],

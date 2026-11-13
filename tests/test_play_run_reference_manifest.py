@@ -171,7 +171,6 @@ def _create_run(
     run_id: str = RUN_ID_A,
 ):
     return create_or_replay_play_run(
-        root,
         run_id=run_id,
         playable_artifact_id=snapshot.record.document_id,
         expected_playable_revision=_playable(snapshot)[0],

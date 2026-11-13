@@ -743,7 +743,7 @@ def _create_real_world_play_context(root: Path, *, kind: str = "plan", historica
         run=_world_record_from_aggregate(historical_world_run(world_id=world.world_id,run_id=str(uuid.uuid4()),playable_artifact_id=obj.work_object_id,expected_playable_revision=revision.revision_n,expected_playable_content_sha256=revision.content_sha256))
     else:
         created = create_or_replay_world_play_run(
-            root, world_id=world.world_id, run_id=str(uuid.uuid4()),
+            world_id=world.world_id, run_id=str(uuid.uuid4()),
             request=session_request(world_id=world.world_id,playable_artifact_id=obj.work_object_id,
                 expected_playable_revision=revision.revision_n,expected_playable_content_sha256=revision.content_sha256),
         )

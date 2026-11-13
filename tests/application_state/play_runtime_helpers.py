@@ -174,7 +174,6 @@ def playable_of(snapshot) -> tuple[int, str]:
 def create_run(root: Path, snapshot, *, run_id: str = RUN_ID_A):
     revision_n, sha = playable_of(snapshot)
     return create_or_replay_play_run(
-        root,
         run_id=run_id,
         playable_artifact_id=snapshot.record.document_id,
         expected_playable_revision=revision_n,

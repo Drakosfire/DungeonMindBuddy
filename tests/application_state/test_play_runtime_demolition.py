@@ -432,7 +432,6 @@ def test_predecessor_import_then_as5_head_reads_same_db_without_files(
     assert committed.revision_n == loaded.playable_revision
     assert committed.content_sha256 == loaded.playable_content_sha256
     replayed = create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=loaded.playable_artifact_id,
         expected_playable_revision=loaded.playable_revision,

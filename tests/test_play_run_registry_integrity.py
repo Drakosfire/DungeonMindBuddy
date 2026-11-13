@@ -106,7 +106,6 @@ def _create_committed_runbook(root: Path) -> WorkspaceDocumentSnapshot:
 def _create_run(root: Path, snapshot: WorkspaceDocumentSnapshot, *, run_id: str) -> None:
     revision_n, sha = playable_binding(snapshot)
     create_or_replay_play_run(
-        root,
         run_id=run_id,
         playable_artifact_id=snapshot.record.document_id,
         expected_playable_revision=revision_n,
@@ -220,7 +219,6 @@ def test_new_run_commit_holds_runbook_mutation_lock_through_atomic_write(
         try:
             created_records.append(
                 create_or_replay_play_run(
-                    tmp_path,
                     run_id=RUN_ID_A,
                     playable_artifact_id=snapshot.record.document_id,
                     expected_playable_revision=playable_binding(snapshot)[0],

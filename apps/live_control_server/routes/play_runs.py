@@ -96,7 +96,6 @@ def get_play_runs(
 def put_play_run(run_id: str, body: CreatePlayRunRequest) -> dict[str, Any]:
     try:
         record = create_or_replay_play_run(
-            repo_root(),
             run_id=run_id,
             playable_artifact_id=body.playable_artifact_id,
             expected_playable_revision=body.expected_playable_revision,
@@ -250,7 +249,7 @@ def preview_world_session(body: WorldSessionSourceRequest, world_id: str = Query
 @router.put("/world-play-runs/v2/{run_id}", dependencies=[Depends(native_graph_gm_dependency)])
 def put_world_play_run_v2(run_id: str, body: WorldSessionCreateRequest, world_id: str = Query(min_length=1)):
     try:
-        return create_or_replay_world_play_run(repo_root(), world_id=_verified_world(world_id), run_id=run_id, request=body)
+        return create_or_replay_world_play_run(world_id=_verified_world(world_id), run_id=run_id, request=body)
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
