@@ -1539,3 +1539,5 @@ def test_stable_world_draft_creation_replays_without_crossing_worlds(tmp_path):
     assert create_threat_draft(tmp_path, request, stable_id=key) == first
     with pytest.raises(ThreatDraftStoreError, match="another scope"):
         create_threat_draft(tmp_path, _world_create_request(world_id="world_2"), stable_id=key)
+    with pytest.raises(ThreatDraftStoreError, match="intent changed"):
+        create_threat_draft(tmp_path, _world_create_request(threat_kind="hazard"), stable_id=key)
