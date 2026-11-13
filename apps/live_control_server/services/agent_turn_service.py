@@ -5767,7 +5767,12 @@ def _completed_turn_replay(
             "trace": final_trace,
         },
     )
-    if request.surface.surface_id == "build" and turn.graph_context_execution is not None:
+    execution_owner = turn
+    if mixed:
+        projection = turn.base_projection
+        execution_owner = projection.turn if projection.kind == "approved" else projection
+    execution = getattr(execution_owner, "graph_context_execution", None)
+    if request.surface.surface_id == "build" and execution is not None:
         from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
         from apps.live_control_server.models.agent_turn import SavedStatblockAnswerReference
         references = tuple(
@@ -5775,7 +5780,7 @@ def _completed_turn_replay(
                 name=event.definition["identity"]["name"], world_id=event.world_id,
                 draft_id=event.draft_id, revision_id=event.locator.revision_id,
             )
-            for event in turn.graph_context_execution.events
+            for event in execution.events
             if isinstance(event, BuildSavedStatblockReadV1)
         )
         if references:
