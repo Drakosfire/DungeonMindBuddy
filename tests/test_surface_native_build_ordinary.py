@@ -367,6 +367,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             candidate = dict(schema=NATIVE_ANSWER_POLICY,
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[source_text(r) for r in sections])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
+            if saved_statblock == "associated":
+                candidate["answer_segments"].append(dict(kind="statblock_pdf_claim",
+                    text="Meat Mind has 41 hit points.", source="pdf0:0", quote="Hit Points 41"))
             if native_body or authored_source:
                 from application_state.agent_conversation import native_corpus as corpus
                 acquired = corpus.acquired_body_reads(self.adapter._broker_execution())

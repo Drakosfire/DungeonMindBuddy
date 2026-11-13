@@ -244,7 +244,13 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
                 'pdf_sources', CASE WHEN jsonb_typeof(event->'pdf_support'->'support')='array'
                 THEN jsonb_build_object('scope', event->'pdf_support'->'scope', 'support', (
                     SELECT COALESCE(jsonb_agg(item - 'text'), '[]'::jsonb)
-                    FROM jsonb_array_elements(event->'pdf_support'->'support') AS item))
+                    FROM jsonb_array_elements(event->'pdf_support'->'support') AS item
+                    WHERE EXISTS (
+                        SELECT 1 FROM jsonb_array_elements(completion->'answer_segments') AS claim
+                        WHERE claim->>'kind'='statblock_pdf_claim'
+                            AND claim->'scope'=event->'pdf_support'->'scope'
+                            AND claim->>'assertion_id'=item->>'assertion_id'
+                            AND claim->>'evidence_ref_id'=item->>'evidence_ref_id')))
                 ELSE NULL END))
             FROM jsonb_array_elements(graph_context_execution->'events') AS event
             WHERE event->>'kind'='build_saved_statblock_read_v1'

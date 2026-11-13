@@ -297,6 +297,11 @@ def native_variants(frame, prose, *, local=False):
         identity=str(UUID(value))
         return aliases[identity] if aliases is not None else identity
     variants=[_object({'kind':_literal('discussion'),'text':prose})]
+    from .native_build_work_view import statblock_pdf_excerpts
+    pdf_sources = [excerpt['source'] for _, excerpt in statblock_pdf_excerpts(frame)] if local else []
+    if pdf_sources:
+        variants.append(_object({'kind':_literal('statblock_pdf_claim'),'text':prose,
+            'source':_enum(pdf_sources),'quote':prose}))
     lane=frame.get('working_draft_context')
     if lane is not None:
         record_id=select(lane['record_id'])

@@ -129,11 +129,8 @@ def semantic_frame(host, execution):
         for statblock_index, row in enumerate(host['saved_statblocks']):
             statblock = {'mechanics': {key: deepcopy(row['definition'][key])
                                       for key in mechanics_fields if key in row['definition']}}
-            excerpts = [
-                {'source': f'pdf{statblock_index}:{crop_index}', 'text': item['text']}
-                for crop_index, item in enumerate((row.get('pdf_support') or {}).get('support', ()))
-                if item['text'].strip()
-            ]
+            excerpts = [excerpt for index, excerpt in statblock_pdf_excerpts(host)
+                        if index == statblock_index]
             if excerpts:
                 statblock['reviewed_pdf_excerpts'] = excerpts
             work['saved_statblocks'].append(statblock)
@@ -167,6 +164,13 @@ def frame_in_request(body):
     if len(frames) > 1 or frames and historical:
         raise ValueError('Ambiguous Build work carriers')
     return frames[0] if frames else None
+
+
+def statblock_pdf_excerpts(work_frame):
+    for statblock_index, row in enumerate(work_frame.get('saved_statblocks', ())):
+        for crop_index, crop in enumerate((row.get('pdf_support') or {}).get('support', ())):
+            if crop['text'].strip():
+                yield statblock_index, {'source': f'pdf{statblock_index}:{crop_index}', 'text': crop['text']}
 
 
 def resolve_statblock_pdf_quote(work_frame, alias, quote):
