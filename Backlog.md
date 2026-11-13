@@ -69,6 +69,18 @@ Do not infer a current blocker or READY assignment from them.
 | Corpus, large artifacts and adopted World evidence | Buddy corpus and World recovery maintainers | A specific relocation or deletion has provenance and indexing checks, plus replay or recovery proof. The 5.5 MB approved adoption bundle remains pinned input to the existing-World adoption proof. |
 | Legacy import CI and other verification lanes | Buddy CI and deployment maintainers | The affected import or runtime contract has been explicitly retired or a replacement demonstrates equivalent coverage, including idempotence and rollback for legacy Agent import. Recheck test classification after any removals. |
 
+## [IDEA] Follow-up cleanup and optimization sweep
+
+**Last verified:** 2026-11-12 @ `4428b90`
+
+| Candidate | Owner | Evidence and next check |
+| --- | --- | --- |
+| Retire the original Agent launcher PNG from the active tree | Buddy frontend | `dungeonbuddy-agent.png` occupies 1.44 MB and the launcher now imports the generated WebP. The performance handoff retains the PNG as the regeneration source. Pin the source and verify that the WebP can be regenerated before moving it out of the active tree. |
+| Retire checkout-local statblock and Combat dogfood tools | Buddy Combat and local dogfood | The historical runbook still points to `live_dogfood_check.py` and `live_dogfood_reset.py`. The live Play runbook also names the checker and CI classifies both test files. Confirm operator usage and equivalent World-owned smoke coverage, then pin the historical procedure and reconcile the CI inventory before removing tools. |
+| Reuse the World catalog between the picker and selected-World provider | Buddy frontend and hosted auth | Both paths call `listWorldContainers`. Measure the picker-to-selection request sequence and consider sharing a result scoped to the signed-in account. Verify refresh after World creation, account switch, sign-out, and stale response handling. |
+| Trim repeated local Live Control reads | Buddy local dogfood | `LiveControlApp.refreshAll` reloads surface, events, jobs, and Plan after Chat, layout saves, and accepted commands. Measure the request sequence and prove which projections each operation invalidates before narrowing refreshes. Verify local Chat and command readback. |
+| Move the PR43 multimode report out of the active tree | Buddy evaluation maintainers | The 1.28 MB report basename had no tracked text references at this revision. Check directory-glob readers, reproducibility and retention expectations, then pin the report before removal. Keep the C1S13 equivalence report while its deep-dive emitter reads it. |
+
 ## [IDEA] Resume answer-citation experiments after fundamentals settle — captured 2026-11-10
 **Kind:** RESEARCH / RESPONSE ASSESSMENT
 **Owner:** Buddy response composition
