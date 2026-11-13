@@ -758,3 +758,20 @@ body:has([data-document-surface="build"])
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
 }
+
+.build-pdf-workspace {
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+}
+
+.build-pdf-workspace__toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--panel, #151923);
+}

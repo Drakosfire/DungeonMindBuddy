@@ -1,4 +1,3 @@
-import { BuildPdfStatblockReview } from "./BuildPdfStatblockReview";
 import { useEffect, useRef, useState } from "react";
 import { authenticatedApiFetch } from "../api/liveApi";
 import { pdfRegionKey, type PdfLocator } from "../api/retainedPdfRegions";
@@ -19,7 +18,6 @@ export function StartPdfStatblockReview({
   const [id] = useState(() => crypto.randomUUID());
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [inline, setInline] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [error, setError] = useState("");
   const [edition, setEdition] = useState("");
@@ -58,7 +56,6 @@ export function StartPdfStatblockReview({
     if ((!regions.length && !prepareRegions) || pending) return;
     const startUrl = window.location.href;
     setPending(true);
-    setInline(Boolean(prepareRegions));
     setError("");
     try {
       const selected = prepareRegions ? await prepareRegions() : regions;
@@ -79,7 +76,8 @@ export function StartPdfStatblockReview({
         const location = new URL(startUrl);
         location.searchParams.set("world", worldId);
         location.searchParams.set("pdfReview", id);
-        window.history.replaceState(window.history.state, "", location);
+        window.history.pushState(window.history.state, "", location);
+        window.dispatchEvent(new PopStateEvent("popstate"));
       }
       setSaved(true);
     } catch (failure) {
@@ -103,11 +101,8 @@ export function StartPdfStatblockReview({
     </ul>
     {saved || conflict ? <>
       <a target="_blank" rel="noopener" href={`/build?${new URLSearchParams({ world: worldId, pdfReview: id }).toString()}`}>
-        {conflict ? "Open existing statblock review" : inline ? "Open saved statblock in a new tab" : "Open statblock review"}
+        {conflict ? "Open existing statblock review" : "Open statblock review"}
       </a>
-      {saved && inline && <div style={{height: "min(70vh, 48rem)"}}>
-        <BuildPdfStatblockReview worldId={worldId} reviewId={id} />
-      </div>}
     </> : <>
       <label>D&D edition (optional)
         <select value={edition} onChange={event => setEdition(event.target.value)} disabled={pending}>

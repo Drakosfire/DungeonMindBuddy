@@ -113,18 +113,7 @@ export function BuildDocumentCreateControl({
   onRetryImport,
   disabled = false,
 }: BuildDocumentCreateControlProps) {
-  const [droppedPdf, setDroppedPdf] = useState<{file: File; sequence: number}>();
-  useEffect(() => {
-    function openPdf(event: Event) {
-      if (disabled || creating) return;
-      const file = (event as CustomEvent<File>).detail;
-      setDroppedPdf(previous => ({file, sequence: (previous?.sequence ?? 0) + 1}));
-      setDestinationSelection({value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions), provenance: "derived"});
-      setImportOpen(true);
-    }
-    window.addEventListener("dmb:build-pdf-drop", openPdf);
-    return () => window.removeEventListener("dmb:build-pdf-drop", openPdf);
-  }, [creating, disabled, destinationOptions, suggestedDestinationValue]);
+  const [droppedPdf, setDroppedPdf] = useState<{ file: File; sequence: number }>();
   const [createOpen, setCreateOpen] = useState(false);
   const [starter, setStarter] = useState(true);
   useEffect(() => {

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
-import { announceSelectedWorldLocationChange } from "../selectedWorld/SelectedWorldContext";
+import { announceSelectedWorldLocationChange, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { MarkdownCanvasSessionProvider } from "../markdownCanvas/MarkdownCanvasSession";
 import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
+import { BuildPdfPreview } from "./BuildPdfPreview";
 import { BuildPdfStatblockReview } from "./BuildPdfStatblockReview";
 import { BuildIngestToolbar } from "./BuildIngestToolbar";
 import { BuildSurfaceContext } from "./BuildSurfaceContext";
@@ -14,6 +15,9 @@ import { useBuildWorkspaceDocumentController } from "./useBuildWorkspaceDocument
 import "./buildSurface.css";
 
 export function BuildSurfacePage() {
+  const selectedWorld = useSelectedWorld();
+  const worldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const [droppedPdf, setDroppedPdf] = useState<{ file: File; worldId: string; version: number }>();
   const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
   const controller = useBuildWorkspaceDocumentController();
   const [extractionTarget, setExtractionTarget] = useState<HTMLDivElement | null>(null);
@@ -26,10 +30,12 @@ export function BuildSurfacePage() {
     }
   }, [controller.activeRecord]);
 
-  // A review opened inline adds a reload URL without replacing the live import workspace.
   const [entrySearch, setEntrySearch] = useState(() => window.location.search);
   useEffect(() => {
-    const syncHistory = () => setEntrySearch(window.location.search);
+    const syncHistory = () => {
+      setDroppedPdf(undefined);
+      setEntrySearch(window.location.search);
+    };
     window.addEventListener("popstate", syncHistory);
     return () => window.removeEventListener("popstate", syncHistory);
   }, []);
@@ -49,10 +55,18 @@ export function BuildSurfacePage() {
         const file = files.length === 1 ? files[0] : undefined;
         if (!file || !(file.type === "application/pdf" || (!file.type && /\.pdf$/i.test(file.name)))) return;
         event.preventDefault();
-        window.dispatchEvent(new CustomEvent("dmb:build-pdf-drop", {detail: file}));
+        if (worldId) setDroppedPdf(previous => ({ file, worldId, version: (previous?.version ?? 0) + 1 }));
       }}>
       {pdfReviewId && reviewWorldId ? (
         <BuildPdfStatblockReview key={`${reviewWorldId}:${pdfReviewId}`} worldId={reviewWorldId} reviewId={pdfReviewId} />
+      ) : droppedPdf && droppedPdf.worldId === worldId ? (
+        <section className="build-pdf-workspace" aria-label="PDF workspace">
+          <header className="build-pdf-workspace__toolbar">
+            <strong>{droppedPdf.file.name}</strong>
+            <button type="button" onClick={() => setDroppedPdf(undefined)}>Close PDF</button>
+          </header>
+          <BuildPdfPreview key={droppedPdf.version} worldId={droppedPdf.worldId} initialFile={droppedPdf.file} />
+        </section>
       ) : controller.activeDocumentId ? (
         <MarkdownCanvasSessionProvider
           key={controller.activeDocumentId}

@@ -93,7 +93,7 @@ it("offers an existing review after a conflict", async () => {
   expect(await screen.findByRole("link", { name: "Open existing statblock review" })).toBeInTheDocument();
 });
 
-it("prepares the current crop and opens the saved editor in place", async () => {
+it("prepares the current crop and routes directly to the saved editor", async () => {
   const fetch = vi.mocked(authenticatedApiFetch);
   fetch.mockClear();
   fetch.mockResolvedValue({ response: Response.json({ revision: 1 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
@@ -104,9 +104,8 @@ it("prepares the current crop and opens the saved editor in place", async () => 
   render(<StartPdfStatblockReview worldId="elderwyld" regions={[]} onRemoveRegion={vi.fn()}
     prepareRegions={prepareRegions} />);
   fireEvent.click(screen.getByRole("button", { name: "Extract statblock" }));
-  expect(await screen.findByRole("region", { name: "PDF statblock review" })).toBeInTheDocument();
+  const savedLink = await screen.findByRole("link", { name: "Open statblock review" });
   const restored = new URL(window.location.href);
-  const savedLink = screen.getByRole("link", { name: "Open saved statblock in a new tab" });
   expect(restored.searchParams.get("world")).toBe("elderwyld");
   expect(restored.searchParams.get("pdfReview")).toBe(
     new URL(savedLink.getAttribute("href")!, restored).searchParams.get("pdfReview"),
@@ -115,7 +114,6 @@ it("prepares the current crop and opens the saved editor in place", async () => 
   expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/from-regions"), {
     method: "POST", body: JSON.stringify({ regions: [first], instruction: "" }),
   });
-  expect(screen.queryByRole("link", { name: "Open statblock review" })).toBeNull();
 });
 
 it("does not rewrite the destination URL when extraction completes after navigation", async () => {
@@ -129,6 +127,6 @@ it("does not rewrite the destination URL when extraction completes after navigat
   await Promise.resolve();
   window.history.replaceState(null, "", "/plan?world=another");
   finish({ response: Response.json({ revision: 1 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
-  await screen.findByRole("region", { name: "PDF statblock review" });
+  await screen.findByRole("link", { name: "Open statblock review" });
   expect(window.location.pathname + window.location.search).toBe("/plan?world=another");
 });
