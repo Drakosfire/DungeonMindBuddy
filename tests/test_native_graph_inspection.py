@@ -446,6 +446,8 @@ def test_native_complete_object_binding_opens_exact_pinned_citation(inspection):
     source = citation.json()["source"]
     expected = x.lane.text.splitlines(keepends=True)[0].encode()
     assert source["text"].encode() == expected
+    assert binding["excerpt"].encode() == expected
+    assert binding["provenanceStatus"] == "excerpt_ready"
     assert source["span_sha256"] == sha256(expected).hexdigest()
     assert source["source_artifact_id"] == binding["sourceArtifactId"]
     assert source["body_sha256"] == binding["contentSha256"] == x.lane.digest
