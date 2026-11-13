@@ -7,6 +7,14 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Move the PR43 multimode report out of the active tree
+
+[#2582](https://github.com/Drakosfire/DungeonMindBuddy/pull/2582) removed 2,531,169 bytes. Verified all three historical Git blobs pinned in the retained README.
+
+## [DONE] Make C1S4 Canvas emitter check mode read-only
+
+[#2586](https://github.com/Drakosfire/DungeonMindBuddy/pull/2586) rejects write options and skips parent creation in both check paths. All 44 Canvas path and payload tests passed in the prepared Python environment.
+
 ## [DONE] Make the deployment smoke block fail when any required check fails
 
 [#2534](https://github.com/Drakosfire/DungeonMindBuddy/pull/2534) and [#2557](https://github.com/Drakosfire/DungeonMindBuddy/pull/2557) made the local and public smoke blocks fail fast. The recorded shell rehearsals injected failures in container identity, binding, health, TLS, frontend and signed-out checks and included passing controls.
