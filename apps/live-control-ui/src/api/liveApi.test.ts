@@ -1635,7 +1635,7 @@ describe("liveApi artifact/capability helpers", () => {
         session_id: "session-1",
         source_kind: "gold_fixture",
         gold_fixture_id: "graph-memory:session-1-candidate-graph-gold:v0",
-        gold_fixture_relpath: "evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json",
+        gold_fixture_relpath: "evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/candidate_graph_gold.json",
         focus: {},
         node_views: {},
         mentions: [],

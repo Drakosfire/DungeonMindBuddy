@@ -8,9 +8,9 @@ Fixture authority ledger: [`FIXTURE-AUTHORITY-LEDGER.md`](FIXTURE-AUTHORITY-LEDG
 
 | Path | Session | Use |
 |------|---------|-----|
-| `examples/session_1_candidate_graph_gold/` | 1 | Candidate graph gold (26 nodes); C1 cross-campaign vocabulary ablation bed |
-| `examples/mirathorn_city_candidate_graph_gold/` | world | Candidate graph gold (28 nodes); world-authority vocabulary ablation bed |
-| `examples/session_23_candidate_graph_gold/` | 23 | Candidate graph gold (42 nodes); compare live extraction |
+| `../graph_benchmark_gold/candidate_graph/longmont-c1/session-01/` | 1 | Candidate graph gold (26 nodes); C1 cross-campaign vocabulary ablation bed |
+| `../graph_benchmark_gold/candidate_graph/world/eldyrwild/mirathorn-city/` | world | Candidate graph gold (28 nodes); world-authority vocabulary ablation bed |
+| `../graph_benchmark_gold/candidate_graph/longmont-c2/session-23/` | 23 | Candidate graph gold (42 nodes); compare live extraction |
 | `examples/session_24_manual_projection_dogfood/` | 24 | Projection gold (36 nodes); **not** LLM extraction benchmark |
 
 ## Category extraction owner and historical evaluation

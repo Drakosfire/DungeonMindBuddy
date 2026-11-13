@@ -8,7 +8,7 @@ This directory is **proof machinery**, not architecture ownership. Durable contr
 |--------|----------|--------|
 | **Product runtime runner** | `src/graph_memory/extraction/graph_preview_runner.py` | Calls the registered category extractor; no compact preview path |
 | **Category extraction and eval harness** | `src/graph_memory/extraction/category_candidate_graph_extractor.py`, `category_graph_model_study.py` | Product owner and harness; historical results remain pinned below |
-| **Manual gold fixtures** | `examples/session_23_candidate_graph_gold/`, `examples/session_24_manual_projection_dogfood/` | Hand-authored gold; compare extractor output here |
+| **Manual gold fixtures** | `../graph_benchmark_gold/candidate_graph/longmont-c2/session-23/`, `examples/session_24_manual_projection_dogfood/` | Hand-authored gold; compare extractor output here |
 | **Multi-pass contract (design reference)** | `examples/multi_pass_extraction_contract/`, `examples/eval_only_extractor_harness/` | Broader 9-pass contract; category study is the graduated slice |
 | **Generated graph runs** | `artifacts/graph_ingest_runs/`, `out/graph_memory/runs/` | Dogfood/local outputs; Session 24 manual run is projection gold import (`llm_extraction: false`) |
 | **Static UI prototype** | `examples/static_preview_graph_ui_prototype/` | Review-only HTML |
