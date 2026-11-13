@@ -190,6 +190,10 @@ function PdfPages({ file, worldId, restored, onRetained }: {
     let destroy: (() => Promise<void>) | undefined;
     async function load() {
       try {
+        if (sourceFile.size > 32 * 1024 * 1024) {
+          if (!cancelled) setError("Choose a PDF that is 32 MiB or smaller.");
+          return;
+        }
         const data = new Uint8Array(await sourceFile.arrayBuffer());
         if (new TextDecoder().decode(data.subarray(0, 5)) !== "%PDF-") {
           throw new Error("Invalid PDF header");
