@@ -9,8 +9,10 @@ export function createTestLocks(): LockManager {
     ) {
       const options = typeof optionsOrCallback === "function" ? {} : optionsOrCallback;
       const work = typeof optionsOrCallback === "function" ? optionsOrCallback : callback!;
-      await Promise.resolve();
-      await Promise.resolve();
+      if (options.ifAvailable) {
+        await Promise.resolve();
+        await Promise.resolve();
+      }
       const previous = pending.get(name);
       if (previous && options.ifAvailable) {
         return Promise.resolve().then(() => work(null));
