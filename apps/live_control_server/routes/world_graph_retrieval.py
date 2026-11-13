@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -14,8 +15,13 @@ from apps.live_control_server.services.world_graph_object_projection import (
     project_complete_world_object,
 )
 from apps.live_control_server.services.agent_graph_auth import (
+    enforce_native_graph_gm,
     native_graph_gm_dependency,
 )
+from apps.live_control_server.routes.native_graph_inspection import (
+    complete_object as native_complete_object,
+)
+from apps.live_control_server.services.native_graph_inspection import NativeCompleteObjectRead
 from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectProjectionRequest,
     WorldGraphObjectProjectionResult,
@@ -161,6 +167,13 @@ def post_world_graph_complete_object(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
+    except WorldGraphRetrievalServiceError as exc:
+        return _error_response(exc)
+    native_world = os.environ.get("DMB_NATIVE_COMPLETE_OBJECT_WORLD", "").strip()
+    if native_world and request.world_id == native_world:
+        principal = enforce_native_graph_gm(request_context)
+        return native_complete_object(NativeCompleteObjectRead(request=request), principal)
+    try:
         response = project_complete_world_object(request)
     except WorldGraphObjectProjectionServiceError as exc:
         return _error_response(exc)

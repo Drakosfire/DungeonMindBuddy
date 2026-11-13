@@ -537,3 +537,32 @@ def test_native_complete_object_requires_matching_pin(inspection, monkeypatch):
 
     x.client.headers.pop("Authorization")
     assert x.client.post(route, json={"scope": scope, "request": request}).status_code == 401
+
+
+def test_product_complete_object_dispatches_selected_world_to_native(inspection, monkeypatch):
+    from apps.live_control_server.routes.world_graph_retrieval import router as product_router
+
+    x = inspection
+    x.app.include_router(product_router)
+    monkeypatch.setenv("DMB_NATIVE_COMPLETE_OBJECT_WORLD", "managed")
+    scope = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
+    request = {
+        "schema": "dmb_world_graph_object_projection_request_v1",
+        "worldId": "managed",
+        "scopeMode": "campaign",
+        "campaignId": scope["campaign_id"],
+        "revisionPin": scope["revision_id"],
+        "nodeId": x.objects["object:0"],
+    }
+    route = "/api/live/world-graph/retrieval/complete-object"
+    expected = x.client.post(
+        "/api/live/native-graph-inspection/complete-object", json={"request": request}
+    )
+    actual = x.client.post(route, json=request)
+    assert expected.status_code == actual.status_code == 200, actual.text
+    assert actual.json() == expected.json()
+    assert actual.json()["sourceBindings"]
+    rejected = x.client.post(route, json={**request, "revisionPin": "rev:unavailable"})
+    assert rejected.status_code == 409, rejected.text
+    x.client.headers.pop("Authorization")
+    assert x.client.post(route, json=request).status_code == 401
