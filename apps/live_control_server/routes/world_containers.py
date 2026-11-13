@@ -6,7 +6,6 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
-from apps.live_control_server.config import repo_root
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services.world_container_registry import (
     CreateWorldContainerRequest,
@@ -69,7 +68,6 @@ def put_native_graph_binding(
     enforce_native_graph_gm(request)
     try:
         record = bind_native_graph(
-            repo_root(),
             managed_world_id,
             native_world_id=body.native_world_id,
             expected_binding_version=body.expected_binding_version,
@@ -91,7 +89,6 @@ def post_deactivate_native_graph_binding(
     enforce_native_graph_gm(request)
     try:
         record = deactivate_native_graph_binding(
-            repo_root(),
             managed_world_id,
             expected_binding_version=body.expected_binding_version,
         )

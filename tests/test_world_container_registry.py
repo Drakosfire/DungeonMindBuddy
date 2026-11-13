@@ -195,10 +195,10 @@ def test_reservation_grants_source_identity_without_graph_read_or_binding_author
         resolve_managed_world_binding(world.world_id, root=root)
     assert error.value.code == "native_graph_provisioning_pending"
     with pytest.raises(WorldGraphBindingError):
-        bind_native_graph(root, world.world_id, native_world_id="other", expected_binding_version=1,
+        bind_native_graph(world.world_id, native_world_id="other", expected_binding_version=1,
                           authority_validator=lambda _: pytest.fail("must reject before native read"))
     with pytest.raises(WorldGraphBindingError):
-        deactivate_native_graph_binding(root, world.world_id, expected_binding_version=1)
+        deactivate_native_graph_binding(world.world_id, expected_binding_version=1)
     target = first_world_native_target(root, world.world_id)
     assert target.native_world_id == reserved.native_world_id
     assert target.provisioning_id == reserved.provisioning_id

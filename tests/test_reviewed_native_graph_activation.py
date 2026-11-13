@@ -82,7 +82,6 @@ def _fixture(root):
 
 def _activate(root, world, target, receipt, services, validator=None):
     return activate_reviewed_native_graph(
-        root,
         world.world_id,
         target=target,
         receipt=receipt,

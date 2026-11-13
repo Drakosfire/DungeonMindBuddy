@@ -764,8 +764,9 @@ def confirm_first_world(
         activate_reviewed_native_graph, WorldGraphBindingError,
     )
     try:
+        live_config.managed_world_data_root(live_config.repo_root())
         activate_reviewed_native_graph(
-            live_config.managed_world_data_root(live_config.repo_root()), plan.world_id,
+            plan.world_id,
             target=target, receipt=port_receipt,
             plan_id=plan.plan_id, plan_digest=plan.plan_digest,
         )

@@ -24,10 +24,6 @@ def root(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def client(root: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setattr(
-        "apps.live_control_server.routes.world_containers.repo_root",
-        lambda: root,
-    )
     monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     return TestClient(create_app(), client=("127.0.0.1", 50000))
@@ -146,7 +142,6 @@ def test_list_ignores_legacy_registry_without_migration_or_mind_call(
         '"created_at":"2026-01-01T00:00:00Z"}]}'
     ).encode("utf-8")
     path.write_bytes(original)
-    monkeypatch.setattr(world_containers, "repo_root", lambda: root)
     monkeypatch.setattr(
         "apps.live_control_server.services.world_graph_binding._validate_with_mind",
         lambda _world_id: pytest.fail("WorldContainer list must not contact MIND"),
