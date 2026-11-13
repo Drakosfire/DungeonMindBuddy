@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Repair links inside relocated evaluation documentation
+
+Restored nine clickable corpus citations in the relocated entity audit. Both Timeline Pass report links already point to the archived report. Verified all relative Markdown targets in both documents against tracked paths. The separate evidence-retention decision remains in the backlog.
+
 ## [DONE] Repair the Plans directory index links
 
 Repaired ten stale relative links to the relocated guides, designs, archived experiment documents, naming convention, and entity audit data. Verified all relative link targets resolve in the checkout.
