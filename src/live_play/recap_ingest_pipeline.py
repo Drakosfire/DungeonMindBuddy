@@ -17,7 +17,7 @@ from src.live_play.normalized_recaps import (
     _extract_recap_raw,
     _parse_minimal_frontmatter,
 )
-from scripts.materialize_session_memory import (
+from src.live_play.session_memory_materializer import (
     _check_one,
     _expected_session_memory_outputs,
     _materialize_one,
