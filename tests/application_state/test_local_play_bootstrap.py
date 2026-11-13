@@ -453,3 +453,19 @@ def test_check_and_apply_never_print_full_dsn(
     assert "username:" in apply_out
     assert "host:" in apply_out
     assert "database:" in apply_out
+
+
+def test_schema_readiness_can_skip_runbook_inventory(
+    application_state_dsn: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = []
+    monkeypatch.setattr(bootstrap, "count_startable_runbooks", lambda: calls.append(1) or 1)
+
+    periodic = bootstrap.inspect_readiness(load_env=False, include_runbooks=False)
+    assert periodic.schema_status == "ready"
+    assert periodic.startable_runbooks is None
+    assert calls == []
+
+    operator = bootstrap.inspect_readiness(load_env=False)
+    assert operator.startable_runbooks == 1
+    assert calls == [1]

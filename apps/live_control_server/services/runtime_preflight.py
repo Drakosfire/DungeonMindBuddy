@@ -91,9 +91,10 @@ def run_runtime_preflight(
     repo_root: Path,
     require_world: str | None = None,
     load_env: bool = True,
+    include_runbooks: bool = True,
 ) -> RuntimePreflightReport:
     checks = (
-        _check_app_state(load_env=load_env),
+        _check_app_state(load_env=load_env, include_runbooks=include_runbooks),
         _check_dungeonmind_world(require_world=require_world),
         _check_campaign_registry(),
         _check_ingest_registry(repo_root),
@@ -139,8 +140,8 @@ def _format_detail_value(value: PreflightDetailValue) -> str:
     return str(value)
 
 
-def _check_app_state(*, load_env: bool) -> RuntimePreflightCheck:
-    readiness = inspect_readiness(load_env=load_env)
+def _check_app_state(*, load_env: bool, include_runbooks: bool = True) -> RuntimePreflightCheck:
+    readiness = inspect_readiness(load_env=load_env, include_runbooks=include_runbooks)
     details: dict[str, PreflightDetailValue] = {}
     if readiness.coordinates is not None:
         details["host"] = readiness.coordinates.host
@@ -204,11 +205,12 @@ def _check_app_state(*, load_env: bool) -> RuntimePreflightCheck:
             details=details,
         )
 
-    startable = readiness.startable_runbooks or 0
-    details["startable_runbooks"] = startable
     summary = "Application-state schema is ready"
-    if startable == 0:
-        details["note"] = "No startable runbooks; empty application state is valid"
+    if include_runbooks:
+        startable = readiness.startable_runbooks or 0
+        details["startable_runbooks"] = startable
+        if startable == 0:
+            details["note"] = "No startable runbooks; empty application state is valid"
     return RuntimePreflightCheck(
         id="app_state",
         label="Buddy application state",
