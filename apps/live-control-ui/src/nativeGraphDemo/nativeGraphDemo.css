@@ -369,3 +369,11 @@
 .graph-node-explorer__group { border-top: 1px solid #42463d; }
 .graph-node-explorer__group > summary { padding: 11px 0; font-weight: 600; color: #e2d3b0; }
 .graph-node-explorer__group-count { float: right; font-size: 11px; font-weight: 400; color: #b9b8ab; margin-left: 8px; }
+
+.graph-node-explorer__menu > summary { list-style: none; cursor: pointer; min-width: 28px; min-height: 28px; display: grid; place-items: center; border: 1px solid #62604e; border-radius: 5px; background: #2c3029; color: #e7dec9; }
+.graph-node-explorer__menu > summary::-webkit-details-marker { display: none; }
+.graph-node-explorer__menu > summary:focus-visible { outline: 2px solid #dfb65f; outline-offset: 2px; }
+.graph-node-explorer__menu-content { position: absolute; right: 8px; top: 100%; width: min(300px, calc(100% - 16px)); max-height: 60vh; overflow: auto; padding: 12px; border: 1px solid #62604e; border-radius: 6px; background: #202522; box-shadow: 0 6px 16px #0006; font-size: 12px; overflow-wrap: anywhere; }
+.graph-node-explorer__menu-content summary { cursor: pointer; }
+.graph-node-explorer__warning { color: #e2c98d; font-size: 11px; }
+.native-demo-object-details .graph-node-explorer__navbar button { display: inline-flex; align-items: center; justify-content: center; }
