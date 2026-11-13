@@ -323,7 +323,7 @@ def main() -> int:
         "source_sessions": seed.get("source_sessions"),
         "model_id": model_id,
         "corpus_fingerprint": corpus_fp,
-        "session_memory_jsonl": str(sm_path.relative_to(ROOT)) if sm_path else None,
+        "session_memory_jsonl": str(sm_path.relative_to(ROOT) if sm_path.is_relative_to(ROOT) else sm_path) if sm_path else None,
         "question_count": len(rows),
         "aggregate": {
             "cost_usd": {
