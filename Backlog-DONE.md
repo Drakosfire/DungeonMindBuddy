@@ -7,6 +7,13 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Remove obsolete checkout roots from database-only service APIs
+
+- Source descriptor batch and single lookup passed 65 descriptor, body-read, and source-name tests. Recap comparison had 208 passes and the same two failures on base and head. [#2611](https://github.com/Drakosfire/DungeonMindBuddy/pull/2611), [#2613](https://github.com/Drakosfire/DungeonMindBuddy/pull/2613)
+- World grant, revoke, list, create, and lookup dropped unused paths. Verification covered PostgreSQL registry and ownership, hosted access, local preflight, Graph binding, and Play authored-source callers. [#2616](https://github.com/Drakosfire/DungeonMindBuddy/pull/2616), [#2617](https://github.com/Drakosfire/DungeonMindBuddy/pull/2617), [#2619](https://github.com/Drakosfire/DungeonMindBuddy/pull/2619), [#2620](https://github.com/Drakosfire/DungeonMindBuddy/pull/2620)
+- Graph binding and run metadata lookup retained managed-directory validation and filesystem evidence inputs where required. Verification included 71 binding and route tests and 241 registry and recap tests. [#2622](https://github.com/Drakosfire/DungeonMindBuddy/pull/2622), [#2623](https://github.com/Drakosfire/DungeonMindBuddy/pull/2623)
+- Play pointer, manifest, rebase, list, lookup, progress, and creation wrappers dropped unused paths. PostgreSQL tests and the pinned pointer benchmark exercised these changes. The PRs record inherited HTTP 503 failures and demolition migration failures that also reproduced on their comparison bases. [#2624](https://github.com/Drakosfire/DungeonMindBuddy/pull/2624), [#2626](https://github.com/Drakosfire/DungeonMindBuddy/pull/2626), [#2627](https://github.com/Drakosfire/DungeonMindBuddy/pull/2627), [#2628](https://github.com/Drakosfire/DungeonMindBuddy/pull/2628), [#2629](https://github.com/Drakosfire/DungeonMindBuddy/pull/2629), [#2630](https://github.com/Drakosfire/DungeonMindBuddy/pull/2630), [#2631](https://github.com/Drakosfire/DungeonMindBuddy/pull/2631)
+
 ## [DONE] Verify whether World catalog listing needs two ordering passes
 
 Retained both orderings. The application-state catalog's PostgreSQL adoption test asserts World-ID order from `list_worlds()`. The registry applies a separate display order by case-folded name and World ID. Verified both contracts in [the catalog test](tests/application_state/test_world_catalog_postgres.py) and [the registry](apps/live_control_server/services/world_container_registry.py).
