@@ -348,7 +348,7 @@ def _skip_reference_definition_line(markdown: str, index: int) -> int | None:
     return match.end
 
 
-def _protected_ranges(markdown: str) -> list[tuple[int, int]]:
+def markdown_protected_ranges(markdown: str) -> list[tuple[int, int]]:
     """Ranges that must not receive mention rewrites: fences, code, links."""
     ranges: list[tuple[int, int]] = []
     ref_labels = _reference_definition_labels(markdown)
@@ -482,7 +482,7 @@ def _project_markdown_mentions_free_only(
     equal_length_tie_break: EqualLengthTieBreak = "surface_node_id",
 ) -> tuple[str, list[MarkdownMention], list[MarkdownMentionDiagnostic]]:
     owners = _surface_owners(bindings)
-    protected = _protected_ranges(markdown)
+    protected = markdown_protected_ranges(markdown)
     diagnostics: list[MarkdownMentionDiagnostic] = []
     ambiguous_reported: set[str] = set()
 
@@ -603,7 +603,7 @@ def project_markdown_mentions(
             equal_length_tie_break=equal_length_tie_break,
         )
 
-    protected = _protected_ranges(markdown)
+    protected = markdown_protected_ranges(markdown)
     occupied: list[tuple[int, int]] = []
     located_matches: list[tuple[int, int, str, str]] = []
     for binding in located_bindings:
