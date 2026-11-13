@@ -14,6 +14,8 @@ import yaml
 
 from scripts import ci_local_frontend as local
 
+REAL_COMMAND = local.command
+
 
 @pytest.fixture
 def sandbox(tmp_path, monkeypatch):
@@ -797,3 +799,25 @@ def test_final_inspection_failure_still_attempts_removal(sandbox, monkeypatch, r
     assert report["cleanup_complete"] is not removal_fails
     registrations = original_git(Path(args.repo), "worktree", "list", "--porcelain")
     assert registrations.count("worktree ") == (2 if removal_fails else 1)
+
+
+def test_timeout_retains_step_receipt_and_cleans_worktree(sandbox, monkeypatch):
+    args, _, _ = sandbox
+    argv = [sys.executable, "-u", "-c", "import time; print('started'); time.sleep(60)"]
+    monkeypatch.setattr(local, "COMMAND_TIMEOUT_SECONDS", 0.25)
+    monkeypatch.setattr(
+        local, "command",
+        lambda _argv, cwd, log, env: REAL_COMMAND(argv, cwd, log, env),
+    )
+
+    assert local.verify(args) == 1
+    out = Path(args.output)
+    receipt = json.loads((out / "run-receipt.json").read_text())
+    assert receipt["cleanup_complete"]
+    assert receipt["timed_out_step"]["argv"] == argv
+    assert receipt["timed_out_step"]["timeout_seconds"] == 0.25
+    assert receipt["timed_out_step"]["elapsed_seconds"] >= 0.25
+    assert receipt["timed_out_step"]["exit_code"] == 1
+    assert receipt["timed_out_step"]["log"] == "install.log"
+    assert (out / "install.log").read_text() == "started\n"
+    assert "timed out" in receipt["error"]

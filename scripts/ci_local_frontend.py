@@ -188,8 +188,12 @@ def stop_group(pgid):
         raise RuntimeError(f"owned process group {pgid} failed to stop")
 
 
+COMMAND_TIMEOUT_SECONDS = 1800
+
+
 def command(argv, cwd, log, env):
     started = time.monotonic()
+    timeout = None
     with Path(log).open("w") as stream:
         proc = subprocess.Popen(
             argv,
@@ -200,7 +204,10 @@ def command(argv, cwd, log, env):
             start_new_session=True,
         )
         try:
-            code = proc.wait(timeout=1800)
+            code = proc.wait(timeout=COMMAND_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired as exc:
+            timeout = exc.timeout
+            code = 1
         finally:
             stop_group(proc.pid)
             proc.wait(timeout=10)
@@ -209,7 +216,16 @@ def command(argv, cwd, log, env):
         "exit_code": code,
         "elapsed_seconds": round(time.monotonic() - started, 3),
         "log": Path(log).name,
+        **({"timeout_seconds": timeout} if timeout is not None else {}),
     }
+
+
+def verified_command(report, argv, cwd, log, env):
+    step = command(argv, cwd, log, env)
+    if "timeout_seconds" in step:
+        report["timed_out_step"] = step
+        raise subprocess.TimeoutExpired(argv, step["timeout_seconds"])
+    return step
 
 
 def frontend_plan(catalog, suite):
@@ -547,7 +563,8 @@ def verify(args):
                     )
                     for name in ("npm-user-config", "npm-global-config"):
                         (out / name).write_text("")
-                    report["install"] = command(
+                    report["install"] = verified_command(
+                        report,
                         [
                             *install,
                             f"--userconfig={out / 'npm-user-config'}",
@@ -570,7 +587,8 @@ def verify(args):
                     for index, test in enumerate(tests):
                         selected = test[3:]
                         inventory = out / f"inventory-{index}.json"
-                        listing = command(
+                        listing = verified_command(
+                            report,
                             [
                                 "node",
                                 "node_modules/vitest/vitest.mjs",
@@ -595,7 +613,8 @@ def verify(args):
                         except (ValueError, KeyError):
                             keys = Counter()
                         result_path = out / f"results-{index}.json"
-                        result = command(
+                        result = verified_command(
+                            report,
                             [
                                 *test,
                                 *worker_args,
@@ -632,7 +651,9 @@ def verify(args):
                             result["results_error"] = reason
                         report["tests"].append(result)
                     # Even assertion failures must not suppress build/type evidence.
-                    report["build"] = command(build, frontend, out / "build.log", env)
+                    report["build"] = verified_command(
+                        report, build, frontend, out / "build.log", env
+                    )
                     source_boundary(source, args.sha, report, "build")
                     report["build_exit_code"] = report["build"]["exit_code"]
                     report["test_exit_code"] = next(
