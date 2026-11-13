@@ -230,10 +230,10 @@ Apply only the production migrations confirmed in step 2 through their owning pr
   fi
   buddy_local="http://$actual_binding"
   printf 'Verified Buddy upstream: %s\n' "$buddy_local"
-  curl -fsS "$buddy_local/health/live"
-  curl -fsS "$buddy_local/health/ready"
+  curl --connect-timeout 5 --max-time 15 -fsS "$buddy_local/health/live"
+  curl --connect-timeout 5 --max-time 15 -fsS "$buddy_local/health/ready"
   bash scripts/check_hosted_spa.sh "$buddy_local"
-  buddy_status=$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")
+  buddy_status=$(curl --connect-timeout 5 --max-time 15 -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")
   test "$buddy_status" = 401
 )
 ```
@@ -292,10 +292,10 @@ dig +short AAAA "$buddy_domain"
 (
   set -e
   buddy_url="https://$buddy_domain"
-  curl -fsS "$buddy_url/health/live"
-  curl -fsS "$buddy_url/health/ready"
+  curl --connect-timeout 5 --max-time 15 -fsS "$buddy_url/health/live"
+  curl --connect-timeout 5 --max-time 15 -fsS "$buddy_url/health/ready"
   bash scripts/check_hosted_spa.sh "$buddy_url"
-  buddy_status=$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_url/api/auth/current-user")
+  buddy_status=$(curl --connect-timeout 5 --max-time 15 -sS -o /dev/null -w '%{http_code}' "$buddy_url/api/auth/current-user")
   test "$buddy_status" = 401
 )
 ```
