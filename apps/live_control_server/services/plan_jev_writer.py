@@ -294,8 +294,8 @@ class PlanJevWriter:
         rule_frame = model_rules_frame(rules.frame())
         self.projection = None
         if self.shared:
-            from application_state.agent_conversation.native_writer import model_frame, model_work_frame
-            from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
+            from application_state.agent_conversation.native_writer import model_frame, model_work_frame, read_evidence_records
+            from application_state.agent_conversation.native_evidence_view import compact_passages,semantic_frame,output_frame
             from application_state.agent_conversation.plan_writer_output_schema import native_output_format
             turn=adapter.fence.turn
             self.frame=model_frame(turn.graph_context_receipt,turn.graph_context_execution)
@@ -304,6 +304,9 @@ class PlanJevWriter:
                 world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
                 play_context_receipt=turn.play_context_receipt if turn.graph_context_receipt.work_context.surface_id=='play' else None)
             self.provider_frame=semantic_frame(self.frame)
+            if turn.graph_context_receipt.work_context.surface_id == 'plan':
+                supports = read_evidence_records(turn.graph_context_execution, self.provider_frame)['body_excerpts']
+                self.provider_frame = compact_passages(self.provider_frame, supports)
             self.frame=output_frame(self.frame,self.provider_frame)
             from application_state.agent_conversation.plan_jev_graph_packet import NATIVE_WORK_SCHEMA as PLAN_WORK_SCHEMA
             from application_state.agent_conversation.native_play_work import SCHEMA as PLAY_WORK_SCHEMA
