@@ -224,7 +224,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             candidates=body.get('state',{}).get('candidates',[])
             selected={i for i,c in enumerate(candidates) if (saved and c['kind'].startswith('Saved authored page block'))
                 or (saved_statblock and c['kind'].startswith('Saved statblock'))
-                or (failure=='used_rules' and c['kind']=='public_rules_lookup')
+                or ((failure=='used_rules' or failure=='mixed_questions' and writer.review is not None) and c['kind']=='public_rules_lookup')
                 or (native_body and c['kind'] in ({'Explicit admitted full-source read; metadata choice, not evidence'} | ({'Source lexical navigation; not evidence or semantic completeness'} if direct_source=='mixed' else set()) if direct_source else {'Source lexical navigation; not evidence or semantic completeness','Explicit full-document read'} | ({'Explicit admitted full-source read; metadata choice, not evidence'} if any(c['kind'].startswith('Navigation scan:') for c in body['state'].get('examined_subjects',[])) else set())))}
             if direct_source == 'covered-batch' and candidates:
                 scanned = any(c['kind'].startswith('Navigation scan:')
@@ -321,7 +321,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert projected['objective'] == scope['scope']['objective_context']
                     assert projected['siblings'][0]['selected'] == scope['scope']['sibling_context'][0]['selected']
                 if scope is not None:
-                    assert scope['scope']['task']['text']=='Discuss where the lamp belongs.'
+                    assert scope['scope']['task']['text'] == ('Can I end my move in an occupied space?' if failure == 'mixed_questions' else 'Discuss where the lamp belongs.')
                     assert scope['scope']['sibling_context'][0]['selected'] is False
             if with_draft:
                 assert work['current_draft']['markdown']==draft.snapshot.draft_markdown
@@ -391,6 +391,17 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     'read_id':str(uuid4()) if connected_review=='foreign_read' else section['selection'],
                     'quote':'A phrase absent from the source.' if connected_review=='foreign_quote' else 'A proposed conversation.',
                     'person_label':None,'relationships':[],'instructions':'Prepare a separate page for author review.'}
+            if failure == "mixed_questions" and self.review:
+                candidate["answer_segments"] = [
+                    dict(kind="discussion", text="We can discuss the route before choosing.")
+                ]
+                candidate = dict(
+                    kind="rules_answer", base_output=candidate,
+                    rules_segments=[dict(kind="rules_context", category="gap",
+                                         text="No additional applicable rule is established.")],
+                    ordered_refs=[dict(domain="base", segment_index=None),
+                                  dict(domain="rules", segment_index=0)],
+                )
             self.actual_output=json.dumps(candidate)
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
                 created_at=1, status='incomplete' if failure in {'writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'} else 'completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
@@ -1111,7 +1122,7 @@ def test_native_build_retrieval_receives_frozen_followup_dialogue(lane, tmp_path
 
 
 @pytest.mark.parametrize('kind,related,mutation,output_review',[
-    ('discuss',False,None,None),('discuss',False,None,'questions'),('discuss',False,None,'plan'),
+    ('discuss',False,None,None),('discuss',False,None,'questions'),('discuss',False,None,'mixed_questions'),('discuss',False,None,'plan'),
     ('prepare_insertion',False,None,None),('prepare_insertion',True,None,None),
     ('discuss',False,'message',None),('prepare_insertion',False,'command',None)]
     +[(kind,False,mutation,None) for kind in ('discuss','prepare_insertion')
@@ -1119,13 +1130,13 @@ def test_native_build_retrieval_receives_frozen_followup_dialogue(lane, tmp_path
 def test_native_reviewed_step_preserves_the_author_choice(lane,tmp_path,monkeypatch,application_state_dsn,kind,related,mutation,output_review,authored_source=None):
     from application_state.agent_conversation import work_plan as w
     from application_state.build_proposal.types import BuildWriteCapability
-    case=_fresh_case(lane,tmp_path,monkeypatch,None,True,False,False,authored_source=authored_source)
+    case=_fresh_case(lane,tmp_path,monkeypatch,'mixed_questions' if output_review=='mixed_questions' else None,True,False,False,authored_source=authored_source)
     if related:
         page=create_page_fixture(tmp_path,world_id=case.world,campaign_id=case.world,title='Related authored note',
             kind='worldbuilding_source',source_domain='worldbuilding',document_class='lore',
             authority_state='draft',visibility_state='internal')
         save_page(tmp_path,page.document_id,'A separate proposed lamp note.')
-    step=w.StepV2(step_id=uuid4(),text='Discuss where the lamp belongs.' if kind=='discuss' else 'Prepare a proposed lamp detail.',
+    step=w.StepV2(step_id=uuid4(),text=('Can I end my move in an occupied space?' if output_review=='mixed_questions' else 'Discuss where the lamp belongs.') if kind=='discuss' else 'Prepare a proposed lamp detail.',
         selected=True,kind=kind,references=())
     deferred=w.StepV2(step_id=uuid4(),text='Write a useful paragraph only after placement is chosen.',selected=False,kind='prepare_insertion',references=())
     review=w.ReviewV3(expected_revision=0,objective='Choose placement, then prepare writing for review.',
@@ -1150,7 +1161,7 @@ def test_native_reviewed_step_preserves_the_author_choice(lane,tmp_path,monkeypa
     case.decisions.deny_routing=True
     case.writer.mode=kind=='prepare_insertion'
     if output_review is not None:
-        case.writer.review=({'kind':'questions','questions':[{'text':'Where should the lamp stand?'}]} if output_review=='questions'
+        case.writer.review=({'kind':'questions','questions':[{'text':'Where should the lamp stand?'}]} if output_review in {'questions','mixed_questions'}
             else {'kind':'plan','objective':'Unapproved work','steps':[{'text':'Write the deferred paragraph.','kind':'prepare_insertion','selected':True}]})
     accounting_refusals=[]
     if mutation in {'writer_allowance','writer_input'}:
@@ -1197,54 +1208,58 @@ def test_native_reviewed_step_preserves_the_author_choice(lane,tmp_path,monkeypa
         assert len(case.writer.calls)==before[1]+1
         return
     assert response.status_code==200,response.text
-    context=response.json()['knowledge_context']
+    context=(response.json()['rules_context']['base_context'] if output_review=='mixed_questions' else response.json()['knowledge_context'])
     if kind=='discuss':
         assert context['completion']['collaboration']==case.writer.review
     assert context['receipt']['assembled_input']['assembler_version']=='reviewed_author_admission_v1'
     actual=case.service.inspect_turn(world_id=case.world,turn_id=case.writer.adapter.turn.turn_id)
-    assert actual.status=='completed'
-    selections=[e for e in actual.graph_context_execution.events if isinstance(e,t.BuildReviewedActionSelectionV1)]
+    mixed = output_review == 'mixed_questions'
+    if mixed:
+        assert actual.base_projection.kind == 'approved'
+    base = actual.base_projection.turn if mixed else actual
+    assert base.status == 'completed'
+    selections=[e for e in base.graph_context_execution.events if isinstance(e,t.BuildReviewedActionSelectionV1)]
     assert len(selections)==1 and selections[0].operation==('answer_from_sources' if kind=='discuss' else 'propose_build_insertion')
-    assert not any(isinstance(e,t.BuildRequestedWorkResolutionV1) for e in actual.graph_context_execution.events)
+    assert not any(isinstance(e,t.BuildRequestedWorkResolutionV1) for e in base.graph_context_execution.events)
     expected='dmb_surface_native_completion_v1' if kind=='discuss' else 'dmb_build_authoring_completion_v1'
     assert context['completion']['schema']==expected
     assert len(case.writer.calls)==before[1]+1
     after=len(case.decisions.calls),len(case.writer.calls)
     replay=case.client.post('/api/live/agent/turn',json=body)
-    assert replay.status_code==200 and replay.json()['knowledge_context']['delivery_replay'] is True,replay.text
+    assert replay.status_code==200 and (replay.json()['rules_context']['base_context'] if mixed else replay.json()['knowledge_context'])['delivery_replay'] is True,replay.text
     assert (len(case.decisions.calls),len(case.writer.calls))==after
     assert get_workspace_document_snapshot(tmp_path,case.page.document_id)==case.source
 
-    if output_review == "questions":
+    if output_review in {"questions", "mixed_questions"}:
         from application_state.agent_conversation import library
 
-        page = library.read_turns(actual.world_id, actual.conversation_id)
+        page = library.read_turns(base.world_id, base.conversation_id)
         assert page["schema"] == "dmb_conversation_library_turns_v3"
-        row = next(row for row in page["turns"] if row["turn_id"] == str(actual.turn_id))
+        row = next(row for row in page["turns"] if row["turn_id"] == str(base.turn_id))
         assert row["assistant_text"] == actual.assistant_text
         assert row["reply_object"] == {
             **case.writer.review,
             "source": {
-                "world_id": actual.world_id,
-                "conversation_id": str(actual.conversation_id),
-                "turn_id": str(actual.turn_id),
+                "world_id": base.world_id,
+                "conversation_id": str(base.conversation_id),
+                "turn_id": str(base.turn_id),
                 "document_id": case.page.document_id,
                 "surface_id": "build",
             },
         }
-        pointer = case.service.get_world_pointer(actual.world_id)
+        pointer = case.service.get_world_pointer(base.world_id)
         case.service.new_conversation(t.ConversationCommand(
-            world_id=actual.world_id,
+            world_id=base.world_id,
             command_id=uuid4(),
             expected_pointer_revision=pointer.revision,
-            expected_active_conversation_id=actual.conversation_id,
+            expected_active_conversation_id=base.conversation_id,
         ))
-        archived_pointer = case.service.get_world_pointer(actual.world_id)
-        assert library.read_turns(actual.world_id, actual.conversation_id) == page
-        assert case.service.get_world_pointer(actual.world_id) == archived_pointer
-        assert case.service.inspect_turn(world_id=actual.world_id, turn_id=actual.turn_id) == actual
-        assert library._reply_object(actual, "foreign-world", actual.conversation_id) is None
-        assert library._reply_object(actual, actual.world_id, uuid4()) is None
+        archived_pointer = case.service.get_world_pointer(base.world_id)
+        assert library.read_turns(base.world_id, base.conversation_id) == page
+        assert case.service.get_world_pointer(base.world_id) == archived_pointer
+        assert case.service.inspect_turn(world_id=base.world_id, turn_id=base.turn_id) == actual
+        assert library._reply_object(actual, "foreign-world", base.conversation_id) is None
+        assert library._reply_object(actual, base.world_id, uuid4()) is None
 
 
 @pytest.mark.parametrize('proposal',[True,'image'])
