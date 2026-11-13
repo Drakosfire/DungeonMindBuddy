@@ -7,6 +7,36 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## Cleanup findings recorded in Git history
+
+These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
+
+- Retire the original Agent launcher PNG from the active tree. [Disposition history #2697](https://github.com/Drakosfire/DungeonMindBuddy/pull/2697)
+- Repair relative links in the design-agent source set. [Disposition history #2699](https://github.com/Drakosfire/DungeonMindBuddy/pull/2699)
+- Remove historical files from the active design-agent upload directory. [Disposition history #2702](https://github.com/Drakosfire/DungeonMindBuddy/pull/2702)
+- Make the active demo input pin checkout-independent. [Disposition history #2707](https://github.com/Drakosfire/DungeonMindBuddy/pull/2707)
+- Make the R0-A dogfood script portable. [Disposition history #2704](https://github.com/Drakosfire/DungeonMindBuddy/pull/2704)
+- Make the Combat dogfood dependency setup reproducible. [Disposition history #2708](https://github.com/Drakosfire/DungeonMindBuddy/pull/2708)
+- Reconcile the hosted validation handoff with the manual workflow trigger. [Disposition history #2663](https://github.com/Drakosfire/DungeonMindBuddy/pull/2663)
+- Define the scope of hosted Python lint coverage. [Disposition history #2664](https://github.com/Drakosfire/DungeonMindBuddy/pull/2664)
+- Give the ordinary native Build regression one CI owner. [Disposition history #2666](https://github.com/Drakosfire/DungeonMindBuddy/pull/2666)
+- Align local verifier CI triggers with its contract checks. [Disposition history #2660](https://github.com/Drakosfire/DungeonMindBuddy/pull/2660)
+- Measure filesystem work in the test classification inventory. [Disposition history #2662](https://github.com/Drakosfire/DungeonMindBuddy/pull/2662)
+- Isolate CI contract tests from application fixtures. [Disposition history #2695](https://github.com/Drakosfire/DungeonMindBuddy/pull/2695)
+- Read the CI command manifest once per invocation. [Disposition history #2672](https://github.com/Drakosfire/DungeonMindBuddy/pull/2672)
+- Validate and decode verifier evidence from the same bytes. [Disposition history #2674](https://github.com/Drakosfire/DungeonMindBuddy/pull/2674)
+- Preserve frontend CI subprocess failure details. [Disposition history #2670](https://github.com/Drakosfire/DungeonMindBuddy/pull/2670)
+- Retain a local verifier step receipt on timeout. [Disposition history #2668](https://github.com/Drakosfire/DungeonMindBuddy/pull/2668)
+- Audit leftover local verifier allocations. [Disposition history #2654](https://github.com/Drakosfire/DungeonMindBuddy/pull/2654)
+- Attempt verifier worktree removal even when final source inspection fails. [Disposition history #2654](https://github.com/Drakosfire/DungeonMindBuddy/pull/2654)
+- Measure full-checkout cost for frontend verification. [Disposition history #2689](https://github.com/Drakosfire/DungeonMindBuddy/pull/2689)
+- Parse Vitest case keys once per verifier report. [Disposition history #2676](https://github.com/Drakosfire/DungeonMindBuddy/pull/2676)
+- Derive the verifier outcome from its existing test status. [Disposition history #2678](https://github.com/Drakosfire/DungeonMindBuddy/pull/2678)
+- Distinguish selected skips from executed frontend tests. [Disposition history #2680](https://github.com/Drakosfire/DungeonMindBuddy/pull/2680)
+- Cancel superseded local verifier PR runs. [Disposition history #2656](https://github.com/Drakosfire/DungeonMindBuddy/pull/2656)
+- Retire or rename the standalone revise fixture verifier. [Disposition history #2691](https://github.com/Drakosfire/DungeonMindBuddy/pull/2691)
+- Align browser deployment smoke with the session request. [Disposition history #2713](https://github.com/Drakosfire/DungeonMindBuddy/pull/2713)
+
 ## [DONE] Check whether two frontend exports can be private
 
 [PR #2821](https://github.com/Drakosfire/DungeonMindBuddy/pull/2821) made `GraphObjectRelationships` and `CompactCoreStats` module-private. Main had only same-module callers, and checked open PR and worktree diffs added no consumers. All 37 focused frontend tests and the application TypeScript check passed locally. GitHub reported no checks for the PR.
