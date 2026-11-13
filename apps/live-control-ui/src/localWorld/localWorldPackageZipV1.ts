@@ -202,25 +202,21 @@ export async function decodeLocalWorldPackageZipV1(blob: Blob): Promise<DecodeLo
       const meta = expectedByName.get(entry.filename);
       if (!meta) throw new ZipProblem("invalid-archive", "ZIP parsed a member absent from bounded preflight.");
       if (meta.expandedSize !== entry.uncompressedSize || meta.compressedSize !== entry.compressedSize || meta.method !== entry.compressionMethod) fail("invalid-archive", "ZIP parsed metadata differs from bounded preflight.");
-      const chunks: Uint8Array[] = [];
-      let entryTotal = 0;
+      const bytes = new Uint8Array(meta.expandedSize);
+      let offset = 0;
       const sink = new WritableStream<Uint8Array>({
         write(chunk) {
-          const bytes = new Uint8Array(chunk);
-          entryTotal += bytes.byteLength;
-          streamedTotal += bytes.byteLength;
-          const json = meta.name === "manifest.json" || meta.name === "semantic.json" || meta.name === "layout.json" || meta.name === "history.json";
-          const limit = json ? LOCAL_WORLD_PACKAGE_V1.limits.jsonMemberBytes : LOCAL_WORLD_PACKAGE_V1.limits.attachmentBytes;
-          if (entryTotal > limit || streamedTotal > LOCAL_WORLD_PACKAGE_V1.limits.totalBytes) throw new ZipProblem("limit-exceeded", "Inflated ZIP output exceeded a package byte limit.");
-          chunks.push(bytes);
+          const nextOffset = offset + chunk.byteLength;
+          streamedTotal += chunk.byteLength;
+          if (streamedTotal > LOCAL_WORLD_PACKAGE_V1.limits.totalBytes) throw new ZipProblem("limit-exceeded", "Inflated ZIP output exceeded a package byte limit.");
+          if (nextOffset > bytes.byteLength) fail("invalid-archive", `Inflated length disagrees with ZIP metadata: ${meta.name}`);
+          bytes.set(chunk, offset);
+          offset = nextOffset;
         },
       });
       await entry.getData(sink);
-      if (entryTotal !== meta.expandedSize) fail("invalid-archive", `Inflated length disagrees with ZIP metadata: ${meta.name}`);
-      const combined = new Uint8Array(entryTotal);
-      let offset = 0;
-      for (const chunk of chunks) { combined.set(chunk, offset); offset += chunk.byteLength; }
-      members.set(meta.name, combined);
+      if (offset !== bytes.byteLength) fail("invalid-archive", `Inflated length disagrees with ZIP metadata: ${meta.name}`);
+      members.set(meta.name, bytes);
     }
     const parsed = await parseLocalWorldPackageV1(members);
     if (parsed.status !== "staged") throw new ZipProblem(parsed.code === "unsupported-version" ? "unsupported-version" : "invalid-package", parsed.message);
