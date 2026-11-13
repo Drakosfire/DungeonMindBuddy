@@ -169,9 +169,15 @@ def artifacts_root(root: Path) -> Path:
     return root / DEFAULT_ARTIFACTS_REL
 
 
+def _span_line_bounds(span: Mapping[str, Any]) -> tuple[int, int]:
+    return (
+        int(span.get("line_start") or span.get("start_line") or 0),
+        int(span.get("line_end") or span.get("end_line") or 0),
+    )
+
+
 def _paragraph_text_for_span(lines: list[str], span: Mapping[str, Any]) -> str:
-    start = int(span.get("line_start") or span.get("start_line") or 0)
-    end = int(span.get("line_end") or span.get("end_line") or 0)
+    start, end = _span_line_bounds(span)
     if start < 1 or end < start:
         return ""
     return "\n".join(lines[start - 1 : end])
@@ -696,24 +702,6 @@ def _candidate_node_chips(candidate: GraphPreviewCandidateRow) -> list[RecapGrap
     return chips
 
 
-def _insert_markdown_node_links(
-    paragraph: str,
-    links: list[RecapGraphLink],
-) -> str:
-    ordered = sorted(links, key=lambda link: (link.char_start, -(link.char_end - link.char_start)))
-    chunks: list[str] = []
-    cursor = 0
-    for link in ordered:
-        if link.char_start < cursor or link.char_start >= link.char_end:
-            continue
-        chunks.append(paragraph[cursor : link.char_start])
-        label = _markdown_link_text(paragraph[link.char_start : link.char_end])
-        chunks.append(f"[{label}]({link.href})")
-        cursor = link.char_end
-    chunks.append(paragraph[cursor:])
-    return "".join(chunks)
-
-
 def _recap_graph_nodes_for_candidates(
     candidates: list[GraphPreviewCandidateRow],
 ) -> tuple[dict[str, RecapGraphNode], dict[str, list[str]]]:
@@ -1014,7 +1002,11 @@ def build_recap_graph_presentation(
         nodes.setdefault(object_id, node)
         aliases_by_node.setdefault(object_id, seeded_aliases.get(object_id, [node.label]))
 
-    lines = recap_lines.copy()
+    source = "\n".join(recap_lines)
+    line_offsets = [0]
+    for line in recap_lines:
+        line_offsets.append(line_offsets[-1] + len(line) + 1)
+    edits: list[tuple[int, int, RecapGraphLink]] = []
     matchers = _prepare_node_matchers(nodes, aliases_by_node)
     within_two_edits = lru_cache(maxsize=4096)(_levenshtein_at_most_two)
     all_links: list[RecapGraphLink] = []
@@ -1025,11 +1017,20 @@ def build_recap_graph_presentation(
         span_links = _span_links_for_nodes(paragraph, span_ref_id, matchers, within_two_edits)
         if not span_links:
             continue
-        start = int(span["line_start"])
-        end = int(span["line_end"])
-        lines[start - 1 : end] = [_insert_markdown_node_links(paragraph, span_links)]
-        all_links.extend(span_links)
-    display_lines = _strip_yaml_frontmatter_lines(lines)
+        start, _ = _span_line_bounds(span)
+        offset = line_offsets[start - 1]
+        edits.extend((offset + link.char_start, offset + link.char_end, link) for link in span_links)
+    chunks: list[str] = []
+    cursor = 0
+    for start, end, link in sorted(edits, key=lambda edit: (edit[0], edit[0] - edit[1])):
+        if start < cursor:
+            continue
+        chunks.append(source[cursor:start])
+        chunks.append(f"[{_markdown_link_text(source[start:end])}]({link.href})")
+        cursor = end
+        all_links.append(link)
+    chunks.append(source[cursor:])
+    display_lines = _strip_yaml_frontmatter_lines("".join(chunks).splitlines())
 
     return RecapGraphPresentationResponse(
         run_dir=rel_run_dir,
