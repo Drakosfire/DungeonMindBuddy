@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Use a scoped existence check for saved conversation messages
+
+[PR #2803](https://github.com/Drakosfire/DungeonMindBuddy/pull/2803) replaces summary hydration with a World-scoped existence query inside the existing repeatable-read transaction. Both PostgreSQL integration tests passed. On a migrated PostgreSQL 16 fixture with three turns, median execution over 30 warm samples dropped from 0.0205 ms to 0.007 ms for the ownership query, with shared buffer hits falling from six to two. Rules-only regression, inventory, and frontend discovery passed in GitHub.
+
 ## [DONE] Avoid resorting accumulated conversation history on each older page
 
 [#2800](https://github.com/Drakosfire/DungeonMindBuddy/pull/2800) aligned the transcript cursor check with preview and rejected repeated or empty nonterminal cursors. [#2801](https://github.com/Drakosfire/DungeonMindBuddy/pull/2801) prepends disjoint ordered pages and retains the existing merge for duplicates and overlap. All 101 targeted tests passed locally. In a synthetic Node benchmark with 5,000 loaded turns and 50 older turns, the revised merge produced identical output and reduced the median from 0.233 ms to 0.161 ms. GitHub reported no checks for #2801.
