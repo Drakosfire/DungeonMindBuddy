@@ -169,3 +169,37 @@ verify that each URL renders the intended page.
 Record the serving image ID or digest and the results of the restore, edge, and browser checks. If a rollout check fails after the proxy reload, restore the prior proxy configuration or withdraw the route for a first deployment, then run `sudo nginx -t && sudo systemctl reload nginx`.
 
 Restore the prior image with its saved Compose configuration only after verifying compatibility with the current data and schema. If they are incompatible, use the agreed forward repair or coordinated restore for both authorities and their associated files. Rerun the relevant health and authentication checks and record the serving release.
+
+For a compatible image rollback, run this from the prior release's reviewed
+checkout. Use its saved project name, protected environment file, image
+override, image tag, and image ID from the release record. Use the same
+deployment shell configuration as the prior release.
+
+```bash
+(
+  set -e
+  read -r -p 'Prior Compose project: ' prior_project
+  read -r -p 'Absolute path to prior protected environment file: ' prior_env
+  read -r -p 'Absolute path to prior image override: ' prior_override
+  read -r -p 'Prior image tag: ' prior_tag
+  read -r -p 'Prior image ID: ' prior_id
+  test -n "$prior_project"
+  test "${prior_env:0:1}" = / && test -r "$prior_env" || exit 1
+  test "${prior_override:0:1}" = / && test -r "$prior_override" || exit 1
+  test -n "$prior_tag"
+  test -n "$prior_id"
+  prior_compose=(docker compose --project-name "$prior_project" --env-file "$prior_env"
+    -f deploy/production/compose.production.yaml -f "$prior_override")
+  configured_image=$("${prior_compose[@]}" config --images buddy)
+  test "$configured_image" = "$prior_tag"
+  local_image=$(docker image inspect "$prior_tag" --format '{{.Id}}')
+  test "$local_image" = "$prior_id"
+  "${prior_compose[@]}" up -d --no-build --pull never --wait --wait-timeout 330 buddy
+  prior_container=$("${prior_compose[@]}" ps -q buddy)
+  actual_image=$(docker inspect "$prior_container" --format '{{.Image}}')
+  test "$actual_image" = "$prior_id"
+)
+```
+
+If this block fails, inspect the prior service before proceeding. After it
+passes, use the prior release's smoke procedure with the restored proxy.
