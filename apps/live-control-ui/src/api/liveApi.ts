@@ -1728,9 +1728,9 @@ export async function getBuildSourceNavigation(args: {
   );
 }
 
-export function getSourceSessions(campaignId: string): Promise<number[]> {
+export function getSourceSessions(campaignId: string, signal?: AbortSignal): Promise<number[]> {
   const query = new URLSearchParams({ campaign_id: campaignId });
-  return apiFetch<number[]>(`/api/live/source-bundle/sessions?${query}`);
+  return apiFetch<number[]>(`/api/live/source-bundle/sessions?${query}`, { signal });
 }
 
 export async function getSourceBundle(

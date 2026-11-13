@@ -86,7 +86,7 @@ describe("PlanGraphLoadPanel", () => {
     expect(screen.getByRole("option", { name: "C2 · Session 1" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "C2 · Session 40" })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "C1 · Session 3" })).not.toBeInTheDocument();
-    expect(loadSessions).toHaveBeenCalledWith("longmont-c2");
+    expect(loadSessions).toHaveBeenCalledWith("longmont-c2", expect.any(AbortSignal));
   });
 
   it("applies Focus session and updates the status line", async () => {
