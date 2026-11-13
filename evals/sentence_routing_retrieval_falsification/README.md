@@ -409,59 +409,25 @@ Each comes with the test command and the acceptance triple (B1, B2, BD), so any 
 
 ### H7 — roster-copy and named-multi-PC are different decision procedures
 
-**Claim:** the failure mode on `u-L0026-06` under `party_continuation_v1` is that a single rule is being asked to handle both "copy from `pc_roster_slugs` exactly" and "intersect with same-unit role evidence." A variant that adds a contrastive narrow-multi-PC counter-example (assign exactly the named PCs in distinct in-unit roles; do *not* expand to full roster from prior context) will recover bucket-sentinel and party-boundary recall *and* close the H1/H2 over-route on `u-L0026-06`.
-
-**Variant under test:** `party_roster_strict_v1` — `party_continuation_v1` body plus an explicit narrow-multi-PC counter-example with a Marla/Bonogo/Caelynn shape.
-
-**Test (sentinel matrix, N=3):** run `party_roster_strict_v1` on the bucket sentinel, the H1/H2 mixed sentinel, the party-boundary slice, and the B1 multi-PC recall slice; compare cohort summary `gold_gate_checks_pass`, `b1_missing_expected_hub`, `b2_over_assigned`, and `routing_diagnostic_histogram` against the matched-scenario `party_continuation_v1` cohorts logged under "H2 — slice matrix" and "H4 — party-boundary slice" above.
-
-**Promotion threshold:** bucket sentinel ≥2/3 PASS, H1/H2 mixed ≥1/3 PASS (any improvement from 0/3), party-boundary B1 misses ≤3/2/2, B1 multi-PC recall ≥1/3 PASS, B2 = 0 across all four cohorts. If any cell regresses, the variant goes to the graveyard with the artifact paths.
-
-**Result (2026-04-28, sentinel matrix N=3 each, `routing_prompt_id=14b06e98cf94c5703e1c2c14`):** H7 is **partial support; not promotable as default**. Bucket sentinel held at v1's 2/3 PASS (`...--pv-party_roster_strict_v1--N3--20260428T172707Z.json`, B1=[0,0,2], B2=[0,0,0], cost sum **$0.016487**). H1/H2 mixed sentinel stayed 0/3 but the B1 floor moved from v1's [2,2,2] to [1,2,1] and there was **no `u-L0026-06` over-route this cohort** (`...--pv-party_roster_strict_v1--N3--20260428T172738Z.json`, B2=[0,0,0], cost sum **$0.016177**, +11% vs same-scenario v1). Party-boundary slice stayed 0/3 with one run's B1 dropping from v1's worst case 3 to 1 (`...--pv-party_roster_strict_v1--N3--20260428T172741Z.json`, B1=[1,2,2], B2=[0,0,0], cost sum **$0.022212**, flat vs v1). B1 multi-PC recall regressed v1's lone PASS by losing run[1] to a B0 schema contradiction on `u-L0032-09` (assigned `karsemine` + `routing_diagnostic_bucket="npc_placeholder"` — exactly the H8 shape) instead of B1 misses (`...--pv-party_roster_strict_v1--N3--20260428T172736Z.json`, runs B1=[2,_,1] with B0=[0,1,0], cost sum **$0.012251**, flat vs v1). Total cost across the four H7 cohorts: **$0.067127** (v1 baseline same matrix: $0.066194; +1.4%).
-
-**Verdict after N=3:** keep `party_roster_strict_v1` as an opt-in variant alongside `party_continuation_v1`. It strictly suppresses v1's `u-L0026-06`-style over-routes on this draw, improves the B1 floor on 3 of 4 sentinels, and stays B2-clean — but the H1/H2 mixed and B1 multi-PC recall PASS gates remain closed at N=3. **Update H8** to "directly observed during H7" (see below).
-
-**Final result after N=5 H1/H2 rerun (2026-04-28):** H7's promotion claim is disproved; see graveyard **G3**. `party_roster_strict_v1` removed `party_continuation_v1`'s single over-route on `u-L0026-06`, but worsened total recall on the mixed sentinel (strict B1 misses `[1,2,3,2,3]` vs v1 `[2,1,2,2]` plus one over-route). Do not promote either variant. Keep both as opt-in controls while designing a structural classifier or a base-prompt rewrite.
+[Original experiment notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/499a6052b37460808a8b364570e6647b20a2b5fd/evals/sentence_routing_retrieval_falsification/README.md#h7--roster-copy-and-named-multi-pc-are-different-decision-procedures).
 
 ### H8 — schema contradictions are confused-routing telemetry
 
-**Claim:** B0 schema violations of the `diagnostic_null_when_assigned` form (model asserts both a PC hub and a placeholder bucket) are not noise; they are the leading indicator of a prompt rule the model cannot reliably apply. The H3 abstain-pronoun-context cohort hit several of these (`.../...--pv-party_continuation_v1--N5--20260428T165846Z.json`).
+[Original experiment notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/499a6052b37460808a8b364570e6647b20a2b5fd/evals/sentence_routing_retrieval_falsification/README.md#h8--schema-contradictions-are-confused-routing-telemetry).
 
-**Test:** add a cohort-level counter (`b0_diagnostic_null_when_assigned`) to the violation aggregate so this specific shape is tracked separately from "any B0." Run an N=5 cohort on the abstain-pronoun-context slice with both the current default and `party_roster_strict_v1`; see whether the new variant moves the count.
-
-**Promotion threshold:** if `b0_diagnostic_null_when_assigned` falls under `party_roster_strict_v1` (relative to the current default on the same slice), this hypothesis is supported and the counter graduates to a sidecar field. If it stays flat, either the ambiguity is intrinsic to the abstain-pronoun shape (capture as new hypothesis), or the variant is not the right lever.
-
-**Result (2026-04-28, observed during H7):** the H8 shape was directly observed in the H7 B1 multi-PC recall cohort: run[1] failed exclusively because of one B0 row on `u-L0032-09` of the form `assigned_hubs=["karsemine"] + routing_diagnostic_bucket="npc_placeholder"` (`evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-28/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc_edge_slice_b1_multipc_recall--FAIL--20260428T172728658143Z.json` → `violations.stage_b[0]`). With B1=B2=0 on that run, this single B0 contradiction was decisive in flipping a passing run to FAIL.
-
-**Result (2026-04-28, counter shipped + H1/H2 N=5):** `grader.py` now emits `violation_failure_buckets.b0_diagnostic_null_when_assigned`, and parse-failure sidecars now still get a minimal `stage_b_unit_breakdown` so cohort summaries can count the H8 shape. Offline proof: `uv run pytest tests/test_sentence_routing_stage_b_grader.py -q` → **36 passed**. The paired H1/H2 mixed-sentinel N=5 cohorts had **zero** H8 contradictions for both variants: `party_continuation_v1` B0/H8 `[0/0,0/0,0/0,0/0,0/0]`; `party_roster_strict_v1` B0/H8 `[0/0,0/0,0/0,0/0,0/0]`. Interpretation: H8 is real but not the dominant mixed-sentinel blocker; it remains a required counter on future cohorts, and the next H8-specific run should target `scenario_c2_session20_pc_edge_slice_b2_abstain_pronoun_context` (where B0 contradictions originally appeared) with the new counter.
-
-**Result (2026-04-28, abstain-pronoun-context N=5 with counter):** H8 is supported on the slice where it was first seen. `party_continuation_v1` stayed **0/5 PASS** (`...--pv-party_continuation_v1--N5--20260428T185648Z.json`, cost sum **$0.027308**, mean **$0.005462**) with B0/H8 in **2/5** runs (`b0_diagnostic_null_when_assigned=[0,0,0,1,1]`) plus B2 over-assignment in the other failures (`b2_over_assigned=[4,1,3,0,0]`). `party_roster_strict_v1` improved to **2/5 PASS** (`...--pv-party_roster_strict_v1--N5--20260428T185646Z.json`, cost sum **$0.025562**, mean **$0.005112**) and eliminated the H8 schema contradiction entirely (`b0_diagnostic_null_when_assigned=[0,0,0,0,0]`), but still over-assigned `u-L0018-10` in 3/5 (`b2_over_assigned=[0,1,0,1,1]`). Interpretation: the strict guard really does reduce confused-routing B0 on abstain-pronoun context, but the residual blocker is now a row-specific B2 pronoun/affected-party ambiguity, not a schema contradiction. Keep the H8 counter permanent.
+Run the offline grader with `uv run pytest tests/test_sentence_routing_stage_b_grader.py -q`.
 
 ### H9 — single-PASS evidence is below the noise floor
 
-**Claim:** the `party_continuation_v1` 1/3 PASS on the B1 multi-PC recall slice is noise, not signal; promotion gates require either N≥3 PASS or N≥5 PASS-rate ≥80%. We have *not* run every Stage B PC cohort gate at N=5 since shipping diagnostic buckets.
-
-**Test:** rerun the bucket sentinel and the H1/H2 mixed sentinel at N=5 against the current default prompt (`routing_prompt_base_id` of record), and again against the winning H7 variant. Record per-run pass/fail vector, not just aggregate.
-
-**Promotion threshold:** any default-prompt change requires bucket sentinel + H1/H2 mixed both at PASS-rate ≥80% (4/5) at N=5 *before* expanding the matrix. This is the standing N gate going forward.
-
-**Result (2026-04-28, H1/H2 mixed sentinel N=5):** H9 is supported. `party_continuation_v1` stayed **0/5 PASS** (`...--pv-party_continuation_v1--N5--20260428T185202Z.json`, cost sum **$0.028177**, mean **$0.005635**) and `party_roster_strict_v1` stayed **0/5 PASS** (`...--pv-party_roster_strict_v1--N5--20260428T185204Z.json`, cost sum **$0.027778**, mean **$0.005556**). The failure is not stochastic pass-rate noise hiding a promotable variant; the same unit IDs dominate repeatedly. For v1: `u-L0026-06` failed in 5/5 (four misses, one over-route) and `u-L0030-03` missed in 3/5. For strict: `u-L0026-06` missed `bonogo` in 5/5, `u-L0030-03` missed in 4/5, and `u-L0026-03` missed in 2/5. Bucket-sentinel N=5 remains to be run before any base-prompt promotion, but the H1/H2 mixed gate alone rejects both current variants.
+[Original experiment notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/499a6052b37460808a8b364570e6647b20a2b5fd/evals/sentence_routing_retrieval_falsification/README.md#h9--single-pass-evidence-is-below-the-noise-floor).
 
 ### H10 — bucket-label disagreement is a definition gap, not a routing gap
 
-**Claim:** the bucket-sentinel run-3 disagreements on `u-L0028-08` (`true_empty` vs gold `npc_placeholder`) and `u-L0032-08` (`event_or_object_placeholder` vs gold `npc_placeholder`) come from the prompt's bucket definitions being silent on (a) one-hop pronoun continuation when the antecedent is an NPC, and (b) named characters in a possessive/object frame ("trust in the city"). The fix is a one-paragraph addendum to the bucket descriptions in `ROUTING_SYSTEM_PROMPT_BASE`, *not* a new routing rule.
-
-**Test:** draft `bucket_definitions_sharper_v1` (a base-prompt edit, not an addendum) that adds two clauses to the bucket descriptions: "When a unit is pronoun-led and the immediately previous unit anchors the pronoun to an NPC, prefer `npc_placeholder` over `true_empty`. Possessive constructions naming a non-PC person ("X is concerned about who she can trust") prefer `npc_placeholder` even when the surface verb is abstract." Run on the bucket sentinel N=5; compare BD pass count vs current default.
-
-**Promotion threshold:** BD pass count strictly higher under the new base prompt without any B2 regression. If yes, the new base ships and bumps `ROUTING_PROMPT_BASE_ID`; if no, the disagreement rows are escalated to an explicit gold-vs-prompt adjudication and either the gold gets a `notes` rationale or the prompt acquires a different rule.
+[Original experiment notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/499a6052b37460808a8b364570e6647b20a2b5fd/evals/sentence_routing_retrieval_falsification/README.md#h10--bucket-label-disagreement-is-a-definition-gap-not-a-routing-gap).
 
 ### H11 — `u-L0018-10` is the residual abstain-pronoun ambiguity after H8
 
-**Claim:** after `party_roster_strict_v1` removes H8-style schema contradictions on the abstain-pronoun-context slice, the remaining failure is concentrated in `u-L0018-10`: the model treats the unit as PC-retrievable because a PC is the conversational/listening locus, while gold currently treats it as NPC-placeholder / no PC hub. This is not the same failure as wrong roster-copy; it is a retrieval-intent ambiguity for "NPC says/reports/frames X to or around PC" units.
-
-**Test:** human-adjudicate `u-L0018-10` before prompt work. If the GM wants the unit retrievable from Bonogo's hub because Bonogo is the recipient/listener or continuity owner, move it from `must_abstain` to `must_route` with a `scenario_notes` rationale. If the GM wants NPC speech to stay off PC hubs unless the PC acts/decides/is affected in the same unit, keep gold unchanged and add a base-prompt rule: "reported speech / NPC concern about or to a PC does not make the PC a retrieval hub unless the PC is same-unit actor/object/locus." Then rerun the abstain-pronoun-context slice N=5.
-
-**Promotion threshold:** after adjudication or prompt change, `party_roster_strict_v1` or the successor base prompt must reach ≥4/5 PASS on the abstain-pronoun-context slice, with `b0_diagnostic_null_when_assigned=0` and B2 over-assignment ≤1/5. If the only remaining failing row is `u-L0018-10`, do not tune prompt prose further until the gold decision is made.
+[Original experiment notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/499a6052b37460808a8b364570e6647b20a2b5fd/evals/sentence_routing_retrieval_falsification/README.md#h11--u-l0018-10-is-the-residual-abstain-pronoun-ambiguity-after-h8).
 
 ### Review-first workflow
 
