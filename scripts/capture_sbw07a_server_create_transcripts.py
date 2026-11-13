@@ -65,14 +65,29 @@ def _assert_package_from_checkout(server_repo: Path) -> Path:
     return package_file
 
 
+_TRACKED_TRANSCRIPT_SUBDIR = Path("tests/fixtures/statblocks/v1/server_transcripts")
+
+
+def _output_dirs(buddy_repo: Path, out_subdir: Path | None) -> tuple[Path, Path]:
+    if out_subdir is None:
+        transcripts = buddy_repo / _TRACKED_TRANSCRIPT_SUBDIR
+        return transcripts, transcripts.parent
+
+    transcripts = (buddy_repo / out_subdir).resolve()
+    tracked_fixtures = (buddy_repo / _TRACKED_TRANSCRIPT_SUBDIR.parent).resolve()
+    if transcripts == tracked_fixtures or transcripts.is_relative_to(tracked_fixtures):
+        raise SystemExit("Scratch output must be outside the tracked statblock fixture directory.")
+    return transcripts, transcripts / "leaf_fixtures"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--buddy-repo", type=Path, required=True)
     parser.add_argument("--server-repo", type=Path, default=Path.cwd())
     parser.add_argument(
         "--out-subdir",
-        type=str,
-        default="tests/fixtures/statblocks/v1/server_transcripts",
+        type=Path,
+        help="Scratch directory for both transcripts and leaf fixtures.",
     )
     parser.add_argument(
         "--allow-fingerprint-mismatch",
@@ -129,8 +144,7 @@ def main() -> None:
     )
     from statblocks_v1.testing import create_test_app
 
-    out_dir = buddy_repo / args.out_subdir
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir, fixtures_dir = _output_dirs(buddy_repo, args.out_subdir)
 
     fixture_root = server_repo / "Docs/Design/fixtures/dungeonbuddy-statblock-v1"
     simple_bruiser_path = fixture_root / "simple_bruiser.json"
@@ -327,7 +341,8 @@ def main() -> None:
         "create-persistence-validation-failed.json": invalid_body,
         "create-invalid-request.json": bad_req_res.json(),
     }
-    fixtures_dir = buddy_repo / "tests/fixtures/statblocks/v1"
+    fixtures_dir.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
     for name, payload in leaf.items():
         (fixtures_dir / name).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
