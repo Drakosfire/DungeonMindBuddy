@@ -107,9 +107,19 @@ it("validates a repeat capture without reloading PDF.js", async () => {
   const file = new File(["%PDF-fixture"], "fixture.pdf");
   Object.defineProperty(file, "arrayBuffer", {value: async () => new TextEncoder().encode("%PDF-fixture").buffer});
   const context = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({drawImage: vi.fn()} as unknown as CanvasRenderingContext2D);
-  const image = vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue("data:image/png;base64,");
+  const image = vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => {
+    callback(new Blob(["fixture"], {type: "image/png"}));
+  });
+  const createUrl = vi.fn()
+    .mockReturnValueOnce("blob:fixture")
+    .mockReturnValueOnce("blob:recapture");
+  const revokeUrl = vi.fn();
+  vi.stubGlobal("URL", class extends URL {
+    static createObjectURL = createUrl;
+    static revokeObjectURL = revokeUrl;
+  });
   try {
-    render(<BuildPdfPreview worldId="repeat-fixture" initialFile={file} />);
+    const view = render(<BuildPdfPreview worldId="repeat-fixture" initialFile={file} />);
     const canvas = await screen.findByLabelText("PDF page 1");
     canvas.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100);
     Object.defineProperty(canvas, "setPointerCapture", {value: vi.fn()});
@@ -130,9 +140,16 @@ it("validates a repeat capture without reloading PDF.js", async () => {
     await waitFor(() => expect(validate).toBeEnabled());
     expect(fetch.mock.calls[1][0]).toContain("/region:validate");
     expect(load).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole("img", {name: "Captured region of page 1"})).toHaveAttribute("src", "blob:fixture");
+    fireEvent.click(screen.getByRole("button", {name: "Capture region"}));
+    expect(await screen.findByRole("img", {name: "Captured region of page 1"})).toHaveAttribute("src", "blob:recapture");
+    expect(revokeUrl).toHaveBeenCalledWith("blob:fixture");
+    view.unmount();
+    expect(revokeUrl).toHaveBeenCalledWith("blob:recapture");
   } finally {
     context.mockRestore();
     image.mockRestore();
+    vi.unstubAllGlobals();
     for (const key of Object.keys(localStorage)) {
       if (key.includes("repeat-fixture")) localStorage.removeItem(key);
     }
