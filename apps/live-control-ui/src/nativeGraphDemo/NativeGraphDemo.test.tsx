@@ -972,6 +972,14 @@ describe("NativeGraphDemo", () => {
     const navbar = within(screen.getByTestId("surface-context-host"));
     expect(navbar.getByText("World · Elderwyld")).toBeInTheDocument();
     expect(navbar.queryByText(/private graph/i)).not.toBeInTheDocument();
+    fireEvent.click(graphAction("Move nodes"));
+    const node = screen.getByRole("button", { name: /Mara, npc/i });
+    const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => { throw new Error("storage full"); });
+    fireEvent.keyDown(node, { key: "ArrowRight" });
+    await waitFor(() => expect(node).toHaveAttribute("transform", "translate(128 240)"));
+    storage.mockRestore();
+    expect(JSON.parse(localStorage.getItem(`dungeonmind-native-demo:layout:managed%3Aworld-17:${worldKey}`)!)["entity:mara"])
+      .toEqual({ x: 120, y: 240 });
     await user.click(graphAction("Export snapshot"));
     expect(await screen.findByText(/not a restorable World backup/)).toBeInTheDocument();
     expect(exported).not.toBeNull();
@@ -981,10 +989,15 @@ describe("NativeGraphDemo", () => {
       kind: "read-only-revision-pinned-snapshot",
       world_id: graph.world_id,
       revision_id: graph.revision_id,
-      presentation: { positions: { "entity:mara": { x: 120, y: 240 } } },
+      presentation: { layout_revision: 1, positions: { "entity:mara": { x: 128, y: 240 } } },
     });
     expect(payload.note).toMatch(/not a restorable World backup/);
     expect(api.prepare).not.toHaveBeenCalled();
+    vi.mocked(URL.revokeObjectURL).mockClear();
+    vi.mocked(HTMLAnchorElement.prototype.click).mockImplementationOnce(() => { throw new Error("click failed"); });
+    await user.click(graphAction("Export snapshot"));
+    expect(await screen.findByText(/snapshot could not be downloaded.*click failed/i)).toBeInTheDocument();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:native-graph-snapshot");
   });
 
   it("keeps the exact operation ID and form draft after an uncertain prepare response", async () => {
