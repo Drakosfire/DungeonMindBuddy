@@ -179,3 +179,21 @@ it('loads each view without refetching the selected conversation name',async()=>
  expect(api.readConversationMessages).toHaveBeenCalledTimes(2);
  expect(api.readConversationName).not.toHaveBeenCalled();
 });
+
+it('waits for the pending rename before allowing a view change',async()=>{
+ let finish!:(value:api.ConversationSummary)=>void;
+ vi.mocked(api.renameConversation).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
+ await screen.findByText('Current question');
+ fireEvent.click(screen.getByText('•••'));
+ fireEvent.click(screen.getByRole('button',{name:'Rename conversation'}));
+ fireEvent.change(screen.getByLabelText('Conversation name'),{target:{value:'Updated name'}});
+ fireEvent.click(screen.getByRole('button',{name:'Save name'}));
+ const toggle=screen.getByRole('button',{name:'Load saved details'});
+ expect(toggle).toBeDisabled();
+ await act(async()=>finish({...meta(),title:'Updated name',name_revision:1}));
+ expect(toggle).toBeEnabled();
+ fireEvent.click(toggle);
+ await waitFor(()=>expect(api.readConversationTurns).toHaveBeenCalledTimes(1));
+ expect(screen.getByRole('button',{name:/Updated name/})).toBeInTheDocument();
+});
