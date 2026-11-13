@@ -671,24 +671,28 @@ def verify(args):
                     )
                 finally:
                     if source.exists():
-                        report["source_sha_after"] = git(source, "rev-parse", "HEAD")
-                        report["source_dirty_after"] = bool(
-                            git(source, "status", "--porcelain")
-                        )
-                        subprocess.run(
-                            [
-                                "git",
-                                "-C",
-                                str(repo),
-                                "worktree",
-                                "remove",
-                                "--force",
-                                str(source),
-                            ],
-                            check=True,
-                            env=env,
-                        )
-                    report["cleanup_complete"] = not source.exists()
+                        try:
+                            report["source_sha_after"] = git(source, "rev-parse", "HEAD")
+                            report["source_dirty_after"] = bool(
+                                git(source, "status", "--porcelain")
+                            )
+                        finally:
+                            subprocess.run(
+                                [
+                                    "git",
+                                    "-C",
+                                    str(repo),
+                                    "worktree",
+                                    "remove",
+                                    "--force",
+                                    str(source),
+                                ],
+                                check=True,
+                                env=env,
+                            )
+                            report["cleanup_complete"] = not source.exists()
+                    else:
+                        report["cleanup_complete"] = True
         except (Exception, KeyboardInterrupt) as exc:
             report["error"] = str(exc) or type(exc).__name__
             report["exit_code"] = 1
