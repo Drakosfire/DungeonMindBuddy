@@ -54,7 +54,7 @@ function WorldGraphBrowser({ worldName, worldId, compact, entry }: {
         <circle className="app-world-graph-status__node" cx="13" cy="11" r="2" />
       </svg><span>Graph</span></> : "Explore graph"}
     </button>
-    <dialog ref={dialog} className="loaded-graph-explorer" aria-label={`${worldName} World ${recaps ? "sources" : "graph"}`}
+    <dialog ref={dialog} data-native-escape-owner className="loaded-graph-explorer" aria-label={`${worldName} World ${recaps ? "sources" : "graph"}`}
       onCancel={close} onClose={close}>
       <header className="loaded-graph-explorer__header"><div>
         <span className="loaded-graph-explorer__eyebrow">World atlas</span>
