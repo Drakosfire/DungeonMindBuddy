@@ -349,6 +349,44 @@ def _scan_eval_ingest_artifacts(root: Path) -> dict[str, Any]:
     return out
 
 
+def discover_campaign_sessions(corpus: Path, campaign_number: int) -> list[dict[str, Any]]:
+    campaign_dir = corpus / "Longmont Campaign" / f"Campaign {campaign_number}"
+    recaps_dir = campaign_dir / "Session Recaps"
+    if not recaps_dir.is_dir():
+        return []
+    canon = _discover_canon_recaps(recaps_dir)
+    normalized = _discover_stage_dir(recaps_dir / "_normalized", suffix=".md")
+    breadcrumbed = _discover_stage_dir(recaps_dir / "_breadcrumbed", suffix=".breadcrumbed.md")
+    frontmatter_seed = _discover_stage_dir(recaps_dir / "_breadcrumbed", suffix=".frontmatter_seed.md")
+    memory_jsonl = _discover_stage_dir(recaps_dir / "_session_memory", suffix=".records_meta.jsonl")
+    memory_meta = _discover_stage_dir(recaps_dir / "_session_memory", suffix=".records_meta.json")
+    staging = _scan_staging(campaign_dir)
+
+    all_sessions = sorted(set(canon) | set(normalized) | set(breadcrumbed) | set(memory_jsonl))
+    return [
+        _build_session_row(
+            root=corpus,
+            campaign_number=campaign_number,
+            session=session,
+            canon=canon.get(session),
+            normalized=normalized,
+            breadcrumbed=breadcrumbed,
+            frontmatter_seed=frontmatter_seed,
+            memory_jsonl=memory_jsonl,
+            memory_meta=memory_meta,
+            staging=staging,
+        )
+        for session in all_sessions
+    ]
+
+
+def load_retrieval_manifests(root: Path) -> dict[str, Any]:
+    return {
+        "c2s23_planning_manifest": _load_c2s23_activation(root),
+        "c2s23_dogfood_full_manifest": _load_manifest_activation(root, DOGFOOD_FULL_MANIFEST),
+    }
+
+
 def build_library(*, root: Path | None = None) -> dict[str, Any]:
     repo = root or repo_root()
     corpus = repo / "corpus/eldyrwild-markdown"
@@ -363,30 +401,7 @@ def build_library(*, root: Path | None = None) -> dict[str, Any]:
         if not recaps_dir.is_dir():
             continue
 
-        canon = _discover_canon_recaps(recaps_dir)
-        normalized = _discover_stage_dir(recaps_dir / "_normalized", suffix=".md")
-        breadcrumbed = _discover_stage_dir(recaps_dir / "_breadcrumbed", suffix=".breadcrumbed.md")
-        frontmatter_seed = _discover_stage_dir(recaps_dir / "_breadcrumbed", suffix=".frontmatter_seed.md")
-        memory_jsonl = _discover_stage_dir(recaps_dir / "_session_memory", suffix=".records_meta.jsonl")
-        memory_meta = _discover_stage_dir(recaps_dir / "_session_memory", suffix=".records_meta.json")
-        staging = _scan_staging(campaign_dir)
-
-        all_sessions = sorted(set(canon) | set(normalized) | set(breadcrumbed) | set(memory_jsonl))
-        sessions = [
-            _build_session_row(
-                root=corpus,
-                campaign_number=campaign_number,
-                session=session,
-                canon=canon.get(session),
-                normalized=normalized,
-                breadcrumbed=breadcrumbed,
-                frontmatter_seed=frontmatter_seed,
-                memory_jsonl=memory_jsonl,
-                memory_meta=memory_meta,
-                staging=staging,
-            )
-            for session in all_sessions
-        ]
+        sessions = discover_campaign_sessions(corpus, campaign_number)
         for row in sessions:
             tier_totals[row["pipeline_tier"]] += 1
 
