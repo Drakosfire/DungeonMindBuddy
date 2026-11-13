@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Cancel conversation export reads when their owner changes. [#2894](https://github.com/Drakosfire/DungeonMindBuddy/pull/2894) aborts metadata, both transcript passes, trace, and prompt reads on selection change or unmount. Cancellation exits diagnostic collection. All 16 focused export tests passed, including selection change without a stale download.
+
 - Cancel obsolete conversation library reads on filter changes. [#2890](https://github.com/Drakosfire/DungeonMindBuddy/pull/2890) cancels superseded list reads. [#2891](https://github.com/Drakosfire/DungeonMindBuddy/pull/2891) cancels retry-history reads and checks request identity across A→B→A. [#2892](https://github.com/Drakosfire/DungeonMindBuddy/pull/2892) cancels obsolete detail reads while preserving name saves. Focused suites verified cancellation, stale response handling, and pagination.
 
 - Share Graph connection option labels. [#2888](https://github.com/Drakosfire/DungeonMindBuddy/pull/2888) derives labels once per node-list update and preserves independent From and To selections. All 41 demo tests passed. A synthetic 10,000-node Node benchmark measured median label generation at 8.7 ms before and 2.3 ms after, with identical ordered labels. Browser render time was not measured.
