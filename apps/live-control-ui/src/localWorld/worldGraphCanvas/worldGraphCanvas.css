@@ -228,3 +228,7 @@
 
 /* A light text halo separates phrases from crossing lines without opaque label plates. */
 .world-graph-canvas__edge .world-graph-canvas__edge-phrase { stroke-width: 3px; paint-order: stroke; stroke-linejoin: round; pointer-events: none; }
+
+.world-graph-canvas__edge > path { pointer-events: stroke; }
+.world-graph-canvas__edge:focus-visible > path { stroke: #563b16; stroke-width: 4; }
+.world-graph-canvas__edge-disclosure { position: absolute; z-index: 3; top: .5rem; left: .5rem; max-width: calc(100% - 1rem); padding: .35rem .6rem; background: #fffdf7; color: #4d4536; border-radius: .35rem; overflow-wrap: anywhere; pointer-events: none; font-size: .85rem; }

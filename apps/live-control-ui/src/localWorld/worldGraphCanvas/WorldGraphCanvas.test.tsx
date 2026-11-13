@@ -853,6 +853,41 @@ describe("WorldGraphCanvas", () => {
     expect(relationship.kind).toBe("travels_to");
   });
 
+  it("discloses complete short-edge predicates on hover and keyboard focus without changing arrows", async () => {
+    const { record } = await graphRecord();
+    const [first, second] = record.snapshot.objects;
+    const relationship = { ...record.snapshot.relationships[0], fromObjectId: first.id, toObjectId: second.id, kind: "has_promised_to_protect_during_the_winter_gathering_and_beyond" };
+    const positions = { [first.id]: { x: 0, y: 0 }, [second.id]: { x: 116, y: 0 } };
+    render(<WorldGraphCanvas nodeShape="circle" record={{ ...record, snapshot: { ...record.snapshot, objects: [first, second], relationships: [relationship] }, layout: { ...record.layout, positions } }} />);
+    const edge = screen.getByRole("img", { name: `${first.name} has promised to protect during the winter gathering and beyond ${second.name}` });
+    expect(edge.querySelector("text")).toBeNull();
+    expect(edge).toHaveAttribute("tabindex", "0");
+    fireEvent.mouseEnter(edge);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("has promised to protect during the winter gathering and beyond");
+    fireEvent.mouseLeave(edge);
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.focus(edge);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(second.name);
+    fireEvent.keyDown(edge, { key: "Escape" });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("suppresses colliding phrases and prioritizes the selected connection", async () => {
+    const { record } = await graphRecord();
+    const objects = record.snapshot.objects.slice(0, 4);
+    const positions = Object.fromEntries(objects.map((object, i) => [object.id, [{ x: 100, y: 300 }, { x: 900, y: 300 }, { x: 500, y: 0 }, { x: 500, y: 600 }][i]]));
+    const relationships = [0, 1].map(i => ({ ...record.snapshot.relationships[0], id: `cross-${i}` as LocalWorldRelationship["id"], fromObjectId: objects[i * 2].id, toObjectId: objects[i * 2 + 1].id, kind: i ? "travels_to" : "knows_about" }));
+    render(<WorldGraphCanvas nodeShape="circle" record={{ ...record, snapshot: { ...record.snapshot, objects, relationships }, layout: { ...record.layout, positions } }} />);
+    expect(document.querySelectorAll(".world-graph-canvas__edge-phrase")).toHaveLength(1);
+    expect(document.querySelector('[data-edge-id="cross-0"] text')).toHaveTextContent("knows about");
+    fireEvent.click(screen.getByRole("button", { name: `${objects[2].name}, ${objects[2].kind}` }));
+    expect(document.querySelectorAll(".world-graph-canvas__edge-phrase")).toHaveLength(1);
+    expect(document.querySelector('[data-edge-id="cross-1"] text')).toHaveTextContent("travels to");
+    fireEvent.mouseEnter(document.querySelector('[data-edge-id="cross-0"]')!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("knows about");
+    expect(document.querySelectorAll(".world-graph-canvas__edge > path")).toHaveLength(2);
+  });
+
   it("keeps full accessible long predicates without opaque plates", async () => {
     const { record } = await graphRecord();
     const predicate = "has promised to protect during the winter gathering and beyond";

@@ -435,6 +435,7 @@ export function WorldGraphCanvas({
   toolActions,
   typeStyles = DEFAULT_GRAPH_TYPE_STYLES,
 }: WorldGraphCanvasProps) {
+  const [inspectedEdgeId, setInspectedEdgeId] = useState<string | null>(null);
   const [openControl, setOpenControl] = useState<"tools" | "view" | null>(null);
   const index = useMemo(() => indexLocalWorldGraph(record.snapshot), [record.snapshot]);
   const fullCorpus = projectionOptions?.fullCorpus === true;
@@ -1215,7 +1216,11 @@ export function WorldGraphCanvas({
     return renderedEdges.map(({ edge, geometry }) => {
       const label = accessibleRelationshipLabel(edge, nodeNames);
       const caption = captions.get(edge.id);
-      return <g className={`world-graph-canvas__edge${selected(edge) ? " is-selected" : ""}`} key={edge.id} data-edge-id={edge.id} role="img" aria-label={label}>
+      return <g className={`world-graph-canvas__edge${selected(edge) ? " is-selected" : ""}`} key={edge.id} data-edge-id={edge.id} role="img" aria-label={label}
+        tabIndex={!fullCorpus || selected(edge) ? 0 : -1}
+        onMouseEnter={() => setInspectedEdgeId(edge.id)} onMouseLeave={() => setInspectedEdgeId(null)}
+        onFocus={() => setInspectedEdgeId(edge.id)} onBlur={() => setInspectedEdgeId(null)}
+        onKeyDown={event => { if (event.key === "Escape") { setInspectedEdgeId(null); event.stopPropagation(); } }}>
         <path d={geometry.path} markerEnd={`url(#${markerId})`} />
         {caption ? <text className="world-graph-canvas__edge-phrase" aria-hidden="true"
           transform={`translate(${caption.x} ${caption.y}) rotate(${caption.angle})`} dominantBaseline="central">{caption.text}</text> : null}
@@ -1370,6 +1375,7 @@ export function WorldGraphCanvas({
         {fullCorpus ? " A focused object's arrow keys pan in Pan graph mode, and move that object in Move nodes mode." : ""}
       </p>
       <div className="world-graph-canvas__viewport">
+        {inspectedEdgeId && projection.edges.some(edge => edge.id === inspectedEdgeId) ? <div className="world-graph-canvas__edge-disclosure" role="tooltip">{accessibleRelationshipLabel(projection.edges.find(edge => edge.id === inspectedEdgeId)!, nodeNames)}</div> : null}
         <svg
           ref={svgRef}
           className={`world-graph-canvas__svg${isPanning ? " is-panning" : ""}`}
@@ -1380,7 +1386,7 @@ export function WorldGraphCanvas({
           aria-keyshortcuts="= - 0"
           role="group"
           aria-label={`${record.snapshot.title} world graph`}
-          onPointerDown={(event) => { if (fullCorpus || event.target === event.currentTarget) beginGesture(event); }}
+          onPointerDown={(event) => { if (fullCorpus || event.target === event.currentTarget || (event.target instanceof Element && event.target.closest(".world-graph-canvas__edge"))) { setInspectedEdgeId(null); beginGesture(event); } }}
           onPointerMove={updateGesture}
           onPointerUp={finishDrag}
           onPointerCancel={cancelGesture}
