@@ -28,7 +28,6 @@ export interface ProjectedGraphEdge {
 }
 
 export interface GraphProjection {
-  readonly worldId: LocalWorldRecord["snapshot"]["worldId"];
   readonly nodes: readonly ProjectedGraphNode[];
   readonly edges: readonly ProjectedGraphEdge[];
   readonly diagnostics: readonly string[];
@@ -352,7 +351,7 @@ export function projectLocalWorldGraph(
       toObjectId: relationship.toObjectId, kind: relationship.kind, relationship });
   }
   return {
-    worldId: record.snapshot.worldId, nodes, edges,
+    nodes, edges,
     diagnostics: index.diagnostics,
     omittedNodes: Math.max(0, eligibleObjects.length - nodes.length),
     hiddenUnconnectedNodes,
