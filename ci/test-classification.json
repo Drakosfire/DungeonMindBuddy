@@ -873,6 +873,7 @@
       "tests/test_agent_uncapped_graph_execution.py",
       "tests/test_agent_verified_detail_pages.py",
       "tests/test_api_client.py",
+      "tests/test_application_state_authority_cli.py",
       "tests/test_application_state_migration_logging.py",
       "tests/test_artifact_data_root.py",
       "tests/test_atomic_native_source_admission.py",

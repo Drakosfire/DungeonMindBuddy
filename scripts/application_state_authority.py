@@ -194,7 +194,6 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     from bootstrap_env import load_dungeonmindbuddy_dotenv
 
-    load_dungeonmindbuddy_dotenv()
     args = build_parser().parse_args(argv)
     involved = [
         getattr(args, "dsn", None),
@@ -202,6 +201,7 @@ def main(argv: list[str] | None = None) -> int:
         getattr(args, "target_dsn", None),
     ]
     try:
+        load_dungeonmindbuddy_dotenv()
         return int(args.func(args))
     except ApplicationStateError as exc:
         print(redact_secrets(str(exc), *involved), file=sys.stderr)
