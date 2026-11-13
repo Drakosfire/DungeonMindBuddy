@@ -82,7 +82,7 @@ def test_saved_names_use_one_exact_metadata_batch_and_never_open_bodies(monkeypa
     from apps.live_control_server.services import agent_source_names as names, source_artifact_registry as registry
     basis, artifact = saved_fixture()
     calls = []
-    def batch(root, identities):
+    def batch(identities):
         calls.append(identities)
         return {artifact.source_artifact_id: artifact}
     monkeypatch.setattr(registry, "get_source_artifacts", batch)
@@ -118,14 +118,15 @@ def test_saved_name_metadata_failure_does_not_fall_back_to_current_document(monk
 
 def test_registry_batch_reads_one_snapshot_and_returns_only_requested_ids(monkeypatch):
     from apps.live_control_server.services import source_artifact_registry as registry
-    from pathlib import Path
     _, artifact = saved_fixture()
     calls = []
-    def snapshot(root):
-        calls.append(root)
-        return N(records=[artifact, artifact.model_copy(update={"source_artifact_id": "unrequested"})])
-    monkeypatch.setattr(registry, "_load", snapshot)
-    assert registry.get_source_artifacts(Path("unused"), {artifact.source_artifact_id}) == {artifact.source_artifact_id: artifact}
-    assert len(calls) == 1
-    assert registry.get_source_artifacts(Path("unused"), set()) == {}
-    assert len(calls) == 1
+
+    def descriptors(*, source_artifact_ids):
+        calls.append(source_artifact_ids)
+        return {artifact.source_artifact_id: artifact.model_dump()}
+
+    monkeypatch.setattr(registry.source_service, "get_source_input_descriptors", descriptors)
+    assert registry.get_source_artifacts({artifact.source_artifact_id}) == {
+        artifact.source_artifact_id: artifact
+    }
+    assert calls == [[artifact.source_artifact_id]]

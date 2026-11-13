@@ -50,7 +50,6 @@ def source_name_for_read(turn, event_id, read, labels):
 
 
 def _saved_source_names(bases):
-    from apps.live_control_server import config
     from .source_artifact_registry import get_source_artifacts
     from graph_memory.evidence.source_artifact import build_worldbuilding_source_artifact_id
     requested = {}
@@ -61,7 +60,7 @@ def _saved_source_names(bases):
     if not requested:
         return []
     try:
-        artifacts = get_source_artifacts(config.repo_root(), set(requested))
+        artifacts = get_source_artifacts(set(requested))
     except Exception:  # Display-only metadata never changes source/answer authority.
         return []
     labels = []

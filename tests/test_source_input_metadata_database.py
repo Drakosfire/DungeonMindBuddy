@@ -35,7 +35,7 @@ def test_metadata_is_exact_and_body_free_with_file_reads_denied(source, monkeypa
         return original(path, *args, **kwargs)
     monkeypatch.setattr(Path, "open", no_data_files)
     assert registry.get_source_artifact(root, artifact.source_artifact_id) == artifact
-    assert registry.get_source_artifacts(root, {artifact.source_artifact_id, "unknown"}) == {artifact.source_artifact_id: artifact}
+    assert registry.get_source_artifacts({artifact.source_artifact_id, "unknown"}) == {artifact.source_artifact_id: artifact}
 
 
 def test_json_cannot_register_or_override_input(source):
@@ -87,7 +87,7 @@ def test_conflicting_input_never_overwrites_or_leaves_new_body(tmp_path, applica
 
 def test_unregistered_body_is_not_discovered_as_an_input(application_state_dsn, tmp_path):
     sources.persist_source_markdown(source_artifact_id="body-only", source_domain="worldbuilding", campaign_id=None, session_id=None, world_id="input-world", markdown="Body\n")
-    assert registry.get_source_artifacts(tmp_path, {"body-only"}) == {}
+    assert registry.get_source_artifacts({"body-only"}) == {}
 
 
 def test_malformed_or_retargeted_metadata_fails_closed(source, application_state_dsn):
@@ -106,7 +106,7 @@ def test_explicit_adoption_uses_existing_body_and_defaults_to_no_write(tmp_path)
     path = tmp_path / "explicit-export.json"
     path.write_text(json.dumps({"schema_version": "dmb_source_artifact_registry_v1", "records": [artifact.model_dump(mode="json")]}))
     assert adopt(path)[0]["status"] == "verified_no_write"
-    assert registry.get_source_artifacts(tmp_path, {artifact.source_artifact_id}) == {}
+    assert registry.get_source_artifacts({artifact.source_artifact_id}) == {}
     assert adopt(path, apply=True)[0]["status"] == "adopted"
     assert registry.get_source_artifact(tmp_path, artifact.source_artifact_id) == artifact
 
