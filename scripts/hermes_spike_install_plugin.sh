@@ -4,7 +4,7 @@
 #   export HERMES_HOME="$PWD/.hermes-runtime"
 #   export DUNGEONBUDDY_REPO="$PWD"
 #   export DUNGEONBUDDY_CORPUS_ROOT="$PWD/corpus"
-#   ./scripts/hermes_spike_install_plugin.sh
+#   bash scripts/hermes_spike_install_plugin.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export HERMES_HOME="${HERMES_HOME:-$ROOT/.hermes-runtime}"
@@ -12,7 +12,7 @@ PLUGIN_SRC="$ROOT/integrations/hermes/plugins/dungeonbuddy"
 PLUGIN_DST="$HERMES_HOME/plugins/dungeonbuddy"
 
 if ! command -v hermes >/dev/null 2>&1; then
-  echo "hermes not on PATH; install Hermes first (see integrations/hermes/README.md)." >&2
+  echo "hermes not on PATH; install the Hermes CLI and add it to PATH before rerunning this script." >&2
   exit 2
 fi
 
