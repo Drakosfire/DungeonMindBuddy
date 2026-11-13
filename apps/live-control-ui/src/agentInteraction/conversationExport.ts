@@ -1,3 +1,4 @@
+import { downloadBlob } from "../shared/downloadBlob";
 import {readConversationName,readConversationTurns,type ConversationSummary,type LibraryTurn} from '../api/conversationLibraryApi';
 import {getWorldAgentTurnContextTrace,getWorldAgentTurnPrompt} from '../api/liveApi';
 import type {BuddyPromptEvidence} from '../api/buddyContextTraceTypes';
@@ -83,7 +84,5 @@ function readable(meta:ConversationSummary,turns:LibraryTurn[],start:string,end:
  return lines.join('\n');
 }
 export function downloadConversationExport(file:ConversationExportFile){
- const url=URL.createObjectURL(new Blob([file.content],{type:file.mime}));
- const link=document.createElement('a');link.href=url;link.download=file.filename;document.body.append(link);
- try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),0);}
+ downloadBlob(new Blob([file.content], { type: file.mime }), file.filename);
 }

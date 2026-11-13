@@ -1,3 +1,4 @@
+import { downloadBlob } from "../shared/downloadBlob";
 import {TourNavigationRegistry,TourNavigationProvider,TourNavigationActions,navigationScope} from './Navigation';
 import type {WorldAgentConversationHistoryResponse} from '../api/types';
 import {useSessionMemoryReading} from './MemoryObservations';
@@ -215,8 +216,8 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  const openedCapability=()=>{if(renderedPresentationEpoch!==presentationEpoch.current)return;setFocusedControl(null);if(teaching){setVisible(true);requestCurrentControl();}else setVisible(false);};
  const exportRecord=()=>{
   if(!walkthrough)return;
-  const url=URL.createObjectURL(new Blob([JSON.stringify({definition:{id:'buddy-live-journey',version:walkthrough.version,steps},walkthrough},null,2)],{type:'application/json'}));
-  const link=document.createElement('a');link.href=url;link.download=`buddy-walkthrough-${walkthrough.id}.json`;link.click();URL.revokeObjectURL(url);
+  const blob = new Blob([JSON.stringify({definition:{id:'buddy-live-journey',version:walkthrough.version,steps},walkthrough},null,2)],{type:'application/json'});
+  downloadBlob(blob, `buddy-walkthrough-${walkthrough.id}.json`);
  };
  return <TourContext.Provider value={api}><TourNavigationProvider registry={navigationRegistry}>{children}{focusedControl&&walkthrough?.phase==='running'&&focusedControl.worldId===worldId&&focusedControl.walkthroughId===walkthrough.id&&focusedControl.stepId===step.id&&focusedControl.epoch===renderedEpoch&&<TourCoachmark anchor={focusedControl.target} title={`${walkthrough.index+1} of ${steps.length} · ${step.title}`} instruction={TOUR_HINTS[step.id]} status={`${row?.state==='completed'?'Demonstrated during this walkthrough':row?.state==='existing'?'Existing example inspected':row?.state}${row?.reason?` · ${row.reason}`:''}`} onMore={returnToGuidance} onUnavailable={unavailableControl}>
   {targetSelectionAction}

@@ -1,3 +1,4 @@
+import { downloadBlob } from "../shared/downloadBlob";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type {
   LocalObjectId,
@@ -1418,19 +1419,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       presentation: { layout_revision: currentLayout?.revision ?? 0, positions: currentLayout?.positions ?? {} },
       ...(mode === "managed" ? { selected_world_title: worldTitle ?? null } : {}),
     };
-    let url: string | undefined;
     try {
-      url = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" }));
-      const anchor = document.createElement("a");
       const slug = (mode === "managed" ? worldTitle ?? "world" : "playground").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "graph";
-      anchor.href = url;
-      anchor.download = `dungeonmind-${slug}-${graph.revision_id}.json`;
-      anchor.click();
-      const downloadUrl = url;
-      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+      downloadBlob(new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" }),
+        `dungeonmind-${slug}-${graph.revision_id}.json`);
       setNotice({ kind: "success", text: `Read-only snapshot of revision ${graph.revision_id} downloaded with this browser's canvas layout. It is not a restorable World backup.` });
     } catch (error) {
-      if (url) URL.revokeObjectURL(url);
       setNotice({ kind: "error", text: `The snapshot could not be downloaded: ${describeError(error)}` });
     }
   }, [graph, layout, mode, worldTitle]);
