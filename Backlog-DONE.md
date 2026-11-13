@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Verify statblock transcript manifest inventories and digests
+
+[PR #2770](https://github.com/Drakosfire/DungeonMindBuddy/pull/2770) checks the exact revise manifest keys and verifies all nine create fixture digests from disk. Ten transcript tests passed on main. Disposable mutations verified rejection of an omitted revise entry and modified create fixture. GitHub inventory and frontend discovery passed.
+
 ## [DONE] Fingerprint test discovery inputs at their actual boundary
 
 [PR #2768](https://github.com/Drakosfire/DungeonMindBuddy/pull/2768) replaced whole-config hashes with actual runner file selection in CI. Inventory still classifies candidate specs, including untracked files, and validates the package runner commands. The runner comparison verified 542 Vitest files and one Playwright visual spec. A temporary additional browser spec remained an inventory candidate and was rejected by the runner check when the visual suite was broadened to include it. Both checks passed on merged main.
