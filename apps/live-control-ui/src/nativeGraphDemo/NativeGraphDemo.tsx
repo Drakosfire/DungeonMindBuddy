@@ -21,6 +21,7 @@ import {
 } from "./nativeGraphDemoApi";
 import type { NativeGraphEntity } from "../api/nativeGraphInspection";
 import { nativeGraphPresentation } from "./nativeGraphPresentation";
+import { GraphChronology } from "./GraphChronology";
 import { NativeGraphNodeExplorer } from "./GraphNodeExplorer";
 import { compactNodeLabel } from "./graphNodeExplorerModel";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
@@ -495,6 +496,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const [activePanel, setActivePanel] = useState<EmbeddedPanel>(null);
   const [placementIntent, setPlacementIntent] = useState<StoredPlacementIntent | null>(null);
   const placementIntentRef = useRef<StoredPlacementIntent | null>(null);
+  const [chronology, setChronology] = useState<{ graph: NativeGraph; relatedTo?: string } | null>(null);
+  const chronologyOpen = chronology !== null && chronology.graph === graph;
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const selectedNodeIdRef = useRef<string | null>(null);
   const [inspectionHistory, setInspectionHistory] = useState<string[]>([]);
@@ -1693,7 +1696,10 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     </section>
   );
 
-  const detailsPanel = selectedNode ? <NativeGraphNodeExplorer
+  const detailsPanel = selectedNode ? <>
+    {api.readChronology && <button type="button" className="native-demo-button native-demo-button--quiet"
+      onClick={() => setChronology({ graph, relatedTo: selectedNode.id })}>Show in chronology</button>}
+    <NativeGraphNodeExplorer
     key={`${graph.world_id}:${graph.revision_id}:${selectedNode.id}`}
     node={selectedNode} revision={graph.revision_id} detail={selectedNodeDetail} labels={selectedLabels}
     mode={mode} status={selectedNodeDetailStatus} error={selectedNodeDetailError} connections={selectedConnections}
@@ -1716,7 +1722,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       handleCanvasSelectionChange(nodeId as LocalObjectId);
       requestCameraFocus(nodeId);
     }}
-  /> : null;
+  /></> : null;
 
 
   return (
@@ -1769,6 +1775,16 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 </button>
               </div>
             )}
+            {api.readChronology && <button type="button" className="native-demo-button native-demo-button--quiet"
+              aria-expanded={chronologyOpen} onClick={() => setChronology(chronologyOpen ? null : { graph })}>Chronology</button>}
+            {chronologyOpen && api.readChronology && <GraphChronology key={chronology.relatedTo ?? ""}
+              graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} onExplore={nodeId => {
+                if (pendingRef.current) return;
+                setChronology(null);
+                focusInspectorRef.current = true;
+                handleCanvasSelectionChange(nodeId as LocalObjectId);
+                requestCameraFocus(nodeId);
+              }} />}
             {record ? (
               <WorldGraphCanvas
                 key={graph.world_id}
