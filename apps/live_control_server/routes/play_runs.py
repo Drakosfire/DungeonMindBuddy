@@ -62,7 +62,7 @@ def _record_response(record: PlayRunRecord) -> dict[str, Any]:
 @router.get("/play-active-run", response_model=PlayActiveRunState)
 def get_play_active_run_route() -> dict[str, Any]:
     try:
-        state = get_play_active_run(repo_root())
+        state = get_play_active_run()
     except PlayActiveRunError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return state.model_dump(mode="json")
@@ -71,7 +71,7 @@ def get_play_active_run_route() -> dict[str, Any]:
 @router.put("/play-active-run", response_model=PlayActiveRunState)
 def put_play_active_run_route(body: SetPlayActiveRunRequest) -> dict[str, Any]:
     try:
-        state = set_play_active_run(repo_root(), run_id=body.run_id)
+        state = set_play_active_run(run_id=body.run_id)
     except PlayActiveRunError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return state.model_dump(mode="json")
@@ -216,7 +216,7 @@ def get_world_play_active_run_v2(
     world_id: Annotated[str, Query(min_length=1)],
 ) -> dict[str, Any]:
     try:
-        state = get_world_play_active_run(repo_root(), world_id=world_id)
+        state = get_world_play_active_run(world_id=world_id)
     except PlayActiveRunError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return state.model_dump(mode="json")
@@ -231,7 +231,7 @@ def put_world_play_active_run_v2(
 ) -> dict[str, Any]:
     try:
         state = set_world_play_active_run(
-            repo_root(), world_id=world_id, run_id=body.run_id
+            world_id=world_id, run_id=body.run_id
         )
     except PlayActiveRunError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

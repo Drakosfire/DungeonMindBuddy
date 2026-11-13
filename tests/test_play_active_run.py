@@ -84,7 +84,7 @@ def _create_committed_run(root: Path, *, run_id: str, name: str):
 
 
 def test_missing_selection_is_a_normal_null_state(tmp_path: Path) -> None:
-    state = get_play_active_run(tmp_path)
+    state = get_play_active_run()
 
     assert state.run_id is None
     assert state.selected_at is None
@@ -97,7 +97,7 @@ def test_legacy_file_malformation_is_ignored_by_ordinary_get(tmp_path: Path) -> 
     payload = '{"schema_version":"dmb_play_active_run_v1","run_id":"broken"}\n'
     path.write_text(payload)
 
-    state = get_play_active_run(tmp_path)
+    state = get_play_active_run()
 
     assert state.run_id is None
     assert state.selected_at is None
@@ -108,12 +108,12 @@ def test_valid_selection_is_idempotent_and_survives_re_read(tmp_path: Path) -> N
     run = _create_committed_run(tmp_path, run_id=RUN_ID_A, name="north-gate")
     seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
 
-    first = set_play_active_run(tmp_path, run_id=run.run_id)
-    second = set_play_active_run(tmp_path, run_id=run.run_id)
+    first = set_play_active_run(run_id=run.run_id)
+    second = set_play_active_run(run_id=run.run_id)
 
     assert first.run_id == RUN_ID_A
     assert second == first
-    assert get_play_active_run(tmp_path) == first
+    assert get_play_active_run() == first
     assert get_play_run(tmp_path, RUN_ID_A) == run
     assert not leftover_active_run_path(tmp_path).exists()
 
@@ -124,8 +124,8 @@ def test_different_valid_run_replaces_pointer_without_mutating_runs(tmp_path: Pa
     seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
     seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_B)
 
-    set_play_active_run(tmp_path, run_id=run_a.run_id)
-    replaced = set_play_active_run(tmp_path, run_id=run_b.run_id)
+    set_play_active_run(run_id=run_a.run_id)
+    replaced = set_play_active_run(run_id=run_b.run_id)
 
     assert replaced.run_id == RUN_ID_B
     assert get_play_run(tmp_path, RUN_ID_A) == run_a
@@ -135,20 +135,20 @@ def test_different_valid_run_replaces_pointer_without_mutating_runs(tmp_path: Pa
 
 def test_invalid_or_unsealed_run_never_writes_pointer(tmp_path: Path) -> None:
     with pytest.raises(PlayActiveRunError) as missing:
-        set_play_active_run(tmp_path, run_id=RUN_ID_A)
+        set_play_active_run(run_id=RUN_ID_A)
     assert missing.value.status_code == 404
     assert not leftover_active_run_path(tmp_path).exists()
 
     run = _create_committed_run(tmp_path, run_id=RUN_ID_A, name="already-sealed")
-    selected = set_play_active_run(tmp_path, run_id=run.run_id)
+    selected = set_play_active_run(run_id=run.run_id)
     assert selected.run_id == RUN_ID_A
     assert not leftover_active_run_path(tmp_path).exists()
-    assert get_play_active_run(tmp_path).run_id == RUN_ID_A
+    assert get_play_active_run().run_id == RUN_ID_A
 
 
 def test_noncanonical_uuid_is_rejected_before_any_write(tmp_path: Path) -> None:
     with pytest.raises(PlayActiveRunError) as error:
-        set_play_active_run(tmp_path, run_id=RUN_ID_A.upper())
+        set_play_active_run(run_id=RUN_ID_A.upper())
 
     assert error.value.status_code == 422
     assert not leftover_active_run_path(tmp_path).exists()
@@ -158,9 +158,9 @@ def test_clear_deletes_the_singleton_and_start_new_is_not_clear(
     tmp_path: Path,
 ) -> None:
     run = _create_committed_run(tmp_path, run_id=RUN_ID_A, name="clear-me")
-    set_play_active_run(tmp_path, run_id=run.run_id)
-    cleared = clear_play_active_run(tmp_path)
+    set_play_active_run(run_id=run.run_id)
+    cleared = clear_play_active_run()
     assert cleared.run_id is None
     assert cleared.selected_at is None
-    assert get_play_active_run(tmp_path).run_id is None
+    assert get_play_active_run().run_id is None
     assert not leftover_active_run_path(tmp_path).exists()
