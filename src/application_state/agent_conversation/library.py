@@ -448,14 +448,9 @@ def read_retry_attempts(
             raise ApplicationStateValidationError(
                 "Retry history cursor follows its selected attempt"
             )
-        ids = conn.execute(
-            """SELECT t.turn_id FROM agent.turn t LEFT JOIN agent.turn_retry r ON r.successor_id=t.turn_id
-            WHERE t.world_id=%s AND t.conversation_id=%s AND (t.turn_id=%s OR r.root_id=%s)
-            AND t.sequence<%s ORDER BY t.sequence DESC LIMIT %s""",
-            (world, conversation, root, root, before, limit + 1),
-        ).fetchall()
-        more = len(ids) > limit
-        turns = [repo.get_turn(conn, world, row[0]) for row in reversed(ids[:limit])]
+        turns, more = repo.list_retry_attempt_page(
+            conn, world, conversation, root, before_sequence=before, limit=limit
+        )
         active = False  # Library inspection never grants a retry control.
         from .authored_graph_references import reference_input
         rows = []

@@ -911,6 +911,37 @@ def list_turns(
     return [_turn_from_row(conn, row, references=references[row["turn_id"]]) for row in reversed(rows)]
 
 
+def list_retry_attempt_page(
+    conn: psycopg.Connection,
+    world_id: str,
+    conversation_id: UUID,
+    root_id: UUID,
+    *,
+    before_sequence: int,
+    limit: int,
+) -> tuple[list[TurnReadModel], bool]:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            SELECT {_TURN_COLS_T}
+            FROM agent.turn t LEFT JOIN agent.turn_retry r ON r.successor_id = t.turn_id
+            WHERE t.world_id = %s AND t.conversation_id = %s
+              AND (t.turn_id = %s OR r.root_id = %s)
+              AND t.sequence < %s
+            ORDER BY t.sequence DESC LIMIT %s
+            """,
+            (world_id, conversation_id, root_id, root_id, before_sequence, limit + 1),
+        )
+        rows = cur.fetchall()
+    page = rows[:limit]
+    references = _turn_reference_page(conn, page)
+    turns = [
+        _turn_from_row(conn, row, references=references[row["turn_id"]])
+        for row in reversed(page)
+    ]
+    return turns, len(rows) > limit
+
+
 def list_retained_graph_tools(conn, world_id, conversation_id, turn_ids, authority):
     """Project only graph navigation metadata for the already selected history page."""
     if not turn_ids:
