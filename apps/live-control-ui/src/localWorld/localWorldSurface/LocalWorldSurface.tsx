@@ -560,13 +560,8 @@ export function LocalWorldSurface({
     try {
       const latest = await repository.readWorldExportSnapshot(record.snapshot.worldId);
       if (latest.status !== "found") throw new Error(latest.status === "missing" ? "Local World is missing." : latest.message);
-      const [{ encodeLocalWorldPackageV1 }, { encodeLocalWorldPackageZipV1 }] = await Promise.all([
-        import("../localWorldPackageV1"),
-        import("../localWorldPackageZipV1"),
-      ]);
-      const encoded = await encodeLocalWorldPackageV1(latest.record, latest.data);
-      if (encoded.status !== "encoded") throw new Error(encoded.message);
-      const archived = await encodeLocalWorldPackageZipV1(encoded.members);
+      const { exportLocalWorldPackageZipV1 } = await import("../localWorldPackageZipV1");
+      const archived = await exportLocalWorldPackageZipV1(latest.record, latest.data);
       if (archived.status !== "encoded") throw new Error(archived.message);
       if (!mounted.current || generation !== operationGeneration.current) return;
       downloadBlob(archived.blob, safeFileName(latest.record.snapshot.title));
