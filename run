@@ -117,6 +117,9 @@ trap 'exit 143' TERM
 require_cmd setsid
 require_cmd python3
 require_cmd uv
+require_cmd node
+node_version="$(node --version)" || die "Could not read the Node.js version. Install Node 22 and retry."
+[[ "$node_version" =~ ^v22\.[0-9]+\.[0-9]+$ ]] || die "Buddy requires Node 22. Found $node_version. Switch to Node 22 and retry."
 require_cmd npm
 require_cmd curl
 
