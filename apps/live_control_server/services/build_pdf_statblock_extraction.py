@@ -86,12 +86,17 @@ def _record_generation_failure(exc: GenerationEngineError) -> StatblockExtractio
     return StatblockExtractionError(_generation_error_code(exc))
 
 
-def extraction_prompt(transcriptions: list[str], instruction: str) -> str:
+def extraction_prompt(
+    transcriptions: list[str], instruction: str, embedded_texts: list[str | None] | None = None,
+) -> str:
     """Compose content-only model input; source locators remain in host-owned storage."""
-    return json.dumps({
+    payload = {
         "author_guidance": instruction.strip(),
         "ocr_transcriptions": transcriptions,
-    }, ensure_ascii=False)
+    }
+    if embedded_texts is not None:
+        payload["embedded_texts"] = embedded_texts
+    return json.dumps(payload, ensure_ascii=False)
 
 
 def _provider_schema() -> dict:
@@ -124,11 +129,18 @@ def _provider_schema() -> dict:
 
 async def extract_statblock(
     transcriptions: list[str], instruction: str = "", *, transport=None, edition: str | None = None,
+    embedded_texts: list[str | None] | None = None,
 ) -> StatblockExtractionOutput:
     if not transcriptions or any(not isinstance(text, str) or not text.strip() for text in transcriptions):
         raise StatblockExtractionError("pdf_statblock_ocr_unavailable")
-    prompt = extraction_prompt(transcriptions, instruction)
+    prompt = extraction_prompt(transcriptions, instruction, embedded_texts)
     instructions = INSTRUCTIONS
+    if embedded_texts is not None:
+        instructions += (
+            " Embedded PDF text and OCR are two readings of the same regions, paired by position. "
+            "Either can misread text. Use both to identify values clearly supported by the source. "
+            "If competing readings leave a required value ambiguous, report it as incomplete."
+        )
     if edition is not None:
         instructions += f" The author explicitly selected D&D 5e edition {edition}. Use that edition without treating it as PDF evidence. All other fields must still be supported by the transcription."
     schema = _provider_schema()

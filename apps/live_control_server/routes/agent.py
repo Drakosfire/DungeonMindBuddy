@@ -2224,20 +2224,25 @@ def _authorized_pdf_statblock(world_id: str, body: dict, request: Request, *, al
 @router.put("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}")
 def put_pdf_statblock_review(world_id: str, review_id: UUID, body: dict, request: Request):
     from application_state.errors import ApplicationStateConflictError
-    from application_state.pdf_statblock_review import save_review
+    from application_state.pdf_statblock_review import read_review, save_review
 
     enforce_native_graph_gm(request)
     expected_revision = body.get("expected_revision")
     if type(expected_revision) is not int or expected_revision < 0:
         raise HTTPException(status_code=422, detail={"code": "invalid_review_revision"})
+    world_id = _verified_world_id(world_id)
+    existing = read_review(world_id=world_id, review_id=review_id) if expected_revision else None
+    confirmation_required = bool(existing and existing.get("source_confirmation_required"))
     candidate, regions = _authorized_pdf_statblock(
-        world_id, {key: value for key, value in body.items() if key != "expected_revision"}, request,
+        world_id, {key: value for key, value in body.items() if key not in {"expected_revision", "source_confirmed"}}, request,
         allow_unresolved_movement=True,
     )
     try:
         return save_review(
             world_id=_verified_world_id(world_id), review_id=review_id, expected_revision=expected_revision,
             definition=candidate.model_dump(mode="json", by_alias=True), regions=regions,
+            **({"source_confirmation_required": True, "source_confirmed": body.get("source_confirmed") is True}
+               if confirmation_required else {}),
         )
     except ApplicationStateConflictError as exc:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"}) from exc
@@ -2253,6 +2258,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         StatblockExtractionError, extract_statblock,
     )
     from src.llm.generation_sync import run_awaitable_sync
+    from apps.live_control_server.services.build_pdf_region_render import read_region_text
     from base64 import b64encode
 
     enforce_native_graph_gm(request)
@@ -2279,6 +2285,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
 
     transcriptions = []
+    embedded_texts = []
     authorized_regions = []
     for locator in regions_body:
         pdf, region = _authorized_build_pdf_region(world_id, locator, request)
@@ -2288,10 +2295,16 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         if not isinstance(text, str) or not text.strip():
             raise HTTPException(status_code=503, detail={"code": "pdf_statblock_ocr_unavailable"})
         transcriptions.append(text)
+        embedded_texts.append(read_region_text(pdf, region) or None)
         authorized_regions.append(region.model_dump(mode="json"))
 
     try:
-        extracted = run_awaitable_sync(lambda: extract_statblock(transcriptions, instruction, **({"edition": edition} if edition else {})))
+        options = {}
+        if edition:
+            options["edition"] = edition
+        if any(embedded_texts):
+            options["embedded_texts"] = embedded_texts
+        extracted = run_awaitable_sync(lambda: extract_statblock(transcriptions, instruction, **options))
     except StatblockExtractionError as exc:
         status_code = 502 if exc.code == "pdf_statblock_output_invalid" else 503
         raise HTTPException(status_code=status_code, detail={"code": exc.code}) from exc
@@ -2310,6 +2323,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         return save_review(
             world_id=verified_world, review_id=review_id, expected_revision=0,
             definition=definition, regions=authorized_regions,
+            **({"source_confirmation_required": True} if any(embedded_texts) else {}),
         )
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_output_invalid"}) from exc
@@ -2331,6 +2345,8 @@ def get_pdf_statblock_review(world_id: str, review_id: UUID, request: Request):
 
 
 def _require_resolved_pdf_statblock(review: dict) -> dict:
+    if review.get("source_confirmation_required") and not review.get("source_confirmed"):
+        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_source_confirmation_required"})
     if review["definition"].get("movement") is None:
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_movement_unresolved"})
     return review

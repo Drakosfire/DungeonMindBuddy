@@ -20,10 +20,13 @@ def read_review(*, world_id, review_id):
     return {"revision": row[0], **row[1]}
 
 
-def save_review(*, world_id, review_id, expected_revision, definition, regions):
+def save_review(*, world_id, review_id, expected_revision, definition, regions, source_confirmation_required=False, source_confirmed=False):
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     payload = {"definition": definition, "regions": regions}
+    if source_confirmation_required:
+        payload["source_confirmation_required"] = True
+        payload["source_confirmed"] = source_confirmed
     with unit_of_work(dsn) as conn:
         if expected_revision == 0:
             row = conn.execute(
