@@ -53,7 +53,7 @@ export function resolveThreatGlanceMeta(
   return parts.length ? parts.join(" · ") : null;
 }
 
-export function CompactCoreStats({ binding }: { binding: ThreatSheetBindingViewModel }) {
+function CompactCoreStats({ binding }: { binding: ThreatSheetBindingViewModel }) {
   if (!binding.revision) return null;
   const view = buildStatblockViewModel(binding.revision, "summary");
   return (
