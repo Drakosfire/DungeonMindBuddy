@@ -382,3 +382,17 @@ def test_pdf_statblock_failures_never_save_a_review(monkeypatch, failure):
     assert calls == ({"invalid_region": ["region"], "ocr": ["ocr"], "model": ["model"]}[failure])
     if failure == "model":
         assert detail == {"code": "pdf_statblock_generation_provider_error"}
+
+
+def test_extraction_prompt_pairs_embedded_text_with_ocr_by_region():
+    import json
+
+    from apps.live_control_server.services.build_pdf_statblock_extraction import extraction_prompt
+
+    payload = json.loads(extraction_prompt(
+        ["first crop OCR", "second crop OCR"],
+        "",
+        [None, "second crop embedded text"],
+    ))
+    assert payload["ocr_transcriptions"] == ["first crop OCR", "second crop OCR"]
+    assert payload["embedded_texts"] == [None, "second crop embedded text"]

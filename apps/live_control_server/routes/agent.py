@@ -2253,6 +2253,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         StatblockExtractionError, extract_statblock,
     )
     from src.llm.generation_sync import run_awaitable_sync
+    from apps.live_control_server.services.build_pdf_region_render import read_region_text
     from base64 import b64encode
 
     enforce_native_graph_gm(request)
@@ -2279,6 +2280,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
 
     transcriptions = []
+    embedded_texts = []
     authorized_regions = []
     for locator in regions_body:
         pdf, region = _authorized_build_pdf_region(world_id, locator, request)
@@ -2288,10 +2290,16 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         if not isinstance(text, str) or not text.strip():
             raise HTTPException(status_code=503, detail={"code": "pdf_statblock_ocr_unavailable"})
         transcriptions.append(text)
+        embedded_texts.append(read_region_text(pdf, region) or None)
         authorized_regions.append(region.model_dump(mode="json"))
 
     try:
-        extracted = run_awaitable_sync(lambda: extract_statblock(transcriptions, instruction, **({"edition": edition} if edition else {})))
+        options = {}
+        if edition:
+            options["edition"] = edition
+        if any(embedded_texts):
+            options["embedded_texts"] = embedded_texts
+        extracted = run_awaitable_sync(lambda: extract_statblock(transcriptions, instruction, **options))
     except StatblockExtractionError as exc:
         status_code = 502 if exc.code == "pdf_statblock_output_invalid" else 503
         raise HTTPException(status_code=status_code, detail={"code": exc.code}) from exc
