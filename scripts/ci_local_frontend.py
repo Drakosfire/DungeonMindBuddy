@@ -442,6 +442,8 @@ def source_boundary(source, expected_sha, report, label):
     report.setdefault("source_boundaries", []).append(
         {"boundary": label, "sha": actual, "dirty": dirty}
     )
+    if label == "checkout":
+        report["source_dirty_before"] = dirty
     if actual != expected_sha or dirty:
         raise ValueError(f"exact source changed during {label}")
 
@@ -537,9 +539,6 @@ def verify(args):
                     )
                     frontend = source / "apps/live-control-ui"
                     report["source_frontend_path"] = str(frontend)
-                    report["source_dirty_before"] = bool(
-                        git(source, "status", "--porcelain")
-                    )
                     source_boundary(source, args.sha, report, "checkout")
                     report["package_lock_sha256"] = digest(
                         frontend / "package-lock.json"
