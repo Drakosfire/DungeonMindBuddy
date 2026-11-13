@@ -236,10 +236,15 @@ def complete_object(body: NativeCompleteObjectRead, principal):
         scope_mode=request.scope_mode,
         campaign_id=request.campaign_id if request.scope_mode == "campaign" else None,
     )
-    domain, _ = native.descriptors(repo, pin.native_world_id, pin.revision_id)
+    def resolve_domain(domain_ref, profile_ref):
+        domain, _ = native.resolve_dungeonbuddy_descriptors(
+            domain_ref=domain_ref, profile_ref=profile_ref,
+        )
+        return domain
+
     access = open_native_text_source_access_context(
         repository=repo, space_id=pin.native_world_id, revision_id=pin.revision_id,
-        domain_contract=domain, audience_labels=(native.GM_LABEL, native.PLAYER_LABEL),
+        domain_contract=resolve_domain, audience_labels=(native.GM_LABEL, native.PLAYER_LABEL),
     )
     result = project_complete_world_object_vnext(
         parsed_revision=access.parsed,
