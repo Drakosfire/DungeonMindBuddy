@@ -245,19 +245,18 @@ def database_has_app_state_schema(dsn: str) -> bool:
 
 
 def _fingerprint_table(
-    cursor: psycopg.Cursor[dict[str, Any]], domain: str, table: str, order_by: str
+    conn: psycopg.Connection, domain: str, table: str, order_by: str
 ) -> DomainFingerprint:
     # Table/column names come only from the static _DOMAIN_TABLES contract.
-    rows = cursor.execute(
-        f"SELECT * FROM {table} ORDER BY {order_by}",  # noqa: S608
-    ).fetchall()
     digest = hashlib.sha256()
-    for row in rows:
-        digest.update(_canonical_row(dict(row)).encode("utf-8"))
-        digest.update(b"\n")
-    return DomainFingerprint(
-        name=domain, row_count=len(rows), digest=digest.hexdigest()
-    )
+    row_count = 0
+    with conn.cursor(name="app_state_fingerprint", row_factory=dict_row) as cursor:
+        cursor.execute(f"SELECT * FROM {table} ORDER BY {order_by}")  # noqa: S608
+        for row in cursor:
+            digest.update(_canonical_row(dict(row)).encode("utf-8"))
+            digest.update(b"\n")
+            row_count += 1
+    return DomainFingerprint(name=domain, row_count=row_count, digest=digest.hexdigest())
 
 
 def compute_fingerprint(dsn: str | None = None) -> ApplicationStateFingerprint:
@@ -275,7 +274,7 @@ def compute_fingerprint(dsn: str | None = None) -> ApplicationStateFingerprint:
             ).fetchone()
             current = str(current_row["version_num"])
             domains = tuple(
-                _fingerprint_table(cursor, domain, table, order_by)
+                _fingerprint_table(conn, domain, table, order_by)
                 for domain, table, order_by in _DOMAIN_TABLES
             )
     finally:
