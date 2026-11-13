@@ -4,8 +4,42 @@
 # launcher. Every path remains overridable by the local operator.
 configure_local_pdf_ocr() {
   local buddy_root="${1:?Buddy checkout root is required}"
-  local workspace_root="${DUNGEONMIND_WORKSPACE_ROOT:-$(cd "${buddy_root}/.." && pwd)}"
-  local projects_root="${DUNGEONMIND_PROJECTS_ROOT:-$(cd "${workspace_root}/.." && pwd)}"
+  local workspace_root="${DUNGEONMIND_WORKSPACE_ROOT:-}"
+  local projects_root="${DUNGEONMIND_PROJECTS_ROOT:-}"
+  local projects_root_from_checkout=""
+
+  if [[ -z "${workspace_root}" ]]; then
+    local search_root
+    search_root="$(cd "${buddy_root}" && pwd -P)"
+    while :; do
+      if [[ -d "${search_root}/RulesIngestion" \
+        && -f "${search_root}/GenerationEngine/GenerationEngine/scripts/run_local_ocr.py" ]]; then
+        workspace_root="${search_root}"
+        if [[ "${search_root%/*}" == */Projects ]]; then
+          projects_root_from_checkout="${search_root%/*}"
+        fi
+        break
+      fi
+
+      # Codex checkouts live under Projects/.codex/<lane>/DungeonMindBuddy,
+      # while the shared OCR assets live beside them in Projects/DungeonOverMind.
+      if [[ "${search_root##*/}" == "Projects" \
+        && -d "${search_root}/DungeonOverMind/RulesIngestion" \
+        && -f "${search_root}/DungeonOverMind/GenerationEngine/GenerationEngine/scripts/run_local_ocr.py" ]]; then
+        workspace_root="${search_root}/DungeonOverMind"
+        projects_root_from_checkout="${search_root}"
+        break
+      fi
+
+      if [[ "${search_root}" == "/" ]]; then
+        break
+      fi
+      search_root="$(dirname "${search_root}")"
+    done
+  fi
+
+  workspace_root="${workspace_root:-$(cd "${buddy_root}/.." && pwd)}"
+  projects_root="${projects_root:-${projects_root_from_checkout:-$(cd "${workspace_root}/.." && pwd)}}"
   local hub_cache="${HF_HUB_CACHE:-${HF_HOME:-${projects_root}/.cache/huggingface}/hub}"
   local model_cache="${hub_cache}/models--deepseek-ai--DeepSeek-OCR-2"
   local model_revision=""

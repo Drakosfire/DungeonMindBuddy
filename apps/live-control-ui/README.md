@@ -173,13 +173,12 @@ World selection screens when opened without a selected World.
 
 ### Combat Tracker
 
-**Combat Tracker** opens the mature Mireward command-board tracker
-(`evals/c2_live_prep/mireward-prep/combat.html`) at `/combat` (alias
-`/combat.html`) — circular initiative, HP, statblock drilldown, import/export.
-It is not the older Live Control React `CombatRosterModule`.
+Select a managed World and open **Combat Tracker** at `/combat`. Confirm
+that the selected World’s encounters load or that Buddy shows **No encounters yet**.
+Opening the page should leave encounter state untouched.
 
-From `/`, open **Combat Tracker** and confirm the saved/bootstrap combat state
-loads as expected.
+The historical Mireward command board lives in
+[`evals/c2_live_prep/mireward-prep/combat.html`](../../evals/c2_live_prep/mireward-prep/combat.html).
 
 ## Legacy `/surface` board
 

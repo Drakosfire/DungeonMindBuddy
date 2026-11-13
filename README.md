@@ -40,6 +40,16 @@ from the npm lockfile when needed.
 Plan and Play prompt for a World when none is selected. The legacy Chat smoke
 uses `/surface`. See the [frontend smoke guide](apps/live-control-ui/README.md#manual-smoke).
 
+## Hosted Buddy
+
+The first hosted release supports DungeonMind sign-in, World selection,
+read-only Graph, and sign-out. Build, Plan, Play, Ingest, Combat, and the
+legacy Chat smoke are local workflows.
+
+Follow the [production deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md)
+for database restore checks, the release build, DNS and TLS verification, and
+the browser sign-in and sign-out smoke.
+
 ## Explore the repository
 
 | I want to… | Start here |
@@ -47,7 +57,7 @@ uses `/surface`. See the [frontend smoke guide](apps/live-control-ui/README.md#m
 | Understand the product and its contracts | [Documentation](Docs/README.md) |
 | Contribute or pick up an agent task | [AGENTS.md](AGENTS.md) |
 | Work on the UI | [Frontend guide](apps/live-control-ui/README.md) |
-| Build and configure the hosted package | [Production Compose example](deploy/production/compose.production.yaml) |
+| Run tests for a change | [Verification standard](AGENTS.md#review-and-verification) and [frontend commands](apps/live-control-ui/README.md#commands) |
 | Run an experiment or inspect evidence | [Lab and evaluation guide](evals/README.md) |
 
 The product runs from `apps/` and `src/`. Versioned contracts live in

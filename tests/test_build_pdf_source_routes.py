@@ -116,6 +116,23 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
         assert all(review.json()["region"][key] == value for key, value in locator.items())
         assert calls == [(body, 1)]
 
+        from generationengine.failures import FailureCode
+        from generationengine.providers.errors import ProviderError
+
+        async def failed_review(_png, _instruction):
+            raise ProviderError.from_code(
+                FailureCode.CONFIGURATION_UNAVAILABLE,
+                "provider configuration unavailable",
+            )
+
+        monkeypatch.setattr(build_pdf_capture_review, "review_capture", failed_review)
+        failed = client.post(review_path, json=payload, headers=auth)
+        assert failed.status_code == 503
+        assert failed.headers["content-type"].startswith("application/json")
+        assert failed.json() == {
+            "detail": "Buddy could not review this capture. Check provider configuration and retry."
+        }
+
         import json
         from pathlib import Path
 
