@@ -80,7 +80,6 @@ application_state = [
 [tool.ruff]
 exclude = [
     ".cursor",
-    "_bmad",
 ]
 
 [tool.uv.sources]
