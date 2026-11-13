@@ -103,7 +103,9 @@ export function writeWorldNotesPackageData(
     locator: null,
   });
   const bundledMembers: Record<string, readonly number[]> = {};
-  for (const [path, bytes] of Object.entries(data.bundledMembers)) bundledMembers[path] = Array.from(bytes);
+  for (const [path, bytes] of Object.entries(data.bundledMembers)) {
+    if (path !== LOCAL_WORLD_NOTES_DOCUMENT_PATH) bundledMembers[path] = Array.from(bytes);
+  }
   bundledMembers[LOCAL_WORLD_NOTES_DOCUMENT_PATH] = Array.from(markdownBytes);
   const next: LocalWorldPackageData = {
     ...data,
