@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Run a live-query pipeline and emit step-by-step telemetry JSON.
 
-Reuses query enhancement (step 1) from a prior telemetry artifact when
-``--enhancement-from`` is set; otherwise runs retrieval + grounding on the
-raw question only.
+Reuses query enhancement (step 1) from a prior telemetry artifact. Override
+the default artifact with ``--enhancement-from``, or pass ``--no-enhancement``
+to run retrieval and grounding on the raw question only.
 
 Example::
 
@@ -403,7 +403,9 @@ def main() -> int:
         "max_output_tokens": 600,
         "temperature": 0.2,
     }
-    if not args.no_enhancement and args.enhancement_from.is_file():
+    if not args.no_enhancement:
+        if not args.enhancement_from.is_file():
+            parser.error(f"enhancement file not found: {args.enhancement_from}. Use --no-enhancement for a raw run.")
         enhancement_artifact = json.loads(args.enhancement_from.read_text(encoding="utf-8"))
         if isinstance(enhancement_artifact.get("llm_config"), dict):
             llm_config = dict(enhancement_artifact["llm_config"])
