@@ -9,11 +9,12 @@ const id='11111111-1111-4111-8111-111111111111',world='world';
 const uuid=(n:number)=>`22222222-2222-4222-8222-${String(n).padStart(12,'0')}`;
 const turn=(n:number):LibraryTurn=>({turn_id:uuid(n),sequence:n,status:'completed',user_text:`Question ${n}`,assistant_text:`Reply ${n}`,reply_object:null,retry_context:null});
 const meta=(n:number)=>({world_id:world,conversation_id:id,title:'Shop relationships',name_revision:0,status:'archived' as const,turn_count:n,created_at:'2026-10-25T00:00:00Z',updated_at:'2026-10-25T00:00:00Z'});
-function pages(rows:LibraryTurn[]){
+function pages(rows:LibraryTurn[], legacyCursor = false){
  vi.mocked(readConversationName).mockResolvedValue(meta(rows.length));
  vi.mocked(readConversationTurns).mockImplementation(async(w,c,before)=>{
-  const selected=rows.filter(t=>before===undefined||t.sequence<before).slice(-50);
-  return {schema:'dmb_conversation_library_turns_v3',world_id:w,conversation_id:c,turns:structuredClone(selected),next_before_sequence:selected.length===50?selected[0].sequence:null};
+  const remaining=rows.filter(t=>before===undefined||t.sequence<before);
+  const selected=remaining.slice(-50);
+  return {schema:'dmb_conversation_library_turns_v3',world_id:w,conversation_id:c,turns:structuredClone(selected),next_before_sequence:(remaining.length>50||legacyCursor&&selected.length===50)?selected[0].sequence:null};
  });
 }
 beforeEach(()=>{vi.resetAllMocks();pages([turn(1)]);});
@@ -28,8 +29,13 @@ it('exports all 103 physical turns in order, including earlier failed retries, a
  expect(vi.mocked(readConversationTurns).mock.calls.map(c=>c[2])).toEqual([undefined,54,4,undefined,54,4]);
  expect(getWorldAgentTurnContextTrace).not.toHaveBeenCalled();expect(getWorldAgentTurnPrompt).not.toHaveBeenCalled();
 });
-it('finishes exact multiples of 50 using the final empty page',async()=>{
- pages(Array.from({length:100},(_,i)=>turn(i+1)));await collectConversationExport(world,id,'readable',()=>{});
+it('reads exactly two pages per pass for 100 turns',async()=>{
+ pages(Array.from({length:100},(_,i)=>turn(i+1)));
+ await collectConversationExport(world,id,'readable',()=>{});
+ expect(vi.mocked(readConversationTurns).mock.calls.map(c=>c[2])).toEqual([undefined,51,undefined,51]);
+});
+it('accepts the extra terminal cursor returned by older servers',async()=>{
+ pages(Array.from({length:100},(_,i)=>turn(i+1)),true);await collectConversationExport(world,id,'readable',()=>{});
  expect(vi.mocked(readConversationTurns).mock.calls.map(c=>c[2])).toEqual([undefined,51,1,undefined,51,1]);
 });
 it('exports an empty conversation',async()=>{pages([]);expect((await collectConversationExport(world,id,'readable',()=>{})).content).toContain('Shop relationships');});
