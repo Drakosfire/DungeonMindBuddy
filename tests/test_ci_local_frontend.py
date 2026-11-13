@@ -821,3 +821,22 @@ def test_timeout_retains_step_receipt_and_cleans_worktree(sandbox, monkeypatch):
     assert receipt["timed_out_step"]["log"] == "install.log"
     assert (out / "install.log").read_text() == "started\n"
     assert "timed out" in receipt["error"]
+
+
+def test_validation_reads_each_evidence_artifact_once(sandbox, monkeypatch):
+    args, _, _ = sandbox
+    assert local.verify(args) == 0
+    out = Path(args.output)
+    report_path = out / "evidence.json"
+    artifacts = json.loads(report_path.read_text())["artifacts"]
+    reads = []
+    original_open = Path.open
+
+    def track_open(path, *args, **kwargs):
+        if path.parent == out and path.name in artifacts:
+            reads.append(path.name)
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", track_open)
+    local.validate(report_path, args.sha, "discovered")
+    assert sorted(reads) == sorted(artifacts)
