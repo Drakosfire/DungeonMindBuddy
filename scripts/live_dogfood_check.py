@@ -6,8 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import urllib.error
-import urllib.request
 from importlib import import_module
 from pathlib import Path
 
@@ -77,22 +75,10 @@ def check_ui_package(repo_root: Path) -> bool:
     return has_types_node
 
 
-def check_http(server_url: str) -> bool:
-    url = server_url.rstrip("/") + "/api/live/combat/current"
-    try:
-        with urllib.request.urlopen(url, timeout=5) as response:
-            print(f"HTTP {url}: {response.status}")
-            return 200 <= response.status < 300
-    except (urllib.error.URLError, TimeoutError) as exc:
-        print(f"HTTP {url}: failed ({exc})")
-        return False
-
-
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session-dir", help=f"Live session directory; defaults to {SESSION_DIR_ENV}.")
     parser.add_argument("--repo-root", default=".", help="Repository root. Defaults to the current working directory.")
-    parser.add_argument("--server-url", help="Optional backend URL for read-only HTTP smoke checks.")
     return parser.parse_args(argv)
 
 
@@ -107,8 +93,6 @@ def main(argv: list[str] | None = None) -> int:
     ok = check_imports() and ok
     ok = check_session(session_dir) and ok
     ok = check_ui_package(repo_root) and ok
-    if args.server_url:
-        ok = check_http(args.server_url) and ok
 
     print("\nStartup commands:")
     print("export DUNGEONMIND_LIVE_SESSION_DIR=evals/c2_live_prep/live/session_22")
