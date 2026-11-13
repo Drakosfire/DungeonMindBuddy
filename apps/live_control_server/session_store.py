@@ -83,8 +83,19 @@ def refresh_loaded_current_state(
     events: list[dict[str, Any]],
     jobs: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    state = derive_current_state(packet, layout, events, jobs)
+    write_json(_paths(base)["state"], state)
+    return state
+
+
+def derive_current_state(
+    packet: dict[str, Any],
+    layout: dict[str, Any],
+    events: list[dict[str, Any]],
+    jobs: list[dict[str, Any]],
+) -> dict[str, Any]:
     derived = derive_current_state_fields(packet, layout, events, jobs)
-    state = {
+    return {
         "schema_version": "0.1.0",
         "campaign_id": packet["campaign_id"],
         "session": packet["session"],
@@ -99,8 +110,6 @@ def refresh_loaded_current_state(
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         **derived,
     }
-    write_json(_paths(base)["state"], state)
-    return state
 
 
 def events_since(events: list[dict[str, Any]], since_id: str | None) -> list[dict[str, Any]]:
