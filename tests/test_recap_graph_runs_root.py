@@ -59,8 +59,8 @@ def test_latest_preview_matches_ranked_discovery(monkeypatch):
     ) is ranked[0]
 
 
-@pytest.mark.parametrize("missing", [False, True])
-def test_discovery_reuses_descriptor_digest_only_within_one_scan(tmp_path, monkeypatch, missing):
+@pytest.mark.parametrize("status", [None, 404, 503])
+def test_discovery_reuses_descriptor_digest_only_within_one_scan(tmp_path, monkeypatch, status):
     from types import SimpleNamespace
 
     from apps.live_control_server.services import graph_ingest_run_registry as registry
@@ -74,8 +74,8 @@ def test_discovery_reuses_descriptor_digest_only_within_one_scan(tmp_path, monke
 
     def lookup(artifact_id):
         calls.append(artifact_id)
-        if missing:
-            raise descriptors.SourceArtifactRegistryError("missing", status_code=404)
+        if status == 404 or (status == 503 and len(calls) == 1):
+            raise descriptors.SourceArtifactRegistryError("lookup failed", status_code=status)
         return SimpleNamespace(content_sha256=digest)
 
     monkeypatch.setattr(descriptors, "get_source_artifact", lookup)
@@ -89,7 +89,7 @@ def test_discovery_reuses_descriptor_digest_only_within_one_scan(tmp_path, monke
         ),
     )
 
-    for expected_calls in (1, 2):
+    for scan in (1, 2):
         rows = registry.discover_graph_ingest_runs(tmp_path, source_recap_sha256=digest)
-        assert len(rows) == (0 if missing else 2)
-        assert calls == ["shared"] * expected_calls
+        assert len(rows) == (0 if status == 404 else 1 if status == 503 and scan == 1 else 2)
+        assert calls == ["shared"] * (scan + (status == 503))
