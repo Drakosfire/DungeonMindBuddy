@@ -132,7 +132,7 @@ def test_get_and_list_ignore_absent_legacy_files(
     )
     with hidden_legacy_runtime_dirs(tmp_path):
         loaded = get_play_run(tmp_path, RUN_ID_A)
-        listed = list_play_runs(tmp_path)
+        listed = list_play_runs()
     assert loaded.run_id == RUN_ID_A
     assert [record.run_id for record in listed] == [RUN_ID_B, RUN_ID_A]
 
@@ -220,7 +220,7 @@ def test_file_absence_progress_and_rebase_still_work(
             target_playable_content_sha256=target[1],
         )
         assert get_play_run(tmp_path, RUN_ID_A).playable_revision == rebased.playable_revision
-        assert list_play_runs(tmp_path)[0].run_id == RUN_ID_A
+        assert list_play_runs()[0].run_id == RUN_ID_A
 
 
 def test_get_and_list_reject_corrupt_persisted_progress(
@@ -246,7 +246,7 @@ def test_get_and_list_reject_corrupt_persisted_progress(
             get_play_run(tmp_path, RUN_ID_A)
         assert get_exc.value.status_code == 500
         with pytest.raises(PlayRunRegistryError) as list_exc:
-            list_play_runs(tmp_path)
+            list_play_runs()
         assert list_exc.value.status_code == 500
 
 
@@ -301,7 +301,7 @@ def test_create_replay_rejects_corrupt_stored_manifest(
             get_play_run(tmp_path, RUN_ID_A)
         assert get_exc.value.status_code == 500
         with pytest.raises(PlayRunRegistryError) as list_exc:
-            list_play_runs(tmp_path)
+            list_play_runs()
         assert list_exc.value.status_code == 500
         with pytest.raises(PlayRunReferenceManifestError) as manifest_exc:
             get_play_run_reference_manifest(RUN_ID_A)

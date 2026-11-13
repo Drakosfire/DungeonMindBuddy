@@ -367,7 +367,7 @@ def test_second_apply_does_not_mutate_existing_run(
         capsys.readouterr()
         assert get_play_run(tmp_path, RUN_ID_A) == ready
         assert get_committed_playable_revision(document_id) == committed
-    assert list_play_runs(tmp_path)[0].run_id == created.run_id
+    assert list_play_runs()[0].run_id == created.run_id
 
 
 def test_bootstrap_then_normal_content_to_native_ready_play(

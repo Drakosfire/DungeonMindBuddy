@@ -140,7 +140,7 @@ def test_list_orders_mixed_timestamp_precision_by_time_then_run_id(
     _create_run(tmp_path, snapshot, run_id=RUN_ID_C)
     _create_run(tmp_path, snapshot, run_id=RUN_ID_D)
 
-    assert [record.run_id for record in list_play_runs(tmp_path)] == [
+    assert [record.run_id for record in list_play_runs()] == [
         RUN_ID_C,
         RUN_ID_A,
         RUN_ID_B,
