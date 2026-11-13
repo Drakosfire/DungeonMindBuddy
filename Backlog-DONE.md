@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Return a missing-file response for absent hosted assets
+
+[PR #2546](https://github.com/Drakosfire/DungeonMindBuddy/pull/2546) verified through ASGI that a missing asset returns 404 with an HTML Accept header, an existing asset is served, and Graph and root navigation still work. The asset-prefix guard still precedes HTML fallback on main at `0e8bbc3a`. Browser recovery across release boundaries remains tracked in [Backlog.md](Backlog.md) under **Verify browser recovery after a release replaces a lazy chunk**.
+
 ## [DONE] Repair recap documentation links after file moves
 
 [PR #2532](https://github.com/Drakosfire/DungeonMindBuddy/pull/2532) repaired the recap normalization index link to the current breadcrumb convention and both timeline benchmark links to the archived report. Verified all three relative links resolve to tracked files on main at `5669014a`.
