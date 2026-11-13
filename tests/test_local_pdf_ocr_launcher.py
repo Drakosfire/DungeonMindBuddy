@@ -150,3 +150,29 @@ def test_launcher_disables_incomplete_or_unpinned_local_cache(tmp_path: Path) ->
 
     assert result.stdout.splitlines() == ["", "", ""]
     assert "Local PDF OCR unavailable" in result.stderr
+
+
+def test_launcher_preserves_explicit_assets_with_stale_workspace(tmp_path: Path) -> None:
+    buddy, python, command, checkpoint = _layout(tmp_path)
+    env = {
+        "PATH": os.environ["PATH"],
+        "DUNGEONMIND_WORKSPACE_ROOT": str(tmp_path / "missing" / "workspace"),
+        "BUDDY_OCR_PYTHON": str(python),
+        "BUDDY_OCR_COMMAND": str(command),
+        "BUDDY_OCR_CHECKPOINT": str(checkpoint),
+    }
+    result = _configure(buddy, env)
+    assert result.stdout.splitlines() == [str(python), str(command), str(checkpoint)]
+
+
+def test_launcher_continues_with_stale_workspace_and_no_assets(tmp_path: Path) -> None:
+    buddy, *_ = _layout(tmp_path)
+    result = _configure(
+        buddy,
+        {
+            "PATH": os.environ["PATH"],
+            "DUNGEONMIND_WORKSPACE_ROOT": str(tmp_path / "missing" / "workspace"),
+        },
+    )
+    assert result.stdout.splitlines() == ["", "", ""]
+    assert "Local PDF OCR unavailable" in result.stderr
