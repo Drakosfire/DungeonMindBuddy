@@ -294,6 +294,40 @@ describe("loaded corpus exploration", () => {
     }
   });
 
+  it("reads only sparse focused edge candidates in snapshot order", async () => {
+    const record = await graphRecord();
+    const [a, b, c, d] = record.snapshot.objects;
+    const base = record.snapshot.relationships[0];
+    const edge = (id: string, fromObjectId: typeof a.id, toObjectId: typeof a.id) =>
+      ({ ...base, id: id as typeof base.id, fromObjectId, toObjectId });
+    const relationships = [
+      edge("reverse", b.id, a.id),
+      ...Array.from({ length: 10_000 }, (_, i) => edge(`unrelated-${i}`, c.id, c.id)),
+      edge("loop", a.id, a.id), edge("parallel-1", a.id, b.id), edge("parallel-2", a.id, b.id),
+    ];
+    const snapshot = { ...record.snapshot, relationships };
+    const index = indexLocalWorldGraph(snapshot);
+    let reads = 0;
+    const countedIndex = { ...index, validRelationships: new Proxy(index.validRelationships, {
+      get(target, key, receiver) {
+        if (typeof key === "string" && /^\d+$/.test(key)) reads++;
+        return Reflect.get(target, key, receiver);
+      },
+    }) };
+    const focused = projectLocalWorldGraph({ ...record, snapshot }, {
+      focusObjectId: a.id, maxNodes: 2, maxEdges: 3,
+    }, countedIndex);
+    expect(focused.edges.map(({ id }) => id)).toEqual(["reverse", "loop", "parallel-1"]);
+    expect(focused.hiddenRelationships).toBe(10_001);
+    expect(reads).toBe(4);
+
+    reads = 0;
+    const isolated = projectLocalWorldGraph({ ...record, snapshot }, { focusObjectId: d.id }, countedIndex);
+    expect(isolated.nodes.map(({ id }) => id)).toEqual([d.id]);
+    expect(isolated.edges).toEqual([]);
+    expect(reads).toBe(0);
+  });
+
   it("keeps full-corpus geometry stable under reorder and bounded focus", async () => {
     const record = await corpusRecord();
     const full = projectLocalWorldGraph(record, { fullCorpus: true });
