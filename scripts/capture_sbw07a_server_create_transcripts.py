@@ -80,6 +80,17 @@ def _output_dirs(buddy_repo: Path, out_subdir: Path | None) -> tuple[Path, Path]
     return transcripts, transcripts / "leaf_fixtures"
 
 
+def _prepare_output_dirs(out_dir: Path, fixtures_dir: Path, *, scratch: bool) -> None:
+    if not scratch:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        try:
+            out_dir.mkdir(parents=True)
+        except FileExistsError as exc:
+            raise SystemExit("Scratch output must be a new directory.") from exc
+        fixtures_dir.mkdir()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--buddy-repo", type=Path, required=True)
@@ -341,14 +352,7 @@ def main() -> None:
         "create-persistence-validation-failed.json": invalid_body,
         "create-invalid-request.json": bad_req_res.json(),
     }
-    if args.out_subdir is None:
-        out_dir.mkdir(parents=True, exist_ok=True)
-    else:
-        try:
-            out_dir.mkdir(parents=True)
-        except FileExistsError as exc:
-            raise SystemExit("Scratch output must be a new directory.") from exc
-        fixtures_dir.mkdir()
+    _prepare_output_dirs(out_dir, fixtures_dir, scratch=args.out_subdir is not None)
     for name, payload in leaf.items():
         (fixtures_dir / name).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
