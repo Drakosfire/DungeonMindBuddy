@@ -11,6 +11,9 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Retire the generated cross-class collision Markdown from active reports. The archived audit links to the exact pinned evidence. The generator defaults to ignored output, fixed-date reruns were byte-identical, and eight report tests passed. Removing the tracked report saved 12,704 checkout bytes.
+- Separate Local World record validation from the package codec. Fixed in [#2830](https://github.com/Drakosfire/DungeonMindBuddy/pull/2830). The route chunk fell from 23.65 to 17.14 kB gzip. Type checking, production build, and 76 focused tests passed.
+
 - Retire the original Agent launcher PNG from the active tree. [Disposition history #2697](https://github.com/Drakosfire/DungeonMindBuddy/pull/2697)
 - Repair relative links in the design-agent source set. [Disposition history #2699](https://github.com/Drakosfire/DungeonMindBuddy/pull/2699)
 - Remove historical files from the active design-agent upload directory. [Disposition history #2702](https://github.com/Drakosfire/DungeonMindBuddy/pull/2702)
