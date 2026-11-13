@@ -124,6 +124,10 @@ def test_archived_names_and_pagination_never_activate(application_state_dsn):
         "world-one", old, limit=2, before_sequence=page["next_before_sequence"]
     )
     assert [r["sequence"] for r in older["turns"]] == [1]
+    assert older["next_before_sequence"] is None
+    exact = library.read_turns("world-one", old, limit=3)
+    assert [r["sequence"] for r in exact["turns"]] == [1, 2, 3]
+    assert exact["next_before_sequence"] is None
     assert library.get_name("world-one", old).title == "Workshop project 0"
     library.rename(
         "world-one",
@@ -157,8 +161,8 @@ def test_uses_mixed_projection_answer_not_raw_completion(
     tid = uuid4()
     monkeypatch.setattr(
         AgentConversationService,
-        "list_turns",
-        lambda *a, **k: [
+        "list_turn_page",
+        lambda *a, **k: ([
             SimpleNamespace(
                 envelope=SimpleNamespace(
                     turn_id=tid,
@@ -169,7 +173,7 @@ def test_uses_mixed_projection_answer_not_raw_completion(
                 ),
                 assistant_text="Projected mixed answer",
             )
-        ],
+        ], False),
     )
     result = library.read_turns("world-one", cid)
     assert result["turns"][0]["assistant_text"] == "Projected mixed answer"

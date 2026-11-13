@@ -884,20 +884,21 @@ def lock_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnRea
     return None if row is None else _turn_from_row(conn, row)
 
 
-def list_turns(
+def list_turn_page(
     conn: psycopg.Connection,
     world_id: str,
     conversation_id: UUID,
     *,
     limit: int,
     before_sequence: int | None,
-) -> list[TurnReadModel]:
+    lookahead: bool,
+) -> tuple[list[TurnReadModel], bool]:
     clauses = ["world_id = %s", "conversation_id = %s"]
     params: list[Any] = [world_id, conversation_id]
     if before_sequence is not None:
         clauses.append("sequence < %s")
         params.append(before_sequence)
-    params.append(limit)
+    params.append(limit + int(lookahead))
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -907,8 +908,10 @@ def list_turns(
             params,
         )
         rows = cur.fetchall()
-    references = _turn_reference_page(conn, rows)
-    return [_turn_from_row(conn, row, references=references[row["turn_id"]]) for row in reversed(rows)]
+    page = rows[:limit]
+    references = _turn_reference_page(conn, page)
+    turns = [_turn_from_row(conn, row, references=references[row["turn_id"]]) for row in reversed(page)]
+    return turns, len(rows) > limit
 
 
 def get_retry_history_anchor(

@@ -406,7 +406,7 @@ def read_turns(
     before_sequence: int | None = None,
 ):
     service = AgentConversationService()
-    turns = service.list_turns(
+    turns, more = service.list_turn_page(
         world, conversation, limit=limit, before_sequence=before_sequence
     )
     rows = [_turn_row(turn, world, conversation) for turn in turns]
@@ -425,7 +425,7 @@ def read_turns(
         "conversation_id": str(conversation),
         "turns": rows,
         "next_before_sequence": min(r["sequence"] for r in rows)
-        if len(rows) == limit
+        if more
         else None,
     }
 
