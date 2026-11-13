@@ -475,7 +475,7 @@ requires-dist = [
     { name = "blake3", specifier = ">=0.3.3" },
     { name = "dungeonmind", extras = ["postgres"], git = "https://github.com/Drakosfire/DungeonMind.git?rev=855f23bd8b20c3b91c27d0d065c3a3cfb0fef917" },
     { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "generationengine", extras = ["openai", "openrouter", "typesafe", "fal", "vercel"], git = "https://github.com/Drakosfire/GenerationEngine.git?rev=c6c575cec0bc13f20cad33a2e4c0554397d9a081" },
+    { name = "generationengine", extras = ["openai", "openrouter", "typesafe", "fal", "vercel"], git = "https://github.com/Drakosfire/GenerationEngine.git?rev=ab511c8a35bd3a76aecb7cb5b9d8b549fcbbbc2f" },
     { name = "hermes-agent", directory = "out/hermes-agent" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "jsonschema", specifier = ">=4.25.1" },
@@ -578,7 +578,7 @@ wheels = [
 [[package]]
 name = "generationengine"
 version = "0.1.0"
-source = { git = "https://github.com/Drakosfire/GenerationEngine.git?rev=c6c575cec0bc13f20cad33a2e4c0554397d9a081#c6c575cec0bc13f20cad33a2e4c0554397d9a081" }
+source = { git = "https://github.com/Drakosfire/GenerationEngine.git?rev=ab511c8a35bd3a76aecb7cb5b9d8b549fcbbbc2f#ab511c8a35bd3a76aecb7cb5b9d8b549fcbbbc2f" }
 dependencies = [
     { name = "httpx" },
     { name = "jsonschema" },
