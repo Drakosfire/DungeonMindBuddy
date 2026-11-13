@@ -415,9 +415,8 @@ def test_withdrawn_source_is_withheld_at_same_graph_pin(inspection):
 def test_native_complete_object_binding_opens_exact_pinned_citation(inspection):
     x = inspection
     scope = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
-    response = x.client.post(
-        "/api/live/native-graph-inspection/complete-object",
-        json={
+    route = "/api/live/native-graph-inspection/complete-object"
+    payload = {
             "scope": scope,
             "request": {
                 "schema": "dmb_world_graph_object_projection_request_v1",
@@ -427,8 +426,8 @@ def test_native_complete_object_binding_opens_exact_pinned_citation(inspection):
                 "revisionPin": scope["revision_id"],
                 "nodeId": x.objects["object:0"],
             },
-        },
-    )
+    }
+    response = x.client.post(route, json=payload)
     assert response.status_code == 200, response.text
     result = response.json()
     assert result["snapshot"]["revisionId"] == scope["revision_id"]
@@ -451,6 +450,22 @@ def test_native_complete_object_binding_opens_exact_pinned_citation(inspection):
     assert source["span_sha256"] == sha256(expected).hexdigest()
     assert source["source_artifact_id"] == binding["sourceArtifactId"]
     assert source["body_sha256"] == binding["contentSha256"] == x.lane.digest
+
+    repo = x.lane.repo
+    space = scope["native_world_id"]
+    head = repo.get_head(space)
+    events = repo.head_events(space)
+    repo.withdraw_native_source(
+        space_id=space,
+        source_artifact_id=source["source_artifact_id"],
+        source_revision_id=source["source_revision_id"],
+    )
+    after = x.client.post(route, json=payload)
+    assert after.status_code == 409, after.text
+    assert "excerpt" not in after.json()
+    assert expected.decode().strip() not in after.text
+    assert repo.get_head(space) == head
+    assert repo.head_events(space) == events
 
 
 def test_native_complete_object_requires_matching_pin(inspection, monkeypatch):
