@@ -44,9 +44,6 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     DMB_DEPLOYMENT_ENVIRONMENT=production \
     DMB_AUTH_MODE=hosted_dms
 WORKDIR /app
-RUN apt-get -o Acquire::Check-Valid-Until=false update \
-    && apt-get install --yes --no-install-recommends poppler-utils \
-    && rm -rf /var/lib/apt/lists/*
 RUN groupadd --gid 10001 buddy \
     && useradd --uid 10001 --gid buddy --home-dir /nonexistent --shell /usr/sbin/nologin buddy
 # The installed environment contains Buddy's packaged migration assets.
