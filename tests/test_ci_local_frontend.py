@@ -703,3 +703,29 @@ def test_repo_subdirectory_cannot_hide_repository_local_allocation(sandbox, fiel
     setattr(args, field, str(repository / "ci"))
     with pytest.raises(ValueError, match="outside the source repository"):
         local.verify(args)
+
+
+@pytest.mark.parametrize("replace_fails", [False, True])
+def test_publish_evidence_keeps_old_report_until_replace(tmp_path, monkeypatch, replace_fails):
+    destination = tmp_path / "evidence.json"
+    destination.write_text('{"state": "old"}')
+    replace = Path.replace
+    new_report = {"state": "complete"}
+
+    def observe_replace(source, target):
+        assert source.parent == target.parent
+        assert json.loads(target.read_text()) == {"state": "old"}
+        assert json.loads(source.read_text()) == new_report
+        if replace_fails:
+            raise OSError("publication interrupted")
+        return replace(source, target)
+
+    monkeypatch.setattr(Path, "replace", observe_replace)
+    if replace_fails:
+        with pytest.raises(OSError, match="publication interrupted"):
+            local.publish_evidence(destination, new_report)
+        assert json.loads(destination.read_text()) == {"state": "old"}
+    else:
+        local.publish_evidence(destination, new_report)
+        assert json.loads(destination.read_text()) == new_report
+    assert list(tmp_path.iterdir()) == [destination]
