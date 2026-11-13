@@ -48,7 +48,7 @@ def test_child_lifecycle_ignores_source_mirrors(monkeypatch, tmp_path, mirror):
         status=Status.REVIEWABLE, expected_revision=child.revision)
     assert registry.get_reviewable_extraction_run(tmp_path, child.run_id) == sealed
     assert registry.load_reviewable_extraction_data(tmp_path, child.run_id).source_bytes == b"Mirathorn is a river city.\n\nGuards watch the gate.\n"
-    assert registry.get_extraction_run(tmp_path, parent.run_id) == parent
+    assert registry.get_extraction_run(parent.run_id) == parent
 
 
 @pytest.mark.parametrize("violation", ["missing_body", "corrupt_body", "component_digest", "campaign"])
@@ -66,9 +66,9 @@ def test_lifecycle_rejects_invalid_database_binding(application_state_dsn, tmp_p
         _reseal_extraction_component_digest(child.run_id, kind="source_artifact", digest="a" * 64)
     else:
         _patch_extraction_run(child.run_id, campaign_id="foreign-campaign")
-    before = registry.get_extraction_run(tmp_path, child.run_id)
+    before = registry.get_extraction_run(child.run_id)
     with pytest.raises(registry.GraphRunRegistryError) as error:
         registry.update_extraction_run_status(tmp_path, child.run_id,
             status=Status.REVIEWABLE, expected_revision=before.revision)
     assert error.value.status_code == 422
-    assert registry.get_extraction_run(tmp_path, child.run_id) == before
+    assert registry.get_extraction_run(child.run_id) == before

@@ -237,7 +237,7 @@ def test_held_prepare_rejects_before_candidate_admission(
     monkeypatch.setattr(
         graph_run_registry,
         "get_extraction_run",
-        lambda _root, run_id: {"parent": parent, "child": child}[run_id],
+        lambda run_id: {"parent": parent, "child": child}[run_id],
     )
     monkeypatch.setattr(
         candidate_graph_admission,
@@ -290,7 +290,7 @@ def test_accepted_prepare_seals_exact_semantic_binding(
     resolved.data = _mock_bound_data(monkeypatch, child)
     monkeypatch.setattr(extract_promote, "seal_extraction_run", lambda package, data: package)
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *_a, **_k: resolved)
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: {"parent": parent, "child": child}[run_id])
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run_id: {"parent": parent, "child": child}[run_id])
     from apps.live_control_server import config
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
 
@@ -393,7 +393,7 @@ def test_held_review_package_remains_readable(
     monkeypatch.setattr(
         graph_run_registry,
         "get_extraction_run",
-        lambda _root, run_id: {"parent": parent, "child": child}[run_id],
+        lambda run_id: {"parent": parent, "child": child}[run_id],
     )
     monkeypatch.setattr(graph_run_registry, "load_reviewable_extraction_data", lambda *_args: SimpleNamespace(
         run=child, source_artifact=SimpleNamespace(world_id="w", content_sha256="a" * 64),
@@ -595,7 +595,7 @@ def test_exact_accepted_child_reaches_governed_writer_once(
     )
     _mock_bound_data(monkeypatch, child)
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *_a, **_k: resolved)
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: {"parent": parent, "child": child}[run_id])
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run_id: {"parent": parent, "child": child}[run_id])
     from apps.live_control_server import config
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
 
@@ -756,7 +756,7 @@ def test_decision_service_uses_canonical_basis_and_appstate_cas(
     }
     monkeypatch.setattr(graph_run_registry, "load_reviewable_extraction_data", lambda *_args: SimpleNamespace(
         run=child, source_artifact=SimpleNamespace(content_sha256="a" * 64)))
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _id: parent)
     calls = []
 
     def record(run_id, *, expected_revision, basis, decision):

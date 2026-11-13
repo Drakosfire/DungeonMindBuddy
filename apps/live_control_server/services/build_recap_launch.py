@@ -23,7 +23,7 @@ def _identity(request_id: UUID) -> str:
 
 
 def recover_build_recap_launch(root: Path, *, request_id: UUID, document_id: UUID, managed_world_id: str):
-    run = get_extraction_run(root,_identity(request_id))
+    run = get_extraction_run(_identity(request_id))
     launch = run.lineage.get("build_launch", {})
     request = launch.get("request", {})
     if (launch.get("schema") != "dmb_build_recap_launch_v1" or request.get("request_id") != str(request_id)

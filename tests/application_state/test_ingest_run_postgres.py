@@ -833,10 +833,10 @@ def test_mounted_reads_ignore_conflicting_legacy_file(
     )
     from apps.live_control_server.services.graph_run_registry import get_extraction_run as mounted_get
 
-    loaded = mounted_get(tmp_path, created.run_id)
+    loaded = mounted_get(created.run_id)
     assert loaded.run_id == "er_db_truth"
     with pytest.raises(Exception, match="not found"):
-        mounted_get(tmp_path, "er_file_only")
+        mounted_get("er_file_only")
     assert list_extraction_runs()[0].run_id == "er_db_truth"
 
 
@@ -1009,7 +1009,7 @@ def test_missing_component_bytes_do_not_hide_catalog_row(
     )
     with unit_of_work(application_state_dsn) as conn:
         insert_run(conn, run)
-    catalog = mounted_get(tmp_path, run.run_id)
+    catalog = mounted_get(run.run_id)
     assert catalog.run_id == run.run_id
     with pytest.raises(GraphRunRegistryError, match="source input not registered in database") as error:
         get_reviewable_extraction_run(tmp_path, run.run_id)

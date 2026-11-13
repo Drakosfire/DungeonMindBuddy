@@ -731,7 +731,7 @@ def _install_worldbuilding_repo(monkeypatch, tmp_path: Path, native_id=DEFAULT_W
     def update_with_frozen_source(root, run_id, **kwargs):
         components = kwargs.get("components")
         if components and "source_artifact" in components:
-            run = graph_run_registry.get_extraction_run(root, run_id)
+            run = graph_run_registry.get_extraction_run(run_id)
             source_component = components["source_artifact"]
             _artifact, body = graph_run_registry.load_run_source_input(root, run)
             frozen_components, _ = _build_prepared_components(NormalizedExtractionSource(

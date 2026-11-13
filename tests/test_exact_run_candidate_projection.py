@@ -112,7 +112,7 @@ def produced(tmp_path, monkeypatch, application_state_dsn, request):
             },
         )
     )
-    run = get_extraction_run(tmp_path, result.run.run_id)
+    run = get_extraction_run(result.run.run_id)
     assert str(run.status) == "reviewable", result.diagnostics
     binding = VerifiedManagedWorldBinding(
         "managed-a", "world:elderwyld", 1, "corpus/managed-a-markdown"
@@ -165,7 +165,7 @@ def test_actual_production_run_reads_all_local_candidates_without_mutation(
     assert node.candidate_node_id == "node:frank-sara"
     assert f"dmb-node:{node.view_key}" in result.projected_markdown
     assert result.node_views[node.view_key].role == "unpublished_candidate"
-    assert get_extraction_run(root, run.run_id) == run
+    assert get_extraction_run(run.run_id) == run
     assert snapshot(root) == before
     assert not list(root.rglob("promote_seals"))
 
@@ -710,7 +710,7 @@ def test_http_candidate_reader_reopens_database_after_mirror_loss(produced, monk
     assert response.json()['sourceMarkdown']==fixture.SOURCE
     assert response.json()['trustBoundary']=='unpublished_candidate'
     assert len(source_reads)==1 and sorted(output_reads)==['candidate_graph','source_span_index']
-    assert snapshot(root)==before and get_extraction_run(root,run.run_id)==run
+    assert snapshot(root)==before and get_extraction_run(run.run_id)==run
 
 
 def test_candidate_keys_use_the_owning_digest_normalization(produced,monkeypatch):
@@ -746,7 +746,7 @@ def test_saved_v1_projection_keeps_its_identity_after_v2_generation(produced):
     projection=service.build_exact_run_candidate_projection(root,run_id,"managed-a")
     assert projection.profile_id=="recap_category_v1@1.0"
     assert projection.source_markdown==source.source_text
-    assert get_extraction_run(root,current.run_id)==current
+    assert get_extraction_run(current.run_id)==current
 
 @pytest.mark.parametrize("produced", [{"profile":"recap_category_encounter_job_preview@2.0"}], indirect=True)
 def test_supported_encounter_policy_has_the_same_source_only_reader(produced):

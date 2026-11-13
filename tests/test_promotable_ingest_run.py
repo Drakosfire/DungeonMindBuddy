@@ -461,7 +461,7 @@ def test_resolve_prefers_canonical_extraction_run_over_legacy_manifest(
     repo.mkdir()
     monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
     run_id, _source = _write_reviewable_extraction_run(repo)
-    run = get_extraction_run(repo, run_id)
+    run = get_extraction_run(run_id)
     canonical_artifact = run.source_artifact_id
 
     # Plant a legacy graph-ingest manifest that reuses the same run_id but a

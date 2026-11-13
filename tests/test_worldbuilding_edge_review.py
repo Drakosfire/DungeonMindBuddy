@@ -200,7 +200,7 @@ import hashlib,json,sys
 from pathlib import Path
 from apps.live_control_server.services.graph_run_registry import get_extraction_run
 from application_state.ingest.components import get_component_bytes
-root=Path(sys.argv[1]); run=get_extraction_run(root,sys.argv[2])
+root=Path(sys.argv[1]); run=get_extraction_run(sys.argv[2])
 ref=run.components['raw_model_response']; data=get_component_bytes(run_id=run.run_id,kind=ref.kind,content_sha256=ref.sha256)
 assert hashlib.sha256(data).hexdigest()==ref.sha256
 assert json.loads(data)['completed_passes']
@@ -308,7 +308,7 @@ def test_success_storage_failure_is_not_reviewable_or_replayed(tmp_path, applica
     assert len(client.calls) == 6
     assert not list((tmp_path / "out").rglob("candidate_graph.json"))
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
-    run = get_extraction_run(tmp_path, drafts[0].run_id)
+    run = get_extraction_run(drafts[0].run_id)
     assert run.status.value == "incomplete"
     assert "raw_model_response" not in run.components and "candidate_graph" not in run.components
 
@@ -395,7 +395,7 @@ import json,hashlib,sys
 from pathlib import Path
 from apps.live_control_server.services.graph_run_registry import get_extraction_run
 from application_state.ingest.components import get_component_bytes
-root=Path(sys.argv[1]); run=get_extraction_run(root,sys.argv[2]); ref=run.components['raw_model_response']
+root=Path(sys.argv[1]); run=get_extraction_run(sys.argv[2]); ref=run.components['raw_model_response']
 data=get_component_bytes(run_id=run.run_id,kind=ref.kind,content_sha256=ref.sha256); assert hashlib.sha256(data).hexdigest()==ref.sha256
 bundle=json.loads(data); row=bundle['execution_observations'][-1]
 records={item['sha256']:item['envelope'] for item in bundle['execution_evidence']['records']}

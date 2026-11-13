@@ -916,7 +916,7 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(
         ingest_context=_fixture_ingest_context("synthetic"),
     )
     assert result.failure_kind == "incomplete", result.diagnostics
-    stored = registry.get_extraction_run(tmp_path, result.run.run_id)
+    stored = registry.get_extraction_run(result.run.run_id)
     assert result.candidate_graph is None and stored.status == ExtractionRunStatus.FAILED
     assert "candidate_graph" not in stored.components
     assert not list(output.rglob("candidate_graph.json"))

@@ -215,7 +215,7 @@ def _install_projection(
 ) -> dict[str, object]:
     captured: dict[str, object] = {"calls": 0}
     monkeypatch.setattr(projection_service, "world_graph_root", lambda: tmp_path / "world-root")
-    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _root, _id: run)
+    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _id: run)
     monkeypatch.setattr(
         projection_service.source_service,
         "get_source_markdown",
@@ -238,7 +238,7 @@ def test_exact_run_projection_uses_durable_source_and_current_world(
 ) -> None:
     world_root = tmp_path / "world-root"
     monkeypatch.setattr(projection_service, "world_graph_root", lambda: world_root)
-    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _root, _id: _run())
+    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _id: _run())
     monkeypatch.setattr(
         projection_service.source_service,
         "get_source_markdown",
@@ -311,7 +311,7 @@ def test_exact_run_projection_fails_closed_when_source_was_not_adopted(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _root, _id: _run())
+    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _id: _run())
     monkeypatch.setattr(
         projection_service.source_service,
         "get_source_markdown",
@@ -332,7 +332,7 @@ def test_exact_run_projection_preserves_dungeonmind_failure_boundary(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _root, _id: _run())
+    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _id: _run())
     monkeypatch.setattr(
         projection_service.source_service,
         "get_source_markdown",
@@ -364,7 +364,7 @@ def test_exact_run_projection_fails_closed_without_world_binding(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _root, _id: _run())
+    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _id: _run())
     monkeypatch.setattr(
         projection_service.source_service,
         "get_source_markdown",

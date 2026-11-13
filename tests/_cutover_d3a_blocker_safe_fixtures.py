@@ -1055,7 +1055,7 @@ def _mutate_extraction_candidate(repo, run_id: str, mutator) -> None:
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
     from application_state.ingest.components import get_component_bytes
 
-    run = get_extraction_run(repo, run_id)
+    run = get_extraction_run(run_id)
     component = run.components["candidate_graph"]
     payload = json.loads(get_component_bytes(
         run_id=run_id, kind="candidate_graph", content_sha256=component.sha256,

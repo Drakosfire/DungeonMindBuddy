@@ -459,7 +459,7 @@ def test_recap_child_round_trips_real_disposable_run_registry(
     assert child.components["source_span_index"] == parent.components["source_span_index"]
     assert correction.correct_recap_run_evidence(request) == response
     assert parent_path.read_bytes() == parent_bytes
-    assert graph_run_registry.get_extraction_run(tmp_path, parent.run_id).status == ExtractionRunStatus.REVIEWABLE
+    assert graph_run_registry.get_extraction_run(parent.run_id).status == ExtractionRunStatus.REVIEWABLE
     data = graph_run_registry.load_reviewable_extraction_data(tmp_path, response.run_id)
     assert data.source_bytes == source_text.encode()
     assert data.span_bytes == span_path.read_bytes()
