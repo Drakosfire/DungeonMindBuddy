@@ -353,99 +353,43 @@ uv run python -m evals.sentence_routing_retrieval_falsification.h1_routing_evide
 
 ## Stage B failure hypotheses (2026-04-27)
 
-Current focus: C2 Session 20 PC-only routing, especially `gold/scenario_c2_session20_pc_edge_flaky48.json`. **Set aside `u-L0016-03` during this pass**; it has stayed a stable B1 miss across prompt variants and should not dominate the next experiment.
-
-The working rule for new changes: judge **B1 missing expected hub** and **B2 over-assigned abstain** separately. A change that lowers B1 by increasing B2 is not a net fix unless the affected gold rows are first adjudicated as wrong.
+[Archived Stage B failure analysis and retired hypotheses](https://github.com/Drakosfire/DungeonMindBuddy/blob/3eb3ba713e8176bc719fe051a2b80373b55093a9/evals/sentence_routing_retrieval_falsification/README.md#stage-b-failure-hypotheses-2026-04-27).
 
 ### H2 — named-PC recall and abstain precision are in tension
 
-Broad "include named / affected PCs" language can improve multi-PC `must_route` rows while causing B2 over-routing on NPC, object, location, and pronoun-heavy `must_abstain` rows.
-
-**Test:** For every prompt or rubric change, compare:
-
-- `telemetry.stage_b_unit_breakdown.violation_failure_buckets.b1_missing_expected_hub`
-- `telemetry.stage_b_unit_breakdown.violation_failure_buckets.b2_over_assigned`
-- total `gold_gate_checks_pass`
-
-Acceptance is bucketed: B1 should fall without B2 exceeding the prior baseline for the same scenario and sample size.
-
-**Result (2026-04-28 bucket sentinel):** diagnostic buckets helped the abstain side but did not solve recall. Default bucketed prompt on `scenario_c2_session20_pc_bucket_sentinel` N=3 (`.../sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--N3--20260428T164441Z.json`) had **B2 over-assignment 0/3 runs**, but still failed **B1 party recall** with `b1_missing_expected_hub` = 2, 2, 3. Cost: **$0.013699** sum, mean **$0.004566**.
-
-**Result (2026-04-28 party_continuation_v1):** opt-in party continuation improved that same bucket sentinel (`...--pv-party_continuation_v1--N3--20260428T164939Z.json`) to **2/3 PASS**, with B1 missing = 1, 0, 0 and **B2 over-assignment still 0/3**. Cost: **$0.016597** sum, mean **$0.005532** (**+21% vs default same-scenario cohort**, below the 1.5x cost-regression threshold). However, the broader H1/H2 mixed sentinel (`...edge_slice_h1_h2_sentinel...--pv-party_continuation_v1--N3--20260428T165019Z.json`) stayed **0/3 PASS**: B2 remained 0, but `u-L0026-06` and `u-L0030-03` still failed B1, with one run over-routing `u-L0026-06` to the full roster. Do not promote this variant as default on this evidence.
-
-**Result (2026-04-28 slice matrix):** party-continuation remains a partial lever, not a fix. On `scenario_c2_session20_pc_edge_slice_party_boundary`, default N=3 was **0/3 PASS** with B1 missing = 6, 6, 6 and B2 = 0 (`...--N3--20260428T165636Z.json`, cost **$0.020295**); `party_continuation_v1` improved to B1 missing = 3, 2, 2 with B2 still 0 but remained **0/3 PASS** (`...--pv-party_continuation_v1--N3--20260428T165710Z.json`, cost **$0.022317**, +10%). On `scenario_c2_session20_pc_edge_slice_b1_multipc_recall`, default N=3 was **0/3 PASS** (`...--N3--20260428T165925Z.json`, cost **$0.013957**) and the variant improved to **1/3 PASS** (`...--pv-party_continuation_v1--N3--20260428T165953Z.json`, cost **$0.012730**), but failures still included B1 over-route rows. This supports "variant useful for recall pressure" but not "variant safe to promote."
+See the [pinned Stage B notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/3eb3ba713e8176bc719fe051a2b80373b55093a9/evals/sentence_routing_retrieval_falsification/README.md).
 
 ### H3 — pronoun-led abstain rows are a distinct failure class
 
-Rows such as `u-L0018-10`, `u-L0030-06`, and `u-L0028-08` are vulnerable to scene-memory bleed: the model binds "she/her/they" to a prior PC even when the current unit is NPC-led or object/location-led.
-
-**Test:** Build or reuse an abstain-only slice containing pronoun-led rows and run `--n 5`. Inspect sidecar rationales: if assigned hubs cite prior scene context instead of the current unit text plus one-hop binding, this is a pronoun-binding failure, not a named-PC rule failure.
-
-**Result (2026-04-28 bucket sentinel):** H3 is supported. The model can usually classify pronoun-led non-PC rows as `npc_placeholder` instead of routing them to PCs, and B2 stayed clean across both default and party-continuation cohorts. Remaining issue: bucket labels are not yet hard-gate stable. Default run 3 classified `u-L0028-08` as `true_empty` instead of `npc_placeholder` and `u-L0032-08` as `event_or_object_placeholder` instead of `npc_placeholder`; party-continuation runs sometimes classified the tower line (`u-L0030-06`) as NPC-centered rather than `location_placeholder`. Keep BD soft until this stabilizes.
-
-**Result (2026-04-28 context slice):** H3 is not closed. `scenario_c2_session20_pc_edge_slice_b2_abstain_pronoun_context` N=5 failed under both default (`...--N5--20260428T165804Z.json`, cost **$0.026766**) and `party_continuation_v1` (`...--pv-party_continuation_v1--N5--20260428T165846Z.json`, cost **$0.027643**, +3%). Several failures are schema-level B0 rows where the model assigns PC hubs while also leaving a non-null placeholder bucket, proving the new strict schema catches contradictory route semantics. Interpretation: mixed bucket sentinel success was too optimistic; H3 needs a dedicated abstain/pronoun guard or sharper prompt rule, and the context slice should stay in the required test set.
+See the [pinned Stage B notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/3eb3ba713e8176bc719fe051a2b80373b55093a9/evals/sentence_routing_retrieval_falsification/README.md).
 
 ### H4 — party/group wording has positive and negative cases
 
-Some rows require full roster (`routing_context.pc_party_names` or clear team action); others mention "group" only as background or reported memory and should abstain.
-
-**Test:** Run a small mixed slice with positive roster-copy rows and negative background-group rows. A passing change preserves both: full roster for registered party / joint-action rows, abstain for ambient or reported "group" references.
-
-**Result (2026-04-28):** H4 remains the dominant live failure. On the bucket sentinel, `party_continuation_v1` often recovers `u-L0026-03` and `u-L0030-03` without creating B2 over-assignment. On the broader H1/H2 sentinel, the same variant still misses `u-L0030-03` in all three runs and destabilizes `u-L0026-06` (two under-routes, one over-route). The rule helps same-slice party continuation but is not robust across mixed multi-PC / affected-PC rows.
-
-**Result (2026-04-28 party-boundary slice):** `party_continuation_v1` improved roster-positive recall without overfiring on the five must-abstain rows: B2 stayed 0/3, while B1 misses dropped from 6/6/6 (default) to 3/2/2 (variant). It still did not pass any run. H4 is now sharper: negative group boundaries are not the immediate blocker in this slice; the blocker is incomplete full-roster expansion on positive party/group rows.
+See the [pinned Stage B notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/3eb3ba713e8176bc719fe051a2b80373b55093a9/evals/sentence_routing_retrieval_falsification/README.md).
 
 ### H5 — some abstain rows are gold-review candidates
 
-Rows like `u-L0028-07` and `u-L0018-10` may encode a GM retrieval-intent decision, not just model behavior. If the sentence should be retrievable from a PC timeline because that PC heard, caused, or is the intended continuity thread for the NPC response, move it out of `must_abstain` with a `scenario_notes` rationale. If not, keep it as hard abstain pressure.
-
-**Test:** Human adjudication before prompt work. For each candidate, answer: "Would I want this unit retrievable from a PC hub?" Only then update gold or tighten prompt/harness rules.
-
-**Result (2026-04-28):** the bucket-sentinel abstain adjudications are provisionally supported: `u-L0018-10`, `u-L0028-07`, `u-L0028-08`, `u-L0030-06`, `u-L0032-05`, `u-L0032-06`, and `u-L0032-08` all held B2 under both tested prompts. The disagreement is bucket semantics (`npc_placeholder` vs `location_placeholder` / `event_or_object_placeholder` / `true_empty`), not whether they should route to PC hubs.
+See the [pinned Stage B notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/3eb3ba713e8176bc719fe051a2b80373b55093a9/evals/sentence_routing_retrieval_falsification/README.md).
 
 ### H6 — examples help only when they preserve rule precedence
 
-The broad 2026-04-27 rewrite improved some adjacent multi-PC rows but regressed roster-copy and abstain precision. Surgical examples under the original rule hierarchy recovered aggregate quality.
-
-**Test:** Any future prompt change must run against three sentinel buckets:
-
-- dual-PC / affected-PC rows (`u-L0024-07`, `u-L0026-06`; `u-L0016-03` tracked separately)
-- roster-copy / whole-party positives (`u-L0022-01`, `u-L0026-03`, `u-L0030-03`)
-- pronoun or NPC/object/location abstain rows (`u-L0018-10`, `u-L0028-07`, `u-L0030-06`, `u-L0032-05`, `u-L0032-06`)
-
-Do not accept a prompt change that improves one bucket while regressing another without explicit gold adjudication.
-
-**Result (2026-04-28):** examples/variants still require sentinel-wide proof. `party_continuation_v1` is a useful opt-in ablation because it improved the bucket sentinel to 2/3 PASS with no B2 regressions, but the H1/H2 sentinel stayed 0/3 and exposed a new `u-L0026-06` over-route in one run. Next prompt work should target the exact distinction between roster-copy continuation (`u-L0026-03`, `u-L0030-03`) and narrow multi-PC/affected-PC rows (`u-L0026-06`) rather than adding broader continuity prose.
-
-**Result (2026-04-28 additional slices):** the distinction above is confirmed. The party-boundary slice shows the variant can reduce missing roster rows without B2 over-assignment, while the B1-only slice shows the same variant can still over-route must_route rows whose gold expects a narrower PC subset. The next variant should be more structural than prose examples: explicitly separate **roster-copy rows** (party/group/they as joint subject of movement/perception/arrival) from **named multi-PC role rows** (only PCs with same-unit actor/object/locus roles; never expand to full roster merely because party context exists).
+See the [pinned Stage B notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/3eb3ba713e8176bc719fe051a2b80373b55093a9/evals/sentence_routing_retrieval_falsification/README.md).
 
 ## Hypothesis graveyard (Stage B sentence routing)
 
-Each entry is a hypothesis that survived initial testing but was disproved by a later cohort. Move new entries here only with cohort-summary evidence; do not retire a graveyard entry without rerunning the disproof.
+See the [pinned Stage B notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/3eb3ba713e8176bc719fe051a2b80373b55093a9/evals/sentence_routing_retrieval_falsification/README.md).
 
 ### G1 — broad cross-unit continuity prose (variants `a`, `ab`, `abe`, 2026-04-27)
 
-**Claim that died:** adding scene-memory and reported-speech carry rules as default prompt prose would close visible B1 misses on `u-L0026-03` and `u-L0018-02` while costing nothing on abstain rows.
-
-**Disproof:** N=3 matrix on `gpt-5.4-mini` (`baseline` 30 violation strings, `a` 31, `ab` 49, `abe` 51; all 0/3 PASS), recorded in `Backlog.md` ("Stage B sentence-routing — continuity prompt rules…"). The fix converted under-routing into over-routing on `u-L0018-03`, `u-L0028-02`, `u-L0030-03`, `u-L0030-11`. Artifacts: `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--pv-{baseline,a,ab,abe}--N3--*.json`.
-
-**Lesson preserved:** broad continuity prose destabilizes abstain precision faster than it fixes recall. Future attempts must produce N≥3 evidence that *both* B1 and B2 buckets improve vs baseline before being a default. Variants `a`, `ab`, `abe` remain available as `--prompt-variant` opt-ins for ablation.
+See the [pinned Stage B notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/3eb3ba713e8176bc719fe051a2b80373b55093a9/evals/sentence_routing_retrieval_falsification/README.md).
 
 ### G2 — bucket labels are stable enough to hard-gate (2026-04-28)
 
-**Claim that died:** with `routing_diagnostic_bucket` shipped and a small adjudicated sentinel, BD checks could be flipped to hard gates (`enforce_diagnostic_buckets: true`) within one experiment cycle.
-
-**Disproof:** on `scenario_c2_session20_pc_bucket_sentinel` N=3 default, run 3 classified `u-L0028-08` as `true_empty` instead of gold `npc_placeholder` and `u-L0032-08` as `event_or_object_placeholder` instead of `npc_placeholder` (`.../sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--N3--20260428T164441Z.json`). The `party_continuation_v1` variant on the same sentinel labelled `u-L0030-06` `npc_placeholder` rather than `location_placeholder` in some runs (`.../...--pv-party_continuation_v1--N3--20260428T164939Z.json`). Several disagreements are interpretation-of-pure-text vs. one-hop pronoun binding; lowering them to gold without sharper prompt definitions would be deflation.
-
-**Lesson preserved:** keep BD as soft telemetry until either the prompt's bucket descriptions are sharpened on these specific ambiguous shapes or each disagreement row is re-adjudicated with a one-line `notes` rationale. The `enforce_diagnostic_buckets` switch stays in the schema for the day this hypothesis can be revived.
+See the [pinned Stage B notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/3eb3ba713e8176bc719fe051a2b80373b55093a9/evals/sentence_routing_retrieval_falsification/README.md).
 
 ### G3 — a narrow-multi-PC guard can safely promote `party_continuation_v1` (2026-04-28)
 
-**Claim that died:** `party_roster_strict_v1` (the `party_continuation_v1` addendum plus a Marla/Bonogo/Caelynn narrow-multi-PC counter-example) would preserve the roster-copy gains, close the `u-L0026-06` over-route, and move the H1/H2 mixed sentinel toward PASS.
-
-**Disproof:** on the H1/H2 mixed sentinel, the N=5 comparison stayed **0/5 PASS** for both variants. `party_continuation_v1` produced B1 misses/over-route `[2,1,2,2,1-over]`, cost **$0.028177** (`.../sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--pv-party_continuation_v1--N5--20260428T185202Z.json`). `party_roster_strict_v1` removed the over-route but worsened recall to B1 misses `[1,2,3,2,3]`, cost **$0.027778** (`.../sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--pv-party_roster_strict_v1--N5--20260428T185204Z.json`). The strict addendum merely trades one failure class for another: less over-expansion, more missed roster-copy rows (`u-L0026-03`, `u-L0030-03`) while `u-L0026-06` still misses `bonogo` in all five strict runs.
-
-**Lesson preserved:** do not keep layering prose addenda onto the same prompt surface. The next useful lever is either (a) structured preprocessing/classification that tags units as `roster_copy_candidate` vs `same_unit_role_intersection`, or (b) a base prompt rewrite with clearer rule precedence plus N=5 gates. `party_roster_strict_v1` remains useful as an opt-in negative control, not as a promotion candidate.
+See the [pinned Stage B notes](https://github.com/Drakosfire/DungeonMindBuddy/blob/3eb3ba713e8176bc719fe051a2b80373b55093a9/evals/sentence_routing_retrieval_falsification/README.md).
 
 ## Canonized learnings (Stage B sentence routing, 2026-04-28)
 
