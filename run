@@ -39,14 +39,23 @@ else
   UI_PORT="${BUDDY_UI_PORT:-5173}"
 fi
 
+log() { printf '[run] %s\n' "$*"; }
+die() { printf '[run] ERROR: %s\n' "$*" >&2; exit 1; }
+
+for port in "$DMS_PORT" "$API_PORT" "$UI_PORT"; do
+  if [[ ! "$port" =~ ^[1-9][0-9]{0,4}$ ]] || (( port > 65535 )); then
+    die "service ports must be decimal integers from 1 to 65535 (received: $port)"
+  fi
+done
+if [[ "$DMS_PORT" == "$API_PORT" || "$DMS_PORT" == "$UI_PORT" || "$API_PORT" == "$UI_PORT" ]]; then
+  die "DungeonMindServer, Buddy API, and Buddy UI require distinct ports"
+fi
+
 RUN_DIR="$ROOT/.run"
 mkdir -p "$RUN_DIR"
 
 PIDS=()
 BUDDY_UI_PID=""
-
-log() { printf '[run] %s\n' "$*"; }
-die() { printf '[run] ERROR: %s\n' "$*" >&2; exit 1; }
 
 port_listening() {
   local port="$1"
