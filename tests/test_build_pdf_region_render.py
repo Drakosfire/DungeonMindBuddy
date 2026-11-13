@@ -22,3 +22,32 @@ def test_disjoint_cropbox_uses_rotated_mediabox(rotation, expected):
     with Image.open(BytesIO(render_region(pdf.getvalue(), region))) as image:
         assert image.format == "PNG"
         assert image.size == expected
+
+
+def test_graph_pdf_crop_rejects_locator_revision_mismatch():
+    import json
+    from types import SimpleNamespace
+
+    import pytest
+
+    from apps.live_control_server.services.native_pdf_evidence import render_admitted_pdf_evidence
+
+    evidence = SimpleNamespace(
+        source_revision_id="srev:other",
+        source_locator=json.dumps({
+            "schema_version": "dm_native_pdf_region_v1",
+            "source_revision_id": "srev:reviewed",
+            "content_sha256": "a" * 64,
+            "page": 1,
+            "left": 0.1,
+            "top": 0.2,
+            "right": 0.7,
+            "bottom": 0.8,
+        }),
+    )
+
+    def load(*args):
+        pytest.fail("A mismatched locator must be rejected before loading PDF bytes")
+
+    with pytest.raises(ValueError, match="PDF evidence revision differs from its locator"):
+        render_admitted_pdf_evidence(evidence, space_id="fixture-world", load=load)
