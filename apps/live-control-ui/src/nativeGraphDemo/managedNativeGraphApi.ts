@@ -47,6 +47,13 @@ function nonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+// Managed snapshots come from JSON, so nested values are plain objects or arrays.
+function freezeSnapshot(value: unknown): void {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) return;
+  for (const child of Object.values(value)) freezeSnapshot(child);
+  Object.freeze(value);
+}
+
 function decodedResponse(body: unknown, status = 200): NativeGraphDecodedResponse {
   return { body, status, ok: status >= 200 && status < 300 };
 }
@@ -251,11 +258,11 @@ export function createManagedNativeGraphApi(
     if (reuse && lastSnapshot) {
       const previous = snapshotPins.get(lastSnapshot);
       if (previous && sameInspectionPin(previous.pin, pin)
-        && previous.serializedGraph === serializedGraph
-        && JSON.stringify(lastSnapshot) === serializedGraph) {
+        && previous.serializedGraph === serializedGraph) {
         return lastSnapshot;
       }
     }
+    freezeSnapshot(graph);
     snapshotPins.set(graph, {
       pin,
       nodeIds: new Set(graph.nodes.map((node) => node.id)),
@@ -269,15 +276,6 @@ export function createManagedNativeGraphApi(
     if (invalidated) throw invalidManagedGraph("The selected World changed before this graph inspection completed.");
     const snapshot = snapshotPins.get(graph);
     if (!snapshot) throw invalidManagedGraph("This graph was not read from the currently selected managed World client.");
-    let serializedGraph: string;
-    try {
-      serializedGraph = JSON.stringify(graph);
-    } catch {
-      throw invalidManagedGraph("The graph snapshot was modified after it was loaded.");
-    }
-    if (serializedGraph !== snapshot.serializedGraph) {
-      throw invalidManagedGraph("The graph snapshot was modified after it was loaded.");
-    }
     if (!binding || !sameInspectionPin(snapshot.pin, {
       managed_world_id: managedWorldId,
       native_world_id: binding.nativeWorldId,
