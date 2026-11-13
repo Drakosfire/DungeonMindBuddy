@@ -145,11 +145,10 @@ describe("WorldGraphCanvas", () => {
     const parallelEdge = graph.querySelector(`[data-edge-id="${parallel.id}"]`);
     expect(firstEdge?.querySelector("path")?.getAttribute("d"))
       .not.toBe(parallelEdge?.querySelector("path")?.getAttribute("d"));
-    expect(firstEdge?.querySelector("text")?.getAttribute("y"))
-      .not.toBe(parallelEdge?.querySelector("text")?.getAttribute("y"));
+    expect(firstEdge?.querySelector("rect")).toBeNull();
     const reciprocalEdge = graph.querySelector(`[data-edge-id="${reciprocal.id}"]`);
     expect(new Set([firstEdge, reciprocalEdge, parallelEdge].map((edge) => edge?.querySelector("path")?.getAttribute("d"))).size).toBe(3);
-    expect(new Set([firstEdge, reciprocalEdge, parallelEdge].map((edge) => edge?.querySelector("text")?.getAttribute("y"))).size).toBe(3);
+    for (const edge of [firstEdge, reciprocalEdge, parallelEdge]) expect(edge?.querySelector("title")).not.toBeNull();
     expect(firstEdge).toHaveAccessibleName("Mara Venn allies Tomas Reed");
     expect(graph.querySelector(`[data-edge-id="${loop.id}"] path`)?.getAttribute("d")).toContain(" C ");
     expect(screen.queryByRole("button", { name: /world, world/i })).not.toBeInTheDocument();
@@ -840,19 +839,33 @@ describe("WorldGraphCanvas", () => {
     expect(layout).not.toHaveBeenCalled();
   });
 
-  it("wraps long predicate labels on opaque plates and preserves full accessible text", async () => {
+  it("renders readable upright phrases along arrows while keeping raw predicates unchanged", async () => {
+    const { record } = await graphRecord();
+    const [first, second] = record.snapshot.objects;
+    const relationship = { ...record.snapshot.relationships[0], fromObjectId: first.id, toObjectId: second.id, kind: "travels_to" };
+    const positions = { [first.id]: { x: 800, y: 100 }, [second.id]: { x: 0, y: 100 } };
+    render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, objects: [first, second], relationships: [relationship] }, layout: { ...record.layout, positions } }} />);
+    const edge = screen.getByRole("img", { name: `${first.name} travels to ${second.name}` });
+    expect(edge.querySelector("text")?.textContent).toBe("travels to");
+    expect(edge.querySelector("text")).toHaveAttribute("aria-hidden", "true");
+    expect(edge.querySelector("text")?.getAttribute("transform")).toContain("rotate(0)");
+    expect(edge.querySelector("path")).toHaveAttribute("marker-end");
+    expect(relationship.kind).toBe("travels_to");
+  });
+
+  it("keeps full accessible long predicates without opaque plates", async () => {
     const { record } = await graphRecord();
     const predicate = "has promised to protect during the winter gathering and beyond";
     const relationship = { ...record.snapshot.relationships[0], kind: predicate };
     render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, relationships: [relationship] } }} />);
     const edge = screen.getByRole("img", { name: `Mara Venn ${predicate} Tomas Reed` });
-    expect(edge.querySelector("rect")).toHaveClass("world-graph-canvas__edge-label");
-    expect(edge.querySelectorAll("tspan").length).toBeGreaterThan(1);
+    expect(edge.querySelector("rect")).toBeNull();
+    expect(edge.querySelectorAll("tspan")).toHaveLength(0);
     expect(edge.querySelector("title")?.textContent).toContain(predicate);
     expect(edge.querySelector("path")?.getAttribute("d")).not.toContain("M 164 118 ");
   });
 
-  it.each(["vertical reciprocal", "horizontal multiline", "self loops", "coincident endpoints"])("keeps %s predicate plates disjoint", async (shape) => {
+  it.each(["vertical reciprocal", "horizontal multiline", "self loops", "coincident endpoints"])("keeps %s directed paths and accessible records without opaque predicate plates", async (shape) => {
     const { record } = await graphRecord();
     const [first, second] = record.snapshot.objects;
     const relationships = [0, 1, 2].map((index) => ({ ...record.snapshot.relationships[0],
@@ -863,20 +876,18 @@ describe("WorldGraphCanvas", () => {
     }));
     const positions = { [first.id]: { x: 100, y: 100 }, [second.id]: shape === "vertical reciprocal" ? { x: 100, y: 500 } : shape === "coincident endpoints" ? { x: 100, y: 100 } : { x: 700, y: 100 } };
     render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, relationships }, layout: { ...record.layout, positions } }} />);
-    const plates = [...document.querySelectorAll(".world-graph-canvas__edge-label")].map((element) => ({
-      x: Number(element.getAttribute("x")), y: Number(element.getAttribute("y")),
-      width: Number(element.getAttribute("width")), height: Number(element.getAttribute("height")),
-    }));
-    expect(plates).toHaveLength(3);
-    for (let i = 0; i < plates.length; i += 1) {
-      for (let j = i + 1; j < plates.length; j += 1) {
-        const a = plates[i]; const b = plates[j];
-        expect(a.x + a.width < b.x || b.x + b.width < a.x || a.y + a.height < b.y || b.y + b.height < a.y).toBe(true);
-      }
+    const edges = [...document.querySelectorAll(".world-graph-canvas__edge")];
+    expect(edges).toHaveLength(3);
+    expect(document.querySelectorAll(".world-graph-canvas__edge-label")).toHaveLength(0);
+    for (const edge of edges) {
+      expect(edge.querySelector("path")).toHaveAttribute("marker-end");
+      expect(edge.querySelector("title")?.textContent).toContain(relationships[0].kind);
+      const caption = edge.querySelector("text");
+      if (caption) expect(caption.getAttribute("transform")).toMatch(/rotate\(-?[\d.]+\)/);
     }
   });
 
-  it("fits all multiline parallel and reciprocal predicate plates into a narrow viewport", async () => {
+  it("fits all parallel and reciprocal arrow paths into a narrow viewport", async () => {
     const { record } = await graphRecord();
     const [first, second] = record.snapshot.objects;
     let resize!: ResizeObserverCallback;
@@ -898,13 +909,16 @@ describe("WorldGraphCanvas", () => {
       fireEvent.click(screen.getByRole("button", { name: "Fit graph" }));
       const transform = screen.getByTestId("graph-scene").getAttribute("transform")!;
       const [, x, y, zoom] = transform.match(/translate\(([-.\d]+) ([-.\d]+)\) scale\(([-.\d]+)\)/)!.map(Number);
-      for (const plate of document.querySelectorAll(".world-graph-canvas__edge-label")) {
-        const left = Number(plate.getAttribute("x")); const top = Number(plate.getAttribute("y"));
-        const right = left + Number(plate.getAttribute("width")); const bottom = top + Number(plate.getAttribute("height"));
-        expect(left * zoom + x).toBeGreaterThanOrEqual(0);
-        expect(top * zoom + y).toBeGreaterThanOrEqual(0);
-        expect(right * zoom + x).toBeLessThanOrEqual(600);
-        expect(bottom * zoom + y).toBeLessThanOrEqual(520);
+      const paths = [...document.querySelectorAll(".world-graph-canvas__edge > path")];
+      expect(paths).toHaveLength(7);
+      for (const path of paths) {
+        const points = path.getAttribute("d")!.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+        for (let i = 0; i < points.length; i += 2) {
+          expect(points[i] * zoom + x).toBeGreaterThanOrEqual(0);
+          expect(points[i + 1] * zoom + y).toBeGreaterThanOrEqual(0);
+          expect(points[i] * zoom + x).toBeLessThanOrEqual(600);
+          expect(points[i + 1] * zoom + y).toBeLessThanOrEqual(520);
+        }
       }
     } finally { vi.unstubAllGlobals(); }
   });

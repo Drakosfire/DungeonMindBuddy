@@ -225,3 +225,6 @@
 @media (max-width: 480px) {
   .world-graph-canvas__legend--overlay { inset-inline: 8px; bottom: 8px; max-width: calc(100% - 16px); gap: 3px 8px; }
 }
+
+/* A light text halo separates phrases from crossing lines without opaque label plates. */
+.world-graph-canvas__edge .world-graph-canvas__edge-phrase { stroke-width: 3px; paint-order: stroke; stroke-linejoin: round; pointer-events: none; }

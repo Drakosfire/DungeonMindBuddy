@@ -10,6 +10,7 @@ import { graphBubbleRadius, createGraphFallbackPositions, indexLocalWorldGraph, 
 import type { NewLocalGraphObject, NewLocalGraphRelationship } from "./localWorldGraphAdapter";
 import { SurfaceContextAction, SurfaceContextPopover } from "../../surfaceInteraction/contextHost";
 import { DEFAULT_GRAPH_TYPE_STYLES, graphTypeColor, type GraphTypeStyleRegistry } from "./graphTypeStyles";
+import { edgeCaption, overlaps, predicatePhrase, type CaptionBounds } from "./edgeCaption";
 import "./worldGraphCanvas.css";
 
 const WIDTH = 960;
@@ -382,7 +383,7 @@ function accessibleRelationshipLabel(
 ): string {
   const from = names.get(edge.fromObjectId) ?? "Unknown object";
   const to = names.get(edge.toObjectId) ?? "Unknown object";
-  return `${from} ${edge.kind} ${to}`;
+  return `${from} ${predicatePhrase(edge.kind)} ${to}`;
 }
 
 function messageForSemanticResult(result: CommitSemanticResult): string {
@@ -1193,21 +1194,35 @@ export function WorldGraphCanvas({
     isConnectTarget={connectPreview !== null && connectTargetId === node.id} nodeShape={nodeShape}
     fullCorpus={fullCorpus} important={overviewLabelNodeIds.has(node.id)} overviewLabelScale={overviewLabelNodeIds.has(node.id) ? 1 / Math.max(0.001, camera.zoom) : 1} canConnect={Boolean(onConnectRequest)} handlersRef={handlersRef} suppressClickRef={suppressClickRef} />),
     [typeStyles, projection.nodes, selectedIds, positions, connectPreview !== null, connectTargetId, nodeShape, fullCorpus, overviewLabelNodeIds, camera.zoom, Boolean(onConnectRequest)]);
-  const edgeLayer = useMemo(() => renderedEdges.map(({ edge, geometry, box }) => {
-              const label = accessibleRelationshipLabel(edge, nodeNames);
-              return (
-              <g className={`world-graph-canvas__edge${selectedIds.includes(edge.fromObjectId) || selectedIds.includes(edge.toObjectId) ? " is-selected" : ""}`} key={edge.id} data-edge-id={edge.id} role="img" aria-label={label}>
-                <path d={geometry.path} markerEnd={`url(#${markerId})`} />
-                <rect className="world-graph-canvas__edge-label" x={geometry.labelX - box.width / 2}
-                  y={geometry.labelY - box.height / 2}
-                  width={box.width}
-                  height={box.height} rx="6" />
-                <text x={geometry.labelX} y={geometry.labelY}>
-                  {box.lines.map((line, index, lines) => <tspan key={index} x={geometry.labelX} y={geometry.labelY + (index - (lines.length - 1) / 2) * 16 + 4}>{line}</tspan>)}
-                </text>
-                <title>{label}</title>
-              </g>
-            );}), [renderedEdges, nodeNames, markerId, selectedIds]);
+  const edgeLabelDetail = !fullCorpus || camera.zoom >= .9 ? "all" : camera.zoom >= .45 ? "selected" : "none";
+  const edgeLayer = useMemo(() => {
+    const occupied: CaptionBounds[] = [];
+    const captions = new Map<string, ReturnType<typeof edgeCaption>>();
+    const selected = (edge: ProjectedGraphEdge) => selectedIds.includes(edge.fromObjectId) || selectedIds.includes(edge.toObjectId);
+    const nodeBounds = [...positions.values()].map(point => {
+      const inset = nodeShape === "circle" ? CIRCLE_RADIUS - (point.radius ?? CIRCLE_RADIUS) : 0;
+      return { left: point.x + inset, top: point.y + inset,
+        right: point.x + dimensions.width - inset, bottom: point.y + dimensions.height - inset };
+    });
+    // Selected connections take precedence; obscured captions remain in the full accessible record.
+    for (const { edge, geometry } of [...renderedEdges].sort((a, b) => Number(selected(b.edge)) - Number(selected(a.edge)))) {
+      if (edgeLabelDetail === "none" || (edgeLabelDetail === "selected" && !selected(edge)) || (fullCorpus && !allRelationships && !selected(edge))) continue;
+      const caption = edgeCaption(geometry.path, edge.kind);
+      if (!caption || occupied.some(box => overlaps(box, caption.bounds)) || nodeBounds.some(box => overlaps(box, caption.bounds))) continue;
+      occupied.push(caption.bounds);
+      captions.set(edge.id, caption);
+    }
+    return renderedEdges.map(({ edge, geometry }) => {
+      const label = accessibleRelationshipLabel(edge, nodeNames);
+      const caption = captions.get(edge.id);
+      return <g className={`world-graph-canvas__edge${selected(edge) ? " is-selected" : ""}`} key={edge.id} data-edge-id={edge.id} role="img" aria-label={label}>
+        <path d={geometry.path} markerEnd={`url(#${markerId})`} />
+        {caption ? <text className="world-graph-canvas__edge-phrase" aria-hidden="true"
+          transform={`translate(${caption.x} ${caption.y}) rotate(${caption.angle})`} dominantBaseline="central">{caption.text}</text> : null}
+        <title>{label}</title>
+      </g>;
+    });
+  }, [renderedEdges, nodeNames, markerId, selectedIds, positions, nodeShape, dimensions.width, dimensions.height, fullCorpus, allRelationships, edgeLabelDetail]);
 
   const editingTools = (
       <div className="world-graph-canvas__toolbar" aria-label="Graph editing tools">
