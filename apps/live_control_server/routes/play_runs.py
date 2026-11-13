@@ -84,7 +84,6 @@ def get_play_runs(
 ) -> dict[str, Any]:
     try:
         records = list_play_runs(
-            repo_root(),
             campaign_id=campaign_id,
             playable_artifact_id=playable_artifact_id,
         )
@@ -199,7 +198,6 @@ def get_world_play_runs_v2(
 ) -> dict[str, Any]:
     try:
         records = list_world_play_runs(
-            repo_root(),
             world_id=world_id,
             playable_artifact_id=playable_artifact_id,
         )

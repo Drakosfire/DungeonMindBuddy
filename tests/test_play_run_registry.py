@@ -314,7 +314,7 @@ def test_fresh_reads_recover_persisted_run_and_list(tmp_path: Path) -> None:
     created = _create_run(tmp_path, snapshot)
 
     loaded = get_play_run(tmp_path, RUN_ID_A)
-    listed = list_play_runs(tmp_path)
+    listed = list_play_runs()
 
     assert loaded == created
     assert listed == [created]
@@ -330,7 +330,7 @@ def test_different_run_ids_may_bind_same_playable_revision(tmp_path: Path) -> No
     assert run_a.playable_revision == run_b.playable_revision
     assert run_a.playable_content_sha256 == run_b.playable_content_sha256
     assert run_a.run_id != run_b.run_id
-    assert {record.run_id for record in list_play_runs(tmp_path)} == {
+    assert {record.run_id for record in list_play_runs()} == {
         RUN_ID_A,
         RUN_ID_B,
     }
@@ -345,7 +345,7 @@ def test_malformed_persisted_run_fails_get_and_whole_list(tmp_path: Path) -> Non
         get_play_run(tmp_path, RUN_ID_A)
     assert get_exc.value.status_code == 404
 
-    assert list_play_runs(tmp_path) == []
+    assert list_play_runs() == []
     assert path.read_text(encoding="utf-8") == "{not-json\n"
 
 
@@ -375,7 +375,7 @@ def test_list_is_created_descending_then_run_id_ascending(
     _create_run(tmp_path, snapshot, run_id=RUN_ID_C)
     _create_run(tmp_path, snapshot, run_id=RUN_ID_D)
 
-    assert [record.run_id for record in list_play_runs(tmp_path)] == [
+    assert [record.run_id for record in list_play_runs()] == [
         RUN_ID_C,
         RUN_ID_A,
         RUN_ID_B,
@@ -389,9 +389,8 @@ def test_list_filters_by_campaign_and_playable_artifact(tmp_path: Path) -> None:
     _create_run(tmp_path, snapshot_a, run_id=RUN_ID_A)
     _create_run(tmp_path, snapshot_b, run_id=RUN_ID_B)
 
-    by_campaign = list_play_runs(tmp_path, campaign_id="longmont-c2")
+    by_campaign = list_play_runs(campaign_id="longmont-c2")
     by_artifact = list_play_runs(
-        tmp_path,
         playable_artifact_id=snapshot_a.record.document_id,
     )
 

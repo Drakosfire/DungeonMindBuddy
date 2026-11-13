@@ -486,7 +486,7 @@ def test_persisted_ghost_reference_fails_closed_on_reads(
     assert exc_info.value.status_code == 500
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
-        list_play_runs(tmp_path)
+        list_play_runs()
     assert exc_info.value.status_code == 500
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
@@ -551,7 +551,7 @@ def test_persisted_resolved_beats_must_be_duplicate_free_and_sorted(
     assert exc_info.value.status_code == 500
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
-        list_play_runs(tmp_path)
+        list_play_runs()
     assert exc_info.value.status_code == 500
 
     with pytest.raises(PlayRunRegistryError) as exc_info:

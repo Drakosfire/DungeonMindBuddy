@@ -158,7 +158,7 @@ def _exercise_full_play_chain(root: Path) -> dict:
     manifest = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
     loaded_manifest = get_play_run_reference_manifest(RUN_ID_A)
     assert loaded_manifest == manifest
-    listed = list_play_runs(root)
+    listed = list_play_runs()
     loaded = get_play_run(root, RUN_ID_A)
     assert listed == [loaded]
     assert loaded.run_id == created.run_id
@@ -279,7 +279,7 @@ def test_hostile_play_sentinel_is_untouched(
     set_play_active_run(run_id=RUN_ID_A)
     assert get_play_run(tmp_path, RUN_ID_A).progress.current_beat_id == "beat:arrival"
     assert get_play_active_run().run_id == RUN_ID_A
-    assert list_play_runs(tmp_path)[0].run_id == RUN_ID_A
+    assert list_play_runs()[0].run_id == RUN_ID_A
 
     after = sentinel.stat()
     assert sentinel.is_file()
@@ -313,7 +313,7 @@ def test_db_down_does_not_read_or_mutate_contradictory_legacy_files(
         get_play_run(tmp_path, RUN_ID_A)
     assert get_exc.value.status_code == 503
     with pytest.raises(PlayRunRegistryError) as list_exc:
-        list_play_runs(tmp_path)
+        list_play_runs()
     assert list_exc.value.status_code == 503
     with pytest.raises(PlayRunReferenceManifestError) as manifest_exc:
         get_play_run_reference_manifest(RUN_ID_A)

@@ -744,12 +744,10 @@ def get_play_run(root: Path, run_id: str) -> PlayRunRecord:
 
 
 def list_play_runs(
-    root: Path,
     *,
     campaign_id: str | None = None,
     playable_artifact_id: str | None = None,
 ) -> list[PlayRunRecord]:
-    del root
     from application_state.errors import ApplicationStateError
     from application_state.play.service import list_play_run_aggregates
 
@@ -783,12 +781,10 @@ def get_world_play_run(root: Path, *, world_id: str, run_id: str) -> WorldPlayRu
 
 
 def list_world_play_runs(
-    root: Path,
     *,
     world_id: str,
     playable_artifact_id: str | None = None,
 ) -> list[WorldPlayRunRecord]:
-    del root
     from application_state.errors import ApplicationStateError
     from application_state.play.service import list_world_play_run_aggregates
 

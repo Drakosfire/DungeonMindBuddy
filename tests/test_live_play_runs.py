@@ -349,7 +349,7 @@ def test_campaign_play_v1_rejects_world_runbook_before_persisting_run(
     )
 
     assert response.status_code == 422, response.text
-    assert list_play_runs(root) == []
+    assert list_play_runs() == []
     assert not leftover_run_path(root, RUN_ID_A).exists()
     with pytest.raises(WorkspaceDocumentRegistryError) as error:
         get_workspace_document_snapshot(root, str(created.work_object_id))
