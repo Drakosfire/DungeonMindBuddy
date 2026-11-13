@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Check design-agent upload bundle freshness against canonical sources
+
+[PR #2750](https://github.com/Drakosfire/DungeonMindBuddy/pull/2750) added a read-only check of mapped files, mirror bytes, and bundled index links. [PR #2751](https://github.com/Drakosfire/DungeonMindBuddy/pull/2751) refreshed five stale mirrors from the revision recorded in the bundle README. The checker passed for all 22 mapped exports on main. The user-managed Project Sources upload has its own snapshot date.
+
 ## [DONE] Add a read-only check for the generated corpus index and anchor
 
 [#2747](https://github.com/Drakosfire/DungeonMindBuddy/pull/2747) added a read-only check for both outputs using the recorded generation timestamp and a checkout-relative root. Disposable checks verified stale index and anchor failures without writes. [#2748](https://github.com/Drakosfire/DungeonMindBuddy/pull/2748) regenerated the outputs and synchronized the design-agent anchor. The freshness check and byte comparison passed on merged main.
