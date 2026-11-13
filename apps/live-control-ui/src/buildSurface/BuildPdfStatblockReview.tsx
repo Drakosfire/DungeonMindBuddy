@@ -375,18 +375,27 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     }
   }
 
+  const publishBlockers = editor && review ? [
+    ...(!editor.workingCopy.movement ? ["Resolve walking speed."] : []),
+    ...(editor.workingCopy.challenge.proficiency_bonus == null ? ["Enter a proficiency bonus."] : []),
+    ...(getLocalFingerprint(editor) !== editor.baselineFingerprint ? ["Save your edits."] : []),
+    ...(review.source_confirmation_required && !review.source_confirmed ? ["Check the source and save your confirmation."] : []),
+    ...issues.filter(issue => issue.severity === "error").map(issue => issue.message),
+  ] : [];
+
   return (
     <section className="pdf-statblock-review" aria-label="PDF statblock review">
       <header className="pdf-statblock-review__toolbar">
         <h1>PDF statblock review</h1>
         {editor && <button type="button" disabled={pending} onClick={() => void save()}>Save review draft</button>}
         {saved && <span role="status">Draft saved</span>}
-        {editor && review && <button type="button" disabled={pending || published || !mechanicsResolved
-          || getLocalFingerprint(editor) !== editor.baselineFingerprint
-          || Boolean(review.source_confirmation_required && !review.source_confirmed)}
+        {editor && review && <button type="button" disabled={pending || published || publishBlockers.length > 0}
           onClick={() => void acceptMechanics(true)}>Publish</button>}
         {published && <span role="status">Creature and statblock published</span>}
       </header>
+      {!published && publishBlockers.length > 0 && <ul aria-label="What blocks publication">
+        {publishBlockers.map((blocker, index) => <li key={index}>{blocker}</li>)}
+      </ul>}
       {error && <p role="alert">{error}</p>}
       {!review && !error && <p role="status">Opening review…</p>}
       <div className="pdf-statblock-review__panes">
