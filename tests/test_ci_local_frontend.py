@@ -758,3 +758,29 @@ def test_invalid_vitest_report_records_reason(sandbox, monkeypatch, payload, rea
     assert step["collection_parity"] is False
     with pytest.raises(ValueError):
         local.validate(evidence, args.sha, args.suite)
+
+
+def test_final_inspection_failure_still_unregisters_worktree(sandbox, monkeypatch):
+    args, _, fake = sandbox
+    original_git = local.git
+    build_ran = False
+
+    def command(argv, cwd, log, env):
+        nonlocal build_ran
+        result = fake(argv, cwd, log, env)
+        if Path(log).name == "build.log":
+            build_ran = True
+        return result
+
+    def git(path, *argv, **kwargs):
+        if build_ran and Path(path) != Path(args.repo) and argv == ("rev-parse", "HEAD"):
+            raise ValueError("final source inspection failed")
+        return original_git(path, *argv, **kwargs)
+
+    monkeypatch.setattr(local, "command", command)
+    monkeypatch.setattr(local, "git", git)
+    assert local.verify(args) == 1
+    report = json.loads((Path(args.output) / "evidence.json").read_text())
+    assert report["error"] == "final source inspection failed"
+    assert report["cleanup_complete"]
+    assert original_git(Path(args.repo), "worktree", "list", "--porcelain").count("worktree ") == 1
