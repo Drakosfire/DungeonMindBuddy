@@ -342,21 +342,20 @@ function edgeGeometry(
   };
 }
 
-function renderEdges(edges: readonly ProjectedGraphEdge[], positions: ReadonlyMap<string, NodePosition>, shape: NodeShape) {
+function prepareEdges(edges: readonly ProjectedGraphEdge[]) {
   const edgeGroups = new Map<string, { count: number; width: number; height: number }>();
-  for (const edge of edges) {
+  const entries = edges.map((edge) => {
     const key = [edge.fromObjectId, edge.toObjectId].sort().join("\u0000");
     const previous = edgeGroups.get(key) ?? { count: 0, width: 0, height: 0 };
     const box = labelBox(edge.kind);
     edgeGroups.set(key, { count: previous.count + 1, width: Math.max(previous.width, box.width), height: Math.max(previous.height, box.height) });
-  }
+    return { edge, key, box };
+  });
   const edgeGroupIndexes = new Map<string, number>();
-  return edges.map((edge) => {
-    const key = [edge.fromObjectId, edge.toObjectId].sort().join("\u0000");
+  return entries.map(({ edge, key, box }) => {
     const index = edgeGroupIndexes.get(key) ?? 0;
     edgeGroupIndexes.set(key, index + 1);
-    const group = edgeGroups.get(key)!;
-    return { edge, box: labelBox(edge.kind), geometry: edgeGeometry(edge, positions, index, group.count, group.width, group.height, shape) };
+    return { edge, box, index, group: edgeGroups.get(key)! };
   });
 }
 
@@ -626,9 +625,16 @@ export function WorldGraphCanvas({
   const dimensions = nodeDimensions(nodeShape);
   const nodeNames = useMemo(() => new Map(projection.nodes.map((node) => [node.id, node.name])), [projection.nodes]);
   // Geometry has no camera dependency: pan/zoom only changes the scene transform and detail level.
-  const persistedEdges = useMemo(() => renderEdges(projection.edges, persistedPositions, nodeShape), [projection.edges, persistedPositions, nodeShape]);
-  const renderedEdges = useMemo(() => dragPreview ? renderEdges(projection.edges, positions, nodeShape) : persistedEdges,
-    [projection.edges, positions, nodeShape, dragPreview, persistedEdges]);
+  const preparedEdges = useMemo(() => prepareEdges(projection.edges), [projection.edges]);
+  const persistedEdges = useMemo(() => preparedEdges.map(({ edge, box, index, group }) => ({
+    edge, box, geometry: edgeGeometry(edge, persistedPositions, index, group.count, group.width, group.height, nodeShape),
+  })), [preparedEdges, persistedPositions, nodeShape]);
+  const draggedId = dragPreview?.id;
+  const renderedEdges = useMemo(() => draggedId === undefined ? persistedEdges : persistedEdges.map((rendered, offset) => {
+    const { edge, index, group } = preparedEdges[offset];
+    if (edge.fromObjectId !== draggedId && edge.toObjectId !== draggedId) return rendered;
+    return { ...rendered, geometry: edgeGeometry(edge, positions, index, group.count, group.width, group.height, nodeShape) };
+  }), [preparedEdges, positions, nodeShape, draggedId, persistedEdges]);
   const graphBounds = useMemo(() => {
     let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
     for (const node of projection.nodes) {
