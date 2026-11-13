@@ -70,6 +70,7 @@ from apps.live_control_server.session_store import (
     load_session,
     load_session_events,
     load_session_jobs,
+    load_session_packet,
     queue_packet_rebuild_job,
     refresh_current_state,
     refresh_loaded_current_state,
@@ -894,7 +895,7 @@ def post_live_query(body: LiveQueryRequest, request: Request) -> Any:
         managed_packet = {"campaign_id": managed_world.world_id, "session": body.session}
 
     if managed_packet is None:
-        packet, _, _, _ = load_session(base)
+        packet = load_session_packet(base)
         if body.campaign_id != packet["campaign_id"] or body.session != packet["session"]:
             raise HTTPException(
                 status_code=400,

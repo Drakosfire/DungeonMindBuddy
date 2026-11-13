@@ -29,7 +29,7 @@ from apps.live_control_server.services.hermes_graph_query import (
 )
 from apps.live_control_server.session_store import (
     append_events_and_jobs,
-    load_session,
+    load_session_packet,
     refresh_current_state,
 )
 from src.live_play.classify_live_turn import classify_live_turn
@@ -205,7 +205,7 @@ def process_live_query(
         try:
             with builder.phase("session_load"):
                 if managed_world_packet is None:
-                    packet, _layout, _events, _jobs = load_session(session_base)
+                    packet = load_session_packet(session_base)
                 else:
                     # Route-validated transport identity only. Never import a C2
                     # live packet or fabricate session narrative for this World.
@@ -265,7 +265,7 @@ def process_live_query(
                 builder.finalize_and_log(status="error")
             raise
 
-    packet, _layout, _events, _jobs = load_session(session_base)
+    packet = load_session_packet(session_base)
 
     if query_backend not in LIVE_QUERY_BACKENDS:
         raise ValueError(f"unsupported query backend: {query_backend}")
