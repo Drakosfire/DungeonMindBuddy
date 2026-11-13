@@ -11,6 +11,9 @@ on:
       - .github/workflows/hosted-validation.yml
       - .github/workflows/world-ownership-core.yml
       - AGENTS.md
+concurrency:
+  group: local-verifier-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 jobs:
