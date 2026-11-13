@@ -64,6 +64,11 @@ them for APP-STATE.
 
 ## Routine backup
 
+Choose a fresh dump path in an existing directory on a filesystem that supports
+hard links. Backup stages all three files and publishes the dump after its
+sidecars. If a process is killed during publication, use a fresh path for the
+retry and inspect any leftover files before removing them.
+
 ```bash
 uv run python scripts/application_state_authority.py backup \
   --source-dsn "$DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL" \
