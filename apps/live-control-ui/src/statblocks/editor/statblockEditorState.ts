@@ -25,12 +25,14 @@ export type ValidationReceiptStatus =
 
 export type ValidationAttempt = "none" | "validating" | "unavailable";
 
-export type EditableStatblockDefinition = Omit<StatblockDefinitionV1_Input, "movement" | "challenge"> & {
+export type EditableStatblockDefinition = Omit<StatblockDefinitionV1_Input, "movement" | "challenge" | "ruleset"> & {
+  ruleset: StatblockDefinitionV1_Input["ruleset"] | null;
   challenge: Omit<StatblockDefinitionV1_Input["challenge"], "proficiency_bonus"> & { proficiency_bonus: number | null };
   movement: StatblockDefinitionV1_Input["movement"] | null;
 };
 
-export type EditableStatblockOutput = Omit<StatblockDefinitionV1_Output, "movement" | "challenge"> & {
+export type EditableStatblockOutput = Omit<StatblockDefinitionV1_Output, "movement" | "challenge" | "ruleset"> & {
+  ruleset: StatblockDefinitionV1_Input["ruleset"] | null;
   challenge: Omit<StatblockDefinitionV1_Output["challenge"], "proficiency_bonus"> & { proficiency_bonus: number | null };
   movement: StatblockDefinitionV1_Output["movement"] | null;
 };
