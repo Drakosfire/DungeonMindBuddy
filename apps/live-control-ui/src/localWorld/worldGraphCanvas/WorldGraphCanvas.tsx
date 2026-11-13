@@ -247,7 +247,7 @@ interface EdgeGeometry {
 
 function edgeGeometry(
   edge: ProjectedGraphEdge,
-  positions: ReadonlyMap<string, NodePosition>,
+  positions: Pick<ReadonlyMap<string, NodePosition>, "get">,
   parallelIndex: number,
   parallelCount: number,
   labelWidth: number,
@@ -598,9 +598,15 @@ export function WorldGraphCanvas({
   }, [projection.nodes, fullCorpus, focusedLayoutId, focusLayoutKey, temporaryFocusMoves]);
   const positions = useMemo(() => {
     if (!dragPreview) return persistedPositions;
-    const preview = new Map<string, NodePosition>(persistedPositions);
-    preview.set(dragPreview.id, { ...persistedPositions.get(dragPreview.id), ...dragPreview });
-    return preview;
+    const { id } = dragPreview;
+    const point = { ...persistedPositions.get(id), ...dragPreview };
+    return {
+      get: (key: string) => key === id ? point : persistedPositions.get(key),
+      *values() {
+        for (const [key, position] of persistedPositions) yield key === id ? point : position;
+        if (!persistedPositions.has(id)) yield point;
+      },
+    };
   }, [persistedPositions, dragPreview]);
   const overviewLabelNodeIds = useMemo(() => {
     const visible = new Set<LocalObjectId>();
