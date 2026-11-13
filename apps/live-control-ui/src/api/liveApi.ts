@@ -323,6 +323,7 @@ function isRecapSelectionContextPath(pathname: string): boolean {
 function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
   const pathname = path.split("?", 1)[0];
   if ([
+    "/api/live/native-graph-inspection/complete-object",
     "/api/live/native-graph-explorer/graph",
     "/api/live/native-graph-explorer/prepare",
     "/api/live/native-graph-explorer/confirm",
