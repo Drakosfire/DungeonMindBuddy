@@ -318,6 +318,7 @@ class ThreatDraftV1(StrictModel):
 
 
 class ThreatDraftV2(StrictModel):
+    creation_intent_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     """Explicit World-owned draft; never a null-campaign interpretation of V1."""
 
     schema_name: Literal["dmb_threat_draft_v2"] = Field(

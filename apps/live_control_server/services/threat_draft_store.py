@@ -221,14 +221,25 @@ def _remove_draft_file(root: Path, draft_id: str) -> None:
 
 
 def create_threat_draft(
-    root: Path, request: CreateThreatDraftRequest | CreateWorldThreatDraftRequest
+    root: Path, request: CreateThreatDraftRequest | CreateWorldThreatDraftRequest,
+    *, stable_id: uuid.UUID | None = None,
 ) -> ThreatDraft:
     now = _utc_now_iso()
     world_owned = isinstance(request, CreateWorldThreatDraftRequest)
+    if stable_id is not None and not world_owned:
+        raise ThreatDraftStoreError("Stable creation requires a World draft", status_code=422)
+    creation_fields = {}
+    if stable_id is not None:
+        from hashlib import sha256
+        from json import dumps
+
+        payload = dumps(request.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+        creation_fields["creation_intent_sha256"] = sha256(payload.encode()).hexdigest()
     draft_model = ThreatDraftV2 if world_owned else ThreatDraftV1
     draft = draft_model(
+        **creation_fields,
         **({"scope_mode": "world"} if world_owned else {}),
-        draft_id=str(uuid.uuid4()),
+        draft_id=str(stable_id or uuid.uuid4()),
         version=1,
         world_id=request.world_id,
         campaign_id=request.campaign_id,
@@ -251,6 +262,16 @@ def create_threat_draft(
     )
     with _store_lock(root):
         index = _load_index(root)
+        if stable_id is not None and _draft_path(root, draft.draft_id).exists():
+            existing = _load_draft_unlocked(root, draft.draft_id)
+            if existing.world_id != draft.world_id or type(existing) is not type(draft):
+                raise ThreatDraftStoreError("Draft creation identity belongs to another scope", status_code=409)
+            if existing.creation_intent_sha256 != draft.creation_intent_sha256:
+                raise ThreatDraftStoreError("Draft creation intent changed", status_code=409)
+            if draft.draft_id not in index.draft_ids:
+                index.draft_ids.append(draft.draft_id)
+                _save_index(root, index)
+            return existing
         if draft.draft_id in index.draft_ids:
             raise ThreatDraftStoreError(
                 "draft_id collision",
