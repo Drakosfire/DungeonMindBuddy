@@ -369,6 +369,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       </>}
       {editor && !editor.workingCopy.movement && <form onSubmit={event => {
         event.preventDefault();
+        if (pending) return;
         const speed = new FormData(event.currentTarget).get("walkSpeed");
         if (typeof speed !== "string" || !/^\d+$/.test(speed) || !Number.isSafeInteger(Number(speed))) return;
         setEditor(updateWorkingCopy(editor, current => ({ ...current, movement: { modes: [{
@@ -378,9 +379,9 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       }}>
         <p>Movement is unspecified. You can save the review now or enter a speed to validate mechanics.</p>
         <label>Walking speed (feet)
-          <input name="walkSpeed" type="number" min="0" step="1" required />
+          <input disabled={pending} name="walkSpeed" type="number" min="0" step="1" required />
         </label>
-        <button type="submit">Set walking speed</button>
+        <button disabled={pending} type="submit">Set walking speed</button>
       </form>}
       {review && editor && <>
         <fieldset disabled={pending}>
@@ -395,6 +396,12 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
               </li>
             ))}
           </ul>}
+          {editor.workingCopy.movement && <button type="button" onClick={() => {
+            setEditor(updateWorkingCopy(editor, current => ({ ...current, movement: null })));
+            setSaved(false);
+            setValidation("");
+            setIssues([]);
+          }}>Mark movement unspecified</button>}
           <button type="button" onClick={() => void save()}>Save review draft</button>
           {saved && <span role="status">Draft saved</span>}
           <button type="button" disabled={!editor.workingCopy.movement || createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}
@@ -416,11 +423,11 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
                   </option>)}
                 </select>
               </label>
-              <button type="button" disabled={!parentId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+              <button type="button" disabled={!editor.workingCopy.movement || !parentId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
                 onClick={() => void appendMechanics()}>Append mechanics revision</button>
             </> : null}
             {(selectedDraft?.workflow_state !== "mechanics_saved" || hasInitialAttempt) &&
-              <button type="button" disabled={!draftId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+              <button type="button" disabled={!editor.workingCopy.movement || !draftId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
               onClick={() => void acceptMechanics()}>{selectedDraft?.workflow_state === "mechanics_saved" ? "Recover initial acceptance" : "Accept mechanics"}</button>}
             {acceptedLink && <a href={acceptedLink}>Open accepted statblock</a>}
           </>}
