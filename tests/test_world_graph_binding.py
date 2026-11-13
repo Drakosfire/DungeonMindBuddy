@@ -533,7 +533,7 @@ def test_successful_bind_route_returns_redacted_status_and_deactivation_skips_mi
 
 
 def test_existing_graph_binding_cannot_steal_a_reserved_native_identity(root: Path) -> None:
-    reserved = _create_provisioned_world(root, name="Reserved owner")
+    reserved = _create_provisioned_world(name="Reserved owner")
     other = _existing_unbound_world(root, name="Existing other")
     native_id = reserved.native_graph_binding.native_world_id
     before = world_snapshot()
