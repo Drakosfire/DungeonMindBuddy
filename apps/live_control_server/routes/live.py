@@ -376,54 +376,50 @@ def get_ingestion_source_bundle(
     "/locations/index",
     response_model=LocationCorpusIndexResponse,
 )
-def get_location_corpus_index() -> dict[str, Any]:
+def get_location_corpus_index() -> LocationCorpusIndexResponse:
     try:
-        response = build_location_corpus_index(root=repo_root())
+        return build_location_corpus_index(root=repo_root())
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="location corpus index failed"
         ) from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
     "/roll-tables/index",
     response_model=RollTableCorpusIndexResponse,
 )
-def get_roll_table_corpus_index() -> dict[str, Any]:
+def get_roll_table_corpus_index() -> RollTableCorpusIndexResponse:
     try:
-        response = build_roll_table_corpus_index(root=repo_root())
+        return build_roll_table_corpus_index(root=repo_root())
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="roll table corpus index failed"
         ) from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
     "/npcs/index",
     response_model=NpcCorpusIndexResponse,
 )
-def get_npc_corpus_index() -> dict[str, Any]:
+def get_npc_corpus_index() -> NpcCorpusIndexResponse:
     try:
-        response = build_npc_corpus_index(root=repo_root())
+        return build_npc_corpus_index(root=repo_root())
     except Exception as exc:
         raise HTTPException(status_code=500, detail="npc corpus index failed") from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
     "/statblocks/index",
     response_model=StatblockCorpusIndexResponse,
 )
-def get_statblock_corpus_index() -> dict[str, Any]:
+def get_statblock_corpus_index() -> StatblockCorpusIndexResponse:
     try:
-        response = build_statblock_corpus_index(root=repo_root())
+        return build_statblock_corpus_index(root=repo_root())
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="statblock corpus index failed"
         ) from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
