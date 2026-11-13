@@ -225,6 +225,7 @@
       "apps/live-control-ui/src/modules/PartyRegistryModule.test.tsx",
       "apps/live-control-ui/src/modules/RecapSourceAdmission.test.tsx",
       "apps/live-control-ui/src/modules/SourcesModule.test.tsx",
+      "apps/live-control-ui/src/nativeGraphDemo/GraphChronology.test.tsx",
       "apps/live-control-ui/src/nativeGraphDemo/GraphNodeExplorer.test.tsx",
       "apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.test.tsx",
       "apps/live-control-ui/src/nativeGraphDemo/buddyIndexGraphApi.test.ts",
