@@ -69,6 +69,12 @@ export function StartPdfStatblockReview({
       if (!response.ok) {
         throw new Error(describeFailure(result?.detail));
       }
+      if (prepareRegions) {
+        const location = new URL(window.location.href);
+        location.searchParams.set("world", worldId);
+        location.searchParams.set("pdfReview", id);
+        window.history.replaceState(window.history.state, "", location);
+      }
       setSaved(true);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Buddy could not create a statblock review.");

@@ -4,7 +4,10 @@ import { authenticatedApiFetch } from "../api/liveApi";
 import { StartPdfStatblockReview } from "./StartPdfStatblockReview";
 
 vi.mock("../api/liveApi", () => ({ authenticatedApiFetch: vi.fn() }));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.history.replaceState(null, "", "/");
+});
 
 const first = { source_revision_id: "srev:test", content_sha256: "a".repeat(64),
   page: 1, left: 0, top: 0, right: 0.5, bottom: 1 };
@@ -102,6 +105,12 @@ it("prepares the current crop and opens the saved editor in place", async () => 
     prepareRegions={prepareRegions} />);
   fireEvent.click(screen.getByRole("button", { name: "Extract statblock" }));
   expect(await screen.findByRole("region", { name: "PDF statblock review" })).toBeInTheDocument();
+  const restored = new URL(window.location.href);
+  const savedLink = screen.getByRole("link", { name: "Open saved statblock in a new tab" });
+  expect(restored.searchParams.get("world")).toBe("elderwyld");
+  expect(restored.searchParams.get("pdfReview")).toBe(
+    new URL(savedLink.getAttribute("href")!, restored).searchParams.get("pdfReview"),
+  );
   expect(prepareRegions).toHaveBeenCalledOnce();
   expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/from-regions"), {
     method: "POST", body: JSON.stringify({ regions: [first], instruction: "" }),
