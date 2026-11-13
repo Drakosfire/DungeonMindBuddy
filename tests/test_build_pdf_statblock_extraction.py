@@ -204,13 +204,13 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch, unres
         return b"verified PDF", Region(locator)
 
     monkeypatch.setattr(agent, "_authorized_build_pdf_region", open_region)
-    monkeypatch.setattr(agent, "_render_build_pdf_region", lambda pdf, region: b"verified crop")
+    monkeypatch.setattr(agent, "_render_build_pdf_region", lambda pdf, region, **kwargs: b"verified crop")
 
     def read_crop(crop):
-        calls.append(("ocr", crop.png_base64))
+        calls.append(("ocr", crop))
         return {"text": f"OCR for region {len(calls)}"}
 
-    monkeypatch.setattr(agent, "read_crop", read_crop)
+    monkeypatch.setattr(agent, "read_crop_png", read_crop)
 
     definition = candidate.model_dump(mode="json", by_alias=True)
     if unresolved == "movement":
@@ -262,14 +262,12 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch, unres
     )
     assert response["revision"] == 1
     assert response["definition"] == definition
-    with pytest.raises(HTTPException) as rejected:
-        agent._require_resolved_pdf_statblock(response)
-    assert rejected.value.detail["code"] == f"pdf_statblock_{unresolved}_unresolved"
+    assert "source_confirmation_required" not in response
     assert response["regions"] == [
         {"schema_version": "dm_native_pdf_region_v1", **region} for region in regions
     ]
-    assert calls[:4] == [("open", 1), ("ocr", "dmVyaWZpZWQgY3JvcA=="),
-                         ("open", 2), ("ocr", "dmVyaWZpZWQgY3JvcA==")]
+    assert calls[:4] == [("open", 1), ("ocr", b"verified crop"),
+                         ("open", 2), ("ocr", b"verified crop")]
     assert calls[4] == ("extract", ["OCR for region 2", "OCR for region 4"],
                         "Keep the printed names.")
     assert len(saved) == 1
@@ -302,8 +300,8 @@ def test_incomplete_pdf_statblock_extraction_does_not_save(monkeypatch):
     locator = {"source_revision_id": "srev:one", "content_sha256": "a" * 64,
                "page": 1, "left": 0.0, "top": 0.0, "right": 1.0, "bottom": 1.0}
     monkeypatch.setattr(agent, "_authorized_build_pdf_region", lambda *args: (b"PDF", Region()))
-    monkeypatch.setattr(agent, "_render_build_pdf_region", lambda *args: b"PNG")
-    monkeypatch.setattr(agent, "read_crop", lambda crop: {"text": "partial transcription"})
+    monkeypatch.setattr(agent, "_render_build_pdf_region", lambda *args, **kwargs: b"PNG")
+    monkeypatch.setattr(agent, "read_crop_png", lambda crop: {"text": "partial transcription"})
 
     async def incomplete(transcriptions, instruction):
         return extraction.StatblockExtractionOutput(
@@ -356,15 +354,15 @@ def test_pdf_statblock_failures_never_save_a_review(monkeypatch, failure):
                 return {"schema_version": "dm_native_pdf_region_v1", **locator}
 
         monkeypatch.setattr(agent, "_authorized_build_pdf_region", lambda *args: (b"PDF", Region()))
-        monkeypatch.setattr(agent, "_render_build_pdf_region", lambda *args: b"PNG")
+        monkeypatch.setattr(agent, "_render_build_pdf_region", lambda *args, **kwargs: b"PNG")
         if failure == "ocr":
             def reject_ocr(crop):
                 calls.append("ocr")
                 raise HTTPException(status_code=503, detail={"code": "pdf_statblock_ocr_unavailable"})
 
-            monkeypatch.setattr(agent, "read_crop", reject_ocr)
+            monkeypatch.setattr(agent, "read_crop_png", reject_ocr)
         else:
-            monkeypatch.setattr(agent, "read_crop", lambda crop: {"text": "Ironhide Brute"})
+            monkeypatch.setattr(agent, "read_crop_png", lambda crop: {"text": "Ironhide Brute"})
 
             async def reject_model(transcriptions, instruction):
                 calls.append("model")
@@ -406,3 +404,64 @@ def test_extraction_prompt_pairs_embedded_text_with_ocr_by_region():
     ))
     assert payload["ocr_transcriptions"] == ["first crop OCR", "second crop OCR"]
     assert payload["embedded_texts"] == [None, "second crop embedded text"]
+
+
+def test_validate_pdf_region_uses_open_authority_without_returning_pdf(monkeypatch):
+    from fastapi import HTTPException
+    from apps.live_control_server.routes import agent
+
+    request = object()
+    locator = {"revision": "exact"}
+    seen = []
+
+    def authorize(world, body, incoming):
+        assert incoming is request
+        seen.append((world, body))
+        if world != "allowed":
+            raise HTTPException(status_code=403)
+        if body != locator:
+            raise HTTPException(status_code=404)
+        return b"%PDF-verified fixture", object()
+
+    monkeypatch.setattr(agent, "_authorized_build_pdf_region", authorize)
+    validated = agent.post_validate_build_pdf_region("allowed", locator, request)
+    reopened = agent.post_open_build_pdf_source("allowed", locator, request)
+    assert validated.status_code == 204
+    assert validated.body == b""
+    assert validated.headers["cache-control"] == "no-store"
+    assert reopened.body == b"%PDF-verified fixture"
+    assert seen == [("allowed", locator), ("allowed", locator)]
+    for world, body, status in (("foreign", locator, 403), ("allowed", {}, 404)):
+        with pytest.raises(HTTPException) as error:
+            agent.post_validate_build_pdf_region(world, body, request)
+        assert error.value.status_code == status
+
+
+def test_request_page_renderer_reuses_only_exact_pdf_page(monkeypatch):
+    from io import BytesIO
+    from types import SimpleNamespace
+
+    from PIL import Image
+
+    from apps.live_control_server.services import build_pdf_region_render as renderer
+
+    encoded = BytesIO()
+    Image.new("RGB", (10, 10), "white").save(encoded, format="PNG")
+    calls = []
+
+    def rasterize(pdf, page):
+        calls.append((pdf, page))
+        return encoded.getvalue()
+
+    monkeypatch.setattr(renderer, "_render_page", rasterize)
+    cached = renderer.request_page_renderer()
+    first = SimpleNamespace(page=1, left=0, top=0, right=0.5, bottom=0.5)
+    second = SimpleNamespace(page=1, left=0, top=0, right=0.7, bottom=0.7)
+    for region in (first, second):
+        assert renderer.render_region(b"pdf-a", region, render_page=cached) == (
+            renderer.render_region(b"pdf-a", region, render_page=lambda *_: encoded.getvalue())
+        )
+    renderer.render_region(b"pdf-b", first, render_page=cached)
+    renderer.render_region(b"pdf-b", SimpleNamespace(**{**vars(first), "page": 2}), render_page=cached)
+    renderer.render_region(b"pdf-b", first, render_page=renderer.request_page_renderer())
+    assert calls == [(b"pdf-a", 1), (b"pdf-b", 1), (b"pdf-b", 2), (b"pdf-b", 1)]

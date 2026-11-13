@@ -175,6 +175,12 @@ export function PlanGraphLensProvider({
       demandGeneration,
     };
   });
+  const successfulSessions = useRef<{
+    selection: string;
+    generation: number;
+    loader: typeof getSourceSessions;
+    bundles: Map<ReviewCampaignId, number[]>;
+  } | null>(null);
   const [bundleReloadToken, setBundleReloadToken] = useState(0);
   /**
    * Operator override is valid only while this exact lens key is current.
@@ -298,11 +304,13 @@ export function PlanGraphLensProvider({
   // Load grounded focus options for the selected campaigns.
   useEffect(() => {
     if (!loadFocusOptions) {
+      successfulSessions.current = null;
       setFocusOptions([]);
       setBundleLoadState(BUNDLE_LOAD_IDLE);
       return;
     }
     if (focusOptionsOverride !== undefined) {
+      successfulSessions.current = null;
       setFocusOptions(focusOptionsOverride);
       setBundleLoadState({
         ready: true,
@@ -318,6 +326,7 @@ export function PlanGraphLensProvider({
 
     const selected = lens.selectedCampaignIds;
     if (selected.length === 0) {
+      successfulSessions.current = null;
       setFocusOptions([]);
       setBundleLoadState({
         ready: true,
@@ -329,27 +338,37 @@ export function PlanGraphLensProvider({
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
+    const { signal } = controller;
     setBundleLoadState({
       ...BUNDLE_LOAD_IDLE,
       selectedCampaignKey,
     });
 
+    const previous = successfulSessions.current;
+    const bundles = previous?.selection === selectedCampaignKey
+      && previous.generation === demandGeneration && previous.loader === loadSessions
+      ? new Map(previous.bundles)
+      : new Map<ReviewCampaignId, number[]>();
+    successfulSessions.current = null;
+    setFocusOptions(buildFocusOptionsFromSessions(selected, bundles));
+
     void (async () => {
-      const bundles = new Map<ReviewCampaignId, number[]>();
       const failedCampaignIds: ReviewCampaignId[] = [];
       await Promise.all(
-        selected.map(async (campaignId) => {
+        selected.filter((campaignId) => !bundles.has(campaignId)).map(async (campaignId) => {
           try {
-            const bundle = await loadSessions(campaignId);
-            if (!cancelled) bundles.set(campaignId, bundle);
+            const bundle = await loadSessions(campaignId, signal);
+            if (signal.aborted) return;
+            bundles.set(campaignId, bundle);
+            setFocusOptions(buildFocusOptionsFromSessions(selected, bundles));
           } catch {
-            if (!cancelled) failedCampaignIds.push(campaignId);
+            if (!signal.aborted) failedCampaignIds.push(campaignId);
           }
         }),
       );
-      if (cancelled) return;
-      setFocusOptions(buildFocusOptionsFromSessions(selected, bundles));
+      if (signal.aborted) return;
+      successfulSessions.current = { selection: selectedCampaignKey, generation: demandGeneration, loader: loadSessions, bundles };
       setBundleLoadState({
         ready: true,
         demandGeneration,
@@ -359,9 +378,7 @@ export function PlanGraphLensProvider({
       });
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [
     bundleReloadToken,
     demandGeneration,

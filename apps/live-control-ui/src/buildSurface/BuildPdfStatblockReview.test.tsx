@@ -218,7 +218,8 @@ it("saves and reopens edits with movement unspecified", async () => {
 
   render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
   expect(await screen.findByRole("textbox", { name: "Creature name" })).toHaveValue("Edited tree");
-  expect(screen.getByText(/Movement is unspecified/)).toBeInTheDocument();
+  expect(screen.getByText("You can publish with movement unspecified.", {exact: false})).toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Publish"})).toBeEnabled();
   fireEvent.click(await screen.findByRole("button", { name: "Developer tools" }));
   expect(screen.getByRole("button", { name: "Validate mechanics" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Create creature draft from review" })).toBeDisabled();

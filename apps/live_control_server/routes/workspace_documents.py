@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -162,6 +163,39 @@ def get_world_owned_plans(
         )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+class WorldPlanInventoryPage(WorldOwnedPlansResponseV2):
+    next_before_updated_at: str | None = None
+    next_before_document_id: str | None = None
+
+
+@router.get("/workspace-documents/world-plans/page", response_model=WorldPlanInventoryPage)
+def get_world_plan_inventory_page(
+    world_id: Annotated[str, Query(min_length=1)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    before_updated_at: datetime | None = None,
+    before_document_id: UUID | None = None,
+) -> WorldPlanInventoryPage:
+    before = None
+    if before_updated_at is not None or before_document_id is not None:
+        if before_updated_at is None or before_document_id is None or before_updated_at.utcoffset() is None:
+            raise HTTPException(422, "Provide both cursor values with a timezone-aware timestamp.")
+        before = (before_updated_at, before_document_id)
+    try:
+        inventory = list_world_owned_plans_v2(
+            _managed_world_root(), world_id=world_id, limit=limit + 1, before=before,
+        )
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    records = inventory.records[:limit]
+    boundary = records[-1] if len(inventory.records) > limit else None
+    return WorldPlanInventoryPage(
+        world_id=inventory.world_id,
+        records=records,
+        next_before_updated_at=boundary.updated_at if boundary else None,
+        next_before_document_id=boundary.document_id if boundary else None,
+    )
 
 
 @router.post("/workspace-documents/world-plans", response_model=WorldOwnedPlanRecordV2)

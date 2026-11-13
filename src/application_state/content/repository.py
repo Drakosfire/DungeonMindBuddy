@@ -82,6 +82,8 @@ def list_work_objects(
     campaign_id: str | None = None,
     world_id: str | None = None,
     status: str | None = "active",
+    limit: int | None = None,
+    before: tuple[datetime, UUID] | None = None,
 ) -> list[_StoredContentObject]:
     if campaign_id is not None and world_id is not None:
         raise ValueError("campaign_id and world_id are mutually exclusive scopes")
@@ -103,12 +105,18 @@ def list_work_objects(
     if campaign_id is not None:
         clauses.append("campaign_id = %s")
         params.append(campaign_id)
+    if before is not None:
+        clauses.append("(updated_at, work_object_id) < (%s, %s)")
+        params.extend(before)
     sql = f"""
         SELECT {_WORK_OBJECT_COLUMNS}
         FROM content.work_object
         WHERE {" AND ".join(clauses)}
-        ORDER BY updated_at DESC
+        ORDER BY updated_at DESC, work_object_id DESC
     """
+    if limit is not None:
+        sql += " LIMIT %s"
+        params.append(limit)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(sql, params)
         rows = cur.fetchall()

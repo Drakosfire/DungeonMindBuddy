@@ -27,7 +27,7 @@ router = APIRouter(prefix="/api/live", tags=["world-containers"])
 
 
 @router.get("/world-containers", response_model=WorldContainersListResponse)
-def get_world_containers(request: Request = None) -> dict[str, Any]:
+def get_world_containers(request: Request = None) -> WorldContainersListResponse | dict[str, Any]:
     from apps.live_control_server.services import hosted_auth
     from apps.live_control_server.services.hosted_native_graph_access import revalidate_hosted_owner_collection
 
@@ -41,19 +41,18 @@ def get_world_containers(request: Request = None) -> dict[str, Any]:
         records = list_world_containers()
     except WorldContainerRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    response = WorldContainersListResponse(
+    return WorldContainersListResponse(
         records=[WorldContainerPublicRecord.from_record(record) for record in records]
     )
-    return response.model_dump(mode="json")
 
 
 @router.post("/world-containers", response_model=WorldContainerPublicRecord)
-def post_world_container(body: CreateWorldContainerRequest) -> dict[str, Any]:
+def post_world_container(body: CreateWorldContainerRequest) -> WorldContainerPublicRecord:
     try:
         record = create_world_container(name=body.name)
     except WorldContainerRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return WorldContainerPublicRecord.from_record(record).model_dump(mode="json")
+    return WorldContainerPublicRecord.from_record(record)
 
 
 @router.put(
@@ -64,7 +63,7 @@ def put_native_graph_binding(
     managed_world_id: str,
     body: BindNativeGraphRequest,
     request: Request,
-) -> dict[str, Any]:
+) -> WorldContainerPublicRecord:
     enforce_native_graph_gm(request)
     try:
         record = bind_native_graph(
@@ -74,7 +73,7 @@ def put_native_graph_binding(
         )
     except (WorldGraphBindingError, WorldContainerRegistryError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return WorldContainerPublicRecord.from_record(record).model_dump(mode="json")
+    return WorldContainerPublicRecord.from_record(record)
 
 
 @router.post(
@@ -85,7 +84,7 @@ def post_deactivate_native_graph_binding(
     managed_world_id: str,
     body: DeactivateNativeGraphBindingRequest,
     request: Request,
-) -> dict[str, Any]:
+) -> WorldContainerPublicRecord:
     enforce_native_graph_gm(request)
     try:
         record = deactivate_native_graph_binding(
@@ -94,4 +93,4 @@ def post_deactivate_native_graph_binding(
         )
     except (WorldGraphBindingError, WorldContainerRegistryError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return WorldContainerPublicRecord.from_record(record).model_dump(mode="json")
+    return WorldContainerPublicRecord.from_record(record)

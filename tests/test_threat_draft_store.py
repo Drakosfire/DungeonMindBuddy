@@ -1541,3 +1541,21 @@ def test_stable_world_draft_creation_replays_without_crossing_worlds(tmp_path):
         create_threat_draft(tmp_path, _world_create_request(world_id="world_2"), stable_id=key)
     with pytest.raises(ThreatDraftStoreError, match="intent changed"):
         create_threat_draft(tmp_path, _world_create_request(threat_kind="hazard"), stable_id=key)
+
+
+def test_source_backed_draft_retries_without_a_ruleset(tmp_path):
+    from uuid import uuid4
+
+    from apps.live_control_server.services.statblock_candidate_generation import (
+        map_draft_to_generate_request,
+    )
+
+    key = uuid4()
+    request = _world_create_request(generation_intent={"ruleset": None})
+    draft = create_threat_draft(tmp_path, request, stable_id=key)
+
+    assert draft.generation_intent.ruleset is None
+    assert create_threat_draft(tmp_path, request, stable_id=key) == draft
+    with pytest.raises(ThreatDraftStoreError, match="Choose a ruleset") as exc:
+        map_draft_to_generate_request(draft, request_id="fixture")
+    assert exc.value.status_code == 422

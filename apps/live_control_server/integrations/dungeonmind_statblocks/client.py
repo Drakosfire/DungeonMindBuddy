@@ -5,7 +5,7 @@ import json
 from typing import Any, Protocol, TypeVar
 
 import httpx
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.config import (
     API_PREFIX,
@@ -65,6 +65,16 @@ def _source_definition_digest(source_definition: dict[str, Any]) -> str:
     )
 
     return source_definition_digest_from_body(source_definition)
+
+
+def _dump_definition_request(request: BaseModel) -> dict[str, Any]:
+    payload = request.model_dump(mode="json", by_alias=True, exclude_none=True)
+    definition = payload["definition"]
+    # The producer requires these keys even when the source leaves them unknown.
+    definition.setdefault("ruleset", None)
+    definition.setdefault("movement", None)
+    definition["challenge"].setdefault("proficiency_bonus", None)
+    return payload
 
 
 def verify_exact_revision_mechanics_integrity(
@@ -224,7 +234,7 @@ class DungeonMindStatblockV1Client:
         safe = validate_statblock_id(statblock_id)
         request = AppendRevisionRequestV1.model_validate(body)
         payload = self._request_json("POST", f"{API_PREFIX}/statblocks/{safe}/revisions",
-            json_body=request.model_dump(mode="json", by_alias=True, exclude_none=True))
+            json_body=_dump_definition_request(request))
         revision = self._parse_model(ExactRevisionResourceV1, payload)
         verify_exact_revision_mechanics_integrity(revision)
         if (revision.statblock_id != safe or getattr(revision.parent_revision_id,"root",revision.parent_revision_id) != request.parent_revision_id
@@ -312,7 +322,7 @@ class DungeonMindStatblockV1Client:
         """SBW05a: POST definition validation; bind receipt to returned digest."""
         json_body: dict[str, Any]
         if isinstance(body, ValidateDefinitionRequestV1):
-            json_body = body.model_dump(mode="json", by_alias=True, exclude_none=True)
+            json_body = _dump_definition_request(body)
         else:
             json_body = body
         payload = self._request_json(
@@ -357,7 +367,7 @@ class DungeonMindStatblockV1Client:
                 error_code="unsupported_rule_element_explains",
                 details={"field_path": "definition.rule_elements[*].explains"},
             )
-        json_body = request.model_dump(mode="json", by_alias=True, exclude_none=True)
+        json_body = _dump_definition_request(request)
         from .definition_digest import omit_empty_explains
 
         omit_empty_explains(json_body["definition"])

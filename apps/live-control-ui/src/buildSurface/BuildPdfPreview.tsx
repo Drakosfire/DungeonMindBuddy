@@ -84,11 +84,35 @@ export function CropOcr({ worldId, region, hasPdfText }: { worldId: string; regi
   );
 }
 
+function CropPreviewImage({ canvas, page }: { canvas: HTMLCanvasElement; page: number }) {
+  const [url, setUrl] = useState<string>();
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | undefined;
+    canvas.toBlob(blob => {
+      if (!active) return;
+      if (!blob) {
+        setFailed(true);
+        return;
+      }
+      objectUrl = URL.createObjectURL(blob);
+      setUrl(objectUrl);
+    });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [canvas]);
+  if (failed) return <p role="alert">Could not generate the crop preview.</p>;
+  if (!url) return <p role="status">Preparing crop preview…</p>;
+  return <img src={url} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />;
+}
+
 function PdfPages({ file, worldId, restored, onRetained }: {
   file: File; worldId?: string; restored?: PdfLocator;
   onRetained: (locator: PdfLocator) => void;
 }) {
-  const [sourceFile, setSourceFile] = useState(file);
   const [admission] = useState(() => ({ id: crypto.randomUUID(), createdAt: new Date().toISOString() }));
   const [receipt, setReceipt] = useState<PdfReceipt | undefined>(restored);
   const [sourcePending, setSourcePending] = useState(false);
@@ -119,17 +143,17 @@ function PdfPages({ file, worldId, restored, onRetained }: {
         const admitted = await retainSource();
         onRetained(captureLocator(admitted, page, selected));
       } else {
-        const { response } = await authenticatedApiFetch(`${path}/open`, {
+        const locator = captureLocator(receipt, page, selected);
+        const { response } = await authenticatedApiFetch(`${path}/region:validate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(captureLocator(receipt, page, selected)),
+          body: JSON.stringify(locator),
         });
-        if (!response.ok) throw new Error();
-        onRetained(captureLocator(receipt, page, selected));
-        setSourceFile(new File([await response.blob()], file.name, { type: "application/pdf" }));
+        if (response.status !== 204) throw new Error();
+        onRetained(locator);
       }
     } catch {
-      setSourceError(receipt ? "Could not reopen the retained PDF." : "Could not retain this PDF.");
+      setSourceError(receipt ? "Could not validate this retained PDF region." : "Could not retain this PDF.");
     } finally {
       setSourcePending(false);
     }
@@ -145,7 +169,8 @@ function PdfPages({ file, worldId, restored, onRetained }: {
     restored && { start: { x: restored.left, y: restored.top },
       end: { x: restored.right, y: restored.bottom } },
   );
-  const [capture, setCapture] = useState<{ image: string; region: PageRectangle }>();
+  const captureSequence = useRef(0);
+  const [capture, setCapture] = useState<{ id: number; canvas: HTMLCanvasElement; region: PageRectangle }>();
   const [capturedText, setCapturedText] = useState<string>();
   const [capturedRuns, setCapturedRuns] = useState<PdfRegionTextRun[]>([]);
   const [completeLines, setCompleteLines] = useState("");
@@ -184,7 +209,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
     setCompleteLines("");
     setClippedText(false);
     setTextError(false);
-    setCapture({ image: crop.toDataURL(), region: rectangle });
+    setCapture({ id: ++captureSequence.current, canvas: crop, region: rectangle });
   }
 
   useEffect(() => {
@@ -192,11 +217,11 @@ function PdfPages({ file, worldId, restored, onRetained }: {
     let destroy: (() => Promise<void>) | undefined;
     async function load() {
       try {
-        if (sourceFile.size > 32 * 1024 * 1024) {
+        if (file.size > 32 * 1024 * 1024) {
           if (!cancelled) setError("Choose a PDF that is 32 MiB or smaller.");
           return;
         }
-        const data = new Uint8Array(await sourceFile.arrayBuffer());
+        const data = new Uint8Array(await file.arrayBuffer());
         if (new TextDecoder().decode(data.subarray(0, 5)) !== "%PDF-") {
           throw new Error("Invalid PDF header");
         }
@@ -216,7 +241,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
       cancelled = true;
       void destroy?.().catch(() => {});
     };
-  }, [sourceFile]);
+  }, [file]);
 
   useEffect(() => {
     if (!document) return;
@@ -357,7 +382,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           </button>}
           {capture && (
             <section aria-label={`Capture from page ${page}`}>
-              <img src={capture.image} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />
+              <CropPreviewImage key={capture.id} canvas={capture.canvas} page={page} />
               {worldId && receipt && <button type="button" onClick={() => {
                 const locator = captureLocator(receipt, page, capture.region);
                 setStatblockRegions(current => current.some(region => pdfRegionKey(region) === pdfRegionKey(locator))
@@ -397,7 +422,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                   clipped={clippedText}
                 />}
                 {worldId && receipt && (textError || capturedText !== undefined) && (
-                  <CropOcr key={capture.image} worldId={worldId} region={captureLocator(receipt, page, capture.region)} hasPdfText={Boolean(capturedText)} />
+                  <CropOcr key={capture.id} worldId={worldId} region={captureLocator(receipt, page, capture.region)} hasPdfText={Boolean(capturedText)} />
                 )}
               </details>
             </section>

@@ -482,7 +482,7 @@ def test_successful_bind_route_returns_redacted_status_and_deactivation_skips_mi
         ),
     )
 
-    public_binding = put_result["native_graph_binding"]
+    public_binding = put_result.model_dump(mode="json")["native_graph_binding"]
     assert public_binding == {"status": "active", "binding_version": 1}
     body_text = repr(put_result)
     assert NATIVE_ID not in body_text
@@ -494,7 +494,7 @@ def test_successful_bind_route_returns_redacted_status_and_deactivation_skips_mi
         "apps.live_control_server.services.world_graph_binding._validate_with_mind",
         lambda _world_id: pytest.fail("list/deactivation must not contact MIND"),
     )
-    list_result = world_containers.get_world_containers()
+    list_result = world_containers.get_world_containers().model_dump(mode="json")
     assert list_result["records"][0]["native_graph_binding"] == {
         "status": "active",
         "binding_version": 1,
@@ -511,7 +511,7 @@ def test_successful_bind_route_returns_redacted_status_and_deactivation_skips_mi
             f"/api/live/world-containers/{managed.world_id}/native-graph-binding/deactivate"
         ),
     )
-    assert deactivate_result["native_graph_binding"] == {
+    assert deactivate_result.model_dump(mode="json")["native_graph_binding"] == {
         "status": "inactive",
         "binding_version": 2,
     }

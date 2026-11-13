@@ -134,7 +134,7 @@ def _resume(record,client):
             or not isinstance(accepted_through,dict)
             or accepted_through.get('buddy_manual_revision')!=str(record.operation_id)
             or accepted_through!=record.request_body['accepted_through']
-            or result.definition.ruleset.model_dump(mode='json')!=record.request_body['definition']['ruleset']
+            or result.definition.model_dump(mode='json')['ruleset']!=record.request_body['definition']['ruleset']
             or [b.model_dump(mode='json',exclude_none=True) for b in result.asset_bindings or []]
                 != [AssetBindingV1Input.model_validate(b).model_dump(mode='json',exclude_none=True) for b in record.request_body['asset_bindings']]):
             raise ApplicationStateIntegrityError('Appended result differs from its exact saved intent')
@@ -187,7 +187,7 @@ def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None):
         if not same_mechanics_locator(base.model_dump(),request.base):
             raise ApplicationStateConflictError('Selected source version changed')
         exact=_exact(active,base)
-        if request.definition.ruleset.model_dump(mode='json')!=exact.definition.ruleset.model_dump(mode='json'):
+        if exact.definition.ruleset is not None and request.definition.ruleset != exact.definition.ruleset:
             raise ApplicationStateConflictError('Manual revision cannot change the creature ruleset')
         bindings=_asset_bindings(exact,request.portrait_asset_id,media_owner)
         validation=validate_definition(definition=request.definition,client=active)

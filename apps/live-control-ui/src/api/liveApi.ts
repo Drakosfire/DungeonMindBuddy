@@ -1635,12 +1635,15 @@ export async function postManagedWorldGraphProjection(
 
 export async function postNativeWorldGraphCompleteObject(
   request: WorldGraphObjectProjectionRequest,
+  scope?: InspectionPin,
+  signal?: AbortSignal,
 ): Promise<WorldGraphObjectProjectionResult> {
   return apiFetch<WorldGraphObjectProjectionResult>(
     "/api/live/native-graph-inspection/complete-object",
     {
+      signal,
       method: "POST",
-      body: JSON.stringify({ request }),
+      body: JSON.stringify({ request, scope }),
     },
   );
 }
@@ -1705,6 +1708,7 @@ export async function commitGraphObjectAuthoringWrite(
 
 export async function getGoldGraphProjection(
   query: GoldGraphProjectionQuery,
+  signal?: AbortSignal,
 ): Promise<GoldGraphProjectionResponse> {
   const params = new URLSearchParams({
     campaign_id: query.campaignId,
@@ -1712,6 +1716,7 @@ export async function getGoldGraphProjection(
   });
   return apiFetch<GoldGraphProjectionResponse>(
     `/api/live/graph-preview/gold-review/projection?${params.toString()}`,
+    { signal },
   );
 }
 
@@ -1728,9 +1733,9 @@ export async function getBuildSourceNavigation(args: {
   );
 }
 
-export function getSourceSessions(campaignId: string): Promise<number[]> {
+export function getSourceSessions(campaignId: string, signal?: AbortSignal): Promise<number[]> {
   const query = new URLSearchParams({ campaign_id: campaignId });
-  return apiFetch<number[]>(`/api/live/source-bundle/sessions?${query}`);
+  return apiFetch<number[]>(`/api/live/source-bundle/sessions?${query}`, { signal });
 }
 
 export async function getSourceBundle(
@@ -2415,6 +2420,27 @@ export async function createWorldContainer(
 export async function listWorldOwnedPlans(worldId: string): Promise<WorldOwnedPlansResponseV2> {
   return apiFetch<WorldOwnedPlansResponseV2>(
     `/api/live/workspace-documents/world-plans?world_id=${encodeURIComponent(worldId)}`,
+  );
+}
+
+export type WorldPlanInventoryPage = WorldOwnedPlansResponseV2 & {
+  next_before_updated_at: string | null;
+  next_before_document_id: string | null;
+};
+
+export function listWorldPlanInventoryPage(
+  worldId: string,
+  before?: { updatedAt: string; documentId: string },
+  signal?: AbortSignal,
+): Promise<WorldPlanInventoryPage> {
+  const query = new URLSearchParams({ world_id: worldId });
+  if (before) {
+    query.set("before_updated_at", before.updatedAt);
+    query.set("before_document_id", before.documentId);
+  }
+  return apiFetch<WorldPlanInventoryPage>(
+    `/api/live/workspace-documents/world-plans/page?${query}`,
+    { signal },
   );
 }
 
