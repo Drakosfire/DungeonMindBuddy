@@ -429,7 +429,7 @@ def main() -> int:
         json.dumps(
             {
                 "ok": final.get("status") == "ok",
-                "output": str(out_path.relative_to(ROOT)),
+                "output": str(out_path.relative_to(ROOT) if out_path.is_relative_to(ROOT) else out_path),
                 "admitted_count": step2.get("admitted_count"),
                 "rejected_count": step2.get("rejected_count"),
                 "warnings": step4.get("warnings"),

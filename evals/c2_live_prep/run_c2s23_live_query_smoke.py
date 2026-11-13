@@ -103,7 +103,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "c2s23_live_query_context_smoke.json"
     out_path.write_text(json.dumps(smoke_report, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(json.dumps({"ok": all_ok, "output": str(out_path.relative_to(ROOT)), "smoke": smoke_report}, indent=2))
+    print(json.dumps({"ok": all_ok, "output": str(out_path.relative_to(ROOT) if out_path.is_relative_to(ROOT) else out_path), "smoke": smoke_report}, indent=2))
     return 0 if all_ok else 1
 
 
