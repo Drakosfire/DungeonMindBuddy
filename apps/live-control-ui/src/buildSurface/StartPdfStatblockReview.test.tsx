@@ -117,3 +117,18 @@ it("prepares the current crop and opens the saved editor in place", async () => 
   });
   expect(screen.queryByRole("link", { name: "Open statblock review" })).toBeNull();
 });
+
+it("does not rewrite the destination URL when extraction completes after navigation", async () => {
+  const fetch = vi.mocked(authenticatedApiFetch);
+  let finish!: (result: Awaited<ReturnType<typeof authenticatedApiFetch>>) => void;
+  fetch.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  window.history.replaceState(null, "", "/build?world=elderwyld");
+  render(<StartPdfStatblockReview worldId="elderwyld" regions={[]} onRemoveRegion={vi.fn()}
+    prepareRegions={async () => [first]} />);
+  fireEvent.click(screen.getByRole("button", { name: "Extract statblock" }));
+  await Promise.resolve();
+  window.history.replaceState(null, "", "/plan?world=another");
+  finish({ response: Response.json({ revision: 1 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+  await screen.findByRole("region", { name: "PDF statblock review" });
+  expect(window.location.pathname + window.location.search).toBe("/plan?world=another");
+});
