@@ -57,3 +57,39 @@ def test_latest_preview_matches_ranked_discovery(monkeypatch):
     assert registry.resolve_latest_preview_union_graph_ingest_run(
         campaign_id="campaign", session_id="session"
     ) is ranked[0]
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_discovery_reuses_descriptor_digest_only_within_one_scan(tmp_path, monkeypatch, missing):
+    from types import SimpleNamespace
+
+    from apps.live_control_server.services import graph_ingest_run_registry as registry
+    from apps.live_control_server.services import source_artifact_registry as descriptors
+
+    digest = "a" * 64
+    paths = [tmp_path / name for name in ("first", "second")]
+    for path in paths:
+        path.touch()
+    calls = []
+
+    def lookup(artifact_id):
+        calls.append(artifact_id)
+        if missing:
+            raise descriptors.SourceArtifactRegistryError("missing", status_code=404)
+        return SimpleNamespace(content_sha256=digest)
+
+    monkeypatch.setattr(descriptors, "get_source_artifact", lookup)
+    monkeypatch.setattr(registry, "_iter_manifest_paths", lambda *a, **kw: iter(paths))
+    monkeypatch.setattr(
+        registry,
+        "_summarize_manifest",
+        lambda repo, path: (
+            SimpleNamespace(updated_at="", created_at="", manifest_path=path.name),
+            {"source": {"source_artifact_id": "shared"}},
+        ),
+    )
+
+    for expected_calls in (1, 2):
+        rows = registry.discover_graph_ingest_runs(tmp_path, source_recap_sha256=digest)
+        assert len(rows) == (0 if missing else 2)
+        assert calls == ["shared"] * expected_calls
