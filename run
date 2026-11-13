@@ -53,6 +53,9 @@ fi
 
 RUN_DIR="$ROOT/.run"
 mkdir -p "$RUN_DIR"
+command -v flock >/dev/null 2>&1 || die "missing required command: flock"
+exec {launch_lock}>>"$RUN_DIR/launcher.lock"
+flock -n "$launch_lock" || die "another launcher owns $RUN_DIR; stop it before starting another from this checkout"
 
 PIDS=()
 BUDDY_UI_PID=""
