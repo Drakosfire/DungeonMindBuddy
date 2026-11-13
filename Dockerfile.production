@@ -27,7 +27,7 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/app/.venv
 RUN apt-get -o Acquire::Check-Valid-Until=false update \
-    && apt-get install --yes --no-install-recommends ca-certificates git build-essential \
+    && apt-get install --yes --no-install-recommends ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 # Build the locked Python environment from its package and patch inputs.
 COPY pyproject.toml uv.lock README.md ./
