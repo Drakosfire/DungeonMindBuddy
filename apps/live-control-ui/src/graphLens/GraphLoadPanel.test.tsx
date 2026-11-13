@@ -198,9 +198,11 @@ describe("PlanGraphLoadPanel", () => {
     render(<PlanGraphLoadPanel projectionState="ready" nodeCount={45} />, { wrapper: wrapper(loadSessions) });
     await screen.findByRole("option", { name: "C1 · Session 3" });
     expect(new URLSearchParams(window.location.search).get("session")).toBe("longmont-c2:24");
+    await userEvent.selectOptions(screen.getByLabelText("Focus session"), "longmont-c1:3");
+    expect(new URLSearchParams(window.location.search).get("session")).toBe("longmont-c1:3");
     resolveSlow([24]);
     await screen.findByRole("option", { name: "C2 · Session 24" });
-    expect(screen.getByLabelText("Focus session")).toHaveValue("longmont-c2:24");
+    expect(screen.getByLabelText("Focus session")).toHaveValue("longmont-c1:3");
   });
 
   it("retains successful campaign sessions when retrying another campaign", async () => {
