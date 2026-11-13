@@ -15,6 +15,7 @@ if str(_REPO_ROOT) not in sys.path:
 from apps.live_control_server.config import (  # noqa: E402
     MANAGED_WORLD_DATA_ROOT_ENV,
     ManagedWorldDataRootError,
+    managed_world_data_root,
 )
 from apps.live_control_server.services.world_container_registry import (  # noqa: E402
     WorldContainerRegistryError,
@@ -52,6 +53,7 @@ def inspect_local_graph_profile(
     ):
         return "local_graph_origin_host_mismatch"
     try:
+        managed_world_data_root()
         records = list_world_containers()
     except (ManagedWorldDataRootError, WorldContainerRegistryError) as exc:
         return (
