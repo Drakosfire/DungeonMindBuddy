@@ -1065,38 +1065,20 @@ def test_native_non_pristine_without_receipt_fails_closed(
 def test_native_workspace_drift_fails_before_publication(
     native_first_world_client,
 ) -> None:
-    from apps.live_control_server.services.source_artifact_registry import (
-        get_source_artifact,
-    )
-    from apps.live_control_server.services.workspace_document_registry import (
-        WorkspaceDocumentRegistryDocument,
-        get_workspace_document,
-        workspace_documents_path,
-    )
-    from src.live_play.live_store import load_json, write_json
-
+    from application_state.content import pages
 
     client, _world, repo, dsn = native_first_world_client
     _run_id, plan = _prepare_native_plan(client, repo)
-    artifact = get_source_artifact(plan["sourceArtifactId"])
-    workspace_path = workspace_documents_path(repo)
-    workspace_doc = WorkspaceDocumentRegistryDocument.model_validate(load_json(workspace_path))
-    rewritten = []
-    for row in workspace_doc.records:
-        if row.document_id == artifact.workspace_document_id:
-            rewritten.append(row.model_copy(update={"revision": int(row.revision) + 1}))
-        else:
-            rewritten.append(row)
-    write_json(
-        workspace_path,
-        WorkspaceDocumentRegistryDocument(
-            schema_version=workspace_doc.schema_version,
-            records=rewritten,
-        ).model_dump(mode="json"),
+    document_id = plan["workspaceDocumentId"]
+    world_id = plan["worldId"]
+    current = pages.get_page(document_id, world_id=world_id)
+    updated = pages.update_page(
+        document_id,
+        world_id=world_id,
+        expected_revision=current.page.object_revision,
+        title="Renamed after review",
     )
-    assert get_workspace_document(repo, artifact.workspace_document_id).revision != int(
-        plan["workspaceDocumentRevision"]
-    )
+    assert updated.page.object_revision != int(plan["workspaceDocumentRevision"])
     confirm = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert confirm.status_code == 422, confirm.text
     assert confirm.json()["code"] == "workspace_lineage_mismatch"
