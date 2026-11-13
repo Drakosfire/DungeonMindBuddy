@@ -696,8 +696,22 @@ def verify(args):
             report["artifacts"] = {
                 p.name: digest(p) for p in out.iterdir() if p.is_file()
             }
-            (out / "evidence.json").write_text(json.dumps(report, indent=2) + "\n")
+            publish_evidence(out / "evidence.json", report)
     return report["exit_code"]
+
+
+def publish_evidence(path: Path, report: dict) -> None:
+    payload = json.dumps(report, indent=2) + "\n"
+    temporary = tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=path.parent, prefix=".evidence-", delete=False
+    )
+    temporary_path = Path(temporary.name)
+    try:
+        with temporary:
+            temporary.write(payload)
+        temporary_path.replace(path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 
 def main():

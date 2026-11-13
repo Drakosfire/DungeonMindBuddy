@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Publish verifier evidence atomically
+
+The verifier writes complete JSON to a sibling temporary file before replacing the published report. The verifier suite covers visibility before replacement and cleanup after a failed replacement.
+
 ## [DONE] Revise selected Build text using the saved page image — completed 2026-11-10
 
 **Outcome:** Build can ask the author for a missing passage selection (#2388, #2390), then use the actual saved image above the selection to stage an editable revision (#2394, #2395). The Old Bath House walkthrough on 5202 used the map and the full “Map-ready interior plan” section. Buddy returned a proposal for review; it was not applied and the page stayed at saved revision 20.
