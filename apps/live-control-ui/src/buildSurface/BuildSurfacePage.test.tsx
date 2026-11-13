@@ -13,7 +13,7 @@ import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
-import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../test/worldGraphRecapFixture";
 import { LegacyProjectionHostAdapter } from "../planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
 import {

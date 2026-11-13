@@ -8,7 +8,7 @@ import * as liveApi from "../api/liveApi";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
-import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../test/worldGraphRecapFixture";
 import { BuildGraphObjectContext } from "./BuildGraphObjectContext";
 import { BuildSurfacePage } from "./BuildSurfacePage";
 

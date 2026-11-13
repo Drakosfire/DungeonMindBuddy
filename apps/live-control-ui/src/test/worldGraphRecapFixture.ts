@@ -1,7 +1,7 @@
 import type {
   WorldGraphProjectionNodeView,
   WorldGraphProjectionSnapshot,
-} from "../../api/types";
+} from "../api/types";
 
 /** PR380A recap projection response shape (camelCase wire vocabulary). */
 export interface WorldGraphRecapProjectionFixture {

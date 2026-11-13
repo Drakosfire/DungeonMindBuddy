@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { URL as NodeURL } from "node:url";
 import { SelectedWorldProvider } from "../../selectedWorld/SelectedWorldContext";
 import { WorldGraphRecapProjectionView } from "./WorldGraphRecapProjection";
-import { session23WorldGraphRecapFixture } from "./worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../../test/worldGraphRecapFixture";
 
 const recapRecord = {
   schema_version: "dmb_recap_artifact_record_v1" as const,

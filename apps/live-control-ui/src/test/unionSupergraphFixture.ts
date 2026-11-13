@@ -1,4 +1,4 @@
-import type { UnionSupergraphProjectionResponse } from "../../api/types";
+import type { UnionSupergraphProjectionResponse } from "../api/types";
 
 /** Minimal Session 23 projection payload aligned with backend fixture tests. */
 export const session23UnionSupergraphFixture: UnionSupergraphProjectionResponse = {
