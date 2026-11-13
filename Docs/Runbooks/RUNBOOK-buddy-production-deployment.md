@@ -107,29 +107,6 @@ can remain running after the wait expires.
 "${buddy_compose[@]}" logs --tail 100 buddy
 ```
 
-Require a successful wait before retrying the smoke checks.
-
-```bash
-(
-  set -e
-  buddy_container=$("${buddy_compose[@]}" ps -q buddy)
-  actual_image=$(docker inspect "$buddy_container" --format '{{.Image}}')
-  test "$actual_image" = "$buddy_image_id"
-  actual_binding=$("${buddy_compose[@]}" port buddy 8000)
-  test "$actual_binding" = "127.0.0.1:$buddy_port"
-  buddy_local="http://127.0.0.1:$buddy_port"
-  curl -fsS "$buddy_local/health/live"
-  curl -fsS "$buddy_local/health/ready"
-  for buddy_path in / /graph; do
-    buddy_status=$(curl -fsS -H 'Accept: text/html' -o /dev/null -w '%{http_code}' "$buddy_local$buddy_path")
-    printf '%s %s\n' "$buddy_status" "$buddy_path"
-    test "$buddy_status" = 200
-  done
-  buddy_status=$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")
-  test "$buddy_status" = 401
-)
-```
-
 Require the expected image ID, a loopback binding, successful health and SPA requests, and a signed-out `401`. If readiness fails, check database connectivity, schema revisions, and directory access before continuing.
 
 ## 4. Verify DNS, TLS, and the proxy
