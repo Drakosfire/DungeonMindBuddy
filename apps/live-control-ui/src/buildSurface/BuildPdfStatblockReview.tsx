@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ThreatDraft } from "../api/types";
 import type { SavedMechanicsVersionList } from "../statblocks/revision/savedMechanicsRevisionTypes";
-import { authenticatedApiFetch, createThreatDraft, listSavedMechanicsVersions, LiveApiError } from "../api/liveApi";
+import { authenticatedApiFetch, getThreatDraft, listSavedMechanicsVersions } from "../api/liveApi";
 import type { PdfLocator } from "../api/retainedPdfRegions";
 import type { ValidationIssueV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
 import { StatblockDefinitionEditor } from "../statblocks/editor/StatblockDefinitionEditor";
@@ -48,14 +48,14 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     `buddy:pdf-mechanics-accept:${worldId}:${reviewId}:${review?.revision}:${id}`;
   const [hasInitialAttempt, setHasInitialAttempt] = useState(false);
 
-  async function chooseDraft(id: string) {
+  async function chooseDraft(id: string, selected = drafts.find(draft => draft.draft_id === id)) {
     setDraftId(id);
     setAcceptedLink("");
     setVersions(undefined);
     setParentId("");
     setError("");
     setHasInitialAttempt(Boolean(id && localStorage.getItem(acceptanceKey(id))));
-    if (drafts.find(draft => draft.draft_id === id)?.workflow_state !== "mechanics_saved") return;
+    if (selected?.workflow_state !== "mechanics_saved") return;
     setPending(true);
     try {
       const first = await listSavedMechanicsVersions(id, worldId);
@@ -121,31 +121,35 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     setCreateInFlight(true);
     setError("");
     try {
-      if (!navigator.locks) {
-        setError("This browser cannot safely coordinate draft creation across tabs.");
+      const previousDraft = localStorage.getItem(createKey);
+      if (previousDraft === "pending") {
+        setError("Choose the previously created creature draft before continuing.");
         return;
       }
-      const reserved = await navigator.locks.request(createKey, () => {
-        if (localStorage.getItem(createKey)) return false;
-        localStorage.setItem(createKey, "pending");
-        return true;
-      });
-      if (!reserved) {
-        setError("Check the creature draft list for the previous creation attempt.");
+      let id = previousDraft;
+      if (!id) {
+        const { response } = await authenticatedApiFetch(
+          `${reviewPath}/creature-draft?expected_revision=${review.revision}`,
+          { method: "POST" },
+        );
+        if (!response.ok) {
+          const failure = await response.json().catch(() => null);
+          throw new Error(typeof failure?.detail === "string" ? failure.detail :
+            failure?.detail?.code === "pdf_statblock_review_conflict" ? "This review changed. Reopen it before creating a creature." :
+            "Could not create the creature draft. Check the source confirmation and try again.");
+        }
+        const result = await response.json();
+        if (typeof result.draft_id !== "string" || !result.draft_id) throw new Error();
+        id = result.draft_id as string;
+      }
+      const draft = await getThreatDraft(id);
+      if (draft.schema !== "dmb_threat_draft_v2" || draft.world_id !== worldId || draft.draft_id !== id) throw new Error();
+      if (draft.workflow_state === "mechanics_saved") {
+        setDrafts(current => [...current.filter(item => item.draft_id !== id), draft]);
+        setAcceptOpen(true);
+        await chooseDraft(draft.draft_id, draft);
         return;
       }
-      const draft = await createThreatDraft({
-        scope_mode: "world", world_id: worldId, campaign_id: null, name,
-        description: name, threat_kind: "creature", intended_roles: [], tags: [],
-        generation_intent: {
-          ruleset: review.definition.ruleset, must_include: [], must_avoid: [],
-        },
-        encounter_context: { terrain_notes: [] },
-        graph_context_snapshot: { graph_revision_id: null, selected_node_ids: [], admitted_source_anchor_ids: [] },
-        created_by: "gm",
-      });
-      if (draft.schema !== "dmb_threat_draft_v2" || draft.world_id !== worldId) throw new Error();
-      localStorage.setItem(createKey, draft.draft_id);
       setDrafts(current => [...current.filter(item => item.draft_id !== draft.draft_id), draft]);
       setDraftId(draft.draft_id);
       setVersions(undefined);
@@ -154,12 +158,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       setAcceptedLink("");
       setAcceptOpen(true);
     } catch (cause) {
-      if (cause instanceof LiveApiError && [401, 403, 404, 422].includes(cause.status)) {
-        localStorage.removeItem(createKey);
-        setError(cause.message);
-        return;
-      }
-      setError("Could not confirm draft creation. Check the creature draft list before creating another.");
+      setError(cause instanceof Error && cause.message ? cause.message :
+        "Could not confirm draft creation. Try again to recover the same draft.");
     } finally {
       setCreateInFlight(false);
       setPending(false);

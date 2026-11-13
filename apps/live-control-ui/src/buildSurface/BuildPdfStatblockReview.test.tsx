@@ -1,10 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { authenticatedApiFetch, createThreatDraft, listSavedMechanicsVersions, LiveApiError } from "../api/liveApi";
+import { authenticatedApiFetch, getThreatDraft, listSavedMechanicsVersions } from "../api/liveApi";
 import { baseCandidateDefinition } from "../test/statblockEditorFixtures";
 import { BuildPdfStatblockReview } from "./BuildPdfStatblockReview";
 
-vi.mock("../api/liveApi", async importOriginal => ({ ...await importOriginal<typeof import("../api/liveApi")>(), createThreatDraft: vi.fn(), authenticatedApiFetch: vi.fn(), listSavedMechanicsVersions: vi.fn() }));
+vi.mock("../api/liveApi", async importOriginal => ({ ...await importOriginal<typeof import("../api/liveApi")>(), getThreatDraft: vi.fn(), authenticatedApiFetch: vi.fn(), listSavedMechanicsVersions: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 it("reopens a draft and saves edits against the exact retained regions", async () => {
@@ -162,15 +162,19 @@ it("appends to the explicitly selected saved revision and replays its request", 
 it.each([401, 403, 404, 422])("retries creature creation after HTTP %s and selects the draft", async status => {
   localStorage.clear();
   try {
-    vi.mocked(authenticatedApiFetch).mockResolvedValue({
-      response: Response.json({ revision: 4, definition: baseCandidateDefinition(), regions: [] }),
-    } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
-    vi.mocked(createThreatDraft)
-      .mockRejectedValueOnce(new LiveApiError("Review data rejected", status))
-      .mockResolvedValueOnce({
+    let attempts = 0;
+    vi.mocked(authenticatedApiFetch).mockImplementation(async path => {
+      const response = path.endsWith("/creature-draft?expected_revision=4")
+        ? ++attempts === 1
+          ? Response.json({ detail: "Review data rejected" }, { status })
+          : Response.json({ draft_id: "new-creature", version: 1 })
+        : Response.json({ revision: 4, definition: baseCandidateDefinition(), regions: [] });
+      return { response } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
+    });
+    vi.mocked(getThreatDraft).mockResolvedValueOnce({
         schema: "dmb_threat_draft_v2", draft_id: "new-creature", world_id: "elderwyld",
         name: "Creature", workflow_state: "drafting",
-      } as Awaited<ReturnType<typeof createThreatDraft>>);
+      } as Awaited<ReturnType<typeof getThreatDraft>>);
     render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
     const create = await screen.findByRole("button", { name: "Create creature draft from review" });
     fireEvent.click(create);
@@ -178,7 +182,8 @@ it.each([401, 403, 404, 422])("retries creature creation after HTTP %s and selec
     fireEvent.click(create);
     expect(await screen.findByRole("combobox", { name: "Creature draft" })).toHaveValue("new-creature");
     expect(screen.getByRole("button", { name: "Accept mechanics" })).toBeEnabled();
-    expect(createThreatDraft).toHaveBeenCalledTimes(2);
+    expect(attempts).toBe(2);
+    expect(getThreatDraft).toHaveBeenCalledWith("new-creature");
   } finally {
     localStorage.clear();
   }
