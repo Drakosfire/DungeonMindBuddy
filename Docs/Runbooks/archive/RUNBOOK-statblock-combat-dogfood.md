@@ -1,8 +1,8 @@
 # Runbook: Statblock → Corpus → Retrieval → Combat Dogfood
 
 > **Historical local alpha procedure.** For current local setup, use the
-> [local Play runbook](RUNBOOK-local-play-dogfood.md). For World-owned encounter
-> checks, use the [Combat Tracker smoke](../../apps/live-control-ui/README.md#combat-tracker).
+> [local Play runbook](../RUNBOOK-local-play-dogfood.md). For World-owned encounter
+> checks, use the [Combat Tracker smoke](../../../apps/live-control-ui/README.md#combat-tracker).
 > The optional HTTP probe below calls the retired checkout-local Combat endpoint,
 > which now returns HTTP 410. The reset steps describe the old session-file workflow.
 
