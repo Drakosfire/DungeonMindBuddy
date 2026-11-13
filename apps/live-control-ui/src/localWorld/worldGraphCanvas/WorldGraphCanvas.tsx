@@ -1289,8 +1289,8 @@ export function WorldGraphCanvas({
       return <GraphEdge key={edge.id} id={edge.id} path={geometry.path} markerId={markerId}
         selected={isSelected} label={label} tabIndex={!fullCorpus || isSelected ? 0 : -1}
         captionText={caption?.text}
-        captionTransform={caption && `translate(${caption.x} ${caption.y}) rotate(${caption.angle})`}
-        fontSize={caption && 12 * edgeLabelScale} onInspect={setInspectedEdgeId} />;
+        captionTransform={caption ? `translate(${caption.x} ${caption.y}) rotate(${caption.angle})` : undefined}
+        fontSize={caption ? 12 * edgeLabelScale : undefined} onInspect={setInspectedEdgeId} />;
     });
   }, [renderedEdges, edgeLabels, markerId, selectedIds, positions, nodeShape, dimensions.width, dimensions.height, fullCorpus, allRelationships, edgeLabelDetail, edgeLabelScale]);
 
