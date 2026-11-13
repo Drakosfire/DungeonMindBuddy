@@ -76,7 +76,7 @@ def _current_and_head(dsn: str) -> tuple[str | None, str]:
     return _read_current_revision(dsn), _alembic_head()
 
 
-def upgrade_to_head(*, dsn: str | None = None) -> None:
+def upgrade_to_head(*, dsn: str | None = None) -> tuple[str, str]:
     target = dsn or load_runtime_dsn()
     if dsn is not None:
         os.environ[APPLICATION_STATE_DSN_ENV] = dsn
@@ -87,6 +87,7 @@ def upgrade_to_head(*, dsn: str | None = None) -> None:
         raise ApplicationStateMigrationError(
             f"upgrade did not reach head: current={current!r} head={head!r}"
         )
+    return current, head
 
 
 def assert_at_head(*, dsn: str | None = None) -> None:

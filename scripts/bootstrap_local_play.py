@@ -341,8 +341,8 @@ def apply_bootstrap(*, load_env: bool = True) -> ReadinessReport:
         report.database_exists = True
 
     try:
-        upgrade_to_head(dsn=dsn)
-        current, head, schema_status = _schema_status(dsn)
+        current, head = upgrade_to_head(dsn=dsn)
+        schema_status = "ready"
     except (ApplicationStateMigrationError, ApplicationStateUnavailableError) as exc:
         report.play_readiness = "BLOCKED"
         report.notes.append(redact_secrets(str(exc), dsn))
