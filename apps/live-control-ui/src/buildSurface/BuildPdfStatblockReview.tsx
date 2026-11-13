@@ -13,8 +13,6 @@ type Review = {
   revision: number;
   definition: EditableStatblockOutput;
   regions: PdfLocator[];
-  source_confirmation_required?: boolean;
-  source_confirmed?: boolean;
 };
 
 export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string; reviewId: string }) {
@@ -24,7 +22,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [editor, setEditor] = useState<StatblockEditorState<EditableStatblockOutput>>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const [sourceChecked, setSourceChecked] = useState(false);
   const [developerTools, setDeveloperTools] = useState(false);
   const [saved, setSaved] = useState(false);
   const [validation, setValidation] = useState("");
@@ -306,11 +303,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
 
   async function validate() {
     if (!review || !editor || pending) return;
-    if (review.source_confirmation_required &&
-        (!review.source_confirmed || getLocalFingerprint(editor) !== editor.baselineFingerprint)) {
-      setError("Check the visible source and save this revision before validating mechanics.");
-      return;
-    }
     setPending(true);
     setError("");
     setValidation("");
@@ -356,7 +348,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         method: "PUT",
         body: JSON.stringify({
           expected_revision: review.revision, definition: editor.workingCopy, regions: review.regions,
-          ...(review.source_confirmation_required ? { source_confirmed: sourceChecked } : {}),
         }),
       });
       if (response.status === 409) {
@@ -368,7 +359,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       setEditor(createEditorStateFromOutput(result.definition));
       setReview(result);
       setHasInitialAttempt(false);
-      setSourceChecked(false);
       setSaved(true);
     } catch {
       setError("Could not save the review draft.");
@@ -379,7 +369,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
 
   const publishBlockers = editor && review ? [
     ...(getLocalFingerprint(editor) !== editor.baselineFingerprint ? ["Save your edits."] : []),
-    ...(review.source_confirmation_required && !review.source_confirmed ? ["Check the source and save your confirmation."] : []),
     ...issues.filter(issue => issue.severity === "error").map(issue => issue.message),
   ] : [];
 
@@ -427,7 +416,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         setEditor(updateWorkingCopy(editor, current => ({ ...current, movement: { modes: [{
           key: "walk", mode: "walk" as const, distance: { unit: "feet" as const, value: Number(speed) },
         }] } })));
-        setSourceChecked(false);
         setSaved(false);
       }}>
         <p>Movement is unspecified. You can publish with movement unspecified.</p>
@@ -445,7 +433,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
               setEditor(updateWorkingCopy(editor, current => ({
                 ...current, ruleset: edition ? { ...current.ruleset, system: "dnd5e", edition } : null,
               })));
-              setSourceChecked(false);
               setSaved(false);
               setValidation("");
               setIssues([]);
@@ -464,7 +451,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
                 setEditor(updateWorkingCopy(editor, current => ({
                   ...current, challenge: { ...current.challenge, proficiency_bonus: Number.isNaN(value) ? null : value },
                 })));
-                setSourceChecked(false);
                 setSaved(false);
                 setValidation("");
                 setIssues([]);
@@ -481,16 +467,10 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
           </ul>}
           {editor.workingCopy.movement && <button type="button" onClick={() => {
             setEditor(updateWorkingCopy(editor, current => ({ ...current, movement: null })));
-            setSourceChecked(false);
             setSaved(false);
             setValidation("");
             setIssues([]);
           }}>Mark movement unspecified</button>}
-          {review.source_confirmation_required && <label>
-            <input type="checkbox" checked={sourceChecked}
-              onChange={event => setSourceChecked(event.target.checked)} />
-            I checked the mechanics against the visible PDF regions.
-          </label>}
           <button type="button" aria-expanded={developerTools}
             onClick={() => setDeveloperTools(!developerTools)}>Developer tools</button>
           {developerTools && <section aria-label="Developer tools">
@@ -525,7 +505,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
             </>}
           </section>}
           <StatblockDefinitionEditor editRuleMechanics output={review.definition} editorState={editor}
-            onEditorStateChange={state => { setSourceChecked(false); setEditor(state); setSaved(false); setValidation(""); setIssues([]); }}
+            onEditorStateChange={state => { setEditor(state); setSaved(false); setValidation(""); setIssues([]); }}
             recoveryHint="Save the review draft to keep your edits." />
         </fieldset>
       </>}
