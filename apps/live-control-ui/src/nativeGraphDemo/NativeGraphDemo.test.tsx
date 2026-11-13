@@ -895,6 +895,31 @@ describe("NativeGraphDemo", () => {
     });
   });
 
+  it("reloads a new keyboard pin after 4,096 retained positions", async () => {
+    const scope = "keyboard-first-pin";
+    const key = `dungeonmind-native-demo:layout:${scope}:${encodeURIComponent(graph.world_id)}`;
+    const retained = Object.fromEntries(Array.from({ length: 4096 }, (_, index) =>
+      [`omitted:${index}`, { x: 100, y: 200 }],
+    ));
+    localStorage.setItem(key, JSON.stringify(retained));
+    const mounted = renderEmbeddedDemo({ api: makeApi(), stateScopeId: scope });
+    const node = await screen.findByRole("button", { name: /Mara, npc/i });
+    fireEvent.click(graphAction("Move nodes"));
+    fireEvent.keyDown(node, { key: "ArrowRight" });
+    await waitFor(() => {
+      const pin = JSON.parse(localStorage.getItem(key) ?? "{}")["entity:mara"];
+      expect(pin).toEqual({ x: expect.any(Number), y: expect.any(Number) });
+      expect(node).toHaveAttribute("transform", `translate(${pin.x} ${pin.y})`);
+    });
+    const saved = JSON.parse(localStorage.getItem(key)!);
+    const pin = saved["entity:mara"];
+    expect(saved).toEqual({ ...retained, "entity:mara": pin });
+    mounted.unmount();
+    renderEmbeddedDemo({ api: makeApi(), stateScopeId: scope });
+    expect(await screen.findByRole("button", { name: /Mara, npc/i }))
+      .toHaveAttribute("transform", `translate(${pin.x} ${pin.y})`);
+  });
+
   it("turns connector-dot drags into a relationship draft without preparing automatically", async () => {
     const api = makeApi();
     renderEmbeddedDemo({ api });
