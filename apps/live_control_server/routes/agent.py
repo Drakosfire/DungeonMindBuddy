@@ -2251,7 +2251,9 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     enforce_native_graph_gm(request)
     instruction = body.get("instruction", "")
     regions_body = body.get("regions")
-    if (set(body) != {"regions", "instruction"} or not isinstance(instruction, str)
+    edition = body.get("edition")
+    if (set(body) - {"regions", "instruction", "edition"}
+            or edition not in (None, "2014", "2024") or not isinstance(instruction, str)
             or not isinstance(regions_body, list) or not regions_body
             or any(not isinstance(region, dict) for region in regions_body)):
         raise HTTPException(status_code=422, detail={"code": "invalid_pdf_statblock_extraction_request"})
@@ -2259,10 +2261,13 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     verified_world = _verified_world_id(world_id)
     existing = read_review(world_id=verified_world, review_id=review_id)
     if existing is not None:
-        _, authorized_regions = _authorized_pdf_statblock(
-            world_id, {"definition": existing["definition"], "regions": regions_body}, request,
-        )
-        if authorized_regions == existing["regions"]:
+        authorized_regions = [
+            _authorized_build_pdf_region(world_id, locator, request)[1].model_dump(mode="json")
+            for locator in regions_body
+        ]
+        if authorized_regions == existing["regions"] and (
+            edition is None or existing["definition"]["ruleset"]["edition"] == edition
+        ):
             return existing
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
 
@@ -2279,7 +2284,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         authorized_regions.append(region.model_dump(mode="json"))
 
     try:
-        extracted = run_awaitable_sync(lambda: extract_statblock(transcriptions, instruction))
+        extracted = run_awaitable_sync(lambda: extract_statblock(transcriptions, instruction, **({"edition": edition} if edition else {})))
     except StatblockExtractionError as exc:
         status_code = 502 if exc.code == "pdf_statblock_output_invalid" else 503
         raise HTTPException(status_code=status_code, detail={"code": exc.code}) from exc
@@ -2288,16 +2293,19 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
             "code": "pdf_statblock_extraction_incomplete",
             "missing_details": extracted.missing_details,
         })
+    if edition is not None and extracted.definition.ruleset.edition != edition:
+        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_output_invalid"})
     try:
-        candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": extracted.definition})
-    except ValidationError as exc:
-        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_output_invalid"}) from exc
-    try:
+        definition = extracted.definition.model_dump(mode="json", by_alias=True)
+        if extracted.definition.movement is not None:
+            candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": definition})
+            definition = candidate.definition.model_dump(mode="json", by_alias=True)
         return save_review(
             world_id=verified_world, review_id=review_id, expected_revision=0,
-            definition=candidate.definition.model_dump(mode="json", by_alias=True),
-            regions=authorized_regions,
+            definition=definition, regions=authorized_regions,
         )
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_output_invalid"}) from exc
     except ApplicationStateConflictError as exc:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"}) from exc
 
@@ -2310,9 +2318,14 @@ def get_pdf_statblock_review(world_id: str, review_id: UUID, request: Request):
     review = read_review(world_id=_verified_world_id(world_id), review_id=review_id)
     if review is None:
         raise HTTPException(status_code=404, detail={"code": "pdf_statblock_review_not_found"})
-    _authorized_pdf_statblock(
-        world_id, {"definition": review["definition"], "regions": review["regions"]}, request,
-    )
+    for locator in review["regions"]:
+        _authorized_build_pdf_region(world_id, locator, request)
+    return review
+
+
+def _require_resolved_pdf_statblock(review: dict) -> dict:
+    if review["definition"].get("movement") is None:
+        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_movement_unresolved"})
     return review
 
 
@@ -2328,6 +2341,7 @@ def post_validate_pdf_statblock_review(
     review = get_pdf_statblock_review(world_id, review_id, request)
     if review["revision"] != expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
+    _require_resolved_pdf_statblock(review)
     candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": review["definition"]})
     validation = validate_definition(definition=candidate.definition)
     return {
@@ -2393,6 +2407,7 @@ def post_accept_pdf_statblock_review(
     review = get_pdf_statblock_review(world_id, review_id, request)
     if review["revision"] != body.expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
+    _require_resolved_pdf_statblock(review)
     return begin_or_resume_acceptance(
         root,
         draft_id=draft_key,
@@ -2420,7 +2435,9 @@ def post_append_pdf_statblock_review(
     world_id = _verified_world_id(world_id)
     return _revision_call(
         append_pdf_review, draft_id=str(draft_id), world_id=world_id, review_id=review_id,
-        request=body, load_review=lambda: get_pdf_statblock_review(world_id, review_id, request),
+        request=body, load_review=lambda: _require_resolved_pdf_statblock(
+            get_pdf_statblock_review(world_id, review_id, request),
+        ),
     )
 
 

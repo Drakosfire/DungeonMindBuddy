@@ -21,11 +21,13 @@ Check free space on the Docker filesystem and the persistent data filesystem. Co
 Use separate PostgreSQL database identities for Buddy application state and DungeonMind WorldGraph. With operator-configured PostgreSQL service aliases named `buddy-app` and `buddy-worldgraph`, verify the targets:
 
 ```bash
-for db_service in buddy-app buddy-worldgraph; do
-  psql "service=$db_service" -X -v ON_ERROR_STOP=1 \
-    -c 'SELECT current_database(), current_user;' \
-    -c 'SELECT extname, extversion FROM pg_extension ORDER BY extname;'
-done
+(
+  for db_service in buddy-app buddy-worldgraph; do
+    psql "service=$db_service" -X -v ON_ERROR_STOP=1 \
+      -c 'SELECT current_database(), current_user;' \
+      -c 'SELECT extname, extversion FROM pg_extension ORDER BY extname;' || exit
+  done
+)
 ```
 
 Compare the identities, extensions, and current migration revisions with the pinned releases. Check Buddy application state using the [authority recovery runbook](RUNBOOK-application-state-authority-recovery.md). Use the WorldGraph owner's migration and recovery procedure for that database. Record the approved command and expected revision for each authority in the release record.
@@ -53,36 +55,46 @@ test -z "$(git status --porcelain)" && \
 Continue after all three checks succeed. For an upgrade, use the existing Compose project name and keep the previous release’s image and override available.
 
 ```bash
-buddy_tag="dungeonmindbuddy:$(git rev-parse HEAD)"
-docker build --target api -f Dockerfile.production -t "$buddy_tag" .
-buddy_image_id=$(docker image inspect "$buddy_tag" --format '{{.Id}}')
-printf 'Release image ID %s\n' "$buddy_image_id"
-buddy_override=$(mktemp)
-printf 'services:\n  buddy:\n    image: %s\n' "$buddy_tag" > "$buddy_override"
-buddy_compose=(docker compose --project-name "$buddy_project" --env-file "$buddy_env"
-  -f deploy/production/compose.production.yaml -f "$buddy_override")
-"${buddy_compose[@]}" config --quiet
+unset buddy_compose
+prepare_buddy_release() {
+  local revision
+  revision=$(git rev-parse HEAD) || return
+  buddy_tag="dungeonmindbuddy:$revision"
+  docker build --target api -f Dockerfile.production -t "$buddy_tag" . || return
+  buddy_image_id=$(docker image inspect "$buddy_tag" --format '{{.Id}}') || return
+  buddy_override=$(mktemp) || return
+  printf 'services:\n  buddy:\n    image: %s\n' "$buddy_tag" > "$buddy_override" || return
+  local -a candidate_compose=(docker compose --project-name "$buddy_project" --env-file "$buddy_env"
+    -f deploy/production/compose.production.yaml -f "$buddy_override")
+  "${candidate_compose[@]}" config --quiet || return
+  buddy_compose=("${candidate_compose[@]}")
+  printf 'Release image ID %s\n' "$buddy_image_id"
+}
+prepare_buddy_release
 ```
 
-Save the override with the release record. Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
+Continue only if release preparation succeeds. Save the override with the release record. Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
 
 ```bash
-"${buddy_compose[@]}" up -d --no-build --pull never --wait --wait-timeout 180 buddy
-buddy_container=$("${buddy_compose[@]}" ps -q buddy)
-test "$(docker inspect "$buddy_container" --format '{{.Image}}')" = "$buddy_image_id"
-test "$("${buddy_compose[@]}" port buddy 8000)" = "127.0.0.1:$buddy_port"
-buddy_local="http://127.0.0.1:$buddy_port"
-curl -fsS "$buddy_local/health/live"
-curl -fsS "$buddy_local/health/ready"
 (
   set -e
+  "${buddy_compose[@]}" up -d --no-build --pull never --wait --wait-timeout 180 buddy
+  buddy_container=$("${buddy_compose[@]}" ps -q buddy)
+  actual_image=$(docker inspect "$buddy_container" --format '{{.Image}}')
+  test "$actual_image" = "$buddy_image_id"
+  actual_binding=$("${buddy_compose[@]}" port buddy 8000)
+  test "$actual_binding" = "127.0.0.1:$buddy_port"
+  buddy_local="http://127.0.0.1:$buddy_port"
+  curl -fsS "$buddy_local/health/live"
+  curl -fsS "$buddy_local/health/ready"
   for buddy_path in / /graph; do
     buddy_status=$(curl -fsS -H 'Accept: text/html' -o /dev/null -w '%{http_code}' "$buddy_local$buddy_path")
     printf '%s %s\n' "$buddy_status" "$buddy_path"
     test "$buddy_status" = 200
   done
-) &&
-test "$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")" = 401
+  buddy_status=$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")
+  test "$buddy_status" = 401
+)
 ```
 
 Require the expected image ID, a loopback binding, successful health and SPA requests, and a signed-out `401`. If readiness fails, check database connectivity, schema revisions, and directory access before continuing.
