@@ -28,7 +28,7 @@ The `buddy_retrieval_oracle_v1` file maps case IDs under `cases` to
 list with `session`, `line`, `text`, and `source_sha256` per witness.
 All witnesses for an item must appear with matching source readback.
 Readback JSONL uses `question` (case ID), `handle`, and `matches` with
-`body_sha256`, `excerpt_sha256`, `start`, and `end`.
+`ref`, `event`, `body_sha256`, `excerpt_sha256`, `start`, and `end`. The report matches them against Buddy’s authorized selected reads.
 
 The report counts packet and excerpt tokens, verified unique Gold lines, and
 exact repeated source spans. Gold line counts include surrounding prose.

@@ -8,6 +8,7 @@ import tiktoken
 from .context_capture import validate_context_packet
 from application_state.agent_conversation.native_evidence_view import semantic_frame_in_request
 from application_state.agent_conversation.types import canonical_sha256
+from application_state.agent_conversation.native_writer import read_evidence_records
 
 def digest(value):
     return hashlib.sha256(value).hexdigest()
@@ -44,11 +45,24 @@ def score(oracle_path, readback_path, manifest, base):
                        if semantic_frame_in_request({'input': [message]}, legacy_schemas=()) is not None)
         wire = bytes.fromhex(request['body_hex'])
         excerpts = frame['native_body_evidence']['excerpts']
+        execution = packet['turn'].graph_context_execution
+        writer_index = execution.events.index(packet['authorization'])
+        prefix = execution.model_copy(update={'events': execution.events[:writer_index]})
+        supports = read_evidence_records(prefix, frame)['body_excerpts']
         inventory = []
-        for excerpt in excerpts:
+        for excerpt, support in zip(excerpts, supports, strict=True):
             handle = excerpt['excerpt_handle']
+            selected = support.read.excerpt
+            source = support.catalog.source
+            if selected.text != excerpt['text']:
+                raise ValueError(f"Serialized excerpt differs from its selected read for {case}/{handle}")
+            target = dict(
+                ref=source.evidence_ref_id, event=str(support.read.event_id),
+                start=selected.section.byte_start, end=selected.section.byte_end,
+                body_sha256=source.revision.content_sha256,
+                excerpt_sha256=digest(selected.text.encode()))
             exact = [m for m in reopened.get((case, handle), [])
-                     if m['excerpt_sha256'] == digest(excerpt['text'].encode())]
+                     if all(m.get(key) == value for key, value in target.items())]
             inventory.append(dict(handle=handle, source=excerpt['source_name'],
                                   text_tokens=len(encoder.encode_ordinary(excerpt['text'])),
                                   reopened_targets=exact))
@@ -80,6 +94,8 @@ def score(oracle_path, readback_path, manifest, base):
             seen_spans[source] = merged
         gold_lines = {}
         for item in gold['items']:
+            if not item['witnesses']:
+                raise ValueError(f"Gold item has no witnesses for {case}/{item['id']}")
             witnesses = []
             for witness in item['witnesses']:
                 present = [e['excerpt_handle'] for e in excerpts if witness['text'] in e['text']]
@@ -105,7 +121,7 @@ def score(oracle_path, readback_path, manifest, base):
             erroneous_context_tokens=None,
             packet_tokens=len(encoder.encode_ordinary(content)), section_tokens={k:len(encoder.encode_ordinary(json.dumps(v,ensure_ascii=False,separators=(',',':')))) for k,v in frame.items()},
             graph_assertions=len((frame.get('native_assertions') or {}).get('assertions',[])),
-            context_ready_ms=(ready['ready_monotonic_ns']-ready['request_started_monotonic_ns'])/1e6,
+            context_ready_ms=packet['request_to_ready_ms'],
             host_spans=ready['host_spans'], controller_received_calls=calls))
     return dict(schema='buddy_retrieval_score_v1', oracle_sha256=digest(oracle_path.read_bytes()), readback_sha256=digest(readback_path.read_bytes()),
         tokenizer='o200k_base', token_accounting='Estimated packet tokens. Section estimates omit outer keys and separators and are not additive.',
