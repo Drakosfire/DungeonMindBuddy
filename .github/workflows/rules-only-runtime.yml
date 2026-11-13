@@ -5,8 +5,10 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened]
     paths:
-      - apps/live_control_server/models/agent_turn.py
+      - apps/live_control_server/config.py
+      - apps/live_control_server/models/**
       - apps/live_control_server/routes/agent.py
+      - apps/live_control_server/routes/live.py
       - apps/live_control_server/services/**
       - src/application_state/**
       - tests/__init__.py
