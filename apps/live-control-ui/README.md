@@ -224,3 +224,10 @@ the same time, set a distinct unused port, for example
 `BUDDY_UI_VISUAL_PORT=5185 npm run ui:visual`. Each port has its own Ladle
 preview build under `out/` at the repository root. Explicit port overrides
 also get a matching `out/ui-visual-playwright-<port>/` artifact directory.
+
+### Legacy Mireward prep viewer
+
+From this directory, run `BUDDY_MIREWARD_PREP=1 npm run dev -- --host 127.0.0.1 --port 5187 --strictPort`
+and open `http://127.0.0.1:5187/index.html`. Use a separate loopback port
+because the viewer owns legacy page paths, including `/index.html`, and serves
+supporting files from the checkout.
