@@ -217,7 +217,7 @@ def test_check_reports_missing_database_without_creating(
     _assert_no_secrets(output, dsn)
 
 
-def test_check_reports_schema_behind_without_migrating(
+def test_check_reports_schema_missing_without_migrating(
     provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     dsn, name, admin = provisionable_dsn
@@ -225,11 +225,11 @@ def test_check_reports_schema_behind_without_migrating(
     code = bootstrap.main(["check"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
-    assert "status: behind" in output
+    assert "status: missing" in output
     assert "PLAY READINESS: NEEDS BOOTSTRAP" in output
     current, head, status = bootstrap._schema_status(dsn)
     assert current is None
-    assert status == "behind"
+    assert status == "missing"
     assert head
     _assert_no_secrets(output, dsn)
 
@@ -329,14 +329,14 @@ def test_apply_uses_existing_safe_database_without_drop(
     assert code == 2
 
 
-def test_apply_upgrades_schema_behind_to_head(
+def test_apply_upgrades_schema_missing_to_head(
     provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     dsn, name, admin = provisionable_dsn
     _create_database(admin, name)
     current, _head, status = bootstrap._schema_status(dsn)
     assert current is None
-    assert status == "behind"
+    assert status == "missing"
     code = bootstrap.main(["apply"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
