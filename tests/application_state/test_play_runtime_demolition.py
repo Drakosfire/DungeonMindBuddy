@@ -185,8 +185,8 @@ def _exercise_full_play_chain(root: Path) -> dict:
         target_playable_revision=target_revision,
         target_playable_content_sha256=target_sha,
     )
-    selected = set_play_active_run(root, run_id=RUN_ID_A)
-    resumed = get_play_active_run(root)
+    selected = set_play_active_run(run_id=RUN_ID_A)
+    resumed = get_play_active_run()
     assert resumed == selected
     historical = get_committed_playable_revision(
         snapshot.record.document_id,
@@ -277,9 +277,9 @@ def test_hostile_play_sentinel_is_untouched(
         expected_run_revision=created.run_revision,
         progress=gate_progress(),
     )
-    set_play_active_run(tmp_path, run_id=RUN_ID_A)
+    set_play_active_run(run_id=RUN_ID_A)
     assert get_play_run(tmp_path, RUN_ID_A).progress.current_beat_id == "beat:arrival"
-    assert get_play_active_run(tmp_path).run_id == RUN_ID_A
+    assert get_play_active_run().run_id == RUN_ID_A
     assert list_play_runs(tmp_path)[0].run_id == RUN_ID_A
 
     after = sentinel.stat()
@@ -295,7 +295,7 @@ def test_db_down_does_not_read_or_mutate_contradictory_legacy_files(
 ) -> None:
     snapshot = create_committed_runbook(tmp_path, name="as5-down")
     create_run(tmp_path, snapshot, run_id=RUN_ID_A)
-    selected = set_play_active_run(tmp_path, run_id=RUN_ID_A)
+    selected = set_play_active_run(run_id=RUN_ID_A)
     _hand_write_legacy_runtime(
         tmp_path,
         snapshot=snapshot,
@@ -320,10 +320,10 @@ def test_db_down_does_not_read_or_mutate_contradictory_legacy_files(
         get_play_run_reference_manifest(RUN_ID_A)
     assert manifest_exc.value.status_code == 503
     with pytest.raises(PlayActiveRunError) as active_exc:
-        get_play_active_run(tmp_path)
+        get_play_active_run()
     assert active_exc.value.status_code == 503
     with pytest.raises(PlayActiveRunError) as set_exc:
-        set_play_active_run(tmp_path, run_id=RUN_ID_B)
+        set_play_active_run(run_id=RUN_ID_B)
     assert set_exc.value.status_code == 503
     with pytest.raises(PlayRunRebaseError) as rebase_exc:
         rebase_or_replay_play_run(
@@ -350,7 +350,7 @@ def test_db_down_does_not_read_or_mutate_contradictory_legacy_files(
         if path.is_file()
     }
     assert after == before
-    assert get_play_active_run(tmp_path) == selected
+    assert get_play_active_run() == selected
     assert get_play_run(tmp_path, RUN_ID_A).run_id == RUN_ID_A
     assert fetch_play_active_run_row(application_state_dsn)["run_id"] == RUN_ID_A
 
@@ -426,7 +426,7 @@ def test_predecessor_import_then_as5_head_reads_same_db_without_files(
 
     loaded = get_play_run(tmp_path, RUN_ID_A)
     manifest = get_play_run_reference_manifest(RUN_ID_A)
-    active = get_play_active_run(tmp_path)
+    active = get_play_active_run()
     committed = get_committed_playable_revision(loaded.playable_artifact_id, kind="runbook")
     assert loaded.progress.model_dump(mode="json") == gate_progress().model_dump(mode="json")
     assert loaded.playable_revision == playable_of(snapshot)[0]
