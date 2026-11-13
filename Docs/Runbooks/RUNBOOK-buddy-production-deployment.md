@@ -243,14 +243,47 @@ dig +short A "$buddy_domain"
 dig +short AAAA "$buddy_domain"
 (
   set -e
-  openssl s_client -connect "$buddy_domain:443" -servername "$buddy_domain" \
-    -verify_hostname "$buddy_domain" -verify_return_error -brief </dev/null
   buddy_url="https://$buddy_domain"
   curl -fsS "$buddy_url/health/live"
   curl -fsS "$buddy_url/health/ready"
   bash scripts/check_hosted_spa.sh "$buddy_url"
   buddy_status=$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_url/api/auth/current-user")
   test "$buddy_status" = 401
+)
+```
+
+Probe each published address directly from an external client with connectivity
+to its address family. Keep the hostname in the URL so curl sends the correct
+TLS server name and validates the certificate against it.
+
+```bash
+(
+  set -e -o pipefail
+  buddy_addresses() {
+    local record_type=$1 reply
+    reply=$(dig +noall +comments +answer "$record_type" "$buddy_domain") || return 1
+    if [[ "$reply" != *"status: NOERROR,"* ]]; then
+      printf 'DNS lookup failed for %s %s\n%s\n' "$buddy_domain" "$record_type" "$reply" >&2
+      return 1
+    fi
+    awk -v type="$record_type" '$4 == type {print $5}' <<<"$reply"
+  }
+  buddy_ipv4=$(buddy_addresses A)
+  buddy_ipv6=$(buddy_addresses AAAA)
+  if [[ -z "$buddy_ipv4" && -z "$buddy_ipv6" ]]; then
+    echo "No A or AAAA records found for $buddy_domain" >&2
+    exit 1
+  fi
+  for buddy_address in $buddy_ipv4 $buddy_ipv6; do
+    buddy_target=$buddy_address
+    if [[ "$buddy_address" == *:* ]]; then
+      buddy_target="[$buddy_address]"
+    fi
+    echo "Checking HTTPS at $buddy_address"
+    curl --noproxy '*' --resolve "$buddy_domain:443:$buddy_target" \
+      --connect-timeout 5 --max-time 15 -fsS -o /dev/null \
+      "https://$buddy_domain/health/live"
+  done
 )
 ```
 
