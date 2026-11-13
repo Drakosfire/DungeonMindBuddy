@@ -188,6 +188,24 @@ describe("PlanGraphLoadPanel", () => {
     expect(window.location.search).not.toMatch(/session=longmont-c2:40/);
   });
 
+  it("retains successful campaign sessions when retrying another campaign", async () => {
+    window.history.replaceState({}, "", "/plan?campaigns=longmont-c1,longmont-c2&session=longmont-c2:24");
+    let c2Calls = 0;
+    const loadSessions = vi.fn(async (campaignId: string) => {
+      if (campaignId === "longmont-c1") return [3];
+      if (++c2Calls === 1) throw new Error("bundle unavailable");
+      return [24];
+    });
+    render(<PlanGraphLoadPanel projectionState="ready" nodeCount={45} />, { wrapper: wrapper(loadSessions) });
+    await screen.findByRole("option", { name: "C1 · Session 3" });
+    await userEvent.click(screen.getByRole("button", { name: "Retry validation" }));
+    await screen.findByRole("option", { name: "C2 · Session 24" });
+    expect(screen.getByRole("option", { name: "C1 · Session 3" })).toBeInTheDocument();
+    expect(loadSessions.mock.calls.map(([campaignId]) => campaignId)).toEqual([
+      "longmont-c1", "longmont-c2", "longmont-c2",
+    ]);
+  });
+
   it("retries focus validation after a bundle outage", async () => {
     const user = userEvent.setup();
     window.history.replaceState(
