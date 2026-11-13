@@ -634,9 +634,8 @@ def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummar
                 status_code=503,
                 diagnostics=[{"reason": "enumeration_ports_missing"}],
             )
-        world_ids: set[str] = set()
-        for head in bundle.world_graph.list_heads():
-            world_ids.add(head.world_id)
+        heads = {head.world_id: head for head in bundle.world_graph.list_heads()}
+        world_ids = set(heads)
         for world_id in bundle.existing_world_adoptions.list_world_ids():
             world_ids.add(world_id)
         init_repo = getattr(bundle, "reviewed_world_initializations", None)
@@ -646,7 +645,10 @@ def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummar
 
         summaries: list[WorldHeadSummary] = []
         for world_id in sorted(world_ids):
-            head = bundle.world_graph.get_head(world_id)
+            head = heads.get(world_id)
+            if head is None:
+                # A receipt may have appeared after list_heads took its snapshot.
+                head = bundle.world_graph.get_head(world_id)
             summaries.append(
                 WorldHeadSummary(
                     world_id=world_id,
