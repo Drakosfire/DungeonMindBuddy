@@ -367,6 +367,32 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     }
   }
 
+  useEffect(() => {
+    if (!editor || !review || published || pending) return;
+    const abort = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const { response } = await authenticatedApiFetch("/api/live/statblock-definitions:validate", {
+          method: "POST",
+          signal: abort.signal,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ definition: editor.workingCopy }),
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (!abort.signal.aborted && result?.outcome === "success" && result.validation_receipt) {
+          setIssues(result.validation_receipt.issues ?? []);
+        }
+      } catch {
+        // Publish validates the saved revision even when background validation is unavailable.
+      }
+    }, 450);
+    return () => {
+      window.clearTimeout(timer);
+      abort.abort();
+    };
+  }, [editor, review, published, pending]);
+
   const publishBlockers = editor && review ? [
     ...(getLocalFingerprint(editor) !== editor.baselineFingerprint ? ["Save your edits."] : []),
     ...issues.filter(issue => issue.severity === "error").map(issue => issue.message),
@@ -406,7 +432,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       {editor && !mechanicsResolved && <ul aria-label="Fields needed for combat adoption">
         {!editor.workingCopy.movement && <li>Movement is unspecified. Enter a speed if the source supports it.</li>}
         {editor.workingCopy.challenge.proficiency_bonus == null &&
-          <li>Proficiency bonus is missing. Enter the bonus for the reviewed ruleset.</li>}
+          <li>Proficiency bonus is unspecified. A bonus is needed for combat adoption.</li>}
       </ul>}
       {editor && !editor.workingCopy.movement && <form onSubmit={event => {
         event.preventDefault();
@@ -417,6 +443,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
           key: "walk", mode: "walk" as const, distance: { unit: "feet" as const, value: Number(speed) },
         }] } })));
         setSaved(false);
+        setIssues([]);
+        setValidation("");
       }}>
         <p>Movement is unspecified. You can publish with movement unspecified.</p>
         <label>Walking speed (feet)
@@ -443,7 +471,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
             </select>
           </label>
           <label>Proficiency bonus
-            <input type="number" min="0" step="1"
+            <input type="number" min="0" step="1" placeholder="Unspecified in source"
+              aria-invalid={issues.some(issue => issue.field_path === "challenge.proficiency_bonus" && issue.severity === "error")}
               value={editor.workingCopy.challenge.proficiency_bonus ?? ""}
               onChange={event => {
                 const value = event.currentTarget.valueAsNumber;

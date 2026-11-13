@@ -101,6 +101,9 @@
   gap: 0.5rem;
 }
 
+/* Keep the source-browser shortcut beside the picker in the shared navbar rail. */
+.app-chrome-header .surface-context-host .build-browse-recaps { order: 11; }
+
 .build-surface-context__save-status {
   max-width: 16rem;
 }
@@ -759,5 +762,19 @@ body:has([data-document-surface="build"])
   min-width: 0;
 }
 
-/* Keep the source-browser shortcut beside the picker in the shared navbar rail. */
-.app-chrome-header .surface-context-host .build-browse-recaps { order: 11; }
+.build-pdf-workspace {
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+}
+
+.build-pdf-workspace__toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--panel, #151923);
+}
