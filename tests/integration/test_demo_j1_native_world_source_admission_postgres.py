@@ -9,7 +9,7 @@ from psycopg.conninfo import conninfo_to_dict
 import pytest
 from fastapi.testclient import TestClient
 from apps.live_control_server.main import create_app
-from apps.live_control_server.routes import world_containers, workspace_documents
+from apps.live_control_server.routes import workspace_documents
 
 from apps.live_control_server import config
 from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as native
@@ -51,7 +51,6 @@ def disposable_database_url(monkeypatch: pytest.MonkeyPatch) -> str:
 def test_native_source_admission_persists_and_replays_after_repository_recreation(
     tmp_path: Path, disposable_database_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(world_containers, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(workspace_documents, "repo_root", lambda: tmp_path)
     client = TestClient(create_app())
     created = client.post("/api/live/world-containers", json={"name": f"J1 Integration {uuid.uuid4().hex[:10]}"})

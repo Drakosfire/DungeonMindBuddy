@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -56,8 +55,7 @@ class DeactivateNativeGraphBindingRequest(BaseModel):
 NativeGraphAuthorityValidator = Callable[[str], Any]
 
 
-def _load_binding_snapshot(root: Path, world_id: str) -> tuple[WorldContainerRecord, int]:
-    del root
+def _load_binding_snapshot(world_id: str) -> tuple[WorldContainerRecord, int]:
     try:
         stored = _stored_world(world_id)
     except WorldContainerRegistryError as exc:
@@ -153,7 +151,6 @@ def _validated_head_and_revision(
 
 
 def bind_native_graph(
-    root: Path,
     managed_world_id: str,
     *,
     native_world_id: str,
@@ -169,7 +166,7 @@ def bind_native_graph(
     if isinstance(expected_binding_version, bool) or expected_binding_version < 0:
         raise WorldGraphBindingError("Expected binding version must be non-negative.", status_code=422)
 
-    initial, expected_revision = _load_binding_snapshot(root, cleaned_managed_id)
+    initial, expected_revision = _load_binding_snapshot(cleaned_managed_id)
     _require_expected_version(initial, expected_binding_version)
     if isinstance(initial.native_graph_binding, NativeGraphProvisioningRecord):
         raise WorldGraphBindingError(
@@ -201,13 +198,13 @@ def bind_native_graph(
 
 
 def activate_reviewed_native_graph(
-    root: Path, managed_world_id: str, *, target: FirstWorldNativeTarget,
+    managed_world_id: str, *, target: FirstWorldNativeTarget,
     receipt: WorldGraphInitializationReceipt,
     plan_id: str, plan_digest: str,
     authority_validator: NativeGraphAuthorityValidator | None = None,
 ) -> WorldContainerRecord:
     """Verify real reviewed genesis unlocked, then promote only its exact reservation."""
-    initial, revision = _load_binding_snapshot(root, _validate_world_id(managed_world_id))
+    initial, revision = _load_binding_snapshot(_validate_world_id(managed_world_id))
     binding = initial.native_graph_binding
     if binding is None or (
         binding.native_world_id != target.native_world_id
@@ -267,7 +264,7 @@ def activate_reviewed_native_graph(
             raise WorldGraphBindingError("Active World has a different initialization proof.")
         # This binding is immutable for this operation; a concurrent deactivate
         # must not be acknowledged as successful original-confirm recovery.
-        current, current_revision = _load_binding_snapshot(root, managed_world_id)
+        current, current_revision = _load_binding_snapshot(managed_world_id)
         if current_revision != revision or current != initial:
             raise WorldGraphBindingError("World binding changed during initialization recovery.")
         return current
@@ -288,7 +285,6 @@ def activate_reviewed_native_graph(
 
 
 def deactivate_native_graph_binding(
-    root: Path,
     managed_world_id: str,
     *,
     expected_binding_version: int,
@@ -298,7 +294,7 @@ def deactivate_native_graph_binding(
     if isinstance(expected_binding_version, bool) or expected_binding_version < 0:
         raise WorldGraphBindingError("Expected binding version must be non-negative.", status_code=422)
 
-    current, revision = _load_binding_snapshot(root, cleaned_managed_id)
+    current, revision = _load_binding_snapshot(cleaned_managed_id)
     _require_expected_version(current, expected_binding_version)
     binding = current.native_graph_binding
     if binding is None:

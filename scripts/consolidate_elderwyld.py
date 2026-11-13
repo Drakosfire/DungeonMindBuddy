@@ -296,8 +296,8 @@ def adopt(root: Path, raw: bytes, expected_world: dict):
     if binding is None or binding.native_world_id not in (OLD, NEW):
         raise ValueError('Unexpected managed binding')
     if binding.native_world_id == OLD and binding.status == 'active':
-        current = deactivate_native_graph_binding(root, NEW, expected_binding_version=binding.binding_version)
-    bind_native_graph(root, NEW, native_world_id=NEW, expected_binding_version=current.native_graph_binding.binding_version,
+        current = deactivate_native_graph_binding(NEW, expected_binding_version=binding.binding_version)
+    bind_native_graph(NEW, native_world_id=NEW, expected_binding_version=current.native_graph_binding.binding_version,
         authority_validator=lambda wid: direct_services_from_bundle(bundle, wid))
     return receipt.model_dump(mode='json')
 
