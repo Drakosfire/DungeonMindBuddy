@@ -119,8 +119,8 @@ def test_valid_selection_is_idempotent_and_last_explicit_run_wins(
 ) -> None:
     _create_committed_run(tmp_path, run_id=RUN_ID_A, name="north-gate")
     _create_committed_run(tmp_path, run_id=RUN_ID_B, name="south-wall")
-    seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
-    seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_B)
+    seal_or_replay_play_run_reference_manifest(RUN_ID_A)
+    seal_or_replay_play_run_reference_manifest(RUN_ID_B)
 
     first_response = client.put("/api/live/play-active-run", json={"run_id": RUN_ID_A})
     assert first_response.status_code == 200

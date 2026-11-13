@@ -265,7 +265,7 @@ def test_corrupt_aggregate_does_not_mutate_pointer(
     create_run(tmp_path, create_committed_runbook(tmp_path, name="second"), run_id=RUN_ID_B)
     selected = set_play_active_run(run_id=RUN_ID_A)
     before = fetch_play_active_run_row(application_state_dsn)
-    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_B)
+    manifest = get_play_run_reference_manifest(RUN_ID_B)
 
     corrupt_play_run_progress(
         application_state_dsn,
@@ -351,7 +351,7 @@ def test_new_app_instance_and_different_root_resume_exact_current_moment(
     assert restarted.json() == first.json() == selected.model_dump(mode="json")
 
     run = get_play_run(other_root, RUN_ID_A)
-    manifest = get_play_run_reference_manifest(other_root, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     committed = get_committed_playable_revision(run.playable_artifact_id, kind="runbook")
     assert run.run_revision == progressed.run_revision
     assert run.progress.model_dump(mode="json") == gate_progress().model_dump(mode="json")
@@ -430,7 +430,7 @@ def test_active_run_latency_samples(tmp_path: Path, application_state_dsn: str) 
         active = get_play_active_run()
         assert active.run_id is not None
         run = get_play_run(tmp_path, active.run_id)
-        manifest = get_play_run_reference_manifest(tmp_path, active.run_id)
+        manifest = get_play_run_reference_manifest(active.run_id)
         committed = get_committed_playable_revision(run.playable_artifact_id, kind="runbook")
         assert manifest.run_id == run.run_id
         assert committed.revision_n == run.playable_revision

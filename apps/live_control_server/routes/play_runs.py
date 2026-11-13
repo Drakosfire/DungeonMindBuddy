@@ -121,7 +121,7 @@ async def put_play_run_reference_manifest(run_id: str, request: Request) -> dict
             detail="reference-manifest seal does not accept a request body",
         )
     try:
-        manifest = seal_or_replay_play_run_reference_manifest(repo_root(), run_id)
+        manifest = seal_or_replay_play_run_reference_manifest(run_id)
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except PlayRunReferenceManifestError as exc:
@@ -136,7 +136,7 @@ async def put_play_run_reference_manifest(run_id: str, request: Request) -> dict
 )
 def get_play_run_reference_manifest_route(run_id: str) -> dict[str, Any]:
     try:
-        manifest = get_play_run_reference_manifest(repo_root(), run_id)
+        manifest = get_play_run_reference_manifest(run_id)
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except PlayRunReferenceManifestError as exc:
@@ -337,7 +337,7 @@ def get_world_play_run_reference_manifest_v2(
 ) -> dict[str, Any]:
     try:
         manifest = get_world_play_run_reference_manifest(
-            repo_root(), world_id=world_id, run_id=run_id
+            world_id=world_id, run_id=run_id
         )
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

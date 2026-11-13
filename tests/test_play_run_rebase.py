@@ -229,7 +229,7 @@ def _create_run(root: Path, snapshot: WorkspaceDocumentSnapshot):
 
 def _seal(root: Path, snapshot: WorkspaceDocumentSnapshot):
     record = _create_run(root, snapshot)
-    manifest = seal_or_replay_play_run_reference_manifest(root, RUN_ID_A)
+    manifest = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
     return record, manifest
 
 
@@ -281,7 +281,7 @@ def _record_snapshot(record) -> object:
 
 
 def _manifest_snapshot(root: Path, run_id: str = RUN_ID_A):
-    manifest = get_play_run_reference_manifest(root, run_id)
+    manifest = get_play_run_reference_manifest(run_id)
     return (manifest.playable_revision, manifest.playable_content_sha256)
 
 
@@ -300,7 +300,7 @@ def _rebase_failure_leaves_source(
 
     source = _create_committed_runbook(tmp_path)
     created = _seal(tmp_path, source)[0]
-    source_manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    source_manifest = get_play_run_reference_manifest(RUN_ID_A)
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
     real_replace_manifest = play_repository.replace_manifest
 
@@ -341,7 +341,7 @@ def test_surviving_refs_rebase_replaces_binding_and_manifest(tmp_path: Path) -> 
     assert _manifest_snapshot(tmp_path) != source_manifest
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
     assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
-    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     assert manifest.playable_revision == _playable(target)[0]
     assert manifest.playable_content_sha256 == target.content_sha256
     assert {element.element_id for element in manifest.elements} >= {
@@ -359,7 +359,7 @@ def test_empty_progress_can_cross_full_element_replacement(tmp_path: Path) -> No
     assert rebased.progress.current_scene_id is None
     assert rebased.playable_revision == _playable(target)[0]
     assert rebased.run_revision == 2
-    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     assert {element.element_id for element in manifest.elements} == {
         "beat:dock",
         "scene:harbor",
@@ -439,7 +439,7 @@ def test_missing_source_manifest_empty_progress_is_allowed(tmp_path: Path) -> No
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
     rebased = _rebase(tmp_path, target, expected_run_revision=created.run_revision)
     assert rebased.run_revision == created.run_revision + 1
-    assert get_play_run_reference_manifest(tmp_path, RUN_ID_A).playable_revision == _playable(target)[0]
+    assert get_play_run_reference_manifest(RUN_ID_A).playable_revision == _playable(target)[0]
     assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -462,7 +462,7 @@ def test_missing_source_manifest_with_progress_is_409(tmp_path: Path) -> None:
 def test_intent_write_failure_leaves_source_pair(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     created, source_manifest, target, real_replace = _rebase_failure_leaves_source(tmp_path, monkeypatch)
     assert get_play_run(tmp_path, RUN_ID_A).run_revision == created.run_revision
-    assert get_play_run_reference_manifest(tmp_path, RUN_ID_A) == source_manifest
+    assert get_play_run_reference_manifest(RUN_ID_A) == source_manifest
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
     monkeypatch.setattr("application_state.play.repository.replace_manifest", real_replace)
     recovered = _rebase(tmp_path, target, expected_run_revision=created.run_revision)
@@ -690,8 +690,8 @@ def test_p2b1_replay_after_rebase_does_not_rewrite(tmp_path: Path) -> None:
     _seal(tmp_path, source)
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
     _rebase(tmp_path, target, expected_run_revision=1)
-    before = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
-    replayed = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    before = get_play_run_reference_manifest(RUN_ID_A)
+    replayed = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
     assert replayed == before
     assert replayed.playable_revision == _playable(target)[0]
 

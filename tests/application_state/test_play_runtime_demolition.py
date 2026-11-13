@@ -155,8 +155,8 @@ def _exercise_full_play_chain(root: Path) -> dict:
     snapshot = create_committed_runbook(root, name="as5-absent")
     created = create_run(root, snapshot)
     _assert_play_dir_absent(root)
-    manifest = seal_or_replay_play_run_reference_manifest(root, RUN_ID_A)
-    loaded_manifest = get_play_run_reference_manifest(root, RUN_ID_A)
+    manifest = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
+    loaded_manifest = get_play_run_reference_manifest(RUN_ID_A)
     assert loaded_manifest == manifest
     listed = list_play_runs(root)
     loaded = get_play_run(root, RUN_ID_A)
@@ -244,7 +244,7 @@ def test_full_play_chain_with_play_dir_absent(
     assert restarted.json() == first.json() == result["selected"].model_dump(mode="json")
 
     resumed = get_play_run(other_root, RUN_ID_A)
-    manifest = get_play_run_reference_manifest(other_root, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     assert resumed.run_revision == result["rebased"].run_revision
     assert resumed.progress.model_dump(mode="json") == gate_progress().model_dump(mode="json")
     assert resumed.playable_revision == result["target_revision"]
@@ -317,7 +317,7 @@ def test_db_down_does_not_read_or_mutate_contradictory_legacy_files(
         list_play_runs(tmp_path)
     assert list_exc.value.status_code == 503
     with pytest.raises(PlayRunReferenceManifestError) as manifest_exc:
-        get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        get_play_run_reference_manifest(RUN_ID_A)
     assert manifest_exc.value.status_code == 503
     with pytest.raises(PlayActiveRunError) as active_exc:
         get_play_active_run(tmp_path)
@@ -425,7 +425,7 @@ def test_predecessor_import_then_as5_head_reads_same_db_without_files(
     _assert_play_dir_absent(tmp_path)
 
     loaded = get_play_run(tmp_path, RUN_ID_A)
-    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     active = get_play_active_run(tmp_path)
     committed = get_committed_playable_revision(loaded.playable_artifact_id, kind="runbook")
     assert loaded.progress.model_dump(mode="json") == gate_progress().model_dump(mode="json")

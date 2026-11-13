@@ -281,7 +281,7 @@ def test_http_completed_replay_requires_intact_manifest(client: TestClient, root
         json=_rebase_body(target, expected_run_revision=1),
     )
     assert first.status_code == 200
-    manifest_before = get_play_run_reference_manifest(root, RUN_ID_A)
+    manifest_before = get_play_run_reference_manifest(RUN_ID_A)
     leftover = leftover_manifest_path(root, RUN_ID_A)
     leftover.parent.mkdir(parents=True, exist_ok=True)
     leftover.write_text("{}\n", encoding="utf-8")
@@ -291,5 +291,5 @@ def test_http_completed_replay_requires_intact_manifest(client: TestClient, root
     )
     assert replay.status_code == 200
     assert replay.json() == first.json()
-    assert get_play_run_reference_manifest(root, RUN_ID_A) == manifest_before
+    assert get_play_run_reference_manifest(RUN_ID_A) == manifest_before
     assert client.get(f"/api/live/play-runs/{RUN_ID_A}").json()["run_revision"] == 2

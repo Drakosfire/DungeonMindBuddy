@@ -61,7 +61,7 @@ def test_successful_rebase_moves_binding_and_manifest_once(
     assert rebased.playable_revision == target_revision
     assert rebased.playable_content_sha256 == target_sha
     assert rebased.rebased_from_run_revision == created.run_revision
-    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     assert manifest.playable_revision == target_revision
     assert manifest.playable_content_sha256 == target_sha
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
@@ -105,7 +105,7 @@ def test_rebase_failure_before_commit_leaves_source_and_writes_no_intent(
 ) -> None:
     snapshot = create_committed_runbook(tmp_path, markdown=SOURCE_MARKDOWN)
     created = create_run(tmp_path, snapshot)
-    source_manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    source_manifest = get_play_run_reference_manifest(RUN_ID_A)
     target_revision, target_sha = _advance_to_surviving_target(tmp_path, snapshot)
 
     def explode(*_args, **_kwargs):
@@ -124,7 +124,7 @@ def test_rebase_failure_before_commit_leaves_source_and_writes_no_intent(
     assert leftover.playable_revision == created.playable_revision
     assert leftover.run_revision == created.run_revision
     assert leftover.rebased_from_run_revision is None
-    assert get_play_run_reference_manifest(tmp_path, RUN_ID_A) == source_manifest
+    assert get_play_run_reference_manifest(RUN_ID_A) == source_manifest
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -155,7 +155,7 @@ def _assert_cross_grammar_rebase_is_terminal(
 ) -> None:
     snapshot = create_committed_runbook(tmp_path, markdown=source_markdown)
     created = create_run(tmp_path, snapshot)
-    source_manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    source_manifest = get_play_run_reference_manifest(RUN_ID_A)
     commit_runbook_markdown(
         tmp_path,
         snapshot.record.document_id,
@@ -178,7 +178,7 @@ def _assert_cross_grammar_rebase_is_terminal(
     assert leftover.playable_content_sha256 == created.playable_content_sha256
     assert leftover.run_revision == created.run_revision
     assert leftover.rebased_from_run_revision is None
-    assert get_play_run_reference_manifest(tmp_path, RUN_ID_A) == source_manifest
+    assert get_play_run_reference_manifest(RUN_ID_A) == source_manifest
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -216,7 +216,7 @@ def test_same_grammar_v2_rebase_is_preserve_only(
     )
     assert rebased.run_revision == created.run_revision + 1
     assert rebased.playable_revision == target_revision
-    assert get_play_run_reference_manifest(tmp_path, RUN_ID_A).schema_version == (
+    assert get_play_run_reference_manifest(RUN_ID_A).schema_version == (
         "dmb_play_run_reference_manifest_v2"
     )
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
@@ -235,7 +235,7 @@ def test_exact_rebase_replay_rejects_corrupt_stored_manifest(
         target_playable_revision=target_revision,
         target_playable_content_sha256=target_sha,
     )
-    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     cases = [
         {},
         unknown_schema_manifest(manifest.model_dump(mode="json", exclude_none=True)),
@@ -262,7 +262,7 @@ def test_exact_rebase_replay_rejects_corrupt_stored_manifest(
             )
         assert same_head_exc.value.status_code == 500
         with pytest.raises(PlayRunReferenceManifestError) as manifest_exc:
-            get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+            get_play_run_reference_manifest(RUN_ID_A)
         assert manifest_exc.value.status_code == 500
         leftover = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
         assert leftover == before
