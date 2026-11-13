@@ -207,7 +207,9 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
     bundle.mkdir()
     index_path = bundle / "source_span_index.json"
     index_path.write_text(dumps({"spans": [{"span_id": "span", "line_start": 1, "line_end": 1},
-                                                {"span_id": "span", "line_start": 2, "line_end": 2}]}))
+                                                {"span_id": "span", "start_line": 3, "end_line": 3},
+                                                {"span_id": "first", "line_start": 1, "line_end": 2},
+                                                {"span_id": "overlap", "line_start": 2, "line_end": 2}]}))
     record = SimpleNamespace(default_graph_run_uri="run", run_bundle_uri="bundle", source_recap_path=None)
     read = Mock(wraps=graph_preview_surface._load_json)
     class CountedRecap(str):
@@ -217,7 +219,7 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
             self.splits += 1
             return super().splitlines(keepends)
 
-    source = CountedRecap("First line.\r\nAsk Mara.\r\n")
+    source = CountedRecap("First line.\r\nSee Mara.\r\nAsk Mara.\r\n")
     recap = Mock(return_value=(source, "recap.md"))
     monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", lambda *args, **kwargs: record)
     monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
@@ -227,8 +229,8 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
 
     payload = build_recap_graph_presentation(tmp_path)
 
-    assert payload.markdown == "First line.\nAsk [Mara](dmb-node:npc_mara)."
-    assert [(link.source_span_ref_id, link.char_start, link.char_end) for link in payload.links] == [("span", 4, 8)]
+    assert payload.markdown == "First line.\nSee [Mara](dmb-node:npc_mara).\nAsk [Mara](dmb-node:npc_mara)."
+    assert [(link.source_span_ref_id, link.char_start, link.char_end) for link in payload.links] == [("first", 16, 20), ("span", 4, 8)]
     assert payload.recap_source_path == "recap.md"
     assert sum(call.args == (index_path,) for call in read.call_args_list) == 1
     assert source.splits == 1
