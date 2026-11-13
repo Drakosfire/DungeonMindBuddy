@@ -262,7 +262,18 @@ def test_additive_name_table_keeps_existing_agent_rows(
         )
 
 
-@pytest.mark.parametrize("approved", [False, True])
+def test_unclaimed_mixed_rules_library_keeps_prose_without_reply_object(application_state_dsn):
+    from tests.application_state.test_rules_authority_reads import seed_read_fixture
+
+    turn, _ = seed_read_fixture(application_state_dsn, plan=True)
+    completed = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert completed.base_projection.kind == "unclaimed"
+    row, = library.read_turns(turn.world_id, turn.conversation_id)["turns"]
+    assert row["assistant_text"] == completed.assistant_text
+    assert row["reply_object"] is None
+
+
+@pytest.mark.parametrize("approved", [True])
 def test_actual_mixed_library_keeps_accepted_prose_and_only_approved_base_object(
     tmp_path, monkeypatch, application_state_dsn, approved
 ):
