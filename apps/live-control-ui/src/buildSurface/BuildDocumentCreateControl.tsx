@@ -113,7 +113,7 @@ export function BuildDocumentCreateControl({
   onRetryImport,
   disabled = false,
 }: BuildDocumentCreateControlProps) {
-  const [droppedPdf, setDroppedPdf] = useState<{file: File; sequence: number}>();
+  const [droppedPdf, setDroppedPdf] = useState<{ file: File; sequence: number }>();
   useEffect(() => {
     function openPdf(event: Event) {
       if (disabled || creating) return;
