@@ -30,6 +30,7 @@ it("reopens a draft and saves edits against the exact retained regions", async (
 
   render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
   const name = await screen.findByRole("textbox", { name: "Creature name" });
+  fireEvent.click(await screen.findByRole("button", { name: "Developer tools" }));
   fireEvent.click(screen.getByRole("button", { name: "Validate mechanics" }));
   await screen.findByText("Mechanics validated with warnings.");
   expect(screen.getByText(/Check the printed name/)).toBeInTheDocument();
@@ -99,6 +100,7 @@ it.each([false, true])("recovers an acceptance failure (stale draft: %s)", async
   });
 
   render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
+  fireEvent.click(await screen.findByRole("button", { name: "Developer tools" }));
   fireEvent.click(await screen.findByRole("button", { name: "Choose creature draft" }));
   fireEvent.change(await screen.findByRole("combobox", { name: "Creature draft" }), {
     target: { value: "draft-a" },
@@ -141,6 +143,7 @@ it("appends to the explicitly selected saved revision and replays its request", 
     return { response: Response.json(data) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
   });
   render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
+  fireEvent.click(await screen.findByRole("button", { name: "Developer tools" }));
   fireEvent.click(await screen.findByRole("button", { name: "Choose creature draft" }));
   fireEvent.change(await screen.findByRole("combobox", { name: "Creature draft" }), { target: { value: "draft-a" } });
   await screen.findByRole("option", { name: /rev_base/ });
@@ -176,6 +179,7 @@ it.each([401, 403, 404, 422])("retries creature creation after HTTP %s and selec
         name: "Creature", workflow_state: "drafting",
       } as Awaited<ReturnType<typeof getThreatDraft>>);
     render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Developer tools" }));
     const create = await screen.findByRole("button", { name: "Create creature draft from review" });
     fireEvent.click(create);
     expect(await screen.findByRole("alert")).toHaveTextContent("Review data rejected");
@@ -211,6 +215,7 @@ it("saves and reopens edits with movement unspecified", async () => {
   render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
   expect(await screen.findByRole("textbox", { name: "Creature name" })).toHaveValue("Edited tree");
   expect(screen.getByText(/Movement is unspecified/)).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Developer tools" }));
   expect(screen.getByRole("button", { name: "Validate mechanics" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Create creature draft from review" })).toBeDisabled();
 });
