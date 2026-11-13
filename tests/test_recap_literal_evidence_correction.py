@@ -122,7 +122,7 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
     ])
     children: dict[str, ExtractionRun] = {}
 
-    def get_run(_repo, run_id):
+    def get_run(run_id):
         if run_id == "parent":
             return parent
         if run_id in children:
@@ -142,7 +142,7 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
         return updated
 
     def review_data(_root, run_id):
-        run = get_run(_root, run_id)
+        run = get_run(run_id)
         if run.status != ExtractionRunStatus.REVIEWABLE:
             raise GraphRunRegistryError("not reviewable", status_code=422)
         data = parent_path.read_bytes() if run_id == "parent" else payloads[(run_id, "candidate_graph")]
