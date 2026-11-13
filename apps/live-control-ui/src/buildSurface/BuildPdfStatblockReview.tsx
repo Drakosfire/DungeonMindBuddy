@@ -271,6 +271,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         if (abort.signal.aborted) return;
         setEditor(createEditorStateFromOutput(result.definition));
         setReview(result);
+        setRegion(result.regions[0]);
       } catch {
         if (!abort.signal.aborted) setError("Could not open the statblock review.");
       }
@@ -404,7 +405,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         <section aria-label="PDF source" className="pdf-statblock-review__pane" tabIndex={0}>
       {review && <>
           {review.regions.map((locator, index) => (
-            <button type="button" key={index} onClick={() => { setError(""); setRegion(locator); }}>
+            <button type="button" key={index} onClick={() => { setError(""); setRegion({ ...locator }); }}>
               Open source region {index + 1} · Page {locator.page}
             </button>
           ))}

@@ -42,7 +42,7 @@ it("reopens a draft and saves edits against the exact retained regions", async (
   expect(screen.getByRole("button", { name: "Open source region 1 · Page 2" })).toBeInTheDocument();
 });
 
-it("shows the selected exact source region in a labeled preview", async () => {
+it("opens the first exact source region automatically", async () => {
   const definition = baseCandidateDefinition();
   const regions = [{ source_revision_id: "srev:test", content_sha256: "a".repeat(64),
     page: 2, left: 0.1, top: 0.2, right: 0.8, bottom: 0.7 }];
@@ -51,18 +51,22 @@ it("shows the selected exact source region in a labeled preview", async () => {
   const originalRevokeObjectURL = Object.getOwnPropertyDescriptor(URL, "revokeObjectURL");
   Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:source-region") });
   Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+  let cropReads = 0;
   try {
     fetch.mockImplementation(async (path, init) => {
       if (path.endsWith("/open?render=true")) {
         expect(init?.method).toBe("POST");
         expect(JSON.parse(String(init?.body))).toEqual(regions[0]);
+        if (++cropReads === 1) return { response: new Response(null, { status: 503 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
         return { response: new Response(new Blob(["source-image"], { type: "image/png" })) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
       }
       return { response: Response.json({ revision: 4, definition, regions }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
     });
 
     render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open source region 1 · Page 2" }));
+
+    expect(await screen.findByText("Could not open the exact PDF region.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open source region 1 · Page 2" }));
     expect(await screen.findByRole("figure", { name: "Source evidence · Page 2" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Exact PDF region on page 2" })).toHaveAttribute("src", "blob:source-region");
   } finally {
