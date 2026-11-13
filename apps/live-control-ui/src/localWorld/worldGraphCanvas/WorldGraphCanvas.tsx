@@ -112,6 +112,32 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
   );
 });
 
+const GraphEdge = memo(function GraphEdge({
+  id, path, markerId, selected, label, tabIndex, captionText, captionTransform, fontSize, onInspect,
+}: {
+  id: string;
+  path: string;
+  markerId: string;
+  selected: boolean;
+  label: string;
+  tabIndex: number;
+  captionText?: string;
+  captionTransform?: string;
+  fontSize?: number;
+  onInspect: (id: string | null) => void;
+}) {
+  return <g className={`world-graph-canvas__edge${selected ? " is-selected" : ""}`} data-edge-id={id} role="img" aria-label={label}
+        tabIndex={tabIndex}
+        onMouseEnter={() => onInspect(id)} onMouseLeave={() => onInspect(null)}
+        onFocus={() => onInspect(id)} onBlur={() => onInspect(null)}
+        onKeyDown={event => { if (event.key === "Escape") { onInspect(null); event.stopPropagation(); } }}>
+        <path d={path} markerEnd={`url(#${markerId})`} />
+        {captionText !== undefined ? <text className="world-graph-canvas__edge-phrase" aria-hidden="true" style={{ fontSize: fontSize }}
+          transform={captionTransform} dominantBaseline="central">{captionText}</text> : null}
+        <title>{label}</title>
+      </g>;
+});
+
 export interface WorldGraphCanvasProps {
   readonly canvasId?: string;
   readonly record: LocalWorldRecord;
@@ -1259,16 +1285,12 @@ export function WorldGraphCanvas({
     return renderedEdges.map(({ edge, geometry }) => {
       const label = edgeLabels.get(edge)!;
       const caption = captions.get(edge.id);
-      return <g className={`world-graph-canvas__edge${selected(edge) ? " is-selected" : ""}`} key={edge.id} data-edge-id={edge.id} role="img" aria-label={label}
-        tabIndex={!fullCorpus || selected(edge) ? 0 : -1}
-        onMouseEnter={() => setInspectedEdgeId(edge.id)} onMouseLeave={() => setInspectedEdgeId(null)}
-        onFocus={() => setInspectedEdgeId(edge.id)} onBlur={() => setInspectedEdgeId(null)}
-        onKeyDown={event => { if (event.key === "Escape") { setInspectedEdgeId(null); event.stopPropagation(); } }}>
-        <path d={geometry.path} markerEnd={`url(#${markerId})`} />
-        {caption ? <text className="world-graph-canvas__edge-phrase" aria-hidden="true" style={{ fontSize: 12 * edgeLabelScale }}
-          transform={`translate(${caption.x} ${caption.y}) rotate(${caption.angle})`} dominantBaseline="central">{caption.text}</text> : null}
-        <title>{label}</title>
-      </g>;
+      const isSelected = selected(edge);
+      return <GraphEdge key={edge.id} id={edge.id} path={geometry.path} markerId={markerId}
+        selected={isSelected} label={label} tabIndex={!fullCorpus || isSelected ? 0 : -1}
+        captionText={caption?.text}
+        captionTransform={caption ? `translate(${caption.x} ${caption.y}) rotate(${caption.angle})` : undefined}
+        fontSize={caption ? 12 * edgeLabelScale : undefined} onInspect={setInspectedEdgeId} />;
     });
   }, [renderedEdges, edgeLabels, markerId, selectedIds, positions, nodeShape, dimensions.width, dimensions.height, fullCorpus, allRelationships, edgeLabelDetail, edgeLabelScale]);
 
