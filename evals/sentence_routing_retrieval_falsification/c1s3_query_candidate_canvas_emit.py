@@ -21,6 +21,7 @@ from typing import Any
 from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import (
     default_cursor_canvas_path,
     patch_candidate_canvas_paths,
+    summarize_candidate_canvas_results,
 )
 
 BLOCK_BEGIN = "// BEGIN GENERATED C1S3_CANDIDATE_DETAIL"
@@ -64,16 +65,7 @@ def refresh_c1s3_candidate_canvases(
 ) -> dict[str, Any]:
     block = build_c1s3_candidate_canvas_block(candidates_doc)
     per_file = patch_c1s3_candidate_canvas_paths(block, canvas_paths)
-    errors = [x for x in per_file if "error" in x]
-    updated = [str(x["canvas_updated"]) for x in per_file if "canvas_updated" in x]
-    unchanged = [str(x["canvas_unchanged"]) for x in per_file if "canvas_unchanged" in x]
-    return {
-        "enabled": True,
-        "targets": [str(p.expanduser().resolve()) for p in canvas_paths],
-        "updated": updated,
-        "unchanged": unchanged,
-        "errors": errors,
-    }
+    return summarize_candidate_canvas_results(canvas_paths, per_file)
 
 
 def main() -> None:

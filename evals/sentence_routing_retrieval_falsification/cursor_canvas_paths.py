@@ -116,3 +116,18 @@ def patch_candidate_canvas_paths(
         else:
             out.append({"canvas_unchanged": str(p)})
     return out
+
+
+def summarize_candidate_canvas_results(
+    canvas_paths: list[Path], per_file: list[dict[str, Any]],
+) -> dict[str, Any]:
+    errors = [x for x in per_file if "error" in x]
+    updated = [str(x["canvas_updated"]) for x in per_file if "canvas_updated" in x]
+    unchanged = [str(x["canvas_unchanged"]) for x in per_file if "canvas_unchanged" in x]
+    return {
+        "enabled": True,
+        "targets": [str(p.expanduser().resolve()) for p in canvas_paths],
+        "updated": updated,
+        "unchanged": unchanged,
+        "errors": errors,
+    }
