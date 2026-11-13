@@ -113,6 +113,18 @@ export function BuildDocumentCreateControl({
   onRetryImport,
   disabled = false,
 }: BuildDocumentCreateControlProps) {
+  const [droppedPdf, setDroppedPdf] = useState<{file: File; sequence: number}>();
+  useEffect(() => {
+    function openPdf(event: Event) {
+      if (disabled || creating) return;
+      const file = (event as CustomEvent<File>).detail;
+      setDroppedPdf(previous => ({file, sequence: (previous?.sequence ?? 0) + 1}));
+      setDestinationSelection({value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions), provenance: "derived"});
+      setImportOpen(true);
+    }
+    window.addEventListener("dmb:build-pdf-drop", openPdf);
+    return () => window.removeEventListener("dmb:build-pdf-drop", openPdf);
+  }, [creating, disabled, destinationOptions, suggestedDestinationValue]);
   const [createOpen, setCreateOpen] = useState(false);
   const [starter, setStarter] = useState(true);
   useEffect(() => {
@@ -126,6 +138,10 @@ export function BuildDocumentCreateControl({
     return () => window.removeEventListener(BUILD_STUDIO_ACTION, open);
   }, [disabled, creating]);
   const [importOpen, setImportOpen] = useState(false);
+  function closeImport() {
+    setImportOpen(false);
+    setDroppedPdf(undefined);
+  }
   const [destinationSelection, setDestinationSelection] = useState<DestinationSelection>(() => ({
     value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions),
     provenance: "derived",
@@ -179,7 +195,7 @@ export function BuildDocumentCreateControl({
       provenance: "derived",
     });
     setCreateOpen(false);
-    setImportOpen(false);
+    closeImport();
   }, [
     activationError,
     createError,
@@ -267,7 +283,7 @@ export function BuildDocumentCreateControl({
   const sharedFields = (
     <>
       <label className="build-document-create__field build-document-create__field--destination">
-        <span>Destination</span>
+        <span>World</span>
         <select
           data-testid="build-document-create-destination"
           value={destinationValue}
@@ -410,7 +426,7 @@ export function BuildDocumentCreateControl({
               ++importFileRead.current;
               setReadingImportFile(false);
               setImportFileError(null);
-              setImportOpen(false);
+              closeImport();
             }}
             disabled={disabled || creating}
           >
@@ -487,7 +503,7 @@ export function BuildDocumentCreateControl({
       </SurfaceContextPopover>
       <SurfaceContextPopover
         open={importOpen}
-        onOpenChange={setImportOpen}
+        onOpenChange={open => { if (open) setImportOpen(true); else closeImport(); }}
         title="Import source"
         align="end"
         placement="below"
@@ -500,7 +516,7 @@ export function BuildDocumentCreateControl({
           />
         }
       >
-        <BuildPdfPreview key={resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined} worldId={resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined} />
+        <BuildPdfPreview initialFile={droppedPdf?.file} key={JSON.stringify([resolvedDestination?.kind === "world" ? resolvedDestination.worldId : null, droppedPdf?.sequence])} worldId={resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined} />
         {importForm}
       </SurfaceContextPopover>
     </div>
