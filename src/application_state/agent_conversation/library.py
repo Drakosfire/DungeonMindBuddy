@@ -314,7 +314,12 @@ def read_messages(
     with unit_of_work(_ready_dsn()) as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         conn.row_factory = dict_row
-        _one(conn, world, conversation)
+        owner = conn.execute(
+            "SELECT 1 FROM agent.conversation WHERE world_id=%s AND conversation_id=%s",
+            (world, conversation),
+        ).fetchone()
+        if owner is None:
+            raise ApplicationStateNotFoundError("Conversation not found in this World")
         messages, cursor = _message_page(
             conn, world, conversation, limit, before_sequence
         )
