@@ -75,6 +75,7 @@ def _advance(state, query, events):
 
     def selected_ids(handles, *, assertion, attempted):
         nonlocal catalog
+        handles = set(handles)
         if not any(isinstance(handle, str) and handle.startswith('native-object:') for handle in handles):
             return ()
         if catalog is None:
