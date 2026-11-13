@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import UTC, datetime
+from uuid import UUID
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
@@ -640,7 +641,8 @@ def create_world_owned_plan_v2(
 
 
 def list_world_owned_plans_v2(
-    root: Path, *, world_id: str, status: str | None = "active"
+    root: Path, *, world_id: str, status: str | None = "active",
+    limit: int | None = None, before: tuple[datetime, UUID] | None = None,
 ) -> WorldOwnedPlansResponseV2:
     cleaned_world = _validate_world_id(world_id)
     from apps.live_control_server.services.world_container_registry import (
@@ -659,7 +661,7 @@ def list_world_owned_plans_v2(
             )
         records = [
             _record_from_work_object(obj)
-            for obj in list_plans(world_id=cleaned_world, status=status)
+            for obj in list_plans(world_id=cleaned_world, status=status, limit=limit, before=before)
         ]
     except WorldContainerRegistryError as exc:
         raise WorkspaceDocumentRegistryError(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -238,6 +239,8 @@ def list_plans(
     campaign_id: str | None = None,
     world_id: str | None = None,
     status: str | None = "active",
+    limit: int | None = None,
+    before: tuple[datetime, UUID] | None = None,
 ) -> list[WorkObject]:
     if campaign_id is not None and world_id is not None:
         raise ApplicationStateValidationError(
@@ -247,7 +250,8 @@ def list_plans(
     with unit_of_work(dsn) as conn:
         assert_connection_at_head(conn)
         return repo.list_work_objects(
-            conn, kind="plan", campaign_id=campaign_id, world_id=world_id, status=status
+            conn, kind="plan", campaign_id=campaign_id, world_id=world_id, status=status,
+            limit=limit, before=before
         )
 
 
