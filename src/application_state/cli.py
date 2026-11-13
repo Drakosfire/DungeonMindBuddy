@@ -47,10 +47,14 @@ def _read_current_revision(dsn: str) -> str | None:
 
     try:
         with psycopg.connect(dsn, autocommit=True) as conn:
-            row = conn.execute(
-                "SELECT version_num FROM application_state.schema_migrations LIMIT 1"
-            ).fetchone()
-            return None if row is None else str(row[0])
+            rows = conn.execute(
+                "SELECT version_num FROM application_state.schema_migrations LIMIT 2"
+            ).fetchall()
+            if len(rows) > 1:
+                raise ApplicationStateMigrationError(
+                    "application-state migration table contains multiple revisions"
+                )
+            return str(rows[0][0]) if rows else None
     except psycopg.errors.UndefinedTable:
         return None
     except psycopg.Error as exc:

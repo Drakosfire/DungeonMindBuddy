@@ -249,6 +249,10 @@ def inspect_readiness(*, load_env: bool = True) -> ReadinessReport:
         report.play_readiness = "UNAVAILABLE"
         report.notes.append(redact_secrets(str(exc), dsn))
         return report
+    except ApplicationStateMigrationError as exc:
+        report.play_readiness = "BLOCKED"
+        report.notes.append(redact_secrets(str(exc), dsn))
+        return report
     report.schema_current = current
     report.schema_head = head
     report.schema_status = schema_status
