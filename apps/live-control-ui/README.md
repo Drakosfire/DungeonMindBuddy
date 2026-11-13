@@ -197,3 +197,19 @@ From repo root:
 ```bash
 uv run pytest tests/test_live_control_server.py -q
 ```
+
+### Standalone native Graph build
+
+From this directory, build the standalone demo with
+`npm exec -- vite build --config native-demo.vite.config.ts`. Its default output
+is `dist-native-demo/`, which the build clears before writing. Git and the Docker
+build context ignore this directory.
+
+If you set `NATIVE_DEMO_BUILD_OUTDIR`, use a dedicated disposable directory. The
+build clears that destination too. Use a fresh temporary directory when you
+need an isolated build.
+
+```sh
+native_demo_output="$(mktemp -d)"
+NATIVE_DEMO_BUILD_OUTDIR="$native_demo_output" npm exec -- vite build --config native-demo.vite.config.ts
+```
