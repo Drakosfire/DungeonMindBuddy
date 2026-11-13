@@ -161,10 +161,12 @@ export function createGraphFallbackPositions(
   }
   groups.sort((a, b) => b.length - a.length || rank(a[0], b[0]));
   const result = new Map<Id, Point>();
-  const buckets = new Map<string, Bubble[]>();
+  const buckets = new Map<number, Bubble[]>();
   // One neighboring cell covers two maximum radii (~304) plus the 4-unit gap.
   const cell = 320;
-  const key = (x: number, y: number) => `${x}:${y}`;
+  // Include the one-cell halo on both sides of the coordinate domain.
+  const bucketStride = Math.floor(MAX_GRAPH_COORDINATE / cell) + 3;
+  const key = (x: number, y: number) => x * bucketStride + y;
   function occupy(id: Id, point: Point) {
     result.set(id, point);
     const k = key(Math.floor(point.x / cell), Math.floor(point.y / cell));
