@@ -259,9 +259,9 @@ verify that each URL renders the intended page.
 
 ## 5. Smoke-test real browser authentication and routing
 
-1. Open Buddy in a fresh browser profile and check that `GET /api/auth/current-user` returns `401`.
+1. Open Buddy in a fresh browser profile and check that the startup request `GET /api/auth/session` returns `401`.
 2. Use Buddy's sign-in entry point. Complete the real DungeonMind Server sign-in and verify the browser returns to Buddy.
-3. In the browser network panel, require `200` from `GET /api/auth/current-user` and `GET /api/live/world-containers`. Verify the assigned World appears and access matches the approved assignments.
+3. In the browser network panel, require `200` from `GET /api/auth/session` and `GET /api/live/world-containers`. Verify the assigned World appears and access matches the approved assignments.
 4. Open the landing page at `/`, select the approved World, and follow its
    Graph link. Verify `/graph` renders the graph and opens object details. Check
    that the viewer offers read controls and that a direct link to an unassigned
@@ -270,7 +270,7 @@ verify that each URL renders the intended page.
    authoring and recap ingestion. Use the
    [frontend guide](../../apps/live-control-ui/README.md#legacy-surface-board)
    for the local operator Chat smoke.
-5. Verify the navbar identifies the signed-in DungeonMind account and keeps World selection in a separate control. Open the account menu and sign out. Reload and require `401` from both endpoints. Record the result and timestamp without saving cookies or credentials.
+5. Verify the navbar identifies the signed-in DungeonMind account and keeps World selection in a separate control. Open the account menu and sign out. Confirm `POST /api/auth/logout` succeeds, then reload and require `401` from `GET /api/auth/session`. Probe `GET /api/live/world-containers` directly from the signed-out browser and require `401`; the UI may skip this request. Record the result and timestamp without saving cookies or credentials.
 
 ## 6. Close out or roll back
 
