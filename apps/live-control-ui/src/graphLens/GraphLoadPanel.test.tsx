@@ -215,7 +215,7 @@ describe("PlanGraphLoadPanel", () => {
     });
     render(<PlanGraphLoadPanel projectionState="ready" nodeCount={45} />, { wrapper: wrapper(loadSessions) });
     await screen.findByRole("option", { name: "C1 · Session 3" });
-    await userEvent.click(screen.getByRole("button", { name: "Retry validation" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Retry validation" }));
     await screen.findByRole("option", { name: "C2 · Session 24" });
     expect(screen.getByRole("option", { name: "C1 · Session 3" })).toBeInTheDocument();
     expect(loadSessions.mock.calls.map(([campaignId]) => campaignId)).toEqual([
