@@ -15,3 +15,29 @@ it('reads the World session index once while campaign/session inputs change',asy
  fireEvent.change(screen.getByLabelText('Recap source session'),{target:{value:'30'}});
  expect(evidenceApi.listSessionEvidence).toHaveBeenCalledTimes(1);expect(evidenceApi.readSessionEvidence).not.toHaveBeenCalled();
 });
+
+const loader = vi.hoisted(() => ({ fail: false }));
+vi.mock("../ui/deferredComponent", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../ui/deferredComponent")>();
+  const deferredComponent: typeof actual.deferredComponent = (load, label) =>
+    actual.deferredComponent(async () => {
+      if (loader.fail) throw new Error("Synthetic evidence load failure");
+      return load();
+    }, label);
+  return { deferredComponent };
+});
+
+it("retains recap inputs when session evidence fails and is retried", async () => {
+  loader.fail = true;
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  render(<Harness />);
+  const retry = await screen.findByRole("button", { name: "Retry session evidence" });
+  fireEvent.change(screen.getByLabelText("Recap source campaign"), { target: { value: "longmont" } });
+  fireEvent.change(screen.getByLabelText("Recap source session"), { target: { value: "3" } });
+  expect(evidenceApi.listSessionEvidence).not.toHaveBeenCalled();
+  loader.fail = false;
+  fireEvent.click(retry);
+  await waitFor(() => expect(evidenceApi.listSessionEvidence).toHaveBeenCalledExactlyOnceWith("world-a"));
+  expect(screen.getByLabelText("Recap source campaign")).toHaveValue("longmont");
+  expect(screen.getByLabelText("Recap source session")).toHaveValue(3);
+});
