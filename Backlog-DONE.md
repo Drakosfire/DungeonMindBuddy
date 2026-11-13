@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Measure active conversation pointer and owner lookup
+
+[PR #2807](https://github.com/Drakosfire/DungeonMindBuddy/pull/2807) gave the service and active message reader a shared World-scoped statement. A committed pointer switch reproduced mismatched results with the old two reads under read committed. The joined read returned a matching pointer and owner. Across 500 warm local PostgreSQL 16 calls, median lookup latency fell from 0.0566 ms to 0.0324 ms. Four targeted PostgreSQL tests, Rules-only regression, and legacy import CI passed.
+
 ## [DONE] Narrow the pre-write conversation rename read
 
 [PR #2805](https://github.com/Drakosfire/DungeonMindBuddy/pull/2805) reads the saved title and revision before writing. Successful writes and confirmed replays still return full summaries. On a migrated PostgreSQL 16 fixture, the first-rename lookup median fell from 0.0215 ms to 0.004 ms over 30 warm samples, and shared buffer hits fell from six to two. The library suite had 13 passes and the same four failures on both revisions. The [Rules-only regression](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/43412818170) passed.
