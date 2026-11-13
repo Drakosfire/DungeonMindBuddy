@@ -450,7 +450,7 @@ def _frontmatter_text(markdown: str) -> str:
 def _session_from_recap_path(path: str | None) -> int | None:
     if not path:
         return None
-    match = re.search(r"Session\s+(\d+)", path)
+    match = re.search(r"Session\s+(\d+)", Path(path).name)
     return int(match.group(1)) if match else None
 
 

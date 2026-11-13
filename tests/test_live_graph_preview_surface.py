@@ -244,6 +244,16 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
 
 
 
+@pytest.mark.parametrize(("path", "session"), [
+    ("Campaign/Session 2/Session 13 Recap.md", 13),
+    ("Campaign/Session 2/Recap.md", None),
+    ("Campaign/Session 22 Recap.md", 22),
+    (None, None),
+])
+def test_recap_seed_session_uses_filename(path, session):
+    assert graph_preview_surface._session_from_recap_path(path) == session
+
+
 def test_build_recap_graph_presentation_links_node_labels() -> None:
     sync_recap_artifacts_registry(repo_root())
     payload = build_recap_graph_presentation(
