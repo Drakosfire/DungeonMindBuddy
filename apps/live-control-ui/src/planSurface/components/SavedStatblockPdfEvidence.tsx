@@ -7,6 +7,7 @@ export function SavedStatblockPdfEvidence({sources}: {sources: SavedStatblockPdf
   const choices = sources.support.map((source, index): CitationChoice => ({
     key: source.evidence_ref_id,
     number: index + 1,
+    buttonText: `Open PDF region ${index + 1}`,
     title: 'Reviewed statblock PDF source',
     label: 'Open reviewed PDF region',
     kind: 'passage',
@@ -21,5 +22,8 @@ export function SavedStatblockPdfEvidence({sources}: {sources: SavedStatblockPdf
       return {title: `PDF evidence · Page ${result.region.page}`, pngBase64: result.png_base64};
     },
   }));
-  return choices.length > 0 && <SourceCitationEvidence identity={JSON.stringify(sources)} statements={[{choices}]}/>;
+  return choices.length > 0 && <details>
+    <summary>Reviewed statblock PDF sources</summary>
+    <SourceCitationEvidence identity={JSON.stringify(sources)} statements={[{choices}]}/>
+  </details>;
 }

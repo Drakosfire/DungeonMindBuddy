@@ -2,7 +2,7 @@ import {useId,useLayoutEffect,useRef,useState} from 'react';
 import {SourceCitation} from './SourceCitation';
 import {WorldPlanAgentAnswer} from './WorldPlanAgentAnswer';
 
-export type CitationChoice={key:string;number:number;segmentIndex?:number;title:string;label:string;kind:'passage'|'section';load:()=>Promise<string|{content:string;title:string}|{pngBase64:string;title:string}>};
+export type CitationChoice={key:string;number:number;buttonText?:string;segmentIndex?:number;title:string;label:string;kind:'passage'|'section';load:()=>Promise<string|{content:string;title:string}|{pngBase64:string;title:string}>};
 /** One disclosure owner; transport adapters must verify the exact cited bytes. */
 export function SourceCitationEvidence({identity,statements,answer,displaySegments,allowedInternalLinks=[]}:{identity:string;statements:{text?:string;choices:CitationChoice[]}[];answer?:string;displaySegments?:readonly string[];allowedInternalLinks?:readonly string[]}) {
   const panel=useId(),epoch=useRef(0);
@@ -32,7 +32,11 @@ export function SourceCitationEvidence({identity,statements,answer,displaySegmen
           expanded:opened?.choice.key===c.key,controls:opened?.choice.key===c.key ? panel : undefined,
           onOpen:()=>{void open(c);},
         }))}/>
-      : <span key={i}>{choices.map(c=><SourceCitation key={c.key} number={String(c.number)} title={c.title}
+       : <span key={i}>{choices.map(c=>c.buttonText
+        ? <button key={c.key} type="button" aria-expanded={opened?.choice.key===c.key}
+          aria-controls={opened?.choice.key===c.key ? panel : undefined}
+          onClick={()=>{void open(c);}}>{c.buttonText}</button>
+        : <SourceCitation key={c.key} number={String(c.number)} title={c.title}
           label={c.label} expanded={opened?.choice.key===c.key}
           controls={opened?.choice.key===c.key ? panel : undefined} onOpen={()=>{void open(c);}}/>)}</span>)}
     {opened ? <section id={panel} className="source-citation-evidence__panel" aria-label={`Opened source ${opened.choice.kind}`} aria-live="polite">
