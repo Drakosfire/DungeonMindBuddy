@@ -9,7 +9,7 @@ import { expect, it } from "vitest";
 import { InMemoryLocalWorldRepository } from "../inMemoryLocalWorldRepository";
 import { createTestWorld, sequenceLocalIds } from "../localWorldContractFixtures";
 import type { LocalWorldRecord } from "../localWorldRepository";
-import { createGraphFallbackPositions, indexLocalWorldGraph, projectLocalWorldGraph } from "./graphProjection";
+import { graphBubbleRadius, createGraphFallbackPositions, indexLocalWorldGraph, projectLocalWorldGraph } from "./graphProjection";
 import { WorldGraphCanvas } from "./WorldGraphCanvas";
 
 function summary(values: number[]) {
@@ -27,17 +27,19 @@ it("reports the 1404-object/559-edge full SVG experiment without claiming browse
   });
   const record: LocalWorldRecord = { ...empty, snapshot: { ...empty.snapshot, objects, relationships } };
   const geometry = projectLocalWorldGraph(record, { fullCorpus: true });
-  let nearestSquared = Infinity, overlappingPairs = 0;
+  const radii = geometry.nodes.map(node => graphBubbleRadius(node.relationshipCount));
+  let minimumClearance = Infinity;
+  let overlappingPairs = 0;
   for (let i = 0; i < geometry.nodes.length; i += 1) {
     for (let j = i + 1; j < geometry.nodes.length; j += 1) {
       const a = geometry.nodes[i], b = geometry.nodes[j];
-      const squared = (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
-      nearestSquared = Math.min(nearestSquared, squared);
-      if (squared < 112 ** 2) overlappingPairs += 1;
+      const clearance = Math.hypot(a.x - b.x, a.y - b.y) - radii[i] - radii[j];
+      minimumClearance = Math.min(minimumClearance, clearance);
+      if (clearance < 0) overlappingPairs += 1;
     }
   }
   expect(overlappingPairs).toBe(0);
-  expect(Math.sqrt(nearestSquared)).toBeGreaterThanOrEqual(128);
+  expect(minimumClearance).toBeGreaterThanOrEqual(4 - 1e-7);
   const layoutSamples: number[] = [];
   for (let i = 0; i < 31; i += 1) {
     const started = performance.now();
@@ -65,5 +67,5 @@ it("reports the 1404-object/559-edge full SVG experiment without claiming browse
     runs.push({ mode: fullCorpus ? "full SVG" : "legacy bounded SVG with camera optimization", nodes: view.container.querySelectorAll("[data-node-id]").length, edges: view.container.querySelectorAll("[data-edge-id]").length, total_svg_elements: svg.querySelectorAll("*").length, react_commit_cpu: Object.fromEntries(Object.entries(renderSamples).map(([key, samples]) => [key, summary(samples)])) });
     cleanup();
   }
-  console.info(JSON.stringify({ evidence: "synthetic topology; development React/jsdom CPU only; no browser paint, frame-rate, network or weak-device evidence", geometry: { bubble_diameter: 112, nearest_center_distance: Math.sqrt(nearestSquared), overlapping_pairs: overlappingPairs }, index_layout_projection: summary(layoutSamples), runs }));
+  console.info(JSON.stringify({ evidence: "synthetic topology; development React/jsdom CPU only; no browser paint, frame-rate, network or weak-device evidence", geometry: { minimum_clearance: minimumClearance, overlapping_pairs: overlappingPairs }, index_layout_projection: summary(layoutSamples), runs }));
 }, 60000);
