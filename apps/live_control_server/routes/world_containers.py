@@ -39,7 +39,7 @@ def get_world_containers(request: Request = None) -> dict[str, Any]:
         # persistent permission snapshot. No unfiltered local list is exposed.
         return revalidate_hosted_owner_collection(request)
     try:
-        records = list_world_containers(repo_root())
+        records = list_world_containers()
     except WorldContainerRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     response = WorldContainersListResponse(

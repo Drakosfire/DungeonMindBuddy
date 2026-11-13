@@ -135,7 +135,7 @@ def test_initial_bind_reads_exact_head_revision_then_persists_v3(root: Path, cor
     assert active.source_root_relpath == before["source_root_relpath"]
 
     assert world_snapshot()[0].record.schema_version == "dmb_world_container_record_v3"
-    assert list_world_containers(root)[0].native_graph_binding == binding
+    assert list_world_containers()[0].native_graph_binding == binding
 
 
 def test_bind_preserves_exact_opaque_head_revision_id(root: Path) -> None:
@@ -228,7 +228,7 @@ def test_invalid_authority_or_head_revision_never_persists_active(
         )
 
     assert world_snapshot() == original
-    assert list_world_containers(root)[0].native_graph_binding is None
+    assert list_world_containers()[0].native_graph_binding is None
 
 
 def test_deactivation_and_reactivation_are_versioned_and_deactivation_is_local(
@@ -346,7 +346,7 @@ def test_duplicate_active_native_graph_claim_is_rejected_inside_mutation(root: P
 
     assert exc_info.value.status_code == 409
     assert world_snapshot() == before
-    assert list_world_containers(root)[1].native_graph_binding is None
+    assert list_world_containers()[1].native_graph_binding is None
 
 
 @pytest.mark.parametrize("restore_original", [False, True])
@@ -362,7 +362,7 @@ def test_same_world_change_during_native_validation_rejects_stale_binding(root, 
         bind_native_graph(root, managed.world_id, native_world_id=NATIVE_ID,
             expected_binding_version=0, authority_validator=concurrent_change)
     assert error.value.status_code == 409
-    assert list_world_containers(root)[0].native_graph_binding is None
+    assert list_world_containers()[0].native_graph_binding is None
 
 
 def test_unrelated_world_change_during_native_validation_does_not_invalidate_binding(
@@ -378,7 +378,7 @@ def test_unrelated_world_change_during_native_validation_does_not_invalidate_bin
     active = bind_native_graph(root, managed.world_id, native_world_id=NATIVE_ID,
         expected_binding_version=0, authority_validator=validate_with_concurrent_registry_change)
     assert active.native_graph_binding.status == "active"
-    assert len(list_world_containers(root)) == 2
+    assert len(list_world_containers()) == 2
 
 
 def test_retained_unbound_world_binds_without_files_or_migration(root):

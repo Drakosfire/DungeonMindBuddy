@@ -154,15 +154,17 @@ def test_opted_in_launcher_refuses_unowned_service_listener(
         spare_b = unused_b.getsockname()[1]
         unused_a.close()
         unused_b.close()
+        spare_ports = iter((spare_a, spare_b))
+        service_ports = {
+            name: str(port if name == occupied_port_env else next(spare_ports))
+            for name in ("BUDDY_API_PORT", "BUDDY_UI_PORT", "DUNGEONMIND_SERVER_PORT")
+        }
         env = dict(os.environ)
         env.update({
             LOCAL_GRAPH_PROFILE_ENV: str(private),
             MANAGED_WORLD_DATA_ROOT_ENV: str(operator),
             "DUNGEONMIND_SERVER_ROOT": str(server),
-            "BUDDY_API_PORT": str(spare_a),
-            "BUDDY_UI_PORT": str(spare_b),
-            "DUNGEONMIND_SERVER_PORT": str(spare_b),
-            occupied_port_env: str(port),
+            **service_ports,
         })
         result = subprocess.run(
             ["bash", "run"], cwd=Path(__file__).resolve().parents[1],

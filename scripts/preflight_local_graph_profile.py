@@ -53,8 +53,8 @@ def inspect_local_graph_profile(
     ):
         return "local_graph_origin_host_mismatch"
     try:
-        root = managed_world_data_root()
-        records = list_world_containers(root)
+        managed_world_data_root()
+        records = list_world_containers()
     except (ManagedWorldDataRootError, WorldContainerRegistryError) as exc:
         return (
             str(exc) if isinstance(exc, ManagedWorldDataRootError)
