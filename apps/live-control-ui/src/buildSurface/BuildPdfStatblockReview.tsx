@@ -3,14 +3,14 @@ import type { ThreatDraft } from "../api/types";
 import type { SavedMechanicsVersionList } from "../statblocks/revision/savedMechanicsRevisionTypes";
 import { authenticatedApiFetch, createThreatDraft, listSavedMechanicsVersions, LiveApiError } from "../api/liveApi";
 import type { PdfLocator } from "../api/retainedPdfRegions";
-import type { StatblockDefinitionV1_Output, ValidationIssueV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
+import type { ValidationIssueV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
 import { StatblockDefinitionEditor } from "../statblocks/editor/StatblockDefinitionEditor";
-import { createEditorStateFromOutput, getLocalFingerprint, type StatblockEditorState } from "../statblocks/editor/statblockEditorState";
+import { createEditorStateFromOutput, getLocalFingerprint, updateWorkingCopy, type EditableStatblockOutput, type StatblockEditorState } from "../statblocks/editor/statblockEditorState";
 import "./BuildPdfStatblockReview.css";
 
 type Review = {
   revision: number;
-  definition: StatblockDefinitionV1_Output;
+  definition: EditableStatblockOutput;
   regions: PdfLocator[];
 };
 
@@ -18,7 +18,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const sourcePath = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources`;
   const reviewPath = `${sourcePath}/statblock-reviews/${encodeURIComponent(reviewId)}`;
   const [review, setReview] = useState<Review>();
-  const [editor, setEditor] = useState<StatblockEditorState>();
+  const [editor, setEditor] = useState<StatblockEditorState<EditableStatblockOutput>>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -249,7 +249,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         if (!response.ok) throw new Error();
         const result: Review = await response.json();
         if (abort.signal.aborted) return;
-        setEditor(result.definition.movement ? createEditorStateFromOutput(result.definition) : undefined);
+        setEditor(createEditorStateFromOutput(result.definition));
         setReview(result);
       } catch {
         if (!abort.signal.aborted) setError("Could not open the statblock review.");
@@ -367,26 +367,24 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
               onLoad={() => sourcePreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })} />
           </figure>}
       </>}
-      {review && !editor && <form onSubmit={event => {
+      {editor && !editor.workingCopy.movement && <form onSubmit={event => {
         event.preventDefault();
         const speed = new FormData(event.currentTarget).get("walkSpeed");
         if (typeof speed !== "string" || !/^\d+$/.test(speed) || !Number.isSafeInteger(Number(speed))) return;
-        const definition = { ...review.definition, movement: { modes: [{
+        setEditor(updateWorkingCopy(editor, current => ({ ...current, movement: { modes: [{
           key: "walk", mode: "walk" as const, distance: { unit: "feet" as const, value: Number(speed) },
-        }] } };
-        setReview({ ...review, definition });
-        const next = createEditorStateFromOutput(definition);
-        setEditor({ ...next, baselineFingerprint: "" });
+        }] } })));
+        setSaved(false);
       }}>
-        <p>Movement is unresolved. Check the source region and enter the walking speed you want to use.</p>
+        <p>Movement is unspecified. You can save the review now or enter a speed to validate mechanics.</p>
         <label>Walking speed (feet)
           <input name="walkSpeed" type="number" min="0" step="1" required />
         </label>
-        <button type="submit">Continue editing</button>
+        <button type="submit">Set walking speed</button>
       </form>}
       {review && editor && <>
         <fieldset disabled={pending}>
-          <button type="button" onClick={() => void validate()}>Validate mechanics</button>
+          <button type="button" disabled={!editor.workingCopy.movement} onClick={() => void validate()}>Validate mechanics</button>
           {validation && <span role="status">{validation}</span>}
           {issues.length > 0 && <ul aria-label="Mechanics validation issues">
             {issues.map((issue, index) => (
@@ -399,9 +397,9 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
           </ul>}
           <button type="button" onClick={() => void save()}>Save review draft</button>
           {saved && <span role="status">Draft saved</span>}
-          <button type="button" disabled={createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+          <button type="button" disabled={!editor.workingCopy.movement || createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}
             onClick={() => void createDraft()}>Create creature draft from review</button>
-          {!acceptOpen && <button type="button" onClick={() => void openAcceptance()}>Choose creature draft</button>}
+          {!acceptOpen && <button type="button" disabled={!editor.workingCopy.movement} onClick={() => void openAcceptance()}>Choose creature draft</button>}
           {acceptOpen && <>
             <label>Creature draft
               <select value={draftId} onChange={event => void chooseDraft(event.target.value)}>

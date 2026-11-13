@@ -183,3 +183,29 @@ it.each([401, 403, 404, 422])("retries creature creation after HTTP %s and selec
     localStorage.clear();
   }
 });
+
+it("saves and reopens edits with movement unspecified", async () => {
+  let review = { revision: 4, definition: { ...baseCandidateDefinition(), movement: null }, regions: [] };
+  vi.mocked(authenticatedApiFetch).mockImplementation(async (_, init) => {
+    if (init?.method === "PUT") {
+      const payload = JSON.parse(String(init.body));
+      expect(payload.definition.movement).toBeNull();
+      review = { ...review, revision: 5, definition: payload.definition };
+    }
+    return { response: Response.json(review) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
+  });
+
+  const view = render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
+  fireEvent.change(await screen.findByRole("textbox", { name: "Creature name" }), {
+    target: { value: "Edited tree" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save review draft" }));
+  await screen.findByText("Draft saved");
+  view.unmount();
+
+  render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
+  expect(await screen.findByRole("textbox", { name: "Creature name" })).toHaveValue("Edited tree");
+  expect(screen.getByText(/Movement is unspecified/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Validate mechanics" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Create creature draft from review" })).toBeDisabled();
+});
