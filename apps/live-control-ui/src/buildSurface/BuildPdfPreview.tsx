@@ -95,6 +95,20 @@ function PdfPages({ file, worldId, restored, onRetained }: {
   const [sourceError, setSourceError] = useState("");
   const [statblockRegions, setStatblockRegions] = useState<PdfLocator[]>(() => restored ? [restored] : []);
 
+  async function retainSource(): Promise<PdfReceipt> {
+    if (receipt) return receipt;
+    const path = `/api/live/agent/worlds/${encodeURIComponent(worldId!)}/build-pdf-sources`;
+    const { response } = await authenticatedApiFetch(`${path}?admission_id=${admission.id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/pdf", "X-Pdf-Created-At": admission.createdAt },
+          body: file,
+        });
+        if (!response.ok) throw new Error();
+        const admitted: PdfReceipt = await response.json();
+    setReceipt(admitted);
+    return admitted;
+  }
+
   async function retainOrReopen(selected: PageRectangle) {
     if (!worldId || sourcePending) return;
     const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources`;
@@ -102,15 +116,8 @@ function PdfPages({ file, worldId, restored, onRetained }: {
     setSourceError("");
     try {
       if (!receipt) {
-        const { response } = await authenticatedApiFetch(`${path}?admission_id=${admission.id}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/pdf", "X-Pdf-Created-At": admission.createdAt },
-          body: file,
-        });
-        if (!response.ok) throw new Error();
-        const admitted: PdfReceipt = await response.json();
+        const admitted = await retainSource();
         onRetained(captureLocator(admitted, page, selected));
-        setReceipt(admitted);
       } else {
         const { response } = await authenticatedApiFetch(`${path}/open`, {
           method: "POST",
@@ -379,7 +386,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                 pdfRegionKey(region) === pdfRegionKey(captureLocator(receipt, page, capture.region)))}>
                 {statblockRegions.some(region =>
                   pdfRegionKey(region) === pdfRegionKey(captureLocator(receipt, page, capture.region)))
-                  ? "Region added" : "Add region to statblock"}
+                  ? "Region added" : "Add another region"}
               </button>}
               {worldId && receipt && (textError || capturedText !== undefined) && (
                 <CropOcr key={capture.image} worldId={worldId} region={captureLocator(receipt, page, capture.region)} hasPdfText={Boolean(capturedText)} />
@@ -388,9 +395,17 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           )}
         </>
       )}
-      {worldId && statblockRegions.length > 0 && <StartPdfStatblockReview
+      {worldId && (capture || statblockRegions.length > 0) && <StartPdfStatblockReview
         worldId={worldId}
         regions={statblockRegions}
+        prepareRegions={async () => {
+          if (!capture) return statblockRegions;
+          if (sourcePending) throw new Error("Wait for the PDF source to finish opening.");
+          const locator = captureLocator(await retainSource(), page, capture.region);
+          onRetained(locator);
+          return statblockRegions.some(region => pdfRegionKey(region) === pdfRegionKey(locator))
+            ? statblockRegions : [...statblockRegions, locator];
+        }}
         onRemoveRegion={removed => setStatblockRegions(current =>
           current.filter(region => pdfRegionKey(region) !== pdfRegionKey(removed)))}
       />}

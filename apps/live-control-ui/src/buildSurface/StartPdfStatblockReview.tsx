@@ -1,12 +1,14 @@
+import { BuildPdfStatblockReview } from "./BuildPdfStatblockReview";
 import { useState } from "react";
 import { authenticatedApiFetch } from "../api/liveApi";
 import { pdfRegionKey, type PdfLocator } from "../api/retainedPdfRegions";
 
 export function StartPdfStatblockReview({
-  worldId, regions, onRemoveRegion,
+  worldId, regions, onRemoveRegion, prepareRegions,
 }: {
   worldId: string;
   regions: PdfLocator[];
+  prepareRegions?: () => Promise<PdfLocator[]>;
   onRemoveRegion: (region: PdfLocator) => void;
 }) {
   const [id] = useState(() => crypto.randomUUID());
@@ -47,14 +49,15 @@ export function StartPdfStatblockReview({
   }
 
   async function start() {
-    if (!regions.length || pending) return;
+    if ((!regions.length && !prepareRegions) || pending) return;
     setPending(true);
     setError("");
     try {
+      const selected = prepareRegions ? await prepareRegions() : regions;
       const source = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/statblock-reviews/${id}/from-regions`;
       const { response } = await authenticatedApiFetch(source, {
         method: "POST",
-        body: JSON.stringify({ regions, instruction, ...(edition ? { edition } : {}) }),
+        body: JSON.stringify({ regions: selected, instruction, ...(edition ? { edition } : {}) }),
       });
       if (response.status === 409) {
         setConflict(true);
@@ -82,7 +85,7 @@ export function StartPdfStatblockReview({
         </button>
       </li>)}
     </ul>
-    {saved || conflict ? <a target="_blank" rel="noopener" href={`/build?${new URLSearchParams({ world: worldId, pdfReview: id }).toString()}`}>
+    {saved && prepareRegions ? <div style={{height: "min(70vh, 48rem)"}}><BuildPdfStatblockReview worldId={worldId} reviewId={id} /></div> : saved || conflict ? <a target="_blank" rel="noopener" href={`/build?${new URLSearchParams({ world: worldId, pdfReview: id }).toString()}`}>
       {conflict ? "Open existing statblock review" : "Open statblock review"}
     </a> : <>
       <label>D&D edition (optional)
@@ -95,8 +98,8 @@ export function StartPdfStatblockReview({
       <label>Guidance for Buddy (optional)
         <textarea rows={2} value={instruction} onChange={event => setInstruction(event.target.value)} disabled={pending} />
       </label>
-      <button type="button" onClick={() => void start()} disabled={!regions.length || pending}>
-        {pending ? "Preparing review…" : "Create statblock review"}
+      <button type="button" onClick={() => void start()} disabled={(!regions.length && !prepareRegions) || pending}>
+        {pending ? "Preparing statblock…" : prepareRegions ? "Extract statblock" : "Create statblock review"}
       </button>
     </>}
     {pending && <p role="status">Reading selected regions and preparing the review…</p>}
