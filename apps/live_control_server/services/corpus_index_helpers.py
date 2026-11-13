@@ -50,3 +50,19 @@ def _safe_under(root: Path, path: Path) -> bool:
 def _mtime_iso(path: Path) -> str:
     ts = path.stat().st_mtime
     return datetime.fromtimestamp(ts, tz=UTC).isoformat()
+
+
+
+def parse_loose_frontmatter(block: str, *, allow_commented_fields: bool) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    for line in block.splitlines():
+        stripped = line.strip()
+        if ":" not in stripped or (stripped.startswith("#") and not allow_commented_fields):
+            continue
+        key, raw_value = stripped.split(":", 1)
+        key = key.strip()
+        if allow_commented_fields:
+            key = key.lstrip("#").strip()
+        if key:
+            payload[key] = _parse_scalar(raw_value)
+    return payload
