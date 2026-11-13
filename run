@@ -154,7 +154,7 @@ start_dms() {
     else
       exec uv run uvicorn app:app --host 127.0.0.1 --port "$DMS_PORT" --reload
     fi
-  ) > >(python3 "$ROOT/scripts/rotate_launcher_log.py" "$RUN_DIR/dungeonmind-server.log") 2>&1 &
+  ) {launch_lock}>&- > >(python3 "$ROOT/scripts/rotate_launcher_log.py" "$RUN_DIR/dungeonmind-server.log") 2>&1 &
   local pid=$!
   PIDS+=("$pid")
   echo "$pid" >"$RUN_DIR/dungeonmind-server.pid"
@@ -176,7 +176,7 @@ start_buddy_api() {
       --host 127.0.0.1 \
       --port "$API_PORT" \
       "${reload_args[@]}"
-  ) > >(python3 "$ROOT/scripts/rotate_launcher_log.py" "$RUN_DIR/buddy-api.log") 2>&1 &
+  ) {launch_lock}>&- > >(python3 "$ROOT/scripts/rotate_launcher_log.py" "$RUN_DIR/buddy-api.log") 2>&1 &
   local pid=$!
   PIDS+=("$pid")
   echo "$pid" >"$RUN_DIR/buddy-api.pid"
@@ -199,7 +199,7 @@ start_buddy_ui() {
     export CHOKIDAR_INTERVAL="${CHOKIDAR_INTERVAL:-2000}"
     export VITE_LIVE_API_PROXY_TARGET="${VITE_LIVE_API_PROXY_TARGET:-http://127.0.0.1:${API_PORT}}"
     exec npm run dev -- --host 127.0.0.1 --port "$UI_PORT" --strictPort
-  ) > >(python3 "$ROOT/scripts/rotate_launcher_log.py" "$RUN_DIR/buddy-ui.log") 2>&1 &
+  ) {launch_lock}>&- > >(python3 "$ROOT/scripts/rotate_launcher_log.py" "$RUN_DIR/buddy-ui.log") 2>&1 &
   local pid=$!
   PIDS+=("$pid")
   BUDDY_UI_PID="$pid"
