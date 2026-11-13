@@ -1,6 +1,6 @@
 # GRAPH: compact explorer menu
 
-Status: ACTIVE. Owner queued this slice; coordinator delegated bounded design and implementation on 2026-11-12. Serial successor to #2510, merged ab33d3302444ca072838d9b53c5b9eb9f5894cba. Base fetched origin/main at that commit; branch codex/graph-explorer-menu-20261112. One draft implementation PR; merge separate.
+Status: COMPLETED. PR #2518 merged as `62e6b58c3cf3005ac92dd5bc17ab94865030517d`, preserving reviewed head `c2b58a7db1c1b048fb5d139f99d348f927e3c917`. Exact hosted qualification passed; completed baseline comparison found 168 inherited broad-discovery failures with no new failures, removals, inactive cases or collection omissions. Independent review approved the bounded change. No live deployment is implied by this settlement. Successor: `HANDOFF-GRAPH-readable-arrow-focus.md`.
 
 ## Invariant and critique
 

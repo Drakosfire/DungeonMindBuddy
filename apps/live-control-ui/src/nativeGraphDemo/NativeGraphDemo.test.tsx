@@ -9,6 +9,29 @@ import { NativeGraphDemoApiError, type NativeGraph, type NativeGraphDemoApi, typ
 import type { NativeGraphEntity } from "../api/nativeGraphInspection";
 import { SurfaceContextHost, SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 
+// Focus frames the whole temporary neighborhood, not a fixed zoom or hub center.
+function expectFocusedNeighborhoodInViewport(): void {
+  const scene = screen.getByTestId("graph-scene");
+  const svg = scene.closest("svg")!;
+  const [, , width, height] = svg.getAttribute("viewBox")!.split(" ").map(Number);
+  const [, cameraX, cameraY, zoom] = scene.getAttribute("transform")!
+    .match(/translate\(([-.\d]+) ([-.\d]+)\) scale\(([-.\d]+)\)/)!.map(Number);
+  expect(zoom).toBeGreaterThan(0);
+  const nodes = scene.querySelectorAll("[data-node-id]");
+  expect(nodes.length).toBeGreaterThan(0);
+  for (const node of nodes) {
+    const [, x, y] = node.getAttribute("transform")!.match(/translate\(([-.\d]+) ([-.\d]+)\)/)!.map(Number);
+    const circle = node.querySelector(".world-graph-canvas__node-circle")!;
+    const radius = Number(circle.getAttribute("r"));
+    const centerX = (x + Number(circle.getAttribute("cx"))) * zoom + cameraX;
+    const centerY = (y + Number(circle.getAttribute("cy"))) * zoom + cameraY;
+    expect(centerX - radius * zoom).toBeGreaterThanOrEqual(0);
+    expect(centerX + radius * zoom).toBeLessThanOrEqual(width);
+    expect(centerY - radius * zoom).toBeGreaterThanOrEqual(0);
+    expect(centerY + radius * zoom).toBeLessThanOrEqual(height);
+  }
+}
+
 const graph: NativeGraph = {
   world_id: "space:native-demo",
   revision_id: "revision-001",
@@ -181,7 +204,7 @@ describe("NativeGraphDemo", () => {
     await waitFor(() => expect(api.inspectNode).toHaveBeenCalledWith(corpus, "entity:1000", expect.any(AbortSignal)));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(3);
     expect(screen.getByRole("button", {name: "Object 1000, location"})).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByLabelText("Graph zoom")).toHaveTextContent("135%");
+    expectFocusedNeighborhoodInViewport();
     fireEvent.click(graphAction("Expand neighborhood"));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(5);
     expect(document.querySelector('[data-node-id="entity:1002"]')).toBeInTheDocument();
@@ -387,14 +410,7 @@ describe("NativeGraphDemo", () => {
 
     await user.click(screen.getByRole("button", { name: "Focus" }));
     await waitFor(() => expect(scene.getAttribute("transform")).not.toBe(beforeSelection));
-    const cameraMatch = scene.getAttribute("transform")!.match(/translate\(([-.\d]+) ([-.\d]+)\) scale\(([-.\d]+)\)/)!;
-    const [cameraX, cameraY, zoom] = cameraMatch.slice(1).map(Number);
-    const node = document.querySelector('[data-node-id="entity:mara"]')!;
-    const nodeMatch = node.getAttribute("transform")!.match(/translate\(([-.\d]+) ([-.\d]+)\)/)!;
-    const nodeX = Number(nodeMatch[1]) + 56;
-    const nodeY = Number(nodeMatch[2]) + 56;
-    expect(nodeX * zoom + cameraX).toBeCloseTo(250, 0);
-    expect(nodeY * zoom + cameraY).toBeCloseTo(180, 0);
+    expectFocusedNeighborhoodInViewport();
 
     await user.click(screen.getByRole("button", { name: "Exit focus" }));
     await waitFor(() => expect(scene.getAttribute("transform")).toBe(beforeSelection));

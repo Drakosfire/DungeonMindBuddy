@@ -145,11 +145,10 @@ describe("WorldGraphCanvas", () => {
     const parallelEdge = graph.querySelector(`[data-edge-id="${parallel.id}"]`);
     expect(firstEdge?.querySelector("path")?.getAttribute("d"))
       .not.toBe(parallelEdge?.querySelector("path")?.getAttribute("d"));
-    expect(firstEdge?.querySelector("text")?.getAttribute("y"))
-      .not.toBe(parallelEdge?.querySelector("text")?.getAttribute("y"));
+    expect(firstEdge?.querySelector("rect")).toBeNull();
     const reciprocalEdge = graph.querySelector(`[data-edge-id="${reciprocal.id}"]`);
     expect(new Set([firstEdge, reciprocalEdge, parallelEdge].map((edge) => edge?.querySelector("path")?.getAttribute("d"))).size).toBe(3);
-    expect(new Set([firstEdge, reciprocalEdge, parallelEdge].map((edge) => edge?.querySelector("text")?.getAttribute("y"))).size).toBe(3);
+    for (const edge of [firstEdge, reciprocalEdge, parallelEdge]) expect(edge?.querySelector("title")).not.toBeNull();
     expect(firstEdge).toHaveAccessibleName("Mara Venn allies Tomas Reed");
     expect(graph.querySelector(`[data-edge-id="${loop.id}"] path`)?.getAttribute("d")).toContain(" C ");
     expect(screen.queryByRole("button", { name: /world, world/i })).not.toBeInTheDocument();
@@ -840,19 +839,145 @@ describe("WorldGraphCanvas", () => {
     expect(layout).not.toHaveBeenCalled();
   });
 
-  it("wraps long predicate labels on opaque plates and preserves full accessible text", async () => {
+  it("renders readable upright phrases along arrows while keeping raw predicates unchanged", async () => {
+    const { record } = await graphRecord();
+    const [first, second] = record.snapshot.objects;
+    const relationship = { ...record.snapshot.relationships[0], fromObjectId: first.id, toObjectId: second.id, kind: "travels_to" };
+    const positions = { [first.id]: { x: 800, y: 100 }, [second.id]: { x: 0, y: 100 } };
+    render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, objects: [first, second], relationships: [relationship] }, layout: { ...record.layout, positions } }} />);
+    const edge = screen.getByRole("img", { name: `${first.name} travels to ${second.name}` });
+    expect(edge.querySelector("text")?.textContent).toBe("travels to");
+    expect(edge.querySelector("text")).toHaveAttribute("aria-hidden", "true");
+    expect(edge.querySelector("text")?.getAttribute("transform")).toContain("rotate(0)");
+    expect(edge.querySelector("path")).toHaveAttribute("marker-end");
+    expect(relationship.kind).toBe("travels_to");
+  });
+
+  it("discloses complete short-edge predicates on hover and keyboard focus without changing arrows", async () => {
+    const { record } = await graphRecord();
+    const [first, second] = record.snapshot.objects;
+    const relationship = { ...record.snapshot.relationships[0], fromObjectId: first.id, toObjectId: second.id, kind: "has_promised_to_protect_during_the_winter_gathering_and_beyond" };
+    const positions = { [first.id]: { x: 0, y: 0 }, [second.id]: { x: 116, y: 0 } };
+    render(<WorldGraphCanvas nodeShape="circle" record={{ ...record, snapshot: { ...record.snapshot, objects: [first, second], relationships: [relationship] }, layout: { ...record.layout, positions } }} />);
+    const edge = screen.getByRole("img", { name: `${first.name} has promised to protect during the winter gathering and beyond ${second.name}` });
+    expect(edge.querySelector("text")).toBeNull();
+    expect(edge).toHaveAttribute("tabindex", "0");
+    fireEvent.mouseEnter(edge);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("has promised to protect during the winter gathering and beyond");
+    fireEvent.mouseLeave(edge);
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.focus(edge);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(second.name);
+    fireEvent.keyDown(edge, { key: "Escape" });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("slides colliding phrases along arrows and prioritizes the selected connection", async () => {
+    const { record } = await graphRecord();
+    const objects = record.snapshot.objects.slice(0, 4);
+    const positions = Object.fromEntries(objects.map((object, i) => [object.id, [{ x: 100, y: 300 }, { x: 900, y: 300 }, { x: 500, y: 0 }, { x: 500, y: 600 }][i]]));
+    const relationships = [0, 1].map(i => ({ ...record.snapshot.relationships[0], id: `cross-${i}` as LocalWorldRelationship["id"], fromObjectId: objects[i * 2].id, toObjectId: objects[i * 2 + 1].id, kind: i ? "travels_to" : "knows_about" }));
+    render(<WorldGraphCanvas nodeShape="circle" record={{ ...record, snapshot: { ...record.snapshot, objects, relationships }, layout: { ...record.layout, positions } }} />);
+    expect(document.querySelectorAll(".world-graph-canvas__edge-phrase")).toHaveLength(2);
+    expect(document.querySelector('[data-edge-id="cross-0"] text')).toHaveTextContent("knows about");
+    fireEvent.click(screen.getByRole("button", { name: `${objects[2].name}, ${objects[2].kind}` }));
+    expect(document.querySelectorAll(".world-graph-canvas__edge-phrase")).toHaveLength(2);
+    expect(document.querySelector('[data-edge-id="cross-1"] text')).toHaveTextContent("travels to");
+    fireEvent.mouseEnter(document.querySelector('[data-edge-id="cross-0"]')!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("knows about");
+    expect(document.querySelectorAll(".world-graph-canvas__edge > path")).toHaveLength(2);
+  });
+
+  it("keeps nodes above inspectable edge strokes and allows background pan from a stroke", async () => {
+    const { record } = await graphRecord();
+    render(<WorldGraphCanvas record={record} />);
+    const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    const edges = document.querySelector(".world-graph-canvas__edges")!;
+    const nodes = document.querySelector(".world-graph-canvas__nodes")!;
+    expect(edges.compareDocumentPosition(nodes) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    const scene = screen.getByTestId("graph-scene");
+    const before = scene.getAttribute("transform");
+    fireEvent(edges.querySelector("path")!, new MouseEvent("pointerdown", { button: 0, clientX: 100, clientY: 100, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 160, clientY: 140, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 160, clientY: 140, bubbles: true }));
+    expect(scene.getAttribute("transform")).not.toBe(before);
+  });
+
+  it("temporarily spreads focused bubbles, never saves their moves, and restores overview pins", async () => {
+    const { record } = await graphRecord();
+    const hub = record.snapshot.objects[0];
+    const save = vi.fn();
+    const baseProps = { record, nodeShape: "circle" as const, onMoveObjects: save };
+    const view = render(<WorldGraphCanvas {...baseProps} projectionOptions={{ fullCorpus: true }} />);
+    const node = () => screen.getByRole("button", { name: `${hub.name}, ${hub.kind}` });
+    const overview = node().getAttribute("transform");
+    view.rerender(<WorldGraphCanvas {...baseProps} projectionOptions={{ fullCorpus: true, focusObjectId: hub.id }} cameraFocusRequest={{ nodeId: hub.id, requestId: 1, selectNode: true }} />);
+    const focused = node().getAttribute("transform");
+    expect(focused).not.toBe(overview);
+    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    fireEvent.keyDown(node(), { key: "ArrowRight" });
+    expect(node().getAttribute("transform")).not.toBe(focused);
+    expect(save).not.toHaveBeenCalled();
+    view.rerender(<WorldGraphCanvas {...baseProps} projectionOptions={{ fullCorpus: true }} cameraFocusRequest={{ nodeId: null, requestId: 2 }} />);
+    expect(node().getAttribute("transform")).toBe(overview);
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("cancels a temporary focus drag on exit before it can save temporary coordinates", async () => {
+    const { record } = await graphRecord();
+    const hub = record.snapshot.objects[0]; const save = vi.fn();
+    const props = { record, nodeShape: "circle" as const, onMoveObjects: save };
+    const view = render(<WorldGraphCanvas {...props} projectionOptions={{ fullCorpus: true, focusObjectId: hub.id }} cameraFocusRequest={{ nodeId: hub.id, requestId: 1 }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    const node = screen.getByRole("button", { name: `${hub.name}, ${hub.kind}` });
+    const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    fireEvent(node, new MouseEvent("pointerdown", { button: 0, clientX: 100, clientY: 100, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 160, clientY: 140, bubbles: true }));
+    view.rerender(<WorldGraphCanvas {...props} projectionOptions={{ fullCorpus: true }} cameraFocusRequest={{ nodeId: null, requestId: 2 }} />);
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 160, clientY: 140, bubbles: true }));
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("fits asymmetric focused neighborhoods and loops even when interrupting an overview pan", async () => {
+    const { record } = await graphRecord(); const [hub, neighbor] = record.snapshot.objects;
+    const direct = record.snapshot.relationships[0];
+    const loop = { ...direct, id: "focus-loop" as LocalWorldRelationship["id"], fromObjectId: hub.id, toObjectId: hub.id };
+    const focusedRecord = { ...record, snapshot: { ...record.snapshot, objects: [hub, neighbor], relationships: [direct, loop] } };
+    const view = render(<WorldGraphCanvas record={focusedRecord} nodeShape="circle" projectionOptions={{ fullCorpus: true }} />);
+    const initialCamera = screen.getByTestId("graph-scene").getAttribute("transform");
+    const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    fireEvent(graph, new MouseEvent("pointerdown", { button: 0, clientX: 100, clientY: 100, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 900, clientY: 500, bubbles: true }));
+    view.rerender(<WorldGraphCanvas record={focusedRecord} nodeShape="circle" projectionOptions={{ fullCorpus: true, focusObjectId: hub.id }} cameraFocusRequest={{ nodeId: hub.id, requestId: 1 }} />);
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 900, clientY: 500, bubbles: true }));
+    const transform = screen.getByTestId("graph-scene").getAttribute("transform")!;
+    const [, x, y, zoom] = transform.match(/translate\(([-.\d]+) ([-.\d]+)\) scale\(([-.\d]+)\)/)!.map(Number);
+    for (const path of document.querySelectorAll(".world-graph-canvas__edge > path")) {
+      const points = path.getAttribute("d")!.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+      for (let i = 0; i < points.length; i += 2) {
+        expect(points[i] * zoom + x).toBeGreaterThanOrEqual(0);
+        expect(points[i] * zoom + x).toBeLessThanOrEqual(960);
+        expect(points[i + 1] * zoom + y).toBeGreaterThanOrEqual(0);
+        expect(points[i + 1] * zoom + y).toBeLessThanOrEqual(520);
+      }
+    }
+    view.rerender(<WorldGraphCanvas record={focusedRecord} nodeShape="circle" projectionOptions={{ fullCorpus: true }} cameraFocusRequest={{ nodeId: null, requestId: 2 }} />);
+    expect(screen.getByTestId("graph-scene").getAttribute("transform")).toBe(initialCamera);
+  });
+
+  it("keeps full accessible long predicates without opaque plates", async () => {
     const { record } = await graphRecord();
     const predicate = "has promised to protect during the winter gathering and beyond";
     const relationship = { ...record.snapshot.relationships[0], kind: predicate };
     render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, relationships: [relationship] } }} />);
     const edge = screen.getByRole("img", { name: `Mara Venn ${predicate} Tomas Reed` });
-    expect(edge.querySelector("rect")).toHaveClass("world-graph-canvas__edge-label");
-    expect(edge.querySelectorAll("tspan").length).toBeGreaterThan(1);
+    expect(edge.querySelector("rect")).toBeNull();
+    expect(edge.querySelectorAll("tspan")).toHaveLength(0);
     expect(edge.querySelector("title")?.textContent).toContain(predicate);
     expect(edge.querySelector("path")?.getAttribute("d")).not.toContain("M 164 118 ");
   });
 
-  it.each(["vertical reciprocal", "horizontal multiline", "self loops", "coincident endpoints"])("keeps %s predicate plates disjoint", async (shape) => {
+  it.each(["vertical reciprocal", "horizontal multiline", "self loops", "coincident endpoints"])("keeps %s directed paths and accessible records without opaque predicate plates", async (shape) => {
     const { record } = await graphRecord();
     const [first, second] = record.snapshot.objects;
     const relationships = [0, 1, 2].map((index) => ({ ...record.snapshot.relationships[0],
@@ -863,20 +988,18 @@ describe("WorldGraphCanvas", () => {
     }));
     const positions = { [first.id]: { x: 100, y: 100 }, [second.id]: shape === "vertical reciprocal" ? { x: 100, y: 500 } : shape === "coincident endpoints" ? { x: 100, y: 100 } : { x: 700, y: 100 } };
     render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, relationships }, layout: { ...record.layout, positions } }} />);
-    const plates = [...document.querySelectorAll(".world-graph-canvas__edge-label")].map((element) => ({
-      x: Number(element.getAttribute("x")), y: Number(element.getAttribute("y")),
-      width: Number(element.getAttribute("width")), height: Number(element.getAttribute("height")),
-    }));
-    expect(plates).toHaveLength(3);
-    for (let i = 0; i < plates.length; i += 1) {
-      for (let j = i + 1; j < plates.length; j += 1) {
-        const a = plates[i]; const b = plates[j];
-        expect(a.x + a.width < b.x || b.x + b.width < a.x || a.y + a.height < b.y || b.y + b.height < a.y).toBe(true);
-      }
+    const edges = [...document.querySelectorAll(".world-graph-canvas__edge")];
+    expect(edges).toHaveLength(3);
+    expect(document.querySelectorAll(".world-graph-canvas__edge-label")).toHaveLength(0);
+    for (const edge of edges) {
+      expect(edge.querySelector("path")).toHaveAttribute("marker-end");
+      expect(edge.querySelector("title")?.textContent).toContain(relationships[0].kind);
+      const caption = edge.querySelector("text");
+      if (caption) expect(caption.getAttribute("transform")).toMatch(/rotate\(-?[\d.]+\)/);
     }
   });
 
-  it("fits all multiline parallel and reciprocal predicate plates into a narrow viewport", async () => {
+  it("fits all parallel and reciprocal arrow paths into a narrow viewport", async () => {
     const { record } = await graphRecord();
     const [first, second] = record.snapshot.objects;
     let resize!: ResizeObserverCallback;
@@ -898,13 +1021,16 @@ describe("WorldGraphCanvas", () => {
       fireEvent.click(screen.getByRole("button", { name: "Fit graph" }));
       const transform = screen.getByTestId("graph-scene").getAttribute("transform")!;
       const [, x, y, zoom] = transform.match(/translate\(([-.\d]+) ([-.\d]+)\) scale\(([-.\d]+)\)/)!.map(Number);
-      for (const plate of document.querySelectorAll(".world-graph-canvas__edge-label")) {
-        const left = Number(plate.getAttribute("x")); const top = Number(plate.getAttribute("y"));
-        const right = left + Number(plate.getAttribute("width")); const bottom = top + Number(plate.getAttribute("height"));
-        expect(left * zoom + x).toBeGreaterThanOrEqual(0);
-        expect(top * zoom + y).toBeGreaterThanOrEqual(0);
-        expect(right * zoom + x).toBeLessThanOrEqual(600);
-        expect(bottom * zoom + y).toBeLessThanOrEqual(520);
+      const paths = [...document.querySelectorAll(".world-graph-canvas__edge > path")];
+      expect(paths).toHaveLength(7);
+      for (const path of paths) {
+        const points = path.getAttribute("d")!.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+        for (let i = 0; i < points.length; i += 2) {
+          expect(points[i] * zoom + x).toBeGreaterThanOrEqual(0);
+          expect(points[i + 1] * zoom + y).toBeGreaterThanOrEqual(0);
+          expect(points[i] * zoom + x).toBeLessThanOrEqual(600);
+          expect(points[i + 1] * zoom + y).toBeLessThanOrEqual(520);
+        }
       }
     } finally { vi.unstubAllGlobals(); }
   });
