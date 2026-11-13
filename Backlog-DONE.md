@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Verify hosted asset caching and compression at the edge. [#2741](https://github.com/Drakosfire/DungeonMindBuddy/pull/2741) and [#2742](https://github.com/Drakosfire/DungeonMindBuddy/pull/2742) shipped the cache policy and hosted proxy compression. All 38 hosted tests passed. Disposable Nginx compressed a synthetic 4,000-byte public asset to 54 bytes with Vary and left the API response uncompressed. Target proxy measurements remain with the edge owner.
+
 - Document who restarts Buddy after a host reboot. The [deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md#hand-off-restart-ownership) requires the owner and mechanism to be recorded, verifies that any existing service unit uses the saved release configuration, and specifies the isolated recovery checks. Target-host ownership and rehearsal remain with the release operator.
 
 - Link production restore gates to owned procedures. The [deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md#2-verify-both-databases-and-restore-evidence) links the application-state recovery procedure and requires named owners, approved procedure references, a consistent backup set, and isolated restore evidence for WorldGraph and associated files. The approved host procedures and restore results remain under **Verify owned WorldGraph and file restores for the approved backup set**.
