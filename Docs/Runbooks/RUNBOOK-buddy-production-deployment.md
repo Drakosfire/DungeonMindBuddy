@@ -78,7 +78,7 @@ Continue only if release preparation succeeds. Save the override with the releas
 ```bash
 (
   set -e
-  "${buddy_compose[@]}" up -d --no-build --pull never --wait --wait-timeout 180 buddy
+  "${buddy_compose[@]}" up -d --no-build --pull never --wait --wait-timeout 330 buddy
   buddy_container=$("${buddy_compose[@]}" ps -q buddy)
   actual_image=$(docker inspect "$buddy_container" --format '{{.Image}}')
   test "$actual_image" = "$buddy_image_id"
@@ -95,6 +95,16 @@ Continue only if release preparation succeeds. Save the override with the releas
   buddy_status=$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")
   test "$buddy_status" = 401
 )
+```
+
+The 330-second wait allows for the 90-second health start period, three
+60-second probe intervals, up to 10 seconds per probe, and scheduling margin.
+If the wait fails, stop the smoke checks and inspect the service. A container
+can remain running after the wait expires.
+
+```bash
+"${buddy_compose[@]}" ps -a buddy
+"${buddy_compose[@]}" logs --tail 100 buddy
 ```
 
 Require the expected image ID, a loopback binding, successful health and SPA requests, and a signed-out `401`. If readiness fails, check database connectivity, schema revisions, and directory access before continuing.
