@@ -14,7 +14,12 @@ from apps.live_control_server.services.build_pdf_region_render import read_regio
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
 )
-from apps.live_control_server.models.native_graph_inspection import InspectionPin
+from apps.live_control_server.models.native_graph_inspection import Closed, InspectionPin
+from apps.live_control_server.models.world_graph_object_projection import WorldGraphObjectProjectionRequest
+from apps.live_control_server.integrations.dungeonmind.vnext_complete_object import (
+    DungeonBuddyVNextReadIdentity,
+    project_complete_world_object_vnext,
+)
 from apps.live_control_server.services.agent_graph_auth import require_native_graph_gm
 
 
@@ -194,3 +199,38 @@ def statblock_pdf_support(reference, regions, principal):
                     "text": read_region_text(pdf, region),
                 }
     return _response(bound, pin, support=list(support.values()))
+
+
+class NativeCompleteObjectRead(Closed):
+    scope: InspectionPin
+    request: WorldGraphObjectProjectionRequest
+
+
+def complete_object(body: NativeCompleteObjectRead, principal):
+    scope, request = body.scope, body.request
+    if (
+        request.world_id != scope.managed_world_id
+        or request.scope_mode != scope.scope_mode
+        or (scope.campaign_id is not None and request.campaign_id != scope.campaign_id)
+        or request.revision_pin != scope.revision_id
+        or request.admissibility != principal.role
+    ):
+        raise InspectionUnavailable("native_complete_object_scope_mismatch")
+    bound, _, access, pin = _pinned(scope, principal)
+    head = native.read_repository().get_head(pin.native_world_id)
+    if head is None:
+        raise InspectionUnavailable("native_inspection_head_unavailable")
+    result = project_complete_world_object_vnext(
+        parsed_revision=access.parsed,
+        source_reader=access.source_view,
+        request=request.model_copy(update={"world_id": pin.native_world_id}),
+        read_identity=DungeonBuddyVNextReadIdentity(
+            space_id=pin.native_world_id,
+            revision_id=pin.revision_id,
+            head_revision_id=head.head_revision_id,
+            is_head=pin.revision_id == head.head_revision_id,
+        ),
+    )
+    if native.binding(pin.managed_world_id) != bound:
+        raise InspectionUnavailable("native_inspection_binding_changed")
+    return result.model_dump(mode="json", by_alias=True)

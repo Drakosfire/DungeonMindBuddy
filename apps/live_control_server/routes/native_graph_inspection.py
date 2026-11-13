@@ -58,3 +58,11 @@ def inspect(body: InspectionRead, principal=Depends(native_graph_explorer_depend
                 "message": "The selected reviewed Graph material is unavailable. Refresh and inspect again.",
             },
         ) from None
+
+
+@router.post("/complete-object")
+def complete_object(
+    body: service.NativeCompleteObjectRead,
+    principal=Depends(native_graph_gm_dependency),
+):
+    return _call(service.complete_object, body, principal)
