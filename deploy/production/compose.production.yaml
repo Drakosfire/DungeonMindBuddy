@@ -11,8 +11,6 @@ services:
     ports:
       - "127.0.0.1:${BUDDY_HTTP_BIND_PORT:-8080}:8000"
     environment:
-      DMB_DEPLOYMENT_ENVIRONMENT: production
-      DMB_AUTH_MODE: hosted_dms
       DUNGEONMIND_SERVER_API_ORIGIN: ${DUNGEONMIND_SERVER_API_ORIGIN:?set the HTTPS DMS API origin}
       AUTH_TRUSTED_FRONTEND_ORIGINS: ${AUTH_TRUSTED_FRONTEND_ORIGINS:?include https://buddy.dungeonmind.net}
       DMB_HOSTED_WORLD_ACCESS_JSON: ${DMB_HOSTED_WORLD_ACCESS_JSON:?set per-World DMS subject assignments for the full authorized cohort}
