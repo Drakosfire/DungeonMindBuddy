@@ -46,7 +46,7 @@ def test_manifest_cites_server_commit_fingerprint_and_fixture_hashes() -> None:
         "revise-request",
         "revise-replay-response",
         "revise-conflict-response",
-    } <= manifest["transcripts"].keys()
+    } == manifest["transcripts"].keys()
     for key, digest in manifest["transcripts"].items():
         path = TRANSCRIPT_DIR / f"{key}.json"
         assert path.is_file()

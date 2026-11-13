@@ -7,6 +7,7 @@ tests in MANIFEST.json.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -56,6 +57,22 @@ def test_manifest_cites_clean_server_commit_fingerprint_and_fixture_hashes() -> 
         fixtures["Docs/Design/fixtures/dungeonbuddy-statblock-v1/unknown_resource_pool.json"]
         == "sha256:56293e07c0786a7f751004a3e9b3c6561290bb16cbb55cf26099d94c5b3582d5"
     )
+    expected_leaves = {
+        "create-request.json",
+        "create-response.json",
+        "create-replay-second-response.json",
+        "create-idempotency-conflict.json",
+        "create-conflict-original-response.json",
+        "create-conflict-changed-request.json",
+        "exact-revision-response.json",
+        "create-persistence-validation-failed.json",
+        "create-invalid-request.json",
+    }
+    assert sorted(manifest["leaf_fixtures"]) == sorted(expected_leaves)
+    assert manifest["leaf_fixture_sha256"] == {
+        name: "sha256:" + hashlib.sha256((FIXTURE_DIR / name).read_bytes()).hexdigest()
+        for name in expected_leaves
+    }
     owned = manifest["server_owned_tests"]
     names = set(owned[0]["names"])
     assert "test_create_append_and_exact_replay" in names
