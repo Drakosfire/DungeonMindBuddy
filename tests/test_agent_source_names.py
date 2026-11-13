@@ -123,10 +123,8 @@ def test_registry_batch_reads_one_snapshot_and_returns_only_requested_ids(monkey
 
     def descriptors(*, source_artifact_ids):
         calls.append(source_artifact_ids)
-        return {artifact.source_artifact_id: artifact.model_dump()}
+        return {artifact.source_artifact_id: artifact}
 
     monkeypatch.setattr(registry.source_service, "get_source_input_descriptors", descriptors)
-    assert registry.get_source_artifacts({artifact.source_artifact_id}) == {
-        artifact.source_artifact_id: artifact
-    }
+    assert registry.get_source_artifacts({artifact.source_artifact_id})[artifact.source_artifact_id] is artifact
     assert calls == [[artifact.source_artifact_id]]

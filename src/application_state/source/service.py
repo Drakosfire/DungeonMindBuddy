@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import hashlib
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -412,7 +414,11 @@ def _store_input_descriptor(
         repository.set_input_descriptor(conn, record.source_artifact_id, descriptor)
 
 
-def get_source_input_descriptors(*, source_artifact_ids: list[str]) -> dict[str, dict]:
+if TYPE_CHECKING:
+    from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
+
+
+def get_source_input_descriptors(*, source_artifact_ids: list[str]) -> dict[str, GraphMemorySourceArtifact]:
     """Read exact registered producer metadata, never latest bodies or provenance authority."""
     from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
     from application_state.errors import ApplicationStateIntegrityError
@@ -438,5 +444,5 @@ def get_source_input_descriptors(*, source_artifact_ids: list[str]) -> dict[str,
                 raise ValueError("descriptor lacks exact SHA-256 content digest")
         except ValueError as exc:
             raise ApplicationStateIntegrityError(f"invalid registered source input metadata: {exc}") from exc
-        result[descriptor.source_artifact_id] = descriptor.model_dump(mode="json")
+        result[descriptor.source_artifact_id] = descriptor
     return result

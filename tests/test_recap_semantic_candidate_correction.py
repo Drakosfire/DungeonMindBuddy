@@ -276,8 +276,10 @@ def _fixture(
     from application_state.source import service as source_service
     # This pure correction fixture stubs product metadata storage. Actual DB
     # descriptor lookup and file denial are covered by test_source_input_metadata_database.
+    from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
+
     monkeypatch.setattr(source_service, "get_source_input_descriptors", lambda *, source_artifact_ids: {
-        row["source_artifact_id"]: row
+        row["source_artifact_id"]: GraphMemorySourceArtifact.model_validate(row)
         for row in json.loads(artifact_registry.read_text())["records"]
         if row["source_artifact_id"] in source_artifact_ids
     })
