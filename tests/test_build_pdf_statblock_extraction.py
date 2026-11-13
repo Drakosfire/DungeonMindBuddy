@@ -53,6 +53,10 @@ def test_model_request_contains_transcriptions_and_guidance_only(monkeypatch):
         assert forbidden not in prompt
     assert body["text"]["format"]["name"] == extraction.SCHEMA_NAME
     assert body["text"]["format"]["strict"] is True
+    wire_schema = body["text"]["format"]["schema"]
+    assert '"$ref"' not in json.dumps(wire_schema)
+    assert "$defs" not in wire_schema
+
 
 
 def test_valid_structured_response_becomes_a_complete_candidate(monkeypatch):
