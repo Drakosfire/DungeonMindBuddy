@@ -171,7 +171,7 @@ def test_build_sources_freeze_document_names_across_later_renames(tmp_path, sour
     renamed = update_workspace_document_metadata(tmp_path, record.document_id,
         title='The party reaches Willow Park', expected_revision=record.revision)
     for artifact in (recap, worldbuilding):
-        assert get_source_artifact(tmp_path, artifact.source_artifact_id).lineage['source_name'] == record.title
+        assert get_source_artifact(artifact.source_artifact_id).lineage['source_name'] == record.title
     new_recap = register(tmp_path, (renamed, target, text, digest), context)
     new_worldbuilding = create_source_artifact_from_workspace_document(tmp_path,
         document_id=renamed.document_id, expected_revision=renamed.revision)

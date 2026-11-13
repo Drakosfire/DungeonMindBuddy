@@ -770,7 +770,7 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
         TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
     )
     frozen = resolve_promotable_ingest_run(run_id, root=repo)
-    artifact = get_source_artifact(repo, frozen.source_artifact_id)
+    artifact = get_source_artifact(frozen.source_artifact_id)
     before = get_workspace_document_snapshot(repo, artifact.workspace_document_id)
     updated_text = before.markdown + "\nLater document edit, absent from the frozen extraction.\n"
     prepared_write = prepare_tiptap_markdown_write(root=repo, request=TiptapMarkdownWritePrepareRequest(
@@ -1788,7 +1788,7 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
         )
 
         resolved = resolve_promotable_ingest_run(run_id, root=repo)
-        artifact = get_source_artifact(repo, resolved.source_artifact_id)
+        artifact = get_source_artifact(resolved.source_artifact_id)
         marker = marker_by_managed[managed_id]
         from graph_memory.source_span import source_span_index_to_dict
         index = source_span_index_to_dict(load_source_span_index(repo, artifact.source_artifact_id))

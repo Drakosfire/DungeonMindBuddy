@@ -1076,7 +1076,7 @@ def test_native_workspace_drift_fails_before_publication(
 
     client, _world, repo, dsn = native_first_world_client
     _run_id, plan = _prepare_native_plan(client, repo)
-    artifact = get_source_artifact(repo, plan["sourceArtifactId"])
+    artifact = get_source_artifact(plan["sourceArtifactId"])
     workspace_path = workspace_documents_path(repo)
     workspace_doc = WorkspaceDocumentRegistryDocument.model_validate(load_json(workspace_path))
     rewritten = []

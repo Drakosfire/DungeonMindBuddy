@@ -302,7 +302,7 @@ def read_admitted_worldbuilding_span(
         )
 
     try:
-        artifact = get_source_artifact(root, cleaned_artifact_id)
+        artifact = get_source_artifact(cleaned_artifact_id)
     except SourceArtifactRegistryError as exc:
         _raise(
             str(exc),

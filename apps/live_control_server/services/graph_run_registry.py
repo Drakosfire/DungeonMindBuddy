@@ -168,7 +168,7 @@ def _component_by_kind(
 def _require_run_source_artifact(root: Path, source_artifact_id: str) -> GraphMemorySourceArtifact:
     """Translate missing input as bad run evidence; preserve owner failures."""
     try:
-        return get_source_artifact(root, source_artifact_id)
+        return get_source_artifact(source_artifact_id)
     except SourceArtifactRegistryError as exc:
         if exc.status_code >= 500:
             raise GraphRunRegistryError(str(exc), status_code=exc.status_code) from exc

@@ -161,7 +161,7 @@ def test_bad_explicit_root_fails_without_code_fallback(tmp_path, monkeypatch, va
 def test_missing_registry_is_not_resolved_from_code(split_roots):
     code, data, _ = split_roots
     with pytest.raises(SourceArtifactRegistryError, match="not registered in database"):
-        get_source_artifact(code, "absent")
+        get_source_artifact("absent")
     assert not (data / "out/registries/source_artifacts.json").exists()
     assert not (data / "out").exists()
 
@@ -260,7 +260,7 @@ def test_retired_registry_and_seal_symlinks_are_inert(split_roots, monkeypatch, 
     copied = outside / "registry.json"
     copied.write_text("not source authority")
     registry.symlink_to(copied)
-    assert get_source_artifact(code, artifact.source_artifact_id) == artifact
+    assert get_source_artifact(artifact.source_artifact_id) == artifact
 
     assert not list(outside.glob("*/normalized_source.md"))
 
@@ -285,7 +285,7 @@ def test_source_mirror_is_inert_and_database_scope_drift_fails(split_roots, monk
             jsonb_set(input_descriptor, '{session_id}', '"session-2"')
             WHERE source_artifact_id=%s""", (artifact.source_artifact_id,))
     with pytest.raises(SourceArtifactRegistryError, match="World-scoped recap SourceArtifact ID does not match its identity"):
-        get_source_artifact(code, artifact.source_artifact_id)
+        get_source_artifact(artifact.source_artifact_id)
     with pytest.raises(
         PromotableIngestRunError,
         match="invalid registered source input metadata",

@@ -65,7 +65,7 @@ def resolve_graph_document_source(
         content_sha256=selector.content_sha256,
     )
     try:
-        artifact = get_source_artifact(root, artifact_id)
+        artifact = get_source_artifact(artifact_id)
     except SourceArtifactRegistryError as exc:
         if exc.status_code != 404:
             raise

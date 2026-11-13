@@ -3127,7 +3127,7 @@ def _load_admitted_source_body(
         _reconcile_graph_registry_scope,
     )
 
-    artifact = get_source_artifact(repo_root, source_artifact_id)
+    artifact = get_source_artifact(source_artifact_id)
     expected = content_sha256.removeprefix("sha256:").strip().lower()
     actual = (artifact.content_sha256 or "").removeprefix("sha256:").strip().lower()
     if not re.fullmatch(r"[0-9a-f]{64}", expected) or actual != expected:

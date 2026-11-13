@@ -560,7 +560,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     assert resolved_anchor.outcome == "enough"
     assert resolved_anchor.source_artifact_id == buddy_artifact_id
     assert resolved_anchor.source_span_ref_id == anchor.source_span_ref_id
-    registered = get_source_artifact(repo, buddy_artifact_id)
+    registered = get_source_artifact(buddy_artifact_id)
     index = load_source_span_index(repo, buddy_artifact_id)
     span = next(item for item in index.spans if item.source_span_id == anchor.source_span_ref_id)
     relative = parse_repo_uri(registered.uri)

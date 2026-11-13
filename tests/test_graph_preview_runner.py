@@ -695,7 +695,7 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
         prepare_tiptap_markdown_write, commit_tiptap_markdown_write,
         TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
     )
-    artifact = get_source_artifact(tmp_path, loaded.source_artifact_id)
+    artifact = get_source_artifact(loaded.source_artifact_id)
     before = get_workspace_document_snapshot(tmp_path, artifact.workspace_document_id)
     updated_text = "Mirathorn changed after extraction.\n"
     prepared_write = prepare_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWritePrepareRequest(
@@ -933,7 +933,7 @@ def test_reviewable_unsupported_candidate_is_exact_admission_input(
         prepared_by="gm@test",
         world_id="world:elderwyld",
         source_artifact_id=source.source_artifact_id,
-        source_artifact=get_source_artifact(tmp_path, source.source_artifact_id),
+        source_artifact=get_source_artifact(source.source_artifact_id),
         campaign_scope="longmont-c2",
         candidate_graph_path=str(tmp_path / "candidate_graph.json"),
         repo_root=tmp_path,

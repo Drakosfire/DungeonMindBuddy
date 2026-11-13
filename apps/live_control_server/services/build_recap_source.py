@@ -31,7 +31,7 @@ def register_build_recap_source(root: Path, *, document_id: str, expected_revisi
 def frozen_build_recap_configuration(root: Path, *, source_artifact_id: str,
     campaign_id: str, session_id: str, context: dict[str, Any], profile_id: str,
     profile_version: str, supplemental_evidence: dict[str, Any] | None) -> dict[str, Any]:
-    artifact = get_source_artifact(root, source_artifact_id)
+    artifact = get_source_artifact(source_artifact_id)
     binding = artifact.lineage.get("build_recap_source")
     if (not isinstance(binding, dict) or binding.get("schema") != "dmb_build_recap_source_v1"
             or binding.get("mode") != "recap" or artifact.source_domain != "recap"
