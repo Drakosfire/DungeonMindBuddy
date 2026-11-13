@@ -1419,9 +1419,6 @@ export function WorldGraphCanvas({
           <title>Ctrl+scroll: zoom at pointer. Focus graph: +/− zoom, 0 fit.</title>
           <defs><marker id={markerId} markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 z" /></marker></defs>
           <g className="world-graph-canvas__scene" data-testid="graph-scene" data-all-relationships={allRelationships} data-has-selection={selectedIds.length > 0} data-detail={camera.zoom >= 0.9 ? "relationships" : camera.zoom >= 0.45 ? "names" : "overview"} transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>
-          <g className="world-graph-canvas__nodes" aria-label="World objects">
-            {nodeLayer}
-          </g>
           <g className="world-graph-canvas__edges" aria-label="Relationships">
             {edgeLayer}
             {connectPreview ? (() => {
@@ -1436,6 +1433,10 @@ export function WorldGraphCanvas({
                 d={`M ${start.x} ${start.y} C ${start.x + bend} ${start.y} ${end.x - bend} ${end.y} ${end.x} ${end.y}`}
                 markerEnd={`url(#${markerId})`} />;
             })() : null}
+          </g>
+          {/* Nodes own hit testing above crossing edge strokes, including connector ports. */}
+          <g className="world-graph-canvas__nodes" aria-label="World objects">
+            {nodeLayer}
           </g>
           </g>
         </svg>

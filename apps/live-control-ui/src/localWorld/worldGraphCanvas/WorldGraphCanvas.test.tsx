@@ -888,6 +888,21 @@ describe("WorldGraphCanvas", () => {
     expect(document.querySelectorAll(".world-graph-canvas__edge > path")).toHaveLength(2);
   });
 
+  it("keeps nodes above inspectable edge strokes and allows background pan from a stroke", async () => {
+    const { record } = await graphRecord();
+    render(<WorldGraphCanvas record={record} />);
+    const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    const edges = document.querySelector(".world-graph-canvas__edges")!;
+    const nodes = document.querySelector(".world-graph-canvas__nodes")!;
+    expect(edges.compareDocumentPosition(nodes) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    const scene = screen.getByTestId("graph-scene");
+    const before = scene.getAttribute("transform");
+    fireEvent(edges.querySelector("path")!, new MouseEvent("pointerdown", { button: 0, clientX: 100, clientY: 100, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 160, clientY: 140, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 160, clientY: 140, bubbles: true }));
+    expect(scene.getAttribute("transform")).not.toBe(before);
+  });
+
   it("keeps full accessible long predicates without opaque plates", async () => {
     const { record } = await graphRecord();
     const predicate = "has promised to protect during the winter gathering and beyond";
