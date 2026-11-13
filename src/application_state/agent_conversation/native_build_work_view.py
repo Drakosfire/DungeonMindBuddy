@@ -126,11 +126,14 @@ def semantic_frame(host, execution):
             'resources', 'rule_elements', 'senses', 'vitality',
         )
         work['saved_statblocks'] = []
-        for row in host['saved_statblocks']:
+        for statblock_index, row in enumerate(host['saved_statblocks']):
             statblock = {'mechanics': {key: deepcopy(row['definition'][key])
                                       for key in mechanics_fields if key in row['definition']}}
-            excerpts = [item['text'] for item in (row.get('pdf_support') or {}).get('support', ())
-                        if item['text']]
+            excerpts = [
+                {'source': f'pdf{statblock_index}:{crop_index}', 'text': item['text']}
+                for crop_index, item in enumerate((row.get('pdf_support') or {}).get('support', ()))
+                if item['text'].strip()
+            ]
             if excerpts:
                 statblock['reviewed_pdf_excerpts'] = excerpts
             work['saved_statblocks'].append(statblock)

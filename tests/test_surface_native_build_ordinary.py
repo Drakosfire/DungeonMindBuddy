@@ -334,7 +334,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             if saved_statblock:
                 expected = {"mechanics": definition}
                 if saved_statblock == "associated":
-                    expected["reviewed_pdf_excerpts"] = ["Hit Points 41"]
+                    expected["reviewed_pdf_excerpts"] = [{"source": "pdf0:0", "text": "Hit Points 41"}]
                 assert work["saved_statblocks"] == [expected]
                 assert locator.revision_id not in req.content.decode()
             sections = work['saved_sections']
