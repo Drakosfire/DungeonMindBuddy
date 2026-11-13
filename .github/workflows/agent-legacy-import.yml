@@ -8,6 +8,11 @@ on:
       - src/application_state/agent_conversation/repository.py
       - tests/test_agent_legacy_import_intent.py
       - tests/application_state/test_agent_conversation_service.py
+      - ci/test-classification.json
+      - scripts/ci_contract.py
+      - scripts/prepare_patched_hermes.py
+      - pyproject.toml
+      - uv.lock
       - .github/workflows/agent-legacy-import.yml
   workflow_dispatch:
 
