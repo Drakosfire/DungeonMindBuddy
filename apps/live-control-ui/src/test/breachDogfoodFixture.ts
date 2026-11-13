@@ -1,4 +1,4 @@
-import type { PlayRunRecord, PlayRunReferenceManifestV2 } from "../../api/types";
+import type { PlayRunRecord, PlayRunReferenceManifestV2 } from "../api/types";
 
 export const BREACH_DOGFOOD_RUNBOOK_MARKDOWN = [
   "# Breach Dogfood Runbook",
