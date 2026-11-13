@@ -192,7 +192,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    from bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import LocalGraphProfileError, load_dungeonmindbuddy_dotenv
 
     args = build_parser().parse_args(argv)
     involved = [
@@ -203,6 +203,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         load_dungeonmindbuddy_dotenv()
         return int(args.func(args))
+    except LocalGraphProfileError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     except ApplicationStateError as exc:
         print(redact_secrets(str(exc), *involved), file=sys.stderr)
         return 2

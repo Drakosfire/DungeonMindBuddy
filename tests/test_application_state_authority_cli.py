@@ -13,8 +13,9 @@ def test_authority_cli_reports_invalid_profile_before_dispatch(tmp_path, monkeyp
 
     monkeypatch.setattr(cli, "_cmd_backup", unexpected_dispatch)
     output = tmp_path / "backup.dump"
-    assert cli.main(["backup", "--out", str(output)]) == 2
+    assert cli.main(["backup", "--source-dsn", "postgresql://user:synthetic-secret@[", "--out", str(output)]) == 2
     diagnostic = capsys.readouterr().err
     assert "local_graph_profile_fields_invalid" in diagnostic
     assert "Traceback" not in diagnostic
+    assert "synthetic-secret" not in diagnostic
     assert not output.exists()
