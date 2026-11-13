@@ -165,7 +165,7 @@ def _schema_status(dsn: str) -> tuple[str | None, str, str]:
     current = _read_current_revision(dsn)
     if current == head:
         return current, head, "ready"
-    return current, head, "behind"
+    return current, head, "missing" if current is None else "revision_mismatch"
 
 
 def count_startable_runbooks() -> int:
