@@ -58,6 +58,7 @@ exec {launch_lock}>>"$RUN_DIR/launcher.lock"
 flock -n "$launch_lock" || die "another launcher owns $RUN_DIR; stop it before starting another from this checkout"
 
 PIDS=()
+PID_FILES=()
 BUDDY_UI_PID=""
 
 port_listening() {
@@ -103,7 +104,9 @@ cleanup() {
       kill -9 -- "-$pid" 2>/dev/null || kill -9 -- "$pid" 2>/dev/null || true
     fi
   done
-  rm -f "$RUN_DIR"/*.pid
+  if (( ${#PID_FILES[@]} )); then
+    rm -f -- "${PID_FILES[@]}"
+  fi
   log "stopped"
 }
 
@@ -161,6 +164,7 @@ start_dms() {
   local pid=$!
   PIDS+=("$pid")
   echo "$pid" >"$RUN_DIR/dungeonmind-server.pid"
+  PID_FILES+=("$RUN_DIR/dungeonmind-server.pid")
 }
 
 start_buddy_api() {
@@ -183,6 +187,7 @@ start_buddy_api() {
   local pid=$!
   PIDS+=("$pid")
   echo "$pid" >"$RUN_DIR/buddy-api.pid"
+  PID_FILES+=("$RUN_DIR/buddy-api.pid")
 }
 
 start_buddy_ui() {
@@ -207,6 +212,7 @@ start_buddy_ui() {
   PIDS+=("$pid")
   BUDDY_UI_PID="$pid"
   echo "$pid" >"$RUN_DIR/buddy-ui.pid"
+  PID_FILES+=("$RUN_DIR/buddy-ui.pid")
 }
 
 wait_http() {
