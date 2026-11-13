@@ -356,32 +356,6 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           {capture && (
             <section aria-label={`Capture from page ${page}`}>
               <img src={capture.image} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />
-              {worldId && <button type="button" disabled={sourcePending}
-                onClick={() => void retainOrReopen(capture.region)}>
-                {receipt ? "Reopen retained region" : "Retain PDF source"}
-              </button>}
-              {sourceError && <p role="alert">{sourceError}</p>}
-              {textError ? <p role="alert">The PDF text layer could not be read.</p>
-                : capturedText === undefined ? <p role="status">Reading the PDF text layer…</p>
-                : capturedText ? (
-                  <label>
-                    Approximate text from the PDF layer
-                    <span>Text can extend beyond the crop or miss partial lines. Check it against the image.</span>
-                    <textarea readOnly value={capturedText} rows={5} />
-                  </label>
-                ) : <p role="status">No PDF text runs were selected. The crop may still contain visible text.</p>}
-              {clippedText && <p role="status">Some PDF text lines may extend outside the capture. Widen the selection or check the image before using the extracted fields.</p>}
-              {receipt && capturedText && <PdfStatblockCandidate
-                key={JSON.stringify([page, capture.region, capturedText])}
-                text={completeLines}
-                locator={captureLocator(receipt, page, capture.region)}
-              />}
-              {receipt && capturedText && <PdfTableCandidate
-                key={JSON.stringify([page, capture.region, capturedText, clippedText])}
-                items={capturedRuns}
-                locator={captureLocator(receipt, page, capture.region)}
-                clipped={clippedText}
-              />}
               {worldId && receipt && <button type="button" onClick={() => {
                 const locator = captureLocator(receipt, page, capture.region);
                 setStatblockRegions(current => current.some(region => pdfRegionKey(region) === pdfRegionKey(locator))
@@ -392,9 +366,38 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                   pdfRegionKey(region) === pdfRegionKey(captureLocator(receipt, page, capture.region)))
                   ? "Region added" : "Add another region"}
               </button>}
-              {worldId && receipt && (textError || capturedText !== undefined) && (
-                <CropOcr key={capture.image} worldId={worldId} region={captureLocator(receipt, page, capture.region)} hasPdfText={Boolean(capturedText)} />
-              )}
+              <details>
+                <summary>Crop tools</summary>
+                {worldId && <button type="button" disabled={sourcePending}
+                  onClick={() => void retainOrReopen(capture.region)}>
+                  {receipt ? "Reopen retained region" : "Retain PDF source"}
+                </button>}
+                {sourceError && <p role="alert">{sourceError}</p>}
+                {textError ? <p role="alert">The PDF text layer could not be read.</p>
+                  : capturedText === undefined ? <p role="status">Reading the PDF text layer…</p>
+                  : capturedText ? (
+                    <label>
+                      Approximate text from the PDF layer
+                      <span>Text can extend beyond the crop or miss partial lines. Check it against the image.</span>
+                      <textarea readOnly value={capturedText} rows={5} />
+                    </label>
+                  ) : <p role="status">No PDF text runs were selected. The crop may still contain visible text.</p>}
+                {clippedText && <p role="status">Some PDF text lines may extend outside the capture. Widen the selection or check the image before using the extracted fields.</p>}
+                {receipt && capturedText && <PdfStatblockCandidate
+                  key={JSON.stringify([page, capture.region, capturedText])}
+                  text={completeLines}
+                  locator={captureLocator(receipt, page, capture.region)}
+                />}
+                {receipt && capturedText && <PdfTableCandidate
+                  key={JSON.stringify([page, capture.region, capturedText, clippedText])}
+                  items={capturedRuns}
+                  locator={captureLocator(receipt, page, capture.region)}
+                  clipped={clippedText}
+                />}
+                {worldId && receipt && (textError || capturedText !== undefined) && (
+                  <CropOcr key={capture.image} worldId={worldId} region={captureLocator(receipt, page, capture.region)} hasPdfText={Boolean(capturedText)} />
+                )}
+              </details>
             </section>
           )}
         </>
