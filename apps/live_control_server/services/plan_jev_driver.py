@@ -336,7 +336,7 @@ class PlanJevDriver:
             ]
             if len(matches) == 1:
                 target, record = matches[0]
-                entries.append((target.label, record.request.draft_id, record.proof.locator))
+                entries.append((target.label, record.request.draft_id, record.proof.locator, ref))
         return entries
 
     def _read_saved_statblock(self, handle, selection):
@@ -348,7 +348,7 @@ class PlanJevDriver:
         if handle in self.attempted_statblocks:
             raise ValueError("Saved statblock cannot be reacquired")
         self.attempted_statblocks.add(handle)
-        _, draft_id, locator = self.saved_statblocks[handle]
+        _, draft_id, locator, *references = self.saved_statblocks[handle]
         adapter = self.adapter
         event_id = uuid4()
         sequence = len(adapter._broker_execution().events)
@@ -357,17 +357,25 @@ class PlanJevDriver:
                               draft_id=draft_id, revision_id=locator.revision_id)
         if opened["locator"] != locator.model_dump(mode="json"):
             raise ValueError("Opened statblock differs from its selected saved revision")
+        pdf_support = None
+        if references:
+            from .native_graph_inspection import statblock_pdf_support
+            from .native_pdf_evidence import reviewed_pdf_regions
+
+            regions = reviewed_pdf_regions(opened["resource"], world_id=self.statblock_world)
+            if regions:
+                pdf_support = statblock_pdf_support(references[0], regions, adapter.native_principal)
         event = BuildSavedStatblockReadV1(
             event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
             handle=handle, world_id=self.statblock_world, draft_id=UUID(str(draft_id)),
-            locator=locator, definition=opened["resource"]["definition"],
+            locator=locator, definition=opened["resource"]["definition"], pdf_support=pdf_support,
         )
         adapter.turn = _require_fresh_execution_append(adapter.fence.append(
             "record_build_saved_statblock", "event", event,
             materializer=lambda: BuildSavedStatblockReadV1(
                 event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
                 handle=handle, world_id=opened["world_id"], draft_id=UUID(str(opened["draft_id"])),
-                locator=locator, definition=opened["resource"]["definition"],
+                locator=locator, definition=opened["resource"]["definition"], pdf_support=pdf_support,
             ),
         ))
 

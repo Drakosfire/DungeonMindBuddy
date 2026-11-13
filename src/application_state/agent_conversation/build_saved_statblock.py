@@ -18,6 +18,7 @@ class BuildSavedStatblockReadV1(Strict):
     draft_id: UUID
     locator: MechanicsLocator
     definition: dict[str, JsonValue]
+    pdf_support: dict[str, JsonValue] | None = None
 
 
 def validate_read(event, execution):

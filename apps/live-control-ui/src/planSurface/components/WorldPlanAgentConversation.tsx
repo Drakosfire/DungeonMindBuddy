@@ -1,3 +1,4 @@
+import { SavedStatblockPdfEvidence } from './SavedStatblockPdfEvidence';
 import { savedStatblockHref } from '../../statblocks/savedStatblockLocation';
 import {SavedCitationAnswer} from './SavedCitationAnswer';
 import {isBuildSourceBasis} from '../../shared/sourcePassageProtocol';
@@ -6471,9 +6472,10 @@ export function WorldPlanAgentConversation({
     const savedMessage=messagePage&&messageHistory&&messageHistory.world_id===turn.provenance.world_id
       &&history&&sameHistoryPointer(messageHistory,history)&&messageHistory.turns.some(row=>sameSavedMessage(turn,row))
       ?messagePage.messages.find(row=>row.turn_id===turn.turn_id):undefined;
-    const savedStatblockLinks=savedMessage?.saved_statblocks?.map(reference=><p key={reference.draft_id+':'+reference.revision_id}>
+    const savedStatblockLinks=savedMessage?.saved_statblocks?.map(reference=><div key={reference.draft_id+':'+reference.revision_id}>
       <a href={savedStatblockHref({worldId:reference.world_id,draftId:reference.draft_id,revisionId:reference.revision_id})}>Open {reference.name} statblock</a>
-    </p>);
+      {reference.pdf_sources && <SavedStatblockPdfEvidence sources={reference.pdf_sources}/>}
+    </div>);
     const turnReferences=turn.authored_references??(turn.retry_context?.schema==='dmb_turn_retry_context_row_v2'?turn.retry_context.authored_references:null)??savedMessage?.authored_references;
     const selectPassage = isBuild && (turn.retry_context?.author_interaction ?? savedMessage?.author_interaction)==='select_passage';
     const onOriginalPage = buildMode?.savedSource?.documentId===turn.provenance.primary_work.object_id && !!buildMode?.composeBridge;

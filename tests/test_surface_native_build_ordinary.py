@@ -73,6 +73,17 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         definition = {"identity": {"name": "Meat Mind"}, "vitality": {"hit_points": 41}}
         monkeypatch.setattr(statblock_saved_revision, "iter_saved_mechanics",
             lambda root, *, world_id: [("Meat Mind", draft_id, locator)] if world_id == world else [])
+        pdf_support = {"scope": {"managed_world_id": world, "native_world_id": world,
+                                 "binding_version": 1, "revision_id": lane.repo.get_head(world).head_revision_id,
+                                 "scope_mode": "world", "campaign_id": None},
+                       "support": [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture",
+                                    "text": "Hit Points 41"}]}
+        if saved_statblock == "associated":
+            from apps.live_control_server.services import native_graph_inspection, native_pdf_evidence
+            monkeypatch.setattr(native_pdf_evidence, "reviewed_pdf_regions", lambda *args, **kwargs: ("crop",))
+            monkeypatch.setattr(native_graph_inspection, "statblock_pdf_support",
+                                lambda *args: pdf_support)
+
         def open_statblock(root, *, world_id, draft_id, revision_id):
             assert world_id == world and revision_id == locator.revision_id
             return {"world_id": world_id, "draft_id": draft_id,
@@ -321,7 +332,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
             assert (handles or authored_source=='source_only') and 'DISPLAY ONLY' not in str(frame)
             if saved_statblock:
-                assert work["saved_statblocks"] == [{"mechanics": definition}]
+                expected = {"mechanics": definition}
+                if saved_statblock == "associated":
+                    expected["reviewed_pdf_excerpts"] = ["Hit Points 41"]
+                assert work["saved_statblocks"] == [expected]
                 assert locator.revision_id not in req.content.decode()
             sections = work['saved_sections']
             def source_text(row):
@@ -1575,6 +1589,12 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
     assert len(references) == 1
     assert references[0]["name"] == "Meat Mind"
     assert references[0]["revision_id"] == "rev_meatmind"
+    sources = references[0]["pdf_sources"]
+    if mode == "associated":
+        assert sources["scope"]["managed_world_id"] == case.world
+        assert sources["support"] == [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture"}]
+    else:
+        assert sources is None
 
 
 def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):

@@ -125,11 +125,15 @@ def semantic_frame(host, execution):
             'flavor_text', 'lair', 'movement', 'phases', 'proficiencies',
             'resources', 'rule_elements', 'senses', 'vitality',
         )
-        work['saved_statblocks'] = [
-            {'mechanics': {key: deepcopy(row['definition'][key])
-                           for key in mechanics_fields if key in row['definition']}}
-            for row in host['saved_statblocks']
-        ]
+        work['saved_statblocks'] = []
+        for row in host['saved_statblocks']:
+            statblock = {'mechanics': {key: deepcopy(row['definition'][key])
+                                      for key in mechanics_fields if key in row['definition']}}
+            excerpts = [item['text'] for item in (row.get('pdf_support') or {}).get('support', ())
+                        if item['text']]
+            if excerpts:
+                statblock['reviewed_pdf_excerpts'] = excerpts
+            work['saved_statblocks'].append(statblock)
     from .authored_graph_references import model_reference_choices
     references = model_reference_choices(execution)
     if references is not None:

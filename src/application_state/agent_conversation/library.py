@@ -240,7 +240,12 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             SELECT jsonb_agg(jsonb_build_object(
                 'name', event->'definition'->'identity'->'name',
                 'world_id', event->'world_id', 'draft_id', event->'draft_id',
-                'revision_id', event->'locator'->'revision_id'))
+                'revision_id', event->'locator'->'revision_id',
+                'pdf_sources', CASE WHEN jsonb_typeof(event->'pdf_support'->'support')='array'
+                THEN jsonb_build_object('scope', event->'pdf_support'->'scope', 'support', (
+                    SELECT COALESCE(jsonb_agg(item - 'text'), '[]'::jsonb)
+                    FROM jsonb_array_elements(event->'pdf_support'->'support') AS item))
+                ELSE NULL END))
             FROM jsonb_array_elements(graph_context_execution->'events') AS event
             WHERE event->>'kind'='build_saved_statblock_read_v1'
                 AND event->>'world_id'=t.world_id

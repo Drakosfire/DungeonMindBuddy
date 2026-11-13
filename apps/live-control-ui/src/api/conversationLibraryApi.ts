@@ -1,3 +1,7 @@
+export type SavedStatblockPdfSources = {
+  scope: import('./nativeGraphInspection').InspectionPin;
+  support: { assertion_id: string; evidence_ref_id: string }[];
+};
 import {readSavedCitationPreview,type SavedCitationPreview} from './savedCitationPreview';
 import type {AuthoredReferenceInput} from './types';
 import {isAuthoredReferences} from '../agentInteraction/authoredGraphReferences';
@@ -99,7 +103,7 @@ export async function readConversationMessages(world:string,id:string,before?:nu
 export interface ActiveConversationMessages {
   schema: 'dmb_active_conversation_messages_v4'; world_id: string; conversation_state: 'active' | 'absent';
   conversation_id: string | null; active_conversation_id: string | null; pointer_revision: number;
-  messages: (ConversationMessage & { author_interaction?: import('./conversationRetryApi').AuthorInteraction; reply_object: LibraryReplyObject | null; authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview; saved_statblocks?: {name: string; world_id: string; draft_id: string; revision_id: string}[] })[];
+  messages: (ConversationMessage & { author_interaction?: import('./conversationRetryApi').AuthorInteraction; reply_object: LibraryReplyObject | null; authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview; saved_statblocks?: {name: string; world_id: string; draft_id: string; revision_id: string; pdf_sources?: SavedStatblockPdfSources | null}[] })[];
   next_before_sequence: number | null;
 }
 export async function readActiveConversationMessages(world: string, before?: number, signal?: AbortSignal): Promise<ActiveConversationMessages> {
@@ -124,13 +128,31 @@ if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_te
       || t.saved_statblocks.some((reference: unknown) => !reference || typeof reference !== 'object'
         || !('name' in reference) || !('world_id' in reference)
         || !('draft_id' in reference) || !('revision_id' in reference)
-        || !exactObject(reference, ['name', 'world_id', 'draft_id', 'revision_id'])
+        || !exactObject(reference, ['name', 'world_id', 'draft_id', 'revision_id', ...(Object.hasOwn(reference, 'pdf_sources') ? ['pdf_sources'] : [])])
         || typeof reference.name !== 'string' || reference.world_id !== world
         || !uuid(reference.draft_id) || typeof reference.revision_id !== 'string'
-        || !/^rev_[a-z0-9]+$/.test(reference.revision_id)))) throw new Error('Saved statblock references are invalid.');
+        || !/^rev_[a-z0-9]+$/.test(reference.revision_id)
+        || ('pdf_sources' in reference && reference.pdf_sources !== null
+          && !validSavedStatblockPdfSources(reference.pdf_sources, world))))) throw new Error('Saved statblock references are invalid.');
     t.citation_preview=t.status==='completed'?readSavedCitationPreview(t.citation_preview,world,t.provenance.surface_id,t.assistant_text):null;
     last = t.sequence;
 }
   if (!(v.next_before_sequence === null || v.messages.length > 0 && v.next_before_sequence === v.messages[0].sequence)) throw new Error('Active message cursor differs from its page.');
   return v;
+}
+
+function validSavedStatblockPdfSources(value: unknown, world: string): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const sources = value as SavedStatblockPdfSources;
+  const scope = sources.scope;
+  return exactObject(value, ['scope', 'support']) && !!scope
+    && exactObject(scope, ['managed_world_id', 'native_world_id', 'scope_mode', 'campaign_id', 'binding_version', 'revision_id'])
+    && scope.managed_world_id === world && scope.scope_mode === 'world' && scope.campaign_id === null
+    && typeof scope.native_world_id === 'string' && !!scope.native_world_id
+    && typeof scope.revision_id === 'string' && !!scope.revision_id
+    && Number.isInteger(scope.binding_version) && scope.binding_version > 0
+    && Array.isArray(sources.support) && sources.support.every(item => !!item
+      && exactObject(item, ['assertion_id', 'evidence_ref_id'])
+      && typeof item.assertion_id === 'string' && !!item.assertion_id
+      && typeof item.evidence_ref_id === 'string' && item.evidence_ref_id.startsWith('pdf-region:'));
 }

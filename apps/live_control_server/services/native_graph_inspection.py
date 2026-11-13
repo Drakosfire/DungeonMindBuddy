@@ -9,7 +9,8 @@ from dungeonmind.application.vnext import (
 )
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import _repository
 from fastapi.encoders import jsonable_encoder
-from apps.live_control_server.services.native_pdf_evidence import render_admitted_pdf_evidence
+from apps.live_control_server.services.native_pdf_evidence import open_admitted_pdf_evidence, render_admitted_pdf_evidence
+from apps.live_control_server.services.build_pdf_region_render import read_region_text
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
 )
@@ -127,3 +128,44 @@ def inspect(request, principal):
         opened.span_start_byte : opened.span_end_byte
     ].decode("utf-8")
     return _response(bound, pin, schema="dmb_native_graph_source_v1", source=span)
+
+
+def statblock_pdf_support(reference, regions, principal):
+    """Resolve reviewed crops through the referenced creature's admitted assertions."""
+    scope = InspectionPin(
+        managed_world_id=reference.managed_world_id,
+        native_world_id=reference.native_world_id,
+        binding_version=reference.binding_version,
+        revision_id=reference.graph_revision,
+    )
+    bound, read, access, pin = _pinned(scope, principal)
+    entity = EntityReadService().get_complete_entity(read, reference.node_id)
+    if not entity.found or entity.completeness.status != "complete":
+        return _response(bound, pin, support=[])
+    support = {}
+    for assertion in entity.assertions:
+        if assertion.subject_entity_id != reference.node_id:
+            continue
+        result = EvidenceReadService().get_assertion_evidence(read, assertion.assertion_id)
+        if not result.available or result.completeness.status != "complete":
+            continue
+        for item in result.evidence:
+            ref_id = item.evidence_ref_id
+            if item.evidence_role != "support" or not ref_id.startswith("pdf-region:") or ref_id in support:
+                continue
+            evidence = access.parsed.get_evidence(ref_id)
+            if evidence is None:
+                continue
+            try:
+                region, pdf = open_admitted_pdf_evidence(
+                    evidence, space_id=pin.native_world_id, load=_repository().get_native_pdf_source,
+                )
+            except ValueError:
+                continue
+            if region in regions:
+                support[ref_id] = {
+                    "assertion_id": assertion.assertion_id,
+                    "evidence_ref_id": ref_id,
+                    "text": read_region_text(pdf, region),
+                }
+    return _response(bound, pin, support=list(support.values()))
