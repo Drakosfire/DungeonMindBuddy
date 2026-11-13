@@ -481,6 +481,10 @@ def test_native_complete_object_requires_matching_pin(inspection):
     assert historical_result["node"] == result["node"]
     assert historical_result["snapshot"]["revisionId"] == scope["revision_id"]
     assert historical_result["snapshot"]["isHead"] is False
+    resolved = x.client.post(route, json={"request": request})
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["snapshot"] == historical_result["snapshot"]
+    assert resolved.json()["node"] == historical_result["node"]
 
     x.client.headers.pop("Authorization")
     assert x.client.post(route, json={"scope": scope, "request": request}).status_code == 401

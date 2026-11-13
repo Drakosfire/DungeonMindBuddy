@@ -203,31 +203,39 @@ def statblock_pdf_support(reference, regions, principal):
 
 
 class NativeCompleteObjectRead(Closed):
-    scope: InspectionPin
+    scope: InspectionPin | None = None
     request: WorldGraphObjectProjectionRequest
 
 
 def complete_object(body: NativeCompleteObjectRead, principal):
     scope, request = body.scope, body.request
-    if (
+    if request.admissibility != principal.role:
+        raise InspectionUnavailable("native_complete_object_scope_mismatch")
+    if scope is not None and (
         request.world_id != scope.managed_world_id
         or request.scope_mode != scope.scope_mode
         or (scope.campaign_id is not None and request.campaign_id != scope.campaign_id)
         or request.revision_pin != scope.revision_id
-        or request.admissibility != principal.role
     ):
         raise InspectionUnavailable("native_complete_object_scope_mismatch")
     require_native_graph_gm(principal)
-    bound = native.binding(scope.managed_world_id)
-    if (scope.native_world_id, scope.binding_version) != (
-        bound["native_world_id"], bound["binding_version"],
-    ):
+    bound = native.binding(request.world_id)
+    space = bound["native_world_id"]
+    version = bound["binding_version"]
+    if scope is not None and (scope.native_world_id, scope.binding_version) != (space, version):
         raise InspectionUnavailable("native_inspection_binding_changed")
-    pin = scope
     repo = native.read_repository()
-    head = repo.get_head(pin.native_world_id)
+    head = repo.get_head(space)
     if head is None:
         raise InspectionUnavailable("native_inspection_head_unavailable")
+    pin = scope or InspectionPin(
+        managed_world_id=request.world_id,
+        native_world_id=space,
+        binding_version=version,
+        revision_id=request.revision_pin or head.head_revision_id,
+        scope_mode=request.scope_mode,
+        campaign_id=request.campaign_id if request.scope_mode == "campaign" else None,
+    )
     domain, _ = native.descriptors(repo, pin.native_world_id, pin.revision_id)
     access = open_native_text_source_access_context(
         repository=repo, space_id=pin.native_world_id, revision_id=pin.revision_id,
