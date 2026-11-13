@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Narrow the pre-write conversation rename read
+
+[PR #2805](https://github.com/Drakosfire/DungeonMindBuddy/pull/2805) reads the saved title and revision before writing. Successful writes and confirmed replays still return full summaries. On a migrated PostgreSQL 16 fixture, the first-rename lookup median fell from 0.0215 ms to 0.004 ms over 30 warm samples, and shared buffer hits fell from six to two. The library suite had 13 passes and the same four failures on both revisions. The [Rules-only regression](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/43412818170) passed.
+
 ## [DONE] Use a scoped existence check for saved conversation messages
 
 [PR #2803](https://github.com/Drakosfire/DungeonMindBuddy/pull/2803) replaces summary hydration with a World-scoped existence query inside the existing repeatable-read transaction. Both PostgreSQL integration tests passed. On a migrated PostgreSQL 16 fixture with three turns, median execution over 30 warm samples dropped from 0.0205 ms to 0.007 ms for the ownership query, with shared buffer hits falling from six to two. Rules-only regression, inventory, and frontend discovery passed in GitHub.
