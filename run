@@ -59,10 +59,23 @@ BUDDY_UI_PID=""
 
 port_listening() {
   local port="$1"
+  local output status
   if command -v ss >/dev/null 2>&1; then
-    ss -ltn 2>/dev/null | grep -E ":${port}\\b" >/dev/null
+    output=$(ss -H -ltn "sport = :$port") || die "ss failed while checking port $port"
+    [[ -n "$output" ]]
+  elif command -v lsof >/dev/null 2>&1; then
+    if output=$(lsof -iTCP:"$port" -sTCP:LISTEN 2>&1); then
+      return 0
+    else
+      status=$?
+      if [[ "$status" == 1 && -z "$output" ]]; then
+        return 1
+      fi
+      printf '%s\n' "$output" >&2
+      die "lsof failed while checking port $port"
+    fi
   else
-    lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1
+    die "listener detection requires ss or lsof"
   fi
 }
 
