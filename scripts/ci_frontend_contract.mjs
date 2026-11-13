@@ -17,6 +17,13 @@ for (const step of catalog.contracts["hosted-frontend"].steps) {
   const started = performance.now();
   const result = spawnSync(step.argv[0], step.argv.slice(1), { cwd: resolve(root, step.cwd), stdio: "inherit" });
   const exitCode = result.status ?? 1;
-  console.log(JSON.stringify({ sha, contract: "hosted-frontend", elapsed_seconds: (performance.now() - started) / 1000, exit_code: exitCode }));
+  console.log(JSON.stringify({
+    sha,
+    contract: "hosted-frontend",
+    elapsed_seconds: (performance.now() - started) / 1000,
+    exit_code: exitCode,
+    ...(result.error && { spawn_error: result.error.message }),
+    ...(result.signal && { signal: result.signal }),
+  }));
   if (exitCode !== 0) process.exit(exitCode);
 }
