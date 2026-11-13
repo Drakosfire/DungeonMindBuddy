@@ -332,7 +332,7 @@ def _graph_from_run_dir(root: Path, run_dir: str) -> dict[str, Any] | None:
 
 
 def _run_has_resolvable_evidence(root: Path, run_dir: str) -> bool:
-    """Cheap probe: does any evidence ref carry a source_span_ref_id we can locate?"""
+    """Cheap probe: does any evidence ref carry a source_span_ref_id?"""
     graph = _graph_from_run_dir(root, run_dir)
     if graph is None:
         return False
@@ -349,15 +349,20 @@ def _run_has_resolvable_evidence(root: Path, run_dir: str) -> bool:
 def _pick_latest_run(root: Path, runs: list[GraphPreviewRunSummary]) -> GraphPreviewRunSummary | None:
     if not runs:
         return None
-    # Prefer runs whose evidence can actually be located in the source (spref-backed),
-    # so the source-highlight panel has something to render. Among resolvable runs,
-    # prefer canonical-IR-valid; otherwise fall back to IR-valid, then most recent.
-    resolvable = [r for r in runs if _run_has_resolvable_evidence(root, r.run_dir)]
-    if resolvable:
-        valid_resolvable = [r for r in resolvable if r.canonical_ir_valid]
-        return (valid_resolvable or resolvable)[-1]
-    valid = [r for r in runs if r.canonical_ir_valid]
-    return (valid or runs)[-1]
+    newest_canonical = None
+    newest_with_evidence = None
+    # Discovery order breaks ties within each tier. A canonical run with
+    # evidence IDs wins immediately, so older artifacts need no probe.
+    for run in reversed(runs):
+        if run.canonical_ir_valid and newest_canonical is None:
+            newest_canonical = run
+        if not run.canonical_ir_valid and newest_with_evidence is not None:
+            continue
+        if _run_has_resolvable_evidence(root, run.run_dir):
+            if run.canonical_ir_valid:
+                return run
+            newest_with_evidence = run
+    return newest_with_evidence or newest_canonical or runs[-1]
 
 
 def _object_id(section: str, obj: Mapping[str, Any]) -> str:
