@@ -57,7 +57,23 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   if(!selected||before===null||loading)return;
   const owner=scope.current,epoch=detailEpoch.current,id=selected,cursor=before;setLoading(true);setError('');
   try{const page=await readPage(id,cursor);if(!alive(owner)||epoch!==detailEpoch.current)return;
-   setTurns(old=>[...new Map([...page.turns,...old].map(turn=>[turn.turn_id,turn])).values()].sort((a,b)=>a.sequence-b.sequence));setBefore(page.next_before_sequence);
+   setTurns(old => {
+    const incomingIds = new Set(page.turns.map(turn => turn.turn_id));
+    if (
+      incomingIds.size === page.turns.length &&
+      (!old.length || !page.turns.length || page.turns[page.turns.length - 1].sequence < old[0].sequence) &&
+      old.every(turn => {
+       if (incomingIds.has(turn.turn_id)) return false;
+       incomingIds.add(turn.turn_id);
+       return true;
+      })
+    ) {
+      return [...page.turns, ...old];
+    }
+    return [...new Map([...page.turns, ...old].map(turn => [turn.turn_id, turn])).values()]
+      .sort((a, b) => a.sequence - b.sequence);
+   });
+   setBefore(page.next_before_sequence);
   }catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason));}
   finally{if(alive(owner)&&epoch===detailEpoch.current)setLoading(false);}
  }
