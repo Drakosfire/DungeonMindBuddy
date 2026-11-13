@@ -92,12 +92,13 @@ def run_runtime_preflight(
     require_world: str | None = None,
     load_env: bool = True,
     include_runbooks: bool = True,
+    include_ingest_catalog: bool = True,
 ) -> RuntimePreflightReport:
     checks = (
         _check_app_state(load_env=load_env, include_runbooks=include_runbooks),
         _check_dungeonmind_world(require_world=require_world),
         _check_campaign_registry(),
-        _check_ingest_registry(repo_root),
+        *([_check_ingest_registry(repo_root)] if include_ingest_catalog else []),
         _check_source_roots(),
     )
     return RuntimePreflightReport(status=overall_status(checks), checks=checks)

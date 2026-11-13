@@ -367,7 +367,8 @@ def create_app() -> FastAPI:
         from apps.live_control_server.config import repo_root
 
         report = run_runtime_preflight(
-            repo_root=repo_root(), load_env=False, include_runbooks=False
+            repo_root=repo_root(), load_env=False, include_runbooks=False,
+            include_ingest_catalog=False,
         )
         if report.status != "READY":
             return JSONResponse(
