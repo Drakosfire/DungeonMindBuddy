@@ -51,7 +51,6 @@ def test_successful_rebase_moves_binding_and_manifest_once(
     created = create_run(tmp_path, snapshot)
     target_revision, target_sha = _advance_to_surviving_target(tmp_path, snapshot)
     rebased = rebase_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=created.run_revision,
         target_playable_revision=target_revision,
@@ -74,14 +73,12 @@ def test_rebase_exact_replay_does_not_mutate_again(
     created = create_run(tmp_path, snapshot)
     target_revision, target_sha = _advance_to_surviving_target(tmp_path, snapshot)
     first = rebase_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=created.run_revision,
         target_playable_revision=target_revision,
         target_playable_content_sha256=target_sha,
     )
     replayed = rebase_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=created.run_revision,
         target_playable_revision=target_revision,
@@ -89,7 +86,6 @@ def test_rebase_exact_replay_does_not_mutate_again(
     )
     assert replayed == first
     same_head = rebase_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=first.run_revision,
         target_playable_revision=target_revision,
@@ -114,7 +110,6 @@ def test_rebase_failure_before_commit_leaves_source_and_writes_no_intent(
     monkeypatch.setattr("application_state.play.repository.replace_manifest", explode)
     with pytest.raises(RuntimeError, match="forced rebase manifest replace failure"):
         rebase_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=created.run_revision,
             target_playable_revision=target_revision,
@@ -136,7 +131,6 @@ def test_stale_rebase_expected_revision_is_409(
     target_revision, target_sha = _advance_to_surviving_target(tmp_path, snapshot)
     with pytest.raises(PlayRunRebaseError) as exc_info:
         rebase_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=created.run_revision + 3,
             target_playable_revision=target_revision,
@@ -166,7 +160,6 @@ def _assert_cross_grammar_rebase_is_terminal(
     target_revision, target_sha = playable_of(advanced)
     with pytest.raises(PlayRunRebaseError) as exc_info:
         rebase_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=created.run_revision,
             target_playable_revision=target_revision,
@@ -208,7 +201,6 @@ def test_same_grammar_v2_rebase_is_preserve_only(
     advanced = get_workspace_document_snapshot(tmp_path, snapshot.record.document_id)
     target_revision, target_sha = playable_of(advanced)
     rebased = rebase_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=created.run_revision,
         target_playable_revision=target_revision,
@@ -229,7 +221,6 @@ def test_exact_rebase_replay_rejects_corrupt_stored_manifest(
     created = create_run(tmp_path, snapshot)
     target_revision, target_sha = _advance_to_surviving_target(tmp_path, snapshot)
     first = rebase_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=created.run_revision,
         target_playable_revision=target_revision,
@@ -245,7 +236,6 @@ def test_exact_rebase_replay_rejects_corrupt_stored_manifest(
         before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
         with pytest.raises(PlayRunRebaseError) as completed_exc:
             rebase_or_replay_play_run(
-                tmp_path,
                 run_id=RUN_ID_A,
                 expected_run_revision=created.run_revision,
                 target_playable_revision=target_revision,
@@ -254,7 +244,6 @@ def test_exact_rebase_replay_rejects_corrupt_stored_manifest(
         assert completed_exc.value.status_code == 500
         with pytest.raises(PlayRunRebaseError) as same_head_exc:
             rebase_or_replay_play_run(
-                tmp_path,
                 run_id=RUN_ID_A,
                 expected_run_revision=first.run_revision,
                 target_playable_revision=target_revision,

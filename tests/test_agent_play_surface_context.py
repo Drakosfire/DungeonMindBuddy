@@ -986,7 +986,7 @@ def test_revision_zero_history_uses_original_pin_after_run_rebase(
         expected_revision=obj.object_revision,
     )
     rebased = rebase_or_replay_world_play_run(
-        tmp_path, world_id=world.world_id, run_id=run.run_id,
+        world_id=world.world_id, run_id=run.run_id,
         expected_run_revision=run.run_revision,
         target_playable_revision=revision.revision_n,
         target_playable_content_sha256=revision.content_sha256,
