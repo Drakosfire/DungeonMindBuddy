@@ -323,6 +323,8 @@ class PlanJevDriver:
             ):
                 continue
             view = catalog(self.statblock_world, revision_id=ref.graph_revision)
+            if view.revision_id != view.head_revision_id:
+                continue
             if (view.native_world_id, view.binding_version, view.revision_id) != (
                 ref.native_world_id, ref.binding_version, ref.graph_revision
             ):

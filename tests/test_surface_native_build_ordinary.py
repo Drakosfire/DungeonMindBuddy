@@ -137,7 +137,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         )
         monkeypatch.setattr(associations, "list_current", lambda **kwargs: [record])
         monkeypatch.setattr(world_creature_selection, "catalog", lambda *args, **kwargs: SimpleNamespace(
-            native_world_id=world, binding_version=1, revision_id=original_revision, targets=(target,),
+            native_world_id=world, binding_version=1, revision_id=original_revision, head_revision_id=original_revision, targets=(target,),
         ))
         monkeypatch.setattr(statblock_saved_revision, "iter_saved_mechanics", lambda *args, **kwargs: [
             ("Meat Mind", str(uuid4()), locator.model_copy(update={"revision_id": "rev_wrong"})),
@@ -1575,3 +1575,25 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
     assert len(references) == 1
     assert references[0]["name"] == "Meat Mind"
     assert references[0]["revision_id"] == "rev_meatmind"
+
+
+def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
+    from application_state.world_mechanics import service as associations
+    from apps.live_control_server.services import world_creature_selection
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+
+    driver = object.__new__(PlanJevDriver)
+    driver.statblock_world = "fixture-world"
+    target = SimpleNamespace(node_id="ent:fixture", matches_association_target=lambda _: True)
+    record = SimpleNamespace(request=SimpleNamespace(target=target, draft_id="draft"),
+                             proof=SimpleNamespace(locator="current mechanics"))
+    monkeypatch.setattr(associations, "list_current", lambda **kwargs: [record])
+    monkeypatch.setattr(world_creature_selection, "catalog", lambda *args, **kwargs: SimpleNamespace(
+        native_world_id="fixture-world", binding_version=1, revision_id="rev:old",
+        head_revision_id="rev:current", targets=(target,),
+    ))
+    reference = AuthoredGraphReferenceV1(
+        managed_world_id="fixture-world", native_world_id="fixture-world", binding_version=1,
+        graph_revision="rev:old", node_id="ent:fixture", label="Fixture",
+    )
+    assert driver._referenced_statblocks((reference,)) == []
