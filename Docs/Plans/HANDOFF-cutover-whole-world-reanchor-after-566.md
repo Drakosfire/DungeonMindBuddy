@@ -1,7 +1,7 @@
 # HANDOFF — CUTOVER whole-world re-anchor after PR #566
 
 **Created:** 2026-08-12  
-**Status:** IMPLEMENTED — AWAITING REVIEW
+**Status:** DONE / HISTORICAL — merged in [PR #568](https://github.com/Drakosfire/DungeonMindBuddy/pull/568).
 **Conversation / workstream:** `CUTOVER`  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Flow:** CONFORMANCE / CUTOVER  
