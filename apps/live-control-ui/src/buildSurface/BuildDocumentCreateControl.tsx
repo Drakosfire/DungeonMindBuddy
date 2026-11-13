@@ -138,6 +138,10 @@ export function BuildDocumentCreateControl({
     return () => window.removeEventListener(BUILD_STUDIO_ACTION, open);
   }, [disabled, creating]);
   const [importOpen, setImportOpen] = useState(false);
+  function closeImport() {
+    setImportOpen(false);
+    setDroppedPdf(undefined);
+  }
   const [destinationSelection, setDestinationSelection] = useState<DestinationSelection>(() => ({
     value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions),
     provenance: "derived",
@@ -422,7 +426,7 @@ export function BuildDocumentCreateControl({
               ++importFileRead.current;
               setReadingImportFile(false);
               setImportFileError(null);
-              setImportOpen(false);
+              closeImport();
             }}
             disabled={disabled || creating}
           >
@@ -499,7 +503,7 @@ export function BuildDocumentCreateControl({
       </SurfaceContextPopover>
       <SurfaceContextPopover
         open={importOpen}
-        onOpenChange={open => { setImportOpen(open); if (!open) setDroppedPdf(undefined); }}
+        onOpenChange={open => { if (open) setImportOpen(true); else closeImport(); }}
         title="Import source"
         align="end"
         placement="below"
