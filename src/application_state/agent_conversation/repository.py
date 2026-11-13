@@ -810,22 +810,31 @@ def advance_conversation_for_turn(
     return None if row is None else (int(row[0]), int(row[1]))
 
 
-def get_active_conversation(
+def get_active_conversation_snapshot(
     conn: psycopg.Connection, world_id: str
-) -> Conversation | None:
+) -> tuple[WorldPointer | None, Conversation | None]:
+    columns = ", ".join(f"c.{column.strip()}" for column in _CONVERSATION_COLS.split(","))
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
-            SELECT c.{_CONVERSATION_COLS.replace(", ", ", c.")}
+            SELECT w.active_conversation_id, w.pointer_revision, {columns}
             FROM agent.world_state AS w
-            JOIN agent.conversation AS c
+            LEFT JOIN agent.conversation AS c
               ON c.conversation_id = w.active_conversation_id AND c.world_id = w.world_id
             WHERE w.world_id = %s
             """,
             (world_id,),
         )
         row = cur.fetchone()
-    return None if row is None else Conversation.model_validate(row)
+    if row is None:
+        return None, None
+    pointer = WorldPointer(
+        world_id=world_id,
+        active_conversation_id=row.pop("active_conversation_id"),
+        revision=row.pop("pointer_revision"),
+    )
+    owner = Conversation.model_validate(row) if row["conversation_id"] is not None else None
+    return pointer, owner
 
 
 def get_turn_by_world_key(

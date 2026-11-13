@@ -453,8 +453,7 @@ class AgentConversationService:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
-            pointer = repo.get_world_state(conn, world_id)
-            active = repo.get_active_conversation(conn, world_id)
+            pointer, active = repo.get_active_conversation_snapshot(conn, world_id)
         if pointer is None or pointer.active_conversation_id is None:
             if active is not None:
                 raise ApplicationStateIntegrityError("active conversation exists without a World pointer")

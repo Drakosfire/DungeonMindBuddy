@@ -350,8 +350,7 @@ def read_active_messages(
     with unit_of_work(_ready_dsn()) as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         conn.row_factory = dict_row
-        pointer = repo.get_world_state(conn, world)
-        active = repo.get_active_conversation(conn, world)
+        pointer, active = repo.get_active_conversation_snapshot(conn, world)
         ident = pointer.active_conversation_id if pointer else None
         if (
             (active.conversation_id if active else None) != ident
