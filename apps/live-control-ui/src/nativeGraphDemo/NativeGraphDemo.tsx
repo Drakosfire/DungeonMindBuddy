@@ -1290,13 +1290,19 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     const { displayName, displayKind } = nativeGraphPresentation(node);
     return { id: node.id, label: `${displayName} · ${displayKind}` };
   }) ?? [], [graph?.nodes]);
+  const searchNodes = graph?.nodes;
+  const objectSearchIndex = useMemo(() => searchNodes?.map((node) => {
+    const presentation = nativeGraphPresentation(node);
+    return {
+      node,
+      text: `${node.name} ${node.kind} ${node.id} ${presentation.displayName} ${presentation.displayKind} ${presentation.recordedNames.join(" ")}`.toLocaleLowerCase(),
+    };
+  }) ?? [], [searchNodes]);
   const matchingObjects = useMemo(() => {
     const query = objectQuery.trim().toLocaleLowerCase();
-    return (graph?.nodes ?? []).filter((node) => {
-      const presentation = nativeGraphPresentation(node);
-      return !query || `${node.name} ${node.kind} ${node.id} ${presentation.displayName} ${presentation.displayKind} ${presentation.recordedNames.join(" ")}`.toLocaleLowerCase().includes(query);
-    });
-  }, [graph, objectQuery]);
+    if (!query) return searchNodes ?? [];
+    return objectSearchIndex.filter(({ text }) => text.includes(query)).map(({ node }) => node);
+  }, [objectQuery, objectSearchIndex, searchNodes]);
   const searchPageSize = 20;
   const lastObjectPage = Math.max(0, Math.ceil(matchingObjects.length / searchPageSize) - 1);
   const currentObjectPage = Math.min(objectPage, lastObjectPage);
