@@ -240,7 +240,8 @@ check_owned_services() {
 wait_http() {
   local url="$1"
   local label="$2"
-  while (( SECONDS < startup_deadline )); do
+  local probe_deadline=$((SECONDS + 30))
+  while (( SECONDS < probe_deadline && SECONDS < startup_deadline )); do
     check_owned_services
     if curl -fsS --max-time 1 -o /dev/null "$url" 2>/dev/null; then
       check_owned_services
