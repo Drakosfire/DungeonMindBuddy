@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     StatblockIntegrationError,
@@ -25,7 +25,6 @@ __all__ = [
     "CreateOutcomeSpec",
     "CREATE_OUTCOME_INVENTORY",
     "TERMINAL_NON_BEGIN_SPECS",
-    "NON_TERMINAL_SPECS",
     "is_changed_body_idempotency_conflict",
     "is_fixture_proven_terminal_non_begin",
     "is_invalid_request_terminal_non_begin",
@@ -198,11 +197,6 @@ TERMINAL_NON_BEGIN_SPECS: tuple[CreateOutcomeSpec, ...] = tuple(
     spec for spec in CREATE_OUTCOME_INVENTORY if spec.terminal_non_begin == "yes"
 )
 
-NON_TERMINAL_SPECS: tuple[CreateOutcomeSpec, ...] = tuple(
-    spec for spec in CREATE_OUTCOME_INVENTORY if spec.terminal_non_begin == "no"
-)
-
-
 def is_changed_body_idempotency_conflict(error: StatblockIntegrationError) -> bool:
     """True only for Server idempotency_conflict (changed-body attempt conflict)."""
 
@@ -228,24 +222,3 @@ def is_fixture_proven_terminal_non_begin(error: StatblockIntegrationError) -> bo
         if predicate is not None and predicate(error):
             return True
     return False
-
-
-def describe_terminal_proof_requirements() -> list[dict[str, Any]]:
-    """Operator-facing summary of required proof fields per terminal outcome."""
-
-    rows: list[dict[str, Any]] = []
-    for spec in TERMINAL_NON_BEGIN_SPECS:
-        rows.append(
-            {
-                "name": spec.name,
-                "server_error_code": spec.server_error_code,
-                "http_status": spec.http_status,
-                "fixture": spec.fixture,
-                "required_evidence": (
-                    "details.is_persistence_ready is False"
-                    if spec.name == "persistence_validation_failed"
-                    else "error_code == invalid_request (pre-handler)"
-                ),
-            }
-        )
-    return rows
