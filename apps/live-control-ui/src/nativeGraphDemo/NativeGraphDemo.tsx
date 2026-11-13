@@ -76,6 +76,7 @@ interface StoredPlacementIntent {
 }
 
 interface LayoutState {
+  readonly writeFailed?: boolean;
   readonly worldId: string;
   readonly positions: Readonly<Record<string, { readonly x: number; readonly y: number }>>;
   readonly revision: number;
@@ -808,8 +809,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       positions: nextPositions,
       revision: layoutRef.current.worldId === committedGraph.world_id ? layoutRef.current.revision + 1 : 1,
     };
-    setLayout(nextLayout);
-    if (!writeLayout(committedGraph.world_id, nextPositions, currentScopeId)) {
+    const saved = writeLayout(committedGraph.world_id, nextPositions, currentScopeId);
+    setLayout({ ...nextLayout, writeFailed: !saved });
+    if (!saved) {
       setStorageWarning(true);
       return "DungeonMind saved the object. This browser could not save its requested canvas position, so drag it into place manually.";
     }
@@ -1325,19 +1327,27 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
   const saveLayout = useCallback(async (_record: LocalWorldRecord, changedPositions: Readonly<Record<string, { readonly x: number; readonly y: number }>>): Promise<WriteLayoutResult> => {
     if (!graph || !canvasSnapshot) return { status: "missing" };
-    const current = layout.worldId === graph.world_id ? layout : { worldId: graph.world_id, positions: {}, revision: 0 };
+    const current: LayoutState = layout.worldId === graph.world_id ? layout : { worldId: graph.world_id, positions: {}, revision: 0 };
     const mergedPositions: Record<string, { x: number; y: number }> = { ...current.positions };
+    let changed = false;
     for (const [id, position] of Object.entries(changedPositions)) {
       if (!nodesById.has(id) || !Number.isFinite(position.x) || !Number.isFinite(position.y)) continue;
-      mergedPositions[id] = {
+      const nextPosition = {
         x: Math.max(0, Math.min(MAX_COORDINATE, position.x)),
         y: Math.max(0, Math.min(MAX_COORDINATE, position.y)),
       };
+      const previous = mergedPositions[id];
+      changed ||= previous?.x !== nextPosition.x || previous?.y !== nextPosition.y;
+      mergedPositions[id] = nextPosition;
     }
-    const nextLayout: LayoutState = { worldId: graph.world_id, positions: mergedPositions, revision: current.revision + 1 };
+    if (!changed && !current.writeFailed) {
+      return { status: "written", record: toCanvasRecord(graph, canvasSnapshot, current) };
+    }
+    const saved = writeLayout(graph.world_id, mergedPositions, stateScopeId);
+    const nextLayout: LayoutState = { worldId: graph.world_id, positions: mergedPositions, revision: current.revision + 1, writeFailed: !saved };
     setLayout(nextLayout);
     const nextRecord = toCanvasRecord(graph, canvasSnapshot, nextLayout);
-    if (!writeLayout(graph.world_id, mergedPositions, stateScopeId)) {
+    if (!saved) {
       return { status: "error", message: "This arrangement is visible for now, but the browser could not save its presentation-only layout." };
     }
     return { status: "written", record: nextRecord };
