@@ -136,18 +136,19 @@ describe("WorldGraphRecapProjectionView", () => {
     expect(screen.queryByRole("link", { name: /Continue in Build/i })).not.toBeInTheDocument();
     expect(document.querySelector(".recap-graph-object-panel__header")).not.toBeInTheDocument();
     const peek = screen.getByLabelText("Caelynn graph object");
-    expect(within(peek).getByRole("heading", { level: 4 })).toHaveTextContent("Caelynn");
+    expect(within(peek).getByRole("heading", { level: 4, name: "Caelynn" })).toBeInTheDocument();
     expect(within(peek).getByRole("region", { name: "Campaign summary" })).toHaveTextContent(
       "Held the Mireward gate during Session 23.",
     );
     expect(peek).toHaveAttribute("data-graph-object-card-mode", "campaign-memory");
     expect(within(peek).getByRole("button", { name: /Close Caelynn/i })).toBeInTheDocument();
-    expect(within(peek).queryByText("Advanced")).not.toBeInTheDocument();
-    expect(peek.querySelectorAll("details")).toHaveLength(1);
-    fireEvent.click(within(peek).getByText("Source"));
-    expect(within(peek).queryByText("Advanced")).not.toBeInTheDocument();
+    const source = within(peek).getByText("Source");
+    const advanced = within(peek).getByText("Advanced").closest("details");
+    expect(source.closest("details")).toContainElement(advanced);
+    expect(advanced).not.toHaveAttribute("open");
+    fireEvent.click(source);
     expect(within(peek).getByText("World ID")).toBeInTheDocument();
-    expect(peek.querySelectorAll("details details")).toHaveLength(0);
+    expect(advanced).not.toHaveAttribute("open");
 
     fireEvent.click(within(peek).getByRole("button", { name: /Open related object.*Mirathorn/i }));
     expect(within(peek).getByRole("heading", { level: 4, name: "Caelynn" })).toBeInTheDocument();
