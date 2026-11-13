@@ -758,3 +758,6 @@ body:has([data-document-surface="build"])
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
 }
+
+/* Keep the source-browser shortcut beside the picker in the shared navbar rail. */
+.app-chrome-header .surface-context-host .build-browse-recaps { order: 11; }

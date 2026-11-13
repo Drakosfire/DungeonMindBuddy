@@ -13,20 +13,24 @@ const NativeSourceInspection = deferredComponent(
   "World sources",
 );
 
-/** Both entry points inspect the same published authority, only while open. */
-export function LoadedWorldGraphExplorer({ compact = false }: { compact?: boolean } = {}) {
+type WorldBrowserEntry = "graph" | "recaps";
+
+/** All entry points inspect the same published authority, only while open. */
+export function LoadedWorldGraphExplorer({ compact = false, entry = "graph" }: { compact?: boolean; entry?: WorldBrowserEntry } = {}) {
   const world = useSelectedWorld();
   if (world.kind !== "managed") return null;
-  return <WorldGraphBrowser key={world.worldId} worldName={world.name} worldId={world.worldId} compact={compact} />;
+  return <WorldGraphBrowser key={world.worldId} worldName={world.name} worldId={world.worldId} compact={compact} entry={entry} />;
 }
 
-function WorldGraphBrowser({ worldName, worldId, compact }: {
-  worldName: string; worldId: string; compact: boolean;
+function WorldGraphBrowser({ worldName, worldId, compact, entry }: {
+  worldName: string; worldId: string; compact: boolean; entry: WorldBrowserEntry;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const launcher = useRef<HTMLButtonElement>(null);
+  const recaps = entry === "recaps";
+  const initialMaterial = recaps ? "sources" : "objects";
   const [open, setOpen] = useState(false);
-  const [material, setMaterial] = useState<"objects"|"sources">("objects");
+  const [material, setMaterial] = useState<"objects"|"sources">(initialMaterial);
   useEffect(() => {
     const element = dialog.current;
     if (!element) return;
@@ -35,13 +39,13 @@ function WorldGraphBrowser({ worldName, worldId, compact }: {
   }, [open]);
   const close = () => { setOpen(false); launcher.current?.focus(); };
   return <>
-    <button ref={launcher} type="button" onClick={() => setOpen(true)}
-      className={compact ? "app-world-graph-status__trigger" : undefined}
-      data-testid={compact ? "app-chrome-world-graph-status" : undefined}
+    <button ref={launcher} type="button" onClick={() => { if (recaps) setMaterial("sources"); setOpen(true); }}
+      className={recaps ? "surface-context-action build-browse-recaps" : compact ? "app-world-graph-status__trigger" : undefined}
+      data-testid={!recaps && compact ? "app-chrome-world-graph-status" : undefined}
       aria-expanded={open} aria-haspopup="dialog"
-      aria-label={compact ? `Explore ${worldName} World graph` : undefined}
-      title={`Explore the published Graph for ${worldName}`}>
-      {compact ? <><svg className="app-world-graph-status__glyph" viewBox="0 0 16 14" width="14" height="12" aria-hidden="true" focusable="false">
+      aria-label={!recaps && compact ? `Explore ${worldName} World graph` : undefined}
+      title={recaps ? `Browse recaps in ${worldName}` : `Explore the published Graph for ${worldName}`}>
+      {recaps ? "Browse recaps" : compact ? <><svg className="app-world-graph-status__glyph" viewBox="0 0 16 14" width="14" height="12" aria-hidden="true" focusable="false">
         <line className="app-world-graph-status__edge" x1="8" y1="3" x2="3" y2="11" />
         <line className="app-world-graph-status__edge" x1="8" y1="3" x2="13" y2="11" />
         <line className="app-world-graph-status__edge" x1="3" y1="11" x2="13" y2="11" />
@@ -50,17 +54,17 @@ function WorldGraphBrowser({ worldName, worldId, compact }: {
         <circle className="app-world-graph-status__node" cx="13" cy="11" r="2" />
       </svg><span>Graph</span></> : "Explore graph"}
     </button>
-    <dialog ref={dialog} className="loaded-graph-explorer" aria-label={`${worldName} World graph`}
+    <dialog ref={dialog} className="loaded-graph-explorer" aria-label={`${worldName} World ${recaps ? "sources" : "graph"}`}
       onCancel={close} onClose={close}>
       <header className="loaded-graph-explorer__header"><div>
         <span className="loaded-graph-explorer__eyebrow">World atlas</span>
         <h2>{worldName}</h2>
         <p className="loaded-graph-explorer__scope">Browse sources and reviewed World Graph objects.</p>
-      </div><button type="button" className="loaded-graph-explorer__close" onClick={close} aria-label="Close graph" title="Close graph">×</button></header>
+      </div><button type="button" className="loaded-graph-explorer__close" onClick={close} aria-label={recaps ? "Close sources" : "Close graph"} title={recaps ? "Close sources" : "Close graph"}>×</button></header>
       {open ? <><div role="group" aria-label="World material">
         <button type="button" aria-pressed={material==='objects'} onClick={()=>setMaterial('objects')}>Objects</button>
         <button type="button" aria-pressed={material==='sources'} onClick={()=>setMaterial('sources')}>Sources</button>
-      </div>{material==='objects'?<NativeGraphInspection worldId={worldId}/>:<NativeSourceInspection worldId={worldId}/>}</> : null}
+      </div>{material==='objects'?<NativeGraphInspection worldId={worldId}/>:<NativeSourceInspection worldId={worldId} initialKind={recaps ? "recap" : ""}/>}</> : null}
     </dialog>
   </>;
 }

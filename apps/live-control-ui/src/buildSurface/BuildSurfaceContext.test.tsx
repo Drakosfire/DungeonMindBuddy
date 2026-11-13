@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { announceWorkspaceInventoryChange } from "../workspaceLifecycle/workspaceInventoryChange";
-import { act } from "@testing-library/react";
+import { act, fireEvent } from "@testing-library/react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,9 +14,13 @@ import type { MarkdownCanvasSessionValue } from "../markdownCanvas/MarkdownCanva
 import { BuildSurfaceContext } from "./BuildSurfaceContext";
 
 const recoveryDialogPrototype = Object.getPrototypeOf(document.createElement("dialog"));
+const originalRecoveryClose = Object.getOwnPropertyDescriptor(recoveryDialogPrototype, "close");
+beforeAll(() => Object.defineProperty(recoveryDialogPrototype, "close", { configurable: true, value(this: HTMLDialogElement) { this.removeAttribute("open"); } }));
 const originalRecoveryShowModal = Object.getOwnPropertyDescriptor(recoveryDialogPrototype, "showModal");
 beforeAll(() => Object.defineProperty(recoveryDialogPrototype, "showModal", { configurable: true, value(this: HTMLDialogElement) { this.setAttribute("open", ""); } }));
 afterAll(() => {
+  if (originalRecoveryClose) Object.defineProperty(recoveryDialogPrototype, "close", originalRecoveryClose);
+  else Reflect.deleteProperty(recoveryDialogPrototype, "close");
   if (originalRecoveryShowModal) Object.defineProperty(recoveryDialogPrototype, "showModal", originalRecoveryShowModal);
   else Reflect.deleteProperty(recoveryDialogPrototype, "showModal");
 });
@@ -26,6 +30,8 @@ vi.mock("../selectedWorld/SelectedWorldContext", async original => ({
   ...await original<typeof import("../selectedWorld/SelectedWorldContext")>(),
   useSelectedWorld: () => selectedWorldMock.managed ? {kind:"managed", worldId:"elderwyld", name:"Elderwyld", documentId:null} : {kind:"legacy"},
 }));
+
+vi.mock("../graphLens/NativeSourceInspection", () => ({ NativeSourceInspection: ({worldId, initialKind}: {worldId:string; initialKind:string}) => <section aria-label="Shared source browser">{worldId} {initialKind}</section> }));
 
 const DOC_A = "11111111-1111-4111-8111-111111111111";
 
@@ -155,6 +161,32 @@ describe("BuildSurfaceContext", () => {
   beforeEach(() => {
     selectedWorldMock.managed = false;
     sessionMock.current = makeSession();
+  });
+
+  it.each([true, false])("browses recaps without switching Build documents (loaded=%s)", async loaded => {
+    selectedWorldMock.managed = true;
+    sessionMock.current = makeSession({dirty:true, statusLabel:"Unsaved changes"});
+    const originalSession = sessionMock.current;
+    const route = window.location.href;
+    const {onSelect,onCreate} = renderBuildContext(loaded ? {} : {activeDocumentId:null,activeRecord:null});
+    const launcher = screen.getByRole("button", {name:"Browse recaps"});
+    const selector = document.querySelector(".build-document-selector--context");
+    expect(selector?.nextElementSibling).toBe(launcher);
+    await userEvent.click(launcher);
+    expect(await screen.findByRole("region",{name:"Shared source browser"})).toHaveTextContent("elderwyld recap");
+    fireEvent(screen.getByRole("dialog",{name:"Elderwyld World sources"}),new Event("cancel",{cancelable:true}));
+    expect(launcher).toHaveFocus();
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onCreate).not.toHaveBeenCalled();
+    expect(sessionMock.current).toBe(originalSession);
+    expect(sessionMock.current!.dirty).toBe(true);
+    expect(sessionMock.current!.saveMarkdown).not.toHaveBeenCalled();
+    expect(window.location.href).toBe(route);
+  });
+
+  it("does not offer recap browsing without a selected managed World", () => {
+    renderBuildContext();
+    expect(screen.queryByRole("button",{name:"Browse recaps"})).not.toBeInTheDocument();
   });
 
   it("explains blocked Save and exposes protected-draft review in the real navbar", async () => {
