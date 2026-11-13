@@ -368,7 +368,7 @@ def create_app() -> FastAPI:
 
         report = run_runtime_preflight(
             repo_root=repo_root(), load_env=False, include_runbooks=False,
-            include_ingest_catalog=False,
+            include_operator_diagnostics=False,
         )
         if report.status != "READY":
             return JSONResponse(
