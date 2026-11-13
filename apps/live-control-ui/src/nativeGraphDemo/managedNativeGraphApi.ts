@@ -512,6 +512,7 @@ export function createManagedNativeGraphApi(
       invalidated = true;
       generation += 1;
       binding = null;
+      lastSnapshot = null;
       for (const controller of activeControllers) controller.abort();
       activeControllers.clear();
     },
