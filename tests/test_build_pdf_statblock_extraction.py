@@ -166,7 +166,8 @@ def test_incomplete_output_requires_missing_details():
         })
 
 
-def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch):
+@pytest.mark.parametrize("unresolved", ["movement", "proficiency_bonus"])
+def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch, unresolved):
     from pathlib import Path
     from fastapi import HTTPException
     from application_state import pdf_statblock_review
@@ -211,11 +212,17 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch):
 
     monkeypatch.setattr(agent, "read_crop", read_crop)
 
+    definition = candidate.model_dump(mode="json", by_alias=True)
+    if unresolved == "movement":
+        definition["movement"] = None
+    else:
+        definition["challenge"]["proficiency_bonus"] = None
+
     async def extract(transcriptions, instruction):
         calls.append(("extract", transcriptions, instruction))
         return extraction.StatblockExtractionOutput(
             status="complete", definition=extraction.PdfStatblockDraftDefinition.model_validate(
-                {**candidate.model_dump(by_alias=True), "movement": None},
+                definition,
             ), missing_details=[],
         )
 
@@ -254,7 +261,10 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch):
         "world-a", UUID(review_id), payload, Request("Bearer fixture"),
     )
     assert response["revision"] == 1
-    assert response["definition"] == {**candidate.model_dump(mode="json", by_alias=True), "movement": None}
+    assert response["definition"] == definition
+    with pytest.raises(HTTPException) as rejected:
+        agent._require_resolved_pdf_statblock(response)
+    assert rejected.value.detail["code"] == f"pdf_statblock_{unresolved}_unresolved"
     assert response["regions"] == [
         {"schema_version": "dm_native_pdf_region_v1", **region} for region in regions
     ]
