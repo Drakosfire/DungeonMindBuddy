@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Measure full job queue rewrites on completion. **Measured.** Median completion over five synthetic runs was 0.15 ms at 1 row, 4.07 ms at 100, 40.05 ms at 1,000, and 408.87 ms at 10,000. The largest discovered local queue was a 408-byte test artifact. [#2828](https://github.com/Drakosfire/DungeonMindBuddy/pull/2828) fixed the independently reproduced lost append with a shared writer lock. Four focused tests passed. Reopen storage optimization if representative operator queues show material completion latency.
+
 - Retire the generated cross-class collision Markdown from active reports. The archived audit links to the exact pinned evidence. The generator defaults to ignored output, fixed-date reruns were byte-identical, and eight report tests passed. Removing the tracked report saved 12,704 checkout bytes.
 - Separate Local World record validation from the package codec. Fixed in [#2830](https://github.com/Drakosfire/DungeonMindBuddy/pull/2830). The route chunk fell from 23.65 to 17.14 kB gzip. Type checking, production build, and 76 focused tests passed.
 
