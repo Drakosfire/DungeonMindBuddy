@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Remove retired merge materialization client wrappers
+
+[PR #2782](https://github.com/Drakosfire/DungeonMindBuddy/pull/2782) removed both unused wrappers and their types, and replaced stale workflow tests with coverage for the retirement notice. The checked open Graph PRs added no callers. The Graph Review and API selection went from 817 passes and 13 failures to 818 passes and six failures. The six retained API failures had identical test IDs on the base. [Inventory and frontend discovery passed](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/43409162073).
+
 ## [DONE] Validate the shared frontend contract step order
 
 [PR #2779](https://github.com/Drakosfire/DungeonMindBuddy/pull/2779) rejects misordered commands in the shared planner for execution and receipt replay. [PR #2780](https://github.com/Drakosfire/DungeonMindBuddy/pull/2780) checks hosted file and directory selectors against the pinned Git tree. The focused suite passed all 62 tests, including rejection of a selector present only in the working copy. The pinned main manifest produced three hosted commands and one discovered-suite command. [Verifier guards](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/43408781178), [inventory, and frontend discovery](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/43408781226) passed.
