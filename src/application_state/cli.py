@@ -41,12 +41,13 @@ def _alembic_head() -> str:
     return heads[0]
 
 
-def _read_current_revision(dsn: str) -> str | None:
+def _read_current_revision(dsn: str, *, periodic: bool = False) -> str | None:
     """Read Alembic current revision without creating schema, tables, or rows."""
     import psycopg
 
+    limits = {"connect_timeout": 2, "options": "-c statement_timeout=1000"} if periodic else {}
     try:
-        with psycopg.connect(dsn, autocommit=True) as conn:
+        with psycopg.connect(dsn, autocommit=True, **limits) as conn:
             rows = conn.execute(
                 "SELECT version_num FROM application_state.schema_migrations LIMIT 2"
             ).fetchall()
