@@ -5,6 +5,7 @@ import json
 from typing import Any, Protocol, TypeVar
 
 import httpx
+from pydantic import ValidationError
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.config import (
     API_PREFIX,
@@ -168,12 +169,12 @@ class DungeonMindStatblockV1Client:
             payload = self._decode_json(body, status_code=status)
             try:
                 return ReadinessResponseV1.model_validate(payload)
-            except Exception:
+            except ValidationError:
                 pass
             envelope: ErrorEnvelopeV1 | None
             try:
                 envelope = ErrorEnvelopeV1.model_validate(payload)
-            except Exception:
+            except ValidationError:
                 envelope = None
             if envelope is None:
                 raise downstream_unexpected(
@@ -482,7 +483,7 @@ class DungeonMindStatblockV1Client:
     def _parse_model(self, model_type: type[ModelT], payload: Any) -> ModelT:
         try:
             return model_type.model_validate(payload)
-        except Exception:
+        except ValidationError:
             # Validation errors retain the rejected payload; raise outside that context.
             pass
         raise downstream_unexpected(
@@ -574,7 +575,7 @@ class DungeonMindStatblockV1Client:
             return None, None, {}
         try:
             envelope = ErrorEnvelopeV1.model_validate(payload)
-        except Exception:
+        except ValidationError:
             return None, None, {}
         return (
             self._public_text(envelope.error.code),
