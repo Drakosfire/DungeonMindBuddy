@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Fingerprint test discovery inputs at their actual boundary
+
+[PR #2768](https://github.com/Drakosfire/DungeonMindBuddy/pull/2768) replaced whole-config hashes with actual runner file selection in CI. Inventory still classifies candidate specs, including untracked files, and validates the package runner commands. The runner comparison verified 542 Vitest files and one Playwright visual spec. A temporary additional browser spec remained an inventory candidate and was rejected by the runner check when the visual suite was broadened to include it. Both checks passed on merged main.
+
 ## [DONE] Reconcile legacy Agent import CI triggers with what the job verifies
 
 [PR #2760](https://github.com/Drakosfire/DungeonMindBuddy/pull/2760) added the inventory and locked dependency inputs to the legacy import trigger while retaining import, idempotence, and rollback verification. The [inventory-only draft](https://github.com/Drakosfire/DungeonMindBuddy/pull/2761) passed both the standalone inventory and legacy import workflows. The draft was closed without merging.
