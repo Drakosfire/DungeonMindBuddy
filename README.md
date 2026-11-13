@@ -27,6 +27,11 @@ Set up a local DungeonMindServer checkout beside Buddy, or point
 in the [local Play runbook](Docs/Runbooks/RUNBOOK-local-play-dogfood.md).
 Then run `./run` and open [the Buddy landing page](http://127.0.0.1:5173/).
 
+On a local Linux filesystem with available inotify watches, run
+`CHOKIDAR_USEPOLLING=0 ./run` to opt into event-driven frontend reloads.
+Use plain `./run` for the default two-second polling interval, including when
+inotify reports `ENOSPC` or file changes fail to trigger reloads.
+
 If Buddy's statblock client is enabled and uses the local DungeonMindServer,
 set both values when choosing a nondefault Server port:
 
