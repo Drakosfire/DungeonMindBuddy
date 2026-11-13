@@ -14,6 +14,7 @@ export function StartPdfStatblockReview({
   const [id] = useState(() => crypto.randomUUID());
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [inline, setInline] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [error, setError] = useState("");
   const [edition, setEdition] = useState("");
@@ -51,6 +52,7 @@ export function StartPdfStatblockReview({
   async function start() {
     if ((!regions.length && !prepareRegions) || pending) return;
     setPending(true);
+    setInline(Boolean(prepareRegions));
     setError("");
     try {
       const selected = prepareRegions ? await prepareRegions() : regions;
@@ -75,6 +77,8 @@ export function StartPdfStatblockReview({
     }
   }
 
+  if (!regions.length && !prepareRegions && !pending && !saved && !conflict && !error) return null;
+
   return <section aria-label="Statblock review source regions">
     <h4>Selected statblock regions</h4>
     <ul>
@@ -85,7 +89,7 @@ export function StartPdfStatblockReview({
         </button>
       </li>)}
     </ul>
-    {saved && prepareRegions ? <div style={{height: "min(70vh, 48rem)"}}><BuildPdfStatblockReview worldId={worldId} reviewId={id} /></div> : saved || conflict ? <a target="_blank" rel="noopener" href={`/build?${new URLSearchParams({ world: worldId, pdfReview: id }).toString()}`}>
+    {saved && inline ? <div style={{height: "min(70vh, 48rem)"}}><BuildPdfStatblockReview worldId={worldId} reviewId={id} /></div> : saved || conflict ? <a target="_blank" rel="noopener" href={`/build?${new URLSearchParams({ world: worldId, pdfReview: id }).toString()}`}>
       {conflict ? "Open existing statblock review" : "Open statblock review"}
     </a> : <>
       <label>D&D edition (optional)

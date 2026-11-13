@@ -89,3 +89,22 @@ it("offers an existing review after a conflict", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Create statblock review" }));
   expect(await screen.findByRole("link", { name: "Open existing statblock review" })).toBeInTheDocument();
 });
+
+it("prepares the current crop and opens the saved editor in place", async () => {
+  const fetch = vi.mocked(authenticatedApiFetch);
+  fetch.mockClear();
+  fetch.mockResolvedValue({ response: Response.json({ revision: 1 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+  const prepareRegions = vi.fn(async () => {
+    expect(fetch).not.toHaveBeenCalled();
+    return [first];
+  });
+  render(<StartPdfStatblockReview worldId="elderwyld" regions={[]} onRemoveRegion={vi.fn()}
+    prepareRegions={prepareRegions} />);
+  fireEvent.click(screen.getByRole("button", { name: "Extract statblock" }));
+  expect(await screen.findByRole("region", { name: "PDF statblock review" })).toBeInTheDocument();
+  expect(prepareRegions).toHaveBeenCalledOnce();
+  expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/from-regions"), {
+    method: "POST", body: JSON.stringify({ regions: [first], instruction: "" }),
+  });
+  expect(screen.queryByRole("link", { name: "Open statblock review" })).toBeNull();
+});

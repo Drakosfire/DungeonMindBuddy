@@ -395,17 +395,17 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           )}
         </>
       )}
-      {worldId && (capture || statblockRegions.length > 0) && <StartPdfStatblockReview
+      {worldId && <StartPdfStatblockReview
         worldId={worldId}
         regions={statblockRegions}
-        prepareRegions={async () => {
+        prepareRegions={capture || statblockRegions.length ? async () => {
           if (!capture) return statblockRegions;
           if (sourcePending) throw new Error("Wait for the PDF source to finish opening.");
           const locator = captureLocator(await retainSource(), page, capture.region);
           onRetained(locator);
           return statblockRegions.some(region => pdfRegionKey(region) === pdfRegionKey(locator))
             ? statblockRegions : [...statblockRegions, locator];
-        }}
+        } : undefined}
         onRemoveRegion={removed => setStatblockRegions(current =>
           current.filter(region => pdfRegionKey(region) !== pdfRegionKey(removed)))}
       />}
