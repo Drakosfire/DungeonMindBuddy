@@ -178,7 +178,7 @@ Session 22 is a **travel-and-pressure** session: the Questionable Company marche
 | Field | Value |
 |-------|--------|
 | **Retrieval command** | `uv run python evals/c2_live_prep/smoke_retrieval_packets.py` |
-| **Packet artifacts** | `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md`; per-question JSON alongside |
+| **Packet artifacts** | `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md` and [per-question JSON](https://github.com/Drakosfire/DungeonMindBuddy/tree/6fdc5cdeeed2af21424b85c6a9a464ea87d841a6/evals/c2_live_prep/artifacts/runs/2026-05-23) |
 | **Record pool** | S20 + S21 `_session_memory/*.records_meta.jsonl` (170 records) |
 | **Stack** | PR58–67 `lane_budgeted_v1`, `prior_only` |
 | **Path fix applied** | `context_classification.is_allowed_retrieval_corpus_path` — corpus-relative recap paths |
@@ -197,7 +197,7 @@ Session 22 is a **travel-and-pressure** session: the Questionable Company marche
 - `Longmont Campaign/Homebrew Items/Item_ Boots of the Crowing Wings.md`
 - `Elderwyld/Cities and Towns/Mireward/README.md`
 - `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md`
-- `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_summary.json`
+- [Smoke summary](https://github.com/Drakosfire/DungeonMindBuddy/blob/6fdc5cdeeed2af21424b85c6a9a464ea87d841a6/evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_summary.json)
 
 ### Claims grounded in admitted retrieval (smoke)
 
