@@ -7,7 +7,7 @@
 #   ./scripts/hermes_spike_install_plugin.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HERMES_HOME="${HERMES_HOME:-$ROOT/.hermes-runtime}"
+export HERMES_HOME="${HERMES_HOME:-$ROOT/.hermes-runtime}"
 PLUGIN_SRC="$ROOT/integrations/hermes/plugins/dungeonbuddy"
 PLUGIN_DST="$HERMES_HOME/plugins/dungeonbuddy"
 
