@@ -6,6 +6,7 @@ import {
   type NativeGraph,
   type NativeGraphDemoApi,
   type NativeGraphDemoTransport,
+  type NativeGraphDecodedResponse,
   type NativePrepareRequest,
 } from "./nativeGraphDemoApi";
 
@@ -46,19 +47,16 @@ function nonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function jsonResponse(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+function decodedResponse(body: unknown, status = 200): NativeGraphDecodedResponse {
+  return { body, status, ok: status >= 200 && status < 300 };
 }
 
-function invalidResponse(message = "The managed graph response did not match the selected World."): Response {
-  return jsonResponse({ error: message, code: "invalid_managed_world_response" }, 502);
+function invalidResponse(message = "The managed graph response did not match the selected World."): NativeGraphDecodedResponse {
+  return decodedResponse({ error: message, code: "invalid_managed_world_response" }, 502);
 }
 
-function errorFromResponse(response: Response, body: unknown): Response {
-  if (isRecord(body) && nonEmptyString(body.error) && nonEmptyString(body.code)) return response;
+function errorFromResponse(response: Pick<Response, "ok" | "status">, body: unknown): NativeGraphDecodedResponse {
+  if (isRecord(body) && nonEmptyString(body.error) && nonEmptyString(body.code)) return decodedResponse(body, response.status);
   const detail = isRecord(body) ? body.detail : null;
   const message = isRecord(detail) && nonEmptyString(detail.message)
     ? detail.message
@@ -72,11 +70,11 @@ function errorFromResponse(response: Response, body: unknown): Response {
     : isRecord(body) && nonEmptyString(body.code)
       ? body.code
       : "managed_graph_error";
-  return jsonResponse({ error: message, code }, response.status);
+  return decodedResponse({ error: message, code }, response.status);
 }
 
 async function responseBody(response: Response): Promise<unknown> {
-  return response.clone().json().catch(() => null);
+  return response.json().catch(() => null);
 }
 
 function isInspectionPin(value: unknown): value is InspectionPin {
@@ -285,8 +283,8 @@ export function createManagedNativeGraphApi(
     return snapshot.pin;
   }
 
-  async function throwInspectionResponseError(response: Response, body: unknown): Promise<never> {
-    const normalized = await responseBody(errorFromResponse(response, body));
+  async function throwInspectionResponseError(response: Pick<Response, "ok" | "status">, body: unknown): Promise<never> {
+    const normalized = errorFromResponse(response, body).body;
     const message = isRecord(normalized) && nonEmptyString(normalized.error)
       ? normalized.error
       : `The managed graph service returned HTTP ${response.status}.`;
@@ -294,10 +292,10 @@ export function createManagedNativeGraphApi(
     throw new NativeGraphDemoApiError(message, code, response.status);
   }
 
-  async function send(path: string, init: RequestInit, startedGeneration: number): Promise<{ response: Response; body: unknown }> {
+  async function send(path: string, init: RequestInit, startedGeneration: number): Promise<{ response: Pick<Response, "ok" | "status">; body: unknown }> {
     if (invalidated || startedGeneration !== generation) {
       const response = invalidResponse("The selected World changed before this managed graph request completed.");
-      return { response, body: await responseBody(response) };
+      return { response, body: response.body };
     }
     const controller = new AbortController();
     const externalSignal = init.signal;
@@ -315,7 +313,7 @@ export function createManagedNativeGraphApi(
       const body = await responseBody(response);
       if (invalidated || startedGeneration !== generation) {
         const stale = invalidResponse("The selected World changed before this managed graph response was applied.");
-        return { response: stale, body: await responseBody(stale) };
+        return { response: stale, body: stale.body };
       }
       if (controller.signal.aborted) throw abortError();
       return { response, body };
@@ -343,7 +341,7 @@ export function createManagedNativeGraphApi(
         return invalidResponse("The selected World’s native binding changed. Reload the World selection before continuing.");
       }
       binding = receivedBinding;
-      return jsonResponse(envelope.graph, response.status);
+      return decodedResponse(envelope.graph, response.status);
     }
 
     if (path === "/api/prepare" && method === "POST") {
@@ -369,16 +367,16 @@ export function createManagedNativeGraphApi(
       if (value.status === "prepared") {
         if (value.operation_id !== input.operation_id
           || !operationIdentityMatches(value, managedWorldId, binding)) return invalidResponse();
-        return jsonResponse(value, response.status);
+        return decodedResponse(value, response.status);
       }
       if (value.status === "already_exists") {
         const mapped = withGraph(value, managedWorldId, binding);
-        return mapped && value.operation_id === input.operation_id ? jsonResponse(mapped, response.status) : invalidResponse();
+        return mapped && value.operation_id === input.operation_id ? decodedResponse(mapped, response.status) : invalidResponse();
       }
       if (value.status === "committed") {
         const mapped = withGraph(value, managedWorldId, binding);
         if (!mapped || value.operation_id !== input.operation_id) return invalidResponse();
-        return jsonResponse({
+        return decodedResponse({
           error: "This operation is already committed. Checking the exact operation ID for its saved receipt.",
           code: "operation_already_committed",
         }, 409);
@@ -403,10 +401,10 @@ export function createManagedNativeGraphApi(
         || !operationIdentityMatches(value, managedWorldId, binding)) return invalidResponse();
       if (value.status === "committed") {
         const mapped = withGraph(value, managedWorldId, binding);
-        return mapped ? jsonResponse(mapped, response.status) : invalidResponse();
+        return mapped ? decodedResponse(mapped, response.status) : invalidResponse();
       }
       if (value.status === "unknown" || value.status === "rejected") {
-        return jsonResponse(value, response.status);
+        return decodedResponse(value, response.status);
       }
       return invalidResponse("The managed graph service returned an unsupported confirmation result.");
     }
@@ -425,15 +423,15 @@ export function createManagedNativeGraphApi(
         || !operationIdentityMatches(value, managedWorldId, binding)) return invalidResponse();
       if (value.graph !== undefined) {
         const mapped = withGraph(value, managedWorldId, binding);
-        return mapped ? jsonResponse(mapped, response.status) : invalidResponse();
+        return mapped ? decodedResponse(mapped, response.status) : invalidResponse();
       }
       if (["prepared", "committed", "unknown", "rejected", "not_found"].includes(String(value.status))) {
-        return jsonResponse(value, response.status);
+        return decodedResponse(value, response.status);
       }
       return invalidResponse("The managed graph service returned an unsupported operation status.");
     }
 
-    return jsonResponse({ error: "The managed graph request is unsupported.", code: "unsupported_request" }, 400);
+    return decodedResponse({ error: "The managed graph request is unsupported.", code: "unsupported_request" }, 400);
   };
 
   const baseApi = createNativeGraphDemoApi({ transport });
