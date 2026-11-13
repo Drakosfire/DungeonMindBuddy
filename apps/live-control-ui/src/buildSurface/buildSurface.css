@@ -101,6 +101,9 @@
   gap: 0.5rem;
 }
 
+/* Keep the source-browser shortcut beside the picker in the shared navbar rail. */
+.app-chrome-header .surface-context-host .build-browse-recaps { order: 11; }
+
 .build-surface-context__save-status {
   max-width: 16rem;
 }
