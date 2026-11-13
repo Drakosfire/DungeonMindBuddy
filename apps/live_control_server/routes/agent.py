@@ -2500,6 +2500,14 @@ def post_append_pdf_statblock_review(
     )
 
 
+@router.post("/worlds/{world_id}/build-pdf-sources/region:validate", status_code=204)
+def post_validate_build_pdf_region(world_id: str, body: dict, request: Request):
+    from fastapi.responses import Response
+
+    _authorized_build_pdf_region(world_id, body, request)
+    return Response(status_code=204, headers={"Cache-Control": "no-store"})
+
+
 @router.post("/worlds/{world_id}/build-pdf-sources/open")
 def post_open_build_pdf_source(world_id: str, body: dict, request: Request, render: bool = False):
     from fastapi.responses import Response

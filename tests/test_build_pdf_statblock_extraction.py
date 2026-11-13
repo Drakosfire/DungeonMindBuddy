@@ -404,3 +404,34 @@ def test_extraction_prompt_pairs_embedded_text_with_ocr_by_region():
     ))
     assert payload["ocr_transcriptions"] == ["first crop OCR", "second crop OCR"]
     assert payload["embedded_texts"] == [None, "second crop embedded text"]
+
+
+def test_validate_pdf_region_uses_open_authority_without_returning_pdf(monkeypatch):
+    from fastapi import HTTPException
+    from apps.live_control_server.routes import agent
+
+    request = object()
+    locator = {"revision": "exact"}
+    seen = []
+
+    def authorize(world, body, incoming):
+        assert incoming is request
+        seen.append((world, body))
+        if world != "allowed":
+            raise HTTPException(status_code=403)
+        if body != locator:
+            raise HTTPException(status_code=404)
+        return b"%PDF-verified fixture", object()
+
+    monkeypatch.setattr(agent, "_authorized_build_pdf_region", authorize)
+    validated = agent.post_validate_build_pdf_region("allowed", locator, request)
+    reopened = agent.post_open_build_pdf_source("allowed", locator, request)
+    assert validated.status_code == 204
+    assert validated.body == b""
+    assert validated.headers["cache-control"] == "no-store"
+    assert reopened.body == b"%PDF-verified fixture"
+    assert seen == [("allowed", locator), ("allowed", locator)]
+    for world, body, status in (("foreign", locator, 403), ("allowed", {}, 404)):
+        with pytest.raises(HTTPException) as error:
+            agent.post_validate_build_pdf_region(world, body, request)
+        assert error.value.status_code == status
