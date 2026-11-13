@@ -2074,6 +2074,7 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
 
 @router.post("/worlds/{world_id}/build-pdf-sources")
 async def post_build_pdf_source(world_id: str, admission_id: UUID, request: Request):
+    from apps.live_control_server.services.build_pdf_admission import validate_pdf_structure
     from datetime import datetime
     from hashlib import sha256
 
@@ -2105,6 +2106,7 @@ async def post_build_pdf_source(world_id: str, admission_id: UUID, request: Requ
             "authority": "primary",
             "visibility": {"kind": "public"},
         })
+        await run_in_threadpool(validate_pdf_structure, raw)
         revision = await run_in_threadpool(_repository().retain_native_pdf_source, command, raw)
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
