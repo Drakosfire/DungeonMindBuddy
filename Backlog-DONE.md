@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Refresh local UI dependencies when the lockfile changes. [#2873](https://github.com/Drakosfire/DungeonMindBuddy/pull/2873) checks the lockfile fingerprint before starting services and invalidates the old stamp before installing. Bash syntax and isolated checks covered fresh, unchanged, and changed lockfiles, a reused UI listener, and install failure without a valid stamp.
+
 - Track ownership through local stack shutdown. [#2868](https://github.com/Drakosfire/DungeonMindBuddy/pull/2868) rejects overlapping launches per checkout, [#2869](https://github.com/Drakosfire/DungeonMindBuddy/pull/2869) stops owned service groups, and [#2871](https://github.com/Drakosfire/DungeonMindBuddy/pull/2871) removes only owned PID files. Isolated loopback rehearsals used reload-enabled Uvicorn with a minimal FastAPI app and a substitute or failing UI process. TERM and early UI failure both closed owned ports and preserved the independently started listener and its PID file. The failure diagnostic remained readable.
 
 - Bound disk use from local launcher logs. [#2866](https://github.com/Drakosfire/DungeonMindBuddy/pull/2866) caps the three service logs at two 4 MiB files each. A synthetic 12 MiB stream retained about 4 MiB with the final diagnostic. Two concurrent writers respected the cap starting from a 10 MiB legacy log. Stubbed launcher shutdown and UI startup failure preserved diagnostics and removed PID files.
