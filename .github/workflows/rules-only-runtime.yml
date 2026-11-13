@@ -5,8 +5,19 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened]
     paths:
-      - apps/live_control_server/services/rules_only_runtime.py
+      - apps/live_control_server/models/agent_turn.py
+      - apps/live_control_server/routes/agent.py
+      - apps/live_control_server/services/**
+      - src/application_state/**
+      - tests/__init__.py
+      - tests/conftest.py
+      - tests/application_state/**
+      - tests/test_agent_turn_route.py
       - tests/test_rules_only_parent.py
+      - scripts/prepare_patched_hermes.py
+      - patches/hermes-agent/**
+      - pyproject.toml
+      - uv.lock
       - .github/workflows/rules-only-runtime.yml
   workflow_dispatch:
 
