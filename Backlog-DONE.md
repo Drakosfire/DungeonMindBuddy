@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Verify persistent storage access as the release container user. Compose disables automatic bind-source creation. The runbook requires an approved absolute root and probes access as UID/GID 10001. [#2720](https://github.com/Drakosfire/DungeonMindBuddy/pull/2720) recorded a disposable Compose 2.40.3 rehearsal that rejected a missing root without creating it, rejected an unwritable root, and accepted writable directories. The release operator owns the host check.
+
 - Verify database aliases against the actual release targets. [#2719](https://github.com/Drakosfire/DungeonMindBuddy/pull/2719) added a credential-free comparison from the release container and fail-fast alias checks. Compose 2.40.3, PostgreSQL 16, and the slim image verified both matches and rejected a mismatched WorldGraph target. Shell fixtures covered failure of either alias. The release operator owns the production rehearsal.
 
 - Align the hosted browser smoke with the local-only route list. [#2535](https://github.com/Drakosfire/DungeonMindBuddy/pull/2535) added Build, Ingest, and Combat to the production runbook. Verified current main lists all six guarded paths and links the independent local Chat smoke. The signed-in rehearsal remains assigned to the release operator.
