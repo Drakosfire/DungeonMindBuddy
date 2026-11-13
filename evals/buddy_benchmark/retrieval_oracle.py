@@ -5,6 +5,10 @@ from pathlib import Path
 
 import tiktoken
 
+from .context_capture import validate_context_packet
+from application_state.agent_conversation.native_evidence_view import semantic_frame_in_request
+from application_state.agent_conversation.types import canonical_sha256
+
 def digest(value):
     return hashlib.sha256(value).hexdigest()
 
@@ -27,9 +31,18 @@ def score(oracle_path, readback_path, manifest, base):
         directory = base / cases[case]["capture_dir"]
         if load(directory / "request.json")["message"] != gold["question"]:
             raise ValueError(f"Captured question differs from oracle for {case}")
-        wire = bytes.fromhex(load(directory / 'context-request.json')['body_hex'])
-        content = json.loads(wire)['input'][-1]['content']
-        frame = json.loads(content)
+        ready = load(directory / 'context-ready.json')
+        request = load(directory / 'context-request.json')
+        packet = validate_context_packet(ready, request, load(directory / 'context-stop.json'))
+        if packet['turn'].user_text != gold['question']:
+            raise ValueError(f"Authorized writer question differs from oracle for {case}")
+        payload = packet['payload']
+        frame = semantic_frame_in_request(payload, legacy_schemas=())
+        if frame is None or canonical_sha256(frame) != packet['authorization'].frame_sha256:
+            raise ValueError(f"Serialized writer evidence differs from authorization for {case}")
+        content = next(message['content'] for message in payload['input']
+                       if semantic_frame_in_request({'input': [message]}, legacy_schemas=()) is not None)
+        wire = bytes.fromhex(request['body_hex'])
         excerpts = frame['native_body_evidence']['excerpts']
         inventory = []
         for excerpt in excerpts:
@@ -80,7 +93,6 @@ def score(oracle_path, readback_path, manifest, base):
                       else 'citation_unverified' if all(w['present_handles'] for w in witnesses)
                       else 'missing_from_final_packet')
             items.append(dict(id=item['id'], status=status, witnesses=witnesses))
-        ready = load(directory / 'context-ready.json')
         trace = load(directory / 'context-trace.json')['body']['attempts']
         calls = [o for attempt in trace for o in attempt['observations']
                  if o['kind']=='provider_call' and o.get('provider')=='typesafe' and o.get('outcome')=='response_received']
