@@ -1,0 +1,11 @@
+name: Install locked Buddy Python dependencies
+description: Prepare the pinned Hermes source and install the locked environment.
+runs:
+  using: composite
+  steps:
+    - name: Prepare pinned patched Hermes source
+      shell: bash
+      run: python scripts/prepare_patched_hermes.py
+    - name: Install locked dependencies
+      shell: bash
+      run: uv sync --locked

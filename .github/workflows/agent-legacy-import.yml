@@ -11,8 +11,10 @@ on:
       - ci/test-classification.json
       - scripts/ci_contract.py
       - scripts/prepare_patched_hermes.py
+      - patches/hermes-agent/**
       - pyproject.toml
       - uv.lock
+      - .github/actions/install-locked-python/**
       - .github/workflows/agent-legacy-import.yml
   workflow_dispatch:
 
@@ -51,10 +53,7 @@ jobs:
         with:
           version: '0.13.5'
           enable-cache: false
-      - name: Prepare locked dependencies
-        run: |
-          python scripts/prepare_patched_hermes.py
-          uv sync --locked
+      - uses: ./.github/actions/install-locked-python
       - name: Verify import contract, original idempotence and atomic rollback
         run: |
           uv run --locked pytest -q tests/test_agent_legacy_import_intent.py tests/application_state/test_agent_conversation_service.py::test_verified_legacy_import_is_bounded_exact_world_and_idempotent tests/application_state/test_agent_conversation_service.py::test_failed_import_does_not_leave_partial_conversation_or_turns

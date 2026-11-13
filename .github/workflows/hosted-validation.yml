@@ -55,11 +55,7 @@ jobs:
       - name: Verify Python runtime
         run: python -c "import sys; assert sys.version_info[:2] == (3, 13), sys.version; print(sys.version.split()[0])"
 
-      - name: Prepare pinned patched Hermes source
-        run: python scripts/prepare_patched_hermes.py
-
-      - name: Install locked dependencies
-        run: uv sync --locked
+      - uses: ./.github/actions/install-locked-python
 
       - name: Verify psycopg import
         run: uv run --locked python -c "import psycopg; print('psycopg import succeeded')"
