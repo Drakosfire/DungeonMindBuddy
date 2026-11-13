@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Repair recap documentation links after file moves
+
+[PR #2532](https://github.com/Drakosfire/DungeonMindBuddy/pull/2532) repaired the recap normalization index link to the current breadcrumb convention and both timeline benchmark links to the archived report. Verified all three relative links resolve to tracked files on main at `5669014a`.
+
 ## [DROPPED] Derive the proxy upstream from the effective Buddy bind port
 
 Duplicate of **Use one source for the Buddy deployment bind port** in [Backlog.md](Backlog.md). That item records the resolved Compose preflight and running binding checks, plus the release operator’s remaining default- and custom-port rehearsals through Nginx.
