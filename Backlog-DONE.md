@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Consolidate identical Play evidence screenshots
+
+[PR #2579](https://github.com/Drakosfire/DungeonMindBuddy/pull/2579) retained all three witness labels and pinned the original screenshot paths. Verified both retired paths share the retained 123,598-byte Git blob. Checkout payload fell from 370,794 to 123,598 bytes.
+
 ## [DONE] Move the PR43 multimode report out of the active tree
 
 [#2582](https://github.com/Drakosfire/DungeonMindBuddy/pull/2582) removed 2,531,169 bytes. Verified all three historical Git blobs pinned in the retained README.
