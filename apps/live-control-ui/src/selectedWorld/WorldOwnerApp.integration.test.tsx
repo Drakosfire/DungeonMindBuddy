@@ -45,7 +45,7 @@ beforeEach(()=>{
  localStorage.clear();owner.mounts=[];owner.unmounts=[];owner.capture.mockReset();
  vi.spyOn(api,'listWorldContainers').mockResolvedValue({schema_version:'dmb_world_container_registry_v1',records:worlds});
  vi.spyOn(api,'getWorkspaceDocumentAny').mockImplementation(async id=>record(id));
- vi.spyOn(api,'getSourceBundle').mockResolvedValue({schema:'dmb_ingestion_source_bundle_v1',campaigns:{}} as never);
+ vi.spyOn(api,"getSourceSessions").mockResolvedValue([]);
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();localStorage.clear()});
 

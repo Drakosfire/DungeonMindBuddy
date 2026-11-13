@@ -1737,6 +1737,11 @@ export async function getBuildSourceNavigation(args: {
   );
 }
 
+export function getSourceSessions(campaignId: string): Promise<number[]> {
+  const query = new URLSearchParams({ campaign_id: campaignId });
+  return apiFetch<number[]>(`/api/live/source-bundle/sessions?${query}`);
+}
+
 export async function getSourceBundle(
   scope = "campaign-ingested",
   campaignId?: string,
