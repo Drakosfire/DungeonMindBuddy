@@ -7,6 +7,18 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Make the deployment smoke block fail when any required check fails
+
+[#2534](https://github.com/Drakosfire/DungeonMindBuddy/pull/2534) and [#2557](https://github.com/Drakosfire/DungeonMindBuddy/pull/2557) made the local and public smoke blocks fail fast. The recorded shell rehearsals injected failures in container identity, binding, health, TLS, frontend and signed-out checks and included passing controls.
+
+## [DONE] Stop release preparation when the production image build fails
+
+[#2530](https://github.com/Drakosfire/DungeonMindBuddy/pull/2530) verified that a failed build skipped image inspection, failed Compose validation prevented accepting the command, and success recorded the image ID.
+
+## [DONE] Fail the database target check on either service error
+
+[#2533](https://github.com/Drakosfire/DungeonMindBuddy/pull/2533) verified first-service failure, second-service failure and success against the runbook block with stubbed psql.
+
 ## [DONE] Keep local Buddy startup available when OCR workspace discovery fails
 
 [PR #2538](https://github.com/Drakosfire/DungeonMindBuddy/pull/2538). Seven launcher tests passed on main, including stale workspace fallback and complete explicit OCR settings.
