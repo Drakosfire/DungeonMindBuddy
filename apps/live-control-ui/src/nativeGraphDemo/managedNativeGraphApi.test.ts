@@ -61,6 +61,22 @@ function entityDetail(scope: unknown) {
 }
 
 describe("managed native graph API", () => {
+  it("reuses only equivalent snapshots from the same managed client", async () => {
+    const changed = { ...nativeGraph, limitations: ["partial coverage"] };
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(response(envelope()))
+      .mockResolvedValueOnce(response(envelope()))
+      .mockResolvedValueOnce(response(envelope({ graph: changed })));
+    const client = createManagedNativeGraphApi("managed-a", { fetcher });
+    const first = await client.api.readGraph();
+    await expect(client.api.readGraph()).resolves.toBe(first);
+    const third = await client.api.readGraph();
+    expect(third).not.toBe(first);
+    expect(third.limitations).toEqual(changed.limitations);
+    client.invalidate();
+    await expect(client.api.readGraph()).rejects.toMatchObject({ code: "invalid_managed_world_response" });
+  });
+
   it("consumes the wire body once and returns the decoded graph", async () => {
     const wireResponse = response(envelope());
     const parsed = envelope();
