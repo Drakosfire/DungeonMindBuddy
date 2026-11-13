@@ -1,4 +1,5 @@
 """Explicit manual revision Save, producer CAS and durable exact-key recovery."""
+from copy import deepcopy
 from datetime import UTC,datetime
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import ValidationStatus,ValidationSeverity,AssetBindingV1Input,AssetRefV1,ProviderKind,Role
 from uuid import UUID
@@ -8,12 +9,21 @@ from application_state.mechanics_revisions import service as operations
 from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE,RevisionOperation,digest
 from application_state.world_mechanics.types import MechanicsLocator
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import build_statblock_v1_client,verify_exact_revision_mechanics_integrity
-from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import source_definition_digest_from_body
+from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import omit_empty_explains, source_definition_digest_from_body
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import locator_from_exact_revision,same_mechanics_locator
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
 from apps.live_control_server.services.threat_draft_store import get_threat_draft, saved_mechanics_draft_ids
 from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
 from apps.live_control_server.services.statblock_definition_validation import validate_definition
+
+
+def _matches_definition_proof(operation, accepted_digest):
+    definition = operation.request_body["definition"]
+    if source_definition_digest_from_body(definition) != operation.validation_receipt_digest:
+        return False
+    projected_definition = deepcopy(definition)
+    omit_empty_explains(projected_definition)
+    return source_definition_digest_from_body(projected_definition) == accepted_digest
 
 
 def _origin_with_proof(root,world_id,draft_id):
@@ -26,8 +36,7 @@ def _origin_with_proof(root,world_id,draft_id):
         and same_mechanics_locator(op.locator,ref.to_mechanics_locator())
         and op.source_draft_version==ref.accepted_from_draft_version
         and op.source_candidate_id==ref.accepted_from_candidate_id
-        and op.validation_receipt_digest==ref.definition_digest
-        and source_definition_digest_from_body(op.request_body['definition'])==ref.definition_digest)]
+        and _matches_definition_proof(op, ref.definition_digest))]
     if len(matches)!=1:raise ApplicationStateIntegrityError('Original mechanics have no unique acceptance proof')
     return draft,MechanicsLocator.model_validate(ref.to_mechanics_locator().model_dump()),matches[0]
 

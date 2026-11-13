@@ -145,6 +145,13 @@ def compute_definition_digest(definition: StatblockDefinitionV1Input) -> str:
     return f"{DIGEST_ALGORITHM}:{hashlib.sha256(payload).hexdigest()}"
 
 
+def omit_empty_explains(definition: dict[str, Any]) -> None:
+    """Apply the create transport projection to a serialized definition copy."""
+    for element in definition["rule_elements"]:
+        if element.get("explains") == []:
+            del element["explains"]
+
+
 def source_definition_digest_from_body(source_definition: dict[str, Any]) -> str:
     """Digest the current full contract using DMS-owned v1 semantics."""
     text = canonicalize_definition_dict(source_definition)

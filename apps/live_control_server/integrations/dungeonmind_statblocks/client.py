@@ -358,9 +358,9 @@ class DungeonMindStatblockV1Client:
                 details={"field_path": "definition.rule_elements[*].explains"},
             )
         json_body = request.model_dump(mode="json", by_alias=True, exclude_none=True)
-        # The authority does not accept this field, even when no edges exist.
-        for element in json_body["definition"]["rule_elements"]:
-            element.pop("explains", None)
+        from .definition_digest import omit_empty_explains
+
+        omit_empty_explains(json_body["definition"])
         idempotency_key = json_body.get("idempotency_key")
         if not isinstance(idempotency_key, str) or not idempotency_key.strip():
             raise downstream_invalid_request("create request missing idempotency_key")
