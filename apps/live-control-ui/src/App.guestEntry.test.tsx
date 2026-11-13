@@ -720,19 +720,25 @@ describe("canonical local guest entry", () => {
   });
 
   it("browses an assigned hosted World without exposing authoring", async () => {
-    window.history.replaceState({}, "", "/graph?world=world-a");
-    const fetchMock = managedServerFetch({ authStatus: "authenticated" });
-    vi.stubGlobal("fetch", fetchMock);
-    render(<App />);
+    const dom = (globalThis as unknown as { jsdom: { reconfigure: (options: { url: string }) => void } }).jsdom;
+    const originalUrl = window.location.href;
+    dom.reconfigure({ url: "https://buddy.example/graph?world=world-a" });
+    try {
+      const fetchMock = managedServerFetch({ authStatus: "authenticated" });
+      vi.stubGlobal("fetch", fetchMock);
+      render(<App />);
 
-    expect(await revealIsolatedObject(userEvent.setup(), "Aster")).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Account:/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Add object" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Plan" })).not.toBeInTheDocument();
-    expect(fetchMock.mock.calls.every(([path]) => [
-      "/api/auth/session", "/api/live/world-containers", "/api/live/native-graph-explorer/graph",
-    ].includes(String(path)))).toBe(true);
+      expect(await revealIsolatedObject(userEvent.setup(), "Aster")).toBeInTheDocument();
+      expect(screen.getByLabelText(/^Account:/)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Add object" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Plan" })).not.toBeInTheDocument();
+      expect(fetchMock.mock.calls.every(([path]) => [
+        "/api/auth/session", "/api/live/world-containers", "/api/live/native-graph-explorer/graph",
+      ].includes(String(path)))).toBe(true);
+    } finally {
+      dom.reconfigure({ url: originalUrl });
+    }
   });
 
   it("posts sign-out to Buddy and reports a failed response", async () => {
