@@ -57,7 +57,7 @@ export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceip
     ||v.schema!=='dmb_surface_native_completion_v1'||v.surface_id!==r.work_context.surface_id||v.context_receipt_sha256!==r.context_receipt_sha256||!uuid(v.producing_provider_attempt_id)||v.answer_basis!=='mixed_evidence'
     ||!Array.isArray(v.answer_segments)||v.answer_segments.length>128||!isCollaboration(v.collaboration,true,true,true,true)||v.collaboration!==null&&v.surface_id!=='build'&&!(v.surface_id==='plan'&&typeof v.collaboration==='object'&&v.collaboration!==null&&'kind' in v.collaboration&&v.collaboration.kind==='connected_page')||!v.answer_segments.length&&v.collaboration===null)return false;
   const sources=new Set<number>(),graphs=new Map<number,string[]>(),saved=new Set<number>(),blocks=new Set<string>();
-  let authored=false,buildAuthored=false,proposal=false,partial=false,discussion=false;
+  let authored=false,buildAuthored=false,proposal=false,partial=false,discussion=false,pdf=false;
   const work=r.work_context;
   for(const [i,s] of v.answer_segments.entries()) {
     if(!s||typeof s!=='object'||!text(s.text))return false;
@@ -75,6 +75,15 @@ export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceip
       if(s.kind==='authored_excerpt'){if(blocks.has(s.block_handle))return false;blocks.add(s.block_handle);}authored=true;
     } else if(s.kind==='proposal') {if(!exact(s,['kind','text','label'])||!['invented_idea','image_prompt'].includes(String(s.label)))return false;proposal=true;}
     else if(s.kind==='limitation') {if(!exact(s,['kind','text','code','question_phrase'])||!['missing_requested_details','partial_retrieval','unresolved_conflict'].includes(String(s.code))||!(s.question_phrase===null||text(s.question_phrase)))return false;partial=true;}
+    else if(work.surface_id==='build'&&s.kind==='statblock_pdf_claim') {
+      if(!exact(s,['kind','text','scope','assertion_id','evidence_ref_id'])
+        ||!exact(s.scope,['managed_world_id','native_world_id','binding_version','revision_id','scope_mode','campaign_id'])
+        ||s.scope.managed_world_id!==nativeWorkWorld(work)||s.scope.scope_mode!=='world'||s.scope.campaign_id!==null
+        ||!text(s.scope.native_world_id)||!text(s.scope.revision_id)
+        ||typeof s.scope.binding_version!=='number'||!Number.isInteger(s.scope.binding_version)||s.scope.binding_version<1
+        ||!text(s.assertion_id)||typeof s.evidence_ref_id!=='string'||!/^pdf-region:.+$/.test(s.evidence_ref_id))return false;
+      pdf=true;
+    }
     else if(work.surface_id==='build'&&s.kind==='discussion') {if(!exact(s,['kind','text']))return false;discussion=true;}
     else if(work.surface_id==='build'&&s.kind==='draft_reference_claim') {if(!isDraftReferenceClaim(s))return false;buildAuthored=true;}
     else if((work.surface_id==='build'||work.surface_id==='plan')&&s.kind==='related_page_claim') {
@@ -100,7 +109,7 @@ export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceip
   if([...sources].some(i=>!cited.has(i))||[...graphs].some(([i,ids])=>ids.some(id=>!assertions.get(i)?.has(id))))return false;
   if(!Array.isArray(v.saved_source_citations)||v.saved_source_citations.length!==saved.size)return false;
   for(const [i,c] of v.saved_source_citations.entries())if(!exact(c,['segment_index','text_sha256','section_event_ids'])||c.segment_index!==[...saved][i]||!hash(c.text_sha256)||!Array.isArray(c.section_event_ids)||!c.section_event_ids.length||c.section_event_ids.length>128||!c.section_event_ids.every((id,j)=>uuid(id)&&(!j||((c.section_event_ids as string[])[j-1]!)<id)))return false;
-  const status=graphs.size?'graph_grounded':buildAuthored?'authored_grounded':sources.size||saved.size?'source_grounded':authored?'authored_grounded':proposal?'creative_proposal':discussion&&!partial||!v.answer_segments.length?'discussion':'insufficient_evidence';
+  const status=graphs.size?'graph_grounded':buildAuthored?'authored_grounded':sources.size||saved.size||pdf?'source_grounded':authored?'authored_grounded':proposal?'creative_proposal':discussion&&!partial||!v.answer_segments.length?'discussion':'insufficient_evidence';
   return v.answer_context_status===status+(partial&&!['creative_proposal','insufficient_evidence','discussion'].includes(status)?'_partial':'');
 }
 

@@ -1224,7 +1224,8 @@ export interface SurfaceNativeCompletionV1 {
   answer_context_status:SurfaceEvidenceCompletionV1['answer_context_status']|'discussion';
   answer_segments:(Exclude<SurfaceEvidenceCompletionV7['answer_segments'][number],{kind:'graph_claim'|'authored_quote'}>
     | Extract<WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'draft_reference_claim'|'related_page_claim'|'saved_source_claim'}>
-    | {kind:'discussion';text:string})[];
+    | {kind:'discussion';text:string}
+    | {kind:'statblock_pdf_claim';text:string;scope:import('./nativeGraphInspection').InspectionPin;assertion_id:string;evidence_ref_id:string})[];
   collaboration:ConversationCollaborationV3|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
   saved_source_citations:{segment_index:number;text_sha256:string;section_event_ids:string[]}[];
   native_body_citations:NativeBodyExcerptCitationV1[];native_clause_citations:NativeStatementClauseCitationV1[];
