@@ -9,6 +9,14 @@ export async function publishPdfStatblock(
 ) {
   const result = await getNativeThreat(draft, world)
     ?? await prepareNativeThreat(draft, world, version, undefined, locator);
+  if (result.state === "prepared") {
+    const preparedLocator = result.review.mechanics_locator;
+    if (!preparedLocator || Object.entries(locator).some(
+      ([key, value]) => preparedLocator[key as keyof SavedMechanicsLocator] !== value,
+    )) {
+      throw new Error("The prepared creature uses a different saved statblock revision.");
+    }
+  }
   const creature = result.state === "published" ? result : await confirmNativeThreat(result);
   const associations = await listWorldMechanicsAssociations(world);
   const previous = associations.find(({request}) => request.target.node_id === creature.node_id
