@@ -760,7 +760,8 @@ def test_invalid_vitest_report_records_reason(sandbox, monkeypatch, payload, rea
         local.validate(evidence, args.sha, args.suite)
 
 
-def test_final_inspection_failure_still_unregisters_worktree(sandbox, monkeypatch):
+@pytest.mark.parametrize("removal_fails", [False, True])
+def test_final_inspection_failure_still_attempts_removal(sandbox, monkeypatch, removal_fails):
     args, _, fake = sandbox
     original_git = local.git
     build_ran = False
@@ -777,10 +778,22 @@ def test_final_inspection_failure_still_unregisters_worktree(sandbox, monkeypatc
             raise ValueError("final source inspection failed")
         return original_git(path, *argv, **kwargs)
 
+    original_run = local.subprocess.run
+
+    def run(argv, *args, **kwargs):
+        if removal_fails and argv[3:5] == ["worktree", "remove"]:
+            raise ValueError("worktree removal failed")
+        return original_run(argv, *args, **kwargs)
+
+    monkeypatch.setattr(local.subprocess, "run", run)
     monkeypatch.setattr(local, "command", command)
     monkeypatch.setattr(local, "git", git)
     assert local.verify(args) == 1
     report = json.loads((Path(args.output) / "evidence.json").read_text())
-    assert report["error"] == "final source inspection failed"
-    assert report["cleanup_complete"]
-    assert original_git(Path(args.repo), "worktree", "list", "--porcelain").count("worktree ") == 1
+    assert report["source_inspection_error"] == "final source inspection failed"
+    assert report["error"] == (
+        "worktree removal failed" if removal_fails else "final source inspection failed"
+    )
+    assert report["cleanup_complete"] is not removal_fails
+    registrations = original_git(Path(args.repo), "worktree", "list", "--porcelain")
+    assert registrations.count("worktree ") == (2 if removal_fails else 1)

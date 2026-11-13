@@ -676,6 +676,9 @@ def verify(args):
                             report["source_dirty_after"] = bool(
                                 git(source, "status", "--porcelain")
                             )
+                        except (Exception, KeyboardInterrupt) as exc:
+                            report["source_inspection_error"] = str(exc) or type(exc).__name__
+                            raise
                         finally:
                             subprocess.run(
                                 [
