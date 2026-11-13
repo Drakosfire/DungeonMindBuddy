@@ -327,19 +327,24 @@ def compact_passages(frame, supports):
         for first, _, body, members in merged:
             if len(members) < 2:
                 continue
-            if any(
-                (start != first and body[start-first-1:start-first] != b"\n")
-                or (end != first + len(body) and body[end-first-1:end-first] != b"\n"
-                    and body[end-first:end-first+1] != b"\n")
-                for _, start, end in members
-            ):
+            text = body.decode()
+            line_offsets = {0: 0}
+            cursor = 0
+            for line_number, line in enumerate(text.splitlines(keepends=True), 1):
+                cursor += len(line.encode())
+                line_offsets[cursor] = line_number
+            ranges = [(index, line_offsets.get(start - first), line_offsets.get(end - first))
+                      for index, start, end in members]
+            if any(start is None or end is None
+                   or end - start != rows[index]["line_end"] - rows[index]["line_start"] + 1
+                   for index, start, end in ranges):
                 continue
             alias = f"p{len(passages)}"
-            passages[alias] = body.decode()
-            for index, start, end in members:
+            passages[alias] = text
+            for index, start, _ in ranges:
                 projected[index] = {key: value for key, value in rows[index].items() if key != "text"}
                 projected[index]["passage"] = alias
-                projected[index]["passage_line_start"] = body[:start-first].count(b"\n") + 1
+                projected[index]["passage_line_start"] = start + 1
     if not passages:
         return frame
     compact = evidence | {
