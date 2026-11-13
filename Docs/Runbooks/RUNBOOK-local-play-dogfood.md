@@ -18,6 +18,9 @@ configured safe Buddy application-state DSN
 ```
 
 ## Prerequisites
+Build PDF region review and local Graph PDF evidence use Poppler. For these
+workflows, install `poppler-utils` on Debian or Ubuntu and verify that
+`command -v pdftoppm` and `command -v pdftotext` both return a path.
 
 - PostgreSQL is already running.
 - A **separate** Buddy logical database name is available. Recommended:
