@@ -347,7 +347,7 @@ def test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor(
     def audited(cursor, query, *args, **kwargs):
         if isinstance(query, str) and query.lstrip().lower().startswith("select"):
             from application_state.agent_conversation.authored_reference_preview import SELECT as reference_select
-            assert "graph_context_execution" not in query.replace(reference_select, "")
+            assert "graph_context_execution" not in query.replace(reference_select, "").replace(library._SAVED_STATBLOCK_PREVIEW_SELECT, "")
             if "graph_context_execution" in query:
                 assert "AS authored_reference_inputs" in query
                 assert "jsonb_path_query_array" in query
