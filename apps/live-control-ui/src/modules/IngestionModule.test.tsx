@@ -144,7 +144,7 @@ it("opens the exact Process candidate and carries the same run into Graph Review
  expect(new URLSearchParams(window.location.search).get("extractionRunId")).toBe("run-session-22");expect(new URLSearchParams(window.location.search).get("world")).toBe("elderwyld");
 });
 it("preserves the submitted draft after Process navigation and Return to draft",async()=>{
- mount();await input("Recover this original recap.");await process();await screen.findByRole("button",{name:"Return to draft"});fireEvent.click(screen.getByRole("button",{name:"Return to draft"}));
+ mount();await input("Recover this original recap.");await process();await screen.findByRole("button",{name:/Return to (?:Session \d+ )?draft/});fireEvent.click(screen.getByRole("button",{name:/Return to (?:Session \d+ )?draft/}));
  expect(await screen.findByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("Recover this original recap.");
  expect(rawApi.postRecapIngest).toHaveBeenCalledOnce();
 });
@@ -174,7 +174,7 @@ it("sends attached session evidence separately from unchanged external source te
 it("ignores a late Process result after changing the source session and preserves the original draft",async()=>{
  const gate=deferred<RecapIngestStatus>();vi.mocked(rawApi.postRecapIngest).mockReturnValue(gate.promise);mount();await input("Original session draft.");await process();fireEvent.change(screen.getByLabelText("Recap/source session"),{target:{value:"29"}});
  await act(async()=>{gate.resolve(result());await gate.promise;});expect(new URLSearchParams(window.location.search).has("recapReviewRunId")).toBe(false);
- fireEvent.click(screen.getByRole("button",{name:"Return to draft"}));expect(await screen.findByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("Original session draft.");
+ fireEvent.click(screen.getByRole("button",{name:"Return to Session 22 draft"}));expect(await screen.findByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("Original session draft.");
 });
 it("does not attach an old same-session completion to a new draft",async()=>{
  const gate=deferred<RecapIngestStatus>();vi.mocked(rawApi.postRecapIngest).mockReturnValue(gate.promise);mount();await input("Old source.");await process();fireEvent.click(screen.getByRole("button",{name:"New recap"}));await input("New source.");
@@ -192,7 +192,33 @@ it("drops a late Process result across World A to B to A without deleting the dr
  view.rerender(<IngestionModule campaignId="longmont-c2" session={23} managedWorldId="elderwyld"/>);
  await act(async()=>{gate.resolve(result());await gate.promise;});
  expect(new URLSearchParams(window.location.search).has("recapReviewRunId")).toBe(false);
- const back=screen.queryByRole("button",{name:"Return to draft"});if(back)fireEvent.click(back);
+ const back=screen.queryByRole("button",{name:/Return to (?:Session \d+ )?draft/});if(back)fireEvent.click(back);
  expect(await screen.findByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("A retained World draft.");
  expect(rawApi.postRecapIngest).toHaveBeenCalledOnce();
+});
+
+it("keeps separate editable session drafts and retains intentional clearing",async()=>{
+ mount();await input("Session 22 original");
+ const choose=(value:string)=>fireEvent.change(screen.getByLabelText("Recap/source session"),{target:{value}});
+ choose("30");expect(await screen.findByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("");
+ await input("Session 30 original");choose("22");
+ await waitFor(()=>expect(screen.getByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("Session 22 original"));
+ await input("");choose("30");
+ await waitFor(()=>expect(screen.getByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("Session 30 original"));
+ choose("22");await waitFor(()=>expect(screen.getByRole("textbox",{name:/Write or paste a recap/})).toHaveValue(""));
+ expect(rawApi.postRecapIngest).not.toHaveBeenCalled();
+});
+
+it("restores legacy source ownership without resurrecting a cleared draft",async()=>{
+ const legacyKey="dmb.ingestion.longmont-c2.session.23";
+ const legacy=JSON.stringify({version:3,recapSession:22,rawText:"Legacy session 22",slug:"",title:""});
+ localStorage.setItem(legacyKey,legacy);
+ const view=mount();await waitFor(()=>expect(screen.getByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("Legacy session 22"));
+ await input("");view.unmount();mount();
+ await waitFor(()=>expect(screen.getByRole("textbox",{name:/Write or paste a recap/})).toHaveValue(""));
+ expect(localStorage.getItem(legacyKey)).toBe(legacy);
+ fireEvent.change(screen.getByLabelText("Recap/source session"),{target:{value:"30"}});
+ expect(await screen.findByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("");
+ expect(new URLSearchParams(location.search).get("session")).toBe("session-30");
+ expect(rawApi.postRecapIngest).not.toHaveBeenCalled();
 });

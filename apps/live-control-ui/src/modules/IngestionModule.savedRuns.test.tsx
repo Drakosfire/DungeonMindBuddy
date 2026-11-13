@@ -74,7 +74,7 @@ it.each(["resolve", "reject"] as const)("preserves a raw draft when a source rep
     fireEvent.change(screen.getByLabelText("Draft title (optional)"), { target: { value: "Campfire return" } });
     await open("run-a");
     await waitFor(() => expect(savedApi.getSavedRecapSource).toHaveBeenCalled());
-    await userEvent.click(screen.getByRole("button", { name: "Return to draft" }));
+    await userEvent.click(screen.getByRole("button", { name: /Return to (?:Session \d+ )?draft/ }));
     expect(await screen.findByLabelText("Write or paste a recap")).toHaveValue("My unfinished draft");
     fireEvent.change(screen.getByLabelText("Write or paste a recap"), { target: { value: "Continued draft" } });
     await act(async () => { if (outcome === "resolve")
@@ -191,7 +191,7 @@ it("preserves a matching local draft across a cold saved-source route and reload
     mount("&view=recap&recapReviewRunId=run-a");
     expect(await screen.findByText("Source for run-a.")).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(key)!).rawText).toBe("Cold retained draft");
-    await userEvent.click(screen.getByRole("button", { name: "Return to draft" }));
+    await userEvent.click(screen.getByRole("button", { name: /Return to (?:Session \d+ )?draft/ }));
     expect(await screen.findByLabelText("Write or paste a recap")).toHaveValue("Cold retained draft");
     expect(screen.getByLabelText("Draft title (optional)")).toHaveValue("Cold draft title");
 });
@@ -220,7 +220,7 @@ it("mounts exact native source admission without automatically sending or distur
     await screen.findByText("Admission response lost");
     expect(admit).toHaveBeenCalledExactlyOnceWith({ managedWorldId: "elderwyld", nativeWorldId: "elderwyld", bindingVersion: 3, campaignId: "longmont-c1", session: 8, sourceArtifactId: "artifact:run-a", sourceRevisionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", contentSha256: "a".repeat(64) });
     expect(rawApi.postRecapIngest).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: "Return to draft" }));
+    await userEvent.click(screen.getByRole("button", { name: /Return to (?:Session \d+ )?draft/ }));
     expect(await screen.findByLabelText("Write or paste a recap")).toHaveValue("Retain this unfinished writing");
     expect(screen.queryByRole("button", { name: "Recover source admission" })).not.toBeInTheDocument();
     expect(admit).toHaveBeenCalledOnce();
