@@ -388,7 +388,6 @@ def read_turns(
     before_sequence: int | None = None,
 ):
     service = AgentConversationService()
-    service.get_conversation(world, conversation)
     turns = service.list_turns(
         world, conversation, limit=limit, before_sequence=before_sequence
     )
