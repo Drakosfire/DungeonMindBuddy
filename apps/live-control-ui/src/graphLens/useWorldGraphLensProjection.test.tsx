@@ -74,10 +74,7 @@ describe("WorldGraphLensProjectionProvider", () => {
     vi.restoreAllMocks();
     liveApi.setNativeGraphAccessToken(null);
     window.history.pushState({}, "", "/plan");
-    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue({
-      schema: "dmb_ingestion_source_bundle_v1",
-      campaigns: {},
-    } as never);
+    vi.spyOn(liveApi, "getSourceSessions").mockResolvedValue([]);
   });
 
   it("marks verified head responses ready", async () => {

@@ -325,10 +325,7 @@ describe("WorldGraphRecapProjectionView", () => {
 
   it("reads a durable object through the shared World lens, not the recap focus", async () => {
     window.history.replaceState({}, "", "/ingest?campaign=longmont-c1&session=session-1");
-    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue({
-      schema: "dmb_ingestion_source_bundle_v1",
-      campaigns: {},
-    } as never);
+    vi.spyOn(liveApi, "getSourceSessions").mockResolvedValue([]);
     const worldProjection: WorldGraphProjection = {
       schema: "dmb_world_graph_projection_v1",
       snapshot: {
@@ -410,7 +407,7 @@ describe("WorldGraphRecapProjectionView", () => {
   it.each(["ready", "unavailable", "mismatched"])("uses verified native read identity under a %s managed lens", async (state) => {
     window.history.replaceState({}, "", "/ingest?world=elderwyld");
     vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [{ schema_version: "dmb_world_container_record_v1", world_id: "elderwyld", name: "Elderwyld", source_root_relpath: "corpus/elderwyld", created_at: "2026-01-01T00:00:00Z" }] });
-    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue({ schema: "dmb_ingestion_source_bundle_v1", campaigns: {} } as never);
+    vi.spyOn(liveApi, "getSourceSessions").mockResolvedValue([]);
     const snapshot = { ...session23WorldGraphRecapFixture.snapshot, worldId: state === "mismatched" ? "other-native-world" : "eldyrwild", campaignId: "", scopeMode: "world" as const, focus: { kind: "none" as const, sessionId: null }, revisionId: "managed-native-head", headRevisionId: "managed-native-head" };
     const projection: WorldGraphProjection = { schema: "dmb_world_graph_projection_v1", snapshot, summary: { nodeCount: 2, relationshipCount: 1, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false }, nodes: Object.values(session23WorldGraphRecapFixture.nodeViews), relationships: [], attributes: [], evidence: [], sourceArtifacts: [], diagnostics: [] };
     const managed = vi.spyOn(liveApi, "postManagedWorldGraphProjection");

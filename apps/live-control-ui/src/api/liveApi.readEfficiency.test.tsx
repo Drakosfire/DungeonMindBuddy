@@ -48,7 +48,7 @@ describe("protected read acquisition",()=>{
  it("does not repeat mounted graph acquisition on its own cold session bootstrap",async()=>{
   window.history.replaceState({},"","/?world=elderwyld");
   vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
-  vi.spyOn(api,"getSourceBundle").mockResolvedValue({schema:"dmb_ingestion_source_bundle_v1",campaigns:{}} as never);
+  vi.spyOn(api,"getSourceSessions").mockResolvedValue([]);
   const gate=deferred<Response>();
   const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async url=>String(url).endsWith("local-session")?Response.json({status:"active",csrf_token:"test-csrf"}):gate.promise);
   const wrapper=({children}:{children:ReactNode})=>createElement(SelectedWorldProvider,{locationSnapshot:window.location.href},createElement(WorldGraphLensProvider,{planCampaignId:"elderwyld"},createElement(WorldGraphLensProjectionProvider,{defaultCampaignId:"elderwyld"},children)));
@@ -63,7 +63,7 @@ describe("protected read acquisition",()=>{
   api.setNativeGraphAccessToken('reset-session');api.setNativeGraphAccessToken(null);
   window.history.replaceState({},"","/?world=elderwyld");
   vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
-  vi.spyOn(api,"getSourceBundle").mockResolvedValue({schema:"dmb_ingestion_source_bundle_v1",campaigns:{}} as never);
+  vi.spyOn(api,"getSourceSessions").mockResolvedValue([]);
   let sessions=0;
   const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async url=>{
     if(String(url).endsWith("local-session")) return ++sessions===1
@@ -85,7 +85,7 @@ describe("protected read acquisition",()=>{
   api.setNativeGraphAccessToken('reset-recovery');api.setNativeGraphAccessToken(null);
   window.history.replaceState({},"","/?world=elderwyld");
   vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
-  vi.spyOn(api,"getSourceBundle").mockResolvedValue({schema:"dmb_ingestion_source_bundle_v1",campaigns:{}} as never);
+  vi.spyOn(api,"getSourceSessions").mockResolvedValue([]);
   let sessions=0,projections=0;
   const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async url=>{
     if(String(url).endsWith("local-session")) return Response.json({status:"active",csrf_token:++sessions===1?'old-csrf':'fresh-csrf'});
@@ -100,7 +100,7 @@ describe("protected read acquisition",()=>{
  it.each(['rotation','release'] as const)("rejects late projection JSON body after %s with the real API transport",async transition=>{
   api.setNativeGraphAccessToken('body-old');window.history.replaceState({},"","/?world=elderwyld");
   vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
-  vi.spyOn(api,"getSourceBundle").mockResolvedValue({schema:"dmb_ingestion_source_bundle_v1",campaigns:{}} as never);
+  vi.spyOn(api,"getSourceSessions").mockResolvedValue([]);
   let body!:ReadableStreamDefaultController<Uint8Array>;let projections=0;
   const stream=new ReadableStream<Uint8Array>({start(controller){body=controller}});
   const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async()=>++projections===1 ? new Response(stream,{headers:{'Content-Type':'application/json'}}) : Response.json(managedPacket('current')));

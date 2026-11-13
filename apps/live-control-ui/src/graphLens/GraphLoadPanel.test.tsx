@@ -3,12 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { IngestionSourceBundle, SourceUnit } from "../../api/types";
 import { PlanGraphLoadPanel } from "./GraphLoadPanel";
 import { PlanGraphLensProvider } from "./WorldGraphLensContext";
 
 function wrapper(
-  loadBundle?: (scope: string, campaignId?: string) => Promise<IngestionSourceBundle>,
+  loadSessions?: (campaignId: string) => Promise<number[]>,
   focusOptions?: [],
 ) {
   return function ProviderWrapper({ children }: { children: ReactNode }) {
@@ -16,7 +15,7 @@ function wrapper(
       PlanGraphLensProvider,
       {
         planCampaignId: "longmont-c2",
-        ...(loadBundle ? { loadBundle: loadBundle as never } : {}),
+        ...(loadSessions ? { loadSessions: loadSessions as never } : {}),
         ...(focusOptions !== undefined ? { focusOptions } : {}),
       },
       children,
@@ -24,51 +23,9 @@ function wrapper(
   };
 }
 
-function unitWithSession(sessionNumber: number): SourceUnit {
-  return {
-    unitId: `unit-${sessionNumber}`,
-    artifactId: `artifact-${sessionNumber}`,
-    anchorId: `anchor-${sessionNumber}`,
-    unitKind: "normalized_recap",
-    label: `Session ${sessionNumber}`,
-    fields: { sessionNumber },
-    sourceAnchor: {
-      anchorId: `anchor-${sessionNumber}`,
-      artifactId: `artifact-${sessionNumber}`,
-      label: `Session ${sessionNumber}`,
-      anchorKind: "document",
-      locator: {
-        locatorId: `loc-${sessionNumber}`,
-        scheme: "corpus_path",
-        value: `session-${sessionNumber}.md`,
-      },
-      relatedLocators: [],
-      displaySummary: null,
-      metadata: {},
-    },
-    canonState: "played_canon",
-    lifecycleState: "ingested",
-    evidenceRole: "source_evidence",
-    authorityState: "played_truth",
-    visibilityState: "gm_private",
-    provenance: [],
-    diagnostics: {},
-  };
-}
 
-function bundleWithSessions(...sessions: number[]): IngestionSourceBundle {
-  return {
-    schema_version: "dmb_ingestion_source_bundle_v1",
-    bundle_id: `bundle-${sessions.join("-")}`,
-    scope: "campaign-ingested",
-    corpus_root: "corpus",
-    artifacts: [],
-    anchors: [],
-    units: sessions.map(unitWithSession),
-    coverage: {},
-    diagnostics: [],
-  };
-}
+
+
 
 describe("PlanGraphLoadPanel", () => {
   beforeEach(() => {
@@ -111,15 +68,15 @@ describe("PlanGraphLoadPanel", () => {
   });
 
   it("offers Focus session options from ingest bundles only", async () => {
-    const loadBundle = vi.fn(async (_scope?: string, campaignId?: string) => {
-      if (campaignId === "longmont-c2") return bundleWithSessions(24, 22, 1);
-      if (campaignId === "longmont-c1") return bundleWithSessions(3);
-      return bundleWithSessions();
+    const loadSessions = vi.fn(async (campaignId: string) => {
+      if (campaignId === "longmont-c2") return [24, 22, 1];
+      if (campaignId === "longmont-c1") return [3];
+      return [];
     });
 
     render(
       <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
-      { wrapper: wrapper(loadBundle) },
+      { wrapper: wrapper(loadSessions) },
     );
 
     await waitFor(() => {
@@ -129,16 +86,16 @@ describe("PlanGraphLoadPanel", () => {
     expect(screen.getByRole("option", { name: "C2 · Session 1" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "C2 · Session 40" })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "C1 · Session 3" })).not.toBeInTheDocument();
-    expect(loadBundle).toHaveBeenCalledWith("campaign-ingested", "longmont-c2");
+    expect(loadSessions).toHaveBeenCalledWith("longmont-c2");
   });
 
   it("applies Focus session and updates the status line", async () => {
     const user = userEvent.setup();
-    const loadBundle = vi.fn(async () => bundleWithSessions(24, 22));
+    const loadSessions = vi.fn(async () => [24, 22]);
 
     render(
       <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
-      { wrapper: wrapper(loadBundle) },
+      { wrapper: wrapper(loadSessions) },
     );
 
     await waitFor(() => {
@@ -157,11 +114,11 @@ describe("PlanGraphLoadPanel", () => {
       "",
       "/plan?campaigns=longmont-c2&session=longmont-c2:40",
     );
-    const loadBundle = vi.fn(async () => bundleWithSessions(24, 22, 1));
+    const loadSessions = vi.fn(async () => [24, 22, 1]);
 
     render(
       <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
-      { wrapper: wrapper(loadBundle) },
+      { wrapper: wrapper(loadSessions) },
     );
 
     await waitFor(() => {
@@ -181,11 +138,11 @@ describe("PlanGraphLoadPanel", () => {
       "",
       "/plan?campaigns=longmont-c2&session=longmont-c2:24",
     );
-    const loadBundle = vi.fn(async () => bundleWithSessions(24, 22, 1));
+    const loadSessions = vi.fn(async () => [24, 22, 1]);
 
     render(
       <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
-      { wrapper: wrapper(loadBundle) },
+      { wrapper: wrapper(loadSessions) },
     );
 
     await waitFor(() => {
@@ -204,13 +161,13 @@ describe("PlanGraphLoadPanel", () => {
       "",
       "/plan?campaigns=longmont-c2&session=longmont-c2:40",
     );
-    const loadBundle = vi.fn(async () => {
+    const loadSessions = vi.fn(async () => {
       throw new Error("bundle unavailable");
     });
 
     render(
       <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
-      { wrapper: wrapper(loadBundle) },
+      { wrapper: wrapper(loadSessions) },
     );
 
     await waitFor(() => {
@@ -238,14 +195,14 @@ describe("PlanGraphLoadPanel", () => {
       "",
       "/plan?campaigns=longmont-c2&session=longmont-c2:24",
     );
-    const loadBundle = vi
+    const loadSessions = vi
       .fn()
       .mockRejectedValueOnce(new Error("bundle unavailable"))
-      .mockResolvedValueOnce(bundleWithSessions(24, 22));
+      .mockResolvedValueOnce([24, 22]);
 
     render(
       <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
-      { wrapper: wrapper(loadBundle) },
+      { wrapper: wrapper(loadSessions) },
     );
 
     await waitFor(() => {
@@ -260,7 +217,7 @@ describe("PlanGraphLoadPanel", () => {
     });
     expect(screen.queryByTestId("plan-graph-focus-validation-unavailable")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Focus session")).toHaveValue("longmont-c2:24");
-    expect(loadBundle).toHaveBeenCalledTimes(2);
+    expect(loadSessions).toHaveBeenCalledTimes(2);
   });
 
   it("accepts unverified focus via intentional operator override", async () => {
@@ -270,13 +227,13 @@ describe("PlanGraphLoadPanel", () => {
       "",
       "/plan?campaigns=longmont-c2&session=longmont-c2:40",
     );
-    const loadBundle = vi.fn(async () => {
+    const loadSessions = vi.fn(async () => {
       throw new Error("bundle unavailable");
     });
 
     render(
       <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
-      { wrapper: wrapper(loadBundle) },
+      { wrapper: wrapper(loadSessions) },
     );
 
     await waitFor(() => {
