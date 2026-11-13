@@ -40,7 +40,7 @@ Snapshots (so runs do not overwrite each other):
 | 5C | `.../council_room_question_set.json.exp5c_full_corpus_doc_planner_projection_only` |
 | 5D | `.../council_room_question_set.json.exp5d_full_corpus_doc_planner_evidence_per_seed` |
 | 5E | `.../council_room_question_set.json.exp5e_full_corpus_projection_enriched` |
-| 5F | `.../council_room_question_set.json.exp5f_full_corpus_rich_entity_summaries` |
+| 5F | [Question set](https://github.com/Drakosfire/DungeonMindBuddy/blob/685e62c45eee4ddc7b935906c549490bb011c4b5/evals/mirathorn_vertical_slice/output/council_room_question_set.json.exp5f_full_corpus_rich_entity_summaries) · [trace](https://github.com/Drakosfire/DungeonMindBuddy/blob/685e62c45eee4ddc7b935906c549490bb011c4b5/evals/mirathorn_vertical_slice/output/council_room_trace.jsonl.exp5f) |
 
 Matching `council_room_trace.jsonl.exp5*` files were written when present. Phase ledger rows use `DMB_PHASE_NAME` per run under `evals/mirathorn_vertical_slice/output/evidence_gap_phase_ledger.json`.
 
