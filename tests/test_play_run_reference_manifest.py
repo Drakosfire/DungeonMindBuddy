@@ -330,7 +330,7 @@ def _update_manifest_payload(dsn: str, run_id: str, manifest: dict) -> None:
 def test_exact_first_seal_persists_without_mutating_run_or_runbook(tmp_path: Path) -> None:
     snapshot_before = _create_committed_runbook(tmp_path)
     record = _create_run(tmp_path, snapshot_before)
-    run_before = get_play_run(tmp_path, RUN_ID_A)
+    run_before = get_play_run(RUN_ID_A)
 
     manifest = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
 
@@ -342,7 +342,7 @@ def test_exact_first_seal_persists_without_mutating_run_or_runbook(tmp_path: Pat
     assert [element.element_id for element in manifest.elements] == sorted(
         ["scene:gate", "beat:arrival", "choice:route", "option:fire", "option:wait"]
     )
-    assert get_play_run(tmp_path, RUN_ID_A) == run_before
+    assert get_play_run(RUN_ID_A) == run_before
 
     snapshot_after = get_workspace_document_snapshot(
         tmp_path,
@@ -883,5 +883,5 @@ def test_v2_run_creation_and_seal_leave_progress_untouched(tmp_path: Path) -> No
     assert after == manifest
     from apps.live_control_server.services.play_run_registry import get_play_run
 
-    reloaded = get_play_run(tmp_path, record.run_id)
+    reloaded = get_play_run(record.run_id)
     assert reloaded.model_dump(mode="json") == before

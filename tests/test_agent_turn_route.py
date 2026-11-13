@@ -258,7 +258,7 @@ def _mock_atomic_play_context_snapshot(monkeypatch: Any) -> None:
     from apps.live_control_server.services import agent_play_surface_context as play
 
     def snapshot(*, run_id: str, world_id: str):
-        record = play.get_world_play_run(Path("."), world_id=world_id, run_id=run_id)
+        record = play.get_world_play_run(world_id=world_id, run_id=run_id)
         committed = play.get_committed_playable_revision(
             record.playable_artifact_id, revision_n=record.playable_revision,
             expected_sha256=record.playable_content_sha256, kind=None,

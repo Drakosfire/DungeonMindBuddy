@@ -210,7 +210,7 @@ def test_same_run_id_different_binding_fails_without_overwrite(tmp_path: Path) -
         _create_run(tmp_path, snapshot_b)
 
     assert exc_info.value.status_code == 409
-    assert get_play_run(tmp_path, RUN_ID_A) == first
+    assert get_play_run(RUN_ID_A) == first
     assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -313,7 +313,7 @@ def test_fresh_reads_recover_persisted_run_and_list(tmp_path: Path) -> None:
     snapshot = _create_committed_runbook(tmp_path, name="restart")
     created = _create_run(tmp_path, snapshot)
 
-    loaded = get_play_run(tmp_path, RUN_ID_A)
+    loaded = get_play_run(RUN_ID_A)
     listed = list_play_runs()
 
     assert loaded == created
@@ -342,7 +342,7 @@ def test_malformed_persisted_run_fails_get_and_whole_list(tmp_path: Path) -> Non
     path.write_text("{not-json\n", encoding="utf-8")
 
     with pytest.raises(PlayRunRegistryError) as get_exc:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
     assert get_exc.value.status_code == 404
 
     assert list_play_runs() == []
@@ -400,11 +400,11 @@ def test_list_filters_by_campaign_and_playable_artifact(tmp_path: Path) -> None:
 
 def test_invalid_and_unknown_run_ids_fail_closed(tmp_path: Path) -> None:
     with pytest.raises(PlayRunRegistryError) as invalid:
-        get_play_run(tmp_path, "not-a-uuid")
+        get_play_run("not-a-uuid")
     assert invalid.value.status_code == 422
 
     with pytest.raises(PlayRunRegistryError) as unknown:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
     assert unknown.value.status_code == 404
 
 

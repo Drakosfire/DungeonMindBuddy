@@ -217,7 +217,7 @@ def test_valid_snapshot_persists_and_reloads(tmp_path: Path) -> None:
         updated.created_at,
     ) == binding
     assert updated.progress == _progress()
-    reloaded = get_play_run(tmp_path, RUN_ID_A)
+    reloaded = get_play_run(RUN_ID_A)
     assert reloaded == updated
     assert get_play_run_reference_manifest(RUN_ID_A) == manifest
     assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
@@ -228,7 +228,7 @@ def test_unknown_and_cross_membership_references_are_422_without_write(
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     _seal(tmp_path, snapshot)
-    record_before = get_play_run(tmp_path, RUN_ID_A)
+    record_before = get_play_run(RUN_ID_A)
 
     cases = [
         _progress(current_scene_id="scene:ghost"),
@@ -247,8 +247,8 @@ def test_unknown_and_cross_membership_references_are_422_without_write(
                 progress=progress,
             )
         assert exc_info.value.status_code == 422
-        assert get_play_run(tmp_path, RUN_ID_A) == record_before
-        assert get_play_run(tmp_path, RUN_ID_A).run_revision == 1
+        assert get_play_run(RUN_ID_A) == record_before
+        assert get_play_run(RUN_ID_A).run_revision == 1
 
 
 def test_missing_manifest_is_409_without_auto_seal_or_workspace(
@@ -275,7 +275,7 @@ def test_missing_manifest_is_409_without_auto_seal_or_workspace(
 
     assert updated.run_revision == 2
     assert updated.progress == _progress()
-    assert get_play_run(tmp_path, RUN_ID_A) == updated
+    assert get_play_run(RUN_ID_A) == updated
     assert created.run_revision == 1
     assert not leftover_manifest_path(tmp_path, RUN_ID_A).exists()
 
@@ -365,7 +365,7 @@ def test_concurrent_cas_has_one_winner(tmp_path: Path) -> None:
     assert len(errors) == 1
     assert errors[0].status_code == 409
     winner = results[0]
-    final = get_play_run(tmp_path, RUN_ID_A)
+    final = get_play_run(RUN_ID_A)
     assert final == winner
     assert final.run_revision == 2
     assert final.progress in (first_progress, second_progress)
@@ -435,7 +435,7 @@ def test_stale_different_state_is_409(tmp_path: Path) -> None:
         )
 
     assert exc_info.value.status_code == 409
-    assert get_play_run(tmp_path, RUN_ID_A) == first
+    assert get_play_run(RUN_ID_A) == first
     assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -482,7 +482,7 @@ def test_persisted_ghost_reference_fails_closed_on_reads(
     before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
     assert exc_info.value.status_code == 500
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
@@ -517,7 +517,7 @@ def test_persisted_cross_choice_selection_fails_closed(
     _update_run_progress(application_state_dsn, RUN_ID_A, progress)
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
     assert exc_info.value.status_code == 500
 
 
@@ -547,7 +547,7 @@ def test_persisted_resolved_beats_must_be_duplicate_free_and_sorted(
     before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
     assert exc_info.value.status_code == 500
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
@@ -570,7 +570,7 @@ def test_legacy_record_without_progress_reads_empty_and_can_mutate(
 ) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     created = _create_run(tmp_path, snapshot)
-    loaded = get_play_run(tmp_path, RUN_ID_A)
+    loaded = get_play_run(RUN_ID_A)
     assert loaded.progress == empty_play_run_progress()
 
     updated = replace_play_run_progress(
@@ -658,7 +658,7 @@ def test_v1_beat_only_progress_still_rejected(tmp_path: Path) -> None:
         )
     assert exc_info.value.status_code == 422
     assert "current_beat_id requires current_scene_id" in str(exc_info.value)
-    assert get_play_run(tmp_path, RUN_ID_A).progress == empty_play_run_progress()
+    assert get_play_run(RUN_ID_A).progress == empty_play_run_progress()
 
 
 def test_v2_beat_only_progress_is_admitted(tmp_path: Path) -> None:
@@ -671,7 +671,7 @@ def test_v2_beat_only_progress_is_admitted(tmp_path: Path) -> None:
     )
     assert updated.progress.current_beat_id == "beat:one"
     assert updated.progress.current_scene_id is None
-    reloaded = get_play_run(tmp_path, RUN_ID_A)
+    reloaded = get_play_run(RUN_ID_A)
     assert reloaded.progress == updated.progress
 
 
@@ -697,7 +697,7 @@ def test_v2_cross_beat_scene_is_rejected(tmp_path: Path) -> None:
             progress=_v2_progress(current_scene_id="scene:b"),
         )
     assert exc_info.value.status_code == 422
-    assert get_play_run(tmp_path, RUN_ID_A).progress == empty_play_run_progress()
+    assert get_play_run(RUN_ID_A).progress == empty_play_run_progress()
 
 
 def test_v2_unknown_ids_are_rejected(tmp_path: Path) -> None:
@@ -766,7 +766,7 @@ def test_v2_malformed_unknown_manifest_fails_closed(tmp_path: Path, application_
             },
         )
     with pytest.raises(PlayRunRegistryError) as exc_info:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
     assert exc_info.value.status_code == 500
 
 
@@ -787,6 +787,6 @@ def test_v2_ready_run_rejects_empty_progress_clear(tmp_path: Path) -> None:
         )
     assert exc_info.value.status_code == 422
     assert "cannot be cleared once READY" in str(exc_info.value)
-    preserved = get_play_run(tmp_path, RUN_ID_A)
+    preserved = get_play_run(RUN_ID_A)
     assert preserved.run_revision == seeded.run_revision
     assert preserved.progress.current_beat_id == "beat:one"

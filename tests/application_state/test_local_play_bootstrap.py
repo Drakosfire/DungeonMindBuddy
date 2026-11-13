@@ -365,7 +365,7 @@ def test_second_apply_does_not_mutate_existing_run(
     for _ in range(2):
         assert bootstrap.main(["apply"], load_env=False) == 0
         capsys.readouterr()
-        assert get_play_run(tmp_path, RUN_ID_A) == ready
+        assert get_play_run(RUN_ID_A) == ready
         assert get_committed_playable_revision(document_id) == committed
     assert list_play_runs()[0].run_id == created.run_id
 
@@ -400,7 +400,7 @@ def test_bootstrap_then_normal_content_to_native_ready_play(
     assert ready.progress.current_scene_id is None
     assert bootstrap.main(["apply"], load_env=False) == 0
     capsys.readouterr()
-    assert get_play_run(tmp_path, RUN_ID_A) == ready
+    assert get_play_run(RUN_ID_A) == ready
 
 
 @pytest.mark.parametrize("with_content", [False, True])

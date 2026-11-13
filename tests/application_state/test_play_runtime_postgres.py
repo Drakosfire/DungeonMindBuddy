@@ -115,7 +115,7 @@ def test_create_replay_and_different_binding_conflict(
     with pytest.raises(PlayRunRegistryError) as exc_info:
         create_run(tmp_path, second_snapshot)
     assert exc_info.value.status_code == 409
-    assert get_play_run(tmp_path, RUN_ID_A) == first
+    assert get_play_run(RUN_ID_A) == first
     assert count_play_rows(application_state_dsn) == (1, 1)
 
 
@@ -131,7 +131,7 @@ def test_get_and_list_ignore_absent_legacy_files(
         expected_playable_content_sha256=first.playable_content_sha256,
     )
     with hidden_legacy_runtime_dirs(tmp_path):
-        loaded = get_play_run(tmp_path, RUN_ID_A)
+        loaded = get_play_run(RUN_ID_A)
         listed = list_play_runs()
     assert loaded.run_id == RUN_ID_A
     assert [record.run_id for record in listed] == [RUN_ID_B, RUN_ID_A]
@@ -190,7 +190,7 @@ def test_progress_cas_one_winner_exact_retry_and_stale_conflict(
             progress=empty_progress(),
         )
     assert stale.value.status_code == 409
-    assert get_play_run(tmp_path, RUN_ID_A).run_revision == 2
+    assert get_play_run(RUN_ID_A).run_revision == 2
 
 
 def test_file_absence_progress_and_rebase_still_work(
@@ -198,7 +198,7 @@ def test_file_absence_progress_and_rebase_still_work(
 ) -> None:
     snapshot = create_committed_runbook(tmp_path)
     create_run(tmp_path, snapshot)
-    later = get_play_run(tmp_path, RUN_ID_A)
+    later = get_play_run(RUN_ID_A)
     commit_runbook_markdown(
         tmp_path,
         snapshot.record.document_id,
@@ -219,7 +219,7 @@ def test_file_absence_progress_and_rebase_still_work(
             target_playable_revision=target[0],
             target_playable_content_sha256=target[1],
         )
-        assert get_play_run(tmp_path, RUN_ID_A).playable_revision == rebased.playable_revision
+        assert get_play_run(RUN_ID_A).playable_revision == rebased.playable_revision
         assert list_play_runs()[0].run_id == RUN_ID_A
 
 
@@ -243,7 +243,7 @@ def test_get_and_list_reject_corrupt_persisted_progress(
     for progress in cases:
         corrupt_play_run_progress(application_state_dsn, RUN_ID_A, progress)
         with pytest.raises(PlayRunRegistryError) as get_exc:
-            get_play_run(tmp_path, RUN_ID_A)
+            get_play_run(RUN_ID_A)
         assert get_exc.value.status_code == 500
         with pytest.raises(PlayRunRegistryError) as list_exc:
             list_play_runs()
@@ -298,7 +298,7 @@ def test_create_replay_rejects_corrupt_stored_manifest(
             create_run(tmp_path, snapshot)
         assert create_exc.value.status_code == 500
         with pytest.raises(PlayRunRegistryError) as get_exc:
-            get_play_run(tmp_path, RUN_ID_A)
+            get_play_run(RUN_ID_A)
         assert get_exc.value.status_code == 500
         with pytest.raises(PlayRunRegistryError) as list_exc:
             list_play_runs()
@@ -334,7 +334,7 @@ def test_play_runtime_latency_samples(
     durable = create_run(tmp_path, snapshot, run_id=RUN_ID_A)
 
     def cas() -> None:
-        current = get_play_run(tmp_path, RUN_ID_A)
+        current = get_play_run(RUN_ID_A)
         replace_play_run_progress(
             tmp_path,
             run_id=RUN_ID_A,
@@ -423,7 +423,7 @@ def test_v2_empty_progress_seed_persists_first_spine_from_document_order(
     )
     assert seeded.progress.current_beat_id == "beat:z-opening"
     assert seeded.progress.current_scene_id is None
-    reloaded = get_play_run(tmp_path, RUN_ID_A)
+    reloaded = get_play_run(RUN_ID_A)
     assert reloaded.progress.current_beat_id == "beat:z-opening"
     assert reloaded.run_revision == 2
     assert count_play_rows(application_state_dsn) == (1, 1)
@@ -470,7 +470,7 @@ def test_v2_historical_revision_remains_authority_after_newer_commit(
         BF2_SPINE_MARKDOWN + "\n<!-- dmb-playable-element:v2 kind=beat id=beat:newer beat_kind=spine -->\n## Newer\n",
         snapshot.loaded_revision,
     )
-    reopened = get_play_run(tmp_path, RUN_ID_A)
+    reopened = get_play_run(RUN_ID_A)
     assert reopened.playable_revision == created.playable_revision
     assert reopened.playable_content_sha256 == created.playable_content_sha256
     assert reopened.progress.current_beat_id == "beat:z-opening"
@@ -496,7 +496,7 @@ def test_v2_stale_cas_cannot_overwrite_newer_position(tmp_path: Path) -> None:
             progress=_v2_seed_progress("beat:a-later"),
         )
     assert exc_info.value.status_code == 409
-    assert get_play_run(tmp_path, RUN_ID_A) == first
+    assert get_play_run(RUN_ID_A) == first
 
 
 def test_v2_equivalent_first_seeds_converge(tmp_path: Path) -> None:
@@ -523,7 +523,7 @@ def test_v2_equivalent_first_seeds_converge(tmp_path: Path) -> None:
         thread.start()
     for thread in threads:
         thread.join()
-    final = get_play_run(tmp_path, RUN_ID_A)
+    final = get_play_run(RUN_ID_A)
     assert final.progress.current_beat_id == "beat:z-opening"
     assert final.progress.current_scene_id is None
     assert final.run_revision == 2
@@ -548,7 +548,7 @@ def test_v2_reread_preserves_exact_current_beat_and_scene(tmp_path: Path) -> Non
             notes_by_element_id={},
         ),
     )
-    reloaded = get_play_run(tmp_path, RUN_ID_A)
+    reloaded = get_play_run(RUN_ID_A)
     assert reloaded.progress.current_beat_id == "beat:arrival"
     assert reloaded.progress.current_scene_id == "scene:gate"
     assert reloaded.run_revision == persisted.run_revision
@@ -604,7 +604,7 @@ def test_v2_native_first_admission_seeds_after_pinned_preflight(
             progress=empty_play_run_progress(),
         )
     assert exc_info.value.status_code == 422
-    preserved = get_play_run(tmp_path, RUN_ID_A)
+    preserved = get_play_run(RUN_ID_A)
     assert preserved.run_revision == seeded.run_revision
     assert preserved.progress.current_beat_id == "beat:z-opening"
     assert count_play_rows(application_state_dsn) == (1, 1)
@@ -626,4 +626,4 @@ def test_v2_native_first_admission_does_not_seed_corrupted_sealed_edges(
     with pytest.raises(PlayRunRegistryError) as exc_info:
         ensure_v2_native_ready(tmp_path, RUN_ID_A)
     assert "Beat kind" in str(exc_info.value)
-    assert get_play_run(tmp_path, RUN_ID_A).progress == empty_progress()
+    assert get_play_run(RUN_ID_A).progress == empty_progress()

@@ -159,7 +159,7 @@ def _exercise_full_play_chain(root: Path) -> dict:
     loaded_manifest = get_play_run_reference_manifest(RUN_ID_A)
     assert loaded_manifest == manifest
     listed = list_play_runs()
-    loaded = get_play_run(root, RUN_ID_A)
+    loaded = get_play_run(RUN_ID_A)
     assert listed == [loaded]
     assert loaded.run_id == created.run_id
     progressed = replace_play_run_progress(
@@ -242,7 +242,7 @@ def test_full_play_chain_with_play_dir_absent(
     assert restarted.status_code == 200
     assert restarted.json() == first.json() == result["selected"].model_dump(mode="json")
 
-    resumed = get_play_run(other_root, RUN_ID_A)
+    resumed = get_play_run(RUN_ID_A)
     manifest = get_play_run_reference_manifest(RUN_ID_A)
     assert resumed.run_revision == result["rebased"].run_revision
     assert resumed.progress.model_dump(mode="json") == gate_progress().model_dump(mode="json")
@@ -277,7 +277,7 @@ def test_hostile_play_sentinel_is_untouched(
         progress=gate_progress(),
     )
     set_play_active_run(run_id=RUN_ID_A)
-    assert get_play_run(tmp_path, RUN_ID_A).progress.current_beat_id == "beat:arrival"
+    assert get_play_run(RUN_ID_A).progress.current_beat_id == "beat:arrival"
     assert get_play_active_run().run_id == RUN_ID_A
     assert list_play_runs()[0].run_id == RUN_ID_A
 
@@ -310,7 +310,7 @@ def test_db_down_does_not_read_or_mutate_contradictory_legacy_files(
     monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, DOWN_DSN)
 
     with pytest.raises(PlayRunRegistryError) as get_exc:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
     assert get_exc.value.status_code == 503
     with pytest.raises(PlayRunRegistryError) as list_exc:
         list_play_runs()
@@ -349,7 +349,7 @@ def test_db_down_does_not_read_or_mutate_contradictory_legacy_files(
     }
     assert after == before
     assert get_play_active_run() == selected
-    assert get_play_run(tmp_path, RUN_ID_A).run_id == RUN_ID_A
+    assert get_play_run(RUN_ID_A).run_id == RUN_ID_A
     assert fetch_play_active_run_row(application_state_dsn)["run_id"] == RUN_ID_A
 
 
@@ -422,7 +422,7 @@ def test_predecessor_import_then_as5_head_reads_same_db_without_files(
     shutil.rmtree(_play_dir(tmp_path))
     _assert_play_dir_absent(tmp_path)
 
-    loaded = get_play_run(tmp_path, RUN_ID_A)
+    loaded = get_play_run(RUN_ID_A)
     manifest = get_play_run_reference_manifest(RUN_ID_A)
     active = get_play_active_run()
     committed = get_committed_playable_revision(loaded.playable_artifact_id, kind="runbook")
