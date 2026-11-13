@@ -283,7 +283,7 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
   it("does not render preview-candidate or recap-lens metadata copy", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
     render(<RecapGraphModule context={context} />);
-    expect(await screen.findByRole("combobox", { name: "Focus session" })).toBeInTheDocument();
+    await screen.findByTestId("published-recap-local-authoring");
     expect(screen.queryByText(/Session focus lens/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Published World Graph · session recap/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/graph mentions projected/i)).not.toBeInTheDocument();
