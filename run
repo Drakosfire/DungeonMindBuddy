@@ -212,6 +212,8 @@ start_buddy_ui() {
     log "DungeonBuddy UI already listening on :$UI_PORT — leaving it alone"
     return 0
   fi
+  require_cmd lsof
+  require_cmd ps
   log "starting DungeonBuddy UI on :$UI_PORT"
   (
     cd "$ROOT/apps/live-control-ui"
@@ -248,13 +250,26 @@ probe_service() {
   esac
 }
 
+owned_ui_is_listening() {
+  [[ -n "$BUDDY_UI_PID" ]] || return 0
+  local listeners pid group
+  listeners=$(lsof -nP -t -iTCP:"$UI_PORT" -sTCP:LISTEN 2>/dev/null) || return 1
+  for pid in $listeners; do
+    group=$(ps -o pgid= -p "$pid") || continue
+    if [[ "${group//[[:space:]]/}" == "$BUDDY_UI_PID" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 wait_http() {
   local url="$1"
   local label="$2"
   local probe_deadline=$((SECONDS + 30))
   while (( SECONDS < probe_deadline && SECONDS < startup_deadline )); do
     check_owned_services
-    if probe_service "$url" "$3"; then
+    if probe_service "$url" "$3" && { [[ "$3" != ui ]] || owned_ui_is_listening; }; then
       check_owned_services
       log "$label ready ($url)"
       return 0
