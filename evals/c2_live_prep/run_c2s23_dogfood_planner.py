@@ -223,6 +223,7 @@ def main() -> int:
         help="Comma-separated sessions to merge into planner session-memory JSONL (empty to disable)",
     )
     parser.add_argument("--cache-root", type=Path, default=None)
+    parser.add_argument("--no-update-latest", action="store_true", help="Leave checkout-local latest artifacts untouched.")
     args = parser.parse_args()
 
     load_dungeonmindbuddy_dotenv()
@@ -349,9 +350,10 @@ def main() -> int:
 
     summary_path = out_dir / "c2s23_dogfood_planner_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
-    last_mirror = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_dogfood_planner_summary.json"
-    last_mirror.parent.mkdir(parents=True, exist_ok=True)
-    last_mirror.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    if not args.no_update_latest:
+        last_mirror = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_dogfood_planner_summary.json"
+        last_mirror.parent.mkdir(parents=True, exist_ok=True)
+        last_mirror.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
 
     md_lines = [
         "# C2S23 dogfood — planner run",
@@ -383,10 +385,11 @@ def main() -> int:
 
     report_md = out_dir / "c2s23_dogfood_planner_report.md"
     report_md.write_text("\n".join(md_lines), encoding="utf-8")
-    last_md = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_dogfood_planner_report.md"
-    last_md.write_text("\n".join(md_lines), encoding="utf-8")
+    if not args.no_update_latest:
+        last_md = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_dogfood_planner_report.md"
+        last_md.write_text("\n".join(md_lines), encoding="utf-8")
 
-    print(json.dumps({"ok": True, "output_dir": str(out_dir.relative_to(ROOT)), "summary": summary_path.name}, indent=2))
+    print(json.dumps({"ok": True, "output_dir": str(out_dir.relative_to(ROOT) if out_dir.is_relative_to(ROOT) else out_dir), "summary": summary_path.name}, indent=2))
     return 0
 
 
