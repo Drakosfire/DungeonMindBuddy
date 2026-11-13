@@ -267,6 +267,7 @@ def compute_fingerprint(dsn: str | None = None) -> ApplicationStateFingerprint:
     conn = connect(target)
     try:
         conn.read_only = True
+        conn.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
         with conn.transaction():
             cursor = conn.cursor(row_factory=dict_row)
             current_row = cursor.execute(
