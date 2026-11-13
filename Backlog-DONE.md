@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Keep hosted runtime mode defaults in sync
+
+The production image defines both hosted mode defaults. A direct container and a disposable Compose 2.40.3 launch of the slim production image both resolved `production` and `hosted_dms` through Buddy’s runtime auth helpers.
+
 ## [DONE] Return a missing-file response for absent hosted assets
 
 [PR #2546](https://github.com/Drakosfire/DungeonMindBuddy/pull/2546) verified through ASGI that a missing asset returns 404 with an HTML Accept header, an existing asset is served, and Graph and root navigation still work. On main at `0e8bbc3a`, the asset-prefix guard returns 404 before inspecting the Accept header, so ordinary asset requests follow the same branch. The recorded ASGI run used the HTML Accept header. Browser recovery across release boundaries remains tracked in [Backlog.md](Backlog.md) under **Verify browser recovery after a release replaces a lazy chunk**.
