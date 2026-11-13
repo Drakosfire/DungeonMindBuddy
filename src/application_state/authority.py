@@ -32,6 +32,8 @@ import os
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -265,28 +267,37 @@ def _fingerprint_table(
 
 def compute_fingerprint(dsn: str | None = None) -> ApplicationStateFingerprint:
     """Compute the deterministic APP-STATE fingerprint. Requires schema at head."""
-    target = dsn or load_runtime_dsn()
-    head = _alembic_head()
-    conn = connect(target)
+    with _fingerprint_transaction(dsn or load_runtime_dsn()) as conn:
+        return _fingerprint_snapshot(conn)
+
+
+@contextmanager
+def _fingerprint_transaction(dsn: str) -> Iterator[psycopg.Connection]:
+    conn = connect(dsn)
     try:
         conn.read_only = True
         conn.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
         with conn.transaction():
-            try:
-                current = _revision_from_connection(conn)
-            except psycopg.errors.UndefinedTable:
-                current = None
-            except psycopg.Error as exc:
-                raise ApplicationStateUnavailableError(
-                    f"application-state PostgreSQL is unavailable: {exc}"
-                ) from exc
-            _require_current_revision(current, head)
-            domains = tuple(
-                _fingerprint_table(conn, domain, table, order_by)
-                for domain, table, order_by in _DOMAIN_TABLES
-            )
+            yield conn
     finally:
         conn.close()
+
+
+def _fingerprint_snapshot(conn: psycopg.Connection) -> ApplicationStateFingerprint:
+    head = _alembic_head()
+    try:
+        current = _revision_from_connection(conn)
+    except psycopg.errors.UndefinedTable:
+        current = None
+    except psycopg.Error as exc:
+        raise ApplicationStateUnavailableError(
+            f"application-state PostgreSQL is unavailable: {exc}"
+        ) from exc
+    _require_current_revision(current, head)
+    domains = tuple(
+        _fingerprint_table(conn, domain, table, order_by)
+        for domain, table, order_by in _DOMAIN_TABLES
+    )
     combined = hashlib.sha256(
         json.dumps(
             {
@@ -483,7 +494,8 @@ def backup_authority(
 ) -> BackupRecord:
     """External custom-format backup of the APP-STATE authority.
 
-    Fingerprints the source before and after the dump; a source that changes
+    Fingerprints the exact snapshot imported by pg_dump and checks the source
+    again after the dump; a source that changes
     during backup is reported as an integrity failure (recapture required).
     Writes `<out>.sha256` and `<out>.fingerprint.json` sidecars.
     """
@@ -497,25 +509,29 @@ def backup_authority(
         raise ApplicationStateIntegrityError("backup destination already exists; choose a fresh output path")
     with tempfile.TemporaryDirectory(prefix=".app-state-backup-", dir=out.parent) as directory:
         staged = Path(directory) / out.name
-        before = compute_fingerprint(source_dsn)
-        result = _run_recovery_client(
-            [
-                executable,
-                "--format=custom",
-                "--no-owner",
-                "--file",
-                str(staged),
-                "--dbname",
-                _pg_conninfo(env),
-            ],
-            env=env,
-            timeout_seconds=timeout_seconds,
-            failure_hint="Retry backup with a fresh output path.",
-        )
-        if result.returncode != 0:
-            raise ApplicationStateUnavailableError(
-                _postgres_client_error("pg_dump", result.stderr, source_dsn)
+        with _fingerprint_transaction(source_dsn) as conn:
+            before = _fingerprint_snapshot(conn)
+            (snapshot,) = conn.execute("SELECT pg_export_snapshot()").fetchone()
+            result = _run_recovery_client(
+                [
+                    executable,
+                    "--format=custom",
+                    "--snapshot",
+                    snapshot,
+                    "--no-owner",
+                    "--file",
+                    str(staged),
+                    "--dbname",
+                    _pg_conninfo(env),
+                ],
+                env=env,
+                timeout_seconds=timeout_seconds,
+                failure_hint="Retry backup with a fresh output path.",
             )
+            if result.returncode != 0:
+                raise ApplicationStateUnavailableError(
+                    _postgres_client_error("pg_dump", result.stderr, source_dsn)
+                )
         after = compute_fingerprint(source_dsn)
         if before.digest != after.digest:
             raise ApplicationStateIntegrityError(

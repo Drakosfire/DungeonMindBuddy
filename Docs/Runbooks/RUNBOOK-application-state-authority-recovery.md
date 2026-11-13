@@ -85,7 +85,7 @@ uv run python scripts/application_state_authority.py backup \
   --out out/application_state/authority-backup-$(date -u +%Y%m%dT%H%M%SZ).dump
 ```
 
-Produces the custom-format dump plus `.sha256` and `.fingerprint.json` sidecars. The command fingerprints the source before and after the dump; if the source changed mid-backup it fails — recapture, never claim a stale dump is current authority. Restore will refuse the dump if either sidecar is missing or the dump bytes no longer match the SHA-256 sidecar.
+Produces the custom-format dump plus `.sha256` and `.fingerprint.json` sidecars. The command fingerprints the same PostgreSQL snapshot that `pg_dump` imports and checks the source again after the dump; if the source changed mid-backup it fails — recapture, never claim a stale dump is current authority. Restore will refuse the dump if either sidecar is missing or the dump bytes no longer match the SHA-256 sidecar.
 
 ## Restore into a second clean target (recovery witness)
 

@@ -66,6 +66,7 @@ def test_recovery_client_version_errors_include_actionable_guidance():
 
 
 def test_backup_stages_and_preserves_existing_set(tmp_path, monkeypatch):
+    from contextlib import nullcontext
     from types import SimpleNamespace
 
     import pytest
@@ -77,7 +78,12 @@ def test_backup_stages_and_preserves_existing_set(tmp_path, monkeypatch):
     monkeypatch.setattr(authority, "_require_postgres_client", lambda command: command)
     monkeypatch.setattr(authority, "compute_fingerprint", lambda dsn: fingerprint)
 
+    conn = SimpleNamespace(execute=lambda sql: SimpleNamespace(fetchone=lambda: ("test-snapshot",)))
+    monkeypatch.setattr(authority, "_fingerprint_transaction", lambda dsn: nullcontext(conn))
+    monkeypatch.setattr(authority, "_fingerprint_snapshot", lambda connection: fingerprint)
+
     def dump(args, **kwargs):
+        assert args[args.index("--snapshot") + 1] == "test-snapshot"
         staged = out.parent / args[args.index("--file") + 1]
         assert staged.parent != out.parent
         assert not out.exists()
