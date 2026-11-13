@@ -435,3 +435,33 @@ def test_validate_pdf_region_uses_open_authority_without_returning_pdf(monkeypat
         with pytest.raises(HTTPException) as error:
             agent.post_validate_build_pdf_region(world, body, request)
         assert error.value.status_code == status
+
+
+def test_request_page_renderer_reuses_only_exact_pdf_page(monkeypatch):
+    from io import BytesIO
+    from types import SimpleNamespace
+
+    from PIL import Image
+
+    from apps.live_control_server.services import build_pdf_region_render as renderer
+
+    encoded = BytesIO()
+    Image.new("RGB", (10, 10), "white").save(encoded, format="PNG")
+    calls = []
+
+    def rasterize(pdf, page):
+        calls.append((pdf, page))
+        return encoded.getvalue()
+
+    monkeypatch.setattr(renderer, "_render_page", rasterize)
+    cached = renderer.request_page_renderer()
+    first = SimpleNamespace(page=1, left=0, top=0, right=0.5, bottom=0.5)
+    second = SimpleNamespace(page=1, left=0, top=0, right=0.7, bottom=0.7)
+    for region in (first, second):
+        assert renderer.render_region(b"pdf-a", region, render_page=cached) == (
+            renderer.render_region(b"pdf-a", region, render_page=lambda *_: encoded.getvalue())
+        )
+    renderer.render_region(b"pdf-b", first, render_page=cached)
+    renderer.render_region(b"pdf-b", SimpleNamespace(**{**vars(first), "page": 2}), render_page=cached)
+    renderer.render_region(b"pdf-b", first, render_page=renderer.request_page_renderer())
+    assert calls == [(b"pdf-a", 1), (b"pdf-b", 1), (b"pdf-b", 2), (b"pdf-b", 1)]
