@@ -48,14 +48,14 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     `buddy:pdf-mechanics-accept:${worldId}:${reviewId}:${review?.revision}:${id}`;
   const [hasInitialAttempt, setHasInitialAttempt] = useState(false);
 
-  async function chooseDraft(id: string) {
+  async function chooseDraft(id: string, selected = drafts.find(draft => draft.draft_id === id)) {
     setDraftId(id);
     setAcceptedLink("");
     setVersions(undefined);
     setParentId("");
     setError("");
     setHasInitialAttempt(Boolean(id && localStorage.getItem(acceptanceKey(id))));
-    if (drafts.find(draft => draft.draft_id === id)?.workflow_state !== "mechanics_saved") return;
+    if (selected?.workflow_state !== "mechanics_saved") return;
     setPending(true);
     try {
       const first = await listSavedMechanicsVersions(id, worldId);
@@ -146,7 +146,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       if (draft.schema !== "dmb_threat_draft_v2" || draft.world_id !== worldId || draft.draft_id !== id) throw new Error();
       if (draft.workflow_state === "mechanics_saved") {
         setDrafts(current => [...current.filter(item => item.draft_id !== id), draft]);
-        await openAcceptance();
+        setAcceptOpen(true);
+        await chooseDraft(draft.draft_id, draft);
         return;
       }
       setDrafts(current => [...current.filter(item => item.draft_id !== draft.draft_id), draft]);
