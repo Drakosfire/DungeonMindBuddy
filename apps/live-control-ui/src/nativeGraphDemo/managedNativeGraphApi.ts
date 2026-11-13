@@ -294,9 +294,10 @@ export function createManagedNativeGraphApi(
     throw new NativeGraphDemoApiError(message, code, response.status);
   }
 
-  async function send(path: string, init: RequestInit, startedGeneration: number): Promise<Response> {
+  async function send(path: string, init: RequestInit, startedGeneration: number): Promise<{ response: Response; body: unknown }> {
     if (invalidated || startedGeneration !== generation) {
-      return invalidResponse("The selected World changed before this managed graph request completed.");
+      const response = invalidResponse("The selected World changed before this managed graph request completed.");
+      return { response, body: await responseBody(response) };
     }
     const controller = new AbortController();
     const externalSignal = init.signal;
@@ -311,10 +312,13 @@ export function createManagedNativeGraphApi(
         cache: "no-store",
         redirect: "error",
       });
+      const body = await responseBody(response);
       if (invalidated || startedGeneration !== generation) {
-        return invalidResponse("The selected World changed before this managed graph response was applied.");
+        const stale = invalidResponse("The selected World changed before this managed graph response was applied.");
+        return { response: stale, body: await responseBody(stale) };
       }
-      return response;
+      if (controller.signal.aborted) throw abortError();
+      return { response, body };
     } finally {
       externalSignal?.removeEventListener("abort", abortFromCaller);
       activeControllers.delete(controller);
@@ -325,13 +329,12 @@ export function createManagedNativeGraphApi(
     const startedGeneration = generation;
     const method = (init.method ?? "GET").toUpperCase();
     if (path === "/api/graph" && method === "GET") {
-      const response = await send(GRAPH_PATH, {
+      const { response, body } = await send(GRAPH_PATH, {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({ managed_world_id: managedWorldId }),
         signal: init.signal,
       }, startedGeneration);
-      const body = await responseBody(response);
       if (!response.ok) return errorFromResponse(response, body);
       const envelope = graphEnvelope(body, managedWorldId);
       if (!envelope) return invalidResponse();
@@ -350,7 +353,7 @@ export function createManagedNativeGraphApi(
         return invalidResponse("The managed World must be read before a write can be prepared.");
       }
       const input = body as unknown as NativePrepareRequest;
-      const response = await send(PREPARE_PATH, {
+      const { response, body: value } = await send(PREPARE_PATH, {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -361,7 +364,6 @@ export function createManagedNativeGraphApi(
         }),
         signal: init.signal,
       }, startedGeneration);
-      const value = await responseBody(response);
       if (!response.ok) return errorFromResponse(response, value);
       if (!isRecord(value)) return invalidResponse();
       if (value.status === "prepared") {
@@ -390,13 +392,12 @@ export function createManagedNativeGraphApi(
       if (!body || !binding || !nonEmptyString(operationId)) {
         return invalidResponse("The selected World is not verified for this operation.");
       }
-      const response = await send(CONFIRM_PATH, {
+      const { response, body: value } = await send(CONFIRM_PATH, {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({ managed_world_id: managedWorldId, operation_id: operationId }),
         signal: init.signal,
       }, startedGeneration);
-      const value = await responseBody(response);
       if (!response.ok) return errorFromResponse(response, value);
       if (!isRecord(value) || value.operation_id !== operationId
         || !operationIdentityMatches(value, managedWorldId, binding)) return invalidResponse();
@@ -413,13 +414,12 @@ export function createManagedNativeGraphApi(
     const operationId = decodeOperationId(path);
     if (operationId && method === "GET") {
       if (!binding) return invalidResponse("The selected World is not verified for this operation.");
-      const response = await send(OPERATIONS_READ_PATH, {
+      const { response, body: value } = await send(OPERATIONS_READ_PATH, {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({ managed_world_id: managedWorldId, operation_id: operationId }),
         signal: init.signal,
       }, startedGeneration);
-      const value = await responseBody(response);
       if (!response.ok) return errorFromResponse(response, value);
       if (!isRecord(value) || value.operation_id !== operationId
         || !operationIdentityMatches(value, managedWorldId, binding)) return invalidResponse();
@@ -464,9 +464,9 @@ export function createManagedNativeGraphApi(
       const pin = assertCurrentSnapshot(graph, nodeId);
       if (signal?.aborted) throw abortError();
       const startedGeneration = generation;
-      let response: Response;
+      let result: Awaited<ReturnType<typeof send>>;
       try {
-        response = await send(INSPECTION_READ_PATH, {
+        result = await send(INSPECTION_READ_PATH, {
           method: "POST",
           headers: { Accept: "application/json", "Content-Type": "application/json" },
           body: JSON.stringify({ scope: pin, selection: { kind: "entity", entity_id: nodeId } }),
@@ -484,7 +484,7 @@ export function createManagedNativeGraphApi(
           0,
         );
       }
-      const body = await responseBody(response);
+      const { response, body } = result;
       if (signal?.aborted) throw abortError();
       if (invalidated || startedGeneration !== generation) {
         throw invalidManagedGraph("The selected World changed before this graph inspection could be applied.");
