@@ -68,8 +68,18 @@ def _advance(state, query, events):
     from .native_plan_assertions import (
         NativePlanQueryV2, NativeGraphQueryV4, NativePlanAssertionReadAuthorizedV1,
         NativePlanAssertionReadObservedV1, selection_handle as assertion_handle,
-        object_record_ids,
+        object_record_catalog,
     )
+
+    catalog = None
+
+    def selected_ids(handles, *, assertion, attempted):
+        nonlocal catalog
+        if not any(isinstance(handle, str) and handle.startswith('native-object:') for handle in handles):
+            return ()
+        if catalog is None:
+            catalog = object_record_catalog(query)
+        return catalog.record_ids(handles, assertion=assertion, attempted=attempted)
 
     statements = {m.statement_id: m for m in query.matches} if isinstance(query, NativePlanQueryV1) else {}
     assertions = {m.assertion_id: m for m in query.assertion_matches} if isinstance(query, NativePlanQueryV2) else {}
@@ -109,7 +119,7 @@ def _advance(state, query, events):
             selection = _Selection.capture(event)
             if isinstance(query, NativeGraphQueryV4):
                 pending = {(family, identity) for family in (False, True)
-                    for identity in object_record_ids(query, event.selected_handles, assertion=family,
+                    for identity in selected_ids(event.selected_handles, assertion=family,
                         attempted=(i for f, i in attempted if f == family))}
         elif isinstance(event, (NativePlanStatementReadAuthorizedV1, NativePlanAssertionReadAuthorizedV1)):
             assertion = isinstance(event, NativePlanAssertionReadAuthorizedV1)
@@ -117,7 +127,7 @@ def _advance(state, query, events):
             matches = assertions if assertion else statements
             handle = assertion_handle if assertion else selection_handle
             if isinstance(query, NativeGraphQueryV4) and selection is not None:
-                expected_ids = object_record_ids(query, selection.selected_handles,
+                expected_ids = selected_ids(selection.selected_handles,
                     assertion=assertion, attempted=(i for family, i in attempted if family == assertion))
                 selected_closure = set(ids) == set(expected_ids)
             else:
