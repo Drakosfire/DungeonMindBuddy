@@ -277,3 +277,15 @@ Minimum durable identities to fill:
 Update the tracker dogfood ledger pointer to the report path.
 Dispatch only the **smallest** enabling slice implied by friction — do not
 auto-start `SBW06d` or `SBW08`.
+
+## Offline lifecycle smoke
+
+From the Buddy repository root, run the fixture checks before a live dependency rehearsal.
+
+```bash
+uv run --locked python scripts/statblock_lifecycle_smoke.py health --provider mock
+uv run --locked python scripts/statblock_lifecycle_smoke.py generate-fixture --provider mock
+uv run --locked python scripts/statblock_lifecycle_smoke.py render-fixture --provider mock
+```
+
+Each command returns JSON with `status: "ok"` on success. Mock mode uses checkout fixtures and makes no provider calls. Use the live dependency rehearsal above to verify the deployed service.
