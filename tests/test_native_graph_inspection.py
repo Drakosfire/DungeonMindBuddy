@@ -859,6 +859,9 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
     assert neighborhood.status_code == 200, neighborhood.text
     packet = neighborhood.json()
     assert packet["nodes"][0]["label"] == "Object 0"
+    field = next(row for row in packet["attributes"] if row["textValue"] == "Object 0")
+    assert field["subjectNodeId"] == x.objects["object:0"]
+    assert field["evidenceRefIds"] == [x.lane.support_ids["first"]]
     anchor = next(row for row in packet["sourceAnchors"] if row["anchorId"] == request.anchor_id)
     assert anchor["anchorId"] == request.anchor_id
     assert anchor["revisionId"] == pin["revision_id"]

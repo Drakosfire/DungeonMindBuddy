@@ -96,17 +96,26 @@ def map_relationships(context, result: NeighborhoodResult, bounded: BoundedNeigh
     return edges
 
 
-def map_nodes(context, bounded: BoundedNeighborhood):
+def map_nodes(context, bounded: BoundedNeighborhood, *, attributes=None):
     """Resolve display claims only for entities retained in the response."""
     from dungeonmind.application.vnext import EntityReadService
-    from graph_memory.retrieval.models import WorldGraphRetrievalNode
+    from graph_memory.retrieval.models import WorldGraphRetrievalAttribute, WorldGraphRetrievalNode
 
-    from .vnext_complete_object import world_object_display_values
+    from .vnext_complete_object import _map_assertion, world_object_display_values
 
     reader = EntityReadService()
     nodes = []
     for entity_id in bounded.node_ids:
         result = reader.get_entity(context, entity_id)
+        if attributes is not None:
+            evidence = {item.evidence_ref_id: item for item in result.evidence}
+            for assertion in sorted(result.assertions, key=lambda row: row.assertion_id):
+                if isinstance(assertion.value, ParsedEntityRefValue):
+                    continue
+                presentation = _map_assertion(assertion, evidence_by_id=evidence)
+                attributes.append(WorldGraphRetrievalAttribute(
+                    **presentation.model_dump(include=set(WorldGraphRetrievalAttribute.model_fields))
+                ))
         label, kind, summary = world_object_display_values(result.assertions, entity_id)
         nodes.append(WorldGraphRetrievalNode(
             node_id=entity_id, label=label, kind=kind, role=kind, summary=summary,

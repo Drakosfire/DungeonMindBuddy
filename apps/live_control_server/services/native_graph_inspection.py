@@ -456,7 +456,8 @@ def shared_neighborhood(request, principal):
     result, bounded = read_neighborhood(
         read, request.seed_node_ids, request.max_depth, request.bounds
     )
-    nodes = map_nodes(read, bounded)
+    attributes = []
+    nodes = map_nodes(read, bounded, attributes=attributes)
     edges = map_relationships(read, result, bounded)
     evidence = {row.evidence_ref_id: row for row in result.evidence}
     artifacts = {row.source_artifact_id: row for row in result.source_artifacts}
@@ -486,6 +487,8 @@ def shared_neighborhood(request, principal):
     ]
     if len(anchors) > request.bounds.max_source_anchors:
         truncated.append("source_anchors")
+    if len(attributes) > request.bounds.max_attributes:
+        truncated.append("attributes")
     missing = list(result.missing_seed_entity_ids)
     return WorldGraphRetrievalResult(
         operation="neighborhood",
@@ -498,6 +501,7 @@ def shared_neighborhood(request, principal):
             scope_mode=request.scope_mode,
         ),
         nodes=nodes, relationships=edges,
+        attributes=attributes[:request.bounds.max_attributes],
         source_anchors=anchors[:request.bounds.max_source_anchors],
         coverage=WorldGraphRetrievalCoverage(
             requested_seed_node_ids=request.seed_node_ids,
