@@ -281,7 +281,7 @@ def project_query_context(
 ) -> WorldGraphQueryContext:
     """Rank and narrow only records admitted into the pinned overview."""
     ranked, reasons = rank_search_node_matches(
-        projection.nodes, projection.attributes, query_text
+        projection.nodes, projection.attributes, query_text, include_related_objects=True
     )
     nodes = [node for node, _ in ranked]
     matched_ids = [node.node_id for node in nodes]

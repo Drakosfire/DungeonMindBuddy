@@ -489,6 +489,8 @@ def rank_search_node_matches(
     nodes: list[WorldGraphProjectionNodeView],
     attributes: list[WorldGraphProjectionAttributeView],
     query_text: str,
+    *,
+    include_related_objects: bool = False,
 ) -> tuple[list[tuple[WorldGraphProjectionNodeView, int]], dict[str, list[str]]]:
     query = query_text.strip()
     tokens = _tokenize_query(query)
@@ -508,6 +510,26 @@ def rank_search_node_matches(
             node_id = attribute.subject_node_id
             scores[node_id] = max(scores.get(node_id, 0), score)
             match_reasons.setdefault(node_id, []).extend(reasons)
+
+    if include_related_objects and query:
+        query_cf = query.casefold()
+        for node in nodes:
+            for adjacent in node.adjacency:
+                if adjacent.node_id not in node_by_id:
+                    continue
+                text = f"{adjacent.predicate} {adjacent.label}".casefold()
+                reasons = []
+                score = 0
+                if query_cf in text:
+                    score = 160
+                    reasons.append("relationship_or_related_object_phrase")
+                for token in tokens:
+                    if _token_in_text(token, text):
+                        score += 35
+                        reasons.append(f"token:{token}:relationship_or_related_object")
+                if score:
+                    scores[node.node_id] = max(scores.get(node.node_id, 0), score)
+                    match_reasons.setdefault(node.node_id, []).extend(reasons)
 
     for node_id, reasons in match_reasons.items():
         match_reasons[node_id] = sorted(set(reasons))
