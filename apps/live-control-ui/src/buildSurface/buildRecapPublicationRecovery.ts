@@ -43,6 +43,7 @@ export function assertRecapPrepared(prepared: ExtractPromotePrepareResponse, run
   const candidateMatches=relative?.startsWith('urn:')
     ? relative===`urn:dmb:ingest-output:${run.run_id}:candidate_graph`
       && admission?.candidate_locator===null
+      && typeof run.revision==="number" && Number.isSafeInteger(run.revision) && run.revision>0
       && binding?.run_id===run.run_id && binding.run_revision===run.revision
       && /^[a-f0-9]{64}$/.test(candidateDigest??'')
       && binding.components?.candidate_graph===`sha256:${candidateDigest}`
