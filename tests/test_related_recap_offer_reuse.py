@@ -19,7 +19,7 @@ def fixture():
         campaign_id=None,
         admissibility_version="gm-v1",
     )
-    adapter = NS(_broker_receipt=lambda: NS(graph_authority=authority))
+    adapter = NS(_broker_graph_receipt=lambda: NS(graph_authority=authority))
 
     def snapshot(projection):
         return NS(
