@@ -22,9 +22,9 @@ from live_play.session_memory_materializer import (
     _expected_session_memory_outputs,
     _materialize_one,
 )
-from src.agent.recap_frontmatter_seed import build_frontmatter_seed
+from live_play.recap_frontmatter_seed import build_frontmatter_seed
 from corpus.corpus_writer import is_writable_corpus_path, write_corpus_file
-from src.agent.recap_ingest_helpers import assemble_recap
+from live_play.recap_ingest_helpers import assemble_recap
 from corpus.session_recap_paths import (
     breadcrumbed_relpath,
     canonical_recap_candidates,

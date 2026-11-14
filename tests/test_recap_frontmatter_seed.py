@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.agent.recap_frontmatter_seed import build_frontmatter_seed
+from live_play.recap_frontmatter_seed import build_frontmatter_seed
 from session_memory.breadcrumb_normalize import (
     extract_frontmatter_route_allowlist,
     extract_meta_from_frontmatter,

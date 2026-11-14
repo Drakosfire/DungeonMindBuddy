@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from src.agent.recap_frontmatter_seed import build_frontmatter_seed
+from live_play.recap_frontmatter_seed import build_frontmatter_seed
 from corpus.session_recap_paths import (
     breadcrumbed_relpath,
     frontmatter_seed_relpath,
