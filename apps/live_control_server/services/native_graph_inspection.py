@@ -717,7 +717,7 @@ def shared_search(request, principal):
     search = SearchReadService().search_entities(read, request.query_text, limit=20)
     seeds = list(dict.fromkeys(request.seed_node_ids))
     reader = EntityReadService()
-    present = [seed for seed in seeds if reader.get_entity(read, seed).found]
+    present = sorted(seed for seed in seeds if reader.get_entity(read, seed).found)
     missing = sorted(set(seeds) - set(present))
     reasons = {hit.entity.entity_id: list(hit.match_kinds) for hit in search.hits}
     for seed in present:
@@ -725,8 +725,6 @@ def shared_search(request, principal):
     others = [entity_id for entity_id in reasons if entity_id not in present]
     remaining = max(request.bounds.max_nodes - len(present), 0)
     selected = present + others[:remaining]
-    if len(present) > request.bounds.max_nodes:
-        raise InspectionUnavailable("native_search_seed_bound_exceeded")
 
     projection = WorldGraphNeighborhoodRequest(
         schema="dmb_world_graph_neighborhood_request_v1",
