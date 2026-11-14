@@ -89,9 +89,14 @@ def test_mailbox_bounds_callbacks_before_event_loop_dispatch(monkeypatch):
                 return None
             return original(callback, *args, **kwargs)
         monkeypatch.setattr(loop, 'call_soon_threadsafe', schedule)
+        assembled = []
+        def snapshot(sequence):
+            assembled.append(sequence)
+            return {'sequence': sequence, 'markdown': 'x' * sequence}
+
         def work():
             for sequence in range(1, 1001):
-                stream.observe({'sequence': sequence, 'markdown': 'x' * sequence})
+                stream.observe_deferred(lambda sequence=sequence: snapshot(sequence))
             emitted.set()
             return {'answer': 'saved'}
         iterator = stream.turn_stream(work, 'turn').body_iterator
@@ -99,10 +104,12 @@ def test_mailbox_bounds_callbacks_before_event_loop_dispatch(monkeypatch):
         assert await asyncio.to_thread(emitted.wait, 2)
         for task in tuple(stream._running):
             await task
+        assert assembled == []
         assert len(held) == 1
         callback, args, kwargs = held.pop()
         original(callback, *args, **kwargs)
         frame = json.loads((await first).removeprefix('data: '))
+        assert assembled == [1000]
         assert frame['progress'] == {'sequence': 1000, 'markdown': 'x' * 1000}
         rest = [json.loads(value.removeprefix('data: ')) async for value in iterator]
         assert rest == [{'schema': 'dmb_build_turn_stream_v1', 'client_turn_id': 'turn',
