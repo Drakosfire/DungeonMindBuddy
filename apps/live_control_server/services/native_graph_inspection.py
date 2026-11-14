@@ -832,7 +832,9 @@ def shared_search(request, principal, *, include_source_pins=False,
         pin.native_world_id != expected_native_world_id or pin.binding_version != expected_binding_version
     ):
         raise InspectionUnavailable("native_inspection_binding_changed")
-    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    read_binding, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    if read_binding != bound:
+        raise InspectionUnavailable("native_inspection_binding_changed")
     search = SearchReadService().search_entities(read, request.query_text, limit=20)
     seeds = list(dict.fromkeys(request.seed_node_ids))
     reader = EntityReadService()
