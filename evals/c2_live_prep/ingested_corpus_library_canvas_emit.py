@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.live_play.ingested_corpus_library import build_library  # noqa: E402
+from live_play.ingested_corpus_library import build_library  # noqa: E402
 
 DEFAULT_LIBRARY = ROOT / "Docs/data/ingested-corpus-library/ingested_corpus_library.json"
 TEMPLATE = ROOT / "evals/c2_live_prep/canvas_templates/ingested-corpus-library.canvas.tsx"

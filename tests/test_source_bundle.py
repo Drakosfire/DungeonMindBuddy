@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
-from src.live_play.source_bundle import build_ingestion_source_bundle
+from live_play.source_bundle import build_ingestion_source_bundle
 
 
 ROOT = Path(__file__).resolve().parents[1]
