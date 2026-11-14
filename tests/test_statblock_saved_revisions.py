@@ -169,7 +169,7 @@ def test_unverified_producer_result_remains_unknown_until_exact_recovery(revisio
         if change=='parent':result.parent_revision_id='rev_wrong'
         elif change=='provenance':result.provenance={'accepted_through':{'buddy_manual_revision':'wrong'}}
         else:
-            from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import ValidationStatus
+            from apps.live_control_server.integrations.dungeonmind_statblocks.generated import ValidationStatus
             result.validation_receipt.status=ValidationStatus.invalid
         return result
     monkeypatch.setattr(p.manual,'append_revision',forged)
@@ -215,7 +215,7 @@ def test_http_recovery_fences_a_paused_preflight_before_it_can_dispatch(revision
 
 
 def test_source_media_bindings_survive_nullable_input_output_projection(revision_case):
-    from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import AssetBindingV1Output
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import AssetBindingV1Output
     p=revision_case
     binding=AssetBindingV1Output.model_validate(dict(role='portrait',asset=dict(asset_id='synthetic-portrait',provider_kind='image_pipeline',
         url='https://example.test/keeper.png',mime_type='image/png',created_at='2026-10-22T00:00:00Z')))
@@ -239,7 +239,7 @@ def test_validation_outage_is_unavailable_not_a_bad_mechanics_claim(revision_cas
 
 
 def test_invalid_mechanics_is_a_correction_request_not_a_provider_outage(revision_case,monkeypatch):
-    from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import ValidationStatus
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import ValidationStatus
     p=revision_case;validate=p.manual.validate_definition
     def invalid(body):
         result=validate(body);result.validation_receipt.status=ValidationStatus.invalid;return result
@@ -276,7 +276,7 @@ def save_portrait(row,monkeypatch):
 
 
 def test_owned_saved_portrait_replaces_only_default_slot_and_replays_locally(revision_case,monkeypatch):
-    from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import AssetBindingV1Output
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import AssetBindingV1Output
     from application_state import media
     p=revision_case;row=save_portrait(stage_portrait(),monkeypatch)
     def old(role,phase=None):

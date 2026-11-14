@@ -1,7 +1,7 @@
 """Explicit manual revision Save, producer CAS and durable exact-key recovery."""
 from copy import deepcopy
 from datetime import UTC,datetime
-from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import ValidationStatus,ValidationSeverity,AssetBindingV1Input,AssetRefV1,ProviderKind,Role
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated import ValidationStatus,ValidationSeverity,AssetBindingV1Input,AssetRefV1,ProviderKind,Role
 from uuid import UUID
 from application_state.errors import ApplicationStateConflictError,ApplicationStateIntegrityError,ApplicationStateUnavailableError
 from application_state import media
@@ -199,7 +199,7 @@ def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None):
         expected=source_definition_digest_from_body(intent['definition'])
         if validation.definition_digest!=expected or validation.validation_receipt.definition_digest!=expected:
             raise ApplicationStateIntegrityError('Validation receipt differs from the edited definition')
-        from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import AppendRevisionRequestV1
+        from apps.live_control_server.integrations.dungeonmind_statblocks.generated import AppendRevisionRequestV1
         accepted_through={'buddy_manual_revision':str(request.operation_id)}
         if pdf_review is not None:
             accepted_through[PDF_REVIEW_PROVENANCE] = pdf_review

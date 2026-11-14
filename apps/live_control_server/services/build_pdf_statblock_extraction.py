@@ -16,7 +16,7 @@ from generationengine.utils.schema_utils import make_schema_strict
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
     StatblockDefinitionV1Input,
 )
-from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import ChallengeProfile, MovementProfileInput, RulesetRef
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated import ChallengeProfile, MovementProfileInput, RulesetRef
 from apps.live_control_server.services.build_document_proposal import (
     ProposalWriterProvider,
     _model,
