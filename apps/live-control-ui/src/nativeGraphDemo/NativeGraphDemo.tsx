@@ -1774,6 +1774,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     </section>
   );
 
+  const authoringPanelOpen = activePanel === "create" || activePanel === "connect";
   const chronologyPanel = chronologyOpen && api.readChronology ? (
     <div className="native-demo-inspector-timeline">
       <GraphChronology graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} strip
@@ -1934,12 +1935,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
           {embedded ? (
             <aside className="native-demo-side-panel native-demo-side-panel--embedded"
-              aria-label={pendingOperation ? "Pending graph review" : chronologyOpen ? "Chronology" : selectedNode ? "Selected object details" : "Graph information"}>
+              aria-label={pendingOperation ? "Pending graph review" : chronologyOpen ? "Chronology" : authoringPanelOpen ? "Graph actions" : activePanel !== "info" && selectedNode ? "Selected object details" : "Graph information"}>
               {pendingOperation ? reviewPanel : <>
                 {api.readChronology && <nav className="native-demo-sidebar-switch" aria-label="Graph sidebar">
                   <button type="button" className="native-demo-button" aria-pressed={chronologyOpen}
                     onClick={() => setChronology({ graph })}>Chronology</button>
-                  <button type="button" className="native-demo-button" aria-pressed={!chronologyOpen}
+                  <button type="button" className="native-demo-button" aria-pressed={!chronologyOpen && !authoringPanelOpen}
                     onClick={() => handleEmbeddedPanelChange(selectedNode ? "details" : "info")}>Node details</button>
                 </nav>}
                 {chronologyOpen ? chronologyPanel : activePanel === "create" ? createPanel
