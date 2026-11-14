@@ -58,10 +58,9 @@ RUN groupadd --gid 10001 buddy \
 # The installed environment contains Buddy's packaged migration assets.
 # Keep the source tree too for imports through the src namespace.
 COPY --from=dependencies --chown=10001:10001 /app/.venv /app/.venv
-COPY --from=dependencies --chown=10001:10001 /app/src/__init__.py /app/src/__main__.py /app/src/cli.py /app/src/
+COPY --from=dependencies --chown=10001:10001 /app/src/__init__.py /app/src/
 COPY --from=dependencies --chown=10001:10001 /app/src/agent/ /app/src/agent/
 COPY --from=dependencies --chown=10001:10001 /app/src/graph_memory/ /app/src/graph_memory/
-COPY --from=dependencies --chown=10001:10001 /app/src/llm/ /app/src/llm/
 COPY --from=dependencies --chown=10001:10001 /app/src/npc_statblock_pipeline/ /app/src/npc_statblock_pipeline/
 COPY --from=dependencies --chown=10001:10001 /app/src/session_memory/ /app/src/session_memory/
 COPY --from=dependencies --chown=10001:10001 /app/src/token_resolution/ /app/src/token_resolution/

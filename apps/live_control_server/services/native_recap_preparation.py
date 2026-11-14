@@ -34,6 +34,7 @@ from graph_memory.candidate_document_integrity import classify_candidate_documen
 from graph_memory.candidate_graph_preview import NODE_TYPES
 from graph_memory.vnext.domain_runtime import (
     CAMPAIGN_SCOPE_AXIS, DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
+    DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION, DUNGEONBUDDY_OBSERVATION_PREDICATE,
     DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context,
 )
 from graph_memory.predicate_catalog import SOURCE_PRECEDENCE_PREDICATE, source_precedence_endpoints_admitted
@@ -286,7 +287,36 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
     placements = [s for s in selections if s.kind == "placement"]
     by_key = {(s.kind, s.record_id): s for s in selections if s.kind != "placement"}
     _require(not placements or (producer == PRODUCER and campaign), "placement_requires_recap")
-    _require(set(by_key) <= set(records), "unknown_candidate_selection")
+    observations = {row.observation_id: row for row in preview.source_observations}
+    _require(set(by_key) <= set(records) | {("source_observation", key) for key in observations},
+             "unknown_candidate_selection")
+    observation_facts = {}
+    for index, (identifier, observation) in enumerate(observations.items()):
+        selection = by_key.get(("source_observation", identifier))
+        if selection is None or selection.action != "create":
+            continue
+        _require(producer == "dungeonbuddy:reviewed-worldbuilding"
+                 and access.parsed.semantic_profile_ref.profile_revision == DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION,
+                 "observation_profile_not_adopted")
+        subject = observation.subject_candidate_node_id
+        subject_selection = by_key.get(("node", subject))
+        _require(subject_selection is not None and subject_selection.action in {"create", "use_existing"},
+                 "selected_observation_subject_held")
+        _require(bool(observation.description.strip()), "blank_candidate_field")
+        witness = project_candidate_record_evidence(
+            assertion_id=identifier, kind="object", label=observation.title,
+            summary=observation.description, evidence_refs=observation.evidence_refs,
+            source_prose=data.source_bytes.decode("utf-8"),
+            source_artifact_id=data.source_artifact.source_artifact_id,
+            span_index=data.span_index,
+        )
+        fact = wk.CreateFact(
+            f"observation:{index}", DUNGEONBUDDY_OBSERVATION_PREDICATE,
+            wk.LiteralFactValue.from_json(observation.description),
+            _metadata(selection.metadata, campaign,
+                      _support_refs(selection.metadata, witness.evidence, access, admitted)),
+        )
+        observation_facts.setdefault(subject, []).append(fact)
     operations, inventory, endpoints, edge_witnesses = [], [], {}, {}
     node_witnesses = {}
     for index, (key, record) in enumerate(records.items()):
@@ -347,6 +377,8 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
                     ))
                     if provenance is None:
                         selected.append(field)
+                if kind == "node":
+                    facts.extend(observation_facts.get(identifier, ()))
                 if action == "create":
                     operation = f"record:{index}"
                     operations.append(wk.CreateObject(operation, tuple(facts)))
@@ -379,7 +411,8 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
                 # Capability adoption, not a duplicate semantic-profile validator:
                 # access_context already resolves and verifies this immutable ref.
                 _require(profile_ref.profile_id == DUNGEONBUDDY_PROFILE_ID
-                         and profile_ref.profile_revision == DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
+                         and profile_ref.profile_revision in (DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
+                                                              DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION),
                          "precedence_profile_not_adopted")
                 _require(source_precedence_endpoints_admitted(
                     records[("node", edge.from_node_id)].node_type,
@@ -440,8 +473,12 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
                              ("source_observation", preview.source_observations)):
         for row in collection:
             identifier = getattr(row, "item_id", None) or getattr(row, "write_id", None) or row.observation_id
-            inventory.append({"kind": kind, "record_id": identifier,
-                              "disposition": "held", "reason": "not_an_executable_review_selection"})
+            selection = by_key.get((kind, identifier))
+            inventory.append({
+                "kind": kind, "record_id": identifier,
+                "disposition": selection.action if selection else "held",
+                **({"reason": "not_selected"} if selection is None else {}),
+            })
     _validate_selected_precedence(precedences, access, space, campaign)
     return wk.WorldChangeIntent(space, producer, tuple(operations)), inventory
 
@@ -604,6 +641,12 @@ def worldbuilding_review_context(request, principal):
              "from_record_id": row.from_node_id, "to_record_id": row.to_node_id,
              "relationship_type": row.relationship_type}
             for row in preview.edges
+        ] + [
+            {"kind": "source_observation", "record_id": row.observation_id,
+             "label": row.title, "subject_record_id": row.subject_candidate_node_id,
+             "fields": {"description": row.description}}
+            for row in preview.source_observations
+            if access.parsed.semantic_profile_ref.profile_revision == DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION
         ],
         "prepare_coordinates": coordinates.model_dump(exclude={"selections"}),
     }
