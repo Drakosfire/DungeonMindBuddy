@@ -487,6 +487,7 @@ def shared_neighborhood(request, principal):
     ]
     if len(anchors) > request.bounds.max_source_anchors:
         truncated.append("source_anchors")
+    attributes.sort(key=lambda row: row.assertion_id)
     if len(attributes) > request.bounds.max_attributes:
         truncated.append("attributes")
     missing = list(result.missing_seed_entity_ids)

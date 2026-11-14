@@ -109,8 +109,10 @@ def map_nodes(context, bounded: BoundedNeighborhood, *, attributes=None):
         result = reader.get_entity(context, entity_id)
         if attributes is not None:
             evidence = {item.evidence_ref_id: item for item in result.evidence}
-            for assertion in sorted(result.assertions, key=lambda row: row.assertion_id):
+            for assertion in result.assertions:
                 if isinstance(assertion.value, ParsedEntityRefValue):
+                    continue
+                if assertion.predicate in {"dnd5e:name", "dnd5e:classification", "dnd5e:summary"}:
                     continue
                 presentation = _map_assertion(assertion, evidence_by_id=evidence)
                 attributes.append(WorldGraphRetrievalAttribute(
