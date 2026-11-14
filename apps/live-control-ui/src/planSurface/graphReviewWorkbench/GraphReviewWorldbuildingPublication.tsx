@@ -265,9 +265,17 @@ function Publication({review, managedWorldId, onConfirmInFlightChange, onReset, 
 
 function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlightChange}: Props & {managedWorldId: string}) {
   const [context, setContext] = useState<Awaited<ReturnType<typeof getNativeWorldbuildingContext>>>();
-  const [selection, setSelection] = useState({record: "", fields: [] as string[], support: ""});
-  const [existingId, setExistingId] = useState("");
-  const [bindExisting, setBindExisting] = useState(false);
+  const [recordId, setRecordId] = useState("");
+  const [choices, setChoices] = useState<Record<string, {
+    fields: string[]; support: string; existingId: string; bindExisting: boolean;
+  }>>({});
+  const selection = choices[recordId] ?? {fields: [], support: "", existingId: "", bindExisting: false};
+  const {existingId, bindExisting} = selection;
+  function updateSelection(patch: Partial<typeof selection>) {
+    setChoices(current => ({...current, [recordId]: {...selection, ...patch}}));
+  }
+  const selectedObjects = Object.entries(choices).filter(([, choice]) =>
+    choice.fields.length && choice.support && (!choice.bindExisting || choice.existingId.trim()));
   const [packet, setPacket] = useState<NativeWorldbuildingConfirmation>();
   const [error, setError] = useState<string>();
   const [committed, setCommitted] = useState(false);
@@ -283,7 +291,7 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
     return () => { active = false; };
   }, [managedWorldId, review.runId, review.sourceArtifactId, review.sourceRevisionId]);
   const records = context?.records.filter(row => row && typeof row === "object" && !Array.isArray(row) && row.kind === "node") ?? [];
-  const record = records.find(row => row && typeof row === "object" && !Array.isArray(row) && row.record_id === selection.record);
+  const record = records.find(row => row && typeof row === "object" && !Array.isArray(row) && row.record_id === recordId);
   async function run(confirm: boolean) {
     if (!context || lock.current || isCurrent?.() === false) return;
     lock.current = true;
@@ -294,19 +302,19 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
       if (confirm && packet) {
         await submitNativeWorldbuildingConfirmation(review, managedWorldId, packet);
         if (isCurrent?.() !== false) setCommitted(true);
-      } else if (!confirm && selection.record && selection.fields.length && selection.support && (!bindExisting || existingId.trim())) {
+      } else if (!confirm && selectedObjects.length) {
         const result = await prepareNativeWorldbuilding({
           ...context.prepareCoordinates,
-          selections: [{
-            kind: "node", record_id: selection.record, action: bindExisting ? "use_existing" : "create",
-            ...(bindExisting ? {entity_id: existingId.trim()} : {}),
-            facts: selection.fields.map(field => ({ field, metadata: {
-              evidence_ref_ids: [selection.support],
+          selections: selectedObjects.map(([id, choice]) => ({
+            kind: "node", record_id: id, action: choice.bindExisting ? "use_existing" : "create",
+            ...(choice.bindExisting ? {entity_id: choice.existingId.trim()} : {}),
+            facts: choice.fields.map(field => ({ field, metadata: {
+              evidence_ref_ids: [choice.support],
               visibility: { kind: "labels_any", labels: ["dungeonbuddy.visibility:gm"] },
               epistemic_basis: "asserted", claim_mode: "dungeonbuddy.claim:fact",
               standing: "provisional", temporal_scope: { kind: "timeless" },
             }})),
-          }],
+          })),
         });
         if (isCurrent?.() !== false) {
           if (result.status === "prepared") setPacket(result.confirmation);
@@ -328,31 +336,31 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
       packet ? <button type="button" disabled={busy} onClick={() => void run(true)}>Confirm native publication</button> :
       context ? <fieldset disabled={busy}>
         <legend>Review provisional GM facts</legend>
-        <label>Candidate object<select value={selection.record} onChange={event =>
-          setSelection({record: event.target.value, fields: [] as string[], support: ""})}>
+        <label>Candidate object<select value={recordId} onChange={event =>
+          setRecordId(event.target.value)}>
           <option value="">Choose an object</option>
           {records.map(row => row && typeof row === "object" && !Array.isArray(row) &&
             <option key={String(row.record_id)} value={String(row.record_id)}>{String(row.label ?? row.record_id)}</option>)}
         </select></label>
         <label>Object action<select value={bindExisting ? "existing" : "new"} onChange={event =>
-          setBindExisting(event.target.value === "existing")}>
+          updateSelection({bindExisting: event.target.value === "existing"})}>
           <option value="new">Create object</option>
           <option value="existing">Bind existing object</option>
         </select></label>
         {bindExisting && <label>Existing object ID<input value={existingId}
-          onChange={event => setExistingId(event.target.value)} /></label>}
+          onChange={event => updateSelection({existingId: event.target.value})} /></label>}
         <label>Facts<select multiple value={selection.fields} onChange={event =>
-          setSelection({...selection, fields: Array.from(event.target.selectedOptions, option => option.value)})}>
+          updateSelection({ fields: Array.from(event.target.selectedOptions, option => option.value)})}>
           {fields && Object.entries(fields).filter(([field]) => ["label", "node_type", "description"].includes(field))
             .map(([field, value]) => <option key={field} value={field}>{field}: {String(value)}</option>)}
         </select></label>
         <label>Supporting excerpt<select value={selection.support} onChange={event =>
-          setSelection({...selection, support: event.target.value})}>
+          updateSelection({ support: event.target.value})}>
           <option value="">Choose exact source evidence</option>
           {context.sourceSupport.map(row => row && typeof row === "object" && !Array.isArray(row) &&
             <option key={String(row.evidence_ref_id)} value={String(row.evidence_ref_id)}>{String(row.text)}</option>)}
         </select></label>
-        <button type="button" disabled={!selection.record || !selection.fields.length || !selection.support || (bindExisting && !existingId.trim())}
+        <button type="button" disabled={!selectedObjects.length}
           onClick={() => void run(false)}>Prepare selected facts</button>
       </fieldset> : !error && <p role="status">Loading saved Worldbuilding review…</p>}
   </section>;
