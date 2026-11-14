@@ -2,7 +2,7 @@
 
 **Created:** 2026-08-12
 **Updated:** 2026-08-12 — P1 repair pass (kind-miscoding STOP, authority-safe resume, finalizer chain, live seals)
-**Status:** BUILD repair in progress on PR #563 — merge only after P1 proofs green on current `main`
+**Status:** DONE / HISTORICAL. PR #563 merged at `0479d50d048a88b92b9d200dbf3cbbc93d295ba2`. Do not redispatch this handoff.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-relationship-semantic-closure.md`
 **Conversation name:** `DUNGEONMIND-CUTOVER`
 **Flow / agent:** `BUILD`
