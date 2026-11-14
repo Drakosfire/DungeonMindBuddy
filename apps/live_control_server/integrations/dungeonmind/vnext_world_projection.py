@@ -207,6 +207,12 @@ def project_native_world(
     evidence, artifacts = project_source_views(context, support)
     attributes, relationships = project_assertion_views(context, support, artifacts)
     nodes = project_node_views(context, support, attributes, artifacts)
+    # Keep display assertions in node evidence, but present them only as node fields.
+    attributes = [
+        row for row in attributes
+        if context.parsed.get_assertion(row.assertion_id).predicate
+        not in {"dnd5e:name", "dnd5e:classification", "dnd5e:summary"}
+    ]
     attach_adjacency(nodes, relationships)
     degree_by_node = {node.node_id: len(node.adjacency) for node in nodes}
     for node in nodes:

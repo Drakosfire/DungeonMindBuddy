@@ -674,6 +674,7 @@ def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch
     assert [badge["evidenceRefId"] for badge in source["evidenceBadges"]] == source["evidenceRefIds"]
     assert source["suggestedExpansions"][0]["nodeId"] == target["nodeId"]
     assert source["nodeId"] in projection["queryContext"]["matchedNodeIds"]
+    assert projection["attributes"] == []
     assert lane.repo.get_head(space).head_revision_id == revision
     unavailable = inspection.client.post(
         "/api/live/world-graph/managed-projection",
