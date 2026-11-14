@@ -1899,18 +1899,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               <WorldGraphCanvas
                 key={graph.world_id}
                 canvasId={embedded ? "loaded-native-graph-canvas" : undefined}
-                viewportOverlay={chronologyOpen && api.readChronology ? (
-                  <div className="native-demo-timeline-overlay" onWheel={event => event.stopPropagation()}>
-                    <GraphChronology graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} strip
-                      onExplore={nodeId => {
-                        if (pendingRef.current) return;
-                        setChronology(null);
-                        focusInspectorRef.current = true;
-                        handleCanvasSelectionChange(nodeId as LocalObjectId);
-                        requestCameraFocus(nodeId);
-                      }} />
-                  </div>
-                ) : undefined}
                 record={record}
                 onMoveObjects={saveLayout}
                 {...(embedded ? {
@@ -1949,6 +1937,19 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
             pendingOperation ? (
               <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label="Pending graph review">
                 {reviewPanel}
+              </aside>
+            ) : chronologyOpen && api.readChronology ? (
+              <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label="Chronology">
+                <div className="native-demo-inspector-timeline">
+                  <GraphChronology graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} strip
+                    onExplore={nodeId => {
+                      if (pendingRef.current) return;
+                      setChronology(null);
+                      focusInspectorRef.current = true;
+                      handleCanvasSelectionChange(nodeId as LocalObjectId);
+                      requestCameraFocus(nodeId);
+                    }} />
+                </div>
               </aside>
             ) : timelineVisible && !chronologyOpen && focusedEventIds && viewFocusId && api.readChronology
               && (!activePanel || activePanel === "details") ? (
