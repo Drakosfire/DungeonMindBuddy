@@ -437,14 +437,17 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     const timingControl = timing && document.getElementById(target)?.querySelector<HTMLElement>("[data-lair-timing]");
     const manualControl = code === "LEGENDARY_RESOURCE_REQUIRED" &&
       document.getElementById(target)?.querySelector<HTMLElement>("[data-legendary-manual]");
-    const structuredRule = target.startsWith("pdf-review-rule-") && !path?.endsWith(".rules_text") && !timingControl && !manualControl;
+    const referenceControl = Array.from(
+      document.getElementById(target)?.querySelectorAll<HTMLElement>("[data-reference-path]") ?? [],
+    ).find(control => control.dataset.referencePath === path);
+    const structuredRule = target.startsWith("pdf-review-rule-") && !path?.endsWith(".rules_text") && !timingControl && !manualControl && !referenceControl;
     if (structuredRule) target = target.replace("pdf-review-rule-", "pdf-review-validation-rule-");
     const element = document.getElementById(target);
     if (!element) return;
     for (let parent: HTMLElement | null = element; parent; parent = parent.parentElement) {
       if (parent instanceof HTMLDetailsElement) parent.open = true;
     }
-    const control = manualControl || timingControl || (element.querySelector<HTMLElement>("input, textarea, summary") ?? element);
+    const control = referenceControl || manualControl || timingControl || (element.querySelector<HTMLElement>("input, textarea, summary") ?? element);
     control.focus();
     control.scrollIntoView?.({ block: "nearest" });
   }
@@ -583,6 +586,42 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
                       : element),
                   })));
                 }}>Use {name} as a manual rule</button>}
+              {issues.filter(issue => issueTarget(issue.field_path) === `pdf-review-rule-${key}`).map(issue => {
+                const phase = /^rule_elements\[\d+\]\.mechanic\.effects\[(\d+)\]\.phase_key$/.exec(issue.field_path ?? "");
+                const sequence = /^rule_elements\[\d+\]\.mechanic\.sequences\[(\d+)\]\.element_key$/.exec(issue.field_path ?? "");
+                if (issue.code === "UNKNOWN_PHASE_REFERENCE" && phase) return <button key={issue.field_path}
+                  type="button" data-reference-path={issue.field_path} disabled={pending} onClick={() => {
+                    if (!window.confirm("Remove the unresolved phase effect? The rule text will be kept.")) return;
+                    commitEdit(updateWorkingCopy(editor, current => ({
+                      ...current,
+                      rule_elements: current.rule_elements.map(element => {
+                        if (element.key !== key || !("effects" in element.mechanic)) return element;
+                        return { ...element, mechanic: { ...element.mechanic,
+                          effects: element.mechanic.effects?.filter((_, index) => index !== Number(phase[1])) } };
+                      }),
+                    })));
+                  }}>Remove unresolved phase effect from {name}</button>;
+                if (issue.code !== "UNKNOWN_MULTIATTACK_ELEMENT" || !sequence) return null;
+                return <label key={issue.field_path}>Replacement rule for {name}
+                  <select data-reference-path={issue.field_path} disabled={pending} value="" onChange={event => {
+                    const replacement = event.currentTarget.value;
+                    commitEdit(updateWorkingCopy(editor, current => ({
+                      ...current,
+                      rule_elements: current.rule_elements.map(element => {
+                        if (element.key !== key || !("sequences" in element.mechanic)) return element;
+                        return { ...element, mechanic: { ...element.mechanic,
+                          sequences: element.mechanic.sequences.map((entry, index) =>
+                            index === Number(sequence[1]) ? { ...entry, element_key: replacement } : entry) } };
+                      }),
+                    })));
+                  }}>
+                    <option value="" disabled>Select a rule</option>
+                    {editor.workingCopy.rule_elements.filter(element =>
+                      element.key !== key && !("sequences" in element.mechanic)).map(element =>
+                        <option key={element.key} value={element.key}>{element.name}</option>)}
+                  </select>
+                </label>;
+              })}
             </details>
             <div id={`pdf-review-validation-rule-${key}`} tabIndex={-1}>
               {fieldIssues(`pdf-review-rule-${key}`)}
