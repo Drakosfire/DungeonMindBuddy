@@ -1490,7 +1490,22 @@ def test_worldbuilding_postgres_confirmation_replays_one_head_advance(
     assert lane.repo is persistent_world_core
     parent = lane.repo.get_head(SPACE_ID)
     events = lane.repo.head_events(SPACE_ID)
-    packet = confirmation(lane)
+    context = lane.client.post(
+        "/api/live/extract-promote/native-worldbuilding-context",
+        json={
+            "managed_world_id": lane.body["managed_world_id"],
+            "run_id": lane.body["run_id"],
+            "source_artifact_id": lane.source.source_artifact_id,
+            "source_sha256": lane.source.content_sha256,
+        },
+        headers={"Authorization": "Bearer " + TOKEN},
+    )
+    assert context.status_code == 200, context.text
+    prepared = lane.post({
+        **context.json()["prepare_coordinates"], "selections": lane.body["selections"],
+    })
+    assert prepared.status_code == 200, prepared.text
+    packet = {key: prepared.json()[key] for key in ("envelope", "prepared", "token")}
     assert lane.repo.get_head(SPACE_ID) == parent
     assert lane.repo.head_events(SPACE_ID) == events
 
@@ -1506,3 +1521,49 @@ def test_worldbuilding_postgres_confirmation_replays_one_head_advance(
     assert retry.json()["result"] == result
     assert lane.repo.get_head(SPACE_ID) == child
     assert len(lane.repo.head_events(SPACE_ID)) == len(events) + 1
+
+
+def test_worldbuilding_context_binds_saved_source_and_native_prepare(world_lane):
+    x = world_lane
+    path = "/api/live/extract-promote/native-worldbuilding-context"
+    request = {
+        "managed_world_id": x.body["managed_world_id"],
+        "run_id": x.body["run_id"],
+        "source_artifact_id": x.source.source_artifact_id,
+        "source_sha256": x.source.content_sha256,
+    }
+    headers = {"Authorization": "Bearer " + TOKEN}
+    assert x.client.post(path, json=request).status_code == 401
+    before = x.repo.head_events(SPACE_ID)
+    response = x.client.post(path, json=request, headers=headers)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["schema"] == "dmb_native_worldbuilding_review_context_v1"
+    assert result["binding"] == x.bound
+    assert result["prepare_coordinates"] == {
+        key: value for key, value in x.body.items() if key != "selections"
+    }
+    supports = {row["evidence_ref_id"]: row for row in result["source_support"]}
+    support = supports[x.evidence_id]
+    assert support["text"].encode() == x.source.markdown.encode()[
+        support["start_byte"]:support["end_byte"]
+    ]
+    records = {(row["kind"], row["record_id"]): row for row in result["records"]}
+    for selection in x.body["selections"]:
+        record = records[selection["kind"], selection["record_id"]]
+        for fact in selection.get("facts", ()):
+            field = fact["field"]
+            if fact.get("index") is not None:
+                field = f'{field}:{fact["index"]}'
+            assert field in record["fields"]
+    edges = [row for row in records.values() if row["kind"] == "edge"]
+    assert edges
+    assert all(
+        ("node", row["from_record_id"]) in records
+        and ("node", row["to_record_id"]) in records
+        and row["relationship_type"]
+        for row in edges
+    )
+    wrong = x.client.post(path, json={**request, "source_sha256": "0" * 64}, headers=headers)
+    assert wrong.status_code == 409, wrong.text
+    assert x.repo.head_events(SPACE_ID) == before

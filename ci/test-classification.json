@@ -353,6 +353,7 @@
       "apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewSourceSpanOverlayUtils.test.ts",
       "apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewVariantReferenceUtils.test.ts",
       "apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils.test.ts",
+      "apps/live-control-ui/src/planSurface/graphReviewWorkbench/nativeWorldbuildingRecovery.test.ts",
       "apps/live-control-ui/src/planSurface/graphReviewWorkbench/publishedRecapWorkingProjection.test.ts",
       "apps/live-control-ui/src/planSurface/graphReviewWorkbench/useGraphObjectAuthoringDraft.test.ts",
       "apps/live-control-ui/src/planSurface/graphReviewWorkbench/useGraphObjectAuthoringQuickCommit.test.ts",

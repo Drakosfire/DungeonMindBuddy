@@ -532,6 +532,83 @@ def _resolve_source(request, root, bound, data):
     return source, admitted
 
 
+def _reviewable_preview(data):
+    run, artifact = data.run, data.source_artifact
+    classification = classify_candidate_document_integrity(json.loads(data.candidate_bytes))
+    _require(not classification.is_document_integrity_failure, "candidate_document_invalid")
+    preview = classification.preview
+    _require(preview.campaign_id == run.campaign_id and preview.session_id == run.session_id
+             and tuple(preview.source_artifact_ids) == (artifact.source_artifact_id,), "candidate_document_scope_mismatch")
+    return preview
+
+
+def worldbuilding_review_context(request, principal):
+    """Resolve the current preparation coordinates for an exact saved source."""
+    require_native_graph_gm(principal)
+    root = config.artifact_data_root()
+    bound = native.binding(request.managed_world_id)
+    data = load_reviewable_extraction_data(root, request.run_id)
+    run, artifact = data.run, data.source_artifact
+    _require(run.source_domain == "worldbuilding", "candidate_scope_mismatch")
+    _require(
+        (artifact.source_artifact_id, artifact.content_sha256)
+        == (request.source_artifact_id, request.source_sha256),
+        "candidate_source_mismatch",
+    )
+    _require(bool(artifact.workspace_document_id) and artifact.workspace_document_revision is not None,
+             "candidate_workspace_source_required")
+    repo = native.repository()
+    context, access = native.access_context(repo, bound["native_world_id"])
+    coordinates = NativeWorldbuildingPrepareRequest(
+        managed_world_id=request.managed_world_id,
+        run_id=request.run_id,
+        expected_run_revision=run.revision,
+        candidate_sha256=hashlib.sha256(data.candidate_bytes).hexdigest(),
+        expected_parent_revision_id=context["revision_id"],
+        expected_source_authority_epoch=context["source_epoch"],
+        workspace_document_id=artifact.workspace_document_id,
+        workspace_document_revision=artifact.workspace_document_revision,
+        selections=[],
+    )
+    _, admitted = _resolve_source(coordinates, root, bound, data)
+    evidence = []
+    for ref in access.parsed.evidence_by_id.values():
+        if (ref.evidence_role != "support" or ref.source_artifact_id != admitted.source_artifact_id
+                or ref.source_revision_id != admitted.source_revision_id):
+            continue
+        opened = open_admitted_native_text(access, ref.evidence_ref_id)
+        if opened.status == "available" and opened.span_start_byte is not None and opened.span_end_byte is not None:
+            _require_source_match(opened, admitted)
+            evidence.append({
+                "evidence_ref_id": ref.evidence_ref_id,
+                "start_byte": opened.span_start_byte,
+                "end_byte": opened.span_end_byte,
+                "text": opened.body_text.encode("utf-8")[
+                    opened.span_start_byte:opened.span_end_byte
+                ].decode("utf-8"),
+            })
+    preview = _reviewable_preview(data)
+    _require(native.binding(request.managed_world_id) == bound, "candidate_binding_changed")
+    return {
+        "schema": "dmb_native_worldbuilding_review_context_v1",
+        "binding": bound,
+        "source_artifact_id": artifact.source_artifact_id,
+        "source_sha256": artifact.content_sha256,
+        "source_support": sorted(evidence, key=lambda row: row["evidence_ref_id"]),
+        "records": [
+            {"kind": "node", "record_id": row.node_id, "label": row.label,
+             "fields": _fields("node", row)}
+            for row in preview.nodes
+        ] + [
+            {"kind": "edge", "record_id": row.edge_id, "fields": {},
+             "from_record_id": row.from_node_id, "to_record_id": row.to_node_id,
+             "relationship_type": row.relationship_type}
+            for row in preview.edges
+        ],
+        "prepare_coordinates": coordinates.model_dump(exclude={"selections"}),
+    }
+
+
 def prepare(request, principal):
     require_native_graph_gm(principal)
     root = config.artifact_data_root()
@@ -543,11 +620,7 @@ def prepare(request, principal):
     candidate_sha256 = hashlib.sha256(data.candidate_bytes).hexdigest()
     _require(candidate_sha256 == request.candidate_sha256, "candidate_bytes_changed")
     source, admitted = _resolve_source(request, root, bound, data)
-    classification = classify_candidate_document_integrity(json.loads(data.candidate_bytes))
-    _require(not classification.is_document_integrity_failure, "candidate_document_invalid")
-    preview = classification.preview
-    _require(preview.campaign_id == run.campaign_id and preview.session_id == run.session_id
-             and tuple(preview.source_artifact_ids) == (artifact.source_artifact_id,), "candidate_document_scope_mismatch")
+    preview = _reviewable_preview(data)
     repo = native.repository()
     context, access = native.access_context(repo, space)
     _require(context["revision_id"] == request.expected_parent_revision_id, "candidate_parent_stale")
