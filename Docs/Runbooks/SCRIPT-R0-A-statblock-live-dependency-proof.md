@@ -72,7 +72,8 @@ printf 'Dogfood session: %s\n' "$scratch_session"
 uv run uvicorn apps.live_control_server.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Keep the printed session path if you run reset from a second terminal. Use
+If you run reset from a second terminal, set `scratch_session` to the printed
+session path and change to the Buddy checkout. Use
 `uv run python scripts/live_dogfood_reset.py --session-dir "$scratch_session"`
 to preview the reset. The corpus purge flag targets checkout-wide generated
 files, so omit it for this session-only rehearsal.
