@@ -2410,6 +2410,30 @@ export async function listWorkspaceDocuments(args: {
   );
 }
 
+export type WorkspacePageInventoryResponse = WorkspaceDocumentsListResponse & {
+  next_before_updated_at: string | null;
+  next_before_document_id: string | null;
+};
+
+export function listWorkspacePageInventory(
+  filters: { worldId?: string; campaignId?: string; status?: "active" | "discarded" },
+  before?: { updatedAt: string; documentId: string },
+  signal?: AbortSignal,
+): Promise<WorkspacePageInventoryResponse> {
+  const query = new URLSearchParams();
+  if (filters.worldId) query.set("world_id", filters.worldId);
+  if (filters.campaignId) query.set("campaign_id", filters.campaignId);
+  if (filters.status) query.set("status", filters.status);
+  if (before) {
+    query.set("before_updated_at", before.updatedAt);
+    query.set("before_document_id", before.documentId);
+  }
+  const suffix = query.size ? `?${query}` : "";
+  return apiFetch<WorkspacePageInventoryResponse>(
+    `/api/live/workspace-documents/pages/inventory${suffix}`, { signal },
+  );
+}
+
 export async function listWorldContainers(): Promise<WorldContainersListResponse> {
   return apiFetch<WorldContainersListResponse>("/api/live/world-containers");
 }
