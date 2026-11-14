@@ -401,3 +401,55 @@ it("replays a retained native publication when Graph Review reopens", async () =
   expect(confirm).toHaveBeenCalledExactlyOnceWith(packet);
   expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
 });
+
+it("prepares the explicitly selected fact and confirms its exact native packet", async () => {
+  vi.stubEnv("VITE_NATIVE_WORLDBUILDING_WORLD", "world-a");
+  try {
+    const coordinates = {
+      managed_world_id: "world-a", run_id: "run-a", expected_run_revision: 1,
+      candidate_sha256: "a".repeat(64), expected_parent_revision_id: "rev:1",
+      expected_source_authority_epoch: 1, workspace_document_id: "doc-a",
+      workspace_document_revision: 1,
+    };
+    const packet = {
+      envelope: {
+        purpose: "dmb_native_worldbuilding_confirm_v1", prepared_change_id: "change:a",
+        review: { managed_world_id: "world-a", run_id: "run-a" },
+      },
+      prepared: { operations: [] }, token: "signed-fixture",
+    };
+    vi.spyOn(native, "getNativeWorldbuildingContext").mockResolvedValue({
+      prepareCoordinates: coordinates, nativeWorldId: "native-a",
+      records: [{ kind: "node", record_id: "npc:a", label: "Mara", fields: { label: "Mara", node_type: "npc" } }],
+      sourceSupport: [{ evidence_ref_id: "support:a", text: "Mara arrived.", start_byte: 0, end_byte: 13 }],
+    });
+    const prepare = vi.spyOn(native, "prepareNativeWorldbuilding")
+      .mockResolvedValue({ status: "prepared", confirmation: packet, records: [] });
+    const confirm = vi.spyOn(native, "confirmNativeWorldbuilding")
+      .mockResolvedValue({ recovered: false, result: { child_revision_id: "rev:2" } });
+    render(<GraphReviewWorldbuildingPublication review={review} />);
+    fireEvent.change(await screen.findByLabelText("Candidate object"), { target: { value: "npc:a" } });
+    fireEvent.change(screen.getByLabelText("Fact"), { target: { value: "label" } });
+    fireEvent.change(screen.getByLabelText("Supporting excerpt"), { target: { value: "support:a" } });
+    fireEvent.click(screen.getByRole("button", { name: "Prepare selected fact" }));
+    const submit = await screen.findByRole("button", { name: "Confirm native publication" });
+    expect(prepare.mock.calls[0][0]).toEqual({
+      ...coordinates,
+      selections: [{ kind: "node", record_id: "npc:a", action: "create", facts: [{
+        field: "label", metadata: {
+          evidence_ref_ids: ["support:a"],
+          visibility: { kind: "labels_any", labels: ["dungeonbuddy.visibility:gm"] },
+          epistemic_basis: "asserted", claim_mode: "dungeonbuddy.claim:fact",
+          standing: "provisional", temporal_scope: { kind: "timeless" },
+        },
+      }] }],
+    });
+    expect(confirm).not.toHaveBeenCalled();
+    fireEvent.click(submit);
+    await screen.findByText("Worldbuilding publication confirmed.");
+    expect(confirm).toHaveBeenCalledExactlyOnceWith(packet);
+    expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});

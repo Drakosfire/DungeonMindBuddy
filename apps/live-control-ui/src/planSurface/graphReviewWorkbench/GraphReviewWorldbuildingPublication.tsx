@@ -1,3 +1,5 @@
+import {getNativeWorldbuildingContext, prepareNativeWorldbuilding, type NativeWorldbuildingConfirmation} from "../../api/nativeWorldbuildingPublicationApi";
+import {submitNativeWorldbuildingConfirmation} from "./worldbuildingPublicationRecovery";
 import {CandidateReviewSemantics} from './CandidateReviewSemantics';
 import { useEffect, useRef, useState } from "react";
 import { ExtractPromoteApiError } from "../../api/extractPromoteApi";
@@ -55,6 +57,10 @@ function ExistingWorldPublication(props: Props & {managedWorldId: string; onRese
   });
   if (saved.error) return <p role="alert">{saved.error}</p>;
   if (saved.packet) return <NativePublicationRecovery {...props}/>;
+  if (import.meta.env.VITE_NATIVE_WORLDBUILDING_WORLD === props.managedWorldId &&
+      !readWorldbuildingPublicationRecovery(props.review, props.managedWorldId)) {
+    return <NativePublication {...props}/>;
+  }
   return <Publication {...props}/>;
 }
 
@@ -253,5 +259,92 @@ function Publication({review, managedWorldId, onConfirmInFlightChange, onReset, 
       <button disabled={!ready || busy || !!saved.error || plan.summary.acceptedAssertionCount === 0} onClick={() => void confirm()}>{phase === "confirming" ? "Publishing…" : submitted ? "Recover publication result" : "Confirm publication"}</button>
     </> : null}
     {receipt ? <p role="status">{receipt.outcome === "published_audit_degraded" ? "Published with an audit warning" : "Publication recorded"}: {receipt.appliedAssertionCount} assertions · revision {receipt.committedRevisionId}. {receipt.warnings.join(" ")}</p> : null}
+  </section>;
+}
+
+
+function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlightChange}: Props & {managedWorldId: string}) {
+  const [context, setContext] = useState<Awaited<ReturnType<typeof getNativeWorldbuildingContext>>>();
+  const [selection, setSelection] = useState({record: "", field: "", support: ""});
+  const [packet, setPacket] = useState<NativeWorldbuildingConfirmation>();
+  const [error, setError] = useState<string>();
+  const [committed, setCommitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const lock = useRef(false);
+  useEffect(() => {
+    let active = true;
+    void getNativeWorldbuildingContext({
+      managed_world_id: managedWorldId, run_id: review.runId,
+      source_artifact_id: review.sourceArtifactId, source_sha256: review.sourceRevisionId.slice(7),
+    }).then(value => { if (active) setContext(value); })
+      .catch(reason => { if (active) setError(message(reason)); });
+    return () => { active = false; };
+  }, [managedWorldId, review.runId, review.sourceArtifactId, review.sourceRevisionId]);
+  const records = context?.records.filter(row => row && typeof row === "object" && !Array.isArray(row) && row.kind === "node") ?? [];
+  const record = records.find(row => row && typeof row === "object" && !Array.isArray(row) && row.record_id === selection.record);
+  async function run(confirm: boolean) {
+    if (!context || lock.current || isCurrent?.() === false) return;
+    lock.current = true;
+    setBusy(true);
+    setError(undefined);
+    if (confirm) onConfirmInFlightChange?.(true);
+    try {
+      if (confirm && packet) {
+        await submitNativeWorldbuildingConfirmation(review, managedWorldId, packet);
+        if (isCurrent?.() !== false) setCommitted(true);
+      } else if (!confirm && selection.record && selection.field && selection.support) {
+        const result = await prepareNativeWorldbuilding({
+          ...context.prepareCoordinates,
+          selections: [{
+            kind: "node", record_id: selection.record, action: "create",
+            facts: [{ field: selection.field, metadata: {
+              evidence_ref_ids: [selection.support],
+              visibility: { kind: "labels_any", labels: ["dungeonbuddy.visibility:gm"] },
+              epistemic_basis: "asserted", claim_mode: "dungeonbuddy.claim:fact",
+              standing: "provisional", temporal_scope: { kind: "timeless" },
+            }}],
+          }],
+        });
+        if (isCurrent?.() !== false) {
+          if (result.status === "prepared") setPacket(result.confirmation);
+          else setError("The selected fact was held. Nothing was published.");
+        }
+      }
+    } catch (reason) {
+      if (isCurrent?.() !== false) setError(message(reason));
+    } finally {
+      lock.current = false;
+      setBusy(false);
+      if (confirm) onConfirmInFlightChange?.(false);
+    }
+  }
+  const fields = record && typeof record === "object" && !Array.isArray(record) ? record.fields : null;
+  return <section aria-label="Native Worldbuilding review">
+    {error && <p role="alert">{error}</p>}
+    {committed ? <p role="status">Worldbuilding publication confirmed.</p> :
+      packet ? <button type="button" disabled={busy} onClick={() => void run(true)}>Confirm native publication</button> :
+      context ? <fieldset disabled={busy}>
+        <legend>Create an object with a reviewed provisional GM fact</legend>
+        <label>Candidate object<select value={selection.record} onChange={event =>
+          setSelection({record: event.target.value, field: "", support: ""})}>
+          <option value="">Choose an object</option>
+          {records.map(row => row && typeof row === "object" && !Array.isArray(row) &&
+            <option key={String(row.record_id)} value={String(row.record_id)}>{String(row.label ?? row.record_id)}</option>)}
+        </select></label>
+        <label>Fact<select value={selection.field} onChange={event =>
+          setSelection({...selection, field: event.target.value})}>
+          <option value="">Choose a fact</option>
+          {fields && Object.entries(fields).filter(([field]) => ["label", "node_type", "description"].includes(field))
+            .map(([field, value]) => <option key={field} value={field}>{field}: {String(value)}</option>)}
+        </select></label>
+        <label>Supporting excerpt<select value={selection.support} onChange={event =>
+          setSelection({...selection, support: event.target.value})}>
+          <option value="">Choose exact source evidence</option>
+          {context.sourceSupport.map(row => row && typeof row === "object" && !Array.isArray(row) &&
+            <option key={String(row.evidence_ref_id)} value={String(row.evidence_ref_id)}>{String(row.text)}</option>)}
+        </select></label>
+        <button type="button" disabled={!selection.record || !selection.field || !selection.support}
+          onClick={() => void run(false)}>Prepare selected fact</button>
+      </fieldset> : !error && <p role="status">Loading saved Worldbuilding review…</p>}
   </section>;
 }
