@@ -520,6 +520,9 @@ export function WorldGraphCanvas({
   const [status, setStatus] = useState("");
   const [statusNeedsAttention, setStatusNeedsAttention] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
+  const markerRestoreTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(markerRestoreTimer.current), []);
+
   const [viewport, setViewport] = useState({ width: WIDTH, height: HEIGHT });
   const [viewportMeasured, setViewportMeasured] = useState(false);
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 });
@@ -954,6 +957,13 @@ export function WorldGraphCanvas({
     if (!Number.isFinite(factor) || factor <= 0 || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) return;
     cancelGesture();
     manualCameraRef.current = true;
+    const svg = svgRef.current;
+    if (svg && fullCorpus && !focusedLayoutId && selectedIds.length === 0
+      && !allRelationships && camera.zoom < .45 && camera.zoom * factor < .45) {
+      svg.setAttribute("data-zoom-active", "");
+      clearTimeout(markerRestoreTimer.current);
+      markerRestoreTimer.current = setTimeout(() => svg.removeAttribute("data-zoom-active"), 120);
+    }
     setCamera((current) => {
       const zoom = Math.max(Math.min(MIN_ZOOM, fullCorpus ? fittedCamera().zoom : MIN_ZOOM, current.zoom), Math.min(MAX_ZOOM, current.zoom * factor));
       if (zoom === current.zoom) return current;
