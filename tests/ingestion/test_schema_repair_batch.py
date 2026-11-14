@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contracts.schema_validation import list_validation_failures, validate_instance
-from src.ingestion.schema_repair_batch import build_entity_repair_user_prompt
+from ingestion.schema_repair_batch import build_entity_repair_user_prompt
 
 
 def _minimal_bad_entity() -> dict:

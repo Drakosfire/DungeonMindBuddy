@@ -3,18 +3,18 @@
 from importlib import import_module
 
 _EXPORT_MODULES = {
-    "docx_to_markdown": "src.ingestion.docx_converter",
-    "markdown_passthrough": "src.ingestion.docx_converter",
-    "AsyncOpenAIResponsesEntityClient": "src.ingestion.entity_extractor",
-    "OpenAIResponsesEntityClient": "src.ingestion.entity_extractor",
-    "UsageStats": "src.ingestion.entity_extractor",
-    "extract_entities_batch": "src.ingestion.entity_extractor",
-    "run_entity_extraction": "src.ingestion.entity_extractor",
-    "AsyncOpenAIResponsesFactClient": "src.ingestion.fact_extractor",
-    "OpenAIResponsesFactClient": "src.ingestion.fact_extractor",
-    "extract_facts_batch": "src.ingestion.fact_extractor",
-    "run_fact_extraction": "src.ingestion.fact_extractor",
-    "build_mirathorn_event_slice": "src.ingestion.event_sourced_slice",
+    "docx_to_markdown": "ingestion.docx_converter",
+    "markdown_passthrough": "ingestion.docx_converter",
+    "AsyncOpenAIResponsesEntityClient": "ingestion.entity_extractor",
+    "OpenAIResponsesEntityClient": "ingestion.entity_extractor",
+    "UsageStats": "ingestion.entity_extractor",
+    "extract_entities_batch": "ingestion.entity_extractor",
+    "run_entity_extraction": "ingestion.entity_extractor",
+    "AsyncOpenAIResponsesFactClient": "ingestion.fact_extractor",
+    "OpenAIResponsesFactClient": "ingestion.fact_extractor",
+    "extract_facts_batch": "ingestion.fact_extractor",
+    "run_fact_extraction": "ingestion.fact_extractor",
+    "build_mirathorn_event_slice": "ingestion.event_sourced_slice",
     "DocumentMetadata": "ingestion.frontmatter",
     "FrontmatterError": "ingestion.frontmatter",
     "FrontmatterParseError": "ingestion.frontmatter",
@@ -23,8 +23,8 @@ _EXPORT_MODULES = {
     "parse_document_frontmatter": "ingestion.frontmatter",
     "render_frontmatter": "ingestion.frontmatter",
     "write_document_with_frontmatter": "ingestion.frontmatter",
-    "OpenAIFrontmatterInferenceClient": "src.ingestion.frontmatter_inference",
-    "infer_frontmatter_metadata": "src.ingestion.frontmatter_inference",
+    "OpenAIFrontmatterInferenceClient": "ingestion.frontmatter_inference",
+    "infer_frontmatter_metadata": "ingestion.frontmatter_inference",
 }
 __all__ = list(_EXPORT_MODULES)
 

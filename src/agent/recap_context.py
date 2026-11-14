@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 # NB: ``ingestion.frontmatter`` would be the natural source of these helpers,
-# but importing it pulls in the optional ``docx`` dep via ``src.ingestion.__init__``.
+# but importing it pulls in the optional ``docx`` dep via ``ingestion.__init__``.
 # The recap workflow doesn't need that surface — we inline a permissive parse here
 # scoped to the keys we care about (``session``, ``campaign_id``, ``title``).
 

@@ -10,7 +10,7 @@ import pytest
 from generationengine import InferenceObservation, ObservationState, TextRequest, TextResult
 
 from contracts.schema_validation import validate_many
-from src.ingestion.fact_extractor import (
+from ingestion.fact_extractor import (
     AsyncOpenAIResponsesFactClient,
     BatchedFactExtractionResult,
     FactExtractionResult,
@@ -937,7 +937,7 @@ def test_async_adapter_constructs_production_ge_inside_active_loop_once(
         return client
 
     monkeypatch.setattr(
-        "src.ingestion.fact_extractor.GenerationClient.from_env",
+        "ingestion.fact_extractor.GenerationClient.from_env",
         classmethod(lambda cls: from_env()),
     )
     adapter = AsyncOpenAIResponsesFactClient()

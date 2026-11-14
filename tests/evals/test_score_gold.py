@@ -279,7 +279,7 @@ class TestExcludePathMetrics:
 
 class TestExcludedCandidatesPersistence:
     def test_excluded_candidates_written_to_cache(self, tmp_path: Path) -> None:
-        from src.ingestion.entity_extractor import run_entity_extraction
+        from ingestion.entity_extractor import run_entity_extraction
 
         class ExcludeClient:
             def extract_entities(self, **kwargs: Any) -> dict[str, Any]:
@@ -335,7 +335,7 @@ class TestExcludedCandidatesPersistence:
         assert any(e["source"] == "llm_exclude" for e in excluded)
 
     def test_extraction_method_set_correctly(self, tmp_path: Path) -> None:
-        from src.ingestion.entity_extractor import run_entity_extraction
+        from ingestion.entity_extractor import run_entity_extraction
 
         entity_out = run_entity_extraction(
             [

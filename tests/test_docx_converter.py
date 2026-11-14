@@ -4,7 +4,7 @@ from pathlib import Path
 
 from docx import Document
 
-from src.ingestion.docx_converter import docx_to_markdown, markdown_passthrough
+from ingestion.docx_converter import docx_to_markdown, markdown_passthrough
 
 
 def test_docx_to_markdown_style_and_fallback_detection(tmp_path: Path) -> None:

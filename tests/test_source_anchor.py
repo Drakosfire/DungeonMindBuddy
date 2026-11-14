@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import blake3
 
-from src.ingestion.source_anchor import (
+from ingestion.source_anchor import (
     SourceAnchor,
     build_recap_extracted_anchor,
     hash_source_bytes,

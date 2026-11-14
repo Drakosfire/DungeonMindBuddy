@@ -19,7 +19,7 @@ from contracts.schema_validation import (
     list_validation_failures,
     validate_instance,
 )
-from src.ingestion.openai_batch_pipeline import (
+from ingestion.openai_batch_pipeline import (
     build_jsonl_request_line,
     build_responses_batch_request_body,
     extract_output_text_from_responses_body,

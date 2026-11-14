@@ -25,7 +25,7 @@ from src.agent.planner import (
     make_tool_dispatcher,
 )
 from src.agent.planner_cache import load_or_build_planner_instructions
-from src.ingestion.openai_batch_pipeline import (
+from ingestion.openai_batch_pipeline import (
     build_jsonl_request_line,
     extract_response_body_from_batch_line,
     run_batch_job,

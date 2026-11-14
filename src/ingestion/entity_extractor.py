@@ -422,7 +422,7 @@ class OpenAIResponsesEntityClient:
         prompt_id: str,
     ) -> dict[str, Any]:
         # Lazy import: recap_models imports ExtractedEntity from this module.
-        from src.ingestion.recap_models import RecapExtractionResult as _RecapExtractionResult
+        from ingestion.recap_models import RecapExtractionResult as _RecapExtractionResult
 
         return self._run(
             model=model,
@@ -489,7 +489,7 @@ class AsyncOpenAIResponsesEntityClient:
         known_entities: list[dict[str, Any]],
         prompt_id: str,
     ) -> dict[str, Any]:
-        from src.ingestion.recap_models import RecapExtractionResult as _RecapExtractionResult
+        from ingestion.recap_models import RecapExtractionResult as _RecapExtractionResult
 
         return await _generate_structured_payload(
             self._client(),
@@ -994,7 +994,7 @@ async def _call_recap_extractor(
     allow_heuristic_fallback: bool,
     system_prompt: str,
 ) -> tuple[Any, dict[str, int | None]]:
-    from src.ingestion.recap_models import RecapExtractionResult
+    from ingestion.recap_models import RecapExtractionResult
 
     if openai_client is None:
         if not allow_heuristic_fallback:
@@ -1179,7 +1179,7 @@ async def extract_entities_batch(
     schema_repair_poll_interval: float = 30.0,
     schema_repair_work_dir: Path | None = None,
 ) -> dict[str, Any]:
-    from src.ingestion.recap_models import RecapExtractionResult
+    from ingestion.recap_models import RecapExtractionResult
 
     known_entities = known_entities or []
     model_id = model or _load_fast_smart_model_id()
@@ -1569,7 +1569,7 @@ async def extract_entities_batch(
 
         from openai import OpenAI
 
-        from src.ingestion.schema_repair_batch import repair_entity_records_via_openai_batch
+        from ingestion.schema_repair_batch import repair_entity_records_via_openai_batch
 
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
@@ -1664,11 +1664,11 @@ def prepare_entity_batch_requests(
 
     Returns (jsonl_line_dicts, manifest) where manifest[custom_id] describes how to apply results.
     """
-    from src.ingestion.openai_batch_pipeline import (
+    from ingestion.openai_batch_pipeline import (
         build_jsonl_request_line,
         build_responses_batch_request_body,
     )
-    from src.ingestion.recap_models import RecapExtractionResult
+    from ingestion.recap_models import RecapExtractionResult
 
     known_entities = list(known_entities)
     model_id = model
@@ -1737,14 +1737,14 @@ def apply_entity_batch_outputs_to_cache(
 
     Returns (failed_custom_ids, usage_totals).
     """
-    from src.ingestion.openai_batch_pipeline import (
+    from ingestion.openai_batch_pipeline import (
         extract_output_text_from_responses_body,
         extract_response_body_from_batch_line,
         extract_status_code_from_batch_line,
         merge_usage,
         usage_dict_from_responses_body,
     )
-    from src.ingestion.recap_models import RecapExtractionResult
+    from ingestion.recap_models import RecapExtractionResult
 
     cache_root = Path(cache_dir)
     cache_root.mkdir(parents=True, exist_ok=True)

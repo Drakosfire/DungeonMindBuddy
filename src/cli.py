@@ -33,33 +33,33 @@ from reducer.scope_relevance import question_mentioned_entity_ids
 from src.agent.planner import run_planning_session
 from src.agent.synthesis import synthesize_answer_async
 from src.compiler.wiki_compiler import compile_wiki, list_wiki_targets
-from src.ingestion.chunker import chunk_document
+from ingestion.chunker import chunk_document
 from ingestion.frontmatter import (
     FrontmatterError,
     load_document_frontmatter,
     write_document_with_frontmatter,
 )
-from src.ingestion.frontmatter_inference import (
+from ingestion.frontmatter_inference import (
     OpenAIFrontmatterInferenceClient,
     infer_frontmatter_metadata,
     metadata_preview,
 )
-from src.ingestion.entity_extractor import (
+from ingestion.entity_extractor import (
     AsyncOpenAIResponsesEntityClient,
     apply_entity_batch_outputs_to_cache,
     prepare_entity_batch_requests,
     run_entity_extraction,
     _load_fast_smart_model_id,
 )
-from src.ingestion.fact_extractor import (
+from ingestion.fact_extractor import (
     AsyncOpenAIResponsesFactClient,
     apply_fact_batch_outputs_to_cache,
     prepare_fact_batch_requests,
     run_fact_extraction,
     _load_model_id as _load_fact_structured_model_id,
 )
-from src.ingestion.source_anchor import lint_source_anchors
-from src.ingestion.openai_batch_pipeline import run_batch_job
+from ingestion.source_anchor import lint_source_anchors
+from ingestion.openai_batch_pipeline import run_batch_job
 from contracts.schema_validation import validate_many
 from contracts.temporal_tick_gate import (
     campaign_temporal_quality_summary,

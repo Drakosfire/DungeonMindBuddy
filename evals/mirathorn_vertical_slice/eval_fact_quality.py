@@ -20,13 +20,13 @@ MISMATCH_REPORT_PATH = OUTPUT_DIR / "fact_quality_mismatch_report.json"
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.ingestion.chunker import chunk_document  # noqa: E402
+from ingestion.chunker import chunk_document  # noqa: E402
 from src.agent.context_formatter import format_projection_context  # noqa: E402
-from src.ingestion.entity_extractor import (  # noqa: E402
+from ingestion.entity_extractor import (  # noqa: E402
     OpenAIResponsesEntityClient,
     run_entity_extraction,
 )
-from src.ingestion.fact_extractor import (  # noqa: E402
+from ingestion.fact_extractor import (  # noqa: E402
     OpenAIResponsesFactClient,
     run_fact_extraction,
 )

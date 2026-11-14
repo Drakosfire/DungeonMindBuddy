@@ -5,13 +5,13 @@ from pathlib import Path
 import pytest
 from docx import Document
 
-from src.ingestion.chunker import (
+from ingestion.chunker import (
     _build_heading_tree,
     _infer_session_from_section_path,
     _segment_blocks,
     chunk_document,
 )
-from src.ingestion.source_anchor import hash_source_bytes, slice_file_lines_to_bytes
+from ingestion.source_anchor import hash_source_bytes, slice_file_lines_to_bytes
 
 
 def test_build_heading_tree_nests_children() -> None:

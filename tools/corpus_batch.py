@@ -121,8 +121,8 @@ def _build_units_from_manifest(
     file_limit: int = 0,
     unit_limit: int = 0,
 ) -> list[dict[str, Any]]:
-    from src.ingestion.chunker import chunk_document
-    from src.ingestion.source_anchor import resolve_git_commit_sha
+    from ingestion.chunker import chunk_document
+    from ingestion.source_anchor import resolve_git_commit_sha
 
     corpus_root = Path(str(manifest.get("corpus_root", ".")))
     commit_sha = resolve_git_commit_sha(cwd=corpus_root)
@@ -176,7 +176,7 @@ def _extract_entities_for_units(
     transition_unit_chunk_size: int,
     transition_chunk_pause_ms: int,
 ) -> list[dict[str, Any]]:
-    from src.ingestion.entity_extractor import run_entity_extraction
+    from ingestion.entity_extractor import run_entity_extraction
 
     if not units:
         return []
@@ -271,8 +271,8 @@ def _prepare_fact_requests_streaming(
     work_dir: Path,
     fact_prep_unit_chunk_size: int,
 ) -> tuple[int, dict[str, Any]]:
-    from src.ingestion.fact_extractor import prepare_fact_batch_requests_chunked
-    from src.ingestion.openai_batch_pipeline import append_jsonl
+    from ingestion.fact_extractor import prepare_fact_batch_requests_chunked
+    from ingestion.openai_batch_pipeline import append_jsonl
 
     jsonl_path = work_dir / "fact_requests.jsonl"
     manifest_path = work_dir / "fact_extraction_manifest.json"
@@ -437,16 +437,16 @@ def _load_manifest(path: Path) -> dict[str, Any]:
 def cmd_submit(args: argparse.Namespace) -> int:
     from openai import OpenAI
 
-    from src.ingestion.chunker import chunk_document
-    from src.ingestion.entity_extractor import (
+    from ingestion.chunker import chunk_document
+    from ingestion.entity_extractor import (
         _load_fast_smart_model_id,
         prepare_entity_batch_requests,
     )
-    from src.ingestion.fact_extractor import (
+    from ingestion.fact_extractor import (
         _load_model_id as _load_fact_model_id,
     )
     from ingestion.frontmatter import load_document_frontmatter
-    from src.ingestion.openai_batch_pipeline import write_jsonl
+    from ingestion.openai_batch_pipeline import write_jsonl
 
     corpus_root = args.corpus_root.resolve()
     if not corpus_root.is_dir():
@@ -482,7 +482,7 @@ def cmd_submit(args: argparse.Namespace) -> int:
 
     print(f"Corpus-wide batch submit: {len(paths)} files from {corpus_root}")
 
-    from src.ingestion.source_anchor import resolve_git_commit_sha
+    from ingestion.source_anchor import resolve_git_commit_sha
 
     commit_sha = resolve_git_commit_sha(cwd=corpus_root)
 
@@ -720,7 +720,7 @@ def _poll_batch(
 ) -> int:
     from openai import OpenAI
 
-    from src.ingestion.openai_batch_pipeline import read_jsonl_bytes
+    from ingestion.openai_batch_pipeline import read_jsonl_bytes
 
     batch_info = manifest.get(batch_key)
     if not batch_info:
@@ -782,7 +782,7 @@ def _poll_batch(
         (work_dir / f"{batch_key}_errors.jsonl").write_bytes(err_raw)
 
     if batch_key == "entity_batch":
-        from src.ingestion.entity_extractor import apply_entity_batch_outputs_to_cache
+        from ingestion.entity_extractor import apply_entity_batch_outputs_to_cache
 
         entity_manifest_data = _read_json(work_dir / "entity_extraction_manifest.json")
         fails, usage = apply_entity_batch_outputs_to_cache(
@@ -796,7 +796,7 @@ def _poll_batch(
         print(f"  Entity cache updated. Usage: {usage}")
 
     elif batch_key == "fact_batch":
-        from src.ingestion.fact_extractor import apply_fact_batch_outputs_to_cache
+        from ingestion.fact_extractor import apply_fact_batch_outputs_to_cache
 
         fact_manifest_data = _read_json(work_dir / "fact_extraction_manifest.json")
         fails, usage = apply_fact_batch_outputs_to_cache(
@@ -969,10 +969,10 @@ def cmd_transition_debug(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_complete(args: argparse.Namespace) -> int:
-    from src.ingestion.chunker import chunk_document
-    from src.ingestion.entity_extractor import run_entity_extraction
-    from src.ingestion.fact_extractor import run_fact_extraction
-    from src.ingestion.source_anchor import resolve_git_commit_sha
+    from ingestion.chunker import chunk_document
+    from ingestion.entity_extractor import run_entity_extraction
+    from ingestion.fact_extractor import run_fact_extraction
+    from ingestion.source_anchor import resolve_git_commit_sha
     from store import FactStore
 
     manifest_path = Path(args.manifest)

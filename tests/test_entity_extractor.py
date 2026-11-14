@@ -9,7 +9,7 @@ import blake3
 import pytest
 
 from contracts.schema_validation import validate_many
-from src.ingestion.entity_extractor import (
+from ingestion.entity_extractor import (
     AsyncOpenAIResponsesEntityClient,
     OpenAIResponsesEntityClient,
     extract_entities_batch,
@@ -464,7 +464,7 @@ def test_async_adapter_constructs_production_ge_inside_active_loop_once(
         return client
 
     monkeypatch.setattr(
-        "src.ingestion.entity_extractor.GenerationClient.from_env",
+        "ingestion.entity_extractor.GenerationClient.from_env",
         classmethod(lambda cls: from_env()),
     )
     adapter = AsyncOpenAIResponsesEntityClient()
@@ -631,7 +631,7 @@ def test_all_cache_hits_do_not_construct_ge_client(
         raise AssertionError("cache-hit extraction must not construct GE")
 
     monkeypatch.setattr(
-        "src.ingestion.entity_extractor.GenerationClient.from_env",
+        "ingestion.entity_extractor.GenerationClient.from_env",
         classmethod(lambda cls: from_env()),
     )
     adapter = AsyncOpenAIResponsesEntityClient()

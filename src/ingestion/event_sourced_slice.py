@@ -7,7 +7,7 @@ from typing import Any
 
 import blake3
 
-from src.ingestion.fact_extractor import derive_truth_state
+from ingestion.fact_extractor import derive_truth_state
 from reducer.canon_projection import project_entity_state
 
 _SCHEMA_VERSION = "0.1.0"
