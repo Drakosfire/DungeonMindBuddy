@@ -36,6 +36,7 @@ from apps.live_control_server.services.world_container_registry import (
 
 EXPLORER_PREFIX = "/api/live/native-graph-explorer"
 WORLD_COLLECTION_PATH = "/api/live/world-containers"
+WORLD_LOOKUP_PATH = f"{WORLD_COLLECTION_PATH}/lookup"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
 _REQUESTS = {
     INSPECTION_READ_PATH: TypeAdapter(InspectionRead),
@@ -163,6 +164,24 @@ def require_explorer_access(
     elif principal.auth_method == "hosted_owner":
         # The global principal type alone carries no scoped ownership proof.
         raise _denied()
+
+
+async def resolve_hosted_world_lookup(request: Request) -> str:
+    subject = _hosted_subject(request)
+    selectors = request.query_params.multi_items()
+    if len(selectors) != 1 or selectors[0][0] != "managed_world_id" or await request.body():
+        raise _denied()
+    world = _owned_world(subject, selectors[0][1])
+    request.state.hosted_world_lookup_id = world.world_id
+    return world.world_id
+
+
+def read_hosted_world_lookup(request: Request, managed_world_id: str) -> WorldContainerPublicRecord:
+    if getattr(request.state, "hosted_world_lookup_id", None) != managed_world_id:
+        raise _denied()
+    return WorldContainerPublicRecord.from_record(
+        _owned_world(_hosted_subject(request), managed_world_id)
+    )
 
 
 async def hosted_owner_collection(request: Request) -> dict:
