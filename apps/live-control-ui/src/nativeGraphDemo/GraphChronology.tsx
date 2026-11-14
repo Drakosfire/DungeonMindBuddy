@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { buildGraphChronology } from "./graphChronologyModel";
 import type { NativeGraph, NativeGraphDemoApi } from "./nativeGraphDemoApi";
 
-export function GraphChronology({ graph, read, relatedTo, onExplore }: {
+export function GraphChronology({ graph, read, relatedTo, onExplore, strip = false }: {
   graph: NativeGraph;
   read: NonNullable<NativeGraphDemoApi["readChronology"]>;
   relatedTo?: string;
+  strip?: boolean;
   onExplore: (nodeId: string) => void;
 }) {
   const [result, setResult] = useState<{
@@ -135,6 +136,35 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
       }
     }
 
+  }
+
+  if (strip) {
+    const sessionNumber = (event: typeof events[number]) => {
+      const placements = [...event.placementSessions.values()];
+      return placements.length === 1 && placements[0].size === 1 ? [...placements[0]][0] : undefined;
+    };
+    const campaignIds = new Set(events.flatMap(event => event.campaignIds));
+    const canCompareSessions = campaignIds.size === 1;
+    const ordered = canCompareSessions
+      ? events.filter(event => sessionNumber(event) !== undefined)
+        .sort((a, b) => sessionNumber(a)! - sessionNumber(b)!)
+      : [];
+    const orderedIds = new Set(ordered.map(event => event.node.id));
+    const unplaced = events.filter(event => !orderedIds.has(event.node.id));
+    return <section className="native-demo-event-strip" aria-label="Connected Events">
+      {result.partial && <small>Partial chronology</small>}
+      {([{ items: ordered, label: "Campaign session order" },
+        { items: unplaced, label: "Unplaced Events" }]).map(({ items, label }) => {
+        return items.length > 0 && <div key={label}>
+          <strong>{label}</strong>
+          <ul>{items.map(event => <li key={event.node.id}>
+            <button type="button" onClick={() => onExplore(event.node.id)}>{event.node.name}</button>
+            {orderedIds.has(event.node.id) && <small>Session {sessionNumber(event)}</small>}
+            {event.sourceSessions.length > 0 && <small>Source {event.sourceSessions.join(", ")}</small>}
+          </li>)}</ul>
+        </div>;
+      })}
+    </section>;
   }
 
   const sessions = new Map<number, string>();
