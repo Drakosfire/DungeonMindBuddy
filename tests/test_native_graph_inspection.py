@@ -634,3 +634,41 @@ def test_catalog_fetches_the_pinned_revision_once(inspection, monkeypatch):
     scope = result["scope"]
     assert reads == [(scope["native_world_id"], scope["revision_id"])]
     assert result["assertions"]
+
+
+def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch):
+    from apps.live_control_server.routes.world_graph_projection import router as projection_router
+    from apps.live_control_server.services import managed_world_graph_projection as managed
+
+    lane = inspection.lane
+    space = lane.bound["native_world_id"]
+    binding = managed.VerifiedManagedWorldBinding("managed", space, 1, "")
+    monkeypatch.setattr(managed, "resolve_managed_world_binding", lambda *a, **kw: binding)
+    monkeypatch.setenv("DMB_VNEXT_MANAGED_PROJECTION_WORLD", "managed")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Native managed route used the classic graph")
+
+    monkeypatch.setattr(managed, "project_world_graph", forbidden)
+    inspection.app.include_router(projection_router)
+    revision = lane.repo.get_head(space).head_revision_id
+    response = inspection.client.post(
+        "/api/live/world-graph/managed-projection",
+        json={
+            "schema": "dmb_managed_world_graph_projection_request_v1",
+            "managedWorldId": "managed",
+            "revisionPin": revision,
+            "queryText": "Object 0",
+        },
+    )
+    assert response.status_code == 200, response.text
+    projection = response.json()["projection"]
+    assert projection["snapshot"]["revisionId"] == revision
+    nodes = {node["nodeId"]: node for node in projection["nodes"]}
+    source = nodes[inspection.objects["object:0"]]
+    target = nodes[inspection.objects["endpoint"]]
+    assert source["adjacency"][0]["direction"] == "outgoing"
+    assert target["adjacency"][0]["direction"] == "incoming"
+    assert target["evidenceRefIds"] == []
+    assert source["nodeId"] in projection["queryContext"]["matchedNodeIds"]
+    assert lane.repo.get_head(space).head_revision_id == revision

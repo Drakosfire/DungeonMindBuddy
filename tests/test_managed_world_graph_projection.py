@@ -220,3 +220,37 @@ def test_client_cannot_select_native_identity_or_authority_fields() -> None:
         _request(admissibility="gm")
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+@pytest.mark.parametrize("revision_pin", [None, "historical"])
+def test_native_projection_support_uses_exact_revision(monkeypatch, revision_pin):
+    from types import SimpleNamespace
+
+    from dungeonmind.application.vnext import EntityReadService
+
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source
+
+    binding = SimpleNamespace(native_world_id="elderwyld")
+    repository = SimpleNamespace(
+        get_head=lambda space: SimpleNamespace(head_revision_id="current")
+    )
+    context = object()
+    support = object()
+
+    def read_context(repo, space, revision, campaign, *, scope_mode):
+        assert repo is repository
+        assert (space, revision, campaign, scope_mode) == (
+            "elderwyld", revision_pin or "current", None, "world"
+        )
+        return context, None, None, None
+
+    def list_support(self, read_context):
+        assert read_context is context
+        return support
+
+    monkeypatch.setattr(native_registry_source, "read_repository", lambda: repository)
+    monkeypatch.setattr(native_registry_source, "read_context", read_context)
+    monkeypatch.setattr(EntityReadService, "list_entities_with_support", list_support)
+    assert managed_projection._read_native_projection_support(binding, revision_pin) == (
+        "current", context, support
+    )
