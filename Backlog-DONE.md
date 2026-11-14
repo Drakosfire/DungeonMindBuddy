@@ -9,6 +9,7 @@ Sort newest → oldest within each status.
 
 ## Cleanup findings recorded in Git history
 
+- Retry Build World creation only when the outcome is ambiguous. **Fixed.** The Build controller sends one create POST for definitive HTTP 400, 401, 403 and 422 responses, down from two. The controller suite passed all 53 tests, including the four definitive statuses and recovery by repeating the POST after an ambiguous network failure.
 - Document the shared local APP-STATE Compose instance. **Fixed.** The local Play and recovery runbooks distinguish the fixed durable instance on port 54331 from disposable targets. The container name, bound port, and volume name were verified against the Compose YAML. The Compose plugin was unavailable for a rendered comparison.
 - Split shared evidence styles from execution trace styles. **Fixed.** [#3374](https://github.com/Drakosfire/DungeonMindBuddy/pull/3374) keeps trace-only selectors with the deferred panel. The Vite production manifest showed conversation static CSS fall from 36,153 to 35,963 gzip bytes, with initial Plan route CSS unchanged. All 57 focused tests passed. The broader suite had 499 passes and one Conversation Workbook failure that also reproduced on baseline.
 
