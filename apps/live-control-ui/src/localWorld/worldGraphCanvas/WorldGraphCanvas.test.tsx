@@ -1605,7 +1605,10 @@ it("hosts persistent graph controls in the surface rail, not the canvas", async 
   expect(within(canvas).queryByRole("button", { name: "Fit graph" })).not.toBeInTheDocument();
   expect(within(host).getByRole("button", { name: "Fit graph" })).toBeInTheDocument();
   const initial = screen.getByTestId("graph-scene").getAttribute("transform");
-  await userEvent.click(within(host).getByRole("button", { name: "Zoom in" }));
+  for (const name of ["Zoom in", "Zoom out", "100%"]) {
+    expect(within(host).queryByRole("button", { name })).not.toBeInTheDocument();
+  }
+  fireEvent.keyDown(within(canvas).getByRole("group", { name: /world graph/i }), { key: "+" });
   expect(screen.getByTestId("graph-scene").getAttribute("transform")).not.toBe(initial);
   await userEvent.click(within(host).getByRole("button", { name: "Fit graph" }));
   expect(screen.getByTestId("graph-scene").getAttribute("transform")).toBe(initial);

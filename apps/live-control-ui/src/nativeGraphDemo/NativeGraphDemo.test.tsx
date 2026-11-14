@@ -563,7 +563,8 @@ describe("NativeGraphDemo", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Exit focus" })).not.toBeInTheDocument());
     expect(scene.getAttribute("transform")).toBe(overviewBeforeFocus);
 
-    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(screen.queryByRole("button", { name: "Zoom in" })).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("group", { name: /world graph/i }), { key: "+" });
     const cameraBeforeSecondFocus = scene.getAttribute("transform");
     await user.click(screen.getByRole("button", { name: /Mara, npc/i }));
     expect(screen.getByRole("heading", { name: "Connections in this loaded snapshot" })).toBeInTheDocument();

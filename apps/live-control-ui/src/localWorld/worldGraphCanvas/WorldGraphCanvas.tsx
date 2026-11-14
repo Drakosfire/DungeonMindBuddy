@@ -1398,11 +1398,13 @@ export function WorldGraphCanvas({
         </div> : null}</>);
   const cameraTools = (
       <div className="world-graph-canvas__view-tools" aria-label="Graph view controls">
-        <button type="button" aria-label="Zoom out" title="Zoom out (− while the canvas is focused)" disabled={camera.zoom <= (fullCorpus ? Math.min(MIN_ZOOM, fittedCamera().zoom) : MIN_ZOOM)} onClick={() => zoomBy(1 / 1.25)}>−</button>
-        <span aria-label="Graph zoom">{Math.round(camera.zoom * 100)}%</span>
-        <button type="button" aria-label="Zoom in" title="Zoom in (+ or = while the canvas is focused)" disabled={camera.zoom >= MAX_ZOOM} onClick={() => zoomBy(1.25)}>+</button>
+        {!externalControls && <>
+          <button type="button" aria-label="Zoom out" title="Zoom out (− while the canvas is focused)" disabled={camera.zoom <= (fullCorpus ? Math.min(MIN_ZOOM, fittedCamera().zoom) : MIN_ZOOM)} onClick={() => zoomBy(1 / 1.25)}>−</button>
+          <span aria-label="Graph zoom">{Math.round(camera.zoom * 100)}%</span>
+          <button type="button" aria-label="Zoom in" title="Zoom in (+ or = while the canvas is focused)" disabled={camera.zoom >= MAX_ZOOM} onClick={() => zoomBy(1.25)}>+</button>
+        </>}
         <button type="button" onClick={fitGraph}>Fit graph</button>
-        <button type="button" onClick={() => zoomBy(1 / camera.zoom)}>100%</button>
+        {!externalControls && <button type="button" onClick={() => zoomBy(1 / camera.zoom)}>100%</button>}
         {!externalControls ? dragModeTools : null}
       </div>
   );
