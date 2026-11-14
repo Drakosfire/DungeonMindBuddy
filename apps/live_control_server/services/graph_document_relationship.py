@@ -67,14 +67,13 @@ def resolve_reviewed_passage(root: Path, request: DocumentRelationshipRequest):
     }
 
 
-def relationship_request(root: Path, request: DocumentRelationshipRequest, principal: NativeGraphPrincipal) -> GraphObjectAuthoringPrepareRequest:
+def _validate_relationship_review(root: Path, request: DocumentRelationshipRequest, principal: NativeGraphPrincipal):
     """Resolve one exact occurrence and deliberate identities, without publishing."""
     root = artifact_data_root(root)
 
     def refuse(message):
         raise GraphObjectAuthoringError(message, code="relationship_review_invalid", status_code=409)
 
-    selector = request.document_source
     snapshot, start, _span = resolve_reviewed_passage(root, request)
     body = snapshot.markdown
     if any(not value.strip() or value != value.strip() for value in (request.predicate, request.label, request.context)):
@@ -95,6 +94,18 @@ def relationship_request(root: Path, request: DocumentRelationshipRequest, princ
                 refuse("A selected identity changed or is outside this World. Review its identity again.")
         elif any(endpoint.label.casefold() in {n["label"].casefold(), *(a.casefold() for a in n["aliases"])} for n in nodes):
             refuse("That name or alias already exists. Choose the existing World identity.")
+    return body, start
+
+
+def relationship_request(root: Path, request: DocumentRelationshipRequest, principal: NativeGraphPrincipal) -> GraphObjectAuthoringPrepareRequest:
+    """Build the classic request for a retained classic review."""
+    root = artifact_data_root(root)
+    body, start = _validate_relationship_review(root, request, principal)
+    selector = request.document_source
+
+    def refuse(message):
+        raise GraphObjectAuthoringError(message, code="relationship_review_invalid", status_code=409)
+
     source = resolve_graph_document_source(root, selector, world_id=request.world_id, campaign_id=request.world_id)
     index = source.source_span_index
     first = body.count("\n", 0, start) + 1
@@ -368,7 +379,20 @@ def prepare_reviewed_native_relationship(
 
     require_native_graph_gm(principal)
     root = artifact_data_root(root)
-    relationship_request(root, request, principal)
+    body, start = _validate_relationship_review(root, request, principal)
+    from .graph_document_source import build_source_span_index_for_text, source_span_index_to_dict
+
+    digest = request.document_source.content_sha256
+    index = source_span_index_to_dict(build_source_span_index_for_text(
+        source_artifact_id=f"sha256:{digest}", content_sha256=digest, text=body,
+    ))
+    first = body.count("\n", 0, start) + 1
+    last = body.count("\n", 0, start + len(request.quote) - 1) + 1
+    if sum(span["start_line"] <= first and span["end_line"] >= last for span in index["spans"]) != 1:
+        raise GraphObjectAuthoringError(
+            "Select a passage within one saved source block.",
+            code="relationship_review_invalid", status_code=409,
+        )
     bound = native.binding(request.world_id)
     space = bound["native_world_id"]
     repo = native.repository()

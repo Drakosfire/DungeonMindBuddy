@@ -270,6 +270,10 @@ def test_signed_native_review_publishes_once(case, graph, monkeypatch):
         ),
     )
     monkeypatch.setattr(native, 'repository', lambda: repo)
+    def refuse_classic_capture(*args, **kwargs):
+        pytest.fail('Native preparation attempted classic source capture')
+
+    monkeypatch.setattr(reader, 'resolve_graph_document_source', refuse_classic_capture)
     monkeypatch.setattr(native, 'binding', lambda _: {'native_world_id': space})
     monkeypatch.setattr(source, 'get_native_world_source_status', lambda *a, **kw: SimpleNamespace(
         state='admitted', document_id=case.record.document_id, world_id=request.world_id,
