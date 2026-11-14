@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from src.graph_memory.ontology_ir import GraphBundle
+from graph_memory.ontology_ir import GraphBundle
 from src.graph_memory.session_memory_materialize import (
     CREATED_BY,
     SCHEMA_VERSION,
