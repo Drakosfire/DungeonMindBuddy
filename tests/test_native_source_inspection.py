@@ -453,15 +453,26 @@ def test_blank_native_source_remains_readable_without_section_selectors(inspecti
     assert response.json()["section_catalog"] is None
 
 
-@pytest.mark.parametrize("copies,expected", [(0, 409), (1, 200), (2, 409)])
-def test_published_recap_requires_one_verified_match(inspection, monkeypatch, copies, expected):
+@pytest.mark.parametrize(
+    "copies,rebind,expected", [(0, False, 409), (1, False, 200), (2, False, 409), (1, True, 409)],
+)
+def test_published_recap_requires_one_verified_match(
+    inspection, monkeypatch, copies, rebind, expected,
+):
     receipt = admit(inspection.lane)
-    monkeypatch.setattr(service.native, "binding", lambda _: {
-        "native_world_id": "world:test", "binding_version": inspection.lane.bound.binding_version,
-    })
+    binding = {
+        "native_world_id": "world:test",
+        "binding_version": inspection.lane.bound.binding_version,
+    }
+    bindings = iter([binding, {**binding, "binding_version": binding["binding_version"] + int(rebind)}])
+    monkeypatch.setattr(service.native, "binding", lambda _: next(bindings))
     catalog = service.list_admitted_native_text_sources
-    monkeypatch.setattr(service, "list_admitted_native_text_sources", lambda access:
-                        replace(result := catalog(access), sources=result.sources * copies))
+
+    def catalog_with_matches(access):
+        result = catalog(access)
+        return replace(result, sources=result.sources * copies)
+
+    monkeypatch.setattr(service, "list_admitted_native_text_sources", catalog_with_matches)
     monkeypatch.setattr(service, "source_display_metadata", lambda items, _: [{
         "kind": "recap", "status": "available", "origin_matches_current_metadata": True,
         "campaign_id": "campaign-a", "session_id": "session-1",
@@ -475,3 +486,5 @@ def test_published_recap_requires_one_verified_match(inspection, monkeypatch, co
         assert packet["source"]["body_sha256"] == sha256(BODY.encode()).hexdigest()
     else:
         assert "body_text" not in response.text
+    if rebind:
+        assert response.json()["detail"]["code"] == "native_published_recap_binding_changed"
