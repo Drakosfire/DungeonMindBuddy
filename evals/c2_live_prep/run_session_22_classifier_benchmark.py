@@ -17,7 +17,7 @@ _LAST = _REPO / "evals/c2_live_prep/last_session_22_classifier_benchmark.json"
 def main() -> int:
     sys.path.insert(0, str(_REPO))
     from bootstrap_env import load_dungeonmindbuddy_dotenv
-    from src.live_play.classify_live_turn import classify_live_turn
+    from live_play.classify_live_turn import classify_live_turn
 
     load_dungeonmindbuddy_dotenv()
 

@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from bootstrap_env import load_openai_api_key as _load_api_key
-from src.live_play.live_turn_classification_schema import LiveTurnClassificationModel
-from src.live_play.live_turn_classifier_client import (
+from live_play.live_turn_classification_schema import LiveTurnClassificationModel
+from live_play.live_turn_classifier_client import (
     OpenAILiveTurnClassifierClient,
     SequenceLiveTurnClassifierClient,
 )
@@ -225,7 +225,7 @@ def classify_live_turn_heuristic(text: str) -> TurnClassification:
 
 
 def _classification_model_from_turn(c: TurnClassification) -> LiveTurnClassificationModel:
-    from src.live_play.live_turn_classification_schema import LiveTurnSkillCheck
+    from live_play.live_turn_classification_schema import LiveTurnSkillCheck
 
     skill = None
     if c.skill_check:

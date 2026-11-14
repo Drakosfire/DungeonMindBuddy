@@ -12,11 +12,11 @@ from generationengine import (
     TextResult,
 )
 
-from src.live_play.live_turn_classification_schema import (
+from live_play.live_turn_classification_schema import (
     LiveTurnClassificationModel,
     live_turn_classification_json_schema,
 )
-from src.live_play.prompts.live_turn_classifier import LIVE_TURN_CLASSIFIER_INSTRUCTIONS
+from live_play.prompts.live_turn_classifier import LIVE_TURN_CLASSIFIER_INSTRUCTIONS
 from llm.generation_sync import run_awaitable_sync
 
 _SCHEMA_NAME = "live_turn_classification"

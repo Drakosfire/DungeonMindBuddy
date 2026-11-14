@@ -32,9 +32,9 @@ from apps.live_control_server.session_store import (
     load_session_packet,
     refresh_current_state,
 )
-from src.live_play.classify_live_turn import classify_live_turn
+from live_play.classify_live_turn import classify_live_turn
 from src.live_play.live_query_context import run_context_lookup_turn
-from src.live_play.live_turn import LiveTurnResult, handle_live_turn
+from live_play.live_turn import LiveTurnResult, handle_live_turn
 
 LIVE_QUERY_BACKENDS = frozenset({"live", "hermes"})
 

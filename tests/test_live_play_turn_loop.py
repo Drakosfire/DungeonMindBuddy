@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from jsonschema import Draft202012Validator
 
-from src.live_play.live_turn import handle_live_turn
+from live_play.live_turn import handle_live_turn
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_DIR = ROOT / "schemas/live"
