@@ -11,7 +11,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src.corpus.session_recap_paths import PILOT_BLESSED_SESSIONS  # noqa: E402
+from corpus.session_recap_paths import PILOT_BLESSED_SESSIONS  # noqa: E402
 from src.live_play.session_memory_materializer import _check_one, _materialize_one  # noqa: E402
 from src.session_memory.breadcrumb_normalize import BreadcrumbNormalizeError  # noqa: E402
 

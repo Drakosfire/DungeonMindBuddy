@@ -13,7 +13,7 @@ from src.live_play.recap_derivative_provenance import (
     archive_existing,
     atomic_write_bytes,
 )
-from src.corpus.session_recap_paths import (
+from corpus.session_recap_paths import (
     breadcrumbed_relpath,
     resolve_under_corpus,
     session_memory_jsonl_relpath,

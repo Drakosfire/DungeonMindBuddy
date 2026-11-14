@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from src.corpus.session_recap_paths import (
+from corpus.session_recap_paths import (
     PILOT_BLESSED_SESSIONS,
     campaign_id_from_number,
     session_recaps_prefix,

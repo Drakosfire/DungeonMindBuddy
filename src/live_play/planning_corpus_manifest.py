@@ -35,7 +35,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-from src.corpus.session_recap_paths import (
+from corpus.session_recap_paths import (
     breadcrumbed_relpath,
     campaign_number_from_id,
     normalized_basename_from_disk,
