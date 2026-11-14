@@ -196,10 +196,10 @@ def _read_native_projection_support(
             status_code=404,
         )
     revision_id = head.head_revision_id if revision_pin is None else revision_pin
-    context, _, _, _ = native_registry_source.read_context(
+    context, access, _, _ = native_registry_source.read_context(
         repository, binding.native_world_id, revision_id, None, scope_mode="world"
     )
-    return head.head_revision_id, context, EntityReadService().list_entities_with_support(context)
+    return head.head_revision_id, context, access, EntityReadService().list_entities_with_support(context)
 
 
 def project_managed_world_graph(
@@ -236,7 +236,7 @@ def project_managed_world_graph(
         )
         from graph_memory.projection.world_projection import WorldGraphProjectionSnapshot
 
-        head, context, support = _read_native_projection_support(initial, request.revision_pin)
+        head, context, access, support = _read_native_projection_support(initial, request.revision_pin)
         revision = support.listing.identity.revision_id
         projection = project_native_world(
             context,
@@ -251,6 +251,8 @@ def project_managed_world_graph(
                 admissibility="gm",
                 scope_mode="world",
             ),
+            access=access,
+            managed_world_id=initial.managed_world_id,
         )
         if request.query_text:
             projection.query_context = project_query_context(projection, request.query_text)

@@ -2,6 +2,10 @@
 
 from collections import defaultdict
 
+from dungeonmind.application.vnext.native_source_access import (
+    NativeTextSourceAccessContext,
+    list_admitted_native_text_sources,
+)
 from dungeonmind.application.vnext.entity_reads import EntityListWithSupportResult
 from dungeonmind.application.vnext.read_context import KnowledgeReadContext
 
@@ -13,6 +17,7 @@ from apps.live_control_server.integrations.dungeonmind.vnext_complete_object imp
     world_object_display_values,
 )
 from apps.live_control_server.integrations.dungeonmind.world_graph_reads import _expansion_views
+from apps.live_control_server.services.native_source_display import source_display_metadata
 from graph_memory.projection.world_projection import (
     WorldGraphProjection,
     WorldGraphProjectionAdjacencyCandidate,
@@ -31,7 +36,8 @@ from graph_memory.projection.world_projection import (
 
 
 def project_source_views(
-    context: KnowledgeReadContext, support: EntityListWithSupportResult
+    context: KnowledgeReadContext, support: EntityListWithSupportResult,
+    *, access: NativeTextSourceAccessContext, managed_world_id: str,
 ) -> tuple[
     list[WorldGraphProjectionEvidenceView],
     list[WorldGraphProjectionSourceArtifactView],
@@ -44,30 +50,50 @@ def project_source_views(
     presentation = context.source_reader.get_provenance_snapshot(
         artifact_ids=artifact_ids, revision_ids=()
     )
+    selected = list_admitted_native_text_sources(
+        access, evidence_ref_ids=[row.evidence_ref_id for row in support.evidence]
+    ).sources
+    by_evidence = {}
+    by_artifact = defaultdict(list)
+    for source, display in zip(
+        selected, source_display_metadata(selected, managed_world_id), strict=True
+    ):
+        if display["origin_matches_current_metadata"] is True:
+            scope = (display["campaign_id"], display["session_id"])
+            by_artifact[source.source_artifact.source_artifact_id].append(scope)
+            for evidence_id in source.evidence_ref_ids:
+                by_evidence[evidence_id] = scope
+
     artifacts = {}
+    intrinsic_scopes = {}
     for artifact_id in artifact_ids:
         artifact = presentation.get_artifact(artifact_id)
         if artifact is None:
             raise VNextCompleteObjectProjectionError("admitted source disappeared")
         metadata = _source_presentation(artifact)
+        intrinsic_scopes[artifact_id] = (metadata.campaign_id, metadata.session_id)
+        scopes = set(by_artifact[artifact_id])
+        campaign_id, session_id = next(iter(scopes)) if len(scopes) == 1 else (None, None)
         artifacts[artifact_id] = WorldGraphProjectionSourceArtifactView(
             source_artifact_id=artifact_id,
             source_domain=metadata.source_domain,
             uri=artifact.uri or "",
-            campaign_id=metadata.campaign_id or "",
-            session_id=metadata.session_id,
+            campaign_id=metadata.campaign_id or campaign_id or "",
+            session_id=metadata.session_id or session_id,
         )
 
     evidence = []
     for item in support.evidence:
         artifact_view = artifacts[item.source_artifact_id]
+        campaign_id, session_id = by_evidence.get(item.evidence_ref_id, (None, None))
+        intrinsic_campaign, intrinsic_session = intrinsic_scopes[item.source_artifact_id]
         evidence.append(
             WorldGraphProjectionEvidenceView(
                 evidence_ref_id=item.evidence_ref_id,
                 source_artifact_id=item.source_artifact_id,
                 source_domain=artifact_view.source_domain,
-                session_id=artifact_view.session_id,
-                campaign_id=artifact_view.campaign_id or None,
+                session_id=intrinsic_session or session_id,
+                campaign_id=intrinsic_campaign or campaign_id,
                 locator=item.locator,
                 source_span_ref_id=item.source_span_ref_id,
             )
@@ -75,10 +101,11 @@ def project_source_views(
     return evidence, list(artifacts.values())
 
 
-def project_assertion_views(context, support, artifacts):
+def project_assertion_views(context, support, artifacts, evidence):
     """Map the admitted assertions into overview attributes and directed edges."""
     evidence_by_id = {item.evidence_ref_id: item for item in support.evidence}
     source_by_id = {item.source_artifact_id: item for item in artifacts}
+    session_by_evidence = {row.evidence_ref_id: row.session_id for row in evidence}
     attributes = []
     relationships = []
     for assertion_id in support.listing.admitted_assertion_ids:
@@ -94,7 +121,15 @@ def project_assertion_views(context, support, artifacts):
             )
             relationships.append(
                 WorldGraphProjectionRelationshipView(
-                    **edge.model_dump(include=set(WorldGraphProjectionRelationshipView.model_fields)),
+                    **edge.model_dump(
+                        include=set(WorldGraphProjectionRelationshipView.model_fields),
+                        exclude={"session_ids"},
+                    ),
+                    session_ids=sorted({
+                        session_by_evidence[key]
+                        for key in edge.evidence_ref_ids
+                        if session_by_evidence[key] is not None
+                    }),
                     source_domains=sorted({
                         source_by_id[source_id].source_domain
                         for source_id in edge.source_artifact_ids
@@ -111,7 +146,7 @@ def project_assertion_views(context, support, artifacts):
     return attributes, relationships
 
 
-def project_node_views(context, support, attributes, artifacts):
+def project_node_views(context, support, attributes, artifacts, evidence):
     """Present each admitted entity with its own evidence and authorized aliases."""
     assertions_by_entity = defaultdict(list)
     for attribute in attributes:
@@ -124,6 +159,7 @@ def project_node_views(context, support, attributes, artifacts):
     for alias in support.aliases:
         aliases_by_entity[alias.entity_id].add(alias.alias_text)
     sources = {item.source_artifact_id: item for item in artifacts}
+    evidence_views = {item.evidence_ref_id: item for item in evidence}
     badges = {
         item.evidence_ref_id: WorldGraphProjectionEvidenceBadge(
             evidence_ref_id=item.evidence_ref_id,
@@ -132,7 +168,7 @@ def project_node_views(context, support, attributes, artifacts):
             evidence_role=item.evidence_role,
             can_open_source=item.can_open_source,
             can_highlight_span=item.can_highlight_span,
-            session_id=sources[item.source_artifact_id].session_id,
+            session_id=evidence_views[item.evidence_ref_id].session_id,
             source_span_ref_id=item.source_span_ref_id,
         )
         for item in support.evidence
@@ -199,14 +235,17 @@ def project_native_world(
     context: KnowledgeReadContext,
     support: EntityListWithSupportResult,
     snapshot: WorldGraphProjectionSnapshot,
+    *, access: NativeTextSourceAccessContext, managed_world_id: str,
 ) -> WorldGraphProjection:
     """Assemble the overview from one pinned, admitted graph read."""
     if support.listing.completeness.status != "complete":
         raise VNextCompleteObjectProjectionError("native projection is incomplete")
 
-    evidence, artifacts = project_source_views(context, support)
-    attributes, relationships = project_assertion_views(context, support, artifacts)
-    nodes = project_node_views(context, support, attributes, artifacts)
+    evidence, artifacts = project_source_views(
+        context, support, access=access, managed_world_id=managed_world_id
+    )
+    attributes, relationships = project_assertion_views(context, support, artifacts, evidence)
+    nodes = project_node_views(context, support, attributes, artifacts, evidence)
     # Keep display assertions in node evidence, but present them only as node fields.
     attributes = [
         row for row in attributes

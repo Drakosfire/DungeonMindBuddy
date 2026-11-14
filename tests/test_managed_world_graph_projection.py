@@ -252,5 +252,5 @@ def test_native_projection_support_uses_exact_revision(monkeypatch, revision_pin
     monkeypatch.setattr(native_registry_source, "read_context", read_context)
     monkeypatch.setattr(EntityReadService, "list_entities_with_support", list_support)
     assert managed_projection._read_native_projection_support(binding, revision_pin) == (
-        "current", context, support
+        "current", context, None, support
     )
