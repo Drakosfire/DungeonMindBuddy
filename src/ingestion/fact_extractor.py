@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from contracts.schema_validation import validate_many
 from src.ingestion.entity_extractor import UsageStats
-from src.llm.generation_sync import run_awaitable_sync
+from llm.generation_sync import run_awaitable_sync
 
 _PROMPT_ID = "phase_c_pass2_fact_extraction_v3_prompt_cache"
 

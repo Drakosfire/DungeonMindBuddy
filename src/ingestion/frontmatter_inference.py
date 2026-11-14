@@ -8,7 +8,7 @@ from generationengine import GenerationClient, TextRequest
 from pydantic import BaseModel
 
 from src.ingestion.frontmatter import DocumentMetadata
-from src.llm.generation_sync import run_awaitable_sync
+from llm.generation_sync import run_awaitable_sync
 
 _SCHEMA_NAME = "frontmatter_metadata_proposal"
 
