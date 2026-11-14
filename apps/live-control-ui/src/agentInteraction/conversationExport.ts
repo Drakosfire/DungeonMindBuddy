@@ -14,7 +14,7 @@ export async function collectConversationExport(world:string,id:string,format:Co
  signal?.throwIfAborted();checkOwner();const startedAt=new Date().toISOString();const meta=await readConversationName(world,id,signal);signal?.throwIfAborted();checkOwner();
  const turns=await readAllTurns(world,id,meta.turn_count,checkOwner,signal);
  const diagnostics=[];
- if(format==='diagnostic')for(const turn of turns){
+ const collectDiagnostic = async (turn: LibraryTurn) => {
   signal?.throwIfAborted();checkOwner();
   try{
    const trace=await getWorldAgentTurnContextTrace(world,turn.turn_id,signal);signal?.throwIfAborted();checkOwner();
@@ -34,8 +34,14 @@ export async function collectConversationExport(world:string,id:string,format:Co
      prompts.push({trace_id:attempt.trace_id,provider_attempt_id:reference.provider_attempt_id,evidence});
     }catch(error){signal?.throwIfAborted();checkOwner();prompts.push({trace_id:attempt.trace_id,provider_attempt_id:reference.provider_attempt_id,unavailable:errorText(error)});}
    }
-   diagnostics.push({turn_id:turn.turn_id,trace,prompts,prompt_capture:prompts.length?'See each captured payload or unavailable reason.':'No retained prompt references; exact prompts unavailable.',...(!trace.attempts.length?{unavailable:'No retained trace attempts.'}:{})});
-  }catch(error){signal?.throwIfAborted();checkOwner();diagnostics.push({turn_id:turn.turn_id,unavailable:errorText(error)});}
+   return {turn_id:turn.turn_id,trace,prompts,prompt_capture:prompts.length?'See each captured payload or unavailable reason.':'No retained prompt references; exact prompts unavailable.',...(!trace.attempts.length?{unavailable:'No retained trace attempts.'}:{})};
+  }catch(error){signal?.throwIfAborted();checkOwner();return {turn_id:turn.turn_id,unavailable:errorText(error)};}
+ };
+ if (format === 'diagnostic') {
+  const concurrency = 2;
+  for (let start = 0; start < turns.length; start += concurrency) {
+   diagnostics.push(...await Promise.all(turns.slice(start, start + concurrency).map(collectDiagnostic)));
+  }
  }
  await readAllTurns(world,id,meta.turn_count,checkOwner,signal,turns);
  const after=await readConversationName(world,id,signal);signal?.throwIfAborted();checkOwner();

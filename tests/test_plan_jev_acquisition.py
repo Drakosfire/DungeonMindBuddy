@@ -146,6 +146,20 @@ def test_subject_search_exact_real_broker_gate_and_single_use(plan_adapter,monke
                 'supportingAssertionIds':['search-only-assertion'],'supportingGraphObjectIds':['pond','bridge']}]}))
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',lambda _:object())
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.search_world_graph_direct_v3',search)
+    monkeypatch.setenv("DMB_NATIVE_PLAN_SUBJECT_SEARCH_WORLD", a.bootstrap.world_scope.world_id)
+    monkeypatch.setattr(
+        'apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
+        lambda _: pytest.fail("classic service resolved during native subject search"),
+    )
+
+    def native_search(request, principal):
+        assert request.revision_pin == a.bootstrap.world_scope.revision_id
+        return search(None, request).result
+
+    monkeypatch.setattr(
+        'apps.live_control_server.services.native_graph_inspection.plan_subject_search',
+        native_search,
+    )
     arguments={'retrievalSessionId':a.bootstrap.retrieval_session.id,'operation':'search','queryText':'Park pond'}
     if case=='query': arguments['queryText']='Other private story'
     if case=='target': arguments['targets']=[{'kind':'node','id':'pond'}]
