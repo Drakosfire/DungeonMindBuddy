@@ -51,8 +51,11 @@ export function readDraftRecovery(storage: Pick<Storage, "getItem">, id: string)
   return value;
 }
 export function writeVerifiedLocalState(storage: Pick<Storage, "getItem" | "setItem">, state: WorkspaceDocumentLocalState): void {
-  const raw = JSON.stringify(state);
-  const key = workspaceDocumentStorageKey(state.document_id);
+  writeVerifiedDraftBytes(storage, state.document_id, JSON.stringify(state));
+}
+
+export function writeVerifiedDraftBytes(storage: Pick<Storage, "getItem" | "setItem">, documentId: string, raw: string): void {
+  const key = workspaceDocumentStorageKey(documentId);
   storage.setItem(key, raw);
   if (storage.getItem(key) !== raw) throw new Error("Browser storage did not verify the draft. The recovery copy is still available.");
 }

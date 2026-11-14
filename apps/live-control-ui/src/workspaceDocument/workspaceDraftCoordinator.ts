@@ -1,5 +1,5 @@
 import {workspaceDocumentStorageKey, type WorkspaceDocumentLocalState} from '../tiptap/state/tiptapLocalState';
-import {appendDraftRecoveryCopies, writeVerifiedLocalState} from './workspaceDocumentRecovery';
+import {appendDraftRecoveryCopies, writeVerifiedDraftBytes} from './workspaceDocumentRecovery';
 
 type DraftStorage = Pick<Storage, 'getItem'|'setItem'|'removeItem'>;
 export interface DraftPersistenceStatus {pending: boolean; error: string|null}
@@ -19,7 +19,7 @@ export class WorkspaceDraftCoordinator {
   private notify() {this.changed(this.status);}
   settled(): Promise<void> {return this.tail.then(()=>{},()=>{});}
   drain(): Promise<void> {return this.tail.then(()=>{if(this.error)throw new Error(this.error);});}
-  run<T>(operation: ()=>T, options: {expectedRaw?: string|null; guard?: ()=>boolean; refusedSnapshot?: WorkspaceDocumentLocalState; preserveAdmission?: boolean} = {}): Promise<T|undefined> {
+  run<T>(operation: ()=>T, options: {expectedRaw?: string|null; guard?: ()=>boolean; refusedSnapshot?: WorkspaceDocumentLocalState | (() => WorkspaceDocumentLocalState); preserveAdmission?: boolean} = {}): Promise<T|undefined> {
     this.pending++;this.notify();
     const task = this.tail.catch(()=>{}).then(async()=>{
       if (!navigator.locks) throw new Error('This browser cannot coordinate safe draft writes. Your working copy is still here.');
@@ -27,7 +27,8 @@ export class WorkspaceDraftCoordinator {
         if(options.guard && !options.guard())return undefined;
         const expected = Object.hasOwn(options,'expectedRaw') ? options.expectedRaw! : this.expected;
         if(this.storage.getItem(workspaceDocumentStorageKey(this.documentId)) !== expected) {
-          if(options.refusedSnapshot)appendDraftRecoveryCopies(this.storage,this.documentId,[{label:'Unwritten working draft',state:options.refusedSnapshot}]);
+          const snapshot = typeof options.refusedSnapshot === 'function' ? options.refusedSnapshot() : options.refusedSnapshot;
+          if(snapshot)appendDraftRecoveryCopies(this.storage,this.documentId,[{label:'Unwritten working draft',state:snapshot}]);
           throw new Error('The browser draft changed in another tab. Reopen or review retained copies before replacing it.');
         }
         const result = operation();
@@ -43,9 +44,11 @@ export class WorkspaceDraftCoordinator {
   }
   write(state: WorkspaceDocumentLocalState, guard?: ()=>boolean, expectedRaw?: string|null): Promise<void> {
     // Snapshot before queuing; unmount never turns this into a read of another page.
-    const captured = JSON.parse(JSON.stringify(state)) as WorkspaceDocumentLocalState;
+    const documentId = state.document_id;
+    const raw = JSON.stringify(state);
+    const captured = () => JSON.parse(raw) as WorkspaceDocumentLocalState;
     const options = arguments.length > 2 ? {guard,expectedRaw,refusedSnapshot:captured} : {guard,refusedSnapshot:captured};
-    return this.run(()=>writeVerifiedLocalState(this.storage,captured),options).then(()=>{});
+    return this.run(()=>writeVerifiedDraftBytes(this.storage,documentId,raw),options).then(()=>{});
   }
 
   clear(guard?: ()=>boolean): Promise<void> {
