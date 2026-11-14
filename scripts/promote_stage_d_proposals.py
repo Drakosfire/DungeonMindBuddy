@@ -50,7 +50,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from pydantic import BaseModel, Field  # noqa: E402
 
-from src.contracts.npc_registry import NpcRegistryRecord, load_npc_registry  # noqa: E402
+from contracts.npc_registry import NpcRegistryRecord, load_npc_registry  # noqa: E402
 
 PROMOTION_SCHEMA_VERSION = "stage_d_promotion_v2"
 _DEFAULT_OUT_DIR = (
@@ -108,7 +108,7 @@ def _resolve_promotion_model(model: str | None) -> str:
 class PromotePayload(BaseModel):
     """Final NpcRegistryRecord-shaped payload for an accepted new candidate.
 
-    Mirrors :class:`src.contracts.npc_registry.NpcRegistryRecord` but with
+    Mirrors :class:`contracts.npc_registry.NpcRegistryRecord` but with
     every field required so OpenAI structured outputs (strict JSON Schema)
     accepts it. Status MUST be ``candidate`` and hub_path MUST be null per
     Stage D's propose-only contract.

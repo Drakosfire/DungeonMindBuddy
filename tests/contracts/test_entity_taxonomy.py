@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.contracts.entity_taxonomy import normalize_semantic_facets
+from contracts.entity_taxonomy import normalize_semantic_facets
 
 
 def test_normalize_semantic_facets_accepts_controlled_and_domain_tokens() -> None:

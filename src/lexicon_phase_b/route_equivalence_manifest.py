@@ -5,7 +5,7 @@ import json
 import re
 from pathlib import Path
 
-from src.contracts.npc_registry import NpcRegistryRecord, load_npc_registry
+from contracts.npc_registry import NpcRegistryRecord, load_npc_registry
 
 from .schemas import EntityKind, RouteEquivalenceRecord
 

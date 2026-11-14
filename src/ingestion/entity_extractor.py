@@ -14,8 +14,8 @@ import blake3
 from generationengine import GenerationClient, TextRequest
 from pydantic import BaseModel, Field
 
-from src.contracts.entity_tags import DEFAULT_MAX_ENTITY_TAGS, normalize_entity_tags
-from src.contracts.entity_taxonomy import (
+from contracts.entity_tags import DEFAULT_MAX_ENTITY_TAGS, normalize_entity_tags
+from contracts.entity_taxonomy import (
     EntityClass,
     normalize_semantic_facets,
 )

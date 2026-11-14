@@ -30,7 +30,7 @@ from apps.live_control_server.services.party_registry_surface import (
     build_party_registry_surface,
 )
 from evals.graph_memory_layer.live_vs_gold_compare import parts_from_raw_graph
-from src.contracts.npc_registry import load_npc_registry
+from contracts.npc_registry import load_npc_registry
 from src.graph_memory.party_context import resolve_campaign_corpus
 from src.live_play.recap_stage_paths import corpus_root
 
