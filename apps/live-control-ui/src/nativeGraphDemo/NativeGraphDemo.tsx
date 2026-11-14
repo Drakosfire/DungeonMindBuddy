@@ -513,7 +513,19 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const searchId = useId();
   const [objectQuery, setObjectQuery] = useState("");
   const [objectPage, setObjectPage] = useState(0);
-  const [compactOverview, setCompactOverview] = useState(false);
+  const compactPreferenceKey = mode === "managed" && stateScopeId
+    ? `dungeonmind-native-demo:compact-overview:${encodeURIComponent(stateScopeId)}`
+    : undefined;
+  const [compactPreference, setCompactPreference] = useState<{ key?: string; enabled: boolean }>();
+  const storedCompactOverview = useMemo(() => {
+    try {
+      return compactPreferenceKey !== undefined && window.localStorage.getItem(compactPreferenceKey) === "true";
+    } catch {
+      return false;
+    }
+  }, [compactPreferenceKey]);
+  const compactOverview = compactPreference && compactPreference.key === compactPreferenceKey
+    ? compactPreference.enabled : storedCompactOverview;
   const [viewFocusId, setViewFocusId] = useState<LocalObjectId | null>(null);
   const [neighborhoodDepth, setNeighborhoodDepth] = useState(1);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
@@ -1854,7 +1866,13 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
             {embedded && !viewFocusId && !chronologyOpen && graph.nodes.length > 64 && (
               <button type="button" className="native-demo-button native-demo-button--quiet"
                 aria-pressed={compactOverview} onClick={() => {
-                  setCompactOverview(value => !value);
+                  const enabled = !compactOverview;
+                  setCompactPreference({ key: compactPreferenceKey, enabled });
+                  try {
+                    if (compactPreferenceKey) window.localStorage.setItem(compactPreferenceKey, String(enabled));
+                  } catch {
+                    // Keep the current view usable when browser storage is unavailable.
+                  }
                   cameraFocusRequestIdRef.current += 1;
                   setCameraFocusResetRequest({ requestId: cameraFocusRequestIdRef.current, fitView: true });
                 }}>
