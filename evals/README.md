@@ -18,7 +18,8 @@ scripts/run_local_lab.sh canon-baseline uv run python evals/canon_layering/run_b
 
 The launcher verifies the Projects filesystem before allocating scratch, a uv
 cache, and a task-local Python environment. Use `TMPDIR` for explicit generated
-output paths too. The launcher exits if the Projects filesystem is unavailable.
+output paths too. The launcher exits if Projects is unavailable. Runner-specific
+output overrides and commands invoked directly remain the caller’s responsibility.
 
 Read the suite's inputs before running it. Some runners use paid providers or
 private campaign sources. Record the source revision, inputs, runner options,
