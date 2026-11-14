@@ -491,16 +491,23 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       {review && editor && <>
         <StatblockRenderer draft={{
           definition: editor.workingCopy,
-          hitPoints: <details>
-            <summary>{readHitPointsMax(editor.workingCopy.vitality.hit_points)} HP</summary>
-            <label>Maximum hit points
-              <input type="number" min="1" step="1" disabled={pending}
-                value={readHitPointsMax(editor.workingCopy.vitality.hit_points)}
-                onChange={event => {
-                  const value = event.currentTarget.valueAsNumber;
-                  if (Number.isSafeInteger(value) && value > 0) commitEdit(setHitPointsMax(editor, value));
-                }} />
-            </label>
+          hitPoints: summary => <details>
+            <summary>{summary}</summary>
+            <form onSubmit={event => {
+              event.preventDefault();
+              const input = event.currentTarget.elements.namedItem("maximum");
+              if (pending || !(input instanceof HTMLInputElement)) return;
+              const value = input.valueAsNumber;
+              if (Number.isSafeInteger(value) && value > 0) commitEdit(setHitPointsMax(editor, value));
+            }}>
+              <label>Maximum hit points
+                <input key={readHitPointsMax(editor.workingCopy.vitality.hit_points)}
+                  name="maximum" type="number" min="1" max={Number.MAX_SAFE_INTEGER}
+                  step="1" required disabled={pending}
+                  defaultValue={readHitPointsMax(editor.workingCopy.vitality.hit_points)} />
+              </label>
+              <button type="submit" disabled={pending}>Apply hit points</button>
+            </form>
           </details>,
           ruleEditor: (key, name) => <details>
             <summary>Edit {name}</summary>

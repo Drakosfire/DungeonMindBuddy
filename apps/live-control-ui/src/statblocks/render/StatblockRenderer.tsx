@@ -22,7 +22,7 @@ export type StatblockRendererChrome = "default" | "campaign";
 
 type DraftProjection = {
   definition: Parameters<typeof buildDraftStatblockViewModel>[0];
-  hitPoints: ReactNode;
+  hitPoints: (summary: string) => ReactNode;
   ruleEditor: (key: string, name: string) => ReactNode;
 };
 
@@ -561,7 +561,7 @@ export function StatblockRenderer({
             </div>
             <div>
               <dt>Hit Points</dt>
-              <dd>{draft ? draft.hitPoints : view.hitPointsSummary}</dd>
+              <dd>{draft ? draft.hitPoints(view.hitPointsSummary) : view.hitPointsSummary}</dd>
             </div>
             <div>
               <dt>Speed</dt>
