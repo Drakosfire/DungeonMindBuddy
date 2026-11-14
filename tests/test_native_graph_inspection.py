@@ -912,7 +912,7 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
         )
         assert opened.status_code == 200, opened.text
         assert opened.json()["content"] == exact_sources[row["evidenceRefId"]]
-    for change in ({"campaignId": "foreign"}, {"revisionPin": None}):
+    for change in ({"campaignId": "foreign"}, {"revisionPin": None}, {"revisionPin": "rev:" + "0" * 32}):
         refused = x.client.post(
             "/api/live/world-graph/retrieval/source-anchor/read",
             json={**request.model_dump(mode="json", by_alias=True), **change},
