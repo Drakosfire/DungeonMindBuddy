@@ -1,6 +1,7 @@
 import {fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {expect, it, vi} from "vitest";
 import {authenticatedApiFetch} from "../api/liveApi";
+import {pdfRegionKey, retainedPdfKey} from "../api/retainedPdfRegions";
 import {BuildPdfPreview, CropOcr} from "./BuildPdfPreview";
 
 vi.mock("../api/liveApi", () => ({authenticatedApiFetch: vi.fn()}));
@@ -153,5 +154,25 @@ it("validates a repeat capture without reloading PDF.js", async () => {
     for (const key of Object.keys(localStorage)) {
       if (key.includes("repeat-fixture")) localStorage.removeItem(key);
     }
+  }
+});
+
+it("removes an existing browser shortcut without touching the PDF service", () => {
+  const worldId = "remove-fixture";
+  const key = retainedPdfKey(worldId) + pdfRegionKey(region);
+  localStorage.setItem(key, JSON.stringify({name: "notes.pdf", locator: region}));
+  try {
+    const requestCount = vi.mocked(authenticatedApiFetch).mock.calls.length;
+    const preview = render(<BuildPdfPreview worldId={worldId} />);
+    expect(screen.getByRole("button", {name: "notes.pdf · Page 5"})).toBeVisible();
+    fireEvent.click(screen.getByRole("button", {name: "Remove shortcut for notes.pdf · Page 5"}));
+    expect(localStorage.getItem(key)).toBeNull();
+    expect(screen.queryByRole("list", {name: "Retained PDFs"})).not.toBeInTheDocument();
+    preview.unmount();
+    render(<BuildPdfPreview worldId={worldId} />);
+    expect(screen.queryByRole("list", {name: "Retained PDFs"})).not.toBeInTheDocument();
+    expect(authenticatedApiFetch).toHaveBeenCalledTimes(requestCount);
+  } finally {
+    localStorage.removeItem(key);
   }
 });
