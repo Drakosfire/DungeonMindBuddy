@@ -734,6 +734,9 @@ def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch
 @pytest.mark.parametrize("depth", [1, 2])
 def test_native_neighborhood_citation_round_trip(inspection, depth):
     x = inspection
+    historical_pin = catalog(
+        x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id
+    )["scope"]
     runtime = transport.runtime(
         x.lane.repo, x.lane.domain, x.lane.profile,
         now=datetime.now(UTC), operation_id="inspection-second-hop",
@@ -763,6 +766,15 @@ def test_native_neighborhood_citation_round_trip(inspection, depth):
     expected = [seed, x.objects["endpoint"]] + ([boundary] if depth == 2 else [])
     assert packet["node_ids"] == expected
     assert set(packet["missing_seed_node_ids"]) == {foreign, "ent:absent"}
+    historical = read(x, historical_pin, {
+        "kind": "neighborhood",
+        "seed_node_ids": [seed],
+        "max_depth": depth,
+    })
+    assert historical.status_code == 200, historical.text
+    assert historical.json()["scope"] == historical_pin
+    assert historical.json()["node_ids"] == [seed, x.objects["endpoint"]]
+    assert len(historical.json()["relationships"]) == 1
     edges = packet["relationships"]
     assert len(edges) == depth
     assert [edge["edgeId"] for edge in edges] == sorted(edge["edgeId"] for edge in edges)
