@@ -203,8 +203,8 @@ def test_pdf_review_provenance_is_host_owned(mock_validate, tmp_path: Path) -> N
     assert mock_validate.call_count == 1
 
 
-@pytest.mark.parametrize("interrupted", [False, True])
-def test_pdf_acceptance_rejects_stale_review_and_replays_original(tmp_path, monkeypatch, interrupted):
+@pytest.mark.parametrize("interruption", ["none", "dispatch", "reconciliation"])
+def test_pdf_acceptance_rejects_stale_review_and_replays_original(tmp_path, monkeypatch, interruption):
     from uuid import UUID
 
     from fastapi import FastAPI
@@ -235,18 +235,34 @@ def test_pdf_acceptance_rejects_stale_review_and_replays_original(tmp_path, monk
     with TestClient(app) as http:
         assert http.post(path, json={**payload, "expected_revision": 1}).status_code == 409
         assert not client.create_calls
-        if interrupted:
+        if interruption == "dispatch":
             client.error = downstream_timeout()
             interrupted_result = http.post(path, json={**payload, "expected_revision": 2})
             assert interrupted_result.json()["result_label"] == "dispatched_unknown"
             assert get_threat_draft(tmp_path, draft.draft_id).accepted_mechanics_ref is None
             client.error = None
+        if interruption == "reconciliation":
+            with monkeypatch.context() as crash:
+                def stop_before_reconciliation(*args, **kwargs):
+                    raise RuntimeError("interrupted after draft attachment")
+
+                crash.setattr(acceptance, "_phase2_reconcile", stop_before_reconciliation)
+                with pytest.raises(RuntimeError, match="interrupted after draft attachment"):
+                    http.post(path, json={**payload, "expected_revision": 2})
+            attached = get_threat_draft(tmp_path, draft.draft_id)
+            assert attached.accepted_mechanics_ref is not None
+            journal = get_acceptance_operation(
+                tmp_path, draft_id=draft.draft_id, operation_id=payload["operation_id"],
+            )
+            assert journal is not None and journal.authority_state == "server_committed"
+            payload["expected_draft_version"] = attached.version
         accepted = http.post(path, json={
             **payload, "expected_revision": 2,
-            "operation_id": "e33a3855-e6d7-44d6-8c23-db120c3076c8" if interrupted else payload["operation_id"],
+            "operation_id": "e33a3855-e6d7-44d6-8c23-db120c3076c8" if interruption != "none" else payload["operation_id"],
         })
         assert accepted.json()["operation_id"] == payload["operation_id"]
         assert accepted.json()["result_label"] == "mechanics_saved", accepted.text
+        payload["expected_draft_version"] = draft.version
         review["revision"] = 3
         assert http.post(path, json={**payload, "expected_revision": 3}).status_code == 409
         replay = http.post(path, json={**payload, "expected_revision": 2})
@@ -264,8 +280,8 @@ def test_pdf_acceptance_rejects_stale_review_and_replays_original(tmp_path, monk
         })
         assert refused.status_code == 409, refused.text
         assert refused.json()["detail"]["code"] == "pdf_statblock_draft_already_has_mechanics"
-        assert len(client.create_calls) == (2 if interrupted else 1)
-        if interrupted:
+        assert len(client.create_calls) == (2 if interruption == "dispatch" else 1)
+        if interruption == "dispatch":
             assert client.create_calls[0] == client.create_calls[1]
 
 
