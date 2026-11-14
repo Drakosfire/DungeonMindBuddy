@@ -89,7 +89,7 @@ from live_play.projections import (
 )
 from live_play.projections.artifacts import ArtifactReadError
 from live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
-from src.live_play.source_bundle import (
+from live_play.source_bundle import (
     IngestionSourceBundle,
     build_ingestion_source_bundle,
     list_ingestion_source_sessions,

@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.live_play.ingested_corpus_library import build_library
+from live_play.ingested_corpus_library import build_library
 from live_play.session_paths import repo_root
 
 DEFAULT_JSON_OUT = Path("Docs/data/ingested-corpus-library/ingested_corpus_library.json")

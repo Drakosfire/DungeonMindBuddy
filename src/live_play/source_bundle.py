@@ -6,7 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from src.live_play.ingested_corpus_library import build_library, discover_campaign_sessions, load_retrieval_manifests
+from live_play.ingested_corpus_library import build_library, discover_campaign_sessions, load_retrieval_manifests
+from live_play.session_paths import repo_root as default_repo_root
 
 
 class OpaqueLocator(BaseModel):
@@ -196,7 +197,7 @@ def build_ingestion_source_bundle(
     campaign_id: str | None = None,
 ) -> IngestionSourceBundle:
     """Map the ingested corpus library into the SourceUnit contract without reading corpus bodies."""
-    repo_root = root or Path(__file__).resolve().parents[2]
+    repo_root = root or default_repo_root()
     library = build_library(root=repo_root)
     corpus_root = str(library["corpus_root"])
     activation = library.get("retrieval_activation", {})
