@@ -23,7 +23,7 @@ from src.live_play.session_paths import (
     session_workspace_dir,
     workspace_has_live_files,
 )
-from src.live_play.surface_layout_invariants import (
+from surface_layout_invariants import (
     validate_catalog_layout_consistency,
     validate_surface_layout_invariants,
 )
