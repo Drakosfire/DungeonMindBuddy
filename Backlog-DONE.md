@@ -9,6 +9,8 @@ Sort newest → oldest within each status.
 
 ## Cleanup findings recorded in Git history
 
+- Document or retire historical adoption command wrappers. **Documented and retained.** The recovery runbook covers all three inputs and apply modes. All three help entry points were verified, and 57 focused database tests covered World catalog and source input adoption. The operator-use follow-up remains with Buddy application-state tooling. [Runbook PR #3622](https://github.com/Drakosfire/DungeonMindBuddy/pull/3622), [operator-use follow-up #3585](https://github.com/Drakosfire/DungeonMindBuddy/issues/3585)
+
 - Reuse the World catalog between the picker and selected-World provider. **Fixed.** The picker still lists available Worlds, and selection checks the exact World with fresh ownership verification. In headless Chrome with 100 synthetic Worlds, response bodies dropped from 35,268 to 17,809 bytes across two intercepted HTTPS requests. Hosted proxy measurements remain tracked in #3541. [Server PR #3618](https://github.com/Drakosfire/DungeonMindBuddy/pull/3618), [frontend PR #3619](https://github.com/Drakosfire/DungeonMindBuddy/pull/3619)
 
 - Retire or recover the broken Graph contribution validator CLI. **Obsolete.** [#3608](https://github.com/Drakosfire/DungeonMindBuddy/pull/3608) removed the CLI after the C2 bundle passed at its bootstrap pin and the C1 bundle passed its historical loader and apply tests. Buddy historical Graph tooling owns the remaining data-retention decision and must trace adoption and runtime file reads before moving either bundle. [#3544](https://github.com/Drakosfire/DungeonMindBuddy/issues/3544)
