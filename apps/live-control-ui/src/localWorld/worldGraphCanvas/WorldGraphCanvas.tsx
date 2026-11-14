@@ -476,20 +476,20 @@ export function WorldGraphCanvas({
   const [unconnectedVisibility, setUnconnectedVisibility] = useState<{ worldId: string; show: boolean } | null>(null);
   const showUnconnected = unconnectedVisibility?.worldId === record.snapshot.worldId
     ? unconnectedVisibility.show : (projectionOptions?.showUnconnected ?? !fullCorpus);
-  // Only isolated objects need a reveal to remain visible after selection.
-  // Use a value key so selecting connected nodes keeps the projection stable.
-  const selectedHiddenKey = showUnconnected || clearingSelection ? "" : JSON.stringify(
-    selectedIds.filter((id) => index.objects.has(id) && !index.relationshipCounts.get(id)),
+  const useCompactLayout = projectionOptions?.compactOverview && !projectionOptions.focusObjectId;
+  // Compact mode reserves slots for selected objects before sampling the graph.
+  const selectedHiddenKey = (showUnconnected && !useCompactLayout) || clearingSelection ? "" : JSON.stringify(
+    selectedIds.filter((id) => index.objects.has(id) && (useCompactLayout || !index.relationshipCounts.get(id))),
   );
-  const revealObjectIds = useMemo(() => showUnconnected ? undefined : [...new Set([
+  const revealObjectIds = useMemo(() => showUnconnected && !useCompactLayout ? undefined : [...new Set([
     ...(selectedHiddenKey ? JSON.parse(selectedHiddenKey) as LocalObjectId[] : []),
     ...(projectionOptions?.revealObjectIds ?? []),
     ...(cameraFocusRequest?.nodeId ? [cameraFocusRequest.nodeId] : []),
     ...(revealObjectId ? [revealObjectId] : []),
-  ])], [showUnconnected, selectedHiddenKey, projectionOptions?.revealObjectIds, cameraFocusRequest?.nodeId, revealObjectId]);
+  ])], [showUnconnected, useCompactLayout, selectedHiddenKey, projectionOptions?.revealObjectIds, cameraFocusRequest?.nodeId, revealObjectId]);
   const fallbackRef = useRef<{ worldId: string; signature: string; positions: ReturnType<typeof createGraphFallbackPositions> } | null>(null);
   const fallbackPositions = useMemo(() => {
-    if (!fullCorpus) return undefined;
+    if (!fullCorpus || useCompactLayout) return undefined;
     // Only geometry inputs settle the layout. Names, revisions and view state do not.
     const signature = JSON.stringify([
       [...index.objects.keys()].sort(),
@@ -504,9 +504,9 @@ export function WorldGraphCanvas({
     const positions = createGraphFallbackPositions(index, { savedPositions: record.layout.positions });
     fallbackRef.current = { worldId: record.snapshot.worldId, signature, positions };
     return positions;
-  }, [fullCorpus, index, record.snapshot.worldId, record.layout.positions]);
+  }, [fullCorpus, useCompactLayout, index, record.snapshot.worldId, record.layout.positions]);
   const projection = useMemo(() => projectLocalWorldGraph(record, { ...projectionOptions, fallbackPositions, showUnconnected, revealObjectIds }, index),
-    [record.snapshot, record.layout, index, fullCorpus, fallbackPositions, projectionOptions?.maxNodes, projectionOptions?.maxEdges,
+    [record.snapshot, record.layout, index, fullCorpus, fallbackPositions, projectionOptions?.compactOverview, projectionOptions?.maxNodes, projectionOptions?.maxEdges,
       projectionOptions?.focusObjectId, projectionOptions?.neighborhoodDepth, showUnconnected, revealObjectIds]);
   const legend = useMemo(() => [...new Set(record.snapshot.objects.map((object) => object.kind))].sort(), [record.snapshot]);
   const importantNodeIds = useMemo(() => {

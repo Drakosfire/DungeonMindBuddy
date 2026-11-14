@@ -513,6 +513,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const searchId = useId();
   const [objectQuery, setObjectQuery] = useState("");
   const [objectPage, setObjectPage] = useState(0);
+  const [compactOverview, setCompactOverview] = useState(false);
   const [viewFocusId, setViewFocusId] = useState<LocalObjectId | null>(null);
   const [neighborhoodDepth, setNeighborhoodDepth] = useState(1);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
@@ -1850,6 +1851,16 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
             )}
             {api.readChronology && <button type="button" className="native-demo-button native-demo-button--quiet"
               aria-expanded={chronologyOpen} onClick={() => setChronology(chronologyOpen ? null : { graph })}>Chronology</button>}
+            {embedded && !viewFocusId && !chronologyOpen && graph.nodes.length > 64 && (
+              <button type="button" className="native-demo-button native-demo-button--quiet"
+                aria-pressed={compactOverview} onClick={() => {
+                  setCompactOverview(value => !value);
+                  cameraFocusRequestIdRef.current += 1;
+                  setCameraFocusResetRequest({ requestId: cameraFocusRequestIdRef.current, fitView: true });
+                }}>
+                Compact overview
+              </button>
+            )}
             {!viewFocusId && Boolean(overviewEventIds?.size) && (
               <button type="button" className="native-demo-button native-demo-button--quiet"
                 aria-pressed={hideOverviewEvents} onClick={() => setHideOverviewEvents(value => !value)}>
@@ -1892,7 +1903,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                     <SurfaceContextAction disabled={!graph.capabilities.create || !graph.capabilities.object_kinds.length || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>
                     <SurfaceContextAction disabled={!canConnectGraph(graph) || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "connect" ? null : "connect")}>Connect</SurfaceContextAction>
                   </> : undefined,
-                  projectionOptions: { fullCorpus: true, maxNodes: 512, maxEdges: 1024, focusObjectId: viewFocusId, neighborhoodDepth },
+                  projectionOptions: { fullCorpus: true, compactOverview, maxNodes: 512, maxEdges: 1024, focusObjectId: viewFocusId, neighborhoodDepth },
                   creationKinds,
                   onCanvasCreateRequest: !readOnly && graph.capabilities.create ? handleCanvasCreateRequest : undefined,
                   onConnectRequest: !readOnly && canConnectGraph(graph) ? handleConnectRequest : undefined,
