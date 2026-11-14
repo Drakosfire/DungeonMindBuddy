@@ -12,7 +12,7 @@ from typing import Any, Literal, Mapping
 from pydantic import BaseModel, Field
 
 from apps.live_control_server.config import repo_root
-from live_play.live_store import load_json, write_json
+from live_store import load_json, write_json
 
 RECAP_ARTIFACTS_ENV = "DUNGEONMIND_RECAP_ARTIFACTS_PATH"
 DEFAULT_RECAP_ARTIFACTS_REL = "out/registries/recap_artifacts.json"

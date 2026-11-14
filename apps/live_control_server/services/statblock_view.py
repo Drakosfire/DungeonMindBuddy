@@ -11,7 +11,7 @@ from apps.live_control_server.services.statblock_draft_store import (
     read_statblock_draft,
 )
 from apps.live_control_server.services.statblock_workbench import StatblockWorkbenchAction
-from live_play.live_store import load_json
+from live_store import load_json
 from statblocks.lifecycle_artifact import StatblockBreadcrumb
 from statblocks.v2_contract import CombatDefaults, ReviewWarning, SourceRef
 

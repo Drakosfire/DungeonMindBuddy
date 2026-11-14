@@ -12,7 +12,7 @@ from apps.live_control_server.services.statblock_view import (
     StatblockViewError,
     read_generated_statblock,
 )
-from live_play.live_store import load_json, write_json
+from live_store import load_json, write_json
 
 COMBAT_REL_PATH = Path("combat") / "current_combat.json"
 CombatTeam = Literal["pc", "ally", "enemy", "neutral"]

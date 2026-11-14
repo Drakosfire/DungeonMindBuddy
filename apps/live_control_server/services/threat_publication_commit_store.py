@@ -14,7 +14,7 @@ from apps.live_control_server.models.threat_publication_commit import (
     LEDGER_SCHEMA,
     ThreatPublicationCommitLedgerV1,
 )
-from live_play.live_store import load_json, write_json
+from live_store import load_json, write_json
 
 DEFAULT_COMMIT_REL = "out/threat_publication_commits"
 LEDGER_NAME = "ledger.json"

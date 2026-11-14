@@ -33,7 +33,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_committed_playable_revision,
     get_workspace_document_snapshot,
 )
-from live_play.live_store import write_json
+from live_store import write_json
 
 LEGACY_PLAY_REL = Path("out/runtime/play")
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"

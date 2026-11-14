@@ -37,7 +37,7 @@ from apps.live_control_server.services.combat_state import (
     combat_state_path,
     write_current_combat,
 )
-from live_play.live_store import load_json, write_json
+from live_store import load_json, write_json
 
 STATIC_MIREWARD_SCHEMA = "mireward_north_reach_gate_combat_state_v1"
 STATIC_MIREWARD_SCHEMA_V1 = "mireward_combat_state_v1"

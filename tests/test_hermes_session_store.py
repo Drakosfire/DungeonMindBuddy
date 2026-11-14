@@ -14,7 +14,7 @@ from apps.live_control_server.services.hermes_session_store import (
     HermesSessionPointerStore,
     hermes_profile_key,
 )
-from live_play.live_store import write_json
+from live_store import write_json
 
 
 def test_write_json_uses_unique_temp_filenames(tmp_path: Path) -> None:

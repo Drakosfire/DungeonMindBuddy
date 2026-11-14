@@ -14,7 +14,7 @@ from apps.live_control_server.services.statblock_draft_store import (
 )
 from apps.live_control_server.services.statblock_workbench import StatblockWorkbenchAction
 from src.live_play.live_query_context import resolve_manifest_path
-from live_play.live_store import load_json, write_json
+from live_store import load_json, write_json
 from src.live_play.manifest_context_query import QueryConfig, QueryRequest, build_context_packet, load_manifest
 
 OVERLAY_SCHEMA = "dmb_generated_statblock_manifest_overlay_v1"

@@ -12,7 +12,7 @@ from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.schema_validation import validate_live_packet
 from apps.live_control_server.session_store import load_session
-from live_play.live_store import iter_jsonl, load_json
+from live_store import iter_jsonl, load_json
 from src.live_play.projections import build_session_plan_projection
 from src.live_play.session_bootstrap import (
     activate_session_workspace,

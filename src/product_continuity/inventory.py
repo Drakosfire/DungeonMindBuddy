@@ -48,7 +48,7 @@ from graph_memory.ingestion.graph_ingest_run import (
     GraphIngestRunManifest,
     adapt_recap_manifest_to_extraction_run,
 )
-from live_play.live_store import load_json
+from live_store import load_json
 
 INVENTORY_SCHEMA = "dmb_product_continuity_inventory_v1"
 

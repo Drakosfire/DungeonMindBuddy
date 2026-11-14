@@ -23,7 +23,7 @@ from apps.live_control_server.services.threat_draft_store import (
     ThreatDraftStoreError,
     read_committed_draft_version,
 )
-from live_play.live_store import load_json, write_json
+from live_store import load_json, write_json
 
 DEFAULT_ACCEPTANCE_REL = "out/statblock_acceptance_operations"
 MAX_ACCEPTANCE_OPERATION_RECORDS_PER_DRAFT = 32

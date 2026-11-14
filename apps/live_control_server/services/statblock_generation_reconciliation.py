@@ -28,7 +28,7 @@ from apps.live_control_server.models.threat_draft import (
     MAX_CANDIDATE_REFS,
     require_draft_id,
 )
-from live_play.live_store import load_json, write_json
+from live_store import load_json, write_json
 
 DEFAULT_RECONCILIATION_REL = "out/statblock_generation_requests"
 OPERATION_SCHEMA = "dmb_statblock_generation_operation_v2"

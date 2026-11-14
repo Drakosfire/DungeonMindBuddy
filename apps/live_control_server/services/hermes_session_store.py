@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-from live_play.live_store import load_json, write_json
+from live_store import load_json, write_json
 
 POINTER_BINDING_SCHEMA = "dmb_hermes_session_pointer_binding_v1"
 POINTER_STORE_SCHEMA = "dmb_hermes_session_pointer_store_v1"
