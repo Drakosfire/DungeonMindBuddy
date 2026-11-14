@@ -493,7 +493,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const [placementIntent, setPlacementIntent] = useState<StoredPlacementIntent | null>(null);
   const placementIntentRef = useRef<StoredPlacementIntent | null>(null);
   const [focusedTimeline, setFocusedTimeline] = useState<{ worldId: string; nodeId: string } | null>(null);
-  const [chronology, setChronology] = useState<{ graph: NativeGraph; relatedTo?: string } | null>(null);
+  const [chronology, setChronology] = useState<{ graph: NativeGraph } | null>(null);
   const chronologyOpen = chronology !== null && chronology.graph === graph;
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const selectedNodeIdRef = useRef<string | null>(null);
@@ -1777,7 +1777,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const authoringPanelOpen = activePanel === "create" || activePanel === "connect";
   const chronologyPanel = chronologyOpen && api.readChronology ? (
     <div className="native-demo-inspector-timeline">
-      <GraphChronology graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} strip
+      <GraphChronology graph={graph} read={api.readChronology} strip
         onExplore={nodeId => {
           if (pendingRef.current) return;
           setChronology(null);
@@ -1789,8 +1789,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   ) : null;
 
   const detailsPanel = selectedNode ? <>
-    {api.readChronology && <button type="button" className="native-demo-button native-demo-button--quiet"
-      onClick={() => setChronology({ graph, relatedTo: selectedNode.id })}>Show in chronology</button>}
     <NativeGraphNodeExplorer
     key={`${graph.world_id}:${graph.revision_id}:${selectedNode.id}`}
     node={selectedNode} revision={graph.revision_id} detail={selectedNodeDetail} labels={selectedLabels}
