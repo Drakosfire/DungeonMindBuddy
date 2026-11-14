@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from fastapi import HTTPException, Request
 from pydantic import TypeAdapter
 
+from application_state.world_catalog import service as catalog
+
 from apps.live_control_server.models.native_graph_explorer import (
     NativeGraphExplorerGraphRequest,
     NativeGraphExplorerOperationRequest,
@@ -29,7 +31,6 @@ from apps.live_control_server.services.world_container_registry import (
     WorldContainersListResponse,
     WorldContainerRegistryError,
     get_world_container,
-    list_world_containers,
 )
 
 
@@ -182,7 +183,11 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
     subject = _hosted_subject(request)
     access = hosted_auth.hosted_world_access()
     try:
-        records = list_world_containers()
+        allowed_ids = [world_id for world_id, subjects in access.items() if subject in subjects]
+        records = sorted(
+            (stored.record for stored in catalog.list_owned_worlds(subject, allowed_ids)),
+            key=lambda record: (record.name.casefold(), record.world_id),
+        )
         permitted = [
             WorldContainerPublicRecord.from_record(world)
             for world in records

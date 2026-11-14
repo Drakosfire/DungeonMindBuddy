@@ -115,9 +115,13 @@ def _validated_record(record: WorldContainerRecord) -> WorldContainerRecord:
     return record
 
 
-def _records(conn, *, world_id: str | None = None) -> list[StoredWorld]:
+def _records(conn, *, world_id: str | None = None, owner_scope: tuple[str, list[str]] | None = None) -> list[StoredWorld]:
     where = '' if world_id is None else ' WHERE world_id=%s'
     params = () if world_id is None else (world_id,)
+    if owner_scope is not None:
+        where = (' WHERE world_id IN (SELECT world_id FROM workspace.managed_world'
+                 ' WHERE owner_subject=%s AND world_id=ANY(%s))')
+        params = owner_scope
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute('SELECT * FROM workspace.managed_world' + where + ' ORDER BY world_id', params)
         rows = cur.fetchall()
@@ -158,6 +162,14 @@ def list_worlds() -> list[StoredWorld]:
         conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
         assert_connection_at_head(conn)
         return _records(conn)
+
+
+def list_owned_worlds(subject: str, allowed_ids: list[str]) -> list[StoredWorld]:
+    dsn = load_runtime_dsn()
+    with unit_of_work(dsn) as conn:
+        conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+        assert_connection_at_head(conn)
+        return _records(conn, owner_scope=(subject, allowed_ids))
 
 
 def get_world(world_id: str) -> StoredWorld | None:
