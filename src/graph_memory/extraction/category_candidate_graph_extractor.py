@@ -30,7 +30,7 @@ from graph_memory.extraction.recap_extraction_profile import (
 from graph_memory.source_span import document_source_ref_id
 from src.graph_memory.vocabulary.dynamic_selection import build_dynamic_context_vocabulary_packet
 from src.graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
-from src.graph_memory.vocabulary.model import ContextVocabularyPacket
+from graph_memory.vocabulary.model import ContextVocabularyPacket
 from src.graph_memory.vocabulary.node_context import render_node_vocabulary_context
 logger = logging.getLogger(__name__)
 

@@ -35,7 +35,7 @@ from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
 )
-from src.graph_memory.vocabulary.model import ContextVocabularyPacket
+from graph_memory.vocabulary.model import ContextVocabularyPacket
 
 
 def _normalized_from_registered(
