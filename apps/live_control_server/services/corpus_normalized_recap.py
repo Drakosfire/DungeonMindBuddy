@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 
-from src.corpus.session_recap_paths import (
+from corpus.session_recap_paths import (
     campaign_number_from_id,
     normalized_recap_candidates,
 )

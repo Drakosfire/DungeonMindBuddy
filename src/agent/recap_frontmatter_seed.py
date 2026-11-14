@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from src.corpus.session_recap_paths import (
+from corpus.session_recap_paths import (
     campaign_id_from_number,
     frontmatter_seed_relpath,
     normalized_recap_relpath,

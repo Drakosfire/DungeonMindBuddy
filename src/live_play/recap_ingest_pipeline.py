@@ -25,7 +25,7 @@ from src.live_play.session_memory_materializer import (
 from src.agent.recap_frontmatter_seed import build_frontmatter_seed
 from corpus.corpus_writer import is_writable_corpus_path, write_corpus_file
 from src.agent.recap_ingest_helpers import assemble_recap
-from src.corpus.session_recap_paths import (
+from corpus.session_recap_paths import (
     breadcrumbed_relpath,
     canonical_recap_candidates,
     frontmatter_seed_relpath,
@@ -1094,7 +1094,7 @@ def reconcile_normalized_recap(
     Moves rejected artifacts into sibling ``_archive`` folders (reversible, no deletes),
     then returns a fresh read-only status probe so the caller can prove the result.
     """
-    from src.corpus.session_recap_paths import campaign_number_from_id
+    from corpus.session_recap_paths import campaign_number_from_id
 
     corpus_dir = (corpus or corpus_root()).resolve()
     campaign_number = campaign_number_from_id(campaign_id)

@@ -35,7 +35,7 @@ if str(_REPO_ROOT) not in sys.path:
 from evals.sentence_routing_retrieval_falsification.scene_beat_memory import (  # noqa: E402
     write_scene_beat_records,
 )
-from src.corpus.session_recap_paths import (  # noqa: E402
+from corpus.session_recap_paths import (  # noqa: E402
     resolve_under_corpus,
     session_memory_jsonl_relpath,
 )

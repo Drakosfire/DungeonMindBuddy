@@ -28,7 +28,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_route_schema impo
 from src.session_memory.capture import (  # noqa: E402
     capture_sentence_unit_spans,
 )
-from src.corpus.session_recap_paths import (  # noqa: E402
+from corpus.session_recap_paths import (  # noqa: E402
     breadcrumbed_relpath,
     frontmatter_seed_relpath,
     normalized_recap_relpath,

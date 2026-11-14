@@ -208,7 +208,7 @@ def parse_flat_frontmatter(markdown: str) -> dict[str, str | int | None]:
 
 
 def _discover_sessions(corpus: Path, campaign_number: int) -> list[int]:
-    from src.corpus.session_recap_paths import session_recaps_prefix
+    from corpus.session_recap_paths import session_recaps_prefix
 
     norm_dir = corpus / session_recaps_prefix(campaign_number) / "_normalized"
     if not norm_dir.is_dir():
@@ -252,7 +252,7 @@ def _require_repo_contained(path: Path, repo_root: Path) -> Path:
 
 def freeze_current_corpus_manifest(repo_root: Path) -> FrozenManifest:
     """Freeze one exact current-corpus cohort before any model call."""
-    from src.corpus.session_recap_paths import (
+    from corpus.session_recap_paths import (
         campaign_id_from_number,
         pick_normalized_basename_from_disk,
         session_recaps_prefix,
