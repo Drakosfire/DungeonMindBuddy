@@ -1,5 +1,7 @@
 # HANDOFF — CUTOVER whole-world re-anchor after PR #566
 
+> Run the [historical builder](https://github.com/Drakosfire/DungeonMindBuddy/blob/e5aaaf1d3d1e1e9f8c07a62383770dfd8326f259/scripts/build_cutover_whole_world_reanchor.py) from its pinned checkout. [Replay inputs and verification](https://github.com/Drakosfire/DungeonMindBuddy/issues/3554).
+
 **Created:** 2026-08-12  
 **Status:** DONE / HISTORICAL — merged in [PR #568](https://github.com/Drakosfire/DungeonMindBuddy/pull/568).
 **Conversation / workstream:** `CUTOVER`  
