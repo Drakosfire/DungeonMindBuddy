@@ -24,6 +24,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
   const reviewPath = `${sourcePath}/statblock-reviews/${encodeURIComponent(reviewId)}`;
   const [review, setReview] = useState<Review>();
   const [editor, setEditor] = useState<StatblockEditorState<EditableStatblockOutput>>();
+  const [navigationHost, setNavigationHost] = useState<HTMLDivElement | null>(null);
   const [sourceHidden, setSourceHidden] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -503,6 +504,22 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
         </li>)}
         </ul>
       </details>}
+        <div className="pdf-statblock-review__source-tools" role="group" aria-label="PDF tools" hidden={sourceHidden}>
+          {(review?.regions.length ?? 0) > 0 && <select aria-label="Source region" defaultValue=""
+            onChange={event => {
+              const locator = review?.regions[Number(event.currentTarget.value)];
+              if (!locator) return;
+              setRegion({ ...locator });
+              setRegionSelection(current => current + 1);
+              event.currentTarget.value = "";
+            }}>
+            <option value="">Source region</option>
+            {review?.regions.map((locator, index) => (
+              <option key={index} value={index}>Region {index + 1} · Page {locator.page}</option>
+            ))}
+          </select>}
+          <div className="pdf-statblock-review__source-tools" ref={setNavigationHost} />
+        </div>
       </header>
   );
 
@@ -512,14 +529,9 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
       {error && <p role="alert">{error}</p>}
       {!review && !error && <p role="status">Opening review…</p>}
       <BuildSourceWorkspace sourceHidden={sourceHidden} source={<>
-        {review?.regions.map((locator, index) => (
-          <button type="button" key={index} onClick={() => { setRegion({ ...locator }); setRegionSelection(current => current + 1); }}>
-            Open source region {index + 1} · Page {locator.page}
-          </button>
-        ))}
         {sourceError ? <p role="alert">{sourceError}</p>
           : region && source && source.key === sourceKey
-            ? <PdfPages key={regionSelection} file={source.file} restored={region} readOnly />
+            ? <PdfPages key={regionSelection} file={source.file} restored={region} readOnly navigationHost={navigationHost} />
             : region && <p role="status">Opening source PDF…</p>}
       </>}>
       {editor && !mechanicsResolved && <ul aria-label="Fields needed for combat adoption">

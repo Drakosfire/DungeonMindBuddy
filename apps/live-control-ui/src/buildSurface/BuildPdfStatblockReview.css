@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: .75rem;
+  gap: .375rem;
   padding: .5rem 1rem;
 }
 
@@ -35,4 +35,17 @@
   border: 1px solid #46536a;
   border-radius: .5rem;
   background: #1b2637;
+}
+
+.pdf-statblock-review__toolbar button,
+.pdf-statblock-review__toolbar select {
+  font-size: .875rem;
+  padding: .2rem .5rem;
+}
+
+.pdf-statblock-review__source-tools:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .375rem;
 }

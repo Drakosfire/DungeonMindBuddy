@@ -43,7 +43,7 @@ it("reopens a draft and saves edits against the exact retained regions", async (
   expect(screen.queryByText(/Check the printed name/)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Save review draft" }));
   await waitFor(() => expect(screen.getByText("Draft saved")).toBeInTheDocument());
-  expect(screen.getByRole("button", { name: "Open source region 1 · Page 2" })).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "Region 1 · Page 2" })).toBeInTheDocument();
 });
 
 it("authorizes the retained PDF and passes either exact region to the viewer", async () => {
@@ -62,10 +62,10 @@ it("authorizes the retained PDF and passes either exact region to the viewer", a
   render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
   expect(await screen.findByText("Could not open the retained PDF.")).toBeInTheDocument();
   expect(open).toHaveBeenCalledWith(regions[0]);
-  fireEvent.click(screen.getByRole("button", { name: "Open source region 2 · Page 2" }));
+  fireEvent.change(screen.getByRole("combobox", { name: "Source region" }), { target: { value: "1" } });
   expect(await screen.findByText("Source PDF page 2")).toBeInTheDocument();
   expect(open).toHaveBeenLastCalledWith(regions[1]);
-  fireEvent.click(screen.getByRole("button", { name: "Open source region 1 · Page 1" }));
+  fireEvent.change(screen.getByRole("combobox", { name: "Source region" }), { target: { value: "0" } });
   expect(await screen.findByText("Source PDF page 1")).toBeInTheDocument();
   expect(open).toHaveBeenCalledTimes(2);
 });
