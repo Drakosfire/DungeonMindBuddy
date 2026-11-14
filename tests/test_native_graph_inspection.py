@@ -448,6 +448,19 @@ def test_native_complete_object_binding_opens_exact_pinned_citation(inspection):
     assert binding["excerpt"].encode() == expected
     assert result["node"]["adjacency"][0]["sourceExcerpt"].encode() == expected
     assert result["relatedNodes"][0]["adjacency"][0]["sourceExcerpt"].encode() == expected
+    assert x.client.post(route, json=payload).json() == result
+    space = scope["native_world_id"]
+    repo = x.lane.repo
+    head = repo.get_head(space)
+    repo.withdraw_native_source(
+        space_id=space,
+        source_artifact_id=source["source_artifact_id"],
+        source_revision_id=source["source_revision_id"],
+    )
+    after = x.client.post(route, json=payload)
+    assert after.status_code == 409, after.text
+    assert "sourceBindings" not in after.json()
+    assert repo.get_head(space) == head
     # Classic presentation trims the paragraph delimiter. Native citation keeps it.
     from apps.live_control_server.models.world_graph_object_projection import (
         WorldGraphObjectProjectionSourceBinding,
