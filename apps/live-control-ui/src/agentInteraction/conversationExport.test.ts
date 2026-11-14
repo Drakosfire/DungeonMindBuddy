@@ -1,10 +1,10 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 import {collectConversationExport} from './conversationExport';
 import {readConversationName,readConversationTurns,readExportTurns,verifyExportTurns,type LibraryTurn} from '../api/conversationLibraryApi';
-import {getWorldAgentTurnContextTrace,getWorldAgentTurnPrompt} from '../api/liveApi';
+import {getWorldAgentTurnContextTrace,getWorldAgentTurnPrompt,getWorldAgentTurnPrompts,LiveApiError} from '../api/liveApi';
 import type {BuddyTracePromptReference,BuddyTurnContextTrace} from '../api/buddyContextTraceTypes';
 vi.mock('../api/conversationLibraryApi',()=>({readConversationName:vi.fn(),readConversationTurns:vi.fn(),readExportTurns:vi.fn(),verifyExportTurns:vi.fn()}));
-vi.mock('../api/liveApi',()=>({getWorldAgentTurnContextTrace:vi.fn(),getWorldAgentTurnPrompt:vi.fn()}));
+vi.mock('../api/liveApi',async original=>({...await original<typeof import('../api/liveApi')>(),getWorldAgentTurnContextTrace:vi.fn(),getWorldAgentTurnPrompt:vi.fn(),getWorldAgentTurnPrompts:vi.fn()}));
 const id='11111111-1111-4111-8111-111111111111',world='world';
 const uuid=(n:number)=>`22222222-2222-4222-8222-${String(n).padStart(12,'0')}`;
 const turn=(n:number):LibraryTurn=>({turn_id:uuid(n),sequence:n,status:'completed',user_text:`Question ${n}`,assistant_text:`Reply ${n}`,reply_object:null,retry_context:null});
@@ -101,4 +101,40 @@ it('uses full pages to verify an export when digest negotiation falls back', asy
   ...legacyPage, turns: [{...turn(1), assistant_text: 'Changed'}],
  });
  await expect(collectConversationExport(world,id,'readable',()=>{})).rejects.toThrow('reply changed');
+});
+
+it('preserves prompt order and retries only the byte-limited batch item', async () => {
+ const second = {...reference, provider_attempt_id:'second', sequence:1};
+ const attempt = {...trace(), observations:[reference, second]};
+ const evidence = {
+  schema:'dmb_agent_prompt_evidence_v1' as const, world_id:world, conversation_id:id,
+  turn_id:uuid(1), trace_id:attempt.trace_id, attempt:1, reference, payload_json:'{}',
+ };
+ vi.mocked(getWorldAgentTurnContextTrace).mockResolvedValue({
+  schema:'dmb_agent_turn_context_trace_response_v1', world_id:world, turn_id:uuid(1), attempts:[attempt],
+ });
+ vi.mocked(getWorldAgentTurnPrompts).mockResolvedValue({
+  schema:'dmb_agent_prompt_evidence_batch_v1',
+  results:[evidence, {unavailable:'prompt_batch_byte_limit'}],
+ });
+ vi.mocked(getWorldAgentTurnPrompt).mockResolvedValue({...evidence, reference:second});
+ const result = await collectConversationExport(world,id,'diagnostic',()=>{});
+ expect(JSON.parse(result.content).diagnostics[0].prompts.map(
+  (prompt: {evidence: {reference: {provider_attempt_id:string}}}) => prompt.evidence.reference.provider_attempt_id,
+ )).toEqual(['call', 'second']);
+ expect(getWorldAgentTurnPrompts).toHaveBeenCalledTimes(1);
+ expect(getWorldAgentTurnPrompt).toHaveBeenCalledExactlyOnceWith(world,uuid(1),attempt.trace_id,'second',undefined);
+});
+
+it.each([404, 403])('only falls back to individual prompt reads on batch status %i', async status => {
+ const second = {...reference, provider_attempt_id:'second', sequence:1};
+ vi.mocked(getWorldAgentTurnContextTrace).mockResolvedValue({
+  schema:'dmb_agent_turn_context_trace_response_v1', world_id:world, turn_id:uuid(1),
+  attempts:[{...trace(), observations:[reference, second]}],
+ });
+ vi.mocked(getWorldAgentTurnPrompts).mockRejectedValue(new LiveApiError('Batch unavailable', status));
+ vi.mocked(getWorldAgentTurnPrompt).mockRejectedValue(new Error('Prompt unavailable'));
+ const result = await collectConversationExport(world,id,'diagnostic',()=>{});
+ expect(JSON.parse(result.content).diagnostics[0].prompts).toHaveLength(2);
+ expect(getWorldAgentTurnPrompt).toHaveBeenCalledTimes(status === 404 ? 2 : 0);
 });

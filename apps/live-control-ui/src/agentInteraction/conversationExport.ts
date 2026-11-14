@@ -1,6 +1,6 @@
 import { downloadBlob } from "../shared/downloadBlob";
 import {readConversationName,readConversationTurns,readExportTurns,verifyExportTurns,type ConversationSummary,type LibraryTurn} from '../api/conversationLibraryApi';
-import {getWorldAgentTurnContextTrace,getWorldAgentTurnPrompt} from '../api/liveApi';
+import {getWorldAgentTurnContextTrace,getWorldAgentTurnPrompt,getWorldAgentTurnPrompts,LiveApiError} from '../api/liveApi';
 import type {BuddyPromptEvidence} from '../api/buddyContextTraceTypes';
 
 export type ConversationExportFormat='readable'|'diagnostic';
@@ -21,11 +21,45 @@ export async function collectConversationExport(world:string,id:string,format:Co
    if(trace.schema!=='dmb_agent_turn_context_trace_response_v1'||trace.world_id!==world||trace.turn_id!==turn.turn_id||!Array.isArray(trace.attempts)
      ||trace.attempts.some(t=>t.schema!=='dmb_turn_context_trace_v1'||t.world_id!==world||t.conversation_id!==id||t.turn_id!==turn.turn_id))throw new Error('Trace differs from the exported conversation turn.');
    const prompts:({trace_id:string;provider_attempt_id:string;evidence:BuddyPromptEvidence}|{trace_id:string;provider_attempt_id:string;unavailable:string})[]=[];
-   for(const attempt of trace.attempts)for(const reference of attempt.observations){
-    if(reference.kind!=='prompt_reference')continue;
-    signal?.throwIfAborted();checkOwner();
-    try{
-     const evidence=await getWorldAgentTurnPrompt(world,turn.turn_id,attempt.trace_id,reference.provider_attempt_id,signal);signal?.throwIfAborted();checkOwner();
+   const references = trace.attempts.flatMap(attempt => attempt.observations.flatMap(reference =>
+    reference.kind === 'prompt_reference' ? [{attempt, reference}] : []));
+   let legacy = false;
+   for (let offset = 0; offset < references.length; offset += 8) {
+    const group = references.slice(offset, offset + 8);
+    let results: Awaited<ReturnType<typeof getWorldAgentTurnPrompts>>['results'] | undefined;
+    if (references.length > 1 && !legacy) {
+     try {
+      const batch = await getWorldAgentTurnPrompts(world, turn.turn_id, group.map(({attempt, reference}) => ({
+       trace_id: attempt.trace_id, provider_attempt_id: reference.provider_attempt_id,
+      })), signal);
+      signal?.throwIfAborted();checkOwner();
+      if (batch.schema !== 'dmb_agent_prompt_evidence_batch_v1' ||
+       !Array.isArray(batch.results) || batch.results.length !== group.length) {
+       throw new Error('Prompt batch differs from the captured trace references.');
+      }
+      results = batch.results;
+     } catch (error) {
+      signal?.throwIfAborted();checkOwner();
+      if (error instanceof LiveApiError && error.status === 404) legacy = true;
+      else {
+       for (const {attempt, reference} of group) {
+        prompts.push({trace_id:attempt.trace_id,provider_attempt_id:reference.provider_attempt_id,unavailable:errorText(error)});
+       }
+       continue;
+      }
+     }
+    }
+    for (const [index, {attempt, reference}] of group.entries()) {
+     signal?.throwIfAborted();checkOwner();
+     try {
+      const item = results?.[index];
+      if (results && (!item || typeof item !== 'object')) throw new Error('Prompt batch item is malformed.');
+      const unavailable = item && 'unavailable' in item ? item.unavailable : undefined;
+      if (unavailable !== undefined && unavailable !== 'prompt_batch_byte_limit') throw new Error(unavailable);
+      const evidence = !item || 'unavailable' in item
+       ? await getWorldAgentTurnPrompt(world,turn.turn_id,attempt.trace_id,reference.provider_attempt_id,signal)
+       : item;
+      signal?.throwIfAborted();checkOwner();
      if(evidence.schema!=='dmb_agent_prompt_evidence_v1'||evidence.world_id!==world||evidence.conversation_id!==id||evidence.turn_id!==turn.turn_id
        ||evidence.trace_id!==attempt.trace_id||evidence.attempt!==attempt.attempt||evidence.reference.provider_attempt_id!==reference.provider_attempt_id
        ||evidence.reference.evidence_id!==reference.evidence_id||evidence.reference.payload_sha256!==reference.payload_sha256
@@ -33,6 +67,7 @@ export async function collectConversationExport(world:string,id:string,format:Co
      const body=JSON.parse(evidence.payload_json);if(!body||typeof body!=='object'||Array.isArray(body))throw new Error('Captured prompt is malformed.');
      prompts.push({trace_id:attempt.trace_id,provider_attempt_id:reference.provider_attempt_id,evidence});
     }catch(error){signal?.throwIfAborted();checkOwner();prompts.push({trace_id:attempt.trace_id,provider_attempt_id:reference.provider_attempt_id,unavailable:errorText(error)});}
+   }
    }
    return {turn_id:turn.turn_id,trace,prompts,prompt_capture:prompts.length?'See each captured payload or unavailable reason.':'No retained prompt references; exact prompts unavailable.',...(!trace.attempts.length?{unavailable:'No retained trace attempts.'}:{})};
   }catch(error){signal?.throwIfAborted();checkOwner();return {turn_id:turn.turn_id,unavailable:errorText(error)};}
