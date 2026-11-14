@@ -1506,3 +1506,28 @@ def test_worldbuilding_postgres_confirmation_replays_one_head_advance(
     assert retry.json()["result"] == result
     assert lane.repo.get_head(SPACE_ID) == child
     assert len(lane.repo.head_events(SPACE_ID)) == len(events) + 1
+
+
+def test_worldbuilding_context_binds_saved_source_and_native_prepare(world_lane):
+    x = world_lane
+    path = "/api/live/extract-promote/native-worldbuilding-context"
+    request = {
+        "managed_world_id": x.body["managed_world_id"],
+        "run_id": x.body["run_id"],
+        "source_artifact_id": x.source.source_artifact_id,
+        "source_sha256": x.source.content_sha256,
+    }
+    headers = {"Authorization": "Bearer " + TOKEN}
+    assert x.client.post(path, json=request).status_code == 401
+    before = x.repo.head_events(SPACE_ID)
+    response = x.client.post(path, json=request, headers=headers)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["schema"] == "dmb_native_worldbuilding_review_context_v1"
+    assert result["binding"] == x.bound
+    assert result["prepare_coordinates"] == {
+        key: value for key, value in x.body.items() if key != "selections"
+    }
+    wrong = x.client.post(path, json={**request, "source_sha256": "0" * 64}, headers=headers)
+    assert wrong.status_code == 409, wrong.text
+    assert x.repo.head_events(SPACE_ID) == before

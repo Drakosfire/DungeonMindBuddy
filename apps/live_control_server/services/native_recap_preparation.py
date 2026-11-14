@@ -532,6 +532,45 @@ def _resolve_source(request, root, bound, data):
     return source, admitted
 
 
+def worldbuilding_review_context(request, principal):
+    """Resolve the current preparation coordinates for an exact saved source."""
+    require_native_graph_gm(principal)
+    root = config.artifact_data_root()
+    bound = native.binding(request.managed_world_id)
+    data = load_reviewable_extraction_data(root, request.run_id)
+    run, artifact = data.run, data.source_artifact
+    _require(run.source_domain == "worldbuilding", "candidate_scope_mismatch")
+    _require(
+        (artifact.source_artifact_id, artifact.content_sha256)
+        == (request.source_artifact_id, request.source_sha256),
+        "candidate_source_mismatch",
+    )
+    _require(bool(artifact.workspace_document_id) and artifact.workspace_document_revision is not None,
+             "candidate_workspace_source_required")
+    repo = native.repository()
+    context, _ = native.access_context(repo, bound["native_world_id"])
+    coordinates = NativeWorldbuildingPrepareRequest(
+        managed_world_id=request.managed_world_id,
+        run_id=request.run_id,
+        expected_run_revision=run.revision,
+        candidate_sha256=hashlib.sha256(data.candidate_bytes).hexdigest(),
+        expected_parent_revision_id=context["revision_id"],
+        expected_source_authority_epoch=context["source_epoch"],
+        workspace_document_id=artifact.workspace_document_id,
+        workspace_document_revision=artifact.workspace_document_revision,
+        selections=[],
+    )
+    _resolve_source(coordinates, root, bound, data)
+    _require(native.binding(request.managed_world_id) == bound, "candidate_binding_changed")
+    return {
+        "schema": "dmb_native_worldbuilding_review_context_v1",
+        "binding": bound,
+        "source_artifact_id": artifact.source_artifact_id,
+        "source_sha256": artifact.content_sha256,
+        "prepare_coordinates": coordinates.model_dump(exclude={"selections"}),
+    }
+
+
 def prepare(request, principal):
     require_native_graph_gm(principal)
     root = config.artifact_data_root()
