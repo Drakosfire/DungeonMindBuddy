@@ -1045,6 +1045,17 @@ def test_shared_search_preserves_admitted_seed_under_node_bound(inspection, monk
     monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", "managed")
     monkeypatch.setattr(routes, "search_campaign_graph", lambda _: pytest.fail("classic search fallback"))
     inspection.app.include_router(routes.router)
+    from collections import Counter
+    from dungeonmind.application.vnext import EntityReadService
+
+    reads = Counter()
+    original_read = EntityReadService.get_complete_entity
+
+    def count_complete_read(self, context, entity_id):
+        reads[entity_id] += 1
+        return original_read(self, context, entity_id)
+
+    monkeypatch.setattr(EntityReadService, "get_complete_entity", count_complete_read)
     seeds = sorted(inspection.objects[key] for key in ("object:0", "object:1"))
     response = inspection.client.post(
         "/api/live/world-graph/retrieval/search",
@@ -1064,6 +1075,8 @@ def test_shared_search_preserves_admitted_seed_under_node_bound(inspection, monk
     assert [node["nodeId"] for node in result["nodes"]] == seeds
     assert all("exact_seed" in result["matchReasons"][seed] for seed in seeds)
     assert result["coverage"]["missingSeedNodeIds"] == ["ent:missing"]
+
+    assert reads == Counter({seed: 1 for seed in [*seeds, "ent:missing"]})
 
     lexical = inspection.client.post(
         "/api/live/world-graph/retrieval/search",
