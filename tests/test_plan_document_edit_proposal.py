@@ -56,7 +56,7 @@ def test_configured_invalid_conversation_role_does_not_fall_back(monkeypatch, ro
 
 def test_plan_proposal_missing_and_malformed_policy_remain_strict(monkeypatch, tmp_path) -> None:
     path = tmp_path / "MODEL_POLICY.json"
-    monkeypatch.setattr("src.model_policy.buddy_model_policy_path", lambda: path)
+    monkeypatch.setattr("model_policy.buddy_model_policy_path", lambda: path)
     with pytest.raises(service.PlanDocumentEditProposalError) as caught:
         service._resolve_model()
     assert caught.value.code == "model_policy_unavailable"

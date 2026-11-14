@@ -42,6 +42,7 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     DMB_DEPLOYMENT_ENVIRONMENT=production \
+    DMB_MODEL_POLICY_ROOT=/app \
     DMB_AUTH_MODE=hosted_dms
 WORKDIR /app
 RUN groupadd --gid 10001 buddy \

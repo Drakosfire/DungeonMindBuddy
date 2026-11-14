@@ -180,7 +180,7 @@ def git_worktree_clean(repo_root: Path) -> bool:
 
 
 def model_policy_digest(repo_root: Path | None = None) -> str:
-    from src.model_policy import buddy_model_policy_path
+    from model_policy import buddy_model_policy_path
 
     path = buddy_model_policy_path()
     return _sha256_file(path)

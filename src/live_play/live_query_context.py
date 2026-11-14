@@ -66,7 +66,7 @@ def _utc_now_z() -> str:
 
 def _load_model_policy(root: Path) -> dict[str, Any]:
     del root  # Buddy-owned policy only; root kept for call-site compatibility.
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     return load_buddy_model_policy()
 

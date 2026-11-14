@@ -208,7 +208,7 @@ def _resolve_wiki_model() -> str:
     env_model = os.environ.get(WIKI_COMPILE_MODEL_ENV, "").strip()
     if env_model:
         return env_model
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     policy = load_buddy_model_policy(strict=True)
     if policy:

@@ -312,7 +312,7 @@ class CategoryGraphExtractionResult:
 def resolve_category_graph_model(model_id: str | None) -> str:
     if model_id and model_id.strip():
         return model_id.strip()
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     policy = load_buddy_model_policy(strict=True)
     if policy:

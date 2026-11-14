@@ -46,7 +46,7 @@ def _resolve_classifier_model(model: str | None) -> str:
     env_model = os.environ.get(_CLASSIFIER_MODEL_ENV, "").strip()
     if env_model:
         return env_model
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     policy = load_buddy_model_policy()
     if policy:
