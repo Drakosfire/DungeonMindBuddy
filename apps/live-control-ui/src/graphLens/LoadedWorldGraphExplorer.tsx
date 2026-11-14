@@ -1,3 +1,7 @@
+import { listWorldCreatures, listWorldMechanicsAssociations } from "../api/liveApi";
+import type { WorldMechanicsAssociation } from "../api/worldMechanicsTypes";
+import { buildSavedStatblockHref } from "../statblocks/savedStatblockLocation";
+import { interceptPrimaryNavigationClick } from "../chrome/appNavigation";
 import { useEffect, useRef, useState } from "react";
 import { deferredComponent } from "../ui/deferredComponent";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
@@ -30,7 +34,7 @@ function WorldGraphBrowser({ worldName, worldId, compact, entry }: {
   const recaps = entry === "recaps";
   const initialMaterial = recaps ? "sources" : "objects";
   const [open, setOpen] = useState(false);
-  const [material, setMaterial] = useState<"objects"|"sources">(initialMaterial);
+  const [material, setMaterial] = useState<"objects"|"sources"|"threats">(initialMaterial);
   useEffect(() => {
     const element = dialog.current;
     if (!element) return;
@@ -64,7 +68,46 @@ function WorldGraphBrowser({ worldName, worldId, compact, entry }: {
       {open ? <><div role="group" aria-label="World material">
         <button type="button" aria-pressed={material==='objects'} onClick={()=>setMaterial('objects')}>Objects</button>
         <button type="button" aria-pressed={material==='sources'} onClick={()=>setMaterial('sources')}>Sources</button>
-      </div>{material==='objects'?<NativeGraphInspection worldId={worldId}/>:<NativeSourceInspection worldId={worldId} initialKind={recaps ? "recap" : ""}/>}</> : null}
+        {recaps && <button type="button" aria-pressed={material==="threats"} onClick={()=>setMaterial("threats")}>Threats</button>}
+      </div>{material==="threats"?<BuildThreats worldId={worldId} close={close}/>:material==='objects'?<NativeGraphInspection worldId={worldId}/>:<NativeSourceInspection worldId={worldId} initialKind={recaps ? "recap" : ""}/>}</> : null}
     </dialog>
   </>;
+}
+
+function BuildThreats({ worldId, close }: { worldId: string; close: () => void }) {
+  const [records, setRecords] = useState<WorldMechanicsAssociation[]>();
+  const [failed, setFailed] = useState(false);
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    let active = true;
+    void Promise.all([listWorldMechanicsAssociations(worldId), listWorldCreatures(worldId)]).then(([associations, catalog]) => {
+      const creatureIds = new Set(catalog.targets.filter(target =>
+        target.kind === "creature" && target.campaign_scope === null,
+      ).map(target => target.node_id));
+
+      if (active) setRecords(associations.filter(({ request: { target } }) =>
+        target.managed_world_id === worldId && target.native_world_id === catalog.native_world_id
+        && target.binding_version === catalog.binding_version && target.kind === "creature"
+        && target.campaign_scope === null && creatureIds.has(target.node_id),
+      ));
+    }).catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, [worldId]);
+  if (failed) return <p role="alert">Could not load statblocks. Reopen Threats to retry.</p>;
+  if (!records) return <p role="status">Loading statblocks…</p>;
+  const matching = records.filter(({ request }) =>
+    request.target.label.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+  return <section aria-label="Published threat statblocks">
+    <label>Find a threat <input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label>
+    {matching.length ? <ul>{matching.map(({ association_id, request, proof }) =>
+      <li key={association_id}>
+        <a href={buildSavedStatblockHref({ worldId, draftId: request.draft_id, revisionId: proof.locator.revision_id })}
+          onClick={event => {
+            interceptPrimaryNavigationClick(event);
+            if (event.defaultPrevented) close();
+          }}>{request.target.label}</a>
+      </li>,
+    )}</ul> : <p>No matching statblocks.</p>}
+  </section>;
 }
