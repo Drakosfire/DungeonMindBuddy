@@ -56,7 +56,7 @@ export function NativeGraphNodeExplorer({ node, revision, detail, labels, entity
     </div>
     {mode === "managed" ? status === "loading" ? <p role="status">Loading this object from the loaded World revision…</p>
       : status === "ready" && detail && !detail.entity.found ? <p>This object is unavailable in the selected revision.</p>
-      : status === "ready" && detail && model ? <NodeDossier model={model} detail={detail} entityId={node.id} labels={labels} entityOnly={entityOnly} sourceReads={sourceReads} navigationDisabled={navigationDisabled} onExplore={onExplore} />
+      : status === "ready" && detail && model ? <NodeDossier model={model} detail={detail} entityId={node.id} showStatblocks={!entityOnly && presentation.displayKind !== "event"} labels={labels} entityOnly={entityOnly} sourceReads={sourceReads} navigationDisabled={navigationDisabled} onExplore={onExplore} />
         : <p role={status === "error" ? "alert" : "status"}>{error ?? "Select this object to inspect its loaded World revision."}</p>
       : <section className="native-demo-object-details__connections" aria-labelledby="native-demo-selected-connections-title">
         <h3 id="native-demo-selected-connections-title">Connections in this loaded snapshot</h3>
@@ -73,8 +73,8 @@ export function NativeGraphNodeExplorer({ node, revision, detail, labels, entity
 }
 
 /** A read-only dossier over admitted records; no canonicalization or inferred biography. */
-function NodeDossier({ model, detail, entityId, labels, entityOnly = false, sourceReads = false, navigationDisabled = false, onExplore }: {
-  model: ReturnType<typeof projectNativeObject>["dossier"]; detail: NativeGraphEntity; entityId: string; labels: ReadonlyMap<string, string>;
+function NodeDossier({ model, detail, entityId, showStatblocks, labels, entityOnly = false, sourceReads = false, navigationDisabled = false, onExplore }: {
+  model: ReturnType<typeof projectNativeObject>["dossier"]; detail: NativeGraphEntity; entityId: string; showStatblocks: boolean; labels: ReadonlyMap<string, string>;
   entityOnly?: boolean; sourceReads?: boolean; partial?: boolean; navigationDisabled?: boolean; onExplore: (entityId: string) => void;
 }) {
   const [statblocksOpen, setStatblocksOpen] = useState(false);
@@ -109,7 +109,7 @@ function NodeDossier({ model, detail, entityId, labels, entityOnly = false, sour
     {model.otherRecords.length ? <details className="graph-node-explorer__secondary"><summary>Other recorded information ({model.otherRecords.length})</summary>
       {model.otherRecords.map(({ assertion, text, contexts }) => <article key={assertion.assertion_id}><p>{text}</p><p className="graph-node-explorer__context">{contexts.join(" · ")}</p><Evidence records={[assertion]} detail={detail} entityOnly={entityOnly && !sourceReads} commonStatus={model.commonStatus} /></article>)}
     </details> : null}
-    {entityOnly ? null : <details className="graph-node-explorer__secondary" onToggle={(event) => setStatblocksOpen(event.currentTarget.open)}><summary>Linked statblocks</summary>{statblocksOpen ? <NativeObjectStatblock pin={detail.scope} entityId={entityId} /> : null}</details>}
+    {showStatblocks && <details className="graph-node-explorer__secondary" onToggle={(event) => setStatblocksOpen(event.currentTarget.open)}><summary>Linked statblocks</summary>{statblocksOpen ? <NativeObjectStatblock pin={detail.scope} entityId={entityId} /> : null}</details>}
     <details className="graph-node-explorer__secondary"><summary>Identity records and revision</summary>
       <p>World revision <code>{detail.scope.revision_id}</code></p><p>Object <code>{entityId}</code></p>
       <p>Names and classifications are preserved as recorded. The compact heading is a display label, not a canonical name.</p>
