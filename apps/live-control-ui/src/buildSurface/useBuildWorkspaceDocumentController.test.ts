@@ -1687,6 +1687,25 @@ describe("useBuildWorkspaceDocumentController", () => {
     }
   });
 
+  it.each([400, 401, 403, 422])("does not retry a rejected World create (%i)", async (status) => {
+    vi.mocked(liveApi.createWorldContainer).mockRejectedValue(
+      new liveApi.LiveApiError("World creation rejected", status),
+    );
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+
+    await act(async () => {
+      result.current.createDocument({
+        title: "Orchard notes",
+        destination: { kind: "new_world", name: "The Glass Orchard" },
+      });
+    });
+
+    await waitFor(() => expect(result.current.createError).toMatch(/World creation rejected/));
+    expect(liveApi.createWorldContainer).toHaveBeenCalledTimes(1);
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+  });
+
   it("reconciles ambiguous world create by retrying server idempotent POST", async () => {
     vi.mocked(liveApi.createWorldContainer)
       .mockRejectedValueOnce(new Error("network lost"))

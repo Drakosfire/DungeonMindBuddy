@@ -6,7 +6,6 @@ This queue holds the maintenance items explicitly transferred out of the root pr
 
 | Candidate | Component owner | Evidence and next check |
 | --- | --- | --- |
-| Retry Build World creation only when the outcome is ambiguous | Buddy Build frontend | ensureManagedWorld retries every rejected create POST, even though the retry exists to reconcile an uncertain commit. The controller suite already covers successful reconciliation. createWorldContainer delegates to apiFetch, whose LiveApiError carries status and code. Use those fields where the endpoint contract establishes a definitive rejection. Check the API error taxonomy and avoid repeating definitive validation or permission failures while preserving the server-owned idempotent retry for uncertain outcomes. |
 | Give retained PDF shortcuts a browser storage lifecycle | Buddy Build frontend | Each distinct capture locator adds a localStorage entry and opening the preview scans all storage keys to rebuild the list. The shortcut list offers reopen but no removal. Measure growth with repeated captures, then evaluate explicit shortcut removal and scoped indexing. Verify existing entries remain readable and removing a shortcut preserves the durable PDF and its evidence. |
 
 ## Transfer record

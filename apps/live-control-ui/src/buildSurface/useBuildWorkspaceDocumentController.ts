@@ -3,6 +3,7 @@ import { buildStarterKey } from "./buildStudioActions";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  LiveApiError,
   admitNativeWorldSource,
   commitTiptapMarkdownWrite,
   createWorldContainer,
@@ -122,6 +123,9 @@ async function ensureManagedWorld(name: string): Promise<WorldContainerRecord> {
   try {
     return await createWorldContainer({ name: trimmed });
   } catch (firstError) {
+    if (firstError instanceof LiveApiError && [400, 401, 403, 422].includes(firstError.status)) {
+      throw firstError;
+    }
     try {
       return await createWorldContainer({ name: trimmed });
     } catch {
