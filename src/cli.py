@@ -34,7 +34,7 @@ from src.agent.planner import run_planning_session
 from src.agent.synthesis import synthesize_answer_async
 from src.compiler.wiki_compiler import compile_wiki, list_wiki_targets
 from src.ingestion.chunker import chunk_document
-from src.ingestion.frontmatter import (
+from ingestion.frontmatter import (
     FrontmatterError,
     load_document_frontmatter,
     write_document_with_frontmatter,
