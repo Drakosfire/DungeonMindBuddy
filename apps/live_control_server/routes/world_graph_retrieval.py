@@ -209,6 +209,8 @@ def post_world_graph_retrieval_neighborhood(
             response = get_object_neighborhood(request)
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
+    except HTTPException:
+        raise
     except Exception:
         return _error_response(
             WorldGraphRetrievalServiceError(
