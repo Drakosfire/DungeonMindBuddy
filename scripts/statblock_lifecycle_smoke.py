@@ -12,23 +12,23 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
-from src.statblocks.lifecycle_commands import (  # noqa: E402
+from statblocks.lifecycle_commands import (  # noqa: E402
     STATBLOCK_DRAFT_GENERATE,
     STATBLOCK_DRAFT_RENDER,
     STATBLOCK_GENERATOR_HEALTH,
 )
-from src.statblocks.lifecycle_service import (  # noqa: E402
+from statblocks.lifecycle_service import (  # noqa: E402
     StatblockLifecycleCommandRequest,
     StatblockLifecycleCommandResult,
     StatblockLifecycleService,
 )
-from src.statblocks.v2_client import (  # noqa: E402
+from statblocks.v2_client import (  # noqa: E402
     DungeonMindServerStatBlockGeneratorClient,
     MockStatBlockGeneratorProvider,
     StatBlockGeneratorClientConfigError,
     StatBlockGeneratorProvider,
 )
-from src.statblocks.v2_contract import ContractError  # noqa: E402
+from statblocks.v2_contract import ContractError  # noqa: E402
 
 _FIXTURE_DIR = _REPO_ROOT / "tests" / "statblocks" / "fixtures"
 

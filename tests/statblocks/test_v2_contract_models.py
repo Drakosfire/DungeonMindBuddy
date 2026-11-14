@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from src.statblocks.v2_contract import StatBlockDraftResponse, StatBlockGeneratorHealth
+from statblocks.v2_contract import StatBlockDraftResponse, StatBlockGeneratorHealth
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
@@ -127,7 +127,7 @@ def test_health_payload_validates() -> None:
 
 
 def test_request_models_expose_production_request_fields() -> None:
-    from src.statblocks.v2_contract import (
+    from statblocks.v2_contract import (
         OutputOptions,
         SourceRef,
         StatBlockDraftRenderRequest,

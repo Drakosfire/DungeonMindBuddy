@@ -5,7 +5,7 @@ from typing import Any, Protocol
 
 import httpx
 
-from src.statblocks.v2_contract import (
+from statblocks.v2_contract import (
     ContractError,
     StatBlockDraftRenderRequest,
     StatBlockDraftRequest,
