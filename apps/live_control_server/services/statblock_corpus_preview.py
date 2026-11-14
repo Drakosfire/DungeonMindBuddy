@@ -15,8 +15,8 @@ from apps.live_control_server.services.statblock_draft_store import (
 )
 from apps.live_control_server.services.statblock_workbench import StatblockWorkbenchAction
 from corpus.corpus_writer import is_writable_corpus_path
-from src.statblocks.lifecycle_artifact import StatblockBreadcrumb
-from src.statblocks.v2_contract import CombatDefaults, SourceRef
+from statblocks.lifecycle_artifact import StatblockBreadcrumb
+from statblocks.v2_contract import CombatDefaults, SourceRef
 
 SCHEMA_VERSION_PREVIEW = "dmb_statblock_corpus_promotion_preview_v1"
 CORPUS_ROOT_DISPLAY = "corpus/eldyrwild-markdown"

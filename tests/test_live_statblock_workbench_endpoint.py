@@ -134,7 +134,7 @@ def test_statblock_workbench_http_generate_backfills_summary_for_remote_v2(
 
     class FakeHTTPProvider:
         def generate_draft(self, request):
-            from src.statblocks.v2_contract import StatBlockDraftResponse
+            from statblocks.v2_contract import StatBlockDraftResponse
 
             seen["summary"] = request.intent.summary if request.intent else None
             return StatBlockDraftResponse.model_validate(
@@ -172,7 +172,7 @@ def test_statblock_workbench_http_generate_backfills_summary_for_remote_v2(
             return self.generate_draft(request)
 
         def health(self):
-            from src.statblocks.v2_contract import StatBlockGeneratorHealth
+            from statblocks.v2_contract import StatBlockGeneratorHealth
 
             return StatBlockGeneratorHealth(status="ok", service="fake-http")
 
@@ -323,7 +323,7 @@ def test_statblock_workbench_generate_command_uses_http_provider(
 
     class FakeHTTPProvider:
         def generate_draft(self, request):
-            from src.statblocks.v2_contract import StatBlockDraftResponse
+            from statblocks.v2_contract import StatBlockDraftResponse
 
             return StatBlockDraftResponse.model_validate(http_generate_response)
 
@@ -331,7 +331,7 @@ def test_statblock_workbench_generate_command_uses_http_provider(
             raise AssertionError("render should not be called in generate test")
 
         def health(self):
-            from src.statblocks.v2_contract import StatBlockGeneratorHealth
+            from statblocks.v2_contract import StatBlockGeneratorHealth
 
             return StatBlockGeneratorHealth(status="ok", service="fake-http")
 
@@ -385,7 +385,7 @@ def test_statblock_workbench_http_command_does_not_expose_internal_key(
 
     class FakeHTTPProvider:
         def generate_draft(self, request):
-            from src.statblocks.v2_contract import StatBlockDraftResponse
+            from statblocks.v2_contract import StatBlockDraftResponse
 
             return StatBlockDraftResponse.model_validate(
                 {
@@ -422,7 +422,7 @@ def test_statblock_workbench_http_command_does_not_expose_internal_key(
             return self.generate_draft(request)
 
         def health(self):
-            from src.statblocks.v2_contract import StatBlockGeneratorHealth
+            from statblocks.v2_contract import StatBlockGeneratorHealth
 
             return StatBlockGeneratorHealth(status="ok", service="fake-http")
 

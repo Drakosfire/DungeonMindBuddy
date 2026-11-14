@@ -12,8 +12,8 @@ from apps.live_control_server.services.statblock_draft_store import (
 )
 from apps.live_control_server.services.statblock_workbench import StatblockWorkbenchAction
 from src.live_play.live_store import load_json
-from src.statblocks.lifecycle_artifact import StatblockBreadcrumb
-from src.statblocks.v2_contract import CombatDefaults, ReviewWarning, SourceRef
+from statblocks.lifecycle_artifact import StatblockBreadcrumb
+from statblocks.v2_contract import CombatDefaults, ReviewWarning, SourceRef
 
 SCHEMA_VERSION_LIST = "dmb_generated_statblock_list_v1"
 SCHEMA_VERSION_DETAIL = "dmb_generated_statblock_detail_v1"

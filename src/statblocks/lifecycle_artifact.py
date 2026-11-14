@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from src.statblocks.v2_contract import (
+from statblocks.v2_contract import (
     CombatDefaults,
     DraftProvenance,
     ReviewWarning,

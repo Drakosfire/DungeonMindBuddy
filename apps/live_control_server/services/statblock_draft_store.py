@@ -9,7 +9,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from src.live_play.live_store import load_json, write_json
-from src.statblocks.lifecycle_artifact import StatblockDraftArtifact
+from statblocks.lifecycle_artifact import StatblockDraftArtifact
 
 DRAFTS_DIR_NAME = "statblock_drafts"
 SCHEMA_VERSION_RECORD = "dmb_statblock_draft_record_v1"

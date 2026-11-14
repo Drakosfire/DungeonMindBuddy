@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from src.statblocks.lifecycle_artifact import (
+from statblocks.lifecycle_artifact import (
     StatblockBreadcrumb,
     artifact_from_draft_response,
 )
-from src.statblocks.v2_contract import StatBlockDraftResponse
+from statblocks.v2_contract import StatBlockDraftResponse
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
