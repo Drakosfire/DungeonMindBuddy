@@ -24,6 +24,19 @@ export interface NativeWorldbuildingConfirmation {
 const record = (value: unknown): value is Packet =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
+// The server expands schema defaults in the signed review.
+function matchesSubmitted(actual: Json | undefined, submitted: Json): boolean {
+  if (Array.isArray(submitted)) {
+    return Array.isArray(actual) && actual.length === submitted.length &&
+      submitted.every((value, index) => matchesSubmitted(actual[index], value));
+  }
+  if (record(submitted)) {
+    return record(actual) && Object.entries(submitted).every(([key, value]) =>
+      matchesSubmitted(actual[key], value));
+  }
+  return actual === submitted;
+}
+
 async function post(operation: "prepare" | "confirm" | "worldbuilding-context", body: object): Promise<Packet> {
   const { response } = await authenticatedApiFetch(
     `/api/live/extract-promote/native-${operation}`,
@@ -58,9 +71,7 @@ export async function prepareNativeWorldbuilding(input: NativeWorldbuildingPrepa
   const { envelope, prepared, token } = value;
   if (value.status !== "prepared" || !record(envelope) || !record(prepared) ||
       typeof token !== "string" || !token || envelope.purpose !== "dmb_native_worldbuilding_confirm_v1" ||
-      !record(envelope.review) || envelope.review.managed_world_id !== input.managed_world_id ||
-      envelope.review.workspace_document_id !== input.workspace_document_id ||
-      envelope.review.workspace_document_revision !== input.workspace_document_revision) {
+      !matchesSubmitted(envelope.review, { ...input })) {
     throw new LiveApiError("Invalid native Worldbuilding confirmation packet.", 0);
   }
   return { status: "prepared" as const, records: value.records, confirmation: { envelope, prepared, token } };
