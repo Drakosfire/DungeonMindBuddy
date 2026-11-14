@@ -432,7 +432,9 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     return "pdf-review-fields";
   }
 
-  function focusIssue(target: string) {
+  function focusIssue(target: string, path?: string | null) {
+    const structuredRule = target.startsWith("pdf-review-rule-") && !path?.endsWith(".rules_text");
+    if (structuredRule) target += "-validation";
     const element = document.getElementById(target);
     if (!element) return;
     for (let parent: HTMLElement | null = element; parent; parent = parent.parentElement) {
@@ -479,7 +481,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       {!published && publishBlockers.length > 0 && <ul aria-label="What blocks publication">
         {publishBlockers.map((blocker, index) => <li key={index}>
           {typeof blocker === "string" ? blocker :
-            <button type="button" onClick={() => focusIssue(issueTarget(blocker.field_path))}>
+            <button type="button" onClick={() => focusIssue(issueTarget(blocker.field_path), blocker.field_path)}>
               {blocker.message}
             </button>}
         </li>)}
@@ -551,7 +553,12 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
                 onChange={event => commitEdit(setRuleElementRulesText(editor, key, event.currentTarget.value))} />
             </label>
             </details>
-            {fieldIssues(`pdf-review-rule-${key}`)}
+            <div id={`pdf-review-rule-${key}-validation`} tabIndex={-1}>
+              {fieldIssues(`pdf-review-rule-${key}`)}
+              {issues.some(issue => issueTarget(issue.field_path) === `pdf-review-rule-${key}` &&
+                !issue.field_path?.endsWith(".rules_text")) &&
+                <p>These messages concern structured mechanics. See More statblock fields for the available mechanics controls.</p>}
+            </div>
           </>,
         }} />
         <details>
