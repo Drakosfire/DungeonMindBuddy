@@ -20,26 +20,28 @@ def read_review(*, world_id, review_id):
     return {"revision": row[0], **row[1]}
 
 
-def save_review(*, world_id, review_id, expected_revision, definition, regions):
+def save_review(*, world_id, review_id, expected_revision, definition, regions, artwork=None):
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     payload = {"definition": definition, "regions": regions}
+    if artwork is not None:
+        payload["artwork"] = artwork
     with unit_of_work(dsn) as conn:
         if expected_revision == 0:
             row = conn.execute(
                 """INSERT INTO public.pdf_statblock_review (world_id, review_id, revision, payload)
-                   VALUES (%s, %s, 1, %s) ON CONFLICT DO NOTHING RETURNING revision""",
+                   VALUES (%s, %s, 1, %s) ON CONFLICT DO NOTHING RETURNING revision, payload""",
                 (world_id, review_id, Jsonb(payload)),
             ).fetchone()
         else:
             row = conn.execute(
                 """UPDATE public.pdf_statblock_review
-                   SET revision = revision + 1, payload = %s
+                   SET revision = revision + 1, payload = payload || %s
                    WHERE world_id = %s AND review_id = %s AND revision = %s
                      AND payload->'regions' = %s
-                   RETURNING revision""",
+                   RETURNING revision, payload""",
                 (Jsonb(payload), world_id, review_id, expected_revision, Jsonb(regions)),
             ).fetchone()
         if row is None:
             raise ApplicationStateConflictError("Review changed or its source regions do not match")
-    return {"revision": row[0], **payload}
+    return {"revision": row[0], **row[1]}

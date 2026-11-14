@@ -32,7 +32,7 @@ from apps.live_control_server.config import (
     session_dir,
     world_graph_root,
 )
-from apps.live_control_server.services.build_pdf_ocr import read_crop_png
+from apps.live_control_server.services.build_pdf_ocr import read_crop_png, read_grounded_artwork
 from apps.live_control_server.models.build_document_proposal import BuildDocumentProposalRequest
 from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryResponse,
@@ -2352,6 +2352,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
             return existing
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
 
+    artwork = None
     transcriptions = []
     embedded_texts = []
     authorized_regions = []
@@ -2366,6 +2367,10 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
             continue
         if not isinstance(text, str) or not text.strip():
             raise HTTPException(status_code=503, detail={"code": "pdf_statblock_ocr_unavailable"})
+        if artwork is None and "<|ref|>image<|/ref|>" in text:
+            crop = read_grounded_artwork(png, text)
+            if crop is not None:
+                artwork = {**crop, "region_index": len(authorized_regions) - 1}
         transcriptions.append(text)
         embedded_texts.append(read_region_text(pdf, region) or None)
     if not transcriptions:
@@ -2397,6 +2402,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         return save_review(
             world_id=verified_world, review_id=review_id, expected_revision=0,
             definition=definition, regions=authorized_regions,
+            **({"artwork": artwork} if artwork is not None else {}),
         )
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_output_invalid"}) from exc
