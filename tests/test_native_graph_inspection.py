@@ -670,5 +670,8 @@ def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch
     assert source["adjacency"][0]["direction"] == "outgoing"
     assert target["adjacency"][0]["direction"] == "incoming"
     assert target["evidenceRefIds"] == []
+    assert target["evidenceBadges"] == []
+    assert [badge["evidenceRefId"] for badge in source["evidenceBadges"]] == source["evidenceRefIds"]
+    assert source["suggestedExpansions"][0]["nodeId"] == target["nodeId"]
     assert source["nodeId"] in projection["queryContext"]["matchedNodeIds"]
     assert lane.repo.get_head(space).head_revision_id == revision

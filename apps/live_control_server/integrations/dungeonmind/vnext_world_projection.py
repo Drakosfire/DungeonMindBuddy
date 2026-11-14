@@ -12,10 +12,12 @@ from apps.live_control_server.integrations.dungeonmind.vnext_complete_object imp
     _source_presentation,
     world_object_display_values,
 )
+from apps.live_control_server.integrations.dungeonmind.world_graph_reads import _expansion_views
 from graph_memory.projection.world_projection import (
     WorldGraphProjection,
     WorldGraphProjectionAdjacencyCandidate,
     WorldGraphProjectionAttributeView,
+    WorldGraphProjectionEvidenceBadge,
     WorldGraphProjectionEvidenceView,
     WorldGraphProjectionNodeView,
     WorldGraphProjectionRelationshipView,
@@ -121,7 +123,20 @@ def project_node_views(context, support, attributes, artifacts):
     aliases_by_entity = defaultdict(set)
     for alias in support.aliases:
         aliases_by_entity[alias.entity_id].add(alias.alias_text)
-    artifact_domains = {item.source_artifact_id: item.source_domain for item in artifacts}
+    sources = {item.source_artifact_id: item for item in artifacts}
+    badges = {
+        item.evidence_ref_id: WorldGraphProjectionEvidenceBadge(
+            evidence_ref_id=item.evidence_ref_id,
+            source_artifact_id=item.source_artifact_id,
+            source_domain=sources[item.source_artifact_id].source_domain,
+            evidence_role=item.evidence_role,
+            can_open_source=item.can_open_source,
+            can_highlight_span=item.can_highlight_span,
+            session_id=sources[item.source_artifact_id].session_id,
+            source_span_ref_id=item.source_span_ref_id,
+        )
+        for item in support.evidence
+    }
 
     nodes = []
     for entity in support.listing.entities:
@@ -142,7 +157,8 @@ def project_node_views(context, support, attributes, artifacts):
                 aliases=sorted(aliases_by_entity[entity_id]),
                 evidence_ref_ids=evidence_ids,
                 source_artifact_ids=artifact_ids,
-                source_domains=sorted({artifact_domains[key] for key in artifact_ids}),
+                source_domains=sorted({sources[key].source_domain for key in artifact_ids}),
+                evidence_badges=[badges[key] for key in evidence_ids],
             )
         )
     return nodes
@@ -192,6 +208,11 @@ def project_native_world(
     attributes, relationships = project_assertion_views(context, support, artifacts)
     nodes = project_node_views(context, support, attributes, artifacts)
     attach_adjacency(nodes, relationships)
+    degree_by_node = {node.node_id: len(node.adjacency) for node in nodes}
+    for node in nodes:
+        node.suggested_expansions = _expansion_views(
+            node.adjacency, degree_by_node=degree_by_node
+        )
     return WorldGraphProjection(
         schema="dmb_world_graph_projection_v1",
         snapshot=snapshot,
