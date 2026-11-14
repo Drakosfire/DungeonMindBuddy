@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
+
+from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel, ConfigDict
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
-from apps.live_control_server.services.graph_document_relationship import DocumentRelationshipRequest, relationship_request
+from apps.live_control_server.services.graph_document_relationship import (
+    DocumentRelationshipRequest, relationship_request, prepare_reviewed_native_relationship,
+    confirm_native_relationship,
+)
 from apps.live_control_server.config import repo_root
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.services.native_graph_inspection import InspectionUnavailable
@@ -60,6 +67,53 @@ def post_document_relationship_request(
         ) from exc
     except (GraphObjectAuthoringError, SourceArtifactRegistryError, WorkspaceDocumentRegistryError, WorldGraphProjectionServiceError) as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": getattr(exc,"code","relationship_source_unavailable"), "message": str(exc)}) from exc
+
+
+class NativeRelationshipPrepareRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    review: DocumentRelationshipRequest
+    operation_id: UUID
+
+
+class NativeRelationshipConfirmRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    review: DocumentRelationshipRequest
+    prepared: dict[str, Any]
+    confirm_token: str
+
+
+@router.post("/document-relationship/native-prepare")
+def post_native_relationship_prepare(
+    body: NativeRelationshipPrepareRequest,
+    principal=Depends(native_graph_gm_dependency),
+):
+    try:
+        return prepare_reviewed_native_relationship(
+            repo_root(), body.review, principal,
+            operation_id=f"dmb-build-relationship:v1:{body.operation_id}",
+        )
+    except (GraphObjectAuthoringError, DungeonMindError, ValueError) as exc:
+        raise HTTPException(
+            status_code=getattr(exc, "status_code", 409),
+            detail={"code": getattr(exc, "code", "native_relationship_prepare_failed")},
+        ) from exc
+
+
+@router.post("/document-relationship/native-confirm")
+def post_native_relationship_confirm(
+    body: NativeRelationshipConfirmRequest,
+    principal=Depends(native_graph_gm_dependency),
+):
+    try:
+        result = confirm_native_relationship(
+            repo_root(), body.review, body.prepared, body.confirm_token, principal,
+        )
+        return jsonable_encoder(result)
+    except (GraphObjectAuthoringError, DungeonMindError, ValueError) as exc:
+        raise HTTPException(
+            status_code=getattr(exc, "status_code", 409),
+            detail={"code": getattr(exc, "code", "native_relationship_confirm_failed")},
+        ) from exc
 
 
 @router.post("/prepare", response_model=GraphObjectAuthoringPrepareResponse)
