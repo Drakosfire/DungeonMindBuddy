@@ -450,6 +450,7 @@
       "apps/live-control-ui/src/surface/SurfaceGraphReferenceInput.test.tsx",
       "apps/live-control-ui/src/surface/SurfaceObjectMenu.test.tsx",
       "apps/live-control-ui/src/surface/SurfacePlanConstructionPreview.test.tsx",
+      "apps/live-control-ui/src/LiveControlApp.test.tsx",
       "apps/live-control-ui/src/surface/SurfaceShell.test.tsx",
       "apps/live-control-ui/src/surface/TargetChip.test.tsx",
       "apps/live-control-ui/src/surface/WriteEvidencePanel.test.tsx",
