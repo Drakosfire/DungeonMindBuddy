@@ -72,3 +72,20 @@ it('stops traversal when selection retires',async()=>{
  let reads=0;const check=()=>{if(++reads>2)throw new Error('retired');};
  await expect(collectConversationExport(world,id,'diagnostic',check)).rejects.toThrow('retired');expect(getWorldAgentTurnContextTrace).not.toHaveBeenCalled();
 });
+
+it('collects diagnostic turns two at a time while preserving transcript order', async () => {
+ pages([turn(1), turn(2), turn(3)]);
+ let active = 0;
+ let peak = 0;
+ vi.mocked(getWorldAgentTurnContextTrace).mockImplementation(async (_world, turnId) => {
+  active++;
+  peak = Math.max(peak, active);
+  await Promise.resolve();
+  active--;
+  return {schema:'dmb_agent_turn_context_trace_response_v1',world_id:world,turn_id:turnId,attempts:[]};
+ });
+ const result = await collectConversationExport(world, id, 'diagnostic', () => {});
+ expect(peak).toBe(2);
+ expect(getWorldAgentTurnContextTrace).toHaveBeenCalledTimes(3);
+ expect(JSON.parse(result.content).diagnostics.map((row: {turn_id: string}) => row.turn_id)).toEqual([uuid(1),uuid(2),uuid(3)]);
+});
