@@ -446,15 +446,17 @@ it.each([false, true])("prepares selected facts and confirms the exact packet (b
     expect(screen.getByRole("button", {name: "Prepare selected facts"})).toBeDisabled();
     fireEvent.click(screen.getByRole("button", {name: "Clear choices for this object"}));
     expect(screen.getByRole("button", {name: "Prepare selected facts"})).toBeEnabled();
-    expect(screen.queryByLabelText("Relationship")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Relationships")).not.toBeInTheDocument();
     if (bindExisting) {
       fireEvent.change(screen.getByLabelText("Candidate object"), {target: {value: "town:a"}});
       const townFacts = screen.getByLabelText("Facts") as HTMLSelectElement;
       townFacts.options[0].selected = true;
       fireEvent.change(townFacts);
       fireEvent.change(screen.getByLabelText("Supporting excerpt"), {target: {value: "support:a"}});
-      fireEvent.change(screen.getByLabelText("Relationship"), {target: {value: "edge:a"}});
-      fireEvent.change(screen.getByLabelText("Relationship excerpt"), {target: {value: "support:a"}});
+      const edges = screen.getByLabelText("Relationships") as HTMLSelectElement;
+      for (const option of edges.options) option.selected = true;
+      fireEvent.change(edges);
+      fireEvent.change(screen.getByLabelText("Relationship excerpt for edge:a"), {target: {value: "support:a"}});
     }
     fireEvent.click(screen.getByRole("button", { name: "Prepare selected facts" }));
     const submit = await screen.findByRole("button", { name: "Confirm native publication" });

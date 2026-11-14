@@ -276,8 +276,7 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
   }
   const selectedObjects = Object.entries(choices).filter(([, choice]) =>
     choice.fields.length && choice.support && (!choice.bindExisting || choice.existingId.trim()));
-  const [relationship, setRelationship] = useState("");
-  const [relationshipSupport, setRelationshipSupport] = useState("");
+  const [relationshipChoices, setRelationshipChoices] = useState<Record<string, string>>({});
   const metadata = (support: string) => ({
     evidence_ref_ids: [support],
     visibility: { kind: "labels_any", labels: ["dungeonbuddy.visibility:gm"] },
@@ -310,7 +309,8 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
       : []);
   const incompleteObjects = Object.keys(choices).length !== selectedObjects.length;
   const readyToPrepare = selectedObjects.length > 0 && !incompleteObjects &&
-    (!relationship || (relationshipSupport && relationships.some(row => row.id === relationship)));
+    Object.entries(relationshipChoices).every(([id, support]) =>
+      support && relationships.some(row => row.id === id));
   async function run(confirm: boolean) {
     if (!context || lock.current || isCurrent?.() === false) return;
     lock.current = true;
@@ -330,9 +330,9 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
               ...(choice.bindExisting ? {entity_id: choice.existingId.trim()} : {}),
               facts: choice.fields.map(field => ({ field, metadata: metadata(choice.support) })),
             })),
-            ...(relationship ? [{
-              kind: "edge", record_id: relationship, action: "create", metadata: metadata(relationshipSupport),
-            }] : []),
+            ...Object.entries(relationshipChoices).map(([id, support]) => ({
+              kind: "edge", record_id: id, action: "create", metadata: metadata(support),
+            })),
           ],
         });
         if (isCurrent?.() !== false) {
@@ -379,22 +379,29 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
           {context.sourceSupport.map(row => row && typeof row === "object" && !Array.isArray(row) &&
             <option key={String(row.evidence_ref_id)} value={String(row.evidence_ref_id)}>{String(row.text)}</option>)}
         </select></label>
-        {(relationships.length > 0 || relationship) && <>
-          <label>Relationship<select value={relationship} onChange={event => {
-            setRelationship(event.target.value);
-            setRelationshipSupport("");
+        {(relationships.length > 0 || Object.keys(relationshipChoices).length > 0) && <>
+          <label>Relationships<select multiple value={Object.keys(relationshipChoices)} onChange={event => {
+            const selected = Array.from(event.target.selectedOptions, option => option.value);
+            setRelationshipChoices(current => Object.fromEntries(selected.map(id => [id, current[id] ?? ""])));
           }}>
-            <option value="">No relationship selected</option>
             {relationships.map(row => <option key={row.id} value={row.id}>
               {row.from} → {row.to} ({row.label})
             </option>)}
           </select></label>
-          {relationship && <label>Relationship excerpt<select value={relationshipSupport}
-            onChange={event => setRelationshipSupport(event.target.value)}>
-            <option value="">Choose exact source evidence</option>
-            {context.sourceSupport.map(row => row && typeof row === "object" && !Array.isArray(row) &&
-              <option key={String(row.evidence_ref_id)} value={String(row.evidence_ref_id)}>{String(row.text)}</option>)}
-          </select></label>}
+          {Object.entries(relationshipChoices).map(([id, support]) =>
+            <label key={id}>Relationship excerpt for {id}<select value={support}
+              onChange={event => {
+                const value = event.target.value;
+                setRelationshipChoices(current => ({...current, [id]: value}));
+              }}>
+              <option value="">Choose exact source evidence</option>
+              {context.sourceSupport.map(row => row && typeof row === "object" && !Array.isArray(row) &&
+                <option key={String(row.evidence_ref_id)} value={String(row.evidence_ref_id)}>{String(row.text)}</option>)}
+            </select>
+            <button type="button" onClick={() => setRelationshipChoices(current =>
+              Object.fromEntries(Object.entries(current).filter(([key]) => key !== id)))}>
+              Clear relationship {id}
+            </button></label>)}
         </>}
         {choices[recordId] && <button type="button" onClick={() => setChoices(current => {
           const next = {...current};
