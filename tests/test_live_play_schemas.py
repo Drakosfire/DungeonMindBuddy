@@ -11,7 +11,7 @@ from jsonschema.exceptions import ValidationError
 
 from current_state_derive import derive_current_state_fields
 from live_store import append_jsonl, iter_jsonl, load_json, write_json
-from src.live_play.surface_layout_invariants import (
+from surface_layout_invariants import (
     validate_catalog_layout_consistency,
     validate_surface_layout_invariants,
 )
