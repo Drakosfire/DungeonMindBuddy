@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-from src.session_memory.breadcrumb_normalize import (
+from session_memory.breadcrumb_normalize import (
     normalize_breadcrumb_artifact,
 )
 from live_play.recap_derivative_provenance import (
