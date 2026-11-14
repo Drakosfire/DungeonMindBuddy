@@ -95,27 +95,31 @@ def authoring_identities(scope, principal):
     """Read authorized identity fields at one binding and graph revision."""
     bound, read, _, pin = _pinned(scope, principal)
     service = EntityReadService()
-    listing = service.list_entities(read)
+    listing, admitted_aliases = service.list_entities_with_aliases(read)
     if listing.completeness.status != "complete":
         raise InspectionUnavailable("native_authoring_identities_partial")
+
+    assertions_by_entity = {}
+    for assertion_id in listing.admitted_assertion_ids:
+        assertion = read.parsed.get_assertion(assertion_id)
+        assertions_by_entity.setdefault(assertion.subject_entity_id, []).append(assertion)
+    aliases_by_entity = {}
+    for alias in admitted_aliases:
+        aliases_by_entity.setdefault(alias.entity_id, []).append(alias.alias_text)
 
     identities = []
     for entity in listing.entities:
         entity_id = entity.entity_id
-        complete = service.get_complete_entity(read, entity_id)
-        if not complete.found or complete.completeness.status != "complete":
-            raise InspectionUnavailable("native_authoring_identities_partial")
-        aliases = [alias.alias_text for alias in sorted(
-            complete.aliases, key=lambda alias: alias.alias_id
-        )]
+        assertions = tuple(assertions_by_entity.get(entity_id, ()))
+        aliases = aliases_by_entity.get(entity_id, [])
         try:
-            label, kind, summary = world_object_display_values(complete.assertions, entity_id)
+            label, kind, summary = world_object_display_values(assertions, entity_id)
             selectable = True
         except VNextCompleteObjectProjectionError:
             label, kind, summary = f"Unresolved identity · {entity_id}", "entity", None
             selectable = False
             names = set()
-            for assertion in complete.assertions:
+            for assertion in assertions:
                 if assertion.subject_entity_id == entity_id and assertion.predicate == "dnd5e:name":
                     value = getattr(assertion.value, "value", None)
                     if isinstance(value, str):
