@@ -828,6 +828,10 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
     committed = runtime.commit_prepared_change(
         runtime.prepare_change(wk.WorldChangeIntent(space, "multisource", (
             wk.CreateObject("second-target"),
+        wk.UseExisting(x.objects["object:0"], (
+            wk.CreateFact("source-kind", "dungeonbuddy:source_classification",
+                          wk.TermRefFactValue("dungeonbuddy.source:session_recap"), x.meta),
+        )),
             wk.CreateRelationship(
                 "multisource-edge", wk.DurableObjectRef(x.objects["object:0"]),
                 "dnd5e:located_in", wk.ResultOf("second-target"),
@@ -863,7 +867,11 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
         "max_depth": 1,
     }
     assert packet["nodes"][0]["label"] == "Object 0"
-    assert all(row["textValue"] != "Object 0" for row in packet["attributes"])
+    attribute, = packet["attributes"]
+    assert attribute["predicate"] == "dungeonbuddy:source_classification"
+    assert attribute["value"] == {"term": "dungeonbuddy.source:session_recap"}
+    assert attribute["subjectNodeId"] == x.objects["object:0"]
+    assert attribute["evidenceRefIds"] == [x.lane.support_ids["first"]]
     anchor = next(row for row in packet["sourceAnchors"] if row["evidenceRefId"] == x.lane.support_ids["first"])
     assert set(anchor["supportingAssertionIds"]) == {x.assertions["relationship"], multi_edge}
     assert len(packet["sourceAnchors"]) == 2
