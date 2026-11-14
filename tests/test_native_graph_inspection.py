@@ -858,6 +858,10 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
     )
     assert neighborhood.status_code == 200, neighborhood.text
     packet = neighborhood.json()
+    assert packet["requestSummary"] == {
+        "seed_node_ids": [x.objects["object:0"]],
+        "max_depth": 1,
+    }
     assert packet["nodes"][0]["label"] == "Object 0"
     field = next(row for row in packet["attributes"] if row["textValue"] == "Object 0")
     assert field["subjectNodeId"] == x.objects["object:0"]

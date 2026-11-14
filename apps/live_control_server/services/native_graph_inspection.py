@@ -500,6 +500,10 @@ def shared_neighborhood(request, principal):
             focus=request.focus.to_projection_focus(), admissibility=request.admissibility,
             scope_mode=request.scope_mode,
         ),
+        request_summary={
+            "seed_node_ids": list(request.seed_node_ids),
+            "max_depth": request.max_depth,
+        },
         nodes=nodes, relationships=edges,
         attributes=attributes[:request.bounds.max_attributes],
         source_anchors=anchors[:request.bounds.max_source_anchors],
