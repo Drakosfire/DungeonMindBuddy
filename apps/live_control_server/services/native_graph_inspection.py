@@ -463,24 +463,33 @@ def shared_neighborhood(request, principal):
     artifacts = {row.source_artifact_id: row for row in result.source_artifacts}
     from apps.live_control_server.integrations.dungeonmind.vnext_complete_object import _source_domain
 
-    anchors = []
+    supporting_edges = {}
     for edge in edges:
         for evidence_id in edge.evidence_ref_ids:
             ref = evidence[evidence_id]
-            if ref.evidence_role != "support" or not ref.source_span_ref_id:
-                continue
-            artifact = artifacts[ref.source_artifact_id]
-            anchors.append(WorldGraphSourceAnchor(
-                anchor_id=native_anchor_id(edge.edge_id, evidence_id),
-                revision_id=pin.revision_id,
-                evidence_ref_id=evidence_id,
-                source_artifact_id=ref.source_artifact_id,
-                source_domain=_source_domain(artifact.source_classification),
-                source_span_ref_id=ref.source_span_ref_id,
-                supporting_graph_object_ids=[edge.source_node_id, edge.target_node_id],
-                supporting_assertion_ids=[edge.edge_id],
-                readable=ref.can_open_source, locator_kind="source_span",
-            ))
+            if ref.evidence_role == "support" and ref.source_span_ref_id:
+                supporting_edges.setdefault(evidence_id, []).append(edge)
+
+    anchors = []
+    for evidence_id, supporters in sorted(supporting_edges.items()):
+        ref = evidence[evidence_id]
+        artifact = artifacts[ref.source_artifact_id]
+        assertion_ids = sorted({edge.edge_id for edge in supporters})
+        object_ids = sorted({
+            node_id for edge in supporters
+            for node_id in (edge.source_node_id, edge.target_node_id)
+        })
+        anchors.append(WorldGraphSourceAnchor(
+            anchor_id=native_anchor_id(assertion_ids[0], evidence_id),
+            revision_id=pin.revision_id,
+            evidence_ref_id=evidence_id,
+            source_artifact_id=ref.source_artifact_id,
+            source_domain=_source_domain(artifact.source_classification),
+            source_span_ref_id=ref.source_span_ref_id,
+            supporting_graph_object_ids=object_ids,
+            supporting_assertion_ids=assertion_ids,
+            readable=ref.can_open_source, locator_kind="source_span",
+        ))
     _response(bound, pin)
     truncated = [
         field for field in ("nodes", "relationships") if getattr(bounded, f"{field}_truncated")

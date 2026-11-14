@@ -864,8 +864,9 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
     }
     assert packet["nodes"][0]["label"] == "Object 0"
     assert all(row["textValue"] != "Object 0" for row in packet["attributes"])
-    anchor = next(row for row in packet["sourceAnchors"] if row["anchorId"] == request.anchor_id)
-    assert anchor["anchorId"] == request.anchor_id
+    anchor = next(row for row in packet["sourceAnchors"] if row["evidenceRefId"] == x.lane.support_ids["first"])
+    assert set(anchor["supportingAssertionIds"]) == {x.assertions["relationship"], multi_edge}
+    assert len(packet["sourceAnchors"]) == 2
     assert anchor["revisionId"] == pin["revision_id"]
     response = x.client.post(
         "/api/live/world-graph/retrieval/source-anchor/read",
@@ -879,7 +880,7 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
         second_id: body,
     }
     multi_anchors = [
-        row for row in packet["sourceAnchors"] if row["supportingAssertionIds"] == [multi_edge]
+        row for row in packet["sourceAnchors"] if multi_edge in row["supportingAssertionIds"]
     ]
     assert {row["evidenceRefId"] for row in multi_anchors} == set(exact_sources)
     assert len({row["sourceArtifactId"] for row in multi_anchors}) == 2
