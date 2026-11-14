@@ -729,3 +729,48 @@ def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch
     }
     assert lane.repo.get_head(space) == head
     assert lane.repo.head_events(space) == events
+
+
+@pytest.mark.parametrize("depth", [1, 2])
+def test_native_neighborhood_citation_round_trip(inspection, depth):
+    x = inspection
+    runtime = transport.runtime(
+        x.lane.repo, x.lane.domain, x.lane.profile,
+        now=datetime.now(UTC), operation_id="inspection-second-hop",
+    )
+    extension = runtime.commit_prepared_change(
+        runtime.prepare_change(wk.WorldChangeIntent(x.lane.bound["native_world_id"], "second-hop", (
+            wk.CreateObject("boundary"),
+            wk.CreateRelationship(
+                "second-edge", wk.DurableObjectRef(x.objects["endpoint"]),
+                "dnd5e:located_in", wk.ResultOf("boundary"), x.meta,
+            ),
+        ))),
+        confirmed_by="local_operator",
+    )
+    boundary = extension.object_results[0].durable_object_id
+    pin = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
+    seed = x.objects["object:0"]
+    foreign = x.objects["other-campaign"]
+    response = read(x, pin, {
+        "kind": "neighborhood",
+        "seed_node_ids": [seed, foreign, "ent:absent"],
+        "max_depth": depth,
+    })
+    assert response.status_code == 200, response.text
+    packet = response.json()
+    assert packet["scope"] == pin
+    expected = [seed, x.objects["endpoint"]] + ([boundary] if depth == 2 else [])
+    assert packet["node_ids"] == expected
+    assert set(packet["missing_seed_node_ids"]) == {foreign, "ent:absent"}
+    edges = packet["relationships"]
+    assert len(edges) == depth
+    assert [edge["edgeId"] for edge in edges] == sorted(edge["edgeId"] for edge in edges)
+    for edge in edges:
+        source = read(x, pin, {
+            "kind": "source",
+            "assertion_id": edge["edgeId"],
+            "evidence_ref_id": edge["evidenceRefIds"][0],
+        })
+        assert source.status_code == 200, source.text
+        assert source.json()["source"]["text"] == x.lane.text.splitlines(keepends=True)[0]

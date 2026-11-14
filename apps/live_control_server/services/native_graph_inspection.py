@@ -146,6 +146,24 @@ def authoring_identities(scope, principal):
 def inspect(request, principal):
     bound, read, access, pin, _ = _pinned(request.scope, principal)
     selection = request.selection
+    if selection.kind == "neighborhood":
+        from graph_memory.retrieval.models import WorldGraphRetrievalBounds
+        from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import (
+            map_relationships, read_neighborhood,
+        )
+
+        result, bounded = read_neighborhood(
+            read, selection.seed_node_ids, selection.max_depth, WorldGraphRetrievalBounds()
+        )
+        return _response(
+            bound, pin, schema="dmb_native_graph_neighborhood_v1",
+            node_ids=bounded.node_ids,
+            missing_seed_node_ids=result.missing_seed_entity_ids,
+            relationships=[edge.model_dump(mode="json", by_alias=True)
+                           for edge in map_relationships(read, result, bounded)],
+            nodes_truncated=bounded.nodes_truncated,
+            relationships_truncated=bounded.relationships_truncated,
+        )
     if selection.kind == "chronology":
         listing = EntityReadService().list_entities(read)
         admitted = [
