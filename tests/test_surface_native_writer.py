@@ -304,7 +304,7 @@ def published_lane(application_state_dsn, tmp_path, monkeypatch, request):
     return value
 
 
-def published_case(surface, lane):
+def published_case(surface, lane, *, assertion_layout=None):
     from tests.test_native_plan_statements import query
     from tests.test_source_statements import GM
     from apps.live_control_server.services.native_graph_reads import read_selected
@@ -327,6 +327,7 @@ def published_case(surface, lane):
         intent = intent.model_copy(update={'graph_request':intent.graph_request.model_copy(update={'world_id':world})})
     action = record.policy.action.model_copy(update={'intent':intent})
     policy = record.policy.model_copy(update={'action':action,
+        'writer_assertion_layout': assertion_layout,
         'source_authority_sha256':t.canonical_sha256(context.source_authority),
         'native_query_sha256':t.canonical_sha256(context.native_query)})
     record = execution(context.context_receipt_sha256, policy)

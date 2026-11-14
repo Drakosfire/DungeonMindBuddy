@@ -184,9 +184,14 @@ class SurfaceNativeExecutionPolicyV1(Strict):
     controller_continuation_accounting: t.BuildControllerContinuationAccountingV4 | t.BuildControllerContinuationAccountingV3 | None
     writer_context_budget: t.BuildWriterContextBudgetV1 | NativeWriterEstimatedBudgetV1 | None
 
+    writer_assertion_layout: Literal["inline_names_v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+
     @model_validator(mode="after")
     def exact_roles(self):
         roles, action = self.provider_roles, self.action
+        if self.writer_assertion_layout is not None and not isinstance(action, NativePlanActionV1):
+            raise ValueError("Compact name layout is only enabled for Plan")
         if not isinstance(roles,t.GraphControllerWriterRolesV1):
             raise ValueError('Native surfaces require their actual controller/writer roles')
         if isinstance(action,NativePlayActionV1):

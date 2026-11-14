@@ -77,7 +77,9 @@ def model_frame(receipt, execution, *, schema=SCHEMA):
         native_statements=statements.model_frame_records(query, execution),
         native_assertions=assertions.model_frame_records(query, execution,
             schema='dmb_plan_native_assertion_frame_v1' if schema == LEGACY_SCHEMA else 'dmb_native_assertion_frame_v2')
-            if isinstance(query, assertions.NativePlanQueryV2) else None)
+            if isinstance(query, assertions.NativePlanQueryV2) else None,
+        **({'writer_assertion_layout': 'inline_names_v1'} if schema == SCHEMA
+           and execution.policy.writer_assertion_layout == 'inline_names_v1' else {}))
 
 
 def model_input_frame(receipt,execution):
@@ -279,6 +281,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     if not isinstance(frame,dict):
         raise ValueError('Native writer requires its exact evidence presentation')
     from .native_evidence_view import is_semantic_frame,expected_semantic_frame,output_frame
+    if prefix.policy.writer_assertion_layout is not None and not is_semantic_frame(frame):
+        raise ValueError("Pinned writer assertion layout requires semantic evidence")
     host = model_frame(receipt,prefix) if is_semantic_frame(frame) else model_frame(receipt,prefix,schema=frame.get('schema'))
     expected = expected_semantic_frame(host, frame) if is_semantic_frame(frame) else host
     schema_frame = output_frame(host,expected)
@@ -335,7 +339,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         authored=authored,idempotency_key=idempotency_key,
         authored_local=authored_local,build_local=build_local,
         saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
-        **read_evidence_records(prefix,expected))
+        **read_evidence_records(prefix,schema_frame))
 
 
 def read_evidence_records(prefix, frame):

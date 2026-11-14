@@ -263,6 +263,17 @@ def semantic_frame(host):
             "Inclusive source line ranges identify explicit recap planning. "
             "Use those lines as plans. Establish played events from their own evidence."
         )
+    if host.get("writer_assertion_layout") == "inline_names_v1":
+        for index, row in enumerate(assertions):
+            assertion = row["assertion"]
+            value = assertion["value"]
+            if (assertion["predicate"] == "dnd5e:name" and value["kind"] == "literal"
+                    and isinstance(value["value"], str)):
+                assertions[index] = dict(
+                    assertion_handle=row["assertion_handle"],
+                    name_assertion=dict(subject=assertion["subject"], name=value["value"],
+                                        qualification=assertion["qualification"]),
+                )
     return dict(
         input_status=host["input_status"],
         user_question=host["user_question"],
@@ -279,6 +290,7 @@ def semantic_frame(host):
             assertions=assertions,
             qualifications=qualifications,
             universal_absence_claimed=False,
+
         ),
     )
 
@@ -286,6 +298,20 @@ def semantic_frame(host):
 def output_frame(host, provider):
     """Transient shape for the existing output-schema owner, never sent as context."""
     return host | _inline_qualifications(provider)
+
+
+def _expand_name_assertion(row):
+    if "name_assertion" not in row:
+        return row
+    name = row["name_assertion"]
+    if (set(row) != {"assertion_handle", "name_assertion"} or not isinstance(name, dict)
+            or set(name) != {"subject", "name", "qualification"}
+            or not all(isinstance(value, str) for value in name.values())):
+        raise ValueError("Malformed compact name assertion")
+    return dict(assertion_handle=row["assertion_handle"], assertion=dict(
+        subject=name["subject"], predicate="dnd5e:name",
+        value=dict(kind="literal", value=name["name"]), qualification=name["qualification"],
+    ))
 
 
 def _inline_qualifications(frame):
@@ -301,7 +327,8 @@ def _inline_qualifications(frame):
     if not isinstance(definitions, dict):
         raise ValueError('Malformed context qualification dictionary')
     rows, used = [], set()
-    for row in collection['assertions']:
+    for presented in collection["assertions"]:
+        row = _expand_name_assertion(presented)
         assertion = row['assertion']
         alias = assertion.get('qualification')
         if (not isinstance(alias, str) or alias not in definitions
@@ -383,9 +410,12 @@ def expected_semantic_frame(host, actual):
     """
     expected = semantic_frame(host)
     actual_collection = actual.get('native_assertions')
-    if actual_collection is not None and 'qualifications' not in actual_collection:
+    if (host.get('writer_assertion_layout') is None and actual_collection is not None
+            and 'qualifications' not in actual_collection):
         expected = _inline_qualifications(expected)
     if world_context_representation(actual) == "historical":
+        if host.get("writer_assertion_layout") is not None:
+            raise ValueError("Pinned writer assertion layout cannot use historical qualifications")
         expected = _inline_qualifications(expected)
         collection = expected["native_assertions"]
         for row in collection["assertions"] if collection is not None else []:
