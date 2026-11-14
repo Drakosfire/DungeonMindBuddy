@@ -16,16 +16,16 @@ def refs(revision="2"):
         SemanticProfileRef(
             profile_id=runtime.DUNGEONBUDDY_PROFILE_ID,
             profile_revision=revision,
-            descriptor_sha256=(
-                runtime.DUNGEONBUDDY_CUSTOM_PROFILE_DIGEST
-                if revision == "2"
-                else runtime.DUNGEONBUDDY_PROFILE_DIGEST
-            ),
+            descriptor_sha256={
+                "1": runtime.DUNGEONBUDDY_PROFILE_DIGEST,
+                "2": runtime.DUNGEONBUDDY_CUSTOM_PROFILE_DIGEST,
+                "3": runtime.DUNGEONBUDDY_OBSERVATION_PROFILE_DIGEST,
+            }[revision],
         ),
     )
 
 
-@pytest.mark.parametrize("revision", ("1", "2"))
+@pytest.mark.parametrize("revision", ("1", "2", "3"))
 def test_exact_accepted_refs(revision):
     domain, profile = refs(revision)
     actual_domain, actual_profile = runtime.resolve_dungeonbuddy_descriptors(
@@ -64,10 +64,21 @@ def test_no_fallback(target, change, code):
     assert caught.value.code == code
 
 
-@pytest.mark.parametrize("revision", ("1", "2"))
+@pytest.mark.parametrize("revision", ("1", "2", "3"))
 def test_declaration_drift(monkeypatch, revision):
     domain, profile = refs(revision)
     monkeypatch.setattr(runtime, "canonical_sha256", lambda _: "0" * 64)
     with pytest.raises(runtime.DungeonBuddyDescriptorError) as caught:
         runtime.resolve_dungeonbuddy_descriptors(domain_ref=domain, profile_ref=profile)
     assert caught.value.code == "descriptor_drift"
+
+def test_observation_profile_adds_only_the_reviewed_literal_predicate():
+    current = runtime.dungeonbuddy_dnd5e_custom_predicate_profile().model_dump(mode="json")
+    target = runtime.dungeonbuddy_dnd5e_observation_profile().model_dump(mode="json")
+    assert target["predicates"].pop() == {
+        "term": runtime.DUNGEONBUDDY_OBSERVATION_PREDICATE,
+        "allowed_value_kinds": ["literal"],
+        "literal_schema": {"type": "string", "minLength": 1},
+    }
+    target["profile_revision"] = current["profile_revision"]
+    assert target == current
