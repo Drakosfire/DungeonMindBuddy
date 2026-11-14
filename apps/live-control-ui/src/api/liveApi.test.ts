@@ -13,6 +13,7 @@ import {
   getWorldOwnedRunbookSnapshot,
   listWorldOwnedPlans,
   listWorldPlanInventoryPage,
+  listWorkspacePageInventory,
   listWorldOwnedRunbooks,
   createWorkspaceDocument,
   DEFAULT_PLANNING_MANIFEST_PATH,
@@ -3434,6 +3435,25 @@ it("forwards exact World Plan cursor timestamps and cancellation", async () => {
   expect(url.searchParams.get("world_id")).toBe("world one");
   expect(url.searchParams.get("before_updated_at")).toBe(updatedAt);
   expect(url.searchParams.get("before_document_id")).toBe("cursor-id");
+  expect(fetchSpy.mock.calls[0][1]?.signal).toBe(controller.signal);
+  fetchSpy.mockRestore();
+});
+
+it("forwards authored-page scope, cursor and cancellation", async () => {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ records: [] }));
+  const controller = new AbortController();
+  const updatedAt = "2026-01-01T00:00:00.123456Z";
+  await listWorkspacePageInventory(
+    { worldId: "world one", campaignId: "campaign one", status: "discarded" },
+    { updatedAt, documentId: "cursor-id" },
+    controller.signal,
+  );
+  const url = new URL(String(fetchSpy.mock.calls[0][0]), "http://localhost");
+  expect(url.pathname).toBe("/api/live/workspace-documents/pages/inventory");
+  expect(Object.fromEntries(url.searchParams)).toEqual({
+    world_id: "world one", campaign_id: "campaign one", status: "discarded",
+    before_updated_at: updatedAt, before_document_id: "cursor-id",
+  });
   expect(fetchSpy.mock.calls[0][1]?.signal).toBe(controller.signal);
   fetchSpy.mockRestore();
 });
