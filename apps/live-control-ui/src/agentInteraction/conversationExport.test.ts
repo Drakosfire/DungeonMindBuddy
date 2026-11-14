@@ -1,9 +1,9 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 import {collectConversationExport} from './conversationExport';
-import {readConversationName,readConversationTurns,type LibraryTurn} from '../api/conversationLibraryApi';
+import {readConversationName,readConversationTurns,readExportTurns,verifyExportTurns,type LibraryTurn} from '../api/conversationLibraryApi';
 import {getWorldAgentTurnContextTrace,getWorldAgentTurnPrompt} from '../api/liveApi';
 import type {BuddyTracePromptReference,BuddyTurnContextTrace} from '../api/buddyContextTraceTypes';
-vi.mock('../api/conversationLibraryApi',()=>({readConversationName:vi.fn(),readConversationTurns:vi.fn()}));
+vi.mock('../api/conversationLibraryApi',()=>({readConversationName:vi.fn(),readConversationTurns:vi.fn(),readExportTurns:vi.fn(),verifyExportTurns:vi.fn()}));
 vi.mock('../api/liveApi',()=>({getWorldAgentTurnContextTrace:vi.fn(),getWorldAgentTurnPrompt:vi.fn()}));
 const id='11111111-1111-4111-8111-111111111111',world='world';
 const uuid=(n:number)=>`22222222-2222-4222-8222-${String(n).padStart(12,'0')}`;
@@ -11,10 +11,10 @@ const turn=(n:number):LibraryTurn=>({turn_id:uuid(n),sequence:n,status:'complete
 const meta=(n:number)=>({world_id:world,conversation_id:id,title:'Shop relationships',name_revision:0,status:'archived' as const,turn_count:n,created_at:'2026-10-25T00:00:00Z',updated_at:'2026-10-25T00:00:00Z'});
 function pages(rows:LibraryTurn[], legacyCursor = false){
  vi.mocked(readConversationName).mockResolvedValue(meta(rows.length));
- vi.mocked(readConversationTurns).mockImplementation(async(w,c,before)=>{
+ vi.mocked(readExportTurns).mockImplementation(async(w,c,before)=>{
   const remaining=rows.filter(t=>before===undefined||t.sequence<before);
   const selected=remaining.slice(-50);
-  return {schema:'dmb_conversation_library_turns_v3',world_id:w,conversation_id:c,turns:structuredClone(selected),next_before_sequence:(remaining.length>50||legacyCursor&&selected.length===50)?selected[0].sequence:null};
+  return {page_sha256:'a'.repeat(64),schema:'dmb_conversation_library_turns_v3',world_id:w,conversation_id:c,turns:structuredClone(selected),next_before_sequence:(remaining.length>50||legacyCursor&&selected.length===50)?selected[0].sequence:null};
  });
 }
 beforeEach(()=>{vi.resetAllMocks();pages([turn(1)]);});
@@ -26,23 +26,23 @@ it('exports all 103 physical turns in order, including earlier failed retries, a
  pages(rows);const result=await collectConversationExport(world,id,'readable',()=>{});
  expect(result.content.match(/^## Turn /gm)).toHaveLength(103);expect(result.content.indexOf('## Turn 1 · interrupted')).toBeLessThan(result.content.indexOf('## Turn 2 · completed'));
  expect(result.content).toContain('attempt 2');expect(result.content).toContain('Page object: plan (reference only)');expect(result.content).toContain('documentId=source+page');
- expect(vi.mocked(readConversationTurns).mock.calls.map(c=>c[2])).toEqual([undefined,54,4,undefined,54,4]);
+ expect([...vi.mocked(readExportTurns).mock.calls.map(c=>c[2]),...vi.mocked(verifyExportTurns).mock.calls.map(c=>c[3])]).toEqual([undefined,54,4,undefined,54,4]);
  expect(getWorldAgentTurnContextTrace).not.toHaveBeenCalled();expect(getWorldAgentTurnPrompt).not.toHaveBeenCalled();
 });
 it('reads exactly two pages per pass for 100 turns',async()=>{
  pages(Array.from({length:100},(_,i)=>turn(i+1)));
  await collectConversationExport(world,id,'readable',()=>{});
- expect(vi.mocked(readConversationTurns).mock.calls.map(c=>c[2])).toEqual([undefined,51,undefined,51]);
+ expect([...vi.mocked(readExportTurns).mock.calls.map(c=>c[2]),...vi.mocked(verifyExportTurns).mock.calls.map(c=>c[3])]).toEqual([undefined,51,undefined,51]);
 });
 it('accepts the extra terminal cursor returned by older servers',async()=>{
  pages(Array.from({length:100},(_,i)=>turn(i+1)),true);await collectConversationExport(world,id,'readable',()=>{});
- expect(vi.mocked(readConversationTurns).mock.calls.map(c=>c[2])).toEqual([undefined,51,1,undefined,51,1]);
+ expect([...vi.mocked(readExportTurns).mock.calls.map(c=>c[2]),...vi.mocked(verifyExportTurns).mock.calls.map(c=>c[3])]).toEqual([undefined,51,1,undefined,51,1]);
 });
 it('exports an empty conversation',async()=>{pages([]);expect((await collectConversationExport(world,id,'readable',()=>{})).content).toContain('Shop relationships');});
 it.each(['repeat','nonadvancing','gap','wrong owner','read failure'])('refuses incomplete transcript: %s',async kind=>{
- if(kind==='read failure')vi.mocked(readConversationTurns).mockRejectedValue(new Error('Read failed'));
+ if(kind==='read failure')vi.mocked(readExportTurns).mockRejectedValue(new Error('Read failed'));
  else if(kind==='gap')pages([turn(2)]);
- else vi.mocked(readConversationTurns).mockResolvedValue({schema:'dmb_conversation_library_turns_v3',world_id:kind==='wrong owner'?'other':world,conversation_id:id,turns:[turn(1)],next_before_sequence:kind==='nonadvancing'?2:1});
+ else vi.mocked(readExportTurns).mockResolvedValue({page_sha256:'a'.repeat(64),schema:'dmb_conversation_library_turns_v3',world_id:kind==='wrong owner'?'other':world,conversation_id:id,turns:[turn(1)],next_before_sequence:kind==='nonadvancing'?2:1});
  await expect(collectConversationExport(world,id,'readable',()=>{})).rejects.toThrow();
 });
 it('refuses a renamed conversation arriving during collection',async()=>{
@@ -50,8 +50,7 @@ it('refuses a renamed conversation arriving during collection',async()=>{
  await expect(collectConversationExport(world,id,'readable',()=>{})).rejects.toThrow('conversation changed');
 });
 it('refuses completion changing only a turn, even with unchanged summary',async()=>{
- vi.mocked(readConversationTurns).mockResolvedValueOnce({schema:'dmb_conversation_library_turns_v3',world_id:world,conversation_id:id,turns:[{...turn(1),status:'running',assistant_text:null}],next_before_sequence:null})
- .mockResolvedValue({schema:'dmb_conversation_library_turns_v3',world_id:world,conversation_id:id,turns:[turn(1)],next_before_sequence:null});
+ vi.mocked(verifyExportTurns).mockRejectedValueOnce(new Error('A reply changed during export.'));
  await expect(collectConversationExport(world,id,'readable',()=>{})).rejects.toThrow('reply changed');
 });
 const reference:BuddyTracePromptReference={kind:'prompt_reference',sequence:0,elapsed_ms:0,evidence_id:'evidence',provider_attempt_id:'call',provider:'jev',model:'writer',api_mode:'chat',serializer_version:'1',payload_sha256:'a'.repeat(64),payload_utf8_bytes:2};
@@ -88,4 +87,18 @@ it('collects diagnostic turns two at a time while preserving transcript order', 
  expect(peak).toBe(2);
  expect(getWorldAgentTurnContextTrace).toHaveBeenCalledTimes(3);
  expect(JSON.parse(result.content).diagnostics.map((row: {turn_id: string}) => row.turn_id)).toEqual([uuid(1),uuid(2),uuid(3)]);
+});
+
+it('uses full pages to verify an export when digest negotiation falls back', async () => {
+ const page = await readExportTurns(world, id);
+ vi.mocked(readExportTurns).mockResolvedValue({...page, page_sha256: null});
+ const {page_sha256, ...legacyPage} = page;
+ expect(page_sha256).toBeTruthy();
+ vi.mocked(readConversationTurns).mockResolvedValue(legacyPage);
+ await expect(collectConversationExport(world,id,'readable',()=>{})).resolves.toBeDefined();
+ expect(verifyExportTurns).not.toHaveBeenCalled();
+ vi.mocked(readConversationTurns).mockResolvedValue({
+  ...legacyPage, turns: [{...turn(1), assistant_text: 'Changed'}],
+ });
+ await expect(collectConversationExport(world,id,'readable',()=>{})).rejects.toThrow('reply changed');
 });
