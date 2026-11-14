@@ -1885,7 +1885,7 @@ def get_world_turn_prompts(
 ):
     from fastapi.responses import JSONResponse
     from application_state.agent_conversation.context_trace import TracePromptReference
-    from apps.live_control_server.services.agent_prompt_evidence import PromptEvidenceError, read_prompt
+    from apps.live_control_server.services.agent_prompt_evidence import MAX_PROMPT_BYTES, PromptEvidenceError, read_prompt
 
     enforce_native_graph_gm(request)
     verified = _verified_world_id(world_id)
@@ -1901,6 +1901,7 @@ def get_world_turn_prompts(
         ) from exc
 
     results = []
+    remaining_bytes = MAX_PROMPT_BYTES
     for selector in body.prompts:
         matches = [
             (trace, item)
@@ -1913,11 +1914,15 @@ def get_world_turn_prompts(
             results.append({"unavailable": "prompt_not_captured"})
             continue
         trace, reference = matches[0]
+        if reference.payload_utf8_bytes > remaining_bytes:
+            results.append({"unavailable": "prompt_batch_byte_limit"})
+            continue
         try:
             payload = read_prompt(reference)
         except PromptEvidenceError as exc:
             results.append({"unavailable": str(exc)})
             continue
+        remaining_bytes -= reference.payload_utf8_bytes
         results.append({
             "schema": "dmb_agent_prompt_evidence_v1", "world_id": verified,
             "conversation_id": str(trace.conversation_id), "turn_id": str(turn_id),
