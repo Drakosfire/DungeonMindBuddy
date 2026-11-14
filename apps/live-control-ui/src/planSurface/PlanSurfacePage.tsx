@@ -1,3 +1,4 @@
+import { RecapGraphModule } from "./graphPreview/RecapGraphModule";
 import {ConnectedPageReviewControl} from '../shared/ConnectedPageReviewControl';
 import {useStatblockWorkbenchProjection,STATBLOCK_WORKBENCH_TOOL,STATBLOCK_WORKBENCH_PROJECTION} from '../statblocks/statblockWorkbenchProjection';
 import {useTourNavigationOwner,useTourNavigationGuard,useTourNavigationRegistry} from '../guidedTour/Navigation';
@@ -369,6 +370,7 @@ function ActivatingWorldPlanCards(props:Omit<ComponentProps<typeof WorldPlanCard
 function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName: string }) {
  const guidance=useGuidedTour();
  const tourNavigation=useTourNavigationRegistry();
+  const [recapsOpen, setRecapsOpen] = useState(false);
   const [localDraft] = useState(() => {
     const existing = readWorldPlanLocalDraft(worldId);
     const requestedDocumentId = new URLSearchParams(window.location.search).get("documentId")?.trim();
@@ -2091,6 +2093,15 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     <WorldPlanGraphReferenceActivationProvider worldId={worldId} ownerKey={editorIdentity} editor={editor} enabled={status==='ready'}>
     <TourImageProvider worldId={worldId} documentId={documentId} blockedReason={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict ? "Open a ready Plan and resolve its recovery or fidelity block before using Image Studio." : null} verified={currentTourPlan?{pin:planPin(worldId,currentTourPlan.documentId,currentTourPlan.pin),assetIds:currentTourPlan.assetIds}:null}><AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock" workspaceLayout="bounded">
       <PlanTourObservation label={title} verified={currentTourPlan} error={startPlayError} saved={tourPlanSave} registryRevision={savedBasis.status==="verified"?savedBasis.revision:null}/>
+      <button type="button" aria-expanded={recapsOpen} onClick={() => setRecapsOpen(open => !open)}>
+        Recaps
+      </button>
+      {recapsOpen && <RecapGraphModule context={{
+        campaignId: new URLSearchParams(window.location.search).get("campaign") ?? worldId,
+        liveSession: 1,
+        ingestSession: 1,
+        headerLabel: worldName,
+      }} />}
       <WorldPlanSurfaceContext
         worldId={worldId}
         worldName={worldName}

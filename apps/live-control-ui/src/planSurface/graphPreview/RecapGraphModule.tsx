@@ -1,9 +1,11 @@
+import { NativeGraphObjectDetails } from "../../graphLens/NativeGraphObjectDetails";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   LiveApiError,
   getRecapArtifacts,
   getNativeGraphCatalog,
+  inspectNativeGraph,
   postWorldGraphRecapProjection,
   readPublishedNativeRecap,
 } from "../../api/liveApi";
@@ -23,7 +25,7 @@ import {
 } from "./recapSessionLabels";
 import { WorldGraphRecapProjectionView } from "./WorldGraphRecapProjection";
 
-import { sameInspectionPin, type InspectionPin } from "../../api/nativeGraphInspection";
+import { sameInspectionPin, type InspectionPin, type NativeGraphEntity } from "../../api/nativeGraphInspection";
 import { loadCompleteWorldObject, completeWorldObjectRequest } from "../../graphReference/fullWorldObjectProjection";
 import type { PublishedNativeRecap } from "../../api/nativeSourceInspection";
 import { MarkdownDocumentReader } from "../../markdownReader/MarkdownDocumentReader";
@@ -81,9 +83,10 @@ function recapUnavailableMessage(error: unknown, sessionId: string, campaignId: 
 }
 
 function NativeRecapObjects({ recap }: { recap: PublishedNativeRecap }) {
-  const [objects, setObjects] = useState<{ id: string; label: string }[]>([]);
+  const [objects, setObjects] = useState<{ id: string; label: string; ambiguous: boolean }[]>([]);
   const [object, setObject] = useState<WorldGraphObjectProjectionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<{ entity: NativeGraphEntity; id: string; label: string } | null>(null);
   const selection = useRef(0);
   const pin = useMemo<InspectionPin>(() => ({
     ...recap.scope, scope_mode: "campaign", campaign_id: recap.campaign_id,
@@ -96,18 +99,20 @@ function NativeRecapObjects({ recap }: { recap: PublishedNativeRecap }) {
       if (!sameInspectionPin(packet.scope, pin)) throw new Error("The recap graph pin changed.");
       const evidence = new Set(recap.evidence_ref_ids);
       const admitted = new Set(packet.catalogue.entities.map(entity => entity.entity_id));
-      const labels = new Map<string, string>();
+      const labels = new Map<string, Set<string>>();
       for (const assertion of packet.assertions) {
         if (assertion.predicate === "dnd5e:name" && assertion.value.kind === "literal" &&
             typeof assertion.value.value === "string") {
-          labels.set(assertion.subject_entity_id, assertion.value.value);
+          const names = labels.get(assertion.subject_entity_id) ?? new Set<string>();
+          names.add(assertion.value.value);
+          labels.set(assertion.subject_entity_id, names);
         }
       }
       const ids = new Set(packet.assertions
         .filter(assertion => admitted.has(assertion.subject_entity_id) &&
           assertion.metadata.evidence_ref_ids.some(id => evidence.has(id)))
         .map(assertion => assertion.subject_entity_id));
-      setObjects(Array.from(ids, id => ({ id, label: labels.get(id) ?? id })));
+      setObjects(Array.from(ids, id => ({ id, label: [...(labels.get(id) ?? [])].sort().join(" / ") || id, ambiguous: (labels.get(id)?.size ?? 0) > 1 })));
       if (packet.catalogue.completeness.status === "partial") {
         setError("Some reviewed recap objects are unavailable.");
       }
@@ -117,11 +122,22 @@ function NativeRecapObjects({ recap }: { recap: PublishedNativeRecap }) {
     return () => { controller.abort(); selection.current += 1; };
   }, [pin, recap]);
 
-  const open = async (id: string) => {
+  const open = async ({ id, label, ambiguous }: (typeof objects)[number]) => {
     const generation = ++selection.current;
     setObject(null);
+    setDetail(null);
     setError(null);
     try {
+      if (ambiguous) {
+        const entity = await inspectNativeGraph(pin, { kind: "entity", entity_id: id });
+        if (generation !== selection.current) return;
+        if (entity.schema !== "dmb_native_graph_entity_v1" ||
+            !sameInspectionPin(entity.scope, pin) || !entity.entity.found) {
+          throw new Error("The reviewed object is unavailable at the recap revision.");
+        }
+        setDetail({ entity, id, label });
+        return;
+      }
       const result = await loadCompleteWorldObject(completeWorldObjectRequest({
         worldId: pin.managed_world_id, campaignId: recap.campaign_id,
         scopeMode: "campaign", revisionPin: pin.revision_id, nodeId: id,
@@ -140,10 +156,15 @@ function NativeRecapObjects({ recap }: { recap: PublishedNativeRecap }) {
   return (
     <section aria-label="Reviewed recap objects">
       <h3>Reviewed recap objects</h3>
-      {objects.map(({ id, label }) => (
-        <button key={id} type="button" onClick={() => void open(id)}>{label}</button>
+      {objects.map(row => (
+        <button key={row.id} type="button" onClick={() => void open(row)}>{row.label}</button>
       ))}
       {error && <p role="alert">{error}</p>}
+      {detail && (
+        <section aria-label="Selected reviewed object">
+          <NativeGraphObjectDetails detail={detail.entity} entityId={detail.id} label={detail.label} />
+        </section>
+      )}
       {object && (
         <section aria-label="Selected reviewed object">
           <h4>{objects.find(row => row.id === object.resolvedNodeId)?.label ?? object.resolvedNodeId}</h4>
