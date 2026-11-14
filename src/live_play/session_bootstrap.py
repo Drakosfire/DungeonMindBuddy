@@ -14,7 +14,7 @@ from apps.live_control_server.schema_validation import (
     validate_live_surface_layout,
 )
 from apps.live_control_server.session_store import refresh_current_state
-from src.live_play.live_store import write_json
+from live_store import write_json
 from src.live_play.recap_ingestion import RecapIngestionResult, ingest_recap_markdown
 from src.live_play.session_paths import (
     default_live_session_dir,

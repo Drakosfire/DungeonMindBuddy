@@ -27,7 +27,7 @@ from apps.live_control_server.services.threat_draft_store import (
     list_threat_drafts,
     update_threat_draft,
 )
-from src.live_play.live_store import write_json
+from live_store import write_json
 
 
 def _world_create_request(**overrides: object) -> CreateWorldThreatDraftRequest:

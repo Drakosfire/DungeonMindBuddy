@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.schema_validation import validate_before_append
-from src.live_play.live_store import append_jsonl
+from live_store import append_jsonl
 from src.live_play.projections.artifacts import file_state_token_for_text
 from src.live_play.projections.commands import ProjectionCommand
 from src.live_play.projections.invalidation import ProjectionInvalidation

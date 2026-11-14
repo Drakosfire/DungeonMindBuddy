@@ -170,7 +170,7 @@ def _update_run_progress(dsn: str, run_id: str, progress: dict) -> None:
 
 
 def _write_leftover_run_file(root: Path, record) -> None:
-    from src.live_play.live_store import write_json
+    from live_store import write_json
 
     path = leftover_run_path(root, RUN_ID_A)
     path.parent.mkdir(parents=True, exist_ok=True)

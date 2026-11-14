@@ -13,7 +13,7 @@ from apps.live_control_server.schema_validation import (
 )
 from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
 from src.live_play.current_state_derive import derive_current_state_fields
-from src.live_play.live_store import append_jsonl, iter_jsonl, load_json, write_json
+from live_store import append_jsonl, iter_jsonl, load_json, write_json
 from src.live_play.surface_layout_invariants import (
     validate_catalog_layout_consistency,
     validate_surface_layout_invariants,

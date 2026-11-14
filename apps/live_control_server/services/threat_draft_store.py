@@ -30,7 +30,7 @@ from apps.live_control_server.models.threat_draft import (
     require_draft_id,
     parse_threat_draft,
 )
-from src.live_play.live_store import load_json, write_json
+from live_store import load_json, write_json
 
 DEFAULT_STORE_REL = "out/threat_drafts"
 INDEX_NAME = "index.json"

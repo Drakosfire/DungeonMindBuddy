@@ -8,7 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from src.live_play.live_store import load_json, write_json
+from live_store import load_json, write_json
 from statblocks.lifecycle_artifact import StatblockDraftArtifact
 
 DRAFTS_DIR_NAME = "statblock_drafts"
