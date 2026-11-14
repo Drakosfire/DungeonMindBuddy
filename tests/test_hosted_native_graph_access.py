@@ -205,6 +205,10 @@ def hosted(monkeypatch, request):
 
     monkeypatch.setattr(catalog, "get_world", get_world)
     monkeypatch.setattr(catalog, "list_worlds", list_worlds)
+    monkeypatch.setattr(catalog, "list_owned_worlds", lambda subject, ids: [
+        stored for stored in list_worlds()
+        if stored.record.owner_subject == subject and stored.record.world_id in ids
+    ])
     monkeypatch.setattr(explorer_service.native, "binding", _REAL_NATIVE_BINDING)
     monkeypatch.setattr(explorer_service.native, "repository", lambda: lane.repo)
     monkeypatch.setattr(explorer_service.native, "read_repository", lambda: lane.repo)
@@ -745,7 +749,7 @@ def test_catalog_failure_is_closed_and_does_not_reveal_internal_error(
         raise ApplicationStateUnavailableError("synthetic-private-catalog-coordinate")
 
     monkeypatch.setattr(catalog, "get_world", unavailable)
-    monkeypatch.setattr(catalog, "list_worlds", unavailable)
+    monkeypatch.setattr(catalog, "list_owned_worlds", unavailable)
     response = (
         hosted.client.request("GET", COLLECTION)
         if collection
@@ -864,11 +868,11 @@ def test_collection_revalidates_ownership_after_middleware_admission(
     hosted, monkeypatch
 ):
     x = hosted
-    original = catalog.list_worlds
+    original = catalog.list_owned_worlds
     calls = []
 
-    def transfer_after_snapshot():
-        result = original()
+    def transfer_after_snapshot(*args):
+        result = original(*args)
         calls.append(True)
         if len(calls) == 1:
             x.records["managed"] = x.records["managed"].model_copy(
@@ -876,7 +880,7 @@ def test_collection_revalidates_ownership_after_middleware_admission(
             )
         return result
 
-    monkeypatch.setattr(catalog, "list_worlds", transfer_after_snapshot)
+    monkeypatch.setattr(catalog, "list_owned_worlds", transfer_after_snapshot)
     response = x.client.request("GET", COLLECTION)
     assert response.status_code == 200, response.text
     assert response.json()["records"] == []
