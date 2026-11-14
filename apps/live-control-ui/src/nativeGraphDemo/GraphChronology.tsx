@@ -72,6 +72,7 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
     {campaign && sessions.size > 0 && <details>
       <summary>Campaign session spiral</summary>
       <p>Read outward by Campaign session. Spacing is illustrative. Events with unresolved placement appear in the list.</p>
+      {stride > 1 && <p>The spiral shows selected sessions. See the list for every recorded placement.</p>}
       <svg viewBox="0 0 300 300" width="100%" style={{ maxWidth: 420 }} aria-label="Campaign session spiral">
         <path d={path} fill="none" stroke="currentColor" opacity={0.45} />
         {[...sessions].map(([session, id], index) => {
