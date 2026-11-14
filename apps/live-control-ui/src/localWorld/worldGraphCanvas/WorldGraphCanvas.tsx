@@ -180,6 +180,7 @@ export interface WorldGraphCanvasProps {
   readonly externalControls?: boolean;
   readonly controlsHost?: HTMLElement | null;
   readonly toolActions?: ReactNode;
+  readonly viewportOverlay?: ReactNode;
   /** Shared bubble/legend palette; consumers may extend it without changing graph semantics. */
   readonly typeStyles?: GraphTypeStyleRegistry;
 }
@@ -460,6 +461,7 @@ export function WorldGraphCanvas({
   externalControls = false,
   controlsHost = null,
   toolActions,
+  viewportOverlay,
   typeStyles = DEFAULT_GRAPH_TYPE_STYLES,
 }: WorldGraphCanvasProps) {
   const [inspectedEdgeId, setInspectedEdgeId] = useState<string | null>(null);
@@ -1586,6 +1588,7 @@ export function WorldGraphCanvas({
           ) : null}
           </g>
         </svg>
+        {viewportOverlay}
         {externalControls && fullCorpus ? typeLegend : null}
         {palette && paletteScreen && creationKinds?.length && typeof document !== "undefined" ? createPortal(
           <div ref={paletteRef} className="world-graph-canvas__palette" role="group" aria-label="Choose node type"

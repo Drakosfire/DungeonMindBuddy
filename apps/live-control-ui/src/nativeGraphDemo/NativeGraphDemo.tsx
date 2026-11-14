@@ -497,6 +497,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const [activePanel, setActivePanel] = useState<EmbeddedPanel>(null);
   const [placementIntent, setPlacementIntent] = useState<StoredPlacementIntent | null>(null);
   const placementIntentRef = useRef<StoredPlacementIntent | null>(null);
+  const [hideOverviewEvents, setHideOverviewEvents] = useState(false);
+  const [focusedTimeline, setFocusedTimeline] = useState<{ worldId: string; nodeId: string } | null>(null);
   const [chronology, setChronology] = useState<{ graph: NativeGraph; relatedTo?: string } | null>(null);
   const chronologyOpen = chronology !== null && chronology.graph === graph;
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -1313,16 +1315,25 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }
 
   const canvasSnapshot = useMemo(() => graph ? toCanvasSnapshot(graph) : null, [graph]);
+  const overviewEventIds = useMemo(() => {
+    if (!embedded || mode !== "managed" || !api.readChronology || !graph) return null;
+    return new Set(graph.nodes.filter(node => nativeGraphPresentation(node).displayKind === "event").map(node => node.id));
+  }, [api.readChronology, embedded, graph, mode]);
   const overviewSnapshot = useMemo(() => {
     if (!embedded || mode !== "managed" || !canvasSnapshot) return canvasSnapshot;
-    const relationships = canvasSnapshot.relationships.filter(({ kind }) =>
+    const revealedId = createdNodeReveal?.worldId === graph?.world_id ? createdNodeReveal?.nodeId : undefined;
+    const hidden = (id: string) => hideOverviewEvents && id !== revealedId && overviewEventIds?.has(id);
+    const relationships = canvasSnapshot.relationships.filter(({ kind, fromObjectId, toObjectId }) =>
       kind !== "on_timeline" && kind !== "precedes"
-      && kind !== "dungeonbuddy.custom:on_timeline" && kind !== "dungeonbuddy.custom:precedes",
+      && kind !== "dungeonbuddy.custom:on_timeline" && kind !== "dungeonbuddy.custom:precedes"
+      && !hidden(fromObjectId) && !hidden(toObjectId),
     );
-    return relationships.length === canvasSnapshot.relationships.length
-      ? canvasSnapshot
-      : { ...canvasSnapshot, relationships };
-  }, [embedded, mode, canvasSnapshot]);
+    return {
+      ...canvasSnapshot,
+      objects: hideOverviewEvents ? canvasSnapshot.objects.filter(node => !hidden(node.id)) : canvasSnapshot.objects,
+      relationships,
+    };
+  }, [embedded, mode, canvasSnapshot, hideOverviewEvents, overviewEventIds, createdNodeReveal, graph?.world_id]);
   const focusedEventIds = useMemo(() => {
     if (!embedded || mode !== "managed" || !graph || !api.readChronology || !viewFocusId
       || neighborhoodDepth !== 1) return null;
@@ -1533,6 +1544,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
 
   const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) ?? null : null;
+  const timelineVisible = focusedTimeline?.worldId === graph?.world_id
+    && focusedTimeline?.nodeId === viewFocusId;
   const selectedStripEvent = selectedNodeId && focusedEventIds?.has(selectedNodeId)
     ? selectedNodeId : undefined;
   const stripConnections = useMemo(() => {
@@ -1844,14 +1857,19 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
             )}
             {api.readChronology && <button type="button" className="native-demo-button native-demo-button--quiet"
               aria-expanded={chronologyOpen} onClick={() => setChronology(chronologyOpen ? null : { graph })}>Chronology</button>}
-            {chronologyOpen && api.readChronology && <GraphChronology key={chronology.relatedTo ?? ""}
-              graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} onExplore={nodeId => {
-                if (pendingRef.current) return;
-                setChronology(null);
-                focusInspectorRef.current = true;
-                handleCanvasSelectionChange(nodeId as LocalObjectId);
-                requestCameraFocus(nodeId);
-              }} />}
+            {!viewFocusId && Boolean(overviewEventIds?.size) && (
+              <button type="button" className="native-demo-button native-demo-button--quiet"
+                aria-pressed={hideOverviewEvents} onClick={() => setHideOverviewEvents(value => !value)}>
+                Hide Events in overview ({overviewEventIds?.size})
+              </button>
+            )}
+            {focusedEventIds && viewFocusId && !chronologyOpen && (
+              <button type="button" className="native-demo-button native-demo-button--quiet"
+                aria-expanded={timelineVisible}
+                onClick={() => setFocusedTimeline(timelineVisible ? null : { worldId: graph.world_id, nodeId: viewFocusId })}>
+                Timeline
+              </button>
+            )}
             {stripHighlightRules && <style>{`${stripHighlightRules} {
               stroke: #a05b09; stroke-width: 5; paint-order: stroke fill;
             }`}</style>}
@@ -1859,6 +1877,18 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               <WorldGraphCanvas
                 key={graph.world_id}
                 canvasId={embedded ? "loaded-native-graph-canvas" : undefined}
+                viewportOverlay={chronologyOpen && api.readChronology ? (
+                  <div className="native-demo-timeline-overlay" onWheel={event => event.stopPropagation()}>
+                    <GraphChronology graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} strip
+                      onExplore={nodeId => {
+                        if (pendingRef.current) return;
+                        setChronology(null);
+                        focusInspectorRef.current = true;
+                        handleCanvasSelectionChange(nodeId as LocalObjectId);
+                        requestCameraFocus(nodeId);
+                      }} />
+                  </div>
+                ) : undefined}
                 record={record}
                 onMoveObjects={saveLayout}
                 {...(embedded ? {
@@ -1885,14 +1915,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 } : {})}
               />
             ) : null}
-            {focusedEventIds && viewFocusId && api.readChronology && !chronologyOpen &&
-              <GraphChronology graph={graph} read={api.readChronology} relatedTo={viewFocusId} strip
-                selectedEvent={selectedStripEvent} connectedIds={stripConnections}
-                onExplore={nodeId => {
-                  if (pendingRef.current) return;
-                  focusInspectorRef.current = true;
-                  handleCanvasSelectionChange(nodeId as LocalObjectId);
-                }} />}
             {!embedded ? <div className="native-demo-graph-meta">
               <span><strong>{graph.nodes.length}</strong> {completeness?.status === "partial" ? "listed objects" : "objects"}</span>
               <span><strong>{graph.edges.length}</strong> {completeness?.status === "partial" ? "listed relationships" : "relationships"}</span>
@@ -1905,6 +1927,20 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
             pendingOperation ? (
               <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label="Pending graph review">
                 {reviewPanel}
+              </aside>
+            ) : timelineVisible && !chronologyOpen && focusedEventIds && viewFocusId && api.readChronology
+              && (!activePanel || activePanel === "details") ? (
+              <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label="Selected object details">
+                <div className="native-demo-inspector-timeline">
+                  <GraphChronology graph={graph} read={api.readChronology} relatedTo={viewFocusId} strip
+                      selectedEvent={selectedStripEvent} connectedIds={stripConnections}
+                      onExplore={nodeId => {
+                        if (pendingRef.current) return;
+                        focusInspectorRef.current = true;
+                        handleCanvasSelectionChange(nodeId as LocalObjectId);
+                      }} />
+                </div>
+                {selectedNode ? detailsPanel : null}
               </aside>
             ) : activePanel && (activePanel !== "details" || selectedNode) ? (
               <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label={activePanel === "info" ? "Graph information" : activePanel === "details" ? "Selected object details" : "Graph actions"}>

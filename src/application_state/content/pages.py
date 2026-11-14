@@ -6,6 +6,7 @@ automatic adoption or native source/publication authority is provided here.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -386,7 +387,8 @@ def find_page(document_id: str) -> PageState | None:
 
 def page_inventory(
     *, world_id: str | None = None, campaign_id: str | None = None,
-    status: str | None = "active"
+    status: str | None = "active",
+    limit: int | None = None, before: tuple[datetime, UUID] | None = None,
 ) -> list[PageState]:
     """Workspace inventory over the same Page owner; campaign is only a tag."""
     if status not in {None, "active", "discarded"}:
@@ -403,11 +405,20 @@ def page_inventory(
         if status is not None:
             clauses.append("w.status=%s")
             params.append(status)
+        if before is not None:
+            clauses.append("(w.updated_at, w.work_object_id) < (%s, %s)")
+            params.extend(before)
+        order = " ORDER BY w.updated_at DESC"
+        if limit is not None or before is not None:
+            order += ", w.work_object_id DESC"
+        if limit is not None:
+            order += " LIMIT %s"
+            params.append(limit)
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 "SELECT w.*,m.document_class,m.authority_state,m.visibility_state,m.connected_page_operation_id "
                 "FROM content.work_object w LEFT JOIN content.page_metadata m ON m.work_object_id=w.work_object_id "
-                "WHERE " + " AND ".join(clauses) + " ORDER BY w.updated_at DESC",
+                "WHERE " + " AND ".join(clauses) + order,
                 params,
             )
             rows = cur.fetchall()
@@ -425,6 +436,28 @@ def page_inventory(
                 )
             )
         return result
+
+
+def page_inventory_campaign_tags(
+    *, world_id: str | None, campaign_id: str | None, status: str | None
+) -> list[str]:
+    """Return campaign tags visible under the same authored-page filters."""
+    if status not in {None, "active", "discarded"}:
+        raise ApplicationStateValidationError("invalid page status")
+    clauses = ["kind = 'worldbuilding_source'", "campaign_id IS NOT NULL"]
+    params = []
+    for column, value in (("world_id", world_id), ("campaign_id", campaign_id), ("status", status)):
+        if value is not None:
+            clauses.append(f"{column} = %s")
+            params.append(value)
+    with unit_of_work(_dsn()) as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT campaign_id FROM content.work_object WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY campaign_id",
+            params,
+        ).fetchall()
+    return [row[0] for row in rows]
 
 
 def _committed_snapshot(conn, state: PageState) -> CommittedPageSnapshot:

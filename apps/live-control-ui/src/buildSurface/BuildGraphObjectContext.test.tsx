@@ -87,7 +87,8 @@ describe("BuildGraphObjectContext", () => {
         name: "Elderwyld", source_root_relpath: "", created_at: "",
       }],
     });
-    vi.spyOn(liveApi, "listWorkspaceDocuments").mockResolvedValue({
+    vi.spyOn(liveApi, "listWorkspacePageInventory").mockResolvedValue({
+      campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1", records: [],
     });
     const native = vi.spyOn(liveApi, "postNativeWorldGraphCompleteObject")
@@ -155,7 +156,8 @@ describe("BuildGraphObjectContext", () => {
       `/build?documentId=${documentId}&campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
     );
     vi.spyOn(liveApi, "createWorkspaceDocument");
-    vi.spyOn(liveApi, "listWorkspaceDocuments").mockResolvedValue({
+    vi.spyOn(liveApi, "listWorkspacePageInventory").mockResolvedValue({
+      campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [],
     });

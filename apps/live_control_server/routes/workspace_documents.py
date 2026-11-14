@@ -44,6 +44,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document_snapshot,
     get_committed_page_snapshot,
     list_workspace_documents,
+    list_workspace_page_campaign_tags,
     list_world_owned_plans_v2,
     create_world_owned_plan_v2,
     create_world_owned_runbook_v2,
@@ -119,6 +120,48 @@ def get_workspace_documents(
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return WorkspaceDocumentsListResponse(records=records).model_dump(mode="json")
+
+
+class WorkspacePageInventoryResponse(WorkspaceDocumentsListResponse):
+    campaign_tags: list[str] | None = None
+    next_before_updated_at: str | None = None
+    next_before_document_id: str | None = None
+
+
+@router.get("/workspace-documents/pages/inventory", response_model=WorkspacePageInventoryResponse)
+def get_workspace_page_inventory(
+    world_id: Annotated[str | None, Query()] = None,
+    campaign_id: Annotated[str | None, Query()] = None,
+    status: Annotated[Literal["active", "discarded"] | None, Query()] = "active",
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    before_updated_at: datetime | None = None,
+    before_document_id: UUID | None = None,
+) -> WorkspacePageInventoryResponse:
+    before = None
+    if before_updated_at is not None or before_document_id is not None:
+        if before_updated_at is None or before_document_id is None or before_updated_at.utcoffset() is None:
+            raise HTTPException(422, "Provide both cursor values with a timezone-aware timestamp.")
+        before = (before_updated_at, before_document_id)
+    try:
+        inventory = list_workspace_documents(
+            repo_root(), world_id=world_id, campaign_id=campaign_id,
+            kind="worldbuilding_source", status=status, limit=limit + 1, before=before,
+        )
+        campaign_tags = None
+        if before is None:
+            campaign_tags = list_workspace_page_campaign_tags(
+                world_id=world_id, campaign_id=campaign_id, status=status,
+            )
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    records = inventory[:limit]
+    boundary = records[-1] if len(inventory) > limit else None
+    return WorkspacePageInventoryResponse(
+        records=records,
+        campaign_tags=campaign_tags,
+        next_before_updated_at=boundary.updated_at if boundary else None,
+        next_before_document_id=boundary.document_id if boundary else None,
+    )
 
 
 @router.post("/workspace-documents", response_model=WorkspaceDocumentRecord)

@@ -29,8 +29,7 @@ import {
   getPlayRunReferenceManifest,
   getCommittedWorkspaceRevision,
   listWorldPlayRuns,
-  listWorldOwnedPlans,
-  listWorldOwnedRunbooks,
+  getWorldOwnedPlanSnapshot,
   listWorkspaceDocuments,
   listPlayRuns,
   putWorldPlayRunRebase,
@@ -381,6 +380,7 @@ function PlayChooser({
   const [detail, setDetail] = useState<string | null>(null);
   const [records, setRecords] = useState<AnyPlayRunRecord[]>([]);
   const [titles, setTitles] = useState<Record<string, string>>({});
+  const [linkedPlanTitle, setLinkedPlanTitle] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [endedIds,setEndedIds]=useState<string[]>([]);
   useEffect(()=>{
@@ -397,21 +397,14 @@ function PlayChooser({
     let cancelled = false;
     setTitles({});
     setActiveId(null);
-    const sources = selectedWorldId
-      ? [listWorldOwnedPlans(selectedWorldId), listWorldOwnedRunbooks(selectedWorldId)]
-      : [listWorkspaceDocuments()];
-    void Promise.allSettled(sources).then(results => {
-      if (cancelled) return;
-      const next: Record<string, string> = {};
-      for (const result of results) {
-        if (result.status !== "fulfilled" || !result.value) continue;
-        for (const record of result.value.records) {
-          if (selectedWorldId && (!("world_id" in record) || record.world_id !== selectedWorldId)) continue;
-          if (record.title.trim()) next[record.document_id] = record.title;
-        }
-      }
-      setTitles(next);
-    });
+    if (!selectedWorldId) {
+      void listWorkspaceDocuments().then((inventory) => {
+        if (cancelled || !inventory) return;
+        setTitles(Object.fromEntries(inventory.records
+          .filter(record => record.title.trim())
+          .map(record => [record.document_id, record.title])));
+      }).catch(() => { /* Session links retain their fallback title. */ });
+    }
     void Promise.resolve(continuityWarning ? null : selectedWorldId ? getWorldPlayActiveRun(selectedWorldId) : getPlayActiveRun())
       .then(active => {
         if (cancelled || !active) return;
@@ -432,6 +425,7 @@ function PlayChooser({
           ? await listWorldPlayRuns(selectedWorldId, controller.signal)
           : await listPlayRuns({}, controller.signal);
         if (cancelled) return;
+        if ("source_titles" in listed) setTitles(listed.source_titles ?? {});
         setRecords(listed.records.filter(record => selectedWorldId
           ? record.schema_version === "dmb_world_play_run_record_v2" && record.world_id === selectedWorldId
           : record.schema_version === "dmb_play_run_record_v1"));
@@ -457,6 +451,19 @@ function PlayChooser({
       controller.abort();
     };
   }, [selectedWorldId, trashInventoryVersion]);
+
+  useEffect(() => {
+    setLinkedPlanTitle(null);
+    if (status !== "ready" || !selectedWorldId || !initialPlanId || titles[initialPlanId]) return;
+    let cancelled = false;
+    void getWorldOwnedPlanSnapshot(initialPlanId).then(({ record }) => {
+      if (!cancelled && record.document_id === initialPlanId && record.world_id === selectedWorldId
+        && record.kind === "plan" && record.campaign_id === null && record.status === "active") {
+        setLinkedPlanTitle(record.title.trim() ? record.title : null);
+      }
+    }).catch(() => { /* The heading retains its fallback title. */ });
+    return () => { cancelled = true; };
+  }, [initialPlanId, selectedWorldId, status, titles, trashInventoryVersion]);
 
   const ordered = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   const matching = initialPlanId ? ordered.filter(record => record.playable_artifact_id === initialPlanId) : ordered;
@@ -490,7 +497,7 @@ function PlayChooser({
     <main className="play-surface play-chooser" data-testid="play-run-chooser">
       <header>
         <p className="play-kicker">At the table</p>
-        <h1>{initialPlanId && titles[initialPlanId] ? titles[initialPlanId] : "Bring your next session to life"}</h1>
+        <h1>{(initialPlanId ? titles[initialPlanId] || linkedPlanTitle : null) || "Bring your next session to life"}</h1>
         <p className="play-welcome-intro">Run your game with scenes, read-alouds, images and Buddy beside you.</p>
         <p className="play-muted">Take scene notes and edit as you improvise. Your changes save to this session’s copy, keeping the Plan intact.</p>
         {selectedWorldId ? <p className="play-welcome-plan"><a href={`/plan?world=${encodeURIComponent(selectedWorldId)}`}>Open a Plan →</a><span>Prepare scenes, then press Play to begin a session.</span></p> : null}

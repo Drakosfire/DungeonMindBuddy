@@ -95,6 +95,13 @@ def test_create_replay_list_and_campaign_inventory_are_owner_fenced(
 
     listed = list_world_play_run_aggregates(world_id="demo-world-a")
     assert [item.run.run_id for item in listed] == [UUID(RUN_ID_A)]
+    assert listed[0].active_source_title == _world_object.title
+
+    from apps.live_control_server.routes.play_runs import get_world_play_runs_v2
+    assert get_world_play_runs_v2(world_id="demo-world-a")["source_titles"] == {
+        str(_world_object.work_object_id): _world_object.title,
+    }
+    assert get_world_play_runs_v2(world_id="demo-world-b")["source_titles"] == {}
     assert list_world_play_run_aggregates(world_id="demo-world-b") == []
     assert list_play_run_aggregates() == []
 

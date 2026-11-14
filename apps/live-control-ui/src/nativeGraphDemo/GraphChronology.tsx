@@ -159,7 +159,7 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
 
   if (strip) {
     const sessionNumber = (event: typeof events[number]) => {
-      const placements = [...event.placementSessions.values()];
+      const placements = campaign ? [event.placementSessions.get(campaign) ?? new Set<number>()] : [...event.placementSessions.values()];
       return placements.length === 1 && placements[0].size === 1 ? [...placements[0]][0] : undefined;
     };
     const byId = new Map(events.map(event => [event.node.id, event]));
@@ -196,34 +196,44 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
       }
     }
     const campaignIds = new Set(events.flatMap(event => event.campaignIds));
-    const canCompareSessions = campaignIds.size === 1;
+    const canCompareSessions = Boolean(campaign) || campaignIds.size === 1;
     const ordered = canCompareSessions
       ? events.filter(event => !recordedIds.has(event.node.id) && sessionNumber(event) !== undefined)
         .sort((a, b) => sessionNumber(a)! - sessionNumber(b)!)
       : [];
     const orderedIds = new Set(ordered.map(event => event.node.id));
     const unplaced = events.filter(event => !recordedIds.has(event.node.id) && !orderedIds.has(event.node.id));
+    const sessions = new Map<number | undefined, typeof events>();
+    for (const event of [...recorded, ...ordered, ...unplaced]) {
+      const session = canCompareSessions ? sessionNumber(event) : undefined;
+      const group = sessions.get(session) ?? [];
+      group.push(event);
+      sessions.set(session, group);
+    }
     return <section className="native-demo-event-strip" aria-label="Connected Events">
+      {campaigns.length > 0 && <label>Campaign <select value={campaign} onChange={event => setCampaign(event.target.value)}>
+        <option value="">All campaigns</option>
+        {campaigns.map(id => <option key={id} value={id}>{labels.get(id)}</option>)}
+      </select></label>}
       {result?.partial && <small>Partial chronology</small>}
       {recorded.length > 0 && <small>Only the labeled links establish order between Events.</small>}
-      {([{ items: recorded, label: "Recorded in-world links" },
-        { items: ordered, label: "Campaign session order" },
-        { items: unplaced, label: "Unplaced Events" }]).map(({ items, label }) => {
-        return items.length > 0 && <div key={label}>
-          <strong>{label}</strong>
+      {[...sessions].sort(([a], [b]) => (a ?? Infinity) - (b ?? Infinity)).map(([session, items]) => (
+        <div key={session ?? "unplaced"}>
+          <strong>{session === undefined
+            ? (canCompareSessions ? "Unplaced Events" : "Events across campaigns")
+            : `Session ${session}`}</strong>
           <ul>{items.map(event => <li key={event.node.id}>
             <button type="button" aria-pressed={event.node.id === selectedEvent}
               data-connected={connectedIds?.has(event.node.id) || undefined}
               onClick={() => onExplore(event.node.id)}>{event.node.name}</button>
-            {sessionNumber(event) !== undefined && <small>Session {sessionNumber(event)}</small>}
             {cyclic.has(event.node.id) && <small>Conflicting recorded order</small>}
             {recordedIds.has(event.node.id) && orderByEvent.get(event.node.id)
               ?.filter(link => recordedIds.has(link.other))
               .map(link => <small key={link.label + link.id}>{link.label} {labels.get(link.other)}</small>)}
             {event.sourceSessions.length > 0 && <small>Source {event.sourceSessions.join(", ")}</small>}
           </li>)}</ul>
-        </div>;
-      })}
+        </div>
+      ))}
     </section>;
   }
 
