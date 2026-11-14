@@ -27,7 +27,7 @@ pr_body_template: |
 # HANDOFF — governed Eldyrwild Lysandra threat-direction correction
 
 **Created:** 2026-08-09.  
-**Status:** BLOCKED ON ELDYRWILD CONTRIBUTION-INTEGRITY HEAL — post-#536 parent-relative contract is canonical in this handoff; BUILD remains blocked until pinned contribution replay is healed for `contribution:d3d244474789879c` (separate forensic predecessor slice), then Lysandra BUILD may dispatch. Merging the correction package is not the same as completing the real Eldyrwild correction.  
+**Status:** DONE / HISTORICAL. [PR #537](https://github.com/Drakosfire/DungeonMindBuddy/pull/537) merged and the [campaign tracker](PR-TRACKER-campaign-supergraph.md) records the canonical live apply and idempotent retry. Do not redispatch this handoff.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-lysandra-threat-direction-correction.md`  
 **Conversation name:** `Eldyrwild Lysandra Threat Direction Correction`  
 **Flow / agent:** `BUILD`  
