@@ -6,34 +6,14 @@ import json
 import os
 from pathlib import Path
 
-import blake3
+from corpus.fingerprint import corpus_fingerprint as corpus_fingerprint
 
 from src.agent.planner import (
     PLANNER_MANIFEST_BUILDER_ID,
     _build_system_prompt,
-    _is_managed_dungeonbuddy_storage,
     build_corpus_manifest,
 )
 from prompts.corpus_session_planner import INSTRUCTIONS_TEMPLATE_ID
-
-
-def corpus_fingerprint(corpus_dir: Path) -> str:
-    """Stable hash over corpus markdown paths, mtimes, and sizes (invalidates on edits)."""
-    root = corpus_dir.resolve()
-    lines: list[str] = []
-    if not root.is_dir():
-        return blake3.blake3(b"").hexdigest()[:32]
-    for path in sorted(root.rglob("*.md")):
-        if _is_managed_dungeonbuddy_storage(path):
-            continue
-        try:
-            rel = path.relative_to(root).as_posix()
-            st = path.stat()
-            lines.append(f"{rel}\t{st.st_mtime_ns}\t{st.st_size}")
-        except OSError:
-            continue
-    payload = "\n".join(lines).encode("utf-8")
-    return blake3.blake3(payload).hexdigest()[:32]
 
 
 def cache_dir_for_corpus(cache_root: Path, corpus_dir: Path) -> Path:

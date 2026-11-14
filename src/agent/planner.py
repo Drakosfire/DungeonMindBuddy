@@ -26,6 +26,8 @@ from typing import Any, Callable
 
 import blake3
 
+from corpus.fingerprint import is_managed_dungeonbuddy_storage
+
 from llm.planner_pricing import usage_cost_usd
 from src.agent.planner_turn_output_schema import (
     planner_turn_output_schema_enabled,
@@ -245,10 +247,6 @@ def _assign_unique_path_refs(sorted_relpaths: list[str]) -> tuple[dict[str, str]
     return ref_to_rel, rel_to_ref
 
 
-def _is_managed_dungeonbuddy_storage(path: Path) -> bool:
-    return "_dungeonbuddy" in path.parts
-
-
 def build_corpus_path_ref_index(corpus_dir: Path) -> dict[str, str]:
     """Map ``ref_hex`` -> corpus-relative ``.md`` path (posix). Empty when corpus is missing."""
     root = corpus_dir.resolve()
@@ -257,7 +255,7 @@ def build_corpus_path_ref_index(corpus_dir: Path) -> dict[str, str]:
     rels = sorted(
         p.relative_to(root).as_posix()
         for p in root.rglob("*.md")
-        if p.is_file() and not _is_managed_dungeonbuddy_storage(p)
+        if p.is_file() and not is_managed_dungeonbuddy_storage(p)
     )
     ref_to_rel, _ = _assign_unique_path_refs(rels)
     return ref_to_rel
@@ -277,7 +275,7 @@ def build_corpus_manifest_and_ref_index(corpus_dir: Path) -> tuple[str, dict[str
     rels = sorted(
         p.relative_to(root).as_posix()
         for p in root.rglob("*.md")
-        if p.is_file() and not _is_managed_dungeonbuddy_storage(p)
+        if p.is_file() and not is_managed_dungeonbuddy_storage(p)
     )
     ref_to_rel, rel_to_ref = _assign_unique_path_refs(rels)
 

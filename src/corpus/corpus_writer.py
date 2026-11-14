@@ -548,7 +548,7 @@ def append_timeline_row(
 def recompute_corpus_fingerprint(corpus_dir: Path) -> str:
     """Recompute the planner-cache corpus fingerprint after a write."""
     # Local import: ``planner_cache`` already imports ``planner``; keep this module decoupled.
-    from src.agent.planner_cache import corpus_fingerprint
+    from corpus.fingerprint import corpus_fingerprint
 
     return corpus_fingerprint(corpus_dir)
 
