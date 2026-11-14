@@ -517,7 +517,7 @@ def test_get_surface_returns_catalog_layout_state(client: TestClient) -> None:
     assert body["state"]["derived"] is True
 
 
-def test_surface_session_views_reuse_loaded_session(isolated_session, monkeypatch):
+def test_surface_session_views_reuse_loaded_session(client, isolated_session, monkeypatch):
     from unittest.mock import Mock
 
     from apps.live_control_server.routes import live
@@ -525,7 +525,9 @@ def test_surface_session_views_reuse_loaded_session(isolated_session, monkeypatc
     load_session = Mock(wraps=live.load_session)
     monkeypatch.setattr(live, "load_session", load_session)
 
-    snapshot = live.get_live_surface(include_session_views=True)
+    response = client.get("/api/live/surface", params={"include_session_views": "true"})
+    assert response.status_code == 200
+    snapshot = response.json()
 
     load_session.assert_called_once_with(isolated_session)
     assert snapshot["events"] == live.get_live_events(since=None)["events"]
