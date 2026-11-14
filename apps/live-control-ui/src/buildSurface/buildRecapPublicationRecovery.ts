@@ -45,7 +45,7 @@ export function assertRecapPrepared(prepared: ExtractPromotePrepareResponse, run
       && admission?.candidate_locator===null
       && binding?.run_id===run.run_id && binding.run_revision===run.revision
       && /^[a-f0-9]{64}$/.test(candidateDigest??'')
-      && binding.components?.candidate_graph===candidateDigest
+      && binding.components?.candidate_graph===`sha256:${candidateDigest}`
     : Boolean(candidatePath&&!relative?.startsWith('/')&&!segments?.includes('..')&&!relative?.includes('\\')
       && typeof admission?.candidate_locator==='string'&&admission.candidate_locator.endsWith('/'+candidatePath));
   if(pkg.schema!=='dmb_extract_promote_proposal_v1'||![2,3].includes(pkg.proposal_version)

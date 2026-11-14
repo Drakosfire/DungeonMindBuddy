@@ -28,7 +28,7 @@ it.each([true,false])('verifies the sealed database candidate (matching digest: 
   const effect = response.reviewPackage.effect as Record<string, unknown>;
   (effect.candidate_admission as Record<string, unknown>).candidate_locator = null;
   effect.extraction_run = {run_id: 'run-a', run_revision: 2, components: {
-    candidate_graph: (matches ? 'b' : 'c').repeat(64),
+    candidate_graph: 'sha256:' + (matches ? 'b' : 'c').repeat(64),
   }};
   const verify = () => assertRecapPrepared(response, databaseRun, review, 'managed-a');
   if (matches) expect(verify).not.toThrow();
