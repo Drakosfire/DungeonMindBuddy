@@ -324,6 +324,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   const pathname = path.split("?", 1)[0];
   if ([
     "/api/live/native-graph-inspection/complete-object",
+    "/api/live/native-graph-inspection/authoring-identities",
     "/api/live/native-source-inspection/published-recap",
     "/api/live/native-graph-explorer/graph",
     "/api/live/native-graph-explorer/prepare",
