@@ -13,7 +13,7 @@ from apps.live_control_server.services.graph_authoring_overlay_projection import
 )
 from apps.live_control_server.services.graph_authoring_overlay_store import GraphAuthoringOverlayStore
 from graph_memory.projection.focus_overlay import GraphFocusOverlay
-from graph_memory.projection.recap_projection import RecapGraphProjection
+from graph_memory.projection.recap_projection_contracts import RecapGraphProjection
 from tests.test_graph_authoring_overlay_models import CAMPAIGN_ID, STAMP, object_assertion
 
 TEST_CAMPAIGN_REL = "Test Campaign/A6"
