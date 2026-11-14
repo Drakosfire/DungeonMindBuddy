@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { StartPdfStatblockReview } from "./StartPdfStatblockReview";
 import { completePdfTextLines, hasClippedPdfTextLine, pdfTextBoundsOverlap } from "./completePdfTextLines";
 import { hasRecognizablePdfStatblockStructure, PdfStatblockCandidate } from "./PdfStatblockCandidate";
@@ -109,10 +110,11 @@ function CropPreviewImage({ canvas, page }: { canvas: HTMLCanvasElement; page: n
   return <img src={url} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />;
 }
 
-export function PdfPages({ file, worldId, restored, onRetained, readOnly = false }: {
+export function PdfPages({ file, worldId, restored, onRetained, readOnly = false, navigationHost }: {
   file: File; worldId?: string; restored?: PdfLocator;
   onRetained?: (locator: PdfLocator) => void;
   readOnly?: boolean;
+  navigationHost?: HTMLElement | null;
 }) {
   const [admission] = useState(() => ({ id: crypto.randomUUID(), createdAt: new Date().toISOString() }));
   const [receipt, setReceipt] = useState<PdfReceipt | undefined>(restored);
@@ -332,19 +334,23 @@ export function PdfPages({ file, worldId, restored, onRetained, readOnly = false
     return () => { cancelled = true; };
   }, [document, page, capture]);
 
-  return (
-    <section aria-label="PDF preview">
-      <p>{file.name}</p>
-      {error ? <p role="alert">{error}</p> : !document ? <p role="status">Opening PDF…</p> : (
-        <>
-          <button type="button" disabled={page === 1} onClick={() => changePage(page - 1)}>Previous page</button>
+  const navigation = document && <>
+          <button type="button" disabled={page === 1} onClick={() => changePage(page - 1)} aria-label="Previous page" title="Previous page">{readOnly ? "‹" : "Previous page"}</button>
           <span role="status"> Page {page} of {document.numPages} </span>
-          <button type="button" disabled={page === document.numPages} onClick={() => changePage(page + 1)}>Next page</button>
-          {readOnly ? <label>Zoom
-            <select value={zoom} onChange={event => setZoom(Number(event.target.value))}>
+          <button type="button" disabled={page === document.numPages} onClick={() => changePage(page + 1)} aria-label="Next page" title="Next page">{readOnly ? "›" : "Next page"}</button>
+          {readOnly ? <label>
+            <select aria-label="Zoom" title="Zoom" value={zoom} onChange={event => setZoom(Number(event.target.value))}>
               {[75, 100, 125, 150, 200].map(level => <option key={level} value={level}>{level}%</option>)}
             </select>
           </label> : <p>Drag across the page to select a region.</p>}
+  </>;
+
+  return (
+    <section aria-label="PDF preview">
+      {!navigationHost && <p>{file.name}</p>}
+      {error ? <p role="alert">{error}</p> : !document ? <p role="status">Opening PDF…</p> : (
+        <>
+          {navigationHost ? createPortal(navigation, navigationHost) : navigation}
           <div style={{ position: "relative", width: readOnly ? `${zoom}%` : "fit-content", maxWidth: readOnly ? undefined : "100%" }}>
             <canvas
               key={page}
