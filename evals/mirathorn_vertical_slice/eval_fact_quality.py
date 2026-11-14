@@ -30,7 +30,7 @@ from src.ingestion.fact_extractor import (  # noqa: E402
     OpenAIResponsesFactClient,
     run_fact_extraction,
 )
-from src.reducer.canon_projection import project_entity_state  # noqa: E402
+from reducer.canon_projection import project_entity_state  # noqa: E402
 
 MIRATHORN_SOURCE = PROJECT_ROOT / Path(
     "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/"

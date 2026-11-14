@@ -10,7 +10,7 @@ from typing import Any
 from contracts.schema_validation import validate_many
 from contracts.entity_tags import normalize_entity_tags
 from contracts.entity_taxonomy import normalize_semantic_facets
-from src.reducer.canon_projection import project_entity_state
+from reducer.canon_projection import project_entity_state
 
 
 class FactStore:

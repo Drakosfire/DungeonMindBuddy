@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from src.reducer.canon_projection import project_entity_state
-from src.reducer.projection_compare import (
+from reducer.canon_projection import project_entity_state
+from reducer.projection_compare import (
     assert_attribute_keys_match_golden_contract,
     normalize_projection_for_compare,
 )

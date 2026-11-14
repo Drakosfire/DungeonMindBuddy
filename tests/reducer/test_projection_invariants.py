@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from hashlib import sha256
 
-from src.reducer.canon_projection import project_entity_state
+from reducer.canon_projection import project_entity_state
 from tests.evals.scenario_utils import load_json, load_manifest, scenario_paths
 
 

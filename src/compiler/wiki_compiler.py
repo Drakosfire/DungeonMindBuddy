@@ -14,8 +14,8 @@ from typing import Any
 from generationengine import GenerationClient, TextRequest
 
 from src.llm.generation_sync import run_awaitable_sync
-from src.reducer.canon_projection import project_entity_state
-from src.store import FactStore
+from reducer.canon_projection import project_entity_state
+from store import FactStore
 
 logger = logging.getLogger(__name__)
 

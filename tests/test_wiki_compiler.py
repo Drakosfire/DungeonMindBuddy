@@ -25,7 +25,7 @@ from src.compiler.wiki_compiler import (
     score_entity_connectivity,
     should_skip_entity_for_wiki,
 )
-from src.store import FactStore
+from store import FactStore
 
 _ENTITY_ID = "ent_thalia"
 _DISPLAY = "Commander Thalia"
