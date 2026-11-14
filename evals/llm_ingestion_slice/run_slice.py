@@ -13,13 +13,13 @@ if str(ROOT) not in sys.path:
 
 validate_many = importlib.import_module("contracts.schema_validation").validate_many
 campaign_temporal_tick_violations = importlib.import_module(
-    "src.contracts.temporal_tick_gate"
+    "contracts.temporal_tick_gate"
 ).campaign_temporal_tick_violations
 campaign_temporal_consistency_violations = importlib.import_module(
-    "src.contracts.temporal_tick_gate"
+    "contracts.temporal_tick_gate"
 ).campaign_temporal_consistency_violations
 campaign_temporal_quality_summary = importlib.import_module(
-    "src.contracts.temporal_tick_gate"
+    "contracts.temporal_tick_gate"
 ).campaign_temporal_quality_summary
 build_mirathorn_event_slice = importlib.import_module(
     "src.ingestion.event_sourced_slice"
