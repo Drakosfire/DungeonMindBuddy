@@ -6,7 +6,7 @@ import * as extract from '../api/extractPromoteApi';
 import {knowledgeKey,type ManualKnowledgeScope} from './buildManualKnowledge';
 const state=vi.hoisted(()=>({session:{} as any,current:true}));
 vi.mock('../markdownCanvas/MarkdownCanvasSession',()=>({useMarkdownCanvasSession:()=>state.session}));
-vi.mock('../api/liveApi',async(importOriginal)=>({...await importOriginal<typeof import('../api/liveApi')>(),getGraphObjectAuthoringKinds:vi.fn(),postManagedWorldGraphProjection:vi.fn(),prepareGraphObjectAuthoringWrite:vi.fn(),commitGraphObjectAuthoringWrite:vi.fn()}));
+vi.mock('../api/liveApi',async(importOriginal)=>({...await importOriginal<typeof import('../api/liveApi')>(),getGraphObjectAuthoringKinds:vi.fn(),getNativeAuthoringIdentities:vi.fn(),prepareGraphObjectAuthoringWrite:vi.fn(),commitGraphObjectAuthoringWrite:vi.fn()}));
 vi.mock('../api/extractPromoteApi',()=>({getWorldbuildingFrozenSpans:vi.fn()}));
 const hash='b'.repeat(64),candidate='a'.repeat(64),index='e'.repeat(64);
 const props:any={worldId:'world-a',document:{document_id:'doc-a',world_id:'world-a',kind:'worldbuilding_source'},
@@ -28,9 +28,10 @@ beforeEach(()=>{vi.resetAllMocks();localStorage.clear();state.current=true;
  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,fn:()=>unknown)=>fn()}});
  vi.mocked(api.getGraphObjectAuthoringKinds).mockResolvedValue({objectKinds:['npc','item','location']});
  vi.mocked(extract.getWorldbuildingFrozenSpans).mockResolvedValue(catalog);
- vi.mocked(api.postManagedWorldGraphProjection).mockResolvedValue({schema:'dmb_managed_world_graph_projection_v1',managedWorldId:'world-a',nativeWorldId:'native-a',bindingVersion:1,
- projection:{schema:'dmb_world_graph_projection_v1',snapshot:{worldId:'native-a',campaignId:'',scopeMode:'world',focus:{kind:'none',sessionId:null},admissibility:'gm',isHead:true,revisionId:'head-a',headRevisionId:'head-a'},nodes:[
- {nodeId:'mara',label:'Mara',kind:'npc',role:'keeper'},{nodeId:'quarry',label:'Quarry',kind:'location',role:'location'}]}} as any);
+ vi.mocked(api.getNativeAuthoringIdentities).mockResolvedValue([
+  {node_id:'mara',label:'Mara',kind:'npc',role:'keeper',summary:null},
+  {node_id:'quarry',label:'Quarry',kind:'location',role:'location',summary:null},
+ ]);
  vi.mocked(api.prepareGraphObjectAuthoringWrite).mockResolvedValue(prepared);
  vi.mocked(api.commitGraphObjectAuthoringWrite).mockResolvedValue(receipt);
 });
@@ -51,7 +52,7 @@ it('previews exact frozen selection then explicitly confirms and retains receipt
  await screen.findByText('World knowledge published. It is available for cited retrieval.');
  expect(api.commitGraphObjectAuthoringWrite).toHaveBeenCalledWith({...request,confirmToken:'signed-token',currentOverlayToken:'overlay-a'});
  expect(JSON.parse(localStorage.getItem(knowledgeKey(scope))!).receipt.operation_id).toBe('operation-a');
- await waitFor(()=>expect(api.postManagedWorldGraphProjection).toHaveBeenCalledTimes(2));
+ await waitFor(()=>expect(api.getNativeAuthoringIdentities).toHaveBeenCalledTimes(2));
  expect(extract.getWorldbuildingFrozenSpans).toHaveBeenCalledTimes(1);
 });
 it('recovers an uncertain confirmation after remount with identical request and token',async()=>{
@@ -98,17 +99,16 @@ it('stages a relationship between exact current World nodes',async()=>{
 });
 
 it('rejects contradictory native provenance before exposing endpoint nodes',async()=>{
- const response=await api.postManagedWorldGraphProjection({} as any);response.projection.snapshot.worldId='foreign-native';
- vi.mocked(api.postManagedWorldGraphProjection).mockResolvedValue(response);
- render(<BuildManualKnowledge {...props}/>);await screen.findByText(/does not match envelope world/);
+ vi.mocked(api.getNativeAuthoringIdentities).mockRejectedValue(new Error('The object picker did not match this World.'));
+ render(<BuildManualKnowledge {...props}/>);await screen.findByText(/did not match this World/);
  expect(screen.getByRole('button',{name:'Use selected document text'})).toBeDisabled();
  expect(api.prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
 });
 it('distinguishes same-name endpoints in choices and retained directional preview',async()=>{
- const response=await api.postManagedWorldGraphProjection({} as any);
- response.projection.nodes=[{nodeId:'mara-east',label:'Mara',kind:'npc',role:'keeper',summary:'East gate keeper'},
- {nodeId:'mara-west',label:'Mara',kind:'npc',role:'keeper',summary:'West gate keeper'}] as any;
- vi.mocked(api.postManagedWorldGraphProjection).mockResolvedValue(response);
+ vi.mocked(api.getNativeAuthoringIdentities).mockResolvedValue([
+  {node_id:'mara-east',label:'Mara',kind:'npc',role:'keeper',summary:'East gate keeper'},
+  {node_id:'mara-west',label:'Mara',kind:'npc',role:'keeper',summary:'West gate keeper'},
+ ]);
  render(<BuildManualKnowledge {...props}/>);await waitFor(()=>expect(screen.getByRole('button',{name:'Use selected document text'})).toBeEnabled());
  fireEvent.click(screen.getByRole('button',{name:'Use selected document text'}));fireEvent.change(screen.getByLabelText('Declare'),{target:{value:'relationship'}});
  const from=screen.getByLabelText('From') as HTMLSelectElement,to=screen.getByLabelText('To') as HTMLSelectElement;
