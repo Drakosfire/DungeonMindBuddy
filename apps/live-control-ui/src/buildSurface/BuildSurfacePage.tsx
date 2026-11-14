@@ -1,3 +1,5 @@
+import { SavedStatblockFullView } from "../statblocks/StatblockPage";
+import { readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
 import { useEffect, useState } from "react";
 
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
@@ -40,6 +42,7 @@ export function BuildSurfacePage() {
     return () => window.removeEventListener("popstate", syncHistory);
   }, []);
   const params = new URLSearchParams(entrySearch);
+  const statblock = readSavedStatblockTarget("/build" + entrySearch);
   const reviewWorldId = params.get("world");
   const pdfReviewId = new URLSearchParams(window.location.search).get("world") === reviewWorldId
     ? params.get("pdfReview")
@@ -48,9 +51,9 @@ export function BuildSurfacePage() {
   return (
     <AppChrome activeRoute="build" editorTools={editorTools} editToolboxLayout="dock" workspaceLayout="bounded">
       <div style={{display: "contents"}} onDragOver={event => {
-        if (!pdfReviewId && event.dataTransfer.types.includes("Files")) event.preventDefault();
+        if (!pdfReviewId && !statblock && event.dataTransfer.types.includes("Files")) event.preventDefault();
       }} onDrop={event => {
-        if (pdfReviewId || event.defaultPrevented) return;
+        if (pdfReviewId || statblock || event.defaultPrevented) return;
         const files = Array.from(event.dataTransfer.files);
         const file = files.length === 1 ? files[0] : undefined;
         if (!file || !(file.type === "application/pdf" || (!file.type && /\.pdf$/i.test(file.name)))) return;
@@ -63,6 +66,11 @@ export function BuildSurfacePage() {
       }}>
       {pdfReviewId && reviewWorldId ? (
         <BuildPdfStatblockReview key={`${reviewWorldId}:${pdfReviewId}`} worldId={reviewWorldId} reviewId={pdfReviewId} />
+      ) : statblock && statblock.worldId === worldId ? (
+        <>
+          <BuildSurfaceContext {...controller} />
+          <SavedStatblockFullView target={statblock} />
+        </>
       ) : droppedPdf && droppedPdf.worldId === worldId ? (
         <section className="build-pdf-workspace" aria-label="PDF workspace">
           <header className="build-pdf-workspace__toolbar">
