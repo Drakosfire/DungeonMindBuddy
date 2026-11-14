@@ -1,5 +1,7 @@
 # HANDOFF: Eldyrwild deferred node-kind source repair — Stage B
 
+> Historical recovery commands below refer to the [pre-cutover script](https://github.com/Drakosfire/DungeonMindBuddy/blob/30008dc473bd80144a46c035d09b56ad1deb2928/scripts/build_eldyrwild_relationship_node_kind_source_repair.py). Run them from that pinned checkout with the retained World inputs. [Replay evidence and inputs](https://github.com/Drakosfire/DungeonMindBuddy/issues/3588).
+
 ## 1. Authority and mission
 
 This handoff authorizes a non-publishing successor to the post-#563

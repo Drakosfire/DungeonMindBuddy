@@ -26,6 +26,8 @@ pr_body_template: |
 
 # HANDOFF — governed Eldyrwild Lysandra threat-direction correction
 
+> Historical recovery commands below refer to the [pre-cutover script](https://github.com/Drakosfire/DungeonMindBuddy/blob/30008dc473bd80144a46c035d09b56ad1deb2928/scripts/apply_eldyrwild_lysandra_threat_direction_correction.py). Run them from that pinned checkout with the retained World inputs. [Replay evidence and inputs](https://github.com/Drakosfire/DungeonMindBuddy/issues/3588).
+
 **Created:** 2026-08-09.  
 **Status:** DONE / HISTORICAL. [PR #537](https://github.com/Drakosfire/DungeonMindBuddy/pull/537) merged and the [campaign tracker](PR-TRACKER-campaign-supergraph.md) records the canonical live apply and idempotent retry. Do not redispatch this handoff.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-lysandra-threat-direction-correction.md`  

@@ -1,5 +1,7 @@
 # HANDOFF — Eldyrwild Relationship Semantic Closure
 
+> Historical recovery commands below refer to the [pre-cutover script](https://github.com/Drakosfire/DungeonMindBuddy/blob/30008dc473bd80144a46c035d09b56ad1deb2928/scripts/apply_eldyrwild_relationship_semantic_closure.py). Run them from that pinned checkout with the retained World inputs. [Replay evidence and inputs](https://github.com/Drakosfire/DungeonMindBuddy/issues/3588).
+
 **Created:** 2026-08-12
 **Updated:** 2026-08-12 — P1 repair pass (kind-miscoding STOP, authority-safe resume, finalizer chain, live seals)
 **Status:** DONE / HISTORICAL. PR #563 merged at `0479d50d048a88b92b9d200dbf3cbbc93d295ba2`. Do not redispatch this handoff.

@@ -1,5 +1,7 @@
 # HANDOFF — Eldyrwild Session-25 Ephanna→Thrin false `hires` correction
 
+> Historical recovery commands below refer to the [pre-cutover script](https://github.com/Drakosfire/DungeonMindBuddy/blob/30008dc473bd80144a46c035d09b56ad1deb2928/scripts/apply_eldyrwild_session25_ephanna_thrin_false_hires_correction.py). Run them from that pinned checkout with the retained World inputs. [Replay evidence and inputs](https://github.com/Drakosfire/DungeonMindBuddy/issues/3588).
+
 **Created:** 2026-08-11
 **Updated:** 2026-08-12 — merged as `8abfca285a780adb33797c71fd5ff6878caa6a76` (#559); canonical live apply exit proven (`Q₃→Q₄ = rev:3759d8d6a02f09306397918234a2ded2`, retry `already_applied`)
 **Status:** DONE — merged package + canonical live apply exit proof captured; absorbed into `eldyrwild-relationship-semantic-closure` Phase 0
