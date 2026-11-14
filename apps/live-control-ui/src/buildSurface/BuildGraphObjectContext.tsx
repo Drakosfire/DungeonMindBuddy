@@ -22,9 +22,10 @@ export interface BuildGraphPointer {
   nativePin?: InspectionPin;
 }
 
-export function parseBuildGraphPointerFromLocation(): BuildGraphPointer | null {
-  if (typeof window === "undefined") return null;
-  const params = new URLSearchParams(window.location.search);
+export function parseBuildGraphPointerFromLocation(
+  search = typeof window === "undefined" ? "" : window.location.search,
+): BuildGraphPointer | null {
+  const params = new URLSearchParams(search);
   const campaignId = params.get("campaign")?.trim() ?? "";
   const graphNodeId = params.get("graphNodeId")?.trim() ?? "";
   const graphRevision = params.get("graphRevision")?.trim() || null;
@@ -61,6 +62,7 @@ function readBuildObject(pointer: BuildGraphPointer, worldId: string, nodeId: st
 }
 
 export interface BuildGraphObjectContextProps {
+  pointer?: BuildGraphPointer;
   documentCampaignId?: string | null;
   /**
    * When true, refuse to load until document campaign admission succeeds.
@@ -79,10 +81,11 @@ type ContextStatus =
   | "missing_node";
 
 export function BuildGraphObjectContext({
+  pointer: providedPointer,
   documentCampaignId,
   requireDocumentScope = false,
 }: BuildGraphObjectContextProps) {
-  const pointer = useMemo(() => parseBuildGraphPointerFromLocation(), []);
+  const pointer = useMemo(() => providedPointer ?? parseBuildGraphPointerFromLocation(), [providedPointer]);
   const [status, setStatus] = useState<ContextStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [nodeViews, setNodeViews] = useState<Record<string, GraphProjectionNodeView>>({});
