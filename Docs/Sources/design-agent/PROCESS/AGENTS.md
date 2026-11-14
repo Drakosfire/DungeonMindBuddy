@@ -188,9 +188,9 @@ metadata, not naming authority. Git history is the default archive.
 ## Efficient investigation
 
 Use focused symbol/route search and small context packs when available; otherwise
-use `rg` and targeted reads. Use RTK when available for noisy output. Missing
-optional navigation tools do not block ordinary investigation. Preserve useful
-failure output and avoid dumping whole logs, dependency trees or historical docs.
+use `rg` and targeted reads. Keep Git, search, test, and log output focused.
+Preserve failures, stack traces, compiler and migration errors, and
+destructive-command risks.
 Fetch and compare exact remote refs when state matters. Obtain explicit approval
 for destructive actions unless already authorized by the user.
 
