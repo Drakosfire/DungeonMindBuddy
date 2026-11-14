@@ -6,7 +6,10 @@ from types import SimpleNamespace
 from uuid import uuid4
 import pytest
 from tests.test_graph_document_source import TEXT
+from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
 from apps.live_control_server.services.graph_document_relationship import DocumentRelationshipRequest, relationship_request
+
+GM = NativeGraphPrincipal("operator", "gm", "local_operator")
 
 
 def intent(c):
@@ -24,7 +27,7 @@ def graph(case,monkeypatch):
     monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN','synthetic-relationship-local-token-with-adequate-length')
     case.client=TestClient(case.client.app,client=('127.0.0.1',50000),headers={'Authorization':'Bearer synthetic-relationship-local-token-with-adequate-length'})
     nodes=[]
-    monkeypatch.setattr('apps.live_control_server.services.graph_document_relationship.project_managed_world_graph',lambda *a,**kw:SimpleNamespace(projection=SimpleNamespace(nodes=nodes)))
+    monkeypatch.setattr('apps.live_control_server.services.graph_document_relationship.authoring_identities',lambda *a,**kw:{"identities": [vars(node) for node in nodes]})
     return nodes
 
 
@@ -74,7 +77,7 @@ def test_new_identity_cannot_duplicate_existing_name_or_alias(case,graph,alias):
 def test_existing_identity_requires_exact_world_label_and_kind(case,graph):
     graph.append(SimpleNamespace(node_id='npc:brin',label='Brin',kind='npc',aliases=[]))
     request=intent(case);request['source']['node_id']='npc:brin'
-    built=relationship_request(case.root,DocumentRelationshipRequest.model_validate(request))
+    built=relationship_request(case.root,DocumentRelationshipRequest.model_validate(request), GM)
     assert len(built.proposals)==2
     assert built.proposals[-1].source_object_ref['nodeId']=='npc:brin'
     request['source']['kind']='location'
@@ -84,7 +87,7 @@ def test_existing_identity_requires_exact_world_label_and_kind(case,graph):
 def test_temporal_context_and_direction_are_preserved_without_inference(case,graph):
     request=intent(case);request['target']={'node_id':None,'label':'Rowan','kind':'npc'}
     request.update(predicate='works_with',label='worked together temporarily',context='A past temporary stint; this asserts no current employment or reciprocal edge.')
-    built=relationship_request(case.root,DocumentRelationshipRequest.model_validate(request))
+    built=relationship_request(case.root,DocumentRelationshipRequest.model_validate(request), GM)
     row=built.proposals[-1]
     assert row.relationship_type=='works_with' and row.direction=='directed'
     assert row.summary==request['context'] and row.relationship_label==request['label']+' — '+request['context']
@@ -135,13 +138,13 @@ def test_runtime_checkout_and_retained_world_source_root_are_distinct(case,graph
     runtime=case.root/'runtime-checkout'
     runtime.mkdir()
     observed=[]
-    def projection(request,*,root):
-        observed.append(root)
-        assert root==case.root, 'The managed World registry belongs to retained data, not the runtime checkout'
-        return SimpleNamespace(projection=SimpleNamespace(nodes=[]))
-    monkeypatch.setattr('apps.live_control_server.services.graph_document_relationship.project_managed_world_graph',projection)
-    request=relationship_request(runtime,DocumentRelationshipRequest.model_validate(intent(case)))
-    assert observed==[case.root]
+    def projection(scope, principal):
+        observed.append(scope.managed_world_id)
+        assert principal == GM
+        return {"identities": []}
+    monkeypatch.setattr('apps.live_control_server.services.graph_document_relationship.authoring_identities',projection)
+    request=relationship_request(runtime,DocumentRelationshipRequest.model_validate(intent(case)), GM)
+    assert observed==[intent(case)["world_id"]]
     assert request.document_source==case.selector
     assert not (case.root/'out/registries/source_content/graph_documents').exists()
     assert not (runtime/'out').exists()
@@ -160,11 +163,11 @@ def test_relationship_reader_uses_committed_snapshot_not_file_witness(request, g
     request = DocumentRelationshipRequest.model_validate(intent(c))
     # The existing real source resolver still verifies/freezes the exact source;
     # this changes only its consumer projection, not source/native authority.
-    assert reader.relationship_request(c.root, request).proposals
+    assert reader.relationship_request(c.root, request, GM).proposals
     assert c.authority.publish_calls == 0
     for changes in ({"content_status": "draft"}, {"document_id": str(uuid4())},
                     {"world_id": "foreign"}, {"revision": original.loaded_revision + 1}):
         projection.record = original.record.model_copy(update=changes)
         with pytest.raises(GraphObjectAuthoringError):
-            reader.relationship_request(c.root, request)
+            reader.relationship_request(c.root, request, GM)
     assert c.authority.publish_calls == 0

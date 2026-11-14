@@ -1,8 +1,8 @@
+import type {NativeAuthoringIdentity} from '../api/liveApi';
 import {useEffect,useRef,useState} from 'react';
-import {LiveApiError,getGraphObjectAuthoringKinds,commitGraphObjectAuthoringWrite,postManagedWorldGraphProjection,prepareGraphObjectAuthoringWrite} from '../api/liveApi';
+import {LiveApiError,getGraphObjectAuthoringKinds,commitGraphObjectAuthoringWrite,getNativeAuthoringIdentities,prepareGraphObjectAuthoringWrite} from '../api/liveApi';
 import {getWorldbuildingFrozenSpans} from '../api/extractPromoteApi';
-import type {ExactRunReviewPackage,ExtractionRunRecord,GraphObjectAuthoringProposalPayload,GraphReviewHandoffPayload,WorkspaceDocumentRecord,WorldbuildingFrozenSpanCatalog,WorldGraphProjectionNodeView} from '../api/types';
-import {verifyManagedWorldGraphProjectionResponse} from '../worldGraph/verifyManagedWorldGraphProjectionResponse';
+import type {ExactRunReviewPackage,ExtractionRunRecord,GraphObjectAuthoringProposalPayload,GraphReviewHandoffPayload,WorkspaceDocumentRecord,WorldbuildingFrozenSpanCatalog} from '../api/types';
 import {useMarkdownCanvasSession} from '../markdownCanvas/MarkdownCanvasSession';
 import {buildGraphObjectAuthoringProposal,buildGraphObjectAuthoringRelationshipProposal,buildObjectRefFromInspectedNode,
   createDefaultGraphObjectAuthoringFormState,createDefaultGraphObjectAuthoringRelationshipFormState,
@@ -25,7 +25,7 @@ export function BuildManualKnowledge(props:Props){
   const [catalog,setCatalog]=useState<WorldbuildingFrozenSpanCatalog|null>(null);
   const frozenCache=useRef<{key:string;value:WorldbuildingFrozenSpanCatalog}|null>(null);
   const [kinds,setKinds]=useState<string[]>([]),[editableRefusal,setEditableRefusal]=useState(false);
-  const [nodes,setNodes]=useState<WorldGraphProjectionNodeView[]>([]),[error,setError]=useState('');
+  const [nodes,setNodes]=useState<NativeAuthoringIdentity[]>([]),[error,setError]=useState('');
   const [busy,setBusy]=useState(false),[reload,setReload]=useState(0);
   const [recovery,setRecovery]=useState<ManualKnowledgeRecovery|null>(()=>{
     try{const raw=localStorage.getItem(key);rawRef.current=raw;return readKnowledgeRecovery(raw,scope);}
@@ -49,14 +49,11 @@ export function BuildManualKnowledge(props:Props){
   useEffect(()=>{let active=true;setCatalog(null);setNodes([]);setKinds([]);setError('');
     const cached=frozenCache.current?.key===key?frozenCache.current.value:props.frozenCatalog;
     const spansRead=cached&&validFrozenCatalog(cached,props.review,props.run,scope.worldId)?Promise.resolve(cached):getWorldbuildingFrozenSpans(scope.runId);
-    void Promise.all([getGraphObjectAuthoringKinds(),spansRead,postManagedWorldGraphProjection({schema:'dmb_managed_world_graph_projection_request_v1',managedWorldId:scope.worldId})]).then(([capabilities,spans,graph])=>{
+    void Promise.all([getGraphObjectAuthoringKinds(),spansRead,getNativeAuthoringIdentities(scope.worldId)]).then(([capabilities,spans,graph])=>{
       if(!active||!props.isScopeCurrent())return;
-      const graphError=verifyManagedWorldGraphProjectionResponse({managedWorldId:scope.worldId,
-        request:{schema:'dmb_world_graph_projection_request_v1',worldId:scope.worldId,campaignId:'',scopeMode:'world',focus:{kind:'none',sessionId:null},admissibility:'gm'},
-        response:graph,revisionKind:'head'});
-      if(!validFrozenCatalog(spans,props.review,props.run,scope.worldId)||graphError)throw new Error(graphError||'Frozen source does not match this review.');
+      if(!validFrozenCatalog(spans,props.review,props.run,scope.worldId))throw new Error('Frozen source does not match this review.');
       if(!Array.isArray(capabilities.objectKinds)||!capabilities.objectKinds.length||capabilities.objectKinds.some(k=>typeof k!=='string'||!k.trim()))throw new Error('World object kinds are unavailable.');
-      setKinds(capabilities.objectKinds);frozenCache.current={key,value:spans};setCatalog(spans);setNodes(graph.projection.nodes);
+      setKinds(capabilities.objectKinds);frozenCache.current={key,value:spans};setCatalog(spans);setNodes(graph);
     }).catch(e=>{if(active)setError(message(e));});return()=>{active=false;};
   },[key,reload]);
   async function store(next:ManualKnowledgeRecovery|null,requireCurrent=true){
@@ -82,9 +79,9 @@ export function BuildManualKnowledge(props:Props){
         let proposal;
         if(mode==='object'){if(!label.trim())throw new Error('Give the object a name.');
           proposal=buildGraphObjectAuthoringProposal(selected,{...createDefaultGraphObjectAuthoringFormState(selected),label,kind,summary});
-        }else{const from=nodes.find(n=>n.nodeId===source),to=nodes.find(n=>n.nodeId===target);
+        }else{const from=nodes.find(n=>n.node_id===source),to=nodes.find(n=>n.node_id===target);
           if(!from||!to||source===target)throw new Error('Choose two different current World objects.');
-          const ref=(n:WorldGraphProjectionNodeView)=>buildObjectRefFromInspectedNode({node_id:n.nodeId,label:n.label,kind:n.kind,role:n.role});
+          const ref=(n:NativeAuthoringIdentity)=>buildObjectRefFromInspectedNode({node_id:n.node_id,label:n.label,kind:n.kind,role:n.role});
           proposal=buildGraphObjectAuthoringRelationshipProposal({...createDefaultGraphObjectAuthoringRelationshipFormState(),
             sourceObjectRef:ref(from),targetObjectRef:ref(to),relationshipType:predicate,summary},selected);
           if(!proposal)throw new Error('Choose a valid relationship.');
@@ -124,12 +121,12 @@ export function BuildManualKnowledge(props:Props){
       setPredicate(String(proposal.relationshipType??'located_in'));setEditableRefusal(false);setError('');
     }catch(e){if(alive.current)setError(message(e));}finally{busyRef.current=false;if(alive.current)setBusy(false);}
   }
-  function nodeCaption(node:WorldGraphProjectionNodeView){
+  function nodeCaption(node:NativeAuthoringIdentity){
     const detail=[node.kind,node.role!==node.kind?node.role:null,node.summary].filter(Boolean).join(' · ');
-    return node.label+(detail?' · '+detail:'')+(nodes.filter(n=>n.label===node.label).length>1?' · '+node.nodeId:'');
+    return node.label+(detail?' · '+detail:'')+(nodes.filter(n=>n.label===node.label).length>1?' · '+node.node_id:'');
   }
   function endpointCaption(ref:Record<string,unknown>|null|undefined){
-    const node=nodes.find(n=>n.nodeId===ref?.nodeId);
+    const node=nodes.find(n=>n.node_id===ref?.nodeId);
     return node?nodeCaption(node):String(ref?.label??'Unavailable object')+' · '+String(ref?.nodeId??'');
   }
   const ready=exact()&&!storageError&&!busy&&!!catalog&&kinds.length>0;
@@ -146,9 +143,9 @@ export function BuildManualKnowledge(props:Props){
       <label>Declare <select value={mode} onChange={e=>setMode(e.target.value)}><option value="object">Object</option><option value="relationship">Relationship</option></select></label>
       {mode==='object'?<><label>Name<input value={label} onChange={e=>setLabel(e.target.value)}/></label>
         <label>Kind<select value={kind} onChange={e=>setKind(e.target.value)}>{!kinds.includes(kind)&&<option value={kind} disabled>Choose a supported kind (previously {kind})</option>}{kinds.map(k=><option key={k}>{k}</option>)}</select></label></>
-      :<><label>From<select value={source} onChange={e=>setSource(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.nodeId} value={n.nodeId}>{nodeCaption(n)}</option>)}</select></label>
+      :<><label>From<select value={source} onChange={e=>setSource(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.node_id} value={n.node_id}>{nodeCaption(n)}</option>)}</select></label>
         <label>Relationship<input value={predicate} onChange={e=>setPredicate(e.target.value)}/></label>
-        <label>To<select value={target} onChange={e=>setTarget(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.nodeId} value={n.nodeId}>{nodeCaption(n)}</option>)}</select></label></>}
+        <label>To<select value={target} onChange={e=>setTarget(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.node_id} value={n.node_id}>{nodeCaption(n)}</option>)}</select></label></>}
       <label>Description<textarea value={summary} onChange={e=>setSummary(e.target.value)}/></label>
       <button type="button" disabled={!selection||(mode==='object'&&!kinds.includes(kind))} onClick={()=>void prepare()}>Preview World change</button>
     </fieldset>}

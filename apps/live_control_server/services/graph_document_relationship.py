@@ -8,7 +8,9 @@ from apps.live_control_server.config import artifact_data_root
 from .graph_document_source import GraphDocumentSource, resolve_graph_document_source
 from .graph_object_authoring_prepare import GraphObjectAuthoringPrepareRequest, GraphObjectAuthoringError
 from .workspace_document_registry import get_committed_page_snapshot
-from .managed_world_graph_projection import ManagedWorldGraphProjectionRequest, project_managed_world_graph
+from apps.live_control_server.models.native_graph_inspection import InspectionScope
+from .agent_graph_auth import NativeGraphPrincipal
+from .native_graph_inspection import authoring_identities
 
 
 class RelationshipEndpoint(BaseModel):
@@ -36,7 +38,7 @@ class DocumentRelationshipRequest(BaseModel):
     context: str = Field(min_length=1)
 
 
-def relationship_request(root: Path, request: DocumentRelationshipRequest) -> GraphObjectAuthoringPrepareRequest:
+def relationship_request(root: Path, request: DocumentRelationshipRequest, principal: NativeGraphPrincipal) -> GraphObjectAuthoringPrepareRequest:
     """Resolve one exact occurrence and deliberate identities, without publishing."""
     root = artifact_data_root(root)
 
@@ -63,15 +65,17 @@ def relationship_request(root: Path, request: DocumentRelationshipRequest) -> Gr
             or not request.source.node_id and not request.target.node_id
             and request.source.label.casefold() == request.target.label.casefold()):
         refuse("Choose two different identities.")
-    graph = project_managed_world_graph(ManagedWorldGraphProjectionRequest(
-        schema="dmb_managed_world_graph_projection_request_v1", managedWorldId=request.world_id), root=root)
-    nodes = graph.projection.nodes
+    graph = authoring_identities(
+        InspectionScope(managed_world_id=request.world_id, scope_mode="world"),
+        principal,
+    )
+    nodes = graph["identities"]
     for endpoint in (request.source, request.target):
         if endpoint.node_id:
-            matches = [n for n in nodes if n.node_id == endpoint.node_id]
-            if len(matches) != 1 or matches[0].label != endpoint.label or matches[0].kind != endpoint.kind:
+            matches = [n for n in nodes if n["node_id"] == endpoint.node_id]
+            if len(matches) != 1 or matches[0]["label"] != endpoint.label or matches[0]["kind"] != endpoint.kind:
                 refuse("A selected identity changed or is outside this World. Review its identity again.")
-        elif any(endpoint.label.casefold() in {n.label.casefold(), *(a.casefold() for a in n.aliases or [])} for n in nodes):
+        elif any(endpoint.label.casefold() in {n["label"].casefold(), *(a.casefold() for a in n["aliases"])} for n in nodes):
             refuse("That name or alias already exists. Choose the existing World identity.")
     source = resolve_graph_document_source(root, selector, world_id=request.world_id, campaign_id=request.world_id)
     index = source.source_span_index

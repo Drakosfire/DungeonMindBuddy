@@ -46,6 +46,14 @@ def catalog(body: InspectionPin | InspectionScope, principal=Depends(native_grap
     return _call(service.catalog, body, principal)
 
 
+@router.post("/authoring-identities")
+def authoring_identities(
+    body: InspectionPin | InspectionScope,
+    principal=Depends(native_graph_gm_dependency),
+):
+    return _call(service.authoring_identities, body, principal)
+
+
 @router.post("/read")
 def inspect(body: InspectionRead, principal=Depends(native_graph_explorer_dependency)):
     try:

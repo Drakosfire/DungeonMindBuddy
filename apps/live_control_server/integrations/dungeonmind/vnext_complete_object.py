@@ -172,7 +172,7 @@ def _distinct_subject_values(
     return sorted(values)
 
 
-def _display_values(
+def world_object_display_values(
     assertions: tuple[ParsedAssertion, ...], entity_id: str
 ) -> tuple[str, str, str | None]:
     names = _distinct_subject_values(
@@ -510,7 +510,7 @@ def project_complete_world_object_vnext(
         for item in complete.assertions
         if item.subject_entity_id == request.node_id
     )
-    label, kind, summary = _display_values(selected_assertions, request.node_id)
+    label, kind, summary = world_object_display_values(selected_assertions, request.node_id)
     relationships = [
         _map_relationship(
             item,
@@ -556,7 +556,7 @@ def project_complete_world_object_vnext(
             else relationship.source_node_id
         )
         related_result = related_results[related_id]
-        related_label, related_kind, related_summary = _display_values(
+        related_label, related_kind, related_summary = world_object_display_values(
             related_result.assertions, related_id
         )
         relationship_badges = _evidence_badges(
@@ -586,7 +586,7 @@ def project_complete_world_object_vnext(
         adjacency.append(adjacency_row)
 
     for related_id, related_result in related_results.items():
-        related_label, related_kind, related_summary = _display_values(
+        related_label, related_kind, related_summary = world_object_display_values(
             related_result.assertions, related_id
         )
         touching = [

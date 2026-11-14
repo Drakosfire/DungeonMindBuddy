@@ -3214,6 +3214,28 @@ export async function getAgentNativeAssertionSource(worldId:string,turnId:string
 }
 
 
+export type NativeAuthoringIdentity = {
+  node_id: string;
+  label: string;
+  kind: string;
+  role: string;
+  summary: string | null;
+};
+
+export async function getNativeAuthoringIdentities(worldId: string): Promise<NativeAuthoringIdentity[]> {
+  const result = await apiFetch<{scope: InspectionPin; identities: NativeAuthoringIdentity[]}>(
+    '/api/live/native-graph-inspection/authoring-identities',
+    {
+      method: 'POST',
+      body: JSON.stringify({managed_world_id: worldId, scope_mode: 'world', campaign_id: null}),
+    },
+  );
+  if (result.scope.managed_world_id !== worldId || result.scope.scope_mode !== 'world') {
+    throw new Error('The object picker did not match this World.');
+  }
+  return result.identities;
+}
+
 export function getNativeGraphCatalog(scope:InspectionScope,signal?:AbortSignal):Promise<NativeGraphCatalog> {
  return apiFetch('/api/live/native-graph-inspection/catalog',{method:'POST',signal,body:JSON.stringify(scope)});
 }

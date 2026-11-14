@@ -20,6 +20,7 @@ from apps.live_control_server.models.world_graph_object_projection import WorldG
 from apps.live_control_server.integrations.dungeonmind.vnext_complete_object import (
     DungeonBuddyVNextReadIdentity,
     project_complete_world_object_vnext,
+    world_object_display_values,
 )
 from apps.live_control_server.services.agent_graph_auth import require_native_graph_gm
 
@@ -87,6 +88,34 @@ def catalog(scope, principal):
         catalogue=jsonable_encoder(listing),
         assertions=assertions,
     )
+
+
+def authoring_identities(scope, principal):
+    """Read authorized identity fields at one binding and graph revision."""
+    bound, read, _, pin = _pinned(scope, principal)
+    service = EntityReadService()
+    listing = service.list_entities(read)
+    if listing.completeness.status != "complete":
+        raise InspectionUnavailable("native_authoring_identities_partial")
+
+    identities = []
+    for entity in listing.entities:
+        entity_id = entity.entity_id
+        complete = service.get_complete_entity(read, entity_id)
+        if not complete.found or complete.completeness.status != "complete":
+            raise InspectionUnavailable("native_authoring_identities_partial")
+        label, kind, summary = world_object_display_values(complete.assertions, entity_id)
+        identities.append({
+            "node_id": entity_id,
+            "label": label,
+            "kind": kind,
+            "role": kind,
+            "summary": summary,
+            "aliases": [alias.alias_text for alias in sorted(
+                complete.aliases, key=lambda alias: alias.alias_id
+            )],
+        })
+    return _response(bound, pin, identities=identities)
 
 
 def inspect(request, principal):
