@@ -683,6 +683,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }, [activePanel, closeSelectedDetails, embedded, pendingOperation, selectedNodeId]);
 
   const handleEmbeddedPanelChange = useCallback((panel: EmbeddedPanel) => {
+    setChronology(null);
     if (panel !== "details" && (focusedNodeId || cameraFocusRequest?.nodeId)) requestCameraFocus(null);
     setActivePanel(panel);
   }, [cameraFocusRequest?.nodeId, focusedNodeId, requestCameraFocus]);
@@ -1448,6 +1449,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     setPlacementIntent(nextIntent);
     focusCreateInputAfterPlacementRef.current = true;
     setStorageWarning(!safeWriteDraft(graph.world_id, nextDraft, pendingRef.current, pendingPhaseRef.current, nextIntent, stateScopeId));
+    setChronology(null);
     setActivePanel("create");
     setNotice({ kind: "info", text: `Choose a name for the ${kind}. Its requested spot is saved locally and will be applied only after DungeonMind confirms the new node.` });
   }
@@ -1473,6 +1475,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       || !nodesById.has(intent.sourceId)
       || !nodesById.has(intent.targetId)) return;
     updateDraft({ sourceId: intent.sourceId, targetId: intent.targetId });
+    setChronology(null);
     setActivePanel("connect");
     setNotice({ kind: "info", text: "Add a relationship label, then review it with DungeonMind before confirming." });
   }
@@ -1782,6 +1785,19 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     </section>
   );
 
+  const chronologyPanel = chronologyOpen && api.readChronology ? (
+    <div className="native-demo-inspector-timeline">
+      <GraphChronology graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} strip
+        onExplore={nodeId => {
+          if (pendingRef.current) return;
+          setChronology(null);
+          focusInspectorRef.current = true;
+          handleCanvasSelectionChange(nodeId as LocalObjectId);
+          requestCameraFocus(nodeId);
+        }} />
+    </div>
+  ) : null;
+
   const detailsPanel = selectedNode ? <>
     {api.readChronology && <button type="button" className="native-demo-button native-demo-button--quiet"
       onClick={() => setChronology({ graph, relatedTo: selectedNode.id })}>Show in chronology</button>}
@@ -1846,7 +1862,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         {notice ? <div className={`native-demo-notice native-demo-notice--${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}>{notice.text}</div> : null}
         {storageWarning ? <div className="native-demo-storage-note" role="status">Browser storage is unavailable. Form drafts may not survive a page reload, and new requests will wait until a recovery draft can be saved.</div> : null}
 
-        <div className={`native-demo-workspace${embedded ? ` native-demo-workspace--embedded${pendingOperation || activePanel ? " has-panel" : ""}` : ""}`}>
+        <div className={`native-demo-workspace${embedded ? ` native-demo-workspace--embedded${pendingOperation || activePanel || chronologyOpen ? " has-panel" : ""}` : ""}`}>
           <section className={`native-demo-graph-card${embedded ? " native-demo-graph-card--embedded" : ""}`} aria-labelledby="native-demo-graph-heading">
             {embedded ? (
               <h2 id="native-demo-graph-heading" className="native-demo-sr-only">DungeonMind graph</h2>
@@ -1899,18 +1915,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               <WorldGraphCanvas
                 key={graph.world_id}
                 canvasId={embedded ? "loaded-native-graph-canvas" : undefined}
-                viewportOverlay={chronologyOpen && api.readChronology ? (
-                  <div className="native-demo-timeline-overlay" onWheel={event => event.stopPropagation()}>
-                    <GraphChronology graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} strip
-                      onExplore={nodeId => {
-                        if (pendingRef.current) return;
-                        setChronology(null);
-                        focusInspectorRef.current = true;
-                        handleCanvasSelectionChange(nodeId as LocalObjectId);
-                        requestCameraFocus(nodeId);
-                      }} />
-                  </div>
-                ) : undefined}
                 record={record}
                 onMoveObjects={saveLayout}
                 {...(embedded ? {
@@ -1950,6 +1954,10 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label="Pending graph review">
                 {reviewPanel}
               </aside>
+            ) : chronologyOpen && api.readChronology ? (
+              <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label="Chronology">
+                {chronologyPanel}
+              </aside>
             ) : timelineVisible && !chronologyOpen && focusedEventIds && viewFocusId && api.readChronology
               && (!activePanel || activePanel === "details") ? (
               <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label="Selected object details">
@@ -1971,6 +1979,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
             ) : null
           ) : (
             <aside className="native-demo-side-panel" aria-label="Native graph actions">
+              {chronologyPanel}
               {createPanel}
               {connectPanel}
               {reviewPanel}
