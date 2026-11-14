@@ -204,7 +204,7 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
     const orderedIds = new Set(ordered.map(event => event.node.id));
     const unplaced = events.filter(event => !recordedIds.has(event.node.id) && !orderedIds.has(event.node.id));
     return <section className="native-demo-event-strip" aria-label="Connected Events">
-      {campaigns.length > 1 && <label>Campaign <select value={campaign} onChange={event => setCampaign(event.target.value)}>
+      {campaigns.length > 0 && <label>Campaign <select value={campaign} onChange={event => setCampaign(event.target.value)}>
         <option value="">All campaigns</option>
         {campaigns.map(id => <option key={id} value={id}>{labels.get(id)}</option>)}
       </select></label>}
