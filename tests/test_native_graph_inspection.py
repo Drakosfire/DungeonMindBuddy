@@ -994,3 +994,46 @@ def test_shared_exact_object_selects_one_native_node(inspection, monkeypatch):
             },
         )
     assert denied.status_code == 401, denied.text
+
+
+def test_shared_evidence_resolves_native_target_kinds(inspection, monkeypatch):
+    from apps.live_control_server.routes import world_graph_retrieval as routes
+
+    monkeypatch.setenv("DMB_NATIVE_EVIDENCE_WORLD", "managed")
+    monkeypatch.setattr(routes, "get_object_evidence", lambda _: pytest.fail("classic evidence fallback"))
+    inspection.app.include_router(routes.router)
+    base = {"worldId": "managed", "campaignId": inspection.lane.run.campaign_id}
+    prefix = "/api/live/world-graph/retrieval"
+    for kind, target_id, field in (
+        ("node", inspection.objects["object:0"], "nodes"),
+        ("attribute", inspection.assertions["name:0"], "attributes"),
+        ("relationship", inspection.assertions["name:0"], "relationships"),
+        ("relationship", inspection.assertions["relationship"], "relationships"),
+    ):
+        response = inspection.client.post(
+            prefix + "/evidence",
+            json={
+                **base,
+                "schema": "dmb_world_graph_evidence_request_v1",
+                "target": {"kind": kind, "id": target_id},
+            },
+        )
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result["operation"] == "evidence"
+        if kind == "relationship" and target_id == inspection.assertions["name:0"]:
+            assert result["outcome"] == "empty"
+            assert result[field] == result["sourceAnchors"] == []
+            continue
+        assert len(result[field]) == 1
+        anchor = result["sourceAnchors"][0]
+        opened = inspection.client.post(
+            prefix + "/source-anchor/read",
+            json={
+                **base,
+                "schema": "dmb_world_graph_source_anchor_read_request_v1",
+                "revisionPin": result["snapshot"]["revisionId"],
+                "anchorId": anchor["anchorId"],
+            },
+        )
+        assert opened.status_code == 200, opened.text
