@@ -419,9 +419,17 @@ const HOSTED_EXPLORER_PATHS = new Set([
   "/api/live/native-graph-explorer/operations/read",
 ]);
 
+const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
+
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
   if (path === "/api/live/world-containers") return method === "GET" && init?.body == null;
+  if (path.startsWith(HOSTED_WORLD_LOOKUP_PATH + "?")) {
+    const query = new URLSearchParams(path.slice(HOSTED_WORLD_LOOKUP_PATH.length + 1));
+    const worldId = query.get("managed_world_id");
+    return method === "GET" && init?.body == null && worldId !== null && worldId !== ""
+      && path === hostedWorldLookupPath(worldId);
+  }
   if (method !== "POST") return false;
   if (HOSTED_EXPLORER_PATHS.has(path)) return true;
   if (path !== "/api/live/native-graph-inspection/read") return false;
@@ -2468,6 +2476,14 @@ export function listWorkspacePageInventory(
   return apiFetch<WorkspacePageInventoryResponse>(
     `/api/live/workspace-documents/pages/inventory${suffix}`, { signal },
   );
+}
+
+function hostedWorldLookupPath(worldId: string): string {
+  return HOSTED_WORLD_LOOKUP_PATH + "?" + new URLSearchParams({ managed_world_id: worldId });
+}
+
+export function getHostedWorldContainer(worldId: string, signal: AbortSignal): Promise<WorldContainerRecord> {
+  return apiFetch<WorldContainerRecord>(hostedWorldLookupPath(worldId), { signal });
 }
 
 export async function listWorldContainers(signal?: AbortSignal): Promise<WorldContainersListResponse> {
