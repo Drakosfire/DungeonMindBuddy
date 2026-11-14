@@ -53,10 +53,10 @@ def test_profile_owns_worldbuilding_instructions_not_recap_beats() -> None:
 
 
 def test_rendered_worldbuilding_edge_prompt_omits_recap_sweep_and_requires_schema() -> None:
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         render_category_pass_prompts,
     )
-    from src.graph_memory.extraction.category_candidate_graph_schema import (
+    from graph_memory.extraction.category_candidate_graph_schema import (
         category_pass_text_format_for_spec,
         schema_for_pass_spec,
     )
@@ -101,7 +101,7 @@ def test_rendered_worldbuilding_edge_prompt_omits_recap_sweep_and_requires_schem
 
 
 def test_worldbuilding_consolidation_preserves_cross_class_label_collisions() -> None:
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         consolidate_category_outputs,
     )
 

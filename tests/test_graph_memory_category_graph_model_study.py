@@ -18,7 +18,7 @@ from evals.graph_memory_layer.category_graph_model_study import (
     verified_s22_source,
 )
 from evals.graph_memory_layer.reconcile_live_candidate import validate_live_candidate_output
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     repair_edge_evidence_refs,
 )
 from graph_memory.party_context import build_party_context

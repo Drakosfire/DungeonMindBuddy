@@ -25,7 +25,7 @@ from graph_memory.source_span import (
 from graph_memory.candidate_document_integrity import (
     classify_candidate_document_integrity,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
     CategoryGraphExtractionOptions,
     CategoryGraphPassClient,
@@ -37,7 +37,7 @@ from graph_memory.extraction.extraction_profile import (
     UnknownExtractionProfileError,
     require_admitted_profile,
 )
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
 from graph_memory.extraction import worldbuilding_profile_catalog as _worldbuilding_catalog  # noqa: F401
 from graph_memory.vocabulary.model import ContextVocabularyPacket
 
@@ -422,7 +422,7 @@ def run_production_extraction(
         ),
     )
 
-    from src.graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient
+    from graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient
 
     bounded = request.category_client if isinstance(request.category_client, BoundedRecapPassClient) else None
     if bounded is not None:
@@ -479,7 +479,7 @@ def run_production_extraction(
     if extraction.private_response_evidence is not None and bounded is None:
         # Validate the versioned success bundle before storing private evidence
         # or advancing a candidate.
-        from src.graph_memory.extraction.worldbuilding_edge_review import json_copy
+        from graph_memory.extraction.worldbuilding_edge_review import json_copy
 
         try:
             bundle = json_copy(json.loads(extraction.private_response_evidence))
@@ -501,7 +501,7 @@ def run_production_extraction(
     candidate_graph = extraction.candidate_graph
     consolidation_diagnostics = dict(extraction.consolidation_diagnostics)
     if profile.admitted_source_domains == frozenset({"recap"}):
-        from src.graph_memory.extraction.recap_quote_integrity import (
+        from graph_memory.extraction.recap_quote_integrity import (
             RecapQuoteIntegrityError,
             validate_and_defer_nonliteral_recap_items,
         )

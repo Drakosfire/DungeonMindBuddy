@@ -13,12 +13,12 @@ from generationengine.types import (
     TextResult,
 )
 
-from src.graph_memory.extraction.bounded_recap_execution import (
+from graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient,
     DEEPSEEK_MODEL,
     RecapExecutionLimits,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
 
@@ -32,12 +32,12 @@ def _fixture_ingest_context(campaign_id: str):
 @pytest.fixture(autouse=True)
 def semantic_engine_seam(monkeypatch):
     """Use explicit structured fake engines; process tests live separately."""
-    from src.graph_memory.extraction import bounded_recap_execution as module
-    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+    from graph_memory.extraction import bounded_recap_execution as module
+    from graph_memory.extraction._recap_inference_worker import _WorkerOutcome
 
     def execute(factory, request, *, deadline, attempt_evidence=None):
         from generationengine.types import TextRequest
-        from src.graph_memory.extraction.bounded_recap_execution import (
+        from graph_memory.extraction.bounded_recap_execution import (
             _persist_attempt_response,
         )
 
@@ -191,7 +191,7 @@ def deepseek_observation(**changes):
 
 
 def test_deepseek_route_caps_and_unknown_receipt():
-    from src.graph_memory.extraction.category_candidate_graph_schema import (
+    from graph_memory.extraction.category_candidate_graph_schema import (
         category_pass_text_format,
     )
 
@@ -561,8 +561,8 @@ def test_private_response_evidence_is_atomic_and_never_overwrites(tmp_path):
 
 @pytest.mark.usefixtures("application_state_dsn")
 def test_unknown_worker_receipt_does_not_create_private_response(tmp_path, monkeypatch):
-    from src.graph_memory.extraction import bounded_recap_execution as module
-    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+    from graph_memory.extraction import bounded_recap_execution as module
+    from graph_memory.extraction._recap_inference_worker import _WorkerOutcome
 
     monkeypatch.setattr(
         module, "_execute_in_owned_process", lambda *args, **kwargs: _WorkerOutcome(None, False)
@@ -578,7 +578,7 @@ def test_unknown_worker_receipt_does_not_create_private_response(tmp_path, monke
 
 
 def test_validation_paths_redact_unknown_response_field_names():
-    from src.graph_memory.extraction.bounded_recap_execution import _safe_validation_path
+    from graph_memory.extraction.bounded_recap_execution import _safe_validation_path
 
     schema = {"properties": {"observation_nodes": {"type": "array"}}}
     assert _safe_validation_path(
@@ -592,7 +592,7 @@ def test_unexpected_local_validator_fault_stops_without_leaking_or_next_call(
 ):
     from jsonschema.exceptions import SchemaError
 
-    from src.graph_memory.extraction import bounded_recap_execution as module
+    from graph_memory.extraction import bounded_recap_execution as module
 
     raw = '{"observation_nodes": [], "private": "PRIVATE_RESPONSE"}'
     engine = Engine(TextResult(text=raw, observation=deepseek_observation()))
@@ -623,7 +623,7 @@ def test_unexpected_local_validator_fault_stops_without_leaking_or_next_call(
 
 
 def test_deepseek_requires_credential_without_provider_call(monkeypatch):
-    from src.graph_memory.extraction import bounded_recap_execution as module
+    from graph_memory.extraction import bounded_recap_execution as module
 
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("DUNGEONBUDDY_OPENROUTER", raising=False)
@@ -844,7 +844,7 @@ def test_remaining_deadline_shrinks_and_zero_usage_is_known():
 def test_selected_logical_deadline_reaches_request_and_owned_worker(
     monkeypatch, run_deadline_ms, per_call_deadline_ms, elapsed_ms, expected_ms
 ):
-    from src.graph_memory.extraction import bounded_recap_execution as module
+    from graph_memory.extraction import bounded_recap_execution as module
 
     engine = Engine(
         TextResult(text="{}", observation=observation(input_tokens=0, output_tokens=0))
@@ -1030,7 +1030,7 @@ def test_profile_budget_supports_nine_pass_recap_without_changing_deadlines():
 
 
 def node_handle_packet(source='Dr. Ari did not enter.\n\nShe waited unless Bea returned.'):
-    from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+    from graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
     return compile_source_sentence_packet(source, [
         {'source_span_ref_id': 'span:a', 'text': source.split('\n\n')[0], 'line_start': 1},
         {'source_span_ref_id': 'span:b', 'text': source.split('\n\n')[1], 'line_start': 3},
@@ -1048,7 +1048,7 @@ def node_handle_response(ids=None):
 @pytest.mark.usefixtures("application_state_dsn")
 @pytest.mark.parametrize("pass_name", ["actor_pass", "location_pass", "collective_pass", "object_pass", "thread_pass"])
 def test_node_handle_wire_materializes_canonical_evidence_and_retains_both(tmp_path, pass_name):
-    from src.graph_memory.extraction.category_candidate_graph_schema import category_pass_text_format_for_spec
+    from graph_memory.extraction.category_candidate_graph_schema import category_pass_text_format_for_spec
     from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     spec = next(p for p in RECAP_EXTRACTION_PROFILE.node_passes if p.pass_id == pass_name)
     from jsonschema import validate
@@ -1116,7 +1116,7 @@ def test_actor_packet_swap_rejected_before_provider_call():
 
 
 def test_real_recap_producer_supplies_packet_to_ge_and_receives_canonical_result():
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions, extract_category_candidate_graph,
     )
     from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
@@ -1271,7 +1271,7 @@ def test_reasoning_deadline_headroom_rejects_invalid_limits(field, value):
 
 
 def test_advertised_node_ids_require_retention_and_are_local_to_each_client(monkeypatch):
-    from src.graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
+    from graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
     context = CompactEvidenceContext([
         {'source_span_ref_id': 'paragraph:45-45', 'text': 'A ferry arrived.', 'line_start': 45, 'line_end': 45},
     ], source_sha256='a' * 64).record()
@@ -1316,7 +1316,7 @@ def test_empty_advertised_node_source_is_retained_and_refused_before_dispatch(mo
 def test_advertised_node_ids_reach_real_ge_conformance_and_retain_invalid_attempt():
     from generationengine import GenerationClient
     from generationengine.providers.openrouter_text import OpenRouterTextProvider
-    from src.graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
+    from graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
     from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     source = 'A ferry arrived.'
     import hashlib

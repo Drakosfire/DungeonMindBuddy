@@ -1,24 +1,24 @@
 """Profile experiment wiring; response fidelity still requires the fresh benchmark."""
 
 from dataclasses import fields
-from src.graph_memory.extraction.bounded_recap_execution import (
+from graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient,
     RecapExecutionLimits,
     DEEPSEEK_MODEL,
 )
 
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     FixtureCategoryGraphPassClient,
 )
 from graph_memory.extraction.extraction_profile import require_admitted_profile
-from src.graph_memory.extraction.graph_preview_runner import (
+from graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionRequest,
     run_production_extraction,
 )
-from src.graph_memory.extraction.worldbuilding_collective_source_fidelity import (
+from graph_memory.extraction.worldbuilding_collective_source_fidelity import (
     GAZETTEER_COLLECTIVE_SOURCE_FIDELITY_PROFILE as NEW,
 )
-from src.graph_memory.extraction.worldbuilding_definition_observations import (
+from graph_memory.extraction.worldbuilding_definition_observations import (
     GAZETTEER_DEFINITION_OBSERVATION_PROFILE as OLD,
 )
 from graph_memory.extraction.worldbuilding_profile_catalog import (

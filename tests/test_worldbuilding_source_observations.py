@@ -257,11 +257,11 @@ def test_registered_runner_seals_independent_observations_and_reloads(
     )
     from types import SimpleNamespace
     from tests.test_graph_preview_runner import _admit_worldbuilding
-    from src.graph_memory.extraction.graph_preview_runner import (
+    from graph_memory.extraction.graph_preview_runner import (
         ProductionExtractionRequest,
         run_production_extraction,
     )
-    from src.graph_memory.extraction.bounded_recap_execution import (
+    from graph_memory.extraction.bounded_recap_execution import (
         BoundedRecapPassClient,
         DEEPSEEK_MODEL,
     )

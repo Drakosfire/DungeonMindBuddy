@@ -5,14 +5,14 @@ import sys
 from pathlib import Path
 
 from evals.graph_memory_layer.report_recap_ingestion_source_artifact_materializer import DEFAULT_INPUTS
-from src.graph_memory.recap_ingestion_materialize import (
+from graph_memory.recap_ingestion_materialize import (
     CREATED_BY,
     SCHEMA as MATERIALIZER_SCHEMA,
     SOURCE_FAMILY,
     RecapIngestionMaterializerInput,
     materialize_recap_ingestion_source_artifacts,
 )
-from src.graph_memory.recap_ingestion_materializer_report import (
+from graph_memory.recap_ingestion_materializer_report import (
     REPORT_SCHEMA,
     REPORT_VERSION,
     analyze_recap_ingestion_materializer_output,

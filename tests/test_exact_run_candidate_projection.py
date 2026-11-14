@@ -13,7 +13,7 @@ from apps.live_control_server.services.managed_world_graph_projection import (
     VerifiedManagedWorldBinding,
 )
 from apps.live_control_server.services.graph_run_registry import get_extraction_run
-from src.graph_memory.extraction import graph_preview_runner
+from graph_memory.extraction import graph_preview_runner
 from tests import test_recap_quote_integrity as fixture
 
 

@@ -12,7 +12,7 @@ from evals.graph_memory_layer.reconcile_live_candidate import (
     FORBIDDEN_OUTPUT_TOKENS,
     validate_live_candidate_output,
 )
-from src.graph_memory.candidate_graph_preview import (
+from graph_memory.candidate_graph_preview import (
     CANON_STATES,
     CORPUS_REF_RESOLUTIONS,
     CORPUS_REF_TYPES,

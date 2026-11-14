@@ -721,12 +721,12 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
     from apps.live_control_server.services.source_artifact_registry import (
         create_recap_source_artifact,
     )
-    from src.graph_memory import party_context
+    from graph_memory import party_context
     from graph_memory.ingestion.extraction_run import ExtractionRunStatus
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         FixtureCategoryGraphPassClient,
     )
-    from src.graph_memory.extraction.graph_preview_runner import (
+    from graph_memory.extraction.graph_preview_runner import (
         ProductionExtractionRequest,
         run_production_extraction,
     )

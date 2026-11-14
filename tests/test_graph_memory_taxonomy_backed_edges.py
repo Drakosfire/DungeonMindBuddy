@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from evals.graph_memory_layer.live_vs_gold_compare import compare_parts
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     _edge_prompt_node_summary,
     render_category_pass_prompts,
 )

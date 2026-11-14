@@ -16,9 +16,9 @@ from evals.graph_memory_layer.rich_recap_dogfood import (
     load_rich_recap_source_span_refs,
     validate_rich_recap_manifest,
 )
-from src.graph_memory.recap_ingestion_materialize import materialize_recap_ingestion_source_artifacts
-from src.graph_memory.recap_ingestion_materializer_report import analyze_recap_ingestion_materializer_output, recap_ingestion_materializer_report_to_dict
-from src.graph_memory.recap_ingestion_projection_readiness import assess_recap_ingestion_projection_readiness, recap_ingestion_projection_readiness_to_dict
+from graph_memory.recap_ingestion_materialize import materialize_recap_ingestion_source_artifacts
+from graph_memory.recap_ingestion_materializer_report import analyze_recap_ingestion_materializer_output, recap_ingestion_materializer_report_to_dict
+from graph_memory.recap_ingestion_projection_readiness import assess_recap_ingestion_projection_readiness, recap_ingestion_projection_readiness_to_dict
 from graph_memory.source_span import DEFAULT_CONTEXT_MAX_CHARS, DEFAULT_SNIPPET_MAX_CHARS, resolved_evidence_to_dict, resolve_many_source_span_refs
 
 ABSOLUTE_PATH_RE = re.compile(r"(/workspace/|/home/|/mnt/|\b[A-Za-z]:\\)")

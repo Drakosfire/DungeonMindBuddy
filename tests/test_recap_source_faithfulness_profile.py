@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     render_category_pass_prompts,
 )
 from graph_memory.extraction.recap_extraction_profile import (
@@ -203,7 +203,7 @@ def test_common_faithfulness_reaches_every_ordinary_recap_pass_once() -> None:
 def test_repeated_prose_claims_receive_field_local_qualification_instructions() -> None:
     """Prove prompt delivery, not model compliance with source distinctions."""
     from graph_memory.extraction.extraction_profile import get_extraction_profile
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         render_encounter_job_pass_prompt,
     )
 
@@ -315,7 +315,7 @@ def test_collective_scene_scope_guidance_reaches_only_recap_collective_prompt() 
 
 def test_source_form_authority_reaches_every_recap_claim_bearing_pass() -> None:
     """Verify instruction delivery; source authority in model output is assessed separately."""
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         render_encounter_job_pass_prompt,
     )
     from graph_memory.extraction.extraction_profile import get_extraction_profile
@@ -371,7 +371,7 @@ def test_node_description_coverage_changes_only_existing_recap_node_prompts() ->
     import json
     from pathlib import Path
 
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         render_encounter_job_pass_prompt,
     )
     from graph_memory.extraction.extraction_profile import get_extraction_profile
@@ -433,8 +433,8 @@ def test_ordered_occurrence_kinds_change_only_recap_thread_instruction() -> None
     import json
     from pathlib import Path
 
-    from src.graph_memory.extraction.category_candidate_graph_extractor import render_encounter_job_pass_prompt
-    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from graph_memory.extraction.category_candidate_graph_extractor import render_encounter_job_pass_prompt
+    from graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
     from graph_memory.extraction.extraction_profile import get_extraction_profile
     from graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
 
@@ -474,8 +474,8 @@ def test_direct_order_changes_only_opted_in_thread_edge_prompts_and_edge_schema(
     import hashlib
     import json
     from pathlib import Path
-    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
-    from src.graph_memory.extraction.category_candidate_graph_extractor import render_encounter_job_pass_prompt
+    from graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from graph_memory.extraction.category_candidate_graph_extractor import render_encounter_job_pass_prompt
     from graph_memory.extraction.extraction_profile import get_extraction_profile
     from graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
     from graph_memory.extraction.recap_extraction_profile import (
@@ -523,8 +523,8 @@ def test_explicit_passage_transitions_change_only_recap_thread_prompt() -> None:
     import json
     from pathlib import Path
 
-    from src.graph_memory.extraction.category_candidate_graph_extractor import render_encounter_job_pass_prompt
-    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from graph_memory.extraction.category_candidate_graph_extractor import render_encounter_job_pass_prompt
+    from graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
     from graph_memory.extraction.extraction_profile import get_extraction_profile
     from graph_memory.extraction.recap_extraction_profile import _EXPLICIT_PASSAGE_TRANSITIONS
     from graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
@@ -605,7 +605,7 @@ def test_attributed_observations_and_unresolved_presentation_reach_recap_prompts
     """Policy/source visibility across node packets; not semantic-model compliance."""
     from graph_memory.extraction.extraction_profile import get_extraction_profile
     from graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
-    from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+    from graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
     texts = [
         "The narrator compared the envoy to a fox.",
         "The captain boasted that the scout was invincible.",
@@ -637,8 +637,8 @@ def test_attributed_observations_and_unresolved_presentation_reach_recap_prompts
 
 def test_policy_rewrite_changes_only_shared_authority_paragraph(monkeypatch):
     from dataclasses import replace
-    from src.graph_memory.extraction import recap_extraction_profile as module
-    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from graph_memory.extraction import recap_extraction_profile as module
+    from graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
     old_paragraph = _PREVIOUS_AUTHORITY_PARAGRAPH
     current = module._RECAP_SOURCE_FAITHFULNESS
     start = current.index("Distinguish in-world assertions")

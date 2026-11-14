@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
 
-from src.graph_memory.diagnostics.cross_class_collision_report import (
+from graph_memory.diagnostics.cross_class_collision_report import (
     BlockedCollisionRecord,
     render_blocked_collision_markdown,
     summarize_blocked_collision_records,

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.source_artifact_registry import load_source_span_index
 from graph_memory.source_span import source_span_index_to_dict
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
 

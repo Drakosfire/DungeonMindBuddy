@@ -11,9 +11,9 @@ from dataclasses import dataclass, field, replace
 from copy import deepcopy
 from typing import Any, Mapping, Protocol, Sequence
 
-from src.graph_memory.extraction.compact_evidence_context import CompactEvidenceContext, COMPACT_EVIDENCE_GUIDANCE
+from graph_memory.extraction.compact_evidence_context import CompactEvidenceContext, COMPACT_EVIDENCE_GUIDANCE
 from bootstrap_env import load_dungeonmindbuddy_dotenv
-from src.graph_memory import identity_resolution as ir
+from graph_memory import identity_resolution as ir
 from graph_memory.anchor_quotes import coerce_anchor_quotes
 from graph_memory.predicate_catalog import (
     prompt_markdown as predicate_catalog_prompt_markdown,
@@ -28,10 +28,10 @@ from graph_memory.extraction.recap_extraction_profile import (
     RECAP_EXTRACTION_PROFILE,
 )
 from graph_memory.source_span import document_source_ref_id
-from src.graph_memory.vocabulary.dynamic_selection import build_dynamic_context_vocabulary_packet
-from src.graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
+from graph_memory.vocabulary.dynamic_selection import build_dynamic_context_vocabulary_packet
+from graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
 from graph_memory.vocabulary.model import ContextVocabularyPacket
-from src.graph_memory.vocabulary.node_context import render_node_vocabulary_context
+from graph_memory.vocabulary.node_context import render_node_vocabulary_context
 logger = logging.getLogger(__name__)
 
 BEAT_PASS_NAME = "beat_pass"
@@ -426,7 +426,7 @@ def render_category_pass_prompts(
         pass_source, pass_evidence_rule = src, evidence_rule
         if (node_source_packet is not None
                 and pass_name in _source_handle_node_passes(active_profile)):
-            from src.graph_memory.extraction.source_sentence_evidence import (
+            from graph_memory.extraction.source_sentence_evidence import (
                 SENTENCE_EVIDENCE_RULE, render_source_sentence_packet,
             )
             pass_source = render_source_sentence_packet(node_source_packet)
@@ -1770,7 +1770,7 @@ class OpenAICategoryGraphPassClient:
         user_content: str,
         pass_spec: ExtractionPassSpec | None = None,
     ) -> dict[str, Any]:
-        from src.graph_memory.extraction.category_candidate_graph_schema import (
+        from graph_memory.extraction.category_candidate_graph_schema import (
             category_pass_text_format,
             category_pass_text_format_for_spec,
         )
@@ -1885,7 +1885,7 @@ def _run_category_pipeline_impl(
         options.source_span_index,
         source_text=options.source_text,
     )
-    from src.graph_memory.extraction.recap_source_authority import (
+    from graph_memory.extraction.recap_source_authority import (
         deferred_source_rows, filter_planning_pass_output, partition_recap_source_rows,
     )
     withheld_rows: list[dict[str, Any]] = []
@@ -1936,7 +1936,7 @@ def _run_category_pipeline_impl(
         and options.source_text is not None
         and source_rows
     ):
-        from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+        from graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
         node_source_packet = compile_source_sentence_packet(options.source_text, source_rows)
     prompts = render_category_pass_prompts(
         source_rows,
@@ -2200,7 +2200,7 @@ def _run_category_pipeline_impl(
                 )
         merged_diag["source_section_retention"] = retention_diagnostics
     if active_profile.edge_review_pass is not None:
-        from src.graph_memory.extraction.worldbuilding_edge_review import (
+        from graph_memory.extraction.worldbuilding_edge_review import (
             apply_review, review_prompt, edge_ids, ConstrainedEdgeReviewPassSpec,
         )
 
@@ -2277,10 +2277,10 @@ def run_category_pipeline(
     if profile.edge_review_pass is None:
         return _run_category_pipeline_impl(client, options, progress_callback=progress_callback)
     # Lazy import: the bounded client imports this module's exception type.
-    from src.graph_memory.extraction.bounded_recap_execution import (
+    from graph_memory.extraction.bounded_recap_execution import (
         BoundedRecapPassClient, SUPPORTED_INGESTION_PROVIDERS,
     )
-    from src.graph_memory.extraction.worldbuilding_edge_review import (
+    from graph_memory.extraction.worldbuilding_edge_review import (
         RecordingPassClient, ConstrainedEdgeReviewPassSpec,
     )
 

@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
 
 
 def compute_text_sha256(text: str) -> str:

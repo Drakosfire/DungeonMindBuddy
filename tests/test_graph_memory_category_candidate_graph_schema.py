@@ -6,7 +6,7 @@ from copy import deepcopy
 import pytest
 from jsonschema import Draft202012Validator, ValidationError
 
-from src.graph_memory.extraction.category_candidate_graph_schema import (
+from graph_memory.extraction.category_candidate_graph_schema import (
     category_pass_text_format,
     schema_for_pass,
 )
@@ -40,7 +40,7 @@ def test_category_pass_text_format_uses_strict_json_schema() -> None:
 
 
 def test_schema_for_pass_spec_uses_kind_not_literal_id() -> None:
-    from src.graph_memory.extraction.category_candidate_graph_schema import (
+    from graph_memory.extraction.category_candidate_graph_schema import (
         category_pass_text_format_for_spec,
         schema_for_pass_spec,
     )
@@ -160,7 +160,7 @@ def test_thread_disposition_schema_allows_only_optional_string_node_type() -> No
 
 
 def test_node_evidence_schema_binds_only_advertised_ids_without_mutating_defaults():
-    from src.graph_memory.extraction.category_candidate_graph_schema import node_schema_with_advertised_spans
+    from graph_memory.extraction.category_candidate_graph_schema import node_schema_with_advertised_spans
     schema = schema_for_pass('thread_pass')
     original = deepcopy(schema)
     bound = node_schema_with_advertised_spans(schema, ['paragraph:45-45'])
@@ -179,7 +179,7 @@ def test_node_evidence_schema_binds_only_advertised_ids_without_mutating_default
 
 
 def test_only_opted_in_pass_spec_admits_source_precedence():
-    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
     from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     from graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
     import jsonschema

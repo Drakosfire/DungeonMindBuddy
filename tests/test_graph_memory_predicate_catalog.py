@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.graph_memory import identity_resolution as ir
+from graph_memory import identity_resolution as ir
 from graph_memory.predicate_catalog import (
     V1_EXACT_PREDICATES,
     catalog_cross_check_issues,
@@ -96,11 +96,11 @@ def test_prompt_and_schema_generation_do_not_read_eval_files(monkeypatch):
     import importlib
     from pathlib import Path
 
-    from src.graph_memory import predicate_catalog
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory import predicate_catalog
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         render_category_pass_prompts,
     )
-    from src.graph_memory.extraction.category_candidate_graph_schema import (
+    from graph_memory.extraction.category_candidate_graph_schema import (
         category_edge_pass_json_schema,
     )
 

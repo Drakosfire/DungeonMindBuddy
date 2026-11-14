@@ -1,12 +1,12 @@
 import pytest
 
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     _empty_party_context,
     _normalize_evidence_refs,
     _source_packet_md,
     render_category_pass_prompts,
 )
-from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
+from graph_memory.extraction.worldbuilding_gazetteer_profile import (
     GAZETTEER_PROFILE,
 )
 

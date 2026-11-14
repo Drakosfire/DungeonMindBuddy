@@ -1,7 +1,7 @@
 import json, subprocess, sys
 from pathlib import Path
 from evals.graph_memory_layer.session_1_candidate_graph_gold_fixture import *
-from src.graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
+from graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
 from evals.graph_memory_layer.session_1_recap_ingest_fixture import load_expected_normalized_recap, load_raw_recap
 
 

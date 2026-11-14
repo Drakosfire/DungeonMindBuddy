@@ -13,11 +13,11 @@ from tests.test_worldbuilding_profile_pipeline import (
     _load_fixture,
     _pass_outputs_for_span,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     FixtureCategoryGraphPassClient,
     CategoryGraphExtractionError,
 )
-from src.graph_memory.extraction import graph_preview_runner as runner
+from graph_memory.extraction import graph_preview_runner as runner
 from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,

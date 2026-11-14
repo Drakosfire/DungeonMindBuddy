@@ -33,14 +33,14 @@ from apps.live_control_server.services.workspace_document_registry import (  # n
     mark_workspace_document_committed,
 )
 from graph_memory.source_span import source_span_index_to_dict  # noqa: E402
-from src.graph_memory.extraction.category_candidate_graph_extractor import (  # noqa: E402
+from graph_memory.extraction.category_candidate_graph_extractor import (  # noqa: E402
     FixtureCategoryGraphPassClient,
 )
-from src.graph_memory.extraction.graph_preview_runner import (  # noqa: E402
+from graph_memory.extraction.graph_preview_runner import (  # noqa: E402
     ProductionExtractionRequest,
     run_production_extraction,
 )
-from src.graph_memory.extraction.source_adapter import (  # noqa: E402
+from graph_memory.extraction.source_adapter import (  # noqa: E402
     NormalizedExtractionSource,
 )
 from graph_memory.extraction.worldbuilding_extraction_profile import (  # noqa: E402

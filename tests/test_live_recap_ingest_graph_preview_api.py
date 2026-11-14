@@ -146,7 +146,7 @@ def test_exact_reuse_force_and_changed_text_keep_distinct_attempts(client_env):
 
 def test_failed_extraction_keeps_source_and_attempt(client_env, monkeypatch):
     client, root = client_env
-    import src.graph_memory.extraction.graph_preview_runner as producer
+    import graph_memory.extraction.graph_preview_runner as producer
 
     def fail(*a, **kw):
         raise RuntimeError("synthetic extraction failure")
@@ -164,7 +164,7 @@ def test_failed_extraction_keeps_source_and_attempt(client_env, monkeypatch):
 
 def test_failed_process_requires_explicit_retry(client_env, monkeypatch):
     from application_state.ingest.service import get_extraction_run, list_extraction_runs
-    import src.graph_memory.extraction.graph_preview_runner as producer
+    import graph_memory.extraction.graph_preview_runner as producer
 
     client, _ = client_env
     response = client.post("/api/live/recap-ingest", json=process_body())
@@ -213,7 +213,7 @@ def test_pending_process_reopens_saved_attempt_without_dispatch(
     )
     from apps.live_control_server.services.graph_preview_runner import DEEPSEEK_MODEL
     from graph_memory.ingestion.extraction_run import ExtractionRunStatus
-    import src.graph_memory.extraction.graph_preview_runner as producer
+    import graph_memory.extraction.graph_preview_runner as producer
 
     client, root = client_env
     saved = _prepare_process_attempt(root)
@@ -249,7 +249,7 @@ def test_other_saved_configuration_does_not_reuse_pending_attempt(
     client_env, monkeypatch, change
 ):
     from application_state.ingest.service import get_extraction_run
-    import src.graph_memory.extraction.graph_preview_runner as producer
+    import graph_memory.extraction.graph_preview_runner as producer
 
     client, root = client_env
     options = {"model_id": "synthetic-other-model"} if change == "model" else {
@@ -384,7 +384,7 @@ def _live_extraction_payload(
     span_index: dict,
     location_label: str = "Mireward road",
 ) -> dict:
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions,
         FixtureCategoryGraphPassClient,
         run_category_pipeline,
@@ -466,8 +466,8 @@ def _live_extraction_payload(
 def _patch_fake_category_extract(
     monkeypatch: pytest.MonkeyPatch, *, location_label: str = "Mireward road"
 ) -> None:
-    import src.graph_memory.extraction.graph_preview_runner as prod_runner
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    import graph_memory.extraction.graph_preview_runner as prod_runner
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionResult,
     )
 

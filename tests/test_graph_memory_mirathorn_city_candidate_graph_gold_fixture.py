@@ -5,7 +5,7 @@ from pathlib import Path
 
 from evals.graph_memory_layer.mirathorn_city_candidate_graph_gold_fixture import *
 from evals.graph_memory_layer.mirathorn_city_world_doc_fixture import load_source_doc
-from src.graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
+from graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
 
 
 def test_manifest():

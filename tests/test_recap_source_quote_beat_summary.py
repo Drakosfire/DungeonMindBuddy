@@ -7,12 +7,12 @@ from typing import Any
 
 import pytest
 
-from src.graph_memory.candidate_graph_preview import (
+from graph_memory.candidate_graph_preview import (
     candidate_graph_preview_from_dict,
     candidate_graph_preview_to_dict,
 )
-from src.graph_memory.candidate_graph_to_contribution import candidate_graph_to_contribution
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.candidate_graph_to_contribution import candidate_graph_to_contribution
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     FixtureCategoryGraphPassClient,
     extract_category_candidate_graph,

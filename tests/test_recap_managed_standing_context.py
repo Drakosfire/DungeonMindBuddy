@@ -129,7 +129,7 @@ def test_retired_profile_refuses_before_source_supplement_output_or_provider(tmp
 
 def test_direct_options_cannot_execute_a_retired_profile():
     from dataclasses import replace
-    from src.graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionOptions, CategoryGraphExtractionError, extract_category_candidate_graph
+    from graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionOptions, CategoryGraphExtractionError, extract_category_candidate_graph
     from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     class NoCalls:
         def run_pass(self,*a,**k):

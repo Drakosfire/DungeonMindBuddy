@@ -12,13 +12,13 @@ import pytest
 
 from application_state.ingest.components import get_component_bytes
 
-from src.graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient, DEEPSEEK_MODEL
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient, DEEPSEEK_MODEL
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError, CategoryGraphExtractionOptions,
     FixtureCategoryGraphPassClient, run_category_pipeline,
 )
-from src.graph_memory.extraction.worldbuilding_edge_review import apply_review, review_prompt, json_copy
-from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_ADVISORY_REVIEW_PROFILE as PROFILE
+from graph_memory.extraction.worldbuilding_edge_review import apply_review, review_prompt, json_copy
+from graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_ADVISORY_REVIEW_PROFILE as PROFILE
 
 BODY = "Mayor Elara leads the Council. Mirathorn stands near the lake."
 REF = {"source_span_ref_id": "span-1", "anchor_quotes": [BODY]}
@@ -39,7 +39,7 @@ def outputs(span="span-1"):
 class Client(BoundedRecapPassClient):
     """Explicit bounded-client test subclass; no provider/network/worker access."""
     def __init__(self, payload=None, retained=None, fail=False):
-        from src.graph_memory.extraction.bounded_recap_execution import RecapExecutionLimits
+        from graph_memory.extraction.bounded_recap_execution import RecapExecutionLimits
         super().__init__(RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8))
         self.fixture = FixtureCategoryGraphPassClient(payload or outputs())
         self.retained = ["edge:leads"] if retained is None else retained
@@ -126,7 +126,7 @@ def test_wrong_route_or_model_rejects_before_calls(provider, model, requested):
 
 @pytest.mark.parametrize("retained", [["edge:leads"], []])
 def test_pipeline_same_writer_review_instance_exact_source_and_canonical_envelope(retained):
-    from src.graph_memory.extraction.category_candidate_graph_extractor import canonical_graph_for_runner
+    from graph_memory.extraction.category_candidate_graph_extractor import canonical_graph_for_runner
     client = Client(retained=retained)
     result = run_category_pipeline(client, options())
     assert [call["pass_name"] for call in client.calls] == [p.pass_id for p in PROFILE.node_passes] + ["edge_pass", "edge_review_pass"]
@@ -145,7 +145,7 @@ def test_pipeline_same_writer_review_instance_exact_source_and_canonical_envelop
 
 
 def test_empty_edges_skip_review_and_old_profile_does_not_change():
-    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_ROLE_SUPPORT_PROFILE
+    from graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_ROLE_SUPPORT_PROFILE
     client = Client(payload={"edge_pass": {"observation_edges": []}})
     result = run_category_pipeline(client, options())
     assert "edge_review_pass" not in [call["pass_name"] for call in client.calls]
@@ -177,7 +177,7 @@ def test_registered_success_and_failure_evidence_reopens(tmp_path, application_s
         return original(*args, **kwargs)
     monkeypatch.setattr(tempfile, "mkstemp", unavailable_private_file)
     from tests.test_worldbuilding_profile_pipeline import _admit_fixture_source, _load_fixture, _pass_outputs_for_span
-    from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
+    from graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
     source, span = _admit_fixture_source(tmp_path)
     client = Client(_pass_outputs_for_span(_load_fixture(), span), retained=[], fail=fail)
     result = run_production_extraction(ProductionExtractionRequest(repo_root=tmp_path, source=source,
@@ -219,8 +219,8 @@ def test_existing_budget_is_not_automatically_increased():
 
 
 def test_review_schema_and_generation_prompts_are_unchanged():
-    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
-    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_ROLE_SUPPORT_PROFILE
+    from graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_ROLE_SUPPORT_PROFILE
     import jsonschema
     schema = schema_for_pass_spec(PROFILE.edge_review_pass)
     jsonschema.validate({"retained_edge_ids": []}, schema)
@@ -284,7 +284,7 @@ def test_provider_failure_before_any_response_has_unknown_evidence():
 
 def test_success_storage_failure_is_not_reviewable_or_replayed(tmp_path, application_state_dsn, monkeypatch):
     from tests.test_worldbuilding_profile_pipeline import _admit_fixture_source, _load_fixture, _pass_outputs_for_span
-    from src.graph_memory.extraction import graph_preview_runner as runner
+    from graph_memory.extraction import graph_preview_runner as runner
     source, span = _admit_fixture_source(tmp_path)
     client = Client(_pass_outputs_for_span(_load_fixture(), span), retained=[])
     drafts = []
@@ -317,9 +317,9 @@ def test_success_storage_failure_is_not_reviewable_or_replayed(tmp_path, applica
 def test_real_bounded_attempt_accounting_survives_registered_bundle(
     tmp_path, application_state_dsn, monkeypatch, fail_review,
 ):
-    from src.graph_memory.extraction import bounded_recap_execution as bounded
-    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
-    from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
+    from graph_memory.extraction import bounded_recap_execution as bounded
+    from graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+    from graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
     from tests.test_worldbuilding_profile_pipeline import _admit_fixture_source, _load_fixture, _pass_outputs_for_span
     from tests.test_bounded_recap_execution import deepseek_observation
     from generationengine.types import TextResult
@@ -410,7 +410,7 @@ print('attempt-evidence-reopened')
 
 
 def test_version14_schema_and_prompt_bytes_remain_frozen():
-    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
     graph = {"nodes": [], "edges": [{"edge_id": "e035"}]}
     rows = [{"source_span_ref_id": "s", "text": "source"}]
     assert review_prompt(graph, rows) == json.dumps({"source_packet": rows,
@@ -424,7 +424,7 @@ def test_version14_schema_and_prompt_bytes_remain_frozen():
 @pytest.mark.parametrize('bad', [(), [], ('',), (' ',), (1,), ('e035', 'e035')])
 def test_specialized_catalog_is_immutable_and_rejects_bad_ids(bad):
     from dataclasses import replace
-    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
+    from graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
     with pytest.raises(ValueError):
         replace(profile.edge_review_pass, allowed_edge_ids=bad)
 
@@ -432,12 +432,12 @@ def test_specialized_catalog_is_immutable_and_rejects_bad_ids(bad):
 def test_unbound_specialized_spec_cannot_execute_and_bound_schema_is_exact():
     from dataclasses import replace, FrozenInstanceError
     import jsonschema
-    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
-    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
+    from graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
     spec = profile.edge_review_pass
     with pytest.raises(ValueError, match='unbound'):
         schema_for_pass_spec(spec)
-    from src.graph_memory.extraction.bounded_recap_execution import RecapExecutionLimits
+    from graph_memory.extraction.bounded_recap_execution import RecapExecutionLimits
     client = BoundedRecapPassClient(RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL),
         engine_factory=lambda: pytest.fail('unbound spec must not execute'))
     with pytest.raises(ValueError, match='unbound'):
@@ -456,7 +456,7 @@ def test_unbound_specialized_spec_cannot_execute_and_bound_schema_is_exact():
 
 
 def test_version15_changes_only_review_request_and_keeps_application_guard():
-    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
+    from graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
     old, new = Client(), Client()
     a = run_category_pipeline(old, options())
     b = run_category_pipeline(new, options(profile=profile))
@@ -474,12 +474,12 @@ def test_version15_changes_only_review_request_and_keeps_application_guard():
 def test_real_bounded_catalog_excludes_role_removed_id_and_retains_registered_failure(
     tmp_path, application_state_dsn, monkeypatch, returned,
 ):
-    from src.graph_memory.extraction import bounded_recap_execution as bounded
-    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
-    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
-    from src.graph_memory.extraction.category_candidate_graph_extractor import source_packet_rows_from_span_index
-    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
-    from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
+    from graph_memory.extraction import bounded_recap_execution as bounded
+    from graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+    from graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
+    from graph_memory.extraction.category_candidate_graph_extractor import source_packet_rows_from_span_index
+    from graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
     from graph_memory.predicate_catalog import predicate_family_for_type
     from tests.test_graph_preview_runner import _admit_worldbuilding
     from tests.test_bounded_recap_execution import deepseek_observation
@@ -542,7 +542,7 @@ def test_real_bounded_catalog_excludes_role_removed_id_and_retains_registered_fa
 
 def test_prebound_profile_rejects_before_writer_or_reviewer_inference():
     from dataclasses import replace
-    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
+    from graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
     prebound = replace(profile, edge_review_pass=replace(profile.edge_review_pass, allowed_edge_ids=('edge:leads',)))
     client = Client()
     with pytest.raises(CategoryGraphExtractionError, match='must be unbound'):

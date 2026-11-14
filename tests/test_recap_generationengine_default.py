@@ -39,7 +39,7 @@ class SchemaEngine:
 def ordinary(monkeypatch, tmp_path, application_state_dsn):
     from tests.test_recap_managed_standing_context import seed_binding
     from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact
-    from src.graph_memory.extraction import bounded_recap_execution as adapter
+    from graph_memory.extraction import bounded_recap_execution as adapter
     import httpx
 
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
@@ -170,7 +170,7 @@ def test_retention_failure_remains_incomplete_before_candidate_or_review(ordinar
 
 
 def test_injected_client_does_not_construct_default_ge(ordinary, monkeypatch):
-    from src.graph_memory.extraction.category_candidate_graph_extractor import FixtureCategoryGraphPassClient
+    from graph_memory.extraction.category_candidate_graph_extractor import FixtureCategoryGraphPassClient
     _, engine, _ = ordinary
     monkeypatch.setattr(service, "BoundedRecapPassClient", lambda *a, **k: pytest.fail("default GE constructed"))
     result = invoke(ordinary, category_client=FixtureCategoryGraphPassClient({}))

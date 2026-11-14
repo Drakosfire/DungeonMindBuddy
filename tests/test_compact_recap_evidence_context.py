@@ -1,7 +1,7 @@
 from copy import deepcopy
 import hashlib
 import pytest
-from src.graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
+from graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
 
 TEXT = "Bonogo says it is in the warehouse. Thrin points elsewhere."
 
@@ -66,7 +66,7 @@ def test_context_anchor_and_canonical_validation_boundary_are_preserved():
 
 
 def test_context_is_sealed_before_dispatch_and_wrong_source_is_refused():
-    from src.graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient, RecapExecutionLimits
+    from graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient, RecapExecutionLimits
     client = BoundedRecapPassClient(RecapExecutionLimits())
     ctx = context()
     client.execution_binding = {"run_id": "run", "prepared_revision": 2, "source_sha256": ctx.source_sha256}
@@ -84,12 +84,12 @@ def test_context_is_sealed_before_dispatch_and_wrong_source_is_refused():
 
 def test_expanded_quotes_still_fail_the_owning_literal_validator():
     from graph_memory.source_span import build_source_span_index_for_text, source_span_index_to_dict
-    from src.graph_memory.extraction.recap_quote_integrity import validate_and_defer_nonliteral_recap_items
+    from graph_memory.extraction.recap_quote_integrity import validate_and_defer_nonliteral_recap_items
     source = "Bonogo says it is in the warehouse."
     digest = hashlib.sha256(source.encode()).hexdigest()
     index = source_span_index_to_dict(build_source_span_index_for_text(
         source_artifact_id="artifact:test", content_sha256=digest, text=source))
-    from src.graph_memory.extraction.category_candidate_graph_extractor import source_packet_rows_from_span_index
+    from graph_memory.extraction.category_candidate_graph_extractor import source_packet_rows_from_span_index
     rows = source_packet_rows_from_span_index(index, source_text=source)
     ctx = CompactEvidenceContext(rows, source_sha256=digest)
     for quote, retained in [(source, True), ("The warehouse is confirmed.", False)]:
@@ -98,7 +98,7 @@ def test_expanded_quotes_still_fail_the_owning_literal_validator():
                 "evidence_refs": [{"source_span_ref_id": "E1", "anchor_quotes": [quote]}]}
         graph = {"source_artifact_ids": ["artifact:test"], "nodes": [node], "edges": [], "beats": [], "proposed_writes": [], "deferred_items": []}
         expanded = ctx.expand(graph)
-        from src.graph_memory.extraction.category_candidate_graph_extractor import stamp_graph_evidence_refs
+        from graph_memory.extraction.category_candidate_graph_extractor import stamp_graph_evidence_refs
         stamp_graph_evidence_refs(expanded, source_artifact_id="artifact:test", source_ref_id="artifact:test:text")
         cleaned, _ = validate_and_defer_nonliteral_recap_items(expanded, source_text=source,
             source_artifact_id="artifact:test", source_sha256=digest, source_span_index=index)

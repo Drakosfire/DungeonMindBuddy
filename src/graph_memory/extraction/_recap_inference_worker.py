@@ -53,7 +53,7 @@ def _worker_entry(
                 callback = None
                 if attempt_evidence is not None:
                     async def on_attempt_completed(event) -> None:
-                        from src.graph_memory.extraction.bounded_recap_execution import (
+                        from graph_memory.extraction.bounded_recap_execution import (
                             _persist_attempt_response,
                         )
 

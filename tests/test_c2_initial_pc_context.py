@@ -2,8 +2,8 @@
 from pathlib import Path
 
 from graph_memory.party_context import build_party_context_for_campaign
-from src.graph_memory.extraction.known_entity_registry import build_known_entity_registry
-from src.graph_memory.extraction.known_entity_mention_matcher import match_known_entities_in_spans
+from graph_memory.extraction.known_entity_registry import build_known_entity_registry
+from graph_memory.extraction.known_entity_mention_matcher import match_known_entities_in_spans
 
 CORPUS = Path(__file__).resolve().parents[1] / "corpus/eldyrwild-markdown"
 REL = "Longmont Campaign/Campaign 2"

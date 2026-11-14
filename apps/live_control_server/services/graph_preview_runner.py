@@ -9,7 +9,7 @@ from typing import Any
 
 from application_state.errors import ApplicationStateError
 
-from src.graph_memory.extraction.bounded_recap_execution import (
+from graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient,
     DEEPSEEK_MODEL,
     RecapExecutionLimits,
@@ -22,7 +22,7 @@ from apps.live_control_server.services.source_artifact_registry import (
     load_source_span_index,
 )
 from graph_memory.source_span import source_span_index_to_dict
-from src.graph_memory.extraction.graph_preview_runner import (
+from graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionRequest,
     ProductionExtractionResult,
     run_production_extraction,
@@ -30,7 +30,7 @@ from src.graph_memory.extraction.graph_preview_runner import (
 from graph_memory.extraction.recap_extraction_profile import (
     resolve_legacy_graph_extraction_profile,
 )
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
 from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,

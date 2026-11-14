@@ -32,13 +32,13 @@ from evals.graph_memory_layer.session_1_candidate_graph_gold_fixture import (
 )
 from evals.graph_memory_layer.session_1_recap_ingest_fixture import load_expected_normalized_recap
 from bootstrap_env import load_dungeonmindbuddy_dotenv
-from src.graph_memory import identity_resolution as ir
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory import identity_resolution as ir
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     extract_category_candidate_graph,
     resolve_category_graph_model,
 )
-from src.graph_memory.vocabulary import (
+from graph_memory.vocabulary import (
     ContainmentHint,
     ContextVocabularyPacket,
     DoNotMergeDecision,

@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from src.graph_memory.recap_ingestion_materialize import INPUT_MODE, SOURCE_FAMILY, RecapIngestionMaterializerInput
-from src.graph_memory.recap_ingestion_materializer_report import KNOWN_ARTIFACT_FAMILIES
+from graph_memory.recap_ingestion_materialize import INPUT_MODE, SOURCE_FAMILY, RecapIngestionMaterializerInput
+from graph_memory.recap_ingestion_materializer_report import KNOWN_ARTIFACT_FAMILIES
 
 MANIFEST_SCHEMA = "dmb_recap_ingestion_explicit_real_artifact_dogfood_manifest_v0"
 MANIFEST_VERSION = "0.1"

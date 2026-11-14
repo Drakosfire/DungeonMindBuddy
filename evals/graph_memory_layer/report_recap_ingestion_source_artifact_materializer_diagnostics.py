@@ -4,8 +4,8 @@ import argparse
 from pathlib import Path
 
 from evals.graph_memory_layer.report_recap_ingestion_source_artifact_materializer import DEFAULT_INPUTS, build_inputs
-from src.graph_memory.recap_ingestion_materialize import materialize_recap_ingestion_source_artifacts
-from src.graph_memory.recap_ingestion_materializer_report import (
+from graph_memory.recap_ingestion_materialize import materialize_recap_ingestion_source_artifacts
+from graph_memory.recap_ingestion_materializer_report import (
     analyze_recap_ingestion_materializer_output,
     render_recap_ingestion_materializer_report,
 )

@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from src.graph_memory.extraction.recap_source_adapter import (
+from graph_memory.extraction.recap_source_adapter import (
     compute_text_sha256,
     split_paragraph_spans,
 )
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
 from graph_memory.source_span import build_stable_source_span_id
 
 

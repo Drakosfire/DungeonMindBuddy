@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     build_edge_pass_prompt,
     edge_vocabulary_ablation_diagnostics,
     render_category_pass_prompts,
 )
-from src.graph_memory.extraction.staged_edge_extraction import (
+from graph_memory.extraction.staged_edge_extraction import (
     EdgeVocabularyAblationOptions,
     build_graph_context_packet,
     render_relation_observation_prompt,
 )
 from graph_memory.party_context import PartyContext
-from src.graph_memory.vocabulary import (
+from graph_memory.vocabulary import (
     ContextVocabularyPacket,
     ExtractedVocabularyEdge,
     ExtractedVocabularyNode,

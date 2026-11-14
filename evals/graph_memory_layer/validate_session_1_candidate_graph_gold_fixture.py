@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from evals.graph_memory_layer.session_1_recap_ingest_fixture import load_manifest, validate_manifest, load_expected_normalized_recap, load_raw_recap
 from evals.graph_memory_layer.session_1_candidate_graph_gold_fixture import *
-from src.graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
+from graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
 
 def _assert(c,msg):
     if not c: raise AssertionError(msg)

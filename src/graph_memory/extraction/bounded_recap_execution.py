@@ -16,13 +16,13 @@ from jsonschema import ValidationError as JsonSchemaValidationError
 from jsonschema import validate as validate_json_schema
 
 from bootstrap_env import load_dungeonmindbuddy_dotenv
-from src.graph_memory.extraction._recap_inference_worker import (
+from graph_memory.extraction._recap_inference_worker import (
     _execute_in_owned_process, _WorkerStartFailure,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
-from src.graph_memory.extraction.category_candidate_graph_schema import (
+from graph_memory.extraction.category_candidate_graph_schema import (
     category_pass_text_format,
     category_pass_text_format_for_spec,
 )
@@ -532,12 +532,12 @@ class BoundedRecapPassClient:
             and source_evidence_packet is None
         )
         if advertised_node_schema:
-            from src.graph_memory.extraction.category_candidate_graph_schema import node_schema_with_advertised_spans
+            from graph_memory.extraction.category_candidate_graph_schema import node_schema_with_advertised_spans
             fmt["schema"] = node_schema_with_advertised_spans(
                 canonical_schema, self._advertised_node_span_ids,
             )
         if source_evidence_packet is not None:
-            from src.graph_memory.extraction.source_sentence_evidence import node_wire_schema
+            from graph_memory.extraction.source_sentence_evidence import node_wire_schema
             if ((pass_spec is not None and pass_spec.kind != "node")
                     or pass_name not in {p.pass_id for p in RECAP_EXTRACTION_PROFILE.node_passes}):
                 raise CategoryGraphExtractionError("source handles require a recap node pass", pass_name=pass_name)
@@ -732,7 +732,7 @@ class BoundedRecapPassClient:
             if deepseek or source_evidence_packet is not None or advertised_node_schema:
                 validate_json_schema(parsed, fmt["schema"])
             if source_evidence_packet is not None:
-                from src.graph_memory.extraction.source_sentence_evidence import materialize_node_evidence
+                from graph_memory.extraction.source_sentence_evidence import materialize_node_evidence
                 parsed = materialize_node_evidence(
                     source_evidence_packet, parsed,
                     expected_packet_id=context_hashes["node_source_packet"],

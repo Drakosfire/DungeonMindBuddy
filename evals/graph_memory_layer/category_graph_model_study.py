@@ -37,7 +37,7 @@ from evals.graph_memory_layer.session_22_recap_ingest_fixture import (
     load_source_span_seed_refs as load_s22_source_span_seed_refs,
     normalized_recap_path,
 )
-from src.graph_memory import identity_resolution as ir
+from graph_memory import identity_resolution as ir
 from graph_memory.anchor_quotes import coerce_anchor_quotes
 from graph_memory.party_context import build_party_context
 

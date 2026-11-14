@@ -4304,7 +4304,7 @@ def test_exact_profile_capability_and_shared_endpoint_rule(monkeypatch):
     assert not source_precedence_endpoints_admitted('thread', 'event')
     assert not source_precedence_endpoints_admitted('event', 'character')
     from dataclasses import replace
-    from src.graph_memory.extraction import extraction_profile
+    from graph_memory.extraction import extraction_profile
     registered = extraction_profile.get_extraction_profile("recap_category_v2", "2.0")
     monkeypatch.setattr(extraction_profile, "get_extraction_profile",
                         lambda *_: replace(registered, admitted_source_domains=frozenset({"worldbuilding"})))

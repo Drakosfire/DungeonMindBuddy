@@ -14,7 +14,7 @@ from evals.graph_memory_layer.session_22_recap_ingest_fixture import (
     repo_root,
     resolve_source_span_seed_refs,
 )
-from src.graph_memory.candidate_graph_preview import (
+from graph_memory.candidate_graph_preview import (
     CANDIDATE_GRAPH_PREVIEW_SCHEMA,
     CANDIDATE_GRAPH_PREVIEW_VERSION,
     CandidateGraphPreview,
