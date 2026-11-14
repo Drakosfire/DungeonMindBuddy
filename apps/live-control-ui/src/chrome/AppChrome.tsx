@@ -70,6 +70,7 @@ export interface AppChromeToolsGeneration {
 interface AppChromeProps {
   workspaceLayout?: "content" | "bounded";
   activeRoute: AppRouteKey;
+  contextToolbarRef?: (element: HTMLDivElement | null) => void;
   pageActions?: AppChromeAction[];
   editorTools?: AppChromeToolsGeneration | null;
   editToolboxLayout?: "overlay" | "dock";
@@ -126,6 +127,7 @@ function hasEditorToolsContent(tools: AppChromeTools | null | undefined): boolea
 }
 
 export function AppChrome({
+  contextToolbarRef,
   activeRoute,
   pageActions = [],
   editorTools,
@@ -373,6 +375,7 @@ export function AppChrome({
         <header ref={chromeHeaderRef} className="app-chrome-header" data-testid="app-chrome-header">
           <CompactAppNavigation activeRoute={activeRoute} localOnly={localOnlyNavigation} />
           <SurfaceContextHost />
+          {contextToolbarRef && <div ref={contextToolbarRef} />}
         </header>
         {mainContent}
       </div>

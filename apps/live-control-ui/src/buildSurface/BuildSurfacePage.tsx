@@ -47,12 +47,13 @@ export function BuildSurfacePage() {
   const nativeObject = graphPointer?.nativePin;
   const statblock = readSavedStatblockTarget("/build" + entrySearch);
   const reviewWorldId = params.get("world");
+  const [reviewToolbar, setReviewToolbar] = useState<HTMLDivElement | null>(null);
   const pdfReviewId = new URLSearchParams(window.location.search).get("world") === reviewWorldId
     ? params.get("pdfReview")
     : null;
 
   return (
-    <AppChrome activeRoute="build" editorTools={editorTools} editToolboxLayout="dock" workspaceLayout="bounded">
+    <AppChrome contextToolbarRef={pdfReviewId ? setReviewToolbar : undefined} activeRoute="build" editorTools={editorTools} editToolboxLayout="dock" workspaceLayout="bounded">
       <div style={{display: "contents"}} onDragOver={event => {
         if (!pdfReviewId && !statblock && event.dataTransfer.types.includes("Files")) event.preventDefault();
       }} onDrop={event => {
@@ -68,7 +69,7 @@ export function BuildSurfacePage() {
         }
       }}>
       {pdfReviewId && reviewWorldId ? (
-        <BuildPdfStatblockReview key={`${reviewWorldId}:${pdfReviewId}`} worldId={reviewWorldId} reviewId={pdfReviewId} />
+        <BuildPdfStatblockReview key={`${reviewWorldId}:${pdfReviewId}`} worldId={reviewWorldId} reviewId={pdfReviewId} toolbarHost={reviewToolbar} />
       ) : statblock && statblock.worldId === worldId ? (
         <>
           <BuildSurfaceContext {...controller} />
