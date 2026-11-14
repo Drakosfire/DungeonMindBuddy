@@ -147,6 +147,7 @@ export function SelectedWorldProvider({
       return;
     }
     if (!selection.explicit && !selection.documentId && !selection.runId && !selection.extractionRunId) return;
+    const catalogRequest = new AbortController();
     let cancelled = false;
     void (async () => {
       try {
@@ -185,7 +186,7 @@ export function SelectedWorldProvider({
           if (!cancelled) setLoaded({ scope: selectionScope, value: { kind: "legacy" } });
           return;
         }
-        const worldResponse = await listWorldContainers();
+        const worldResponse = await listWorldContainers(catalogRequest.signal);
         if (!cancelled) {
           const verified = verifyManagedWorldSelection({
             requestedWorldId: selection.worldId ?? run?.campaign_id ?? extractionCampaignId,
@@ -219,7 +220,7 @@ export function SelectedWorldProvider({
         }
       }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; catalogRequest.abort(); };
   }, [selectionScope, continuedWorldOnly]);
 
   return (
