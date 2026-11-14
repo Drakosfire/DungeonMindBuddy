@@ -418,7 +418,7 @@ wheels = [
 [[package]]
 name = "dungeonmind"
 version = "0.1.0"
-source = { git = "https://github.com/Drakosfire/DungeonMind.git?rev=fabf12a187b59b45176191f889f516d2c544a595#fabf12a187b59b45176191f889f516d2c544a595" }
+source = { git = "https://github.com/Drakosfire/DungeonMind.git?rev=f9c30f81976eba71891077268b08fb5de394da1d#f9c30f81976eba71891077268b08fb5de394da1d" }
 dependencies = [
     { name = "cryptography" },
     { name = "pydantic" },
@@ -477,7 +477,7 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.16" },
     { name = "blake3", specifier = ">=0.3.3" },
-    { name = "dungeonmind", extras = ["postgres"], git = "https://github.com/Drakosfire/DungeonMind.git?rev=fabf12a187b59b45176191f889f516d2c544a595" },
+    { name = "dungeonmind", extras = ["postgres"], git = "https://github.com/Drakosfire/DungeonMind.git?rev=f9c30f81976eba71891077268b08fb5de394da1d" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "generationengine", extras = ["openai", "openrouter", "typesafe", "fal", "vercel"], git = "https://github.com/Drakosfire/GenerationEngine.git?rev=ab511c8a35bd3a76aecb7cb5b9d8b549fcbbbc2f" },
     { name = "hermes-agent", directory = "out/hermes-agent" },
