@@ -3,7 +3,7 @@ import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import * as api from '../api/extractPromoteApi';
 import * as live from '../api/liveApi';
 import type {ExactRunReviewPackage,ExtractionRunRecord,ExtractPromotePrepareResponse} from '../api/types';
-import {recapPublicationRecoveryKey,recapPublicationScope} from './buildRecapPublicationRecovery';
+import {assertRecapPrepared,recapPublicationRecoveryKey,recapPublicationScope} from './buildRecapPublicationRecovery';
 import {BuildRecapPublication} from './BuildRecapPublication';
 const run={run_id:'run-a',source_artifact_id:'source-a',source_domain:'recap',campaign_id:'longmont-c2',session_id:'session-30',
   components:{candidate_graph:{kind:'candidate_graph',uri:'repo://runs/run-a/candidate_graph.json',sha256:'b'.repeat(64)}},
@@ -21,6 +21,19 @@ const prepared:ExtractPromotePrepareResponse={schema:'dmb_extract_promote_prepar
   }},reviewSummary:{newObjectCount:1,connectExistingCount:0,relationshipCount:0,unresolvedMentionCount:0,rejectedAssertionCount:0},
   reviewItems:[{assertionId:'keeper',sliceQualifiedId:'0:source_extraction::keeper',kind:'object',label:'Keeper',action:'create',identityOutcome:'created_new',
     summary:'Create keeper',warnings:[],selectable:true,selectedByDefault:true,dependsOnAssertionIds:[],dependsOnSliceQualifiedIds:[]}]};
+it.each([true,false])('verifies the sealed database candidate (matching digest: %s)', matches => {
+  const databaseRun = {...run, revision: 2, components: {...run.components,
+    candidate_graph: {...run.components.candidate_graph, uri: 'urn:dmb:ingest-output:run-a:candidate_graph'}}};
+  const response = structuredClone(prepared);
+  const effect = response.reviewPackage.effect as Record<string, unknown>;
+  (effect.candidate_admission as Record<string, unknown>).candidate_locator = null;
+  effect.extraction_run = {run_id: 'run-a', run_revision: 2, components: {
+    candidate_graph: 'sha256:' + (matches ? 'b' : 'c').repeat(64),
+  }};
+  const verify = () => assertRecapPrepared(response, databaseRun, review, 'managed-a');
+  if (matches) expect(verify).not.toThrow();
+  else expect(verify).toThrow('The sealed publication does not match');
+});
 beforeEach(()=>{
   localStorage.clear();
   vi.spyOn(api,'prepareExtractPromote').mockResolvedValue(structuredClone(prepared));
