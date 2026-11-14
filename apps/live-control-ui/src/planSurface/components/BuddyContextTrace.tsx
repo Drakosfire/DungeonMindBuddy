@@ -1,4 +1,5 @@
 import { nativeRetrievalActivity } from './nativeRetrievalActivity'
+import './BuddyEvidence.css'
 import './BuddyContextTrace.css'
 import { useState } from 'react'
 import { CapturedPrompt } from './BuddyPromptInspector'
