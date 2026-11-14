@@ -26,6 +26,7 @@ import {
   getWorldPlayRunReferenceManifest,
   listPlayRuns,
   listWorldPlayRuns,
+  getWorldOwnedPlanSnapshot,
   listWorldOwnedPlans,
   listWorldOwnedRunbooks,
   putPlayActiveRun,
@@ -72,6 +73,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   getWorldPlayRun: vi.fn(),
   getWorldPlayRunReferenceManifest: vi.fn(),
   listWorldPlayRuns: vi.fn(),
+  getWorldOwnedPlanSnapshot: vi.fn(),
   listWorldOwnedPlans: vi.fn(),
   listWorldOwnedRunbooks: vi.fn(),
   putWorldPlayRunRebase: vi.fn(),
@@ -212,6 +214,7 @@ describe("Play selected-World admission", () => {
         content_sha256: run.playable_content_sha256, structure_sha256: shaA,
         committed_at: "2026-10-18T00:00:00Z", observed_run_revision: run.run_revision };
     });
+    vi.mocked(getWorldOwnedPlanSnapshot).mockRejectedValue(new Error("Plan unavailable"));
     vi.mocked(listWorldOwnedPlans).mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v2", scope_mode: "world", world_id: "world-b", records: [] });
     vi.mocked(listWorldOwnedRunbooks).mockResolvedValue({ schema_version: "dmb_world_owned_runbooks_list_v2", scope_mode: "world", world_id: "world-b", records: [] });
     selectedWorldHarness.worldId = "world-b";
@@ -386,17 +389,17 @@ describe("Play selected-World admission", () => {
     const active = worldRun({ progress: { ...worldRun().progress, notes_by_element_id: { "scene:gate": "The gate is sealed", "scene:empty": " " } } });
     const newer = worldRun({ run_id: secondRunId, updated_at: "2026-10-18T18:10:00Z" });
     const other = worldRun({ run_id: "ffffffff-ffff-4fff-8fff-ffffffffffff", playable_artifact_id: newerWorkRevisionId, updated_at: "2026-10-19T00:00:00Z" });
-    vi.mocked(listWorldPlayRuns).mockResolvedValue({ schema_version: "dmb_world_play_runs_list_v2", records: [other, newer, active] });
-    vi.mocked(listWorldOwnedPlans).mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v2", scope_mode: "world", world_id: "world-b", records: [{
-      schema_version: "dmb_world_owned_plan_record_v2", scope_mode: "world", document_id: artifactId,
-      title: "Approach to Edge", campaign_id: null, world_id: "world-b", target_session: null,
-      kind: "plan", target_relpath: null, status: "active", content_status: "committed", revision: 1,
-      created_at: active.created_at, updated_at: active.updated_at,
-    }] });
+    vi.mocked(listWorldPlayRuns).mockResolvedValue({
+      schema_version: "dmb_world_play_runs_list_v2",
+      records: [other, newer, active],
+      source_titles: { [artifactId]: "Approach to Edge" },
+    });
     render(<PlaySurfacePage />);
     expect(await screen.findByRole("heading", { name: "Approach to Edge" })).toBeInTheDocument();
     const resume = await screen.findByRole("link", { name: /Resume session · Approach to Edge/ });
     expect(resume).toHaveAttribute("href", expect.stringContaining(runId));
+    expect(listWorldOwnedPlans).not.toHaveBeenCalled();
+    expect(listWorldOwnedRunbooks).not.toHaveBeenCalled();
     expect(resume).toHaveTextContent("1 saved note");
     expect(resume).toHaveTextContent("Last played");
     expect(resume).not.toHaveTextContent(runId);
@@ -411,8 +414,6 @@ describe("Play selected-World admission", () => {
   it("keeps sessions usable when titles and active metadata fail, using the newest matching session", async () => {
     window.history.replaceState({}, "", `/play?world=world-b&choose=1&plan=${artifactId}`);
     vi.mocked(getWorldPlayActiveRun).mockRejectedValue(new Error("metadata unavailable"));
-    vi.mocked(listWorldOwnedPlans).mockRejectedValue(new Error("titles unavailable"));
-    vi.mocked(listWorldOwnedRunbooks).mockRejectedValue(new Error("titles unavailable"));
     vi.mocked(listWorldPlayRuns).mockResolvedValue({ schema_version: "dmb_world_play_runs_list_v2", records: [worldRun(), worldRun({ run_id: secondRunId, updated_at: "2026-10-18T18:10:00Z" })] });
     render(<PlaySurfacePage />);
     const resume = await screen.findByRole("link", { name: /Resume session · Saved session/ });
