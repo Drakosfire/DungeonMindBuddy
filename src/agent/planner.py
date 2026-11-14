@@ -46,7 +46,7 @@ from src.agent.planner_telemetry import (
     text_sig,
     usage_dict_from_response,
 )
-from src.agent.synthesis import _load_api_key
+from bootstrap_env import load_openai_api_key as _load_api_key
 from src.llm.api_client import DungeonMindApiClient
 
 from src.agent.session_memory_query import (

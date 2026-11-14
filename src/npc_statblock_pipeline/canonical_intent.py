@@ -26,7 +26,7 @@ from generationengine import (
 )
 
 from src.agent.corpus_path_tools import read_paths_from_tool_trace
-from src.agent.synthesis import _load_api_key
+from bootstrap_env import load_openai_api_key as _load_api_key
 from llm.generation_sync import run_awaitable_sync
 
 IntentMode = Literal["factual_lookup", "upgrade_request", "comparison_request"]

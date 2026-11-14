@@ -6,7 +6,7 @@ from typing import Any
 
 from generationengine import GenerationClient, TextRequest
 
-from bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_openai_api_key
 
 _SYNTHESIS_PROFILE_ENV = "DMB_SYNTHESIS_PROFILE"
 _SYNTHESIS_VERBOSITY_ENV = "DMB_SYNTHESIS_VERBOSITY"
@@ -145,12 +145,7 @@ def _resolve_model(model: str | None) -> str:
 
 
 def _load_api_key() -> str | None:
-    # Thin shim: delegates to the canonical loader so every importer (planner,
-    # canonical_intent, evals, the env rule's pre-flight pattern) shares the
-    # same .env resolution order as CLI / pytest. Do NOT reintroduce a local
-    # implementation here — see .cursor/rules/dungeonbuddy-environment.mdc.
-    load_dungeonmindbuddy_dotenv()
-    return os.getenv("OPENAI_API_KEY")
+    return load_openai_api_key()
 
 
 async def synthesize_answer_async(

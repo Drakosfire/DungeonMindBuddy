@@ -100,3 +100,9 @@ def load_dungeonmindbuddy_dotenv(*, override: bool = True) -> None:
         dedicated_key = os.environ.get("DUNGEONBUDDY_OPENAI", "").strip()
         if dedicated_key:
             os.environ["OPENAI_API_KEY"] = dedicated_key
+
+
+def load_openai_api_key() -> str | None:
+    """Load Buddy dotenv settings before resolving the OpenAI key."""
+    load_dungeonmindbuddy_dotenv()
+    return os.getenv("OPENAI_API_KEY")

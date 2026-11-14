@@ -275,7 +275,7 @@ def test_production_client_is_not_cached_across_invocations(monkeypatch: pytest.
 
 def test_load_api_key_compatibility_shim_remains_available(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "shim-key")
-    monkeypatch.setattr("src.agent.synthesis.load_dungeonmindbuddy_dotenv", lambda: None)
+    monkeypatch.setattr("bootstrap_env.load_dungeonmindbuddy_dotenv", lambda: None)
     assert _load_api_key() == "shim-key"
 
 

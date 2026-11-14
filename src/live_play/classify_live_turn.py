@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from src.agent.synthesis import _load_api_key
+from bootstrap_env import load_openai_api_key as _load_api_key
 from src.live_play.live_turn_classification_schema import LiveTurnClassificationModel
 from src.live_play.live_turn_classifier_client import (
     OpenAILiveTurnClassifierClient,
