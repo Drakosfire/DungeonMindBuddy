@@ -4195,7 +4195,7 @@ class TestDatabaseCorrectionAuthority:
 
 
 # Correction source-order capability regression coverage (recovered from2144).
-from src.graph_memory.predicate_catalog import RECAP_SOURCE_ORDER, source_precedence_endpoints_admitted
+from graph_memory.predicate_catalog import RECAP_SOURCE_ORDER, source_precedence_endpoints_admitted
 from graph_memory.source_span import build_source_span_index_for_text, source_span_index_to_dict, source_span_index_from_dict
 from apps.live_control_server.services.extract_promote import _assert_and_project_candidate_evidence
 

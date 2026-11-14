@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from src.graph_memory.extraction.extraction_profile import (
+from graph_memory.extraction.extraction_profile import (
     InadmissibleExtractionProfileError,
     UnknownExtractionProfileError,
     get_extraction_profile,
     require_admitted_profile,
 )
-from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+from graph_memory.extraction.worldbuilding_extraction_profile import (
     EXCLUDED_NODE_TYPES,
     INCLUDED_NODE_TYPES,
     WORLDBUILDING_PROFILE_ID,

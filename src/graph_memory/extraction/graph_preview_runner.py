@@ -32,19 +32,19 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
     extract_category_candidate_graph,
     resolve_category_graph_model,
 )
-from src.graph_memory.extraction.extraction_profile import (
+from graph_memory.extraction.extraction_profile import (
     InadmissibleExtractionProfileError,
     UnknownExtractionProfileError,
     require_admitted_profile,
 )
 from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
-from src.graph_memory.extraction import worldbuilding_profile_catalog as _worldbuilding_catalog  # noqa: F401
+from graph_memory.extraction import worldbuilding_profile_catalog as _worldbuilding_catalog  # noqa: F401
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 
 # Ensure profiles register on import.
-from src.graph_memory.extraction import recap_extraction_profile as _recap_profiles  # noqa: F401
-from src.graph_memory.extraction import worldbuilding_plumbing_profile as _wb_profiles  # noqa: F401
-from src.graph_memory.extraction import (  # noqa: F401
+from graph_memory.extraction import recap_extraction_profile as _recap_profiles  # noqa: F401
+from graph_memory.extraction import worldbuilding_plumbing_profile as _wb_profiles  # noqa: F401
+from graph_memory.extraction import (  # noqa: F401
     worldbuilding_extraction_profile as _wb_bounded_profiles,
 )
 

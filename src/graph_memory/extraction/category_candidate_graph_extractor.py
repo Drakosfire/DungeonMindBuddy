@@ -15,14 +15,14 @@ from src.graph_memory.extraction.compact_evidence_context import CompactEvidence
 from bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.graph_memory import identity_resolution as ir
 from graph_memory.anchor_quotes import coerce_anchor_quotes
-from src.graph_memory.predicate_catalog import (
+from graph_memory.predicate_catalog import (
     prompt_markdown as predicate_catalog_prompt_markdown,
     predicate_family_for_type,
     validate_edge_predicate,
     requires_relationship_evidence,
 )
-from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec, ExtractionProfile
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction.extraction_profile import ExtractionPassSpec, ExtractionProfile
+from graph_memory.extraction.recap_extraction_profile import (
     DEFAULT_SEMANTIC_STATE as RECAP_DEFAULT_SEMANTIC_STATE,
     EVIDENCE_RULE as RECAP_EVIDENCE_RULE,
     RECAP_EXTRACTION_PROFILE,

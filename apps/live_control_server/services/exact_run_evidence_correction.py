@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
+from graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
 
 import hashlib
 import json
@@ -97,8 +97,8 @@ def _canonical_bytes(value: object) -> bytes:
 
 
 def _qualify_payload(*, payload: dict, parent: ExtractionRun, source_prose: str, span_index: object) -> None:
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.extraction_profile import get_extraction_profile
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE_ID,
         WORLDBUILDING_PROFILE_VERSION,
     )

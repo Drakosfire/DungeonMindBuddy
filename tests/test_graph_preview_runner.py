@@ -25,12 +25,12 @@ from src.graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionRequest,
     run_production_extraction,
 )
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction.recap_extraction_profile import (
     RECAP_PROFILE_ID,
     RECAP_PROFILE_VERSION,
 )
 from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
-from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+from graph_memory.extraction.worldbuilding_plumbing_profile import (
     WORLDBUILDING_PLUMBING_PROFILE_ID,
     WORLDBUILDING_PLUMBING_PROFILE_VERSION,
 )
@@ -1006,7 +1006,7 @@ def test_valid_candidate_semantics_are_unchanged_by_integrity_classification(
 def test_profile_post_extraction_validator_still_fails_generation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from src.graph_memory.extraction.extraction_profile import require_admitted_profile
+    from graph_memory.extraction.extraction_profile import require_admitted_profile
 
     real = require_admitted_profile
 

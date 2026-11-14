@@ -652,7 +652,7 @@ def test_provider_model_pair_is_caller_selected(provider, model):
 def test_edge_output_allowance_applies_only_to_actual_edge_spec(
     edge_override, expected_edge_limit
 ):
-    from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
+    from graph_memory.extraction.extraction_profile import ExtractionPassSpec
 
     responses = [
         TextResult(text='{"observation_nodes": []}', observation=deepseek_observation()),
@@ -1049,7 +1049,7 @@ def node_handle_response(ids=None):
 @pytest.mark.parametrize("pass_name", ["actor_pass", "location_pass", "collective_pass", "object_pass", "thread_pass"])
 def test_node_handle_wire_materializes_canonical_evidence_and_retains_both(tmp_path, pass_name):
     from src.graph_memory.extraction.category_candidate_graph_schema import category_pass_text_format_for_spec
-    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     spec = next(p for p in RECAP_EXTRACTION_PROFILE.node_passes if p.pass_id == pass_name)
     from jsonschema import validate
     packet = node_handle_packet()
@@ -1119,7 +1119,7 @@ def test_real_recap_producer_supplies_packet_to_ge_and_receives_canonical_result
     from src.graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions, extract_category_candidate_graph,
     )
-    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     packet = node_handle_packet()
 
     class PipelineEngine(Engine):
@@ -1317,7 +1317,7 @@ def test_advertised_node_ids_reach_real_ge_conformance_and_retain_invalid_attemp
     from generationengine import GenerationClient
     from generationengine.providers.openrouter_text import OpenRouterTextProvider
     from src.graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
-    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     source = 'A ferry arrived.'
     import hashlib
     context = CompactEvidenceContext([

@@ -8,8 +8,8 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     extract_category_candidate_graph,
 )
-from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
-from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+from graph_memory.extraction.worldbuilding_plumbing_profile import (
     WORLDBUILDING_PLUMBING_PROFILE,
 )
 
@@ -182,11 +182,11 @@ def test_recap_profile_still_runs_full_pass_set() -> None:
 
 
 def test_custom_disposition_pass_id_prompts_and_retains_items() -> None:
-    from src.graph_memory.extraction.extraction_profile import (
+    from graph_memory.extraction.extraction_profile import (
         ExtractionPassSpec,
         ExtractionProfile,
     )
-    from src.graph_memory.extraction.recap_extraction_profile import (
+    from graph_memory.extraction.recap_extraction_profile import (
         DEFAULT_SEMANTIC_STATE,
         EVIDENCE_RULE,
     )
@@ -381,7 +381,7 @@ def test_extraction_retains_distinct_predicates_with_same_endpoints():
 def test_beat_call_receives_source_local_inventory_and_keeps_source_associations():
     from dataclasses import replace
 
-    from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
+    from graph_memory.extraction.extraction_profile import ExtractionPassSpec
 
     beat_profile = replace(
         RECAP_EXTRACTION_PROFILE,
@@ -629,7 +629,7 @@ def test_sanitizer_keeps_all_invalid_node_rejection_after_dropping_node():
 
 def test_order_edges_cannot_inherit_occurrence_evidence_but_other_edges_still_can():
     import copy
-    from src.graph_memory.predicate_catalog import RECAP_SOURCE_ORDER
+    from graph_memory.predicate_catalog import RECAP_SOURCE_ORDER
     from src.graph_memory.extraction.category_candidate_graph_extractor import repair_edge_evidence_refs
     ref = {"source_span_ref_id": "span-order", "anchor_quotes": ["The arrival was before departure."]}
     for invalid in ([], [{"source_span_ref_id": "not-advertised", "anchor_quotes": ["invented"]}]):
@@ -699,7 +699,7 @@ def test_worldbuilding_prompt_does_not_adopt_recap_node_handles():
 def test_encounter_preview_preserves_existing_actor_handles_without_expanding_other_passes():
     from src.graph_memory.extraction.category_candidate_graph_extractor import render_category_pass_prompts, _source_handle_node_passes
     from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from graph_memory.extraction.extraction_profile import get_extraction_profile
     profile = get_extraction_profile("recap_category_encounter_job_preview", "2.0")
     text = "Ari waited at the gate."
     rows = [{"source_span_ref_id": "s1", "line_start": 1, "line_end": 1, "text": text}]

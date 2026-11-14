@@ -27,11 +27,11 @@ from src.graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionResult,
     run_production_extraction,
 )
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction.recap_extraction_profile import (
     resolve_legacy_graph_extraction_profile,
 )
 from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
-from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
 )
@@ -103,7 +103,7 @@ def run_recap_production_extraction(
     reserved_run: Any | None = None,
 ) -> ProductionExtractionResult:
     profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from graph_memory.extraction.extraction_profile import get_extraction_profile
     selected_profile = get_extraction_profile(profile_id, profile_version)
     repo_root = artifact_data_root(repo_root)
     native_world_id, frozen_context = _source_scope_lineage(

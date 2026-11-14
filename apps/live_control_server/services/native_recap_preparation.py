@@ -36,7 +36,7 @@ from graph_memory.vnext.domain_runtime import (
     CAMPAIGN_SCOPE_AXIS, DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
     DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context,
 )
-from src.graph_memory.predicate_catalog import SOURCE_PRECEDENCE_PREDICATE, source_precedence_endpoints_admitted
+from graph_memory.predicate_catalog import SOURCE_PRECEDENCE_PREDICATE, source_precedence_endpoints_admitted
 
 # Product representation only. Classification does not establish role or source truth.
 _KINDS = {kind: f"dungeonbuddy:{kind}" for kind in NODE_TYPES}

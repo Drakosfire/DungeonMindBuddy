@@ -439,16 +439,16 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
         WorkspaceDocumentRegistryError,
         get_workspace_document,
     )
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE_ID,
         WORLDBUILDING_PROFILE_VERSION,
     )
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE_ID,
         WORLDBUILDING_PLUMBING_PROFILE_VERSION,
     )
 
-    from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
+    from graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
 
     _ALLOWED_BUILD_PROFILES = {
         *(tuple(key.split("@")) for key in PUBLISHABLE_WORLDBUILDING_PROFILES),

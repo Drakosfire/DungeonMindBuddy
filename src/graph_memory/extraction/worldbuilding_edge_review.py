@@ -2,7 +2,7 @@
 from copy import deepcopy
 from dataclasses import dataclass
 
-from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
+from graph_memory.extraction.extraction_profile import ExtractionPassSpec
 import hashlib
 import json
 import math

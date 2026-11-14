@@ -572,7 +572,7 @@ def _extract_session(
         ProductionExtractionRequest,
         run_production_extraction,
     )
-    from src.graph_memory.extraction.recap_extraction_profile import (
+    from graph_memory.extraction.recap_extraction_profile import (
         RECAP_PROFILE_ID,
         RECAP_PROFILE_VERSION,
     )

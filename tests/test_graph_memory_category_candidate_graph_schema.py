@@ -44,7 +44,7 @@ def test_schema_for_pass_spec_uses_kind_not_literal_id() -> None:
         category_pass_text_format_for_spec,
         schema_for_pass_spec,
     )
-    from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
+    from graph_memory.extraction.extraction_profile import ExtractionPassSpec
 
     custom_node = ExtractionPassSpec(
         pass_id="lore_actor_pass",
@@ -180,8 +180,8 @@ def test_node_evidence_schema_binds_only_advertised_ids_without_mutating_default
 
 def test_only_opted_in_pass_spec_admits_source_precedence():
     from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
-    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
+    from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
     import jsonschema
     edge = {"edge_id": "before", "from_node_id": "arrival", "to_node_id": "departure",
             "label": "Earlier occurrence", "relationship_type": "precedes",

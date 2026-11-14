@@ -114,7 +114,7 @@ def test_binding_drift_still_refuses_before_output_or_provider(tmp_path, monkeyp
 @pytest.mark.parametrize("with_supplement", [False, True])
 def test_retired_profile_refuses_before_source_supplement_output_or_provider(tmp_path, monkeypatch, with_supplement):
     from graph_memory.ingestion.native_recap_source import SourceScope
-    from src.graph_memory.extraction.extraction_profile import UnknownExtractionProfileError
+    from graph_memory.extraction.extraction_profile import UnknownExtractionProfileError
     from apps.live_control_server.services import session_evidence
     def forbidden(*a, **kw):
         pytest.fail("retired policy must not open source/supplement or dispatch inference")
@@ -130,7 +130,7 @@ def test_retired_profile_refuses_before_source_supplement_output_or_provider(tmp
 def test_direct_options_cannot_execute_a_retired_profile():
     from dataclasses import replace
     from src.graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionOptions, CategoryGraphExtractionError, extract_category_candidate_graph
-    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     class NoCalls:
         def run_pass(self,*a,**k):
             pytest.fail("must reject retired policy before inference")

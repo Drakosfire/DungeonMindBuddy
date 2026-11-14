@@ -20,7 +20,7 @@ from apps.live_control_server.services.source_artifact_registry import (
     create_recap_source_artifact,
 )
 from graph_memory.ingestion.native_recap_source import SourceScope
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction.recap_extraction_profile import (
     resolve_legacy_graph_extraction_profile,
 )
 

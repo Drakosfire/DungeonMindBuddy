@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from src.graph_memory.extraction.worldbuilding_profile_catalog import SOURCE_OBSERVATION_WORLDBUILDING_PROFILES
+from graph_memory.extraction.worldbuilding_profile_catalog import SOURCE_OBSERVATION_WORLDBUILDING_PROFILES
 
 
 import hashlib
@@ -1527,7 +1527,7 @@ def _load_worldbuilding_publication_input(resolved, *, allow_gazetteer=True) -> 
         )
 
 
-    from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
+    from graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
     expected_profile = resolved.extraction_profile
     if (expected_profile not in PUBLISHABLE_WORLDBUILDING_PROFILES
             or (not allow_gazetteer and expected_profile != "worldbuilding_shepherds_flock_v0@0.1")):

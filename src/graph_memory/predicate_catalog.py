@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.graph_memory import identity_resolution as ir
+from graph_memory import identity_resolution as ir
 
 # Preserve the full extraction schema, including families with no exact predicates.
 PREDICATE_FAMILY_IDS = frozenset(

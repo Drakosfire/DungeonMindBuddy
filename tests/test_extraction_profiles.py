@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import pytest
 
-from src.graph_memory.extraction.extraction_profile import (
+from graph_memory.extraction.extraction_profile import (
     InadmissibleExtractionProfileError,
     UnknownExtractionProfileError,
     get_extraction_profile,
     require_admitted_profile,
 )
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction.recap_extraction_profile import (
     RECAP_EXTRACTION_PROFILE,
     RECAP_PROFILE_ID,
     RECAP_PROFILE_VERSION,
     resolve_legacy_graph_extraction_profile,
 )
-from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+from graph_memory.extraction.worldbuilding_plumbing_profile import (
     WORLDBUILDING_PLUMBING_PROFILE,
     WORLDBUILDING_PLUMBING_PROFILE_ID,
     WORLDBUILDING_PLUMBING_PROFILE_VERSION,

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from src.graph_memory.predicate_catalog import RECAP_SOURCE_ORDER, recap_predicate_meaning_guidance
+from graph_memory.predicate_catalog import RECAP_SOURCE_ORDER, recap_predicate_meaning_guidance
 
-from src.graph_memory.extraction.extraction_profile import (
+from graph_memory.extraction.extraction_profile import (
     ExtractionPassSpec,
     ExtractionProfile,
     register_extraction_profile,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
+from graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
 
 import copy
 import json
@@ -197,7 +197,7 @@ def _correction_predicate_capabilities(profile_id: str) -> tuple[str, ...]:
     # Historical read-only v1 has no registered producer and no new capabilities.
     if profile_id == "recap_category_v1@1.0":
         return ()
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from graph_memory.extraction.extraction_profile import get_extraction_profile
     name, separator, version = profile_id.rpartition("@")
     if not separator or profile_id not in RECAP_READ_PROFILE_IDS:
         raise _reject("correction extraction profile is not admitted")
@@ -211,7 +211,7 @@ def _correction_predicate_capabilities(profile_id: str) -> tuple[str, ...]:
 
 
 def _correction_endpoint_reason(predicate, from_type, to_type, vocabulary, capabilities=()):
-    from src.graph_memory.predicate_catalog import (
+    from graph_memory.predicate_catalog import (
         RECAP_SOURCE_ORDER, SOURCE_PRECEDENCE_PREDICATE,
         source_precedence_endpoints_admitted,
     )

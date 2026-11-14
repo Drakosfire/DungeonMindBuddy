@@ -8,7 +8,7 @@ from src.graph_memory.extraction.worldbuilding_gazetteer_role_citations import (
     GAZETTEER_ROLE_CITATION_PROFILE,
     compile_gazetteer_role_citations,
 )
-from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
+from graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
 
 
 def test_closed_publication_profiles_preserve_pilot_and_exact_gazetteer_version():

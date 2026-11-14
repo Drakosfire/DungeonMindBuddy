@@ -43,7 +43,7 @@ from graph_memory.worldbuilding_write_plan import (
     WorldbuildingWritePlanError,
     build_worldbuilding_write_plan,
 )
-from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+from graph_memory.extraction.worldbuilding_extraction_profile import (
     DEFAULT_SEMANTIC_STATE,
 )
 from tests._cutover_d3a_blocker_safe_fixtures import _candidate_graph_payload
