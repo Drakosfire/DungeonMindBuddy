@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { listWorldContainers } from "../api/liveApi";
 import type { WorldContainerRecord } from "../api/types";
+import { interceptPrimaryNavigationClick } from "../chrome/appNavigation";
 import "./SurfaceWorldPicker.css";
 
 /** Read-only entry point: choosing a World navigates without creating or changing saved work. */
@@ -23,7 +24,7 @@ export function SurfaceWorldPicker({ surface }: { surface: "plan" | "play" }) {
     {status === "error" ? <div role="alert"><p>Worlds could not be loaded.</p><button onClick={() => setAttempt(value => value + 1)}>Retry World list</button></div> : null}
     {status === "ready" && worlds.length === 0 ? <p>No Worlds yet. <a href="/build">Create your World in Build</a>.</p> : null}
     {status === "ready" ? <ul className="surface-world-list">{worlds.map(world => <li key={world.world_id}>
-      <a href={`/${surface}?world=${encodeURIComponent(world.world_id)}${surface === "play" ? "&choose=1" : ""}`}><strong>{world.name}</strong><span>{surface === "plan" ? "Open Plans →" : "Open sessions →"}</span></a>
+      <a onClick={interceptPrimaryNavigationClick} href={`/${surface}?world=${encodeURIComponent(world.world_id)}${surface === "play" ? "&choose=1" : ""}`}><strong>{world.name}</strong><span>{surface === "plan" ? "Open Plans →" : "Open sessions →"}</span></a>
     </li>)}</ul> : null}
   </section>;
 }
