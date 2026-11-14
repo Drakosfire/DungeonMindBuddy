@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from src.graph_memory import identity_resolution as ir
+from graph_memory import identity_resolution as ir
 
 
 # --------------------------------------------------------------------------- #
@@ -876,7 +876,7 @@ def test_exact_and_inverse_duplicates_union_all_evidence_without_mutating_inputs
 
 def test_preview_dataclass_duplicate_keeps_type_and_unions_evidence():
     from dataclasses import replace
-    from src.graph_memory.candidate_graph_preview import CandidateEdge, EvidenceRef, SemanticState
+    from graph_memory.candidate_graph_preview import CandidateEdge, EvidenceRef, SemanticState
     state = SemanticState('candidate', 'draft', 'source_evidence', 'unreviewed', 'visible')
     first = CandidateEdge('one', 'a', 'b', 'parent', 'parent_of', state,
         (EvidenceRef('source', 'artifact', source_anchor_id='one'),), 'create', 'medium')

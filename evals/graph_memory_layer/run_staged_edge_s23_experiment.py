@@ -20,7 +20,7 @@ from evals.graph_memory_layer.live_vs_gold_compare import compare_parts, parts_f
 from evals.graph_memory_layer.session_23_candidate_graph_gold_fixture import (
     load_gold_candidate_graph_dict,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     EDGE_PASS_NAME,
     CategoryGraphExtractionOptions,
     FixtureCategoryGraphPassClient,
@@ -29,7 +29,7 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
     sanitize_parts,
     source_packet_rows_from_span_index,
 )
-from src.graph_memory.extraction.staged_edge_extraction import run_staged_edge_extraction
+from graph_memory.extraction.staged_edge_extraction import run_staged_edge_extraction
 
 DEFAULT_STORED_RUN = (
     "out/graph_memory/runs/longmont-c2/session-23/20260629T183113Z"

@@ -14,7 +14,7 @@ from apps.live_control_server.services.graph_preview_runner import run_recap_pro
 from apps.live_control_server.services.graph_run_registry import get_extraction_run
 from application_state.ingest.components import get_component_bytes
 from apps.live_control_server.services.recap_ingest_context import RecapContextSnapshot
-from src.graph_memory.extraction.known_entity_registry import known_entities_from_world_graph
+from graph_memory.extraction.known_entity_registry import known_entities_from_world_graph
 
 
 def _context(campaign_id: str) -> RecapContextSnapshot:

@@ -4,17 +4,17 @@ from typing import Any, Mapping
 
 import pytest
 
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     FixtureCategoryGraphPassClient,
     run_category_pipeline,
 )
-from src.graph_memory.vocabulary.dynamic_selection import (
+from graph_memory.vocabulary.dynamic_selection import (
     DynamicVocabularySelectionPolicy,
     build_dynamic_context_vocabulary_packet,
 )
 from graph_memory.vocabulary.model import ContextVocabularyPacket
-from src.graph_memory.vocabulary.node_context import render_node_vocabulary_context
+from graph_memory.vocabulary.node_context import render_node_vocabulary_context
 
 
 def _nodes() -> tuple[dict[str, Any], ...]:

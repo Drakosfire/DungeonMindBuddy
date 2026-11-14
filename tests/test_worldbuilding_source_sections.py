@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import pytest
 
-from src.graph_memory.extraction.worldbuilding_source_sections import (
+from graph_memory.extraction.worldbuilding_source_sections import (
     SourceSectionRetentionError, owned_livestock_sections, retain_owned_sections,
 )
 
@@ -89,10 +89,10 @@ def test_owned_livestock_metadata_rejects_the_same_ambiguous_sequence_as_retenti
 
 
 def test_actual_candidate_assembly_preserves_prose_and_stamps_all_evidence():
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions, FixtureCategoryGraphPassClient, run_category_pipeline,
     )
-    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
+    from graph_memory.extraction.worldbuilding_gazetteer_profile import (
         GAZETTEER_PROFILE, GAZETTEER_SOURCE_RETENTION_PROFILE,
     )
     from graph_memory.extraction.worldbuilding_profile_catalog import (

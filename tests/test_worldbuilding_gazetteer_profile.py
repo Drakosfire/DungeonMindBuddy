@@ -1,10 +1,10 @@
 import pytest
-from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
+from graph_memory.extraction.worldbuilding_gazetteer_profile import (
     GAZETTEER_PROFILE, GAZETTEER_LIVESTOCK_HYGIENE_PROFILE,
     compile_gazetteer_livestock_hygiene,
     validate_gazetteer_candidate_bounds,
 )
-from src.graph_memory.extraction.worldbuilding_gazetteer_role_citations import (
+from graph_memory.extraction.worldbuilding_gazetteer_role_citations import (
     GAZETTEER_ROLE_CITATION_PROFILE,
     compile_gazetteer_role_citations,
 )
@@ -133,10 +133,10 @@ def test_v16_defers_only_exact_livestock_events_and_incident_edges():
 
 def test_v16_real_pipeline_retains_livestock_and_keeps_recurring_festival():
     from types import SimpleNamespace
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions, FixtureCategoryGraphPassClient, run_category_pipeline,
     )
-    from src.graph_memory.extraction.bounded_recap_execution import (
+    from graph_memory.extraction.bounded_recap_execution import (
         BoundedRecapPassClient, DEEPSEEK_MODEL,
     )
 
@@ -232,7 +232,7 @@ def test_v16_real_pipeline_retains_livestock_and_keeps_recurring_festival():
 
 
 def test_v16_profile_is_versioned_from_15_and_keeps_named_event_policy():
-    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
+    from graph_memory.extraction.worldbuilding_gazetteer_profile import (
         GAZETTEER_CONSTRAINED_REVIEW_PROFILE,
     )
 
@@ -400,13 +400,13 @@ def test_v17_role_citation_does_not_duplicate_an_existing_reference():
 
 
 def test_v17_real_category_pipeline_adds_source_stamped_role_citations():
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions,
         FixtureCategoryGraphPassClient,
         run_category_pipeline,
     )
     from types import SimpleNamespace
-    from src.graph_memory.extraction.bounded_recap_execution import (
+    from graph_memory.extraction.bounded_recap_execution import (
         BoundedRecapPassClient,
         DEEPSEEK_MODEL,
     )
@@ -514,7 +514,7 @@ def test_out_of_scope_or_unsupported_candidates_reject(graph):
 
 
 def test_actual_pipeline_preserves_named_definition_and_source_qualification():
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions, FixtureCategoryGraphPassClient, run_category_pipeline,
     )
     body = "Riverbacks are livestock used to move cargo across water. The Tide Lantern Festival is recurring; locals believe it honors a river spirit. A proposed hook has not occurred."
@@ -561,11 +561,11 @@ def test_actual_pipeline_preserves_named_definition_and_source_qualification():
 @pytest.mark.parametrize("version", ["1.0", "1.1", "1.2", "1.3", "1.8", "1.9", "1.10"])
 def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tmp_path, application_state_dsn, version):
     from tests.test_graph_preview_runner import _admit_worldbuilding, FixtureClient, _first_paragraph_span_id
-    from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
+    from graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
     from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
     from graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict
     from types import SimpleNamespace
-    from src.graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient, DEEPSEEK_MODEL
+    from graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient, DEEPSEEK_MODEL
 
     class RegisteredBoundedFixture(BoundedRecapPassClient):
         def __init__(self, fixture):
@@ -642,7 +642,7 @@ def test_gazetteer_plan_cannot_be_verified_as_pilot():
 
 
 def test_fidelity_profile_is_versioned_and_preserves_source_retention_contract():
-    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
+    from graph_memory.extraction.worldbuilding_gazetteer_profile import (
         GAZETTEER_SOURCE_FIDELITY_PROFILE, GAZETTEER_SOURCE_RETENTION_PROFILE,
     )
     assert GAZETTEER_SOURCE_FIDELITY_PROFILE.source_section_retainer is (
@@ -656,11 +656,11 @@ def test_fidelity_profile_is_versioned_and_preserves_source_retention_contract()
 
 def test_role_support_versions_differ_only_in_owned_pipeline_disposition():
     from copy import deepcopy
-    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
+    from graph_memory.extraction.worldbuilding_gazetteer_profile import (
         GAZETTEER_SOURCE_FIDELITY_PROFILE,
         GAZETTEER_ROLE_SUPPORT_PROFILE,
     )
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions,
         FixtureCategoryGraphPassClient,
         run_category_pipeline,
@@ -783,7 +783,7 @@ def test_registered_role_support_run_preserves_source_and_deferred_evidence(
         _admit_worldbuilding,
         _first_paragraph_span_id,
     )
-    from src.graph_memory.extraction.graph_preview_runner import (
+    from graph_memory.extraction.graph_preview_runner import (
         ProductionExtractionRequest,
         run_production_extraction,
     )

@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import pytest
 
-from src.graph_memory.extraction.worldbuilding_gazetteer_governance import (
+from graph_memory.extraction.worldbuilding_gazetteer_governance import (
     GAZETTEER_GOVERNANCE_PROFILE,
     PROFILE,
     _apply_governance_relation,

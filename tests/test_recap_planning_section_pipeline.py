@@ -3,7 +3,7 @@ import hashlib
 import pytest
 
 from graph_memory.source_span import build_source_span_index_for_text, source_span_index_to_dict
-from src.graph_memory.extraction import category_candidate_graph_extractor as module
+from graph_memory.extraction import category_candidate_graph_extractor as module
 from graph_memory.extraction.worldbuilding_plumbing_profile import WORLDBUILDING_PLUMBING_PROFILE
 
 TEXT = "## Planning Notes\n\nIria will receive the Golden Map.\n\n## Recap\n\nIria arrived in Larkhaven."

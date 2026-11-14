@@ -4,8 +4,8 @@ import json
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from src.graph_memory.recap_ingestion_materialize import SCHEMA as MATERIALIZER_SCHEMA, SOURCE_FAMILY, RecapIngestionMaterialization
-from src.graph_memory.recap_ingestion_materializer_report import REPORT_SCHEMA as MATERIALIZER_REPORT_SCHEMA, RecapIngestionMaterializerReport
+from graph_memory.recap_ingestion_materialize import SCHEMA as MATERIALIZER_SCHEMA, SOURCE_FAMILY, RecapIngestionMaterialization
+from graph_memory.recap_ingestion_materializer_report import REPORT_SCHEMA as MATERIALIZER_REPORT_SCHEMA, RecapIngestionMaterializerReport
 
 READINESS_SCHEMA = "dmb_recap_ingestion_projection_readiness_v0"
 READINESS_VERSION = "0.1"

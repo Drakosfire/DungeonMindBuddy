@@ -4,7 +4,7 @@ import pytest
 
 from typing import Any
 
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     extract_category_candidate_graph,
 )
@@ -531,7 +531,7 @@ def test_source_local_distinctions_reach_later_passes_and_keep_exact_edge_endpoi
     }
     # Only the explicit producer proposal survives; the host invents no same_as.
     assert [edge["edge_id"] for edge in edges.values() if edge["relationship_type"] == "same_as"] == ["bridge-object"]
-    from src.graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+    from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
 
     load_typed_candidate_graph(result.candidate_graph)
     diag = result.consolidation_diagnostics
@@ -577,7 +577,7 @@ def test_same_label_endpoints_do_not_collapse_separate_relationships():
 
 def test_duplicate_source_local_edge_ids_are_not_hidden_by_payload_deduplication():
     import pytest
-    from src.graph_memory.candidate_graph_to_contribution import (
+    from graph_memory.candidate_graph_to_contribution import (
         CandidateGraphMappingError, load_typed_candidate_graph,
     )
 
@@ -598,7 +598,7 @@ def test_duplicate_source_local_edge_ids_are_not_hidden_by_payload_deduplication
 @pytest.mark.parametrize('collection,id_key', [('nodes', 'node_id'), ('ignored_items', 'item_id'), ('deferred_items', 'item_id')])
 def test_sanitizer_retains_rejected_node_nominations_and_warns_surviving_record(collection, id_key):
     from copy import deepcopy
-    from src.graph_memory.extraction.category_candidate_graph_extractor import sanitize_parts
+    from graph_memory.extraction.category_candidate_graph_extractor import sanitize_parts
     valid = {'source_span_ref_id': 'paragraph:51-52', 'anchor_quotes': ['the rope was gone']}
     invalid = {'source_span_ref_id': 'paragraph:52-52', 'anchor_quotes': ['the rope was gone']}
     record = {id_key: 'rescue', 'description': 'An unchanged observed rescue.', 'evidence_refs': [valid, invalid]}
@@ -616,7 +616,7 @@ def test_sanitizer_retains_rejected_node_nominations_and_warns_surviving_record(
 
 
 def test_sanitizer_keeps_all_invalid_node_rejection_after_dropping_node():
-    from src.graph_memory.extraction.category_candidate_graph_extractor import sanitize_parts
+    from graph_memory.extraction.category_candidate_graph_extractor import sanitize_parts
     invalid = {'source_span_ref_id': 'paragraph:45', 'anchor_quotes': ['accepted the ride']}
     output, diagnostics = sanitize_parts({'nodes': [{'node_id': 'ride', 'evidence_refs': [invalid]}]}, {'paragraph:45-45'})
     assert output['nodes'] == []
@@ -630,7 +630,7 @@ def test_sanitizer_keeps_all_invalid_node_rejection_after_dropping_node():
 def test_order_edges_cannot_inherit_occurrence_evidence_but_other_edges_still_can():
     import copy
     from graph_memory.predicate_catalog import RECAP_SOURCE_ORDER
-    from src.graph_memory.extraction.category_candidate_graph_extractor import repair_edge_evidence_refs
+    from graph_memory.extraction.category_candidate_graph_extractor import repair_edge_evidence_refs
     ref = {"source_span_ref_id": "span-order", "anchor_quotes": ["The arrival was before departure."]}
     for invalid in ([], [{"source_span_ref_id": "not-advertised", "anchor_quotes": ["invented"]}]):
         parts = {"nodes": [{"node_id": "a", "evidence_refs": [ref]},
@@ -649,7 +649,7 @@ def test_order_edges_cannot_inherit_occurrence_evidence_but_other_edges_still_ca
 
 def test_ordinary_producer_projects_two_direct_order_claims_without_inventing_a_total_order():
     import jsonschema
-    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
     source = "An arrival happened. A discussion happened. Both preceded a departure; their relative order is unstated."
     ref = {"source_span_ref_id": "span-1", "anchor_quotes": [source]}
     class OrderClient:
@@ -685,8 +685,8 @@ def test_ordinary_producer_projects_two_direct_order_claims_without_inventing_a_
 
 
 def test_worldbuilding_prompt_does_not_adopt_recap_node_handles():
-    from src.graph_memory.extraction.category_candidate_graph_extractor import render_category_pass_prompts
-    from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+    from graph_memory.extraction.category_candidate_graph_extractor import render_category_pass_prompts
+    from graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
     text = "Ari founded the guild."
     rows = [{"source_span_ref_id": "s1", "line_start": 1, "line_end": 1, "text": text}]
     packet = compile_source_sentence_packet(text, rows)
@@ -697,8 +697,8 @@ def test_worldbuilding_prompt_does_not_adopt_recap_node_handles():
 
 
 def test_encounter_preview_preserves_existing_actor_handles_without_expanding_other_passes():
-    from src.graph_memory.extraction.category_candidate_graph_extractor import render_category_pass_prompts, _source_handle_node_passes
-    from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+    from graph_memory.extraction.category_candidate_graph_extractor import render_category_pass_prompts, _source_handle_node_passes
+    from graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
     from graph_memory.extraction.extraction_profile import get_extraction_profile
     profile = get_extraction_profile("recap_category_encounter_job_preview", "2.0")
     text = "Ari waited at the gate."
@@ -711,7 +711,7 @@ def test_encounter_preview_preserves_existing_actor_handles_without_expanding_ot
 
 
 def test_recap_event_and_object_can_share_a_producer_local_id():
-    from src.graph_memory.extraction.category_candidate_graph_extractor import consolidate_category_outputs
+    from graph_memory.extraction.category_candidate_graph_extractor import consolidate_category_outputs
 
     outputs = {
         "object_pass": {"observation_nodes": [

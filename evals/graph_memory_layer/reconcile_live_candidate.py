@@ -13,7 +13,7 @@ from evals.graph_memory_layer.session_23_candidate_graph_gold_fixture import (
 from evals.graph_memory_layer.session_23_recap_ingest_fixture import (
     build_source_span_artifacts as default_build_source_span_artifacts,
 )
-from src.graph_memory.candidate_graph_preview import (
+from graph_memory.candidate_graph_preview import (
     CANDIDATE_GRAPH_PREVIEW_SCHEMA,
     CANDIDATE_GRAPH_PREVIEW_VERSION,
     NODE_TYPES,

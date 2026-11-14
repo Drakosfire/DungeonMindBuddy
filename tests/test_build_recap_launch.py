@@ -96,7 +96,7 @@ def test_concurrent_request_race_has_one_production_executor(tmp_path,request_bo
 
 
 def test_reserved_revision_cas_precedes_model_execution(tmp_path,request_body,context,monkeypatch):
-    from src.graph_memory.extraction import graph_preview_runner as controller
+    from graph_memory.extraction import graph_preview_runner as controller
     monkeypatch.setattr(service,'resolve_recap_source_scope',lambda **k:context)
     real_advance=controller._advance_run
     def lose_cas(root,run,**kwargs):

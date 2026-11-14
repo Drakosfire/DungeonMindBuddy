@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     CategoryGraphExtractionResult,
     FixtureCategoryGraphPassClient,

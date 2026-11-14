@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     FixtureCategoryGraphPassClient,
     build_edge_pass_prompt,
@@ -11,7 +11,7 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
     run_category_pipeline,
 )
 from graph_memory.party_context import PartyContext
-from src.graph_memory.vocabulary import (
+from graph_memory.vocabulary import (
     ContextVocabularyPacket,
     ExtractedVocabularyNode,
     diagnose_vocabulary_extraction_baseline,

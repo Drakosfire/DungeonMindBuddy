@@ -15,7 +15,7 @@ pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
 @pytest.mark.parametrize("mode,expected", [("ok", Status.REVIEWABLE), ("schema", Status.FAILED)])
 def test_controller_transitions_after_all_artifact_files_removed(monkeypatch, tmp_path, mode, expected):
-    from src.graph_memory.extraction import graph_preview_runner as runner
+    from graph_memory.extraction import graph_preview_runner as runner
 
     real = runner._advance_run
     removed = []
@@ -33,7 +33,7 @@ def test_controller_transitions_after_all_artifact_files_removed(monkeypatch, tm
     class Client(FixtureClient):
         def run_pass(self, pass_name, **kwargs):
             if mode == "schema":
-                from src.graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionError
+                from graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionError
                 raise CategoryGraphExtractionError("schema failure", pass_name=pass_name,
                     raw_model_response="actual captured invalid JSON — 测试")
             return super().run_pass(pass_name, **kwargs)

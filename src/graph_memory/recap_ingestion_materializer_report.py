@@ -5,7 +5,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from src.graph_memory.recap_ingestion_materialize import (
+from graph_memory.recap_ingestion_materialize import (
     CREATED_BY,
     SCHEMA as MATERIALIZER_SCHEMA,
     SOURCE_FAMILY,

@@ -7,9 +7,9 @@ from typing import Any
 
 from evals.graph_memory_layer.build_recap_ingestion_projection_payload_fixture import FIXTURE_PATH, SCHEMA, VERSION
 from evals.graph_memory_layer.report_recap_ingestion_source_artifact_materializer import DEFAULT_INPUTS
-from src.graph_memory.recap_ingestion_materialize import SOURCE_FAMILY, RecapIngestionMaterializerInput, materialize_recap_ingestion_source_artifacts
-from src.graph_memory.recap_ingestion_materializer_report import analyze_recap_ingestion_materializer_output
-from src.graph_memory.recap_ingestion_projection_readiness import assess_recap_ingestion_projection_readiness
+from graph_memory.recap_ingestion_materialize import SOURCE_FAMILY, RecapIngestionMaterializerInput, materialize_recap_ingestion_source_artifacts
+from graph_memory.recap_ingestion_materializer_report import analyze_recap_ingestion_materializer_output
+from graph_memory.recap_ingestion_projection_readiness import assess_recap_ingestion_projection_readiness
 
 EXPECTED_ARTIFACTS = {"normalized_recap_markdown", "breadcrumbed_recap_markdown", "frontmatter_seed_markdown", "session_memory_jsonl_meta", "corpus_impact_proof"}
 REQUIRED_FIELDS = {"payload_unit_id", "source_unit_id", "source_ref_id", "admitted_artifact_id", "artifact_kind", "projection_kind", "display_label", "display_summary", "semantic_state", "source_handle", "provenance", "safety"}

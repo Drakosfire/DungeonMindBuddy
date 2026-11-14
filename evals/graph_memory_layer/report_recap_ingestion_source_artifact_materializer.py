@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from src.graph_memory.recap_ingestion_materialize import (
+from graph_memory.recap_ingestion_materialize import (
     RecapIngestionMaterializerInput,
     materialize_recap_ingestion_source_artifacts,
     render_recap_ingestion_materialization_report,

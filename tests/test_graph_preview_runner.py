@@ -18,10 +18,10 @@ from apps.live_control_server.services.source_artifact_registry import (
 from graph_memory.ingestion.extraction_run import ExtractionRunStatus
 from graph_memory.source_span import source_span_index_to_dict
 from apps.live_control_server.services.source_artifact_registry import load_source_span_index
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
-from src.graph_memory.extraction.graph_preview_runner import (
+from graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionRequest,
     run_production_extraction,
 )
@@ -29,7 +29,7 @@ from graph_memory.extraction.recap_extraction_profile import (
     RECAP_PROFILE_ID,
     RECAP_PROFILE_VERSION,
 )
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
 from graph_memory.extraction.worldbuilding_plumbing_profile import (
     WORLDBUILDING_PLUMBING_PROFILE_ID,
     WORLDBUILDING_PLUMBING_PROFILE_VERSION,
@@ -312,15 +312,15 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     from apps.live_control_server.services.graph_run_registry import (
         assert_immutable_component_refs,
     )
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         FixtureCategoryGraphPassClient,
         extract_category_candidate_graph,
     )
-    from src.graph_memory.extraction.bounded_recap_execution import (
+    from graph_memory.extraction.bounded_recap_execution import (
         BoundedRecapPassClient,
         DEEPSEEK_MODEL,
     )
-    from src.graph_memory.extraction.worldbuilding_gazetteer_scenario_scope import (
+    from graph_memory.extraction.worldbuilding_gazetteer_scenario_scope import (
         GAZETTEER_PREPARED_SCENARIO_PROFILE,
     )
     from types import SimpleNamespace
@@ -409,7 +409,7 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
         return dataclass_replace(result, consolidation_diagnostics=diagnostics)
 
     monkeypatch.setattr(
-        "src.graph_memory.extraction.graph_preview_runner.extract_category_candidate_graph",
+        "graph_memory.extraction.graph_preview_runner.extract_category_candidate_graph",
         extract_with_extra_review_qualifier,
     )
     result = run_production_extraction(
@@ -656,7 +656,7 @@ def test_production_source_actor_uses_hydrated_spans_without_registry_suppressio
 
 
 def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None:
-    from src.graph_memory.candidate_graph_preview import (
+    from graph_memory.candidate_graph_preview import (
         candidate_graph_preview_from_dict,
         validate_candidate_graph_preview,
     )
@@ -760,7 +760,7 @@ def _run_recap_extraction(
 def _mutate_extracted_candidate(
     monkeypatch: pytest.MonkeyPatch, mutator: Any
 ) -> None:
-    from src.graph_memory.extraction import graph_preview_runner as runner
+    from graph_memory.extraction import graph_preview_runner as runner
 
     real = runner.extract_category_candidate_graph
 
@@ -1018,7 +1018,7 @@ def test_profile_post_extraction_validator_still_fails_generation(
         )
 
     monkeypatch.setattr(
-        "src.graph_memory.extraction.graph_preview_runner.require_admitted_profile",
+        "graph_memory.extraction.graph_preview_runner.require_admitted_profile",
         _with_validator,
     )
     _source, result = _run_recap_extraction(

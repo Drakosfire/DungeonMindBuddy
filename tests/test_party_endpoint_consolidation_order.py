@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.graph_memory.extraction.category_candidate_graph_extractor import consolidate_category_outputs
+from graph_memory.extraction.category_candidate_graph_extractor import consolidate_category_outputs
 
 
 def outputs(*, edge_source="node:heroes-party", include_party=True):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.graph_memory.diagnostics.cross_class_collision_report import (
+from graph_memory.diagnostics.cross_class_collision_report import (
     render_blocked_collision_markdown,
     summarize_blocked_collision_records,
 )

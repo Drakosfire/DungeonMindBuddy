@@ -15,14 +15,14 @@ from apps.live_control_server.services.source_artifact_registry import (
     load_source_span_index,
 )
 from graph_memory.source_span import source_span_index_to_dict
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     FixtureCategoryGraphPassClient,
 )
-from src.graph_memory.extraction.graph_preview_runner import (
+from graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionRequest,
     run_production_extraction,
 )
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
 from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
@@ -235,7 +235,7 @@ def test_pipeline_rejects_missing_evidence_as_non_reviewable(
     disables the promote projection drop so the production controller's
     missing-evidence gate (and profile validator) are exercised.
     """
-    from src.graph_memory.extraction import category_candidate_graph_extractor as extractor
+    from graph_memory.extraction import category_candidate_graph_extractor as extractor
 
     def _project_keep_empty_evidence(graph: dict, warning_count: int | None = None, **_kwargs: Any) -> dict:
         for edge in graph.get("edges") or []:

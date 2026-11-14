@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from src.graph_memory.candidate_graph_preview import (
+from graph_memory.candidate_graph_preview import (
     candidate_graph_preview_from_dict,
     validate_candidate_graph_preview,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     FixtureCategoryGraphPassClient,
     run_category_pipeline,
 )
-from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass
+from graph_memory.extraction.category_candidate_graph_schema import schema_for_pass
 
 
 def _span_index() -> dict[str, Any]:

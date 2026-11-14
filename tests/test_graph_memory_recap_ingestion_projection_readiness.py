@@ -5,9 +5,9 @@ import sys
 from pathlib import Path
 
 from evals.graph_memory_layer.report_recap_ingestion_source_artifact_materializer import DEFAULT_INPUTS
-from src.graph_memory.recap_ingestion_materialize import SCHEMA as MATERIALIZER_SCHEMA, SOURCE_FAMILY, RecapIngestionMaterializerInput, materialize_recap_ingestion_source_artifacts
-from src.graph_memory.recap_ingestion_materializer_report import REPORT_SCHEMA, analyze_recap_ingestion_materializer_output
-from src.graph_memory.recap_ingestion_projection_readiness import READINESS_SCHEMA, READINESS_VERSION, ANCHOR_CHECKS, ARTIFACT_CHECKS, EVIDENCE_CHECKS, REQUIRED_CHECK_IDS, SAFETY_CHECKS, UNIT_CHECKS, assess_recap_ingestion_projection_readiness, render_recap_ingestion_projection_readiness_report
+from graph_memory.recap_ingestion_materialize import SCHEMA as MATERIALIZER_SCHEMA, SOURCE_FAMILY, RecapIngestionMaterializerInput, materialize_recap_ingestion_source_artifacts
+from graph_memory.recap_ingestion_materializer_report import REPORT_SCHEMA, analyze_recap_ingestion_materializer_output
+from graph_memory.recap_ingestion_projection_readiness import READINESS_SCHEMA, READINESS_VERSION, ANCHOR_CHECKS, ARTIFACT_CHECKS, EVIDENCE_CHECKS, REQUIRED_CHECK_IDS, SAFETY_CHECKS, UNIT_CHECKS, assess_recap_ingestion_projection_readiness, render_recap_ingestion_projection_readiness_report
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DESIGN_REPORT = REPO_ROOT / "Docs" / "Reports" / "archive" / "2026-06-28" / "graph-memory" / "GRAPH-MEMORY-RECAP-INGESTION-PROJECTION-READINESS.md"

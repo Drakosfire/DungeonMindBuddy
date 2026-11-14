@@ -89,7 +89,7 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
     """One isolated APP/Core chain; provider fixtures do not claim model quality."""
     from datetime import UTC, datetime
     from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
-    import src.graph_memory.extraction.graph_preview_runner as producer
+    import graph_memory.extraction.graph_preview_runner as producer
     from application_state.source import service as sources
     from apps.live_control_server import config
     from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
@@ -303,7 +303,7 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
 
 @pytest.mark.parametrize("planning", [False, True])
 def test_ordinary_process_proposes_event_placement_from_saved_recap(client_env, monkeypatch, planning):
-    import src.graph_memory.extraction.graph_preview_runner as producer
+    import graph_memory.extraction.graph_preview_runner as producer
 
     client, root = client_env
     extract = producer.extract_category_candidate_graph

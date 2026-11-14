@@ -187,7 +187,7 @@ def model_policy_digest(repo_root: Path | None = None) -> str:
 
 
 def resolved_production_model_id() -> str:
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         resolve_category_graph_model,
     )
 
@@ -257,7 +257,7 @@ def freeze_current_corpus_manifest(repo_root: Path) -> FrozenManifest:
         pick_normalized_basename_from_disk,
         session_recaps_prefix,
     )
-    from src.graph_memory.evidence.source_artifact import build_world_scoped_recap_source_artifact_id
+    from graph_memory.evidence.source_artifact import build_world_scoped_recap_source_artifact_id
     from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
 
     corpus = default_corpus_root()
@@ -568,7 +568,7 @@ def _extract_session(
         load_source_span_index,
     )
     from graph_memory.source_span import source_span_index_to_dict
-    from src.graph_memory.extraction.graph_preview_runner import (
+    from graph_memory.extraction.graph_preview_runner import (
         ProductionExtractionRequest,
         run_production_extraction,
     )
@@ -576,7 +576,7 @@ def _extract_session(
         RECAP_PROFILE_ID,
         RECAP_PROFILE_VERSION,
     )
-    from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+    from graph_memory.extraction.source_adapter import NormalizedExtractionSource
 
     artifact = create_recap_source_artifact(
         repo_root,

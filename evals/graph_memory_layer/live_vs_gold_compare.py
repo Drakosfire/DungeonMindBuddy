@@ -1,7 +1,7 @@
 """Identity-resolution live candidate graph vs Session 23 gold comparison.
 
 This comparator matches candidate objects to gold by *meaning* rather than by
-exact id/label, using ``src.graph_memory.identity_resolution``:
+exact id/label, using ``graph_memory.identity_resolution``:
 
 - node-type **class** equivalence (``group`` ~ ``organization`` ~ ``faction``);
 - relationship **predicate family** folding (``works_with`` ~ ``allied_with``);
@@ -23,8 +23,8 @@ from evals.graph_memory_layer.session_23_candidate_graph_gold_fixture import (
     GOLD_FIXTURE_ID,
     parse_gold_candidate_graph,
 )
-from src.graph_memory import identity_resolution as ir
-from src.graph_memory.candidate_graph_preview import CandidateGraphPreview, candidate_graph_preview_from_dict
+from graph_memory import identity_resolution as ir
+from graph_memory.candidate_graph_preview import CandidateGraphPreview, candidate_graph_preview_from_dict
 
 COMPARISON_SCHEMA = "dmb_live_vs_gold_comparison_report_v0"
 COMPARISON_VERSION = "0.1"

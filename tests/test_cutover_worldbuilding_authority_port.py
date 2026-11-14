@@ -725,8 +725,8 @@ def _install_worldbuilding_repo(monkeypatch, tmp_path: Path, native_id=DEFAULT_W
     monkeypatch.setattr(promotable_mod, "repo_root", lambda: repo)
     monkeypatch.setattr(live_config, "world_graph_root", lambda: absent)
     from apps.live_control_server.services import graph_run_registry
-    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
-    from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+    from graph_memory.extraction.graph_preview_runner import _build_prepared_components
+    from graph_memory.extraction.source_adapter import NormalizedExtractionSource
     original_update = graph_run_registry.update_extraction_run_status
     def update_with_frozen_source(root, run_id, **kwargs):
         components = kwargs.get("components")

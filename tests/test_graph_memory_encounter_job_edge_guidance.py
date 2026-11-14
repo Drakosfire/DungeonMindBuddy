@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     FixtureCategoryGraphPassClient,
     run_category_pipeline,
 )
-from src.graph_memory.session_graph_context import PARTY_COLLECTIVE_NODE_ID
+from graph_memory.session_graph_context import PARTY_COLLECTIVE_NODE_ID
 
 
 def _span_index() -> dict[str, Any]:

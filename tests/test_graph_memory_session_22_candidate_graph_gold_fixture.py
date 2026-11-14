@@ -7,7 +7,7 @@ from pathlib import Path
 
 from evals.graph_memory_layer.session_22_candidate_graph_gold_fixture import *
 from evals.graph_memory_layer.session_22_recap_ingest_fixture import load_manifest, load_normalized_recap, validate_manifest
-from src.graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
+from graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
 
 
 def test_source_manifest_and_gold_manifest() -> None:

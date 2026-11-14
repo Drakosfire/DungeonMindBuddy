@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     FixtureCategoryGraphPassClient,
     run_category_pipeline,

@@ -4,13 +4,13 @@ from copy import deepcopy
 
 import pytest
 
-from src.graph_memory.extraction.worldbuilding_gazetteer_scenario_scope import (
+from graph_memory.extraction.worldbuilding_gazetteer_scenario_scope import (
     GAZETTEER_PREPARED_SCENARIO_PROFILE,
     compile_gazetteer_scenario_scope,
     prepared_scenario_sections,
     retain_durable_gazetteer_scope,
 )
-from src.graph_memory.extraction.worldbuilding_source_sections import (
+from graph_memory.extraction.worldbuilding_source_sections import (
     SourceSectionRetentionError,
 )
 
