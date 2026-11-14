@@ -2324,9 +2324,11 @@ def test_plan_profile_requires_typed_continuity_flag_not_surface_prose(
 
 
 def test_encode_turn_request_wire_respects_max_bytes() -> None:
-    request = _request(question="x" * MAX_QUESTION_CHARS)
-    raw = encode_turn_request_wire(request)
-    assert len(raw) <= MAX_WIRE_BYTES
+    baseline = encode_turn_request_wire(_request(question="x"))
+    question_size = MAX_WIRE_BYTES - len(baseline) + 1
+    assert len(encode_turn_request_wire(_request(question="x" * question_size))) == MAX_WIRE_BYTES
+    with pytest.raises(ValueError, match="wire payload exceeds max bytes"):
+        encode_turn_request_wire(_request(question="x" * (question_size + 1)))
 
 
 def test_host_uses_spawn_start_method() -> None:
