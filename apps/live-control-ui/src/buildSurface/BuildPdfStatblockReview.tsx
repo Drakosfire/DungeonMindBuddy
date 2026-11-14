@@ -7,8 +7,9 @@ import type { SavedMechanicsVersionList } from "../statblocks/revision/savedMech
 import { authenticatedApiFetch, getThreatDraft, listSavedMechanicsVersions } from "../api/liveApi";
 import type { PdfLocator } from "../api/retainedPdfRegions";
 import type { ValidationIssueV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
+import { StatblockRenderer } from "../statblocks/render/StatblockRenderer";
 import { StatblockDefinitionEditor } from "../statblocks/editor/StatblockDefinitionEditor";
-import { createEditorStateFromOutput, getLocalFingerprint, updateWorkingCopy, type EditableStatblockOutput, type StatblockEditorState } from "../statblocks/editor/statblockEditorState";
+import { createEditorStateFromOutput, getLocalFingerprint, readHitPointsMax, setHitPointsMax, setRuleElementRulesText, updateWorkingCopy, type EditableStatblockOutput, type StatblockEditorState } from "../statblocks/editor/statblockEditorState";
 import "./BuildPdfStatblockReview.css";
 
 type Review = {
@@ -422,6 +423,13 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     ...issues.filter(issue => issue.severity === "error").map(issue => issue.message),
   ] : [];
 
+  function commitEdit(state: StatblockEditorState<EditableStatblockOutput>) {
+    setEditor(state);
+    setSaved(false);
+    setValidation("");
+    setIssues([]);
+  }
+
   return (
     <section className="pdf-statblock-review" aria-label="PDF statblock review">
       <header className="pdf-statblock-review__toolbar">
@@ -481,6 +489,30 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         <button disabled={pending} type="submit">Set walking speed</button>
       </form>}
       {review && editor && <>
+        <StatblockRenderer draft={{
+          definition: editor.workingCopy,
+          hitPoints: <details>
+            <summary>{readHitPointsMax(editor.workingCopy.vitality.hit_points)} HP</summary>
+            <label>Maximum hit points
+              <input type="number" min="1" step="1" disabled={pending}
+                value={readHitPointsMax(editor.workingCopy.vitality.hit_points)}
+                onChange={event => {
+                  const value = event.currentTarget.valueAsNumber;
+                  if (Number.isSafeInteger(value) && value > 0) commitEdit(setHitPointsMax(editor, value));
+                }} />
+            </label>
+          </details>,
+          ruleEditor: (key, name) => <details>
+            <summary>Edit {name}</summary>
+            <label>{name} rules text
+              <textarea disabled={pending}
+                value={editor.workingCopy.rule_elements.find(element => element.key === key)?.rules_text ?? ""}
+                onChange={event => commitEdit(setRuleElementRulesText(editor, key, event.currentTarget.value))} />
+            </label>
+          </details>,
+        }} />
+        <details>
+          <summary>More statblock fields</summary>
         <fieldset disabled={pending}>
           <label>D&D edition
             <select value={editor.workingCopy.ruleset?.edition ?? ""} onChange={event => {
@@ -562,9 +594,10 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
             </>}
           </section>}
           <StatblockDefinitionEditor editRuleMechanics output={review.definition} editorState={editor}
-            onEditorStateChange={state => { setEditor(state); setSaved(false); setValidation(""); setIssues([]); }}
+            onEditorStateChange={commitEdit}
             recoveryHint="Save the review draft to keep your edits." />
         </fieldset>
+        </details>
       </>}
       </BuildSourceWorkspace>
     </section>

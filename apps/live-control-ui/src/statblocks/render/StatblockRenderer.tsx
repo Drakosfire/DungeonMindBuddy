@@ -10,6 +10,7 @@ import "./StatblockRenderer.css";
 
 import {
   buildStatblockViewModel,
+  buildDraftStatblockViewModel,
   formatModifier,
   groupRuleElementsBySection,
   type FormattedRuleElement,
@@ -18,6 +19,12 @@ import {
 } from "./statblockViewModel";
 
 export type StatblockRendererChrome = "default" | "campaign";
+
+type DraftProjection = {
+  definition: Parameters<typeof buildDraftStatblockViewModel>[0];
+  hitPoints: ReactNode;
+  ruleEditor: (key: string, name: string) => ReactNode;
+};
 
 export type StatblockRendererProps =
   | {
@@ -32,7 +39,8 @@ export type StatblockRendererProps =
       revision: StatblockRevisionResourceV1;
       mode?: StatblockRenderMode;
       chrome?: StatblockRendererChrome;
-    };
+    }
+  | { candidate?: never; revision?: never; draft: DraftProjection; mode?: never; chrome?: never };
 
 /** Native bindings own image identity; this projection only admits web image URLs. */
 function SavedPortrait({asset,name}:{asset:AssetRefV1;name:string}) {
@@ -503,16 +511,18 @@ export function StatblockRenderer({
   revision,
   mode = "review",
   chrome = "default",
+  ...options
 }: StatblockRendererProps) {
+  const draft = "draft" in options ? options.draft : undefined;
   const source = candidate ?? revision;
-  if (!source) {
+  if (!source && !draft) {
     throw new Error("StatblockRenderer requires candidate or revision");
   }
   if (candidate && revision) {
     throw new Error("StatblockRenderer accepts candidate or revision, not both");
   }
 
-  const view = buildStatblockViewModel(source, mode);
+  const view = draft ? buildDraftStatblockViewModel(draft.definition) : buildStatblockViewModel(source!, mode);
   const sections = groupRuleElementsBySection(view.ruleElements);
   const campaignChrome = chrome === "campaign";
   const binding=revision?.asset_bindings?.find(item=>item.role==='portrait'&&item.phase_key==null);
@@ -535,10 +545,11 @@ export function StatblockRenderer({
           <header className="statblock-renderer-header">
             <h3>{view.name}</h3>
             <p className="statblock-renderer-identity">{view.identityLine}</p>
-            <p className="statblock-renderer-meta">
+            {!draft && <p className="statblock-renderer-meta">
               {view.recordKind === "revision" ? "Revision" : "Candidate"}{" "}
               <code>{view.candidateId}</code> · {view.challengeSummary}
-            </p>
+            </p>}
+            {draft && <p>{view.challengeSummary}</p>}
             {view.flavorSummary ? <p className="statblock-renderer-flavor">{view.flavorSummary}</p> : null}
           </header>
           {portrait}
@@ -550,7 +561,7 @@ export function StatblockRenderer({
             </div>
             <div>
               <dt>Hit Points</dt>
-              <dd>{view.hitPointsSummary}</dd>
+              <dd>{draft ? draft.hitPoints : view.hitPointsSummary}</dd>
             </div>
             <div>
               <dt>Speed</dt>
@@ -611,7 +622,10 @@ export function StatblockRenderer({
             <section key={section} className="statblock-renderer-section" aria-label={`${section} rule elements`}>
               <h4>{section.replace(/_/g, " ")}</h4>
               {elements.map((element) => (
-                <RuleElementBlock key={element.key} element={element} />
+                <div key={element.key}>
+                  <RuleElementBlock element={element} />
+                  {draft?.ruleEditor(element.key, element.name)}
+                </div>
               ))}
             </section>
           ))}
