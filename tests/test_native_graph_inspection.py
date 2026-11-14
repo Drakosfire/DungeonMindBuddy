@@ -925,3 +925,72 @@ def test_shared_native_neighborhood_requires_authentication(inspection, monkeypa
         },
     )
     assert response.status_code == 401, response.text
+
+
+def test_shared_exact_object_selects_one_native_node(inspection, monkeypatch):
+    from apps.live_control_server.routes import world_graph_retrieval as routes
+    from fastapi.testclient import TestClient
+
+    lane = inspection
+    monkeypatch.setenv("DMB_NATIVE_EXACT_OBJECT_WORLD", "managed")
+    monkeypatch.setattr(routes, "get_campaign_object", lambda _: pytest.fail("classic object fallback"))
+    lane.app.include_router(routes.router)
+    node_id = lane.objects["object:0"]
+    response = lane.client.post(
+        "/api/live/world-graph/retrieval/object",
+        json={
+            "schema": "dmb_world_graph_object_request_v1",
+            "worldId": "managed",
+            "campaignId": lane.lane.run.campaign_id,
+            "nodeId": node_id,
+            "bounds": {"maxNodes": 1},
+        },
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["operation"] == "object"
+    assert payload["requestSummary"] == {"node_id": node_id}
+    assert payload["resolvedNodeId"] == node_id
+    assert [node["nodeId"] for node in payload["nodes"]] == [node_id]
+    assert payload["relationships"]
+    anchor, = payload["sourceAnchors"]
+    assert lane.assertions["name:0"] in anchor["supportingAssertionIds"]
+    opened = lane.client.post(
+        "/api/live/world-graph/retrieval/source-anchor/read",
+        json={
+            "schema": "dmb_world_graph_source_anchor_read_request_v1",
+            "worldId": "managed",
+            "campaignId": lane.lane.run.campaign_id,
+            "revisionPin": payload["snapshot"]["revisionId"],
+            "anchorId": anchor["anchorId"],
+        },
+    )
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["content"] == lane.lane.text.split("\r\n\r\n", 1)[0] + "\r\n"
+
+    missing = lane.client.post(
+        "/api/live/world-graph/retrieval/object",
+        json={
+            "schema": "dmb_world_graph_object_request_v1",
+            "worldId": "managed",
+            "campaignId": lane.lane.run.campaign_id,
+            "nodeId": "ent:missing",
+            "revisionPin": payload["snapshot"]["revisionId"],
+        },
+    )
+    assert missing.status_code == 200, missing.text
+    assert missing.json()["outcome"] == "empty"
+    assert missing.json()["snapshot"]["revisionId"] == payload["snapshot"]["revisionId"]
+    assert missing.json()["resolvedNodeId"] is None
+
+    with TestClient(lane.app, client=("127.0.0.1", 50000)) as anonymous:
+        denied = anonymous.post(
+            "/api/live/world-graph/retrieval/object",
+            json={
+                "schema": "dmb_world_graph_object_request_v1",
+                "worldId": "managed",
+                "campaignId": lane.lane.run.campaign_id,
+                "nodeId": node_id,
+            },
+        )
+    assert denied.status_code == 401, denied.text

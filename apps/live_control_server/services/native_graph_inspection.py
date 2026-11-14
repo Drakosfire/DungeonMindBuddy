@@ -425,15 +425,7 @@ def open_neighborhood_anchor(request, principal):
 _shared_neighborhood_parsed_cache = NativeParsedRevisionCache()
 
 
-def shared_neighborhood(request, principal):
-    from graph_memory.retrieval.models import (
-        WorldGraphRetrievalCoverage,
-        WorldGraphRetrievalResult,
-        WorldGraphRetrievalSnapshot,
-        WorldGraphSourceAnchor,
-    )
-    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import native_anchor_id
-
+def _shared_retrieval_pin(request, principal):
     require_native_graph_gm(principal)
     if request.admissibility != principal.role:
         raise InspectionUnavailable("native_neighborhood_scope_mismatch")
@@ -449,15 +441,58 @@ def shared_neighborhood(request, principal):
         scope_mode=request.scope_mode,
         campaign_id=request.campaign_id if request.scope_mode == "campaign" else None,
     )
+    return bound, head, pin
+
+
+def shared_exact_object(request, principal):
+    from graph_memory.retrieval.models import WorldGraphNeighborhoodRequest
+
+    neighborhood = WorldGraphNeighborhoodRequest(
+        schema="dmb_world_graph_neighborhood_request_v1",
+        seedNodeIds=[request.node_id],
+        maxDepth=1,
+        **request.model_dump(by_alias=True, exclude={"schema_", "node_id"}),
+    )
+    return shared_neighborhood(neighborhood, principal, object_id=request.node_id)
+
+
+def shared_neighborhood(request, principal, *, object_id=None):
+    from graph_memory.retrieval.models import (
+        WorldGraphRetrievalCoverage,
+        WorldGraphRetrievalResult,
+        WorldGraphRetrievalSnapshot,
+        WorldGraphSourceAnchor,
+    )
+    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import native_anchor_id
+
+    bound, head, pin = _shared_retrieval_pin(request, principal)
     from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import (
         map_nodes, map_relationships, read_neighborhood,
     )
     _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
-    result, bounded = read_neighborhood(
-        read, request.seed_node_ids, request.max_depth, request.bounds
-    )
     attributes = []
-    nodes = map_nodes(read, bounded, attributes=attributes)
+    selected = None
+    if object_id is not None:
+        from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import BoundedNeighborhood, map_entity_result
+        from dungeonmind.application.vnext.records import ParsedEntityRefValue
+
+        result = EntityReadService().get_complete_entity(read, object_id)
+        relationships = sorted(
+            (row for row in result.assertions if isinstance(row.value, ParsedEntityRefValue)),
+            key=lambda row: row.assertion_id,
+        )
+        cap = request.bounds.max_relationships
+        bounded = BoundedNeighborhood(
+            node_ids=(object_id,) if result.found else (),
+            edges=tuple(relationships[:cap]),
+            nodes_truncated=False,
+            relationships_truncated=len(relationships) > cap,
+        )
+        selected = EntityReadService().get_entity(read, object_id) if result.found else None
+        nodes = [map_entity_result(selected, object_id, attributes=attributes)] if selected else []
+    else:
+        result, bounded = read_neighborhood(read, request.seed_node_ids, request.max_depth, request.bounds)
+        nodes = map_nodes(read, bounded, attributes=attributes)
     edges = map_relationships(read, result, bounded)
     evidence = {row.evidence_ref_id: row for row in result.evidence}
     artifacts = {row.source_artifact_id: row for row in result.source_artifacts}
@@ -490,6 +525,34 @@ def shared_neighborhood(request, principal):
             supporting_assertion_ids=assertion_ids,
             readable=ref.can_open_source, locator_kind="source_span",
         ))
+    if selected is not None:
+        by_id = {anchor.evidence_ref_id: anchor for anchor in anchors}
+        selected_sources = {source.source_artifact_id: source for source in selected.source_artifacts}
+        for ref in selected.evidence:
+            if ref.evidence_role != "support" or not ref.source_span_ref_id:
+                continue
+            supporters = {
+                row.assertion_id for row in selected.assertions
+                if ref.evidence_ref_id in row.metadata.evidence_ref_ids
+            }
+            if not supporters:
+                continue
+            existing = by_id.get(ref.evidence_ref_id)
+            if existing is not None:
+                existing.supporting_assertion_ids = sorted(supporters.union(existing.supporting_assertion_ids))
+                continue
+            by_id[ref.evidence_ref_id] = WorldGraphSourceAnchor(
+                anchor_id=native_anchor_id(min(supporters), ref.evidence_ref_id),
+                revision_id=pin.revision_id,
+                evidence_ref_id=ref.evidence_ref_id,
+                source_artifact_id=ref.source_artifact_id,
+                source_domain=_source_domain(selected_sources[ref.source_artifact_id].source_classification),
+                source_span_ref_id=ref.source_span_ref_id,
+                supporting_graph_object_ids=[object_id],
+                supporting_assertion_ids=sorted(supporters),
+                readable=ref.can_open_source, locator_kind="source_span",
+            )
+        anchors = [by_id[key] for key in sorted(by_id)]
     _response(bound, pin)
     truncated = [
         field for field in ("nodes", "relationships") if getattr(bounded, f"{field}_truncated")
@@ -499,9 +562,11 @@ def shared_neighborhood(request, principal):
     attributes.sort(key=lambda row: row.assertion_id)
     if len(attributes) > request.bounds.max_attributes:
         truncated.append("attributes")
-    missing = list(result.missing_seed_entity_ids)
+    missing = [] if object_id is not None else list(result.missing_seed_entity_ids)
     return WorldGraphRetrievalResult(
-        operation="neighborhood",
+        operation="object" if object_id is not None else "neighborhood",
+        requested_node_id=object_id,
+        resolved_node_id=object_id if nodes else None,
         outcome="partial" if truncated or missing else "enough" if nodes else "empty",
         snapshot=WorldGraphRetrievalSnapshot(
             world_id=request.world_id, campaign_id=request.campaign_id,
@@ -510,10 +575,12 @@ def shared_neighborhood(request, principal):
             focus=request.focus.to_projection_focus(), admissibility=request.admissibility,
             scope_mode=request.scope_mode,
         ),
-        request_summary={
-            "seed_node_ids": list(request.seed_node_ids),
-            "max_depth": request.max_depth,
-        },
+        request_summary=(
+            {"node_id": object_id} if object_id is not None else {
+                "seed_node_ids": list(request.seed_node_ids),
+                "max_depth": request.max_depth,
+            }
+        ),
         nodes=nodes, relationships=edges,
         attributes=attributes[:request.bounds.max_attributes],
         source_anchors=anchors[:request.bounds.max_source_anchors],
