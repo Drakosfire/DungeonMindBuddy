@@ -396,3 +396,15 @@ Historical — satisfied by merged DungeonMind PR #34 (`935d3d91…` / `d2204dd0
 - [x] No DungeonMind `src/` or `migrations/` edits
 - [x] Product-authority switch remains false
 - [x] Post-merge Buddy sync set includes this handoff marked `DONE / HISTORICAL — do not redispatch` with PR/head/merge/review-cycle evidence
+
+## Retrieve the sealed input from Git
+
+Run this from a Buddy checkout with the pinned commit in its history.
+
+```bash
+set -o pipefail
+git show f1c748848fa6a1e4323dde4c7a2f5bad93b4acdc:graph_data/approved_existing_world_adoptions/eldyrwild/dungeonmind-v6/bundle.json |
+  sha256sum -c <(printf '%s  -\n' 90574dfc4101e4198c7fd96478d6f49e65aa534d0aa91fa41a9a17da9d49695f)
+```
+
+After the checksum passes, use the same `git show` command to write the sealed input to a disposable destination for replay.
