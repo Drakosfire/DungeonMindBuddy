@@ -600,7 +600,9 @@ def worldbuilding_review_context(request, principal):
              "fields": _fields("node", row)}
             for row in preview.nodes
         ] + [
-            {"kind": "edge", "record_id": row.edge_id, "fields": {}}
+            {"kind": "edge", "record_id": row.edge_id, "fields": {},
+             "from_record_id": row.from_node_id, "to_record_id": row.to_node_id,
+             "relationship_type": row.relationship_type}
             for row in preview.edges
         ],
         "prepare_coordinates": coordinates.model_dump(exclude={"selections"}),

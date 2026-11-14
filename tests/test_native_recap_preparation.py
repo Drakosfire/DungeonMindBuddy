@@ -1541,6 +1541,14 @@ def test_worldbuilding_context_binds_saved_source_and_native_prepare(world_lane)
             if fact.get("index") is not None:
                 field = f'{field}:{fact["index"]}'
             assert field in record["fields"]
+    edges = [row for row in records.values() if row["kind"] == "edge"]
+    assert edges
+    assert all(
+        ("node", row["from_record_id"]) in records
+        and ("node", row["to_record_id"]) in records
+        and row["relationship_type"]
+        for row in edges
+    )
     wrong = x.client.post(path, json={**request, "source_sha256": "0" * 64}, headers=headers)
     assert wrong.status_code == 409, wrong.text
     assert x.repo.head_events(SPACE_ID) == before
