@@ -1387,6 +1387,10 @@ export async function getSurface(): Promise<LiveSurfaceResponse> {
   return apiFetch<LiveSurfaceResponse>("/api/live/surface");
 }
 
+export async function getSurfaceSessionViews(): Promise<LiveSurfaceResponse & LiveEventsResponse & LiveJobsResponse & { plan_view: PlanViewProjection }> {
+  return apiFetch("/api/live/surface?include_session_views=true");
+}
+
 export async function getEvents(since?: string): Promise<LiveEventsResponse> {
   const query = since ? `?since=${encodeURIComponent(since)}` : "";
   return apiFetch<LiveEventsResponse>(`/api/live/events${query}`);

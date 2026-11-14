@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getEvents, getJobs, getPlanView, getSurface } from "./api/liveApi";
+import { getSurface, getSurfaceSessionViews } from "./api/liveApi";
 import type {
   LiveEvent,
   LiveJob,
@@ -41,18 +41,13 @@ export function LiveControlApp() {
   const [inspectorPane, setInspectorPane] = useState<InspectorPaneState>({ status: "closed" });
 
   const refreshAll = useCallback(async () => {
-    const surface = await getSurface();
-    const [eventsResponse, jobsResponse, planViewResponse] = await Promise.all([
-      getEvents(),
-      getJobs(),
-      getPlanView(),
-    ]);
+    const surface = await getSurfaceSessionViews();
     setCatalog(surface.catalog);
     setLayout(surface.layout);
     setState(surface.state);
-    setEvents(eventsResponse.events);
-    setJobs(jobsResponse.jobs);
-    setPlanView(planViewResponse);
+    setEvents(surface.events);
+    setJobs(surface.jobs);
+    setPlanView(surface.plan_view);
   }, []);
 
   useEffect(() => {
