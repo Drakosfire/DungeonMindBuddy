@@ -136,6 +136,13 @@ reviewed SHA with the verifier's validate subcommand. Dirty-runner results are
 working-tree diagnostics, not qualifying evidence. Never reuse a different SHA,
 modified report, stale inventory or failed/incomplete run as a passing check.
 
+For ad hoc browser, build, or database verification that needs substantial
+scratch space, verify the same Projects filesystem before allocating a task
+directory. Use `mktemp -d "$HOME/Projects/.codex/buddy-check.XXXXXX"` and
+place that task's temporary files and dependency caches inside it. Remove
+disposable outputs when the check finishes and retain evidence referenced
+by the handoff.
+
 For frontend changes also run the full default-discovered diagnostic (`--suite
 discovered`) at a meaningful integrated checkpoint, avoiding duplicate heavy runs.
 Keep known legacy failures visibly red with exact IDs/source/environment/results;
