@@ -1278,7 +1278,7 @@ def test_hosted_entity_read_returns_pdf_reference_without_rendering(hosted, monk
     request = _inspection_payload(hosted, entity_id)
 
     def pinned(scope, principal):
-        return inspection_service.native.binding(scope.managed_world_id), None, None, scope
+        return inspection_service.native.binding(scope.managed_world_id), None, None, scope, None
 
     class FixtureEntityReader:
         def list_entities(self, read):
