@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass
 from hashlib import blake2s
 from typing import Any
 
-from src.graph_memory.ontology_ir import GraphBundle, GraphNode, ProvenanceRef, SourceRef
+from graph_memory.ontology_ir import GraphBundle, GraphNode, ProvenanceRef, SourceRef
 from src.graph_memory.session_memory_materialize import ADMITTED_SOURCE_FAMILY, CREATED_BY
 
 SCHEMA = "dmb_projection_readiness_report_v0"

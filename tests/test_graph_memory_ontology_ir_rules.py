@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from evals.graph_memory_layer.validate_ontology_ir_rules import _load_bundle
-from src.graph_memory.ontology_ir import GraphBundle, GraphEdge, GraphNode, ProvenanceRef, SourceRef, TaxonomyRef
+from graph_memory.ontology_ir import GraphBundle, GraphEdge, GraphNode, ProvenanceRef, SourceRef, TaxonomyRef
 from src.graph_memory.validation_rules import load_taxonomy_registry, validate_bundle_against_taxonomy
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

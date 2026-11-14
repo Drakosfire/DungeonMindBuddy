@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-from src.graph_memory.ontology_ir import GraphBundle, GraphEdge, GraphNode, ProvenanceRef, SourceRef, TaxonomyRef, ValidationStatus
+from graph_memory.ontology_ir import GraphBundle, GraphEdge, GraphNode, ProvenanceRef, SourceRef, TaxonomyRef, ValidationStatus
 from src.graph_memory.report import GraphReport, RecordSummary, build_graph_report, summarize_records
 from src.graph_memory.validation_rules import ValidationIssue, load_taxonomy_registry, validate_bundle_against_taxonomy
 
