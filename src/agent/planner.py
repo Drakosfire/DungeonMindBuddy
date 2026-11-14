@@ -54,7 +54,7 @@ from src.agent.session_memory_query import (
     env_session_memory_records_path,
     load_session_memory_records_from_env,
 )
-from src.prompts.corpus_session_planner import (
+from prompts.corpus_session_planner import (
     STATBLOCK_TOOL_DESCRIPTION,
     STATBLOCK_VIA_RESPONSES_SYSTEM,
     build_corpus_session_planner_instructions,
