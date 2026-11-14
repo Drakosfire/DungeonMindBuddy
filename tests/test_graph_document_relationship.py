@@ -287,6 +287,16 @@ def test_signed_native_review_publishes_once(case, graph, monkeypatch):
     assert repo.open_native_source_view(space).epoch == epoch
 
     confirmed = {'review': review, **preview.json()}
+    from copy import deepcopy
+
+    tampered = deepcopy(confirmed)
+    tampered['prepared']['extension']['spans'][0]['start_byte'] += 1
+    rejected = case.client.post(f'{prefix}/native-confirm', json=tampered)
+    assert rejected.status_code == 409, rejected.text
+    assert rejected.json()['detail']['code'] == 'confirmation_invalid'
+    assert repo.get_head(space) == head
+    assert repo.open_native_source_view(space).epoch == epoch
+
     receipt = case.client.post(f'{prefix}/native-confirm', json=confirmed)
     assert receipt.status_code == 200, receipt.text
     child = repo.get_revision(space, receipt.json()['child_revision_id'])
