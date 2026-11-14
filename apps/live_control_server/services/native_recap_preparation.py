@@ -558,7 +558,7 @@ def worldbuilding_review_context(request, principal):
     _require(bool(artifact.workspace_document_id) and artifact.workspace_document_revision is not None,
              "candidate_workspace_source_required")
     repo = native.repository()
-    context, _ = native.access_context(repo, bound["native_world_id"])
+    context, access = native.access_context(repo, bound["native_world_id"])
     coordinates = NativeWorldbuildingPrepareRequest(
         managed_world_id=request.managed_world_id,
         run_id=request.run_id,
@@ -570,7 +570,20 @@ def worldbuilding_review_context(request, principal):
         workspace_document_revision=artifact.workspace_document_revision,
         selections=[],
     )
-    _resolve_source(coordinates, root, bound, data)
+    _, admitted = _resolve_source(coordinates, root, bound, data)
+    evidence = []
+    for ref in access.parsed.evidence_by_id.values():
+        if (ref.evidence_role != "support" or ref.source_artifact_id != admitted.source_artifact_id
+                or ref.source_revision_id != admitted.source_revision_id):
+            continue
+        opened = open_admitted_native_text(access, ref.evidence_ref_id)
+        if opened.status == "available":
+            _require_source_match(opened, admitted)
+            evidence.append({
+                "evidence_ref_id": ref.evidence_ref_id,
+                "start_byte": opened.span_start_byte,
+                "end_byte": opened.span_end_byte,
+            })
     preview = _reviewable_preview(data)
     _require(native.binding(request.managed_world_id) == bound, "candidate_binding_changed")
     return {
@@ -578,6 +591,7 @@ def worldbuilding_review_context(request, principal):
         "binding": bound,
         "source_artifact_id": artifact.source_artifact_id,
         "source_sha256": artifact.content_sha256,
+        "source_support": sorted(evidence, key=lambda row: row["evidence_ref_id"]),
         "records": [
             {"kind": "node", "record_id": row.node_id, "label": row.label,
              "fields": _fields("node", row)}
