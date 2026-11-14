@@ -618,3 +618,19 @@ def test_product_complete_object_dispatches_selected_world_to_native(inspection,
     assert rejected.status_code == 409, rejected.text
     x.client.headers.pop("Authorization")
     assert x.client.post(route, json=request).status_code == 401
+
+
+def test_catalog_fetches_the_pinned_revision_once(inspection, monkeypatch):
+    repo = inspection.lane.repo
+    get_revision = repo.get_revision
+    reads = []
+
+    def count_revision_read(space_id, revision_id):
+        reads.append((space_id, revision_id))
+        return get_revision(space_id, revision_id)
+
+    monkeypatch.setattr(repo, "get_revision", count_revision_read)
+    result = catalog(inspection, scope_mode="campaign", campaign_id=inspection.lane.run.campaign_id)
+    scope = result["scope"]
+    assert reads == [(scope["native_world_id"], scope["revision_id"])]
+    assert result["assertions"]
