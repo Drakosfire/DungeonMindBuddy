@@ -30,7 +30,7 @@ REAL_CAMPAIGN_TERMS = {
     "Stonebridge", "Stone Bridge", "Rivers Edge", "River's Edge", "Mireward", "Hester", "Glowkindle", "Grishna",
 }
 FORBIDDEN_IMPORT_SNIPPETS = {
-    "src.agent.session_memory_query", "src.agent.planner_retrieval_router", "src.live_play.manifest_context_query",
+    "src.agent.session_memory_query", "src.agent.planner_retrieval_router", "live_play.manifest_context_query",
     "src.session_memory.capture", "src.session_memory.breadcrumb_normalize", "corpus.session_recap_paths",
     "scripts.materialize_session_memory", "openai", "anthropic",
 }

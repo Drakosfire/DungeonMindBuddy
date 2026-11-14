@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 
 def repo_root() -> Path:
+    release_root = os.environ.get("DMB_LIVE_PLAY_ROOT")
+    if release_root:
+        return Path(release_root).resolve()
     return Path(__file__).resolve().parents[2]
 
 

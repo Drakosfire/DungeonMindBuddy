@@ -14,8 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.live_play.manifest_context_query import QueryConfig, QueryRequest, build_context_packet, load_manifest
-from src.live_play.session_paths import repo_root
+from live_play.manifest_context_query import QueryConfig, QueryRequest, build_context_packet, load_manifest
+from live_play.session_paths import repo_root
 
 ROOT = repo_root()
 

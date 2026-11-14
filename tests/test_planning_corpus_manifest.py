@@ -21,7 +21,7 @@ from src.live_play.planning_corpus_manifest import (
     render_manifest_markdown,
 )
 from src.live_play.session_bootstrap import bootstrap_session_workspace
-from src.live_play.session_paths import live_sessions_root
+from live_play.session_paths import live_sessions_root
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "schemas/live/planning_corpus_manifest.schema.json"

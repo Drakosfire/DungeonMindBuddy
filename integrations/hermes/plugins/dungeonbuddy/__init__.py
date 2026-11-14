@@ -171,12 +171,12 @@ def _resolve_document_path(rel_path: str) -> Path | None:
 
 def _manifest_imports() -> tuple[Any, ...]:
     _ensure_repo_on_path()
-    from src.live_play.live_query_context import (
+    from live_play.live_query_context import (
         _default_query_config,
         assign_evidence_ids,
         resolve_manifest_path,
     )
-    from src.live_play.manifest_context_query import (
+    from live_play.manifest_context_query import (
         build_context_packet,
         load_manifest,
         QueryRequest,

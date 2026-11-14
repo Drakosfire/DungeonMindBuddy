@@ -44,7 +44,7 @@ from corpus.session_recap_paths import (
     session_memory_meta_relpath,
     session_recaps_prefix,
 )
-from src.live_play.session_paths import repo_root
+from live_play.session_paths import repo_root
 
 SCHEMA_ID = "dmb_c2s23_planning_corpus_manifest_v0"
 DOGFOOD_FULL_SCHEMA_ID = "dmb_c2s23_dogfood_full_manifest_v1"

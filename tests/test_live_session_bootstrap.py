@@ -20,7 +20,7 @@ from src.live_play.session_bootstrap import (
     build_live_packet,
 )
 from src.live_play.recap_ingestion import ingest_recap_markdown
-from src.live_play.session_paths import live_sessions_root, resolve_allowed_output_dir
+from live_play.session_paths import live_sessions_root, resolve_allowed_output_dir
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_DIR = ROOT / "schemas/live"
