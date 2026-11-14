@@ -402,7 +402,7 @@ it("replays a retained native publication when Graph Review reopens", async () =
   expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
 });
 
-it("prepares the explicitly selected fact and confirms its exact native packet", async () => {
+it.each([false, true])("prepares selected facts and confirms the exact packet (bind existing: %s)", async bindExisting => {
   vi.stubEnv("VITE_NATIVE_WORLDBUILDING_WORLD", "world-a");
   try {
     const coordinates = {
@@ -429,6 +429,10 @@ it("prepares the explicitly selected fact and confirms its exact native packet",
       .mockResolvedValue({ recovered: false, result: { child_revision_id: "rev:2" } });
     render(<GraphReviewWorldbuildingPublication review={review} />);
     fireEvent.change(await screen.findByLabelText("Candidate object"), { target: { value: "npc:a" } });
+    if (bindExisting) {
+      fireEvent.change(screen.getByLabelText("Object action"), { target: { value: "existing" } });
+      fireEvent.change(screen.getByLabelText("Existing object ID"), { target: { value: "ent:mara" } });
+    }
     const facts = screen.getByLabelText("Facts") as HTMLSelectElement;
     for (const option of facts.options) option.selected = true;
     fireEvent.change(facts);
@@ -437,7 +441,8 @@ it("prepares the explicitly selected fact and confirms its exact native packet",
     const submit = await screen.findByRole("button", { name: "Confirm native publication" });
     expect(prepare.mock.calls[0][0]).toEqual({
       ...coordinates,
-      selections: [{ kind: "node", record_id: "npc:a", action: "create", facts: ["label", "node_type"].map(field => ({
+      selections: [{ kind: "node", record_id: "npc:a", action: bindExisting ? "use_existing" : "create",
+        ...(bindExisting ? {entity_id: "ent:mara"} : {}), facts: ["label", "node_type"].map(field => ({
         field, metadata: {
           evidence_ref_ids: ["support:a"],
           visibility: { kind: "labels_any", labels: ["dungeonbuddy.visibility:gm"] },
