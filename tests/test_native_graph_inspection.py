@@ -446,6 +446,8 @@ def test_native_complete_object_binding_opens_exact_pinned_citation(inspection):
     expected = x.lane.text.splitlines(keepends=True)[0].encode()
     assert source["text"].encode() == expected
     assert binding["excerpt"].encode() == expected
+    assert result["node"]["adjacency"][0]["sourceExcerpt"].encode() == expected
+    assert result["relatedNodes"][0]["adjacency"][0]["sourceExcerpt"].encode() == expected
     # Classic presentation trims the paragraph delimiter. Native citation keeps it.
     from apps.live_control_server.models.world_graph_object_projection import (
         WorldGraphObjectProjectionSourceBinding,
