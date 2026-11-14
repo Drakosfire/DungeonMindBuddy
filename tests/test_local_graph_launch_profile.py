@@ -24,7 +24,7 @@ from application_state.world_catalog.service import world_source_root_relpath
 from tests.application_state.world_catalog_fixtures import store_world
 
 from scripts.preflight_local_graph_profile import inspect_local_graph_profile, main
-from src.bootstrap_env import LOCAL_GRAPH_PROFILE_ENV
+from bootstrap_env import LOCAL_GRAPH_PROFILE_ENV
 
 
 def _operator_root(tmp_path: Path) -> Path:

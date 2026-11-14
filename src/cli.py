@@ -81,7 +81,7 @@ def _snake_case(value: str) -> str:
 
 
 def _load_env() -> None:
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
 

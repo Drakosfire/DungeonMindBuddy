@@ -77,10 +77,12 @@ def load_dungeonmindbuddy_dotenv(*, override: bool = True) -> None:
     - ``<repo>/.env.development``
     - ``<parent>/.env.development`` (monorepo / shared dev env)
     """
+    configured_root = os.environ.get("DMB_DOTENV_ROOT")
+    root = Path(configured_root).resolve() if configured_root else _REPO_ROOT
     candidates = [
-        _REPO_ROOT / ".env",
-        _REPO_ROOT / ".env.development",
-        _REPO_ROOT.parent / ".env.development",
+        root / ".env",
+        root / ".env.development",
+        root.parent / ".env.development",
     ]
     for path in candidates:
         if not path.is_file():

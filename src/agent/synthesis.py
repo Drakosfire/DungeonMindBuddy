@@ -6,7 +6,7 @@ from typing import Any
 
 from generationengine import GenerationClient, TextRequest
 
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 
 _SYNTHESIS_PROFILE_ENV = "DMB_SYNTHESIS_PROFILE"
 _SYNTHESIS_VERBOSITY_ENV = "DMB_SYNTHESIS_VERBOSITY"

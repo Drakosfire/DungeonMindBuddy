@@ -12,7 +12,7 @@ from typing import Any
 from generationengine import GenerationClient, TextRequest
 
 from src.agent.evidence_retriever import _unit_allowed
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 
 logger = logging.getLogger(__name__)
 

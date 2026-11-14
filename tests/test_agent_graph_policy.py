@@ -76,7 +76,7 @@ def test_pydantic_ai_does_not_import_policy_from_hermes() -> None:
 
 def test_resolver_missing_key_and_require_flag(monkeypatch) -> None:
     monkeypatch.setattr(
-        "src.bootstrap_env.load_dungeonmindbuddy_dotenv",
+        "bootstrap_env.load_dungeonmindbuddy_dotenv",
         lambda: None,
     )
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -95,7 +95,7 @@ def test_resolver_missing_key_and_require_flag(monkeypatch) -> None:
 
 def test_resolver_env_override_and_provider(monkeypatch) -> None:
     monkeypatch.setattr(
-        "src.bootstrap_env.load_dungeonmindbuddy_dotenv",
+        "bootstrap_env.load_dungeonmindbuddy_dotenv",
         lambda: None,
     )
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-used")
@@ -110,7 +110,7 @@ def test_resolver_env_override_and_provider(monkeypatch) -> None:
 
 def test_resolver_uses_buddy_owned_policy_not_parent_workspace(monkeypatch) -> None:
     monkeypatch.setattr(
-        "src.bootstrap_env.load_dungeonmindbuddy_dotenv",
+        "bootstrap_env.load_dungeonmindbuddy_dotenv",
         lambda: None,
     )
     monkeypatch.delenv("DUNGEONMIND_HERMES_GRAPH_MODEL", raising=False)

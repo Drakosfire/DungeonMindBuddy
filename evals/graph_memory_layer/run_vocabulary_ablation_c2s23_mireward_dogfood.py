@@ -28,7 +28,7 @@ from typing import Any, Iterable, Mapping
 from evals.graph_memory_layer.session_23_recap_ingest_fixture import (
     load_expected_normalized_recap,
 )
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.graph_memory import identity_resolution as ir
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,

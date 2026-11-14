@@ -1299,12 +1299,12 @@ def _build_promotion_markdown(payload: dict[str, Any]) -> str:
 def _build_openai_client() -> Any:
     """Build a sync OpenAI client wrapper for the judgment turn.
 
-    Loads ``.env`` via ``src.bootstrap_env.load_dungeonmindbuddy_dotenv`` so
+    Loads ``.env`` via ``bootstrap_env.load_dungeonmindbuddy_dotenv`` so
     ``OPENAI_API_KEY`` matches CLI / pytest behavior. Returns the raw
     ``OpenAI`` SDK client (we use ``responses.parse`` directly, mirroring
     ``src/ingestion/entity_extractor.py``).
     """
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
     api_key = os.getenv("OPENAI_API_KEY")

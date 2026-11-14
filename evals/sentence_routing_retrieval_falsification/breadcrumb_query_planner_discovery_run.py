@@ -66,7 +66,7 @@ from src.agent.planner import (
 )
 from src.agent.planner_cache import load_or_build_planner_instructions
 from src.agent.synthesis import _load_api_key
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 
 
 def norm_rel_path(path: str) -> str:

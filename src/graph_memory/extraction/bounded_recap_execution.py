@@ -15,7 +15,7 @@ from typing import Any, Mapping
 from jsonschema import ValidationError as JsonSchemaValidationError
 from jsonschema import validate as validate_json_schema
 
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.graph_memory.extraction._recap_inference_worker import (
     _execute_in_owned_process, _WorkerStartFailure,
 )

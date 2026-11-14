@@ -43,6 +43,7 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1 \
     DMB_DEPLOYMENT_ENVIRONMENT=production \
     DMB_MODEL_POLICY_ROOT=/app \
+    DMB_DOTENV_ROOT=/app \
     DMB_SCHEMA_DIR=/app/schemas/v0.1 \
     DMB_AUTH_MODE=hosted_dms
 WORKDIR /app

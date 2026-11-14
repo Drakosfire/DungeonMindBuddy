@@ -47,7 +47,7 @@ from src.agent.planner import (  # noqa: E402
 )
 from src.agent.planner_cache import load_or_build_planner_instructions  # noqa: E402
 from src.agent.planner_telemetry import text_sig  # noqa: E402
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
+from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 from src.npc_statblock_pipeline.canonical_intent import (  # noqa: E402
     evaluate_step2_post_planner_benchmark as evaluate_step2_post_planner_benchmark_pipeline,
 )

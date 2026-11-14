@@ -216,7 +216,7 @@ from evals.sentence_routing_retrieval_falsification.token_resolver_shadow import
 )
 from src.agent.synthesis import _load_api_key
 from src.agent.planner_pricing import usage_cost_usd
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.llm.api_client import DungeonMindApiClient
 
 _PROMOTED_CONTEXT_MAX_LEXICAL_UNITS_DEFAULT = 8

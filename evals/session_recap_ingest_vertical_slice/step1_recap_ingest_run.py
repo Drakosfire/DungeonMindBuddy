@@ -105,7 +105,7 @@ from src.agent.planner_cache import load_or_build_planner_instructions  # noqa: 
 from src.agent.planner_telemetry import maybe_full_text, text_sig  # noqa: E402
 from src.agent.recap_context import RecapContextError, resolve_recap_context  # noqa: E402
 from src.agent.synthesis import _load_api_key  # noqa: E402
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
+from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 
 _SLICE_DIR = Path(__file__).resolve().parent
 _GOLD_SCENARIO = _SLICE_DIR / "gold" / "scope_b_session_20.json"

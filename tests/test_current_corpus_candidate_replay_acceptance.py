@@ -322,7 +322,7 @@ def seeded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         lambda _root: "deadbeef" * 5,
     )
     monkeypatch.setattr(
-        "src.bootstrap_env.load_dungeonmindbuddy_dotenv",
+        "bootstrap_env.load_dungeonmindbuddy_dotenv",
         lambda: None,
     )
     return {

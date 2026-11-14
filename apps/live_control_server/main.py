@@ -121,7 +121,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     hosted_owner_collection,
     resolve_hosted_explorer_world,
 )
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 
 load_dungeonmindbuddy_dotenv()
 

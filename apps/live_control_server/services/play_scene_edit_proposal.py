@@ -18,7 +18,7 @@ from apps.live_control_server.services.agent_surface_context import render_agent
 from apps.live_control_server.services.plan_playable_body_target import _strip_frontmatter, _line_blocks, _root_markers, _attached_heading
 from apps.live_control_server.services.play_run_edition_structure import structure_signature
 from apps.live_control_server.services.workspace_document_registry import get_committed_playable_revision
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 from model_policy import load_buddy_model_policy
 
 SYSTEM = """You are DungeonBuddy preparing an INERT edit of one saved Play session scene.
