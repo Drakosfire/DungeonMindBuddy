@@ -667,7 +667,7 @@ def prepare(request, principal):
     bound = native.binding(request.managed_world_id)
     space = bound["native_world_id"]
     data = load_reviewable_extraction_data(root, request.run_id)
-    run, artifact = data.run, data.source_artifact
+    run = data.run
     _require(run.revision == request.expected_run_revision, "candidate_run_changed")
     candidate_sha256 = hashlib.sha256(data.candidate_bytes).hexdigest()
     _require(candidate_sha256 == request.candidate_sha256, "candidate_bytes_changed")
