@@ -589,3 +589,97 @@ def shared_neighborhood(request, principal, *, object_id=None):
             missing_seed_node_ids=missing, truncated_fields=truncated,
         ),
     )
+
+
+def shared_evidence(request, principal):
+    from dungeonmind.application.vnext.records import ParsedEntityRefValue
+    from graph_memory.retrieval.models import (
+        WorldGraphRetrievalAttribute,
+        WorldGraphRetrievalCoverage,
+        WorldGraphRetrievalResult,
+        WorldGraphRetrievalSnapshot,
+        WorldGraphSourceAnchor,
+    )
+    from apps.live_control_server.integrations.dungeonmind.vnext_complete_object import (
+        _map_assertion,
+        _source_domain,
+    )
+    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import (
+        BoundedNeighborhood,
+        map_entity_result,
+        map_relationships,
+        native_anchor_id,
+    )
+
+    bound, head, pin = _shared_retrieval_pin(request, principal)
+    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    target = request.target
+    nodes, relationships, attributes = [], [], []
+    supporters = {}
+    if target.kind == "node":
+        result = EntityReadService().get_entity(read, target.id)
+        object_ids = [target.id]
+        if result.found:
+            nodes.append(map_entity_result(result, target.id))
+            for assertion in result.assertions:
+                for ref_id in assertion.metadata.evidence_ref_ids:
+                    supporters.setdefault(ref_id, set()).add(assertion.assertion_id)
+    else:
+        result = EvidenceReadService().get_assertion_evidence(read, target.id)
+        assertion = result.assertion
+        object_ids = []
+        if result.available and assertion is not None:
+            is_relationship = isinstance(assertion.value, ParsedEntityRefValue)
+            if is_relationship == (target.kind == "relationship"):
+                object_ids = [assertion.subject_entity_id]
+                evidence = {row.evidence_ref_id: row for row in result.evidence}
+                if is_relationship:
+                    relationships = map_relationships(
+                        read, result, BoundedNeighborhood((), (assertion,), False, False)
+                    )
+                    object_ids = sorted({relationships[0].source_node_id, relationships[0].target_node_id})
+                else:
+                    view = _map_assertion(assertion, evidence_by_id=evidence)
+                    attributes.append(WorldGraphRetrievalAttribute(
+                        **view.model_dump(include=set(WorldGraphRetrievalAttribute.model_fields))
+                    ))
+                supporters = {ref_id: {target.id} for ref_id in evidence}
+
+    sources = {row.source_artifact_id: row for row in result.source_artifacts}
+    anchors = []
+    for ref in result.evidence:
+        assertion_ids = sorted(supporters.get(ref.evidence_ref_id, ()))
+        if not assertion_ids or ref.evidence_role != "support" or not ref.source_span_ref_id:
+            continue
+        anchors.append(WorldGraphSourceAnchor(
+            anchor_id=native_anchor_id(assertion_ids[0], ref.evidence_ref_id),
+            revision_id=pin.revision_id,
+            evidence_ref_id=ref.evidence_ref_id,
+            source_artifact_id=ref.source_artifact_id,
+            source_domain=_source_domain(sources[ref.source_artifact_id].source_classification),
+            source_span_ref_id=ref.source_span_ref_id,
+            supporting_graph_object_ids=object_ids,
+            supporting_assertion_ids=assertion_ids,
+            readable=ref.can_open_source,
+            locator_kind="source_span",
+        ))
+    _response(bound, pin)
+    cap = request.bounds.max_source_anchors
+    truncated = len(anchors) > cap
+    return WorldGraphRetrievalResult(
+        operation="evidence",
+        outcome="partial" if truncated else "enough" if supporters else "empty",
+        snapshot=WorldGraphRetrievalSnapshot(
+            world_id=request.world_id, campaign_id=request.campaign_id,
+            revision_id=pin.revision_id, head_revision_id=head.head_revision_id,
+            is_head=pin.revision_id == head.head_revision_id,
+            focus=request.focus.to_projection_focus(), admissibility=request.admissibility,
+            scope_mode=request.scope_mode,
+        ),
+        request_summary={"target_kind": target.kind, "target_id": target.id},
+        nodes=nodes, relationships=relationships, attributes=attributes,
+        source_anchors=anchors[:cap],
+        coverage=WorldGraphRetrievalCoverage(
+            truncated_fields=["source_anchors"] if truncated else [],
+        ),
+    )
