@@ -194,7 +194,9 @@ export function createGraphFallbackPositions(
     const bx = Math.floor(point.x / cell), by = Math.floor(point.y / cell);
     for (let x = bx - 1; x <= bx + 1; x += 1) {
       for (let y = by - 1; y <= by + 1; y += 1) {
-        for (const other of buckets.get(key(x, y)) ?? []) {
+        const nearby = buckets.get(key(x, y));
+        if (!nearby) continue;
+        for (const other of nearby) {
           if ((point.x - other.x) ** 2 + (point.y - other.y) ** 2 < (r + other.radius + 4) ** 2 - 1e-7) return false;
         }
       }
@@ -232,14 +234,15 @@ export function createGraphFallbackPositions(
     for (const id of group.slice(1)) {
       if (result.has(id)) continue;
       const neighbors = adjacency.get(id)!.filter(other => result.has(other));
-      const scoringNeighbors = neighbors.slice(0, 32);
+      const scoringPoints = neighbors.slice(0, 32).map(other => result.get(other)!);
       const anchorId = neighbors[0] ?? rootId;
       const anchor = result.get(anchorId)!;
       const r = radius(id);
+      const anchorRadius = radius(anchorId);
       const outward = Math.atan2(anchor.y - root.y, anchor.x - root.x);
       let chosen: Point | undefined;
       for (let shell = 0; shell < 16 && !chosen; shell += 1) {
-        const distance = r + radius(anchorId) + 4.1 + shell * 12;
+        const distance = r + anchorRadius + 4.1 + shell * 12;
         let best = Infinity;
         for (let step = 0; step < 48; step += 1) {
           const angle = outward + step * 2 * Math.PI / 48;
@@ -247,8 +250,7 @@ export function createGraphFallbackPositions(
           if (!available(point, r)) continue;
           // All admitted neighbors contribute, with bounded work for dense hubs.
           let score = 0;
-          for (const neighbor of scoringNeighbors) {
-            const other = result.get(neighbor)!;
+          for (const other of scoringPoints) {
             score += (point.x - other.x) ** 2 + (point.y - other.y) ** 2;
           }
           score += 0.02 * ((point.x - root.x) ** 2 + (point.y - root.y) ** 2);
