@@ -17,6 +17,7 @@ type Review = {
   revision: number;
   definition: EditableStatblockOutput;
   regions: PdfLocator[];
+  artwork?: { jpeg_base64: string };
 };
 
 export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { worldId: string; reviewId: string; toolbarHost?: HTMLElement | null }) {
@@ -560,6 +561,10 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
       {review && editor && <>
         <StatblockRenderer chrome="campaign" draft={{
           definition: editor.workingCopy,
+          portrait: review.artwork && <figure className="statblock-renderer-portrait">
+            <img src={`data:image/jpeg;base64,${review.artwork.jpeg_base64}`}
+              alt={`Artwork of ${editor.workingCopy.identity.name} from the source PDF`} />
+          </figure>,
           hitPoints: summary => <details id="pdf-review-hp">
             <summary>{summary}</summary>
             <form onSubmit={event => {
