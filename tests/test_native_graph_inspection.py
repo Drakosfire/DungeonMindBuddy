@@ -686,3 +686,37 @@ def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch
     assert unavailable.status_code >= 400
     assert "projection" not in unavailable.json()
     assert lane.repo.get_head(space).head_revision_id == revision
+
+    citation = read(
+        inspection,
+        catalog(inspection)["scope"],
+        {
+            "kind": "source",
+            "assertion_id": inspection.assertions["name:0"],
+            "evidence_ref_id": lane.support_ids["first"],
+        },
+    )
+    assert citation.status_code == 200, citation.text
+    cited_source = citation.json()["source"]
+    assert cited_source["text"] == lane.text.splitlines(keepends=True)[0]
+    head = lane.repo.get_head(space)
+    events = lane.repo.head_events(space)
+    lane.repo.withdraw_native_source(
+        space_id=space,
+        source_artifact_id=cited_source["source_artifact_id"],
+        source_revision_id=cited_source["source_revision_id"],
+    )
+    after = inspection.client.post(
+        "/api/live/world-graph/managed-projection",
+        json={
+            "schema": "dmb_managed_world_graph_projection_request_v1",
+            "managedWorldId": "managed",
+            "revisionPin": revision,
+        },
+    )
+    assert after.status_code == 200, after.text
+    assert lane.support_ids["first"] not in {
+        item["evidenceRefId"] for item in after.json()["projection"]["evidence"]
+    }
+    assert lane.repo.get_head(space) == head
+    assert lane.repo.head_events(space) == events
