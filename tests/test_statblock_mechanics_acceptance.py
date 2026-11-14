@@ -241,6 +241,12 @@ def test_pdf_acceptance_rejects_stale_review_and_replays_original(tmp_path, monk
         replay = http.post(path, json={**payload, "expected_revision": 2})
         assert replay.json()["result_label"] == "mechanics_saved", replay.text
         saved_draft = get_threat_draft(tmp_path, draft.draft_id)
+        recovered = http.post(path, json={
+            **payload, "expected_revision": 2, "operation_id": "77921349-192e-4da9-8850-eb1956e552e5",
+            "expected_draft_version": saved_draft.version,
+        })
+        assert recovered.json()["result_label"] == "mechanics_saved", recovered.text
+        assert recovered.json()["locator"] == accepted.json()["locator"]
         refused = http.post(path, json={
             **payload, "expected_revision": 3, "operation_id": "3d4053fa-8f0f-40f5-98d1-8d48384dfe52",
             "expected_draft_version": saved_draft.version,

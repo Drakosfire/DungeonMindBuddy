@@ -2442,7 +2442,7 @@ def post_accept_pdf_statblock_review(
         PDF_REVIEW_PROVENANCE, begin_or_resume_acceptance, recover_acceptance_operation,
     )
     from apps.live_control_server.services.statblock_acceptance_reconciliation import (
-        get_acceptance_operation,
+        get_acceptance_operation, list_acceptance_operations_for_draft,
     )
     from apps.live_control_server.services.threat_draft_store import (
         ThreatDraftStoreError, get_threat_draft,
@@ -2480,6 +2480,20 @@ def post_accept_pdf_statblock_review(
             result_label="acceptance_blocked", message="expected draft version mismatch",
         )
     if draft.accepted_mechanics_ref is not None:
+        locator = draft.accepted_mechanics_ref.to_mechanics_locator()
+        matches = []
+        for operation in list_acceptance_operations_for_draft(root, draft_id=draft_key):
+            provenance = (operation.request_body.get("accepted_through") or {}).get(PDF_REVIEW_PROVENANCE, {})
+            if (
+                operation.locator == locator
+                and operation.validation_receipt_digest == body.validation_definition_digest
+                and all(provenance.get(key) == value for key, value in identity.items())
+            ):
+                matches.append(operation)
+        if len(matches) == 1:
+            return recover_acceptance_operation(
+                root, draft_id=draft_key, operation_id=matches[0].operation_id,
+            )
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_draft_already_has_mechanics"})
 
     review = get_pdf_statblock_review(world_id, review_id, request)
