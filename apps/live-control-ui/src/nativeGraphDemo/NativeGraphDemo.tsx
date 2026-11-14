@@ -498,6 +498,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const [placementIntent, setPlacementIntent] = useState<StoredPlacementIntent | null>(null);
   const placementIntentRef = useRef<StoredPlacementIntent | null>(null);
   const [hideOverviewEvents, setHideOverviewEvents] = useState(false);
+  const [focusedTimeline, setFocusedTimeline] = useState<{ worldId: string; nodeId: string } | null>(null);
   const [chronology, setChronology] = useState<{ graph: NativeGraph; relatedTo?: string } | null>(null);
   const chronologyOpen = chronology !== null && chronology.graph === graph;
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -1543,6 +1544,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
 
   const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) ?? null : null;
+  const timelineVisible = focusedTimeline?.worldId === graph?.world_id
+    && focusedTimeline?.nodeId === viewFocusId;
   const selectedStripEvent = selectedNodeId && focusedEventIds?.has(selectedNodeId)
     ? selectedNodeId : undefined;
   const stripConnections = useMemo(() => {
@@ -1860,6 +1863,13 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 Hide Events in overview ({overviewEventIds?.size})
               </button>
             )}
+            {focusedEventIds && viewFocusId && !chronologyOpen && (
+              <button type="button" className="native-demo-button native-demo-button--quiet"
+                aria-expanded={timelineVisible}
+                onClick={() => setFocusedTimeline(timelineVisible ? null : { worldId: graph.world_id, nodeId: viewFocusId })}>
+                Timeline
+              </button>
+            )}
             {chronologyOpen && api.readChronology && <GraphChronology key={chronology.relatedTo ?? ""}
               graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} onExplore={nodeId => {
                 if (pendingRef.current) return;
@@ -1875,6 +1885,17 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               <WorldGraphCanvas
                 key={graph.world_id}
                 canvasId={embedded ? "loaded-native-graph-canvas" : undefined}
+                viewportOverlay={focusedEventIds && viewFocusId && api.readChronology && !chronologyOpen && timelineVisible && (
+                  <div className="native-demo-timeline-overlay" onWheel={event => event.stopPropagation()}>
+                    <GraphChronology graph={graph} read={api.readChronology} relatedTo={viewFocusId} strip
+                      selectedEvent={selectedStripEvent} connectedIds={stripConnections}
+                      onExplore={nodeId => {
+                        if (pendingRef.current) return;
+                        focusInspectorRef.current = true;
+                        handleCanvasSelectionChange(nodeId as LocalObjectId);
+                      }} />
+                  </div>
+                )}
                 record={record}
                 onMoveObjects={saveLayout}
                 {...(embedded ? {
@@ -1901,14 +1922,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 } : {})}
               />
             ) : null}
-            {focusedEventIds && viewFocusId && api.readChronology && !chronologyOpen &&
-              <GraphChronology graph={graph} read={api.readChronology} relatedTo={viewFocusId} strip
-                selectedEvent={selectedStripEvent} connectedIds={stripConnections}
-                onExplore={nodeId => {
-                  if (pendingRef.current) return;
-                  focusInspectorRef.current = true;
-                  handleCanvasSelectionChange(nodeId as LocalObjectId);
-                }} />}
             {!embedded ? <div className="native-demo-graph-meta">
               <span><strong>{graph.nodes.length}</strong> {completeness?.status === "partial" ? "listed objects" : "objects"}</span>
               <span><strong>{graph.edges.length}</strong> {completeness?.status === "partial" ? "listed relationships" : "relationships"}</span>

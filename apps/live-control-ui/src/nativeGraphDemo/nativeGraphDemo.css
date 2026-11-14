@@ -410,3 +410,20 @@
   outline: 2px solid currentColor;
   outline-offset: 3px;
 }
+
+.native-demo-timeline-overlay {
+  position: absolute;
+  z-index: 2;
+  inset: 0.5rem 0.5rem auto;
+  max-height: min(45%, 11rem);
+  overflow: auto;
+  color: #f8f4eb;
+  background: #202833;
+  border: 1px solid #927344;
+  border-radius: 0.6rem;
+}
+
+.native-demo-timeline-overlay .native-demo-event-strip button {
+  border-radius: 1rem;
+  width: 100%;
+}
