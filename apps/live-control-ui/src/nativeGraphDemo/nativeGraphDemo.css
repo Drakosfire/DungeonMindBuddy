@@ -438,3 +438,23 @@
   background: #303c50;
   border: 1px solid #ba9959;
 }
+
+.native-demo-event-strip button {
+  color: #fff8e9;
+  background: #303c50;
+}
+
+.native-demo-inspector-timeline .native-demo-event-strip ul {
+  flex-direction: column;
+  border-inline-start: 1px solid #ad8a4b;
+  padding-inline-start: 0.75rem;
+}
+
+.native-demo-inspector-timeline .native-demo-event-strip li {
+  flex: 0 0 auto;
+}
+
+.native-demo-inspector-timeline .native-demo-event-strip button {
+  width: 100%;
+  text-align: start;
+}
