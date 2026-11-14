@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-import {readConversationTurns,resumeConversation,changeConversationLifecycle,readConversationMessages,readActiveConversationMessages} from './conversationLibraryApi';
+import {readConversationTurns,readExportTurns,resumeConversation,changeConversationLifecycle,readConversationMessages,readActiveConversationMessages} from './conversationLibraryApi';
 import {authenticatedApiFetch} from './liveApi';
 vi.mock('./liveApi',async original=>({...await original<typeof import('./liveApi')>(),authenticatedApiFetch:vi.fn()}));
 const cid='11111111-1111-4111-8111-111111111111',tid='22222222-2222-4222-8222-222222222222';
@@ -106,4 +106,21 @@ it('requires the transcript cursor to advance to the first turn of a nonempty pa
  await expect(readConversationTurns('world', cid, 2)).rejects.toThrow('Transcript cursor');
  response({...value, turns: []});
  expect((await readConversationTurns('world', cid, 2)).turns).toEqual([]);
+});
+
+it.each([422, 403])('negotiates legacy export only for the selector rejection (status %i)', async status => {
+ const fetch = vi.mocked(authenticatedApiFetch);
+ response(page());
+ fetch.mockResolvedValueOnce({
+  response: Response.json({detail: 'Unexpected or repeated conversation selector'}, {status}),
+ } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+ const result = readExportTurns('world', cid);
+ if (status === 422) {
+  await expect(result).resolves.toEqual({...page(), page_sha256: null});
+  expect(fetch.mock.calls.map(([url]) => new URLSearchParams(String(url).split('?')[1]).get('view')))
+   .toEqual(['full', null]);
+ } else {
+  await expect(result).rejects.toMatchObject({status});
+  expect(fetch).toHaveBeenCalledTimes(1);
+ }
 });
