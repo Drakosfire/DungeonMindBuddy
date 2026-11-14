@@ -46,8 +46,8 @@ from pydantic import BaseModel, Field, model_validator  # noqa: E402
 from llm.planner_pricing import usage_cost_usd  # noqa: E402
 from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 from contracts.schema_validation import validate_many  # noqa: E402
-from src.ingestion.entity_extractor import _usage_dict_from_openai_response  # noqa: E402
-from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha  # noqa: E402
+from ingestion.entity_extractor import _usage_dict_from_openai_response  # noqa: E402
+from ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha  # noqa: E402
 from src.llm.api_client import DungeonMindApiClient  # noqa: E402
 
 from evals.session_events_extraction_vertical_slice.grader import (  # noqa: E402

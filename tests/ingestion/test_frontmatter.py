@@ -11,7 +11,7 @@ from ingestion.frontmatter import (
     render_frontmatter,
     write_document_with_frontmatter,
 )
-from src.ingestion.frontmatter_inference import infer_frontmatter_metadata_heuristic
+from ingestion.frontmatter_inference import infer_frontmatter_metadata_heuristic
 
 
 def test_parse_document_frontmatter_valid_block() -> None:

@@ -62,7 +62,7 @@ from pathlib import Path
 from typing import Any
 
 from contracts.schema_validation import list_validation_failures
-from src.ingestion.source_anchor import anchor_bytes_verify_at_head
+from ingestion.source_anchor import anchor_bytes_verify_at_head
 
 _SCHEMA_FILENAME = "event_record.schema.json"
 _SE5_PASS_THRESHOLD = 0.5  # gate fails when coverage ratio < this

@@ -774,7 +774,7 @@ class TestSE7:
         return tmp_path, rel
 
     def test_se7_passes_tight_verified_anchor(self, tmp_path: Path) -> None:
-        from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
+        from ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
 
         corpus_root, rel = self._write_mini_recap(tmp_path)
         lines = (corpus_root / rel).read_text(encoding="utf-8").splitlines()
@@ -794,7 +794,7 @@ class TestSE7:
         assert tel["se7_whole_file_placeholder_count"] == 0
 
     def test_se7_rejects_whole_file_placeholder(self, tmp_path: Path) -> None:
-        from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
+        from ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
 
         corpus_root, rel = self._write_mini_recap(tmp_path)
         lines = (corpus_root / rel).read_text(encoding="utf-8").splitlines()
@@ -813,7 +813,7 @@ class TestSE7:
         assert tel["se7_whole_file_placeholder_count"] == 1
 
     def test_se7_rejects_wrong_path(self, tmp_path: Path) -> None:
-        from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
+        from ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
 
         corpus_root, rel = self._write_mini_recap(tmp_path)
         lines = (corpus_root / rel).read_text(encoding="utf-8").splitlines()
@@ -833,7 +833,7 @@ class TestSE7:
         assert any("path" in v for v in violations)
 
     def test_collect_session_events_skips_se7_without_flag(self, tmp_path: Path) -> None:
-        from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
+        from ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
 
         corpus_root, rel = self._write_mini_recap(tmp_path)
         lines = (corpus_root / rel).read_text(encoding="utf-8").splitlines()
@@ -863,7 +863,7 @@ class TestSE7:
         assert "se7" not in violations
 
     def test_collect_session_events_runs_se7_when_configured(self, tmp_path: Path) -> None:
-        from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
+        from ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
 
         corpus_root, rel = self._write_mini_recap(tmp_path)
         lines = (corpus_root / rel).read_text(encoding="utf-8").splitlines()
@@ -895,7 +895,7 @@ class TestSE7:
     def test_collect_session_events_se7_fails_on_hash_mismatch_when_configured(
         self, tmp_path: Path
     ) -> None:
-        from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
+        from ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
 
         corpus_root, rel = self._write_mini_recap(tmp_path)
         lines = (corpus_root / rel).read_text(encoding="utf-8").splitlines()

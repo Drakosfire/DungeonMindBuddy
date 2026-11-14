@@ -14,7 +14,7 @@ from generationengine import GenerationClient, TextRequest
 from pydantic import BaseModel, Field
 
 from contracts.schema_validation import validate_many
-from src.ingestion.entity_extractor import UsageStats
+from ingestion.entity_extractor import UsageStats
 from llm.generation_sync import run_awaitable_sync
 
 _PROMPT_ID = "phase_c_pass2_fact_extraction_v3_prompt_cache"
@@ -1196,7 +1196,7 @@ def prepare_fact_batch_requests_chunked(
     batch_index_start: int = 0,
 ) -> tuple[list[dict[str, Any]], dict[str, Any], int]:
     """Build JSONL lines for OpenAI Batch fact extraction. Skips cache hits."""
-    from src.ingestion.openai_batch_pipeline import (
+    from ingestion.openai_batch_pipeline import (
         build_jsonl_request_line,
         build_responses_batch_request_body,
     )
@@ -1293,7 +1293,7 @@ def apply_fact_batch_outputs_to_cache(
     model_id: str,
     cache_dir: Path,
 ) -> tuple[list[str], dict[str, int]]:
-    from src.ingestion.openai_batch_pipeline import (
+    from ingestion.openai_batch_pipeline import (
         extract_output_text_from_responses_body,
         extract_response_body_from_batch_line,
         extract_status_code_from_batch_line,

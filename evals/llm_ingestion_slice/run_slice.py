@@ -22,7 +22,7 @@ campaign_temporal_quality_summary = importlib.import_module(
     "contracts.temporal_tick_gate"
 ).campaign_temporal_quality_summary
 build_mirathorn_event_slice = importlib.import_module(
-    "src.ingestion.event_sourced_slice"
+    "ingestion.event_sourced_slice"
 ).build_mirathorn_event_slice
 
 EVAL_DIR = ROOT / "evals" / "llm_ingestion_slice"

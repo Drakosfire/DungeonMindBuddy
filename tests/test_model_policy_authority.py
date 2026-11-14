@@ -73,9 +73,9 @@ def test_agent_model_selection_preserves_other_e1b_consumer_models(monkeypatch) 
     from src.graph_memory.extraction.category_candidate_graph_extractor import (
         resolve_category_graph_model,
     )
-    from src.ingestion.entity_extractor import _load_fast_smart_model_id
-    from src.ingestion.fact_extractor import _load_model_id as load_fact_model
-    from src.ingestion.frontmatter_inference import _load_model_id as load_frontmatter_model
+    from ingestion.entity_extractor import _load_fast_smart_model_id
+    from ingestion.fact_extractor import _load_model_id as load_fact_model
+    from ingestion.frontmatter_inference import _load_model_id as load_frontmatter_model
     from live_play.classify_live_turn import _resolve_classifier_model
     from live_play.live_query_context import _live_query_model
     from src.npc_statblock_pipeline.canonical_intent import _resolve_intent_classifier_model
@@ -155,9 +155,9 @@ def test_strict_consumers_fall_back_when_policy_missing_and_raise_when_malformed
     from src.graph_memory.extraction.category_candidate_graph_extractor import (
         resolve_category_graph_model,
     )
-    from src.ingestion.entity_extractor import _load_fast_smart_model_id
-    from src.ingestion.fact_extractor import _load_model_id as load_fact_model
-    from src.ingestion.frontmatter_inference import _load_model_id as load_frontmatter_model
+    from ingestion.entity_extractor import _load_fast_smart_model_id
+    from ingestion.fact_extractor import _load_model_id as load_fact_model
+    from ingestion.frontmatter_inference import _load_model_id as load_frontmatter_model
 
     missing = tmp_path / "missing" / "MODEL_POLICY.json"
     _point_policy_at(monkeypatch, missing)
