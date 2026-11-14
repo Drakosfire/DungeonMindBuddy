@@ -888,6 +888,20 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
     anchor = next(row for row in packet["sourceAnchors"] if row["evidenceRefId"] == x.lane.support_ids["first"])
     assert set(anchor["supportingAssertionIds"]) == {x.assertions["relationship"], multi_edge}
     assert len(packet["sourceAnchors"]) == 2
+    capped = x.client.post(
+        "/api/live/world-graph/retrieval/neighborhood",
+        json={
+            "schema": "dmb_world_graph_neighborhood_request_v1",
+            "worldId": "managed",
+            "campaignId": x.lane.run.campaign_id,
+            "revisionPin": pin["revision_id"],
+            "seedNodeIds": [x.objects["object:0"]],
+            "bounds": {"maxSourceAnchors": 1},
+        },
+    )
+    assert capped.status_code == 200, capped.text
+    assert capped.json()["sourceAnchors"] == packet["sourceAnchors"][:1]
+    assert "source_anchors" in capped.json()["coverage"]["truncatedFields"]
     assert anchor["revisionId"] == pin["revision_id"]
     response = x.client.post(
         "/api/live/world-graph/retrieval/source-anchor/read",
@@ -900,6 +914,16 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
         x.lane.support_ids["first"]: x.lane.text.splitlines(keepends=True)[0],
         second_id: body,
     }
+    selected_capped = capped.json()["sourceAnchors"][0]
+    reopened_capped = x.client.post(
+        "/api/live/world-graph/retrieval/source-anchor/read",
+        json={
+            **request.model_dump(mode="json", by_alias=True),
+            "anchorId": selected_capped["anchorId"],
+        },
+    )
+    assert reopened_capped.status_code == 200, reopened_capped.text
+    assert reopened_capped.json()["content"] == exact_sources[selected_capped["evidenceRefId"]]
     multi_anchors = [
         row for row in packet["sourceAnchors"] if multi_edge in row["supportingAssertionIds"]
     ]
