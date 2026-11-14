@@ -32,7 +32,7 @@ from graph_memory.hermes_graph_plugin import (  # noqa: E402
 HERE = Path(__file__).resolve().parent
 WORKER_HOME = Path(
     os.environ.get(
-        "DMB_HERMES_GRAPH_AGENT_WORKER_HOME", "/tmp/hermes-tuning-worker-home"
+        "DMB_HERMES_GRAPH_AGENT_WORKER_HOME", str(Path(os.environ["TMPDIR"]) / "hermes-tuning-worker-home")
     )
 )
 (WORKER_HOME / "logs").mkdir(parents=True, exist_ok=True)
@@ -180,7 +180,7 @@ def main() -> int:
                     revision_pin=scope.revision_pin,
                     session_id=f"synthetic-graph-{uuid.uuid4()}",
                     retrieval_session_id="synthetic-read-session",
-                    root=Path("/tmp"),
+                    root=Path(os.environ["TMPDIR"]).resolve(),
                     surface_context_block=(
                         "Synthetic accepted retrieval candidate: Nera, node ID person:nera. "
                         "This candidate contains no relationship data."
