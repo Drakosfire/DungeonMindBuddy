@@ -2262,7 +2262,9 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     instruction = body.get("instruction", "")
     regions_body = body.get("regions")
     edition = body.get("edition")
-    if (set(body) - {"regions", "instruction", "edition"}
+    whole_pdf = body.get("whole_pdf", False)
+    if (set(body) - {"regions", "instruction", "edition", "whole_pdf"}
+            or not isinstance(whole_pdf, bool)
             or edition not in (None, "2014", "2024") or not isinstance(instruction, str)
             or not isinstance(regions_body, list) or not regions_body
             or any(not isinstance(region, dict) for region in regions_body)):
@@ -2288,13 +2290,17 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     for locator in regions_body:
         pdf, region = _authorized_build_pdf_region(world_id, locator, request)
         png = _render_build_pdf_region(pdf, region, render_page=render_page)
-        transcription = read_crop_png(png)
+        transcription = read_crop_png(png, allow_empty=True) if whole_pdf else read_crop_png(png)
         text = transcription.get("text") if isinstance(transcription, dict) else None
+        authorized_regions.append(region.model_dump(mode="json"))
+        if whole_pdf and isinstance(text, str) and not text.strip():
+            continue
         if not isinstance(text, str) or not text.strip():
             raise HTTPException(status_code=503, detail={"code": "pdf_statblock_ocr_unavailable"})
         transcriptions.append(text)
         embedded_texts.append(read_region_text(pdf, region) or None)
-        authorized_regions.append(region.model_dump(mode="json"))
+    if not transcriptions:
+        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_extraction_incomplete"})
 
     try:
         options = {}

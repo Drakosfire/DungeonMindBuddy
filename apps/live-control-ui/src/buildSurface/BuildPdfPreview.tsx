@@ -432,6 +432,15 @@ function PdfPages({ file, worldId, restored, onRetained }: {
       {worldId && <StartPdfStatblockReview
         worldId={worldId}
         regions={statblockRegions}
+        prepareWholePdf={document ? async () => {
+          if (sourcePending) throw new Error("Wait for the PDF source to finish opening.");
+          const source = await retainSource();
+          const fullPage = { left: 0, top: 0, width: 1, height: 1 };
+          const pages = Array.from({ length: document.numPages }, (_, index) =>
+            captureLocator(source, index + 1, fullPage));
+          onRetained(pages[0]);
+          return pages;
+        } : undefined}
         prepareRegions={selectedRegion || capture || statblockRegions.length ? async () => {
           const activeRegion = selectedRegion ?? capture?.region;
           if (!activeRegion) return statblockRegions;
