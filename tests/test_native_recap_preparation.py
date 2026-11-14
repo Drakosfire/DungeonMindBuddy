@@ -1490,7 +1490,22 @@ def test_worldbuilding_postgres_confirmation_replays_one_head_advance(
     assert lane.repo is persistent_world_core
     parent = lane.repo.get_head(SPACE_ID)
     events = lane.repo.head_events(SPACE_ID)
-    packet = confirmation(lane)
+    context = lane.client.post(
+        "/api/live/extract-promote/native-worldbuilding-context",
+        json={
+            "managed_world_id": lane.body["managed_world_id"],
+            "run_id": lane.body["run_id"],
+            "source_artifact_id": lane.source.source_artifact_id,
+            "source_sha256": lane.source.content_sha256,
+        },
+        headers={"Authorization": "Bearer " + TOKEN},
+    )
+    assert context.status_code == 200, context.text
+    prepared = lane.post({
+        **context.json()["prepare_coordinates"], "selections": lane.body["selections"],
+    })
+    assert prepared.status_code == 200, prepared.text
+    packet = {key: prepared.json()[key] for key in ("envelope", "prepared", "token")}
     assert lane.repo.get_head(SPACE_ID) == parent
     assert lane.repo.head_events(SPACE_ID) == events
 
