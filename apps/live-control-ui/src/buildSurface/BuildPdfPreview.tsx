@@ -475,6 +475,19 @@ export function BuildPdfPreview({ worldId, initialFile, onPdfOpen }: { worldId?:
       setReopenError("Browser storage is unavailable. This region can be reopened until you leave this view.");
     }
   }
+  function forgetShortcut(entry: RetainedPdf) {
+    if (!worldId) return;
+    const key = pdfRegionKey(entry.locator);
+    try {
+      localStorage.removeItem(retainedPdfKey(worldId) + key);
+    } catch {
+      setReopenError("Could not remove this shortcut from browser storage.");
+      return;
+    }
+    setRetained(previous => previous.filter(saved => pdfRegionKey(saved.locator) !== key));
+    setReopenError("");
+  }
+
   async function reopen({ name, locator: restored }: RetainedPdf) {
     if (!worldId || reopening) return;
     setReopening(true);
@@ -520,6 +533,10 @@ export function BuildPdfPreview({ worldId, initialFile, onPdfOpen }: { worldId?:
         {retained.map(entry => <li key={pdfRegionKey(entry.locator)}>
           <button type="button" disabled={reopening} onClick={() => void reopen(entry)}>
             {entry.name} · Page {entry.locator.page}
+          </button>
+          <button type="button" disabled={reopening} onClick={() => forgetShortcut(entry)}
+            aria-label={`Remove shortcut for ${entry.name} · Page ${entry.locator.page}`}>
+            Remove shortcut
           </button>
         </li>)}
       </ul>}

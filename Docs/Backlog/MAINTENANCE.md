@@ -6,7 +6,7 @@ This queue holds the maintenance items explicitly transferred out of the root pr
 
 | Candidate | Component owner | Evidence and next check |
 | --- | --- | --- |
-| Give retained PDF shortcuts a browser storage lifecycle | Buddy Build frontend | Each distinct capture locator adds a localStorage entry and opening the preview scans all storage keys to rebuild the list. The shortcut list offers reopen but no removal. Measure growth with repeated captures, then evaluate explicit shortcut removal and scoped indexing. Verify existing entries remain readable and removing a shortcut preserves the durable PDF and its evidence. |
+| Give retained PDF shortcuts a browser storage lifecycle | Buddy Build frontend | Build can remove one browser shortcut without a PDF service request. The capture review test proves existing entries remain readable and removal persists across remount. Opening a preview still scans all localStorage keys. Measure growth and scan cost with repeated captures, then evaluate scoped indexing that preserves existing shortcuts and isolates Worlds. |
 
 ## Transfer record
 
