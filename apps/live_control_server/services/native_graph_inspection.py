@@ -365,6 +365,7 @@ def complete_object(body: NativeCompleteObjectRead, principal):
     access = open_native_text_source_access_context(
         repository=repo, space_id=pin.native_world_id, revision_id=pin.revision_id,
         domain_contract=resolve_domain, audience_labels=(native.GM_LABEL, native.PLAYER_LABEL),
+        parsed_cache=_shared_parsed_cache,
     )
     result = project_complete_world_object_vnext(
         parsed_revision=access.parsed,
@@ -493,7 +494,7 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
     )
 
 
-_shared_neighborhood_parsed_cache = NativeParsedRevisionCache()
+_shared_parsed_cache = NativeParsedRevisionCache()
 
 
 def _shared_retrieval_pin(request, principal):
@@ -529,7 +530,7 @@ def shared_exact_object(request, principal):
 
 def shared_neighborhood(request, principal, *, object_id=None):
     bound, head, pin = _shared_retrieval_pin(request, principal)
-    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_parsed_cache)
     return _shared_retrieval_projection(request, bound, head, pin, read, object_id=object_id)
 
 
@@ -719,7 +720,7 @@ def shared_evidence(request, principal):
     )
 
     bound, head, pin = _shared_retrieval_pin(request, principal)
-    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_parsed_cache)
     target = request.target
     nodes, relationships, attributes = [], [], []
     supporters = {}
@@ -869,7 +870,7 @@ def shared_search(request, principal, *, include_source_pins=False,
         pin.native_world_id != expected_native_world_id or pin.binding_version != expected_binding_version
     ):
         raise InspectionUnavailable("native_inspection_binding_changed")
-    read_binding, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    read_binding, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_parsed_cache)
     if read_binding != bound:
         raise InspectionUnavailable("native_inspection_binding_changed")
     search = SearchReadService().search_entities(read, request.query_text, limit=20)
@@ -960,7 +961,7 @@ def plan_subject_search(request, principal):
     if request.revision_pin is None or request.seed_node_ids:
         raise ValueError("Plan subject search requires a pinned query without seeds")
     bound, head, pin = _shared_retrieval_pin(request, principal)
-    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_parsed_cache)
     search = SearchReadService().search_entities(read, request.query_text, limit=20)
     reader = EntityReadService()
     hits = [hit for hit in search.hits if hit.admitted_match_assertions]
