@@ -1064,3 +1064,19 @@ def test_shared_search_preserves_admitted_seed_under_node_bound(inspection, monk
     assert [node["nodeId"] for node in result["nodes"]] == seeds
     assert all("exact_seed" in result["matchReasons"][seed] for seed in seeds)
     assert result["coverage"]["missingSeedNodeIds"] == ["ent:missing"]
+
+    lexical = inspection.client.post(
+        "/api/live/world-graph/retrieval/search",
+        json={
+            "schema": "dmb_world_graph_search_request_v1",
+            "worldId": "managed",
+            "campaignId": inspection.lane.run.campaign_id,
+            "queryText": "Object 0",
+            "bounds": {"maxNodes": 1},
+        },
+    )
+    assert lexical.status_code == 200, lexical.text
+    result = lexical.json()
+    assert result["matchedNodeIds"] == [inspection.objects["object:0"]]
+    anchor, = result["sourceAnchors"]
+    assert anchor["evidenceRefId"] == inspection.lane.support_ids["first"]
