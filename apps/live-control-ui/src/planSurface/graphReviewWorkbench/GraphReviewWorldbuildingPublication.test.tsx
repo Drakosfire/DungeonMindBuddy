@@ -420,7 +420,11 @@ it.each([false, true])("prepares selected facts and confirms the exact packet (b
     };
     vi.spyOn(native, "getNativeWorldbuildingContext").mockResolvedValue({
       prepareCoordinates: coordinates, nativeWorldId: "native-a",
-      records: [{ kind: "node", record_id: "npc:a", label: "Mara", fields: { label: "Mara", node_type: "npc" } }],
+      records: [{ kind: "node", record_id: "npc:a", label: "Mara", fields: { label: "Mara", node_type: "npc" } },
+        {kind: "node", record_id: "town:a", label: "Town", fields: {label: "Town"}},
+        {kind: "edge", record_id: "edge:a", from_record_id: "npc:a", to_record_id: "town:a",
+          relationship_type: "located_in", fields: {}}],
+
       sourceSupport: [{ evidence_ref_id: "support:a", text: "Mara arrived.", start_byte: 0, end_byte: 13 }],
     });
     const prepare = vi.spyOn(native, "prepareNativeWorldbuilding")
@@ -437,9 +441,20 @@ it.each([false, true])("prepares selected facts and confirms the exact packet (b
     for (const option of facts.options) option.selected = true;
     fireEvent.change(facts);
     fireEvent.change(screen.getByLabelText("Supporting excerpt"), { target: { value: "support:a" } });
+    expect(screen.queryByLabelText("Relationship")).not.toBeInTheDocument();
+    if (bindExisting) {
+      fireEvent.change(screen.getByLabelText("Candidate object"), {target: {value: "town:a"}});
+      const townFacts = screen.getByLabelText("Facts") as HTMLSelectElement;
+      townFacts.options[0].selected = true;
+      fireEvent.change(townFacts);
+      fireEvent.change(screen.getByLabelText("Supporting excerpt"), {target: {value: "support:a"}});
+      fireEvent.change(screen.getByLabelText("Relationship"), {target: {value: "edge:a"}});
+      fireEvent.change(screen.getByLabelText("Relationship excerpt"), {target: {value: "support:a"}});
+    }
     fireEvent.click(screen.getByRole("button", { name: "Prepare selected facts" }));
     const submit = await screen.findByRole("button", { name: "Confirm native publication" });
-    expect(prepare.mock.calls[0][0]).toEqual({
+    const input = prepare.mock.calls[0][0];
+    expect({...input, selections: input.selections.slice(0, 1)}).toEqual({
       ...coordinates,
       selections: [{ kind: "node", record_id: "npc:a", action: bindExisting ? "use_existing" : "create",
         ...(bindExisting ? {entity_id: "ent:mara"} : {}), facts: ["label", "node_type"].map(field => ({
@@ -451,6 +466,12 @@ it.each([false, true])("prepares selected facts and confirms the exact packet (b
         },
       })) }],
     });
+    expect(input.selections.slice(1)).toEqual(bindExisting ? [
+      {kind: "node", record_id: "town:a", action: "create",
+        facts: [expect.objectContaining({field: "label"})]},
+      {kind: "edge", record_id: "edge:a", action: "create",
+        metadata: expect.objectContaining({evidence_ref_ids: ["support:a"]})},
+    ] : []);
     expect(confirm).not.toHaveBeenCalled();
     fireEvent.click(submit);
     await screen.findByText("Worldbuilding publication confirmed.");
