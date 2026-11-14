@@ -60,7 +60,7 @@ def lane(monkeypatch, tmp_path, request):
     seed = _repository(evidence=False, v3=getattr(request, "param", None) != "source_order_closed")
     snapshot = seed.get_revision(SPACE_ID, seed.get_head(SPACE_ID).head_revision_id)
     profile_ref = snapshot.revision.semantic_profile_ref
-    if getattr(request, "param", None) == "source_order_observation":
+    if getattr(request, "param", None) in {"source_order_observation", "reviewed_observation"}:
         from graph_memory.vnext.domain_runtime import (
             DUNGEONBUDDY_OBSERVATION_PROFILE_DIGEST,
             DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION,
@@ -1578,3 +1578,33 @@ def test_worldbuilding_context_binds_saved_source_and_native_prepare(world_lane)
     wrong = x.client.post(path, json={**request, "source_sha256": "0" * 64}, headers=headers)
     assert wrong.status_code == 409, wrong.text
     assert x.repo.head_events(SPACE_ID) == before
+
+@pytest.mark.parametrize("lane", ["reviewed_observation"], indirect=True)
+def test_worldbuilding_publishes_explicit_observation_with_exact_support(persistent_world_core, lane, request):
+    x = request.getfixturevalue("world_lane")
+    assert x.repo is persistent_world_core
+    node = x.payload["nodes"][0]
+    x.payload["version"] = "0.2"
+    x.payload["source_observations"] = [{
+        "observation_id": "observation:one",
+        "subject_candidate_node_id": node["node_id"],
+        "title": "Recorded encounter",
+        "description": "A traveller met Pippa",
+        "semantic_state": node["semantic_state"],
+        "evidence_refs": node["evidence_refs"],
+        "confidence": "high",
+    }]
+    x.refresh()
+    x.body["selections"].append(dict(
+        kind="source_observation", record_id="observation:one", action="create",
+        metadata={**META, "evidence_ref_ids": [x.evidence_id]},
+    ))
+    packet = confirmation(x)
+    result = confirm(x, packet)
+    assert result.status_code == 200, result.text
+    child = x.repo.get_revision(SPACE_ID, result.json()["result"]["child_revision_id"])
+    observation, = [row for row in child.graph_payload["assertions"]
+                    if row["predicate"] == "dungeonbuddy:reviewed_source_observation"]
+    assert observation["value"] == {"kind": "literal", "value": "A traveller met Pippa"}
+    assert observation["metadata"]["evidence_ref_ids"] == [x.evidence_id]
+    assert confirm(x, packet).json()["result"] == result.json()["result"]

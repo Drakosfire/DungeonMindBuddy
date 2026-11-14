@@ -77,7 +77,7 @@ class SelectedDescriptionExtent(Closed):
 
 
 class RecordSelection(Closed):
-    kind: Literal["node", "edge", "beat", "placement"]
+    kind: Literal["node", "edge", "beat", "placement", "source_observation"]
     record_id: Text
     action: Literal["create", "use_existing", "defer", "reject"]
     entity_id: Text | None = None
@@ -93,9 +93,9 @@ class RecordSelection(Closed):
         if self.action in {"defer", "reject"}:
             if self.facts or self.metadata:
                 raise ValueError("deferred/rejected records cannot carry selected facts")
-        elif self.kind in {"edge", "placement"}:
+        elif self.kind in {"edge", "placement", "source_observation"}:
             if self.action != "create" or self.facts or self.metadata is None:
-                raise ValueError("relationships require create and explicit metadata")
+                raise ValueError("relationships and observations require create and explicit metadata")
         elif self.metadata is not None or (self.action == "create" and not self.facts):
             raise ValueError("objects require per-fact review; create cannot be empty")
         keys = [(fact.field, fact.index) for fact in self.facts]
