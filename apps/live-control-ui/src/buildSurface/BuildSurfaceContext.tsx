@@ -53,6 +53,8 @@ export type BuildSurfaceContextProps = Pick<
   | "retryImportSource"
   | "retryCreatedDocument"
   | "refreshDocuments"
+  | "hasMoreDocuments"
+  | "loadMoreDocuments"
   | "destinationOptions"
   | "suggestedDestinationValue"
   | "suggestedCreateCampaignId"
@@ -76,6 +78,8 @@ export function BuildSurfaceContext({
   retryImportSource,
   retryCreatedDocument,
   refreshDocuments,
+  hasMoreDocuments,
+  loadMoreDocuments,
   destinationOptions,
   suggestedDestinationValue,
   suggestedCreateCampaignId,
@@ -201,6 +205,11 @@ export function BuildSurfaceContext({
               <LoadedWorldGraphExplorer entry="recaps" />
             </>
           )}
+          {hasMoreDocuments ? (
+            <button type="button" onClick={loadMoreDocuments} disabled={listStatus !== "ready" || documentMutationBusy}>
+              Load more sources
+            </button>
+          ) : null}
           <details className="build-source-actions">
             <summary>Source actions</summary>
             <div className="build-source-actions__menu">
@@ -287,6 +296,8 @@ export function BuildSurfaceContext({
       importError,
       importSourceDocument,
       listStatus,
+      hasMoreDocuments,
+      loadMoreDocuments,
       liveRecord,
       metadataBusy,
       needsRecovery,

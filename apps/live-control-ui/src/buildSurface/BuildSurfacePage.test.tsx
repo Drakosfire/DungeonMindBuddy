@@ -113,7 +113,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     createWorkspaceDocument: vi.fn(),
-    listWorkspaceDocuments: vi.fn(),
+    listWorkspacePageInventory: vi.fn(),
     listWorldContainers: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
     getCommittedPageSnapshot: vi.fn(),
@@ -219,7 +219,7 @@ describe("BuildSurfacePage", () => {
     localStorage.clear();
     sessionStorage.clear();
     window.history.pushState({}, "", "/build");
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [],
     });
@@ -409,7 +409,7 @@ describe("BuildSurfacePage", () => {
   it("opens a saved source directly editable with live outline and formatting beside it", async () => {
     const user = userEvent.setup();
     const snapshot = buildLongmontSnapshot(DOC_ID, "Mirathorn", "# Mirathorn\n\n## Guard headquarters\n");
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v1", records: [snapshot.record] });
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null, schema_version: "dmb_workspace_document_registry_v1", records: [snapshot.record] });
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
     window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
     renderBuildPage();
@@ -553,7 +553,7 @@ describe("BuildSurfacePage", () => {
         visibility_state: "internal" as const,
       },
     ];
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records,
     });
@@ -1237,7 +1237,7 @@ describe("BuildSurfacePage", () => {
     };
     const snapshot = buildLongmontSnapshot(DOC_ID, "Ironveil Property", "# Ironveil Property\n");
 
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [snapshot.record],
     });
@@ -1261,13 +1261,14 @@ describe("BuildSurfacePage", () => {
     window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
 
     // Hold registry refresh so the list stays stale after rename; selector must overlay live title.
-    let resolveList: ((value: Awaited<ReturnType<typeof liveApi.listWorkspaceDocuments>>) => void) | null =
+    let resolveList: ((value: Awaited<ReturnType<typeof liveApi.listWorkspacePageInventory>>) => void) | null =
       null;
     let listCalls = 0;
-    vi.mocked(liveApi.listWorkspaceDocuments).mockImplementation(() => {
+    vi.mocked(liveApi.listWorkspacePageInventory).mockImplementation(() => {
       listCalls += 1;
       if (listCalls === 1) {
         return Promise.resolve({
+          campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
           schema_version: "dmb_workspace_document_registry_v1",
           records: [snapshot.record],
         });
@@ -1381,7 +1382,7 @@ describe("BuildSurfacePage", () => {
         content_status: "committed",
       },
     });
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [
         {
@@ -1407,6 +1408,7 @@ describe("BuildSurfacePage", () => {
 
     // Avoid leaking the held list promise.
     resolveList?.({
+      campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [
         {
@@ -1422,7 +1424,7 @@ describe("BuildSurfacePage", () => {
   it("rename does not cold-reload native object inspection", async () => {
     const user = userEvent.setup();
     const snapshot = buildLongmontSnapshot(DOC_ID, "Ironveil Property");
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [snapshot.record],
     });

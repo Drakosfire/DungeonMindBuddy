@@ -2411,6 +2411,7 @@ export async function listWorkspaceDocuments(args: {
 }
 
 export type WorkspacePageInventoryResponse = WorkspaceDocumentsListResponse & {
+  campaign_tags: string[] | null;
   next_before_updated_at: string | null;
   next_before_document_id: string | null;
 };
