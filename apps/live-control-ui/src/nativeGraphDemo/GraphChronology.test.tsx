@@ -123,7 +123,7 @@ it.each([false, true])("isolates ordering claims with ambiguous Campaign mapping
   expect(orderRows.find(row => within(row).queryByRole("button", { name: "Arrival" }))).toHaveTextContent(ambiguous ? "Campaign name unavailable" : "· Two");
   for (const [campaign, target] of [["One", "Departure"], ["Two", "Arrival"]]) {
     fireEvent.change(screen.getByRole("combobox", { name: "Campaign" }), { target: { value: campaign } });
-    if (ambiguous && campaign === "One") {
+    if (ambiguous) {
       expect(screen.queryByText("Recorded before")).toBeNull();
     } else {
       expect(within(screen.getByText("Recorded before")).getByRole("button", { name: target })).toBeVisible();

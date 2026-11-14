@@ -53,7 +53,7 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
       placement.value.kind === "entity_ref" && placement.value.entity_id === campaign
         ? (placement.metadata.scope ?? []).filter(binding => binding.axis === campaignAxis).map(binding => binding.value)
         : [])));
-  const selectedScope = selectedScopes.size === 1 ? [...selectedScopes][0] : undefined;
+  const candidateScope = selectedScopes.size === 1 ? [...selectedScopes][0] : undefined;
   const campaignLabelsByScope = new Map<string, Set<string>>();
   for (const event of result.events) {
     for (const placement of event.placements) {
@@ -67,6 +67,9 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
       }
     }
   }
+  const scopeCampaigns = campaignLabelsByScope.get(JSON.stringify([candidateScope]));
+  const selectedScope = scopeCampaigns?.size === 1 && scopeCampaigns.has(campaign)
+    ? candidateScope : undefined;
   const orderByEvent = new Map<string, { label: string; other: string; id: string; scope: string }[]>();
   const eventIds = new Set(result.events.map(event => event.node.id));
   for (const event of result.events) {
