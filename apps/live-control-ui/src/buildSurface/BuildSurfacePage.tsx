@@ -1,3 +1,4 @@
+import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { SavedStatblockFullView } from "../statblocks/StatblockPage";
 import { readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
 import { useEffect, useState } from "react";
@@ -42,6 +43,7 @@ export function BuildSurfacePage() {
     return () => window.removeEventListener("popstate", syncHistory);
   }, []);
   const params = new URLSearchParams(entrySearch);
+  const nativeObject = parseBuildGraphPointerFromLocation()?.nativePin;
   const statblock = readSavedStatblockTarget("/build" + entrySearch);
   const reviewWorldId = params.get("world");
   const pdfReviewId = new URLSearchParams(window.location.search).get("world") === reviewWorldId
@@ -71,6 +73,8 @@ export function BuildSurfacePage() {
           <BuildSurfaceContext {...controller} />
           <SavedStatblockFullView target={statblock} />
         </>
+      ) : nativeObject && nativeObject.managed_world_id === worldId ? (
+        <BuildGraphObjectContext key={entrySearch} />
       ) : droppedPdf && droppedPdf.worldId === worldId ? (
         <section className="build-pdf-workspace" aria-label="PDF workspace">
           <header className="build-pdf-workspace__toolbar">

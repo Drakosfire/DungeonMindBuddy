@@ -60,6 +60,23 @@ describe("BuildGraphObjectContext", () => {
     );
   });
 
+  it("sends the native binding and revision with an explicit Build link", async () => {
+    window.history.replaceState({}, "", "/build?world=elderwyld&nativeWorld=elderwyld&bindingVersion=3&graphRevision=rev:fixture&graphNodeId=pc_caelynn");
+    const classic = vi.spyOn(liveApi, "postWorldGraphCompleteObject");
+    const native = vi.spyOn(liveApi, "postNativeWorldGraphCompleteObject")
+      .mockResolvedValue(completeObjectFixture());
+
+    render(<BuildGraphObjectContext />);
+
+    expect(await screen.findByText("Caelynn")).toBeInTheDocument();
+    expect(native).toHaveBeenCalledWith(
+      expect.objectContaining({ worldId: "elderwyld", scopeMode: "world", revisionPin: "rev:fixture", nodeId: "pc_caelynn" }),
+      { managed_world_id: "elderwyld", native_world_id: "elderwyld", binding_version: 3,
+        revision_id: "rev:fixture", scope_mode: "world", campaign_id: null },
+    );
+    expect(classic).not.toHaveBeenCalled();
+  });
+
   it("surfaces partial completeness instead of ordinary ready", async () => {
     window.history.replaceState(
       {},
