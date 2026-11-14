@@ -299,14 +299,14 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
         else:
             advance({"sending": "sdk_entered", "response_received": "response_received", "outcome_unknown": "unknown"}[event.outcome])
         return True
-    from .build_construction_stream import MarkdownStringProgress, observe
-    projection = MarkdownStringProgress()
+    from .build_construction_stream import MarkdownStringProgress, construction_sink, observe
+    projection = MarkdownStringProgress() if construction_sink.get() is not None else None
     sequence = 0
 
     def progress(status="building", markdown=None):
         nonlocal sequence
         origin = reservation.origin
-        if origin is None or record.authorization is None:
+        if projection is None or origin is None or record.authorization is None:
             return
         sequence += 1
         observe({"schema": "dmb_build_construction_v1", "action_id": str(record.action_id),
@@ -337,7 +337,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
                         advance("response_received", raw_response=selected)
                         if _native_output_capture is not None:
                             _native_output_capture(event)
-                    elif isinstance(event, TextDelta):
+                    elif isinstance(event, TextDelta) and projection is not None:
                         try:
                             changed = projection.feed(event.text)
                             if changed:
