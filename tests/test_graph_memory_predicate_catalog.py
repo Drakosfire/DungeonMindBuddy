@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from src.graph_memory import identity_resolution as ir
-from src.graph_memory.predicate_catalog import (
+from graph_memory.predicate_catalog import (
     V1_EXACT_PREDICATES,
     catalog_cross_check_issues,
     edge_predicate_family,
@@ -130,7 +130,7 @@ def test_prompt_and_schema_generation_do_not_read_eval_files(monkeypatch):
 
 
 def test_recap_meaning_guidance_covers_exact_catalogue_without_changing_common_prompt():
-    from src.graph_memory.predicate_catalog import (
+    from graph_memory.predicate_catalog import (
         RECAP_PREDICATE_MEANINGS, recap_predicate_meaning_guidance,
     )
 
@@ -143,7 +143,7 @@ def test_recap_meaning_guidance_covers_exact_catalogue_without_changing_common_p
 
 
 def test_recap_predicate_roles_preserve_distinctions_and_ambiguous_source_scope():
-    from src.graph_memory.predicate_catalog import RECAP_PREDICATE_MEANINGS as meanings
+    from graph_memory.predicate_catalog import RECAP_PREDICATE_MEANINGS as meanings
 
     assert "possessed item does not possess its holder" in meanings["possesses"]
     assert "a visit" in meanings["attacks"]
@@ -155,7 +155,7 @@ def test_recap_predicate_roles_preserve_distinctions_and_ambiguous_source_scope(
 
 
 def test_recap_order_capability_is_explicit_and_one_catalogue_drives_its_meaning():
-    from src.graph_memory.predicate_catalog import (
+    from graph_memory.predicate_catalog import (
         RECAP_SOURCE_ORDER, recap_predicate_meaning_guidance, requires_relationship_evidence,
     )
     caps = (RECAP_SOURCE_ORDER,)

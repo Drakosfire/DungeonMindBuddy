@@ -32,7 +32,7 @@ from graph_memory.ingestion.extraction_run import (
     assert_allowed_extraction_run_transition,
     validate_extraction_run_lineage,
 )
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction.recap_extraction_profile import (
     RECAP_READ_PROFILE_IDS,
 )
 from graph_memory.candidate_graph_preview import NODE_TYPES

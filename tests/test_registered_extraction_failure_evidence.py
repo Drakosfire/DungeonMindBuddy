@@ -18,7 +18,7 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
 from src.graph_memory.extraction import graph_preview_runner as runner
-from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
 )

@@ -21,7 +21,7 @@ from graph_memory.source_span import (
     source_span_index_to_dict,
 )
 from src.graph_memory.extraction import graph_preview_runner
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction.recap_extraction_profile import (
     RECAP_PROFILE_ID,
     RECAP_PROFILE_VERSION,
 )

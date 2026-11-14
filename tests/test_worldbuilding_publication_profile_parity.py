@@ -6,7 +6,7 @@ from pydantic import TypeAdapter, ValidationError
 from apps.live_control_server.models.extract_promote import (
     WorldbuildingPublicationProfile, WorldbuildingWritePlanResponse,
 )
-from src.graph_memory.extraction.worldbuilding_profile_catalog import (
+from graph_memory.extraction.worldbuilding_profile_catalog import (
     PUBLISHABLE_WORLDBUILDING_PROFILES,
 )
 

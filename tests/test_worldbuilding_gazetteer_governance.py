@@ -10,7 +10,7 @@ from src.graph_memory.extraction.worldbuilding_gazetteer_governance import (
     _apply_governance_relation,
     compile_gazetteer_governance_relations,
 )
-from src.graph_memory.extraction.worldbuilding_profile_catalog import (
+from graph_memory.extraction.worldbuilding_profile_catalog import (
     PUBLISHABLE_WORLDBUILDING_PROFILES,
 )
 

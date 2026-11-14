@@ -480,7 +480,7 @@ def test_real_bounded_catalog_excludes_role_removed_id_and_retains_registered_fa
     from src.graph_memory.extraction.category_candidate_graph_extractor import source_packet_rows_from_span_index
     from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
     from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
-    from src.graph_memory.predicate_catalog import predicate_family_for_type
+    from graph_memory.predicate_catalog import predicate_family_for_type
     from tests.test_graph_preview_runner import _admit_worldbuilding
     from tests.test_bounded_recap_execution import deepseek_observation
     from generationengine.types import TextResult

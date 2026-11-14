@@ -11,7 +11,7 @@ def test_generationengine_adapter_registers_supported_profiles_without_test_impo
     result = subprocess.run(
         [sys.executable, '-c', '''
 from apps.live_control_server.services.worldbuilding_ge_execution import SUPPORTED_PROFILE_VERSIONS
-from src.graph_memory.extraction.extraction_profile import require_admitted_profile
+from graph_memory.extraction.extraction_profile import require_admitted_profile
 for version in sorted(SUPPORTED_PROFILE_VERSIONS):
     profile = require_admitted_profile(
         profile_id="worldbuilding_gazetteer_v1", profile_version=version,

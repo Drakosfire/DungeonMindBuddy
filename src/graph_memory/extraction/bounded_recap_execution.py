@@ -27,7 +27,7 @@ from src.graph_memory.extraction.category_candidate_graph_schema import (
     category_pass_text_format_for_spec,
 )
 
-from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
 
 DEEPSEEK_MODEL = "deepseek/deepseek-v4.1-flash-1017"
 SUPPORTED_INGESTION_PROVIDERS = frozenset({"openai", "openrouter", "vercel"})

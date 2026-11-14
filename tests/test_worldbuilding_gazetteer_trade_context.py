@@ -8,7 +8,7 @@ from src.graph_memory.extraction.worldbuilding_gazetteer_trade_context import (
     _apply_trade_context,
     compile_gazetteer_trade_context,
 )
-from src.graph_memory.extraction.worldbuilding_profile_catalog import (
+from graph_memory.extraction.worldbuilding_profile_catalog import (
     PUBLISHABLE_WORLDBUILDING_PROFILES,
 )
 

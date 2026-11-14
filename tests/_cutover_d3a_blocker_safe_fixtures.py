@@ -266,7 +266,7 @@ def write_post_genesis_graph_review_run(repo: Path) -> str:
         ExtractionRunComponentRef,
         ExtractionRunStatus,
     )
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE,
     )
 
@@ -940,7 +940,7 @@ def _write_reviewable_extraction_run(
     candidate_payload["source_artifact_ids"] = [artifact.source_artifact_id]
     # Stamp the real worldbuilding profile default — not played_canon. BLD-07
     # narrowed worldbuilding to inspect-only; fixtures must not hide the gate.
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE,
     )
 
@@ -1028,7 +1028,7 @@ def _write_bld08_reviewable_run(
     session_id: str | None = None,
 ) -> tuple[str, Path]:
     """Adapt the canonical run fixture to the checked-in BLD-08 profile."""
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         DEFAULT_SEMANTIC_STATE,
     )
 

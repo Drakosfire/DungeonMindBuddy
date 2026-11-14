@@ -27,7 +27,7 @@ from apps.live_control_server.services.source_artifact_registry import (
     get_source_artifact,
 )
 from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
-from src.graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
+from graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
 from graph_memory.ingestion.extraction_run import normalize_content_digest
 from graph_memory.projection.markdown_mentions import (
     LocatedMentionBinding,

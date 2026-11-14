@@ -281,7 +281,7 @@ def _write_post_genesis_graph_review_run(repo: Path) -> str:
         ExtractionRunComponentRef,
         ExtractionRunStatus,
     )
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE,
     )
 

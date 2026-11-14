@@ -32,10 +32,10 @@ from graph_memory.candidate_semantic_promote_matrix import (
     map_reviewed_worldbuilding_semantics_to_kernel,
     semantic_diagnostics,
 )
-from src.graph_memory.extraction.worldbuilding_profile_catalog import (
+from graph_memory.extraction.worldbuilding_profile_catalog import (
     PUBLISHABLE_WORLDBUILDING_PROFILES, SOURCE_OBSERVATION_WORLDBUILDING_PROFILES,
 )
-from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
 )

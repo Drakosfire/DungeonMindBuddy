@@ -488,7 +488,7 @@ def test_launch_bounded_profile_records_exact_profile_and_applies_validator(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Build launch with BLD-08 profile records that profile and enforces its validator."""
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE_ID,
         WORLDBUILDING_PROFILE_VERSION,
     )
@@ -566,7 +566,7 @@ def test_launch_default_uses_bounded_shepherds_flock_profile(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE_ID,
         WORLDBUILDING_PROFILE_VERSION,
     )
@@ -596,7 +596,7 @@ def test_launch_still_allows_explicit_plumbing_profile(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE_ID,
         WORLDBUILDING_PLUMBING_PROFILE_VERSION,
     )
@@ -654,7 +654,7 @@ def test_build_launch_retains_run_under_separate_artifact_root(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from apps.live_control_server.config import ARTIFACT_DATA_ROOT_ENV
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE_ID, WORLDBUILDING_PROFILE_VERSION,
     )
 

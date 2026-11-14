@@ -43,7 +43,7 @@ from src.graph_memory.extraction.graph_preview_runner import (  # noqa: E402
 from src.graph_memory.extraction.source_adapter import (  # noqa: E402
     NormalizedExtractionSource,
 )
-from src.graph_memory.extraction.worldbuilding_extraction_profile import (  # noqa: E402
+from graph_memory.extraction.worldbuilding_extraction_profile import (  # noqa: E402
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
     validate_worldbuilding_candidate_bounds,

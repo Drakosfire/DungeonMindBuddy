@@ -13,7 +13,7 @@ from apps.live_control_server.services.graph_run_registry import GraphRunRegistr
 from apps.live_control_server.services.graph_preview_runner import run_recap_production_extraction
 from apps.live_control_server.services.recap_ingest_context import resolve_recap_source_scope
 from src.graph_memory.extraction.bounded_recap_execution import DEEPSEEK_MODEL
-from src.graph_memory.extraction.recap_extraction_profile import resolve_legacy_graph_extraction_profile
+from graph_memory.extraction.recap_extraction_profile import resolve_legacy_graph_extraction_profile
 
 _NAMESPACE = UUID("b4c1d0a6-c412-4c42-ad34-8e513ac6de1d")
 

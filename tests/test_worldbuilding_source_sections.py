@@ -95,7 +95,7 @@ def test_actual_candidate_assembly_preserves_prose_and_stamps_all_evidence():
     from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
         GAZETTEER_PROFILE, GAZETTEER_SOURCE_RETENTION_PROFILE,
     )
-    from src.graph_memory.extraction.worldbuilding_profile_catalog import (
+    from graph_memory.extraction.worldbuilding_profile_catalog import (
         PUBLISHABLE_WORLDBUILDING_PROFILES,
     )
     source_rows = rows()

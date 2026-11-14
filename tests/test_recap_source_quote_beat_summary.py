@@ -140,8 +140,8 @@ def _extract(
         "beat_pass": {"observation_beats": beats},
         "edge_pass": {"observation_edges": []},
     }
-    from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
-    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from graph_memory.extraction.extraction_profile import ExtractionPassSpec
+    from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
 
     historical_profile = replace(
         RECAP_EXTRACTION_PROFILE,

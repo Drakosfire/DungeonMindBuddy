@@ -730,7 +730,7 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
         ProductionExtractionRequest,
         run_production_extraction,
     )
-    from src.graph_memory.extraction.recap_extraction_profile import (
+    from graph_memory.extraction.recap_extraction_profile import (
         RECAP_PROFILE_ID,
         RECAP_PROFILE_VERSION,
     )

@@ -10,7 +10,7 @@ from src.graph_memory.extraction.bounded_recap_execution import (
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     FixtureCategoryGraphPassClient,
 )
-from src.graph_memory.extraction.extraction_profile import require_admitted_profile
+from graph_memory.extraction.extraction_profile import require_admitted_profile
 from src.graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionRequest,
     run_production_extraction,
@@ -21,7 +21,7 @@ from src.graph_memory.extraction.worldbuilding_location_source_fidelity import (
 from src.graph_memory.extraction.worldbuilding_collective_source_fidelity import (
     GAZETTEER_COLLECTIVE_SOURCE_FIDELITY_PROFILE as OLD,
 )
-from src.graph_memory.extraction.worldbuilding_profile_catalog import (
+from graph_memory.extraction.worldbuilding_profile_catalog import (
     PUBLISHABLE_WORLDBUILDING_PROFILES,
 )
 from tests import test_worldbuilding_profile_pipeline as fixture

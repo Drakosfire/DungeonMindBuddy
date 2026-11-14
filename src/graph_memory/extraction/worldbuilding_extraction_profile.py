@@ -15,12 +15,12 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from src.graph_memory.extraction.extraction_profile import (
+from graph_memory.extraction.extraction_profile import (
     ExtractionPassSpec,
     ExtractionProfile,
     register_extraction_profile,
 )
-from src.graph_memory.extraction.recap_extraction_profile import EVIDENCE_RULE
+from graph_memory.extraction.recap_extraction_profile import EVIDENCE_RULE
 
 WORLDBUILDING_PROFILE_ID = "worldbuilding_shepherds_flock_v0"
 WORLDBUILDING_PROFILE_VERSION = "0.1"

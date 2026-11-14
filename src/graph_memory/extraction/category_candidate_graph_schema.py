@@ -4,7 +4,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Literal, Sequence
 
-from src.graph_memory.predicate_catalog import exact_predicate_ids, predicate_family_ids
+from graph_memory.predicate_catalog import exact_predicate_ids, predicate_family_ids
 
 PASS_NAMES = (
     "actor_pass",

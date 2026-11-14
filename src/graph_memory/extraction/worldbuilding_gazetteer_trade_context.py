@@ -7,7 +7,6 @@ from copy import deepcopy
 from dataclasses import replace
 from typing import Any
 
-from .category_candidate_graph_extractor import materialize_promote_evidence_ref
 from .extraction_profile import register_extraction_profile
 from .worldbuilding_gazetteer_governance import (
     GAZETTEER_GOVERNANCE_PROFILE,
@@ -194,6 +193,8 @@ def _attach_trade_evidence(
             return "already_present"
         quotes.append(sentence)
         return "quote_added"
+
+    from .category_candidate_graph_extractor import materialize_promote_evidence_ref
 
     evidence = materialize_promote_evidence_ref(
         {

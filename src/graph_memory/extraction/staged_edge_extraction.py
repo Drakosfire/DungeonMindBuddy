@@ -24,7 +24,7 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
 )
 from src.graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
-from src.graph_memory.predicate_catalog import (
+from graph_memory.predicate_catalog import (
     exact_predicate_ids,
     predicate_family_for_type,
     prompt_markdown,
