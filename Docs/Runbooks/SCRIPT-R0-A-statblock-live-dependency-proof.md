@@ -68,6 +68,7 @@ cd "${BUDDY_ROOT:?Set BUDDY_ROOT}" || exit 1
 scratch_session="$(mktemp -d "${TMPDIR:-/tmp}/buddy-statblock-session.XXXXXX")"
 cp -a evals/c2_live_prep/live/session_22/. "$scratch_session/"
 export DUNGEONMIND_LIVE_SESSION_DIR="$scratch_session"
+export DMB_DEPLOYMENT_ENVIRONMENT=local DMB_AUTH_MODE=local_operator
 printf 'Dogfood session: %s\n' "$scratch_session"
 uv run uvicorn apps.live_control_server.main:app --reload --host 127.0.0.1 --port 8000
 ```
