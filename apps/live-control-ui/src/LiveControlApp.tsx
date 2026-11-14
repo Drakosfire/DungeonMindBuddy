@@ -77,20 +77,34 @@ export function LiveControlApp() {
     };
   }, [refreshAll]);
 
-  const handleQuerySuccess = useCallback(
-    async (_response: LiveQueryResponse) => {
-      await refreshAll();
-    },
-    [refreshAll],
-  );
-
-  const handleLayoutSaved = useCallback(async (savedLayout: SurfaceLayout) => {
-    setLayout(savedLayout);
+  const refreshSurface = useCallback(async () => {
     const surface = await getSurface();
     setCatalog(surface.catalog);
     setLayout(surface.layout);
     setState(surface.state);
   }, []);
+
+  const handleQuerySuccess = useCallback(
+    async (response: LiveQueryResponse) => {
+      const reportsNoWrites =
+        response.schema === "dmb_live_query_response_v1" &&
+        response.mode === "live_turn" &&
+        response.status === "ok" &&
+        Array.isArray(response.events_written) &&
+        response.events_written.length === 0 &&
+        Array.isArray(response.jobs_queued) &&
+        response.jobs_queued.length === 0 &&
+        Array.isArray(response.mutations) &&
+        response.mutations.length === 0;
+      await (reportsNoWrites ? refreshSurface() : refreshAll());
+    },
+    [refreshAll, refreshSurface],
+  );
+
+  const handleLayoutSaved = useCallback(async (savedLayout: SurfaceLayout) => {
+    setLayout(savedLayout);
+    await refreshSurface();
+  }, [refreshSurface]);
 
   const handleSelectTarget = useCallback((target: PaneTarget) => {
     setInspectorPane({ status: "open", target });
