@@ -102,7 +102,7 @@ export function shouldInterceptPrimaryNavigationClick(
   return isPrimaryAppHref(href);
 }
 
-export function navigatePrimaryAppHref(href: string): void {
+export function navigatePrimaryAppHref(href: string, options?: { allowSameWorld?: boolean }): void {
   const url = resolveSameOriginUrl(href);
   if (!url) return;
   const pathname = normalizeAppPathname(url.pathname);
@@ -110,7 +110,7 @@ export function navigatePrimaryAppHref(href: string): void {
   if (normalizeAppPathname(window.location.pathname) === pathname) {
     const currentWorld = new URLSearchParams(window.location.search).get("world");
     const nextWorld = url.searchParams.get("world");
-    if (currentWorld === nextWorld && pathname !== "/statblock" && !(pathname === "/build" && url.searchParams.has("draft") && url.searchParams.has("revision"))) return;
+    if (!options?.allowSameWorld && currentWorld === nextWorld && pathname !== "/statblock" && !(pathname === "/build" && url.searchParams.has("draft") && url.searchParams.has("revision"))) return;
   }
   const next = `${pathname}${url.search}${url.hash}`;
   if (getAppLocationSnapshot() === next) return;
