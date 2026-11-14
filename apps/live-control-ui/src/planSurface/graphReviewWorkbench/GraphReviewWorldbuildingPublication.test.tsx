@@ -429,20 +429,22 @@ it("prepares the explicitly selected fact and confirms its exact native packet",
       .mockResolvedValue({ recovered: false, result: { child_revision_id: "rev:2" } });
     render(<GraphReviewWorldbuildingPublication review={review} />);
     fireEvent.change(await screen.findByLabelText("Candidate object"), { target: { value: "npc:a" } });
-    fireEvent.change(screen.getByLabelText("Fact"), { target: { value: "label" } });
+    const facts = screen.getByLabelText("Facts") as HTMLSelectElement;
+    for (const option of facts.options) option.selected = true;
+    fireEvent.change(facts);
     fireEvent.change(screen.getByLabelText("Supporting excerpt"), { target: { value: "support:a" } });
-    fireEvent.click(screen.getByRole("button", { name: "Prepare selected fact" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prepare selected facts" }));
     const submit = await screen.findByRole("button", { name: "Confirm native publication" });
     expect(prepare.mock.calls[0][0]).toEqual({
       ...coordinates,
-      selections: [{ kind: "node", record_id: "npc:a", action: "create", facts: [{
-        field: "label", metadata: {
+      selections: [{ kind: "node", record_id: "npc:a", action: "create", facts: ["label", "node_type"].map(field => ({
+        field, metadata: {
           evidence_ref_ids: ["support:a"],
           visibility: { kind: "labels_any", labels: ["dungeonbuddy.visibility:gm"] },
           epistemic_basis: "asserted", claim_mode: "dungeonbuddy.claim:fact",
           standing: "provisional", temporal_scope: { kind: "timeless" },
         },
-      }] }],
+      })) }],
     });
     expect(confirm).not.toHaveBeenCalled();
     fireEvent.click(submit);
