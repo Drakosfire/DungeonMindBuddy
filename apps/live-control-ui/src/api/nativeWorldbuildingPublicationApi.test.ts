@@ -70,3 +70,28 @@ it("keeps held preparations unconfirmable and rejects a changed candidate", asyn
   }) as Awaited<ReturnType<typeof authenticatedApiFetch>>);
   await expect(prepareNativeWorldbuilding(input)).rejects.toThrow("changed the selected review scope");
 });
+
+it("accepts server defaults but refuses changed evidence in the signed review", async () => {
+  const fetch = vi.mocked(authenticatedApiFetch);
+  const input = {
+    managed_world_id: "elderwyld", run_id: "run:one", expected_run_revision: 2,
+    candidate_sha256: "a".repeat(64), expected_parent_revision_id: "rev:parent",
+    expected_source_authority_epoch: 3, workspace_document_id: "doc:one",
+    workspace_document_revision: 4,
+    selections: [{kind: "node", record_id: "node:one", action: "create",
+      facts: [{field: "label", metadata: {evidence_ref_ids: ["support:one"]}}]}],
+  };
+  const respond = (evidenceId: string) => fetch.mockImplementationOnce(async () => ({
+    response: Response.json({
+      ...input, run_revision: input.expected_run_revision, status: "prepared",
+      publication: "not_performed", records: [], prepared: {}, token: "signed-fixture",
+      envelope: {purpose: "dmb_native_worldbuilding_confirm_v1",
+        review: {...input, selections: [{...input.selections[0], entity_id: null,
+          facts: [{field: "label", index: null, metadata: {evidence_ref_ids: [evidenceId]}}]}]}},
+    }),
+  }) as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+  respond("support:one");
+  await expect(prepareNativeWorldbuilding(input)).resolves.toMatchObject({status: "prepared"});
+  respond("support:other");
+  await expect(prepareNativeWorldbuilding(input)).rejects.toThrow("Invalid native Worldbuilding confirmation packet");
+});
