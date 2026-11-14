@@ -1109,3 +1109,83 @@ def test_shared_search_preserves_admitted_seed_under_node_bound(inspection, monk
     result = foreign_scope.json()
     assert result["matchedNodeIds"] == result["nodes"] == result["sourceAnchors"] == []
     assert result["coverage"]["missingSeedNodeIds"] == [inspection.objects["object:1"]]
+
+
+def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+    from apps.live_control_server.services import native_graph_inspection as native, world_graph_retrieval
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from graph_memory.retrieval.models import WorldGraphSearchRequest, WorldGraphSourceAnchorReadRequest
+
+    principal = NativeGraphPrincipal(subject="test:gm", role="gm", auth_method="local_operator")
+    scope = {"worldId": "managed", "campaignId": inspection.lane.run.campaign_id}
+    search_request = WorldGraphSearchRequest.model_validate({
+        **scope, "schema": "dmb_world_graph_search_request_v1", "queryText": "Object 1",
+        "bounds": {"maxNodes": 1},
+    })
+    binding = inspection.lane.bound
+    with pytest.raises(native.InspectionUnavailable, match="native_inspection_binding_changed"):
+        native.shared_search(
+            search_request, principal, include_source_pins=True,
+            expected_native_world_id=binding["native_world_id"],
+            expected_binding_version=binding["binding_version"] + 1,
+        )
+    search = native.shared_search(
+        search_request, principal, include_source_pins=True,
+        expected_native_world_id=binding["native_world_id"],
+        expected_binding_version=binding["binding_version"],
+    )
+    pin, = search.source_pins
+    monkeypatch.setattr(world_graph_reads, "direct_services_from_config",
+                        lambda *_: pytest.fail("classic source reader invoked"))
+    receipt, = world_graph_retrieval.read_source_anchors_internal_v2((
+        WorldGraphSourceAnchorReadRequest.model_validate({
+            **scope, "schema": "dmb_world_graph_source_anchor_read_request_v1",
+            "revisionPin": pin.graph_revision, "anchorId": pin.anchor_id,
+        }),
+    ), native_principal=principal)
+    assert receipt.result.content == inspection.lane.text.splitlines(keepends=True)[0]
+    assert receipt.result.snapshot.revision_id == receipt.graph_revision == pin.graph_revision
+    assert receipt.source_revision_id == pin.source_revision_id
+    assert receipt.evidence_ref_id == pin.evidence_ref_id
+    assert receipt.source_artifact_id == pin.source_artifact_id
+    assert receipt.source_span_ref_id == receipt.result.source_span_ref_id
+
+    from graph_memory.interaction import expansion_executor
+    from graph_memory.interaction.session import GraphRetrievalSession, SessionSnapshot, SourceAnchorState
+
+    from types import SimpleNamespace
+
+    authority = SimpleNamespace(
+        managed_world_id=scope["worldId"], native_world_id=inspection.lane.bound["native_world_id"],
+        binding_version=inspection.lane.bound["binding_version"], graph_revision=pin.graph_revision,
+    )
+    assert authority.managed_world_id != authority.native_world_id
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(world_id=authority.native_world_id, campaign_id=scope["campaignId"],
+                                 revision_id=pin.graph_revision),
+        question="Object 1",
+        source_anchors=[SourceAnchorState(anchor_id=pin.anchor_id, readable=True)],
+    )
+    monkeypatch.setattr(expansion_executor, "artifact_data_root", lambda **_: inspection.lane.tmp_path)
+    monkeypatch.setattr(expansion_executor, "get_session", lambda _: session)
+    monkeypatch.setattr(expansion_executor, "replace_session", lambda _: None)
+    batch = expansion_executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": [pin.anchor_id],
+    }, receipt_version=2, native_principal=principal, native_authority=authority)
+    read, = batch["reads"]
+    assert read["result"]["content"] == receipt.result.content
+    assert read["receipt"]["source_revision_id"] == pin.source_revision_id
+    assert read["receipt"]["graph_revision"] == pin.graph_revision
+    assert session.source_reads[0].receipt_v2 is not None
+
+    stale_authority = SimpleNamespace(**{
+        **vars(authority), "binding_version": authority.binding_version + 1,
+    })
+    rejected = expansion_executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": [pin.anchor_id],
+    }, receipt_version=2, native_principal=principal, native_authority=stale_authority)
+    denied_read, = rejected["reads"]
+    assert denied_read["receipt"] is None
+    assert denied_read["result"]["code"] == "native_source_unavailable"
+    assert "content" not in denied_read["result"]

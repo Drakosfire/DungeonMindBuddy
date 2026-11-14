@@ -3495,7 +3495,14 @@ class _PolicyExecutionAdapter:
                 )
                 if not native_subject_search:
                     services = plan_services.resolve()
-            if services is None and not native_subject_search:
+            native_shared_search = (
+                request.operation == "search"
+                and plan_services is None
+                and isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1))
+                and self._broker_graph_receipt().graph_authority.managed_world_id
+                == os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip()
+            )
+            if services is None and not (native_subject_search or native_shared_search):
                 services = direct_services_from_config(self.bootstrap.world_scope.world_id)
             reviewed = None
             if request.operation == "observations":
@@ -3568,6 +3575,19 @@ class _PolicyExecutionAdapter:
                     from .native_graph_inspection import plan_subject_search
                     result = plan_subject_search(effective_request, self.native_principal)
                     resolved = None
+                elif native_shared_search:
+                    from .native_graph_inspection import shared_search
+
+                    authority = self._broker_graph_receipt().graph_authority
+                    resolved = shared_search(
+                        effective_request.model_copy(update={"world_id": authority.managed_world_id}),
+                        self.native_principal, include_source_pins=True,
+                        expected_native_world_id=authority.native_world_id,
+                        expected_binding_version=authority.binding_version,
+                    )
+                    result = resolved.result.model_copy(update={
+                        "snapshot": resolved.result.snapshot.model_copy(update={"world_id": authority.native_world_id}),
+                    })
                 else:
                     resolved = (
                         search_world_graph_direct_v3(services, effective_request)
@@ -3645,7 +3665,7 @@ class _PolicyExecutionAdapter:
             # Plan Jev's fixed acquisition contract cannot open related recap
             # routes, and its writer never receives them. Do not derive an
             # unused context index or re-read target evidence for this owner.
-            if (sufficient and not truncated
+            if (sufficient and not truncated and not native_shared_search
                     and not isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1)):
                 offers = self._related_recap_offers(result, services)
                 if offers:
@@ -4064,12 +4084,13 @@ class _PolicyExecutionAdapter:
                 error = source_authorization_error(self.fence.turn, request.anchor_ids)
                 if error is not None:
                     return denied(error, 409)
+            authority = self._broker_graph_receipt().graph_authority
             scope = execution.policy.source_read_scope
             session = get_session(scope.retrieval_session_id)
             if (
                 request.retrieval_session_id != scope.retrieval_session_id
                 or session.snapshot.world_id
-                != self._broker_graph_receipt().graph_authority.native_world_id
+                != authority.native_world_id
                 or session.snapshot.campaign_id != (scope.campaign_id or "")
                 or session.snapshot.revision_id != scope.graph_revision
             ):
@@ -4102,6 +4123,15 @@ class _PolicyExecutionAdapter:
                 or request.max_chars > execution.policy.max_chars_per_source_read
             ):
                 return denied("source_read_over_budget", 413)
+            scoped_native_source = (
+                authority.managed_world_id == os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip()
+                and any(anchor_id.startswith("native-neighborhood:") for anchor_id in request.anchor_ids)
+            )
+            if scoped_native_source:
+                if self.native_principal is None:
+                    return denied("native_source_principal_unavailable", 403)
+                if not all(anchor_id.startswith("native-neighborhood:") for anchor_id in request.anchor_ids):
+                    return denied("mixed_source_authority", 422)
             read_call_id = uuid4()
             authorization = graph_types.SourceReadAuthorizationEventV2(
                 event_id=uuid4(), sequence=len(execution.events),
@@ -4121,6 +4151,7 @@ class _PolicyExecutionAdapter:
             internal = execute_read_graph_source(
                 request.model_dump(mode="json", by_alias=True), receipt_version=2,
                 root=self.root,
+                **({"native_principal": self.native_principal, "native_authority": authority} if scoped_native_source else {}),
                 **({"native_services": self._build_native_acquisition_services}
                    if getattr(self, "_build_native_acquisition_services", None) is not None else {}),
             )

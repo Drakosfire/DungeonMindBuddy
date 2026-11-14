@@ -147,7 +147,7 @@ def authoring_identities(scope, principal):
     return _response(bound, pin, identities=identities)
 
 
-def inspect(request, principal):
+def inspect(request, principal, *, include_source_span=False):
     bound, read, access, pin, _ = _pinned(request.scope, principal)
     selection = request.selection
     if selection.kind == "neighborhood":
@@ -236,6 +236,8 @@ def inspect(request, principal):
         raise InspectionUnavailable("native_inspection_source_unavailable")
     # Core verifies the whole source; the caller receives only its selected span.
     span = opened.model_dump(mode="json", exclude={"body_text"})
+    if include_source_span:
+        span["source_span_ref_id"] = evidence.source_span_ref_id
     span["text"] = opened.body_text.encode("utf-8")[
         opened.span_start_byte : opened.span_end_byte
     ].decode("utf-8")
@@ -382,24 +384,35 @@ def complete_object(body: NativeCompleteObjectRead, principal):
     return result.model_dump(mode="json", by_alias=True)
 
 
-def open_neighborhood_anchor(request, principal):
+def open_neighborhood_anchor(request, principal, *, include_receipt=False, authority=None):
     from graph_memory.retrieval.models import WorldGraphSourceAnchorReadResult
     from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import native_anchor_selection
     from apps.live_control_server.models.native_graph_inspection import InspectionRead
 
     require_native_graph_gm(principal)
-    bound = native.binding(request.world_id)
+    managed_world_id = authority.managed_world_id if authority is not None else request.world_id
+    bound = native.binding(managed_world_id)
+    if authority is not None and (
+        request.world_id != authority.native_world_id
+        or bound["native_world_id"] != authority.native_world_id
+        or bound["binding_version"] != authority.binding_version
+        or request.revision_pin != authority.graph_revision
+    ):
+        raise InspectionUnavailable("native_inspection_binding_changed")
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import ResolvedSourceAnchorReadV2
+
     result = WorldGraphSourceAnchorReadResult(outcome="empty", anchor_id=request.anchor_id)
+    empty = ResolvedSourceAnchorReadV2(result, None, None, None, None, None, None, None, None) if include_receipt else result
     if request.revision_pin is None:
-        return result
+        return empty
     try:
         assertion_id, evidence_ref_id = native_anchor_selection(request.anchor_id)
     except ValueError:
-        return result
+        return empty
     if request.admissibility != principal.role:
-        return result
+        return empty
     pin = InspectionPin(
-        managed_world_id=request.world_id,
+        managed_world_id=managed_world_id,
         native_world_id=bound["native_world_id"],
         binding_version=bound["binding_version"],
         revision_id=request.revision_pin,
@@ -409,16 +422,37 @@ def open_neighborhood_anchor(request, principal):
     packet = inspect(InspectionRead(
         scope=pin,
         selection={"kind": "source", "assertion_id": assertion_id, "evidence_ref_id": evidence_ref_id},
-    ), principal)
+    ), principal, include_source_span=include_receipt)
     source = packet.get("source")
-    if source is None or native.binding(request.world_id) != bound:
-        return result
+    if source is None or native.binding(managed_world_id) != bound:
+        return empty
     excerpt = source["text"]
-    return WorldGraphSourceAnchorReadResult(
+    result = WorldGraphSourceAnchorReadResult(
         outcome="enough", anchor_id=request.anchor_id, evidence_ref_id=evidence_ref_id,
         source_artifact_id=source["source_artifact_id"], locator_kind="source_span",
         media_type="text/plain", content=excerpt[:request.max_chars],
         content_sha256=source["body_sha256"], truncated=len(excerpt) > request.max_chars,
+    )
+    if not include_receipt:
+        return result
+    from graph_memory.retrieval.models import WorldGraphRetrievalSnapshot
+
+    span = source["source_span_ref_id"]
+    head = native.read_repository().get_head(pin.native_world_id)
+    if head is None:
+        return empty
+    result = result.model_copy(update={
+        "source_span_ref_id": span,
+        "snapshot": WorldGraphRetrievalSnapshot(
+            world_id=request.world_id, campaign_id=request.campaign_id,
+            revision_id=pin.revision_id, head_revision_id=head.head_revision_id,
+            is_head=pin.revision_id == head.head_revision_id, focus=request.focus.model_dump(), admissibility=request.admissibility,
+            scope_mode=request.scope_mode,
+        ),
+    })
+    return ResolvedSourceAnchorReadV2(
+        result, source["source_revision_id"], source["body_sha256"], evidence_ref_id,
+        source["source_artifact_id"], span, "source_span", span, pin.revision_id,
     )
 
 
@@ -789,11 +823,18 @@ def _reviewed_search_matches(hits, result, read, space, repository):
     return matches
 
 
-def shared_search(request, principal):
+def shared_search(request, principal, *, include_source_pins=False,
+                  expected_native_world_id=None, expected_binding_version=None):
     from dungeonmind.application.vnext import SearchReadService
 
     bound, head, pin = _shared_retrieval_pin(request, principal)
-    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    if expected_native_world_id is not None and (
+        pin.native_world_id != expected_native_world_id or pin.binding_version != expected_binding_version
+    ):
+        raise InspectionUnavailable("native_inspection_binding_changed")
+    read_binding, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    if read_binding != bound:
+        raise InspectionUnavailable("native_inspection_binding_changed")
     search = SearchReadService().search_entities(read, request.query_text, limit=20)
     seeds = list(dict.fromkeys(request.seed_node_ids))
     reader = EntityReadService()
@@ -832,7 +873,7 @@ def shared_search(request, principal):
     for match in observations:
         if "reviewed_source_observation" not in reasons[match.subject_node_id]:
             reasons[match.subject_node_id].append("reviewed_source_observation")
-    return result.model_copy(update={
+    result = result.model_copy(update={
         "outcome": "partial" if missing or truncated else "enough" if selected else "empty",
         "matched_node_ids": selected,
         "reviewed_source_observation_matches": observations,
@@ -843,6 +884,29 @@ def shared_search(request, principal):
             "truncated_fields": truncated,
         }),
     })
+
+    if not include_source_pins:
+        return result
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+        ResolvedSourceAnchorMetadataV2, ResolvedWorldGraphOperationV3,
+    )
+
+    pins = []
+    for anchor in result.source_anchors:
+        if not anchor.readable:
+            continue
+        evidence = read.parsed.evidence_by_id.get(anchor.evidence_ref_id)
+        if (evidence is None or evidence.source_artifact_id != anchor.source_artifact_id
+                or not evidence.source_revision_id or anchor.revision_id != pin.revision_id):
+            raise InspectionUnavailable("native_search_source_identity_mismatch")
+        pins.append(ResolvedSourceAnchorMetadataV2(
+            anchor_id=anchor.anchor_id, graph_revision=pin.revision_id,
+            evidence_ref_id=evidence.evidence_ref_id,
+            source_artifact_id=evidence.source_artifact_id,
+            source_revision_id=evidence.source_revision_id,
+        ))
+    return ResolvedWorldGraphOperationV3(result, tuple(pins))
 
 
 def plan_subject_search(request, principal):
