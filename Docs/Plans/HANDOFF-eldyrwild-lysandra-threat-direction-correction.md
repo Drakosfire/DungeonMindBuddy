@@ -1,4 +1,6 @@
 ---
+
+> Historical recovery commands below refer to the [pre-cutover script](https://github.com/Drakosfire/DungeonMindBuddy/blob/30008dc473bd80144a46c035d09b56ad1deb2928/scripts/apply_eldyrwild_lysandra_threat_direction_correction.py). Run them from that pinned checkout with the retained World inputs. [Replay evidence and inputs](https://github.com/Drakosfire/DungeonMindBuddy/issues/3588).
 pr_body_template: |
   ## Handoff pointer
   - Conversation: Eldyrwild Lysandra Threat Direction Correction

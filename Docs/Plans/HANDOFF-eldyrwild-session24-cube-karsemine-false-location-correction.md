@@ -1,5 +1,7 @@
 # HANDOFF — Eldyrwild Session-24 cube→Karsemine false-location correction
 
+> Historical recovery commands below refer to the [pre-cutover script](https://github.com/Drakosfire/DungeonMindBuddy/blob/30008dc473bd80144a46c035d09b56ad1deb2928/scripts/apply_eldyrwild_session24_cube_karsemine_false_location_correction.py). Run them from that pinned checkout with the retained World inputs. [Replay evidence and inputs](https://github.com/Drakosfire/DungeonMindBuddy/issues/3588).
+
 **Created:** 2026-08-10
 **Status:** DONE — canonical P→Q live exit proven (`P=rev:b90646fb…` → `Q=rev:b8dfc063…`; delta `-1/0/-1/0`)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-session24-cube-karsemine-false-location-correction.md`
