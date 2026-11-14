@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { PdfPages } from "./BuildPdfPreview";
 import { BuildSourceWorkspace } from "./BuildSourceWorkspace";
 import { publishPdfStatblock } from "./publishPdfStatblock";
@@ -18,7 +19,7 @@ type Review = {
   regions: PdfLocator[];
 };
 
-export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string; reviewId: string }) {
+export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { worldId: string; reviewId: string; toolbarHost?: HTMLElement | null }) {
   const sourcePath = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources`;
   const reviewPath = `${sourcePath}/statblock-reviews/${encodeURIComponent(reviewId)}`;
   const [review, setReview] = useState<Review>();
@@ -467,8 +468,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     setIssues([]);
   }
 
-  return (
-    <section className="pdf-statblock-review" aria-label="PDF statblock review">
+  const toolbar = (
       <header className="pdf-statblock-review__toolbar">
         <h1>PDF statblock review</h1>
         <button type="button" disabled={pending} onClick={() => {
@@ -488,15 +488,23 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
           <span role="status">Creature and statblock published</span>
           <a href={publishedLink}>Open published statblock</a>
         </>}
-      </header>
-      {!published && publishBlockers.length > 0 && <ul aria-label="What blocks publication">
+      {!published && publishBlockers.length > 0 && <details className="pdf-statblock-review__blockers">
+        <summary>Publication blockers ({publishBlockers.length})</summary>
+        <ul aria-label="What blocks publication">
         {publishBlockers.map((blocker, index) => <li key={index}>
           {typeof blocker === "string" ? blocker :
             <button type="button" onClick={() => focusIssue(issueTarget(blocker.field_path), blocker.field_path, blocker.code)}>
               {blocker.message}
             </button>}
         </li>)}
-      </ul>}
+        </ul>
+      </details>}
+      </header>
+  );
+
+  return (
+    <section className="pdf-statblock-review" aria-label="PDF statblock review">
+      {toolbarHost ? createPortal(toolbar, toolbarHost) : toolbar}
       {error && <p role="alert">{error}</p>}
       {!review && !error && <p role="status">Opening review…</p>}
       <BuildSourceWorkspace sourceHidden={sourceHidden} source={<>
