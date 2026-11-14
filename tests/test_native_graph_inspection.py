@@ -1138,3 +1138,24 @@ def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch)
     assert receipt.evidence_ref_id == pin.evidence_ref_id
     assert receipt.source_artifact_id == pin.source_artifact_id
     assert receipt.source_span_ref_id == receipt.result.source_span_ref_id
+
+    from graph_memory.interaction import expansion_executor
+    from graph_memory.interaction.session import GraphRetrievalSession, SessionSnapshot, SourceAnchorState
+
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(world_id=scope["worldId"], campaign_id=scope["campaignId"],
+                                 revision_id=pin.graph_revision),
+        question="Object 1",
+        source_anchors=[SourceAnchorState(anchor_id=pin.anchor_id, readable=True)],
+    )
+    monkeypatch.setattr(expansion_executor, "artifact_data_root", lambda **_: inspection.lane.tmp_path)
+    monkeypatch.setattr(expansion_executor, "get_session", lambda _: session)
+    monkeypatch.setattr(expansion_executor, "replace_session", lambda _: None)
+    batch = expansion_executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": [pin.anchor_id],
+    }, receipt_version=2, native_principal=principal)
+    read, = batch["reads"]
+    assert read["result"]["content"] == receipt.result.content
+    assert read["receipt"]["source_revision_id"] == pin.source_revision_id
+    assert read["receipt"]["graph_revision"] == pin.graph_revision
+    assert session.source_reads[0].receipt_v2 is not None
