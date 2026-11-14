@@ -432,17 +432,19 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     return "pdf-review-fields";
   }
 
-  function focusIssue(target: string, path?: string | null) {
+  function focusIssue(target: string, path?: string | null, code?: string) {
     const timing = path?.endsWith(".activation") || path?.endsWith(".activation.timing_text");
     const timingControl = timing && document.getElementById(target)?.querySelector<HTMLElement>("[data-lair-timing]");
-    const structuredRule = target.startsWith("pdf-review-rule-") && !path?.endsWith(".rules_text") && !timingControl;
+    const manualControl = code === "LEGENDARY_RESOURCE_REQUIRED" &&
+      document.getElementById(target)?.querySelector<HTMLElement>("[data-legendary-manual]");
+    const structuredRule = target.startsWith("pdf-review-rule-") && !path?.endsWith(".rules_text") && !timingControl && !manualControl;
     if (structuredRule) target = target.replace("pdf-review-rule-", "pdf-review-validation-rule-");
     const element = document.getElementById(target);
     if (!element) return;
     for (let parent: HTMLElement | null = element; parent; parent = parent.parentElement) {
       if (parent instanceof HTMLDetailsElement) parent.open = true;
     }
-    const control = timingControl || (element.querySelector<HTMLElement>("input, textarea, summary") ?? element);
+    const control = manualControl || timingControl || (element.querySelector<HTMLElement>("input, textarea, summary") ?? element);
     control.focus();
     control.scrollIntoView?.({ block: "nearest" });
   }
@@ -483,7 +485,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       {!published && publishBlockers.length > 0 && <ul aria-label="What blocks publication">
         {publishBlockers.map((blocker, index) => <li key={index}>
           {typeof blocker === "string" ? blocker :
-            <button type="button" onClick={() => focusIssue(issueTarget(blocker.field_path), blocker.field_path)}>
+            <button type="button" onClick={() => focusIssue(issueTarget(blocker.field_path), blocker.field_path, blocker.code)}>
               {blocker.message}
             </button>}
         </li>)}
@@ -569,6 +571,18 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
                       })));
                     }} />
                 </label>}
+              {issues.some(issue => issue.code === "LEGENDARY_RESOURCE_REQUIRED" &&
+                issueTarget(issue.field_path) === `pdf-review-rule-${key}`) &&
+                <button type="button" data-legendary-manual disabled={pending} onClick={() => {
+                  if (!window.confirm(`Use ${name} as a manual rule? This keeps its printed text and replaces its automated mechanics and costs.`)) return;
+                  commitEdit(updateWorkingCopy(editor, current => ({
+                    ...current,
+                    rule_elements: current.rule_elements.map(element => element.key === key
+                      ? { ...element, mechanic: { kind: "human_adjudicated" }, automation_support: "manual",
+                        costs: [], usage: { kind: "manual", uses: null, resource_key: null } }
+                      : element),
+                  })));
+                }}>Use {name} as a manual rule</button>}
             </details>
             <div id={`pdf-review-validation-rule-${key}`} tabIndex={-1}>
               {fieldIssues(`pdf-review-rule-${key}`)}
