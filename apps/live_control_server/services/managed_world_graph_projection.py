@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -178,6 +179,40 @@ def resolve_managed_source_identity(
     )
 
 
+def _read_native_projection_support(
+    binding: VerifiedManagedWorldBinding, revision_pin: str | None
+):
+    """Resolve one native World revision and read its authorized projection inputs."""
+    from dungeonmind.application.vnext import EntityReadService
+    from dungeonmind.application.vnext.errors import KnowledgeReadContextIntegrityError
+
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source
+
+    repository = native_registry_source.read_repository()
+    head = repository.get_head(binding.native_world_id)
+    if head is None:
+        raise WorldGraphProjectionServiceError(
+            "Managed World native Graph head is unavailable.",
+            code="native_graph_head_unavailable",
+            status_code=404,
+        )
+    revision_id = head.head_revision_id if revision_pin is None else revision_pin
+    try:
+        context, access, _, _ = native_registry_source.read_context(
+            repository, binding.native_world_id, revision_id, None, scope_mode="world"
+        )
+    except KnowledgeReadContextIntegrityError as exc:
+        # Core currently reports a missing revision through this integrity error.
+        if revision_pin is None or str(exc) != "native source context revision is missing":
+            raise
+        raise WorldGraphProjectionServiceError(
+            "Requested native Graph revision is unavailable.",
+            code="native_graph_revision_unavailable",
+            status_code=404,
+        ) from exc
+    return head.head_revision_id, context, access, EntityReadService().list_entities_with_support(context)
+
+
 def project_managed_world_graph(
     request: ManagedWorldGraphProjectionRequest,
     *,
@@ -205,7 +240,35 @@ def project_managed_world_graph(
             "scopeMode": "world",
         }
     )
-    projection = project_world_graph(native_request)
+    if os.environ.get("DMB_VNEXT_MANAGED_PROJECTION_WORLD") == initial.managed_world_id:
+        from apps.live_control_server.integrations.dungeonmind.vnext_world_projection import (
+            project_native_world,
+            project_query_context,
+        )
+        from graph_memory.projection.world_projection import WorldGraphProjectionSnapshot
+
+        head, context, access, support = _read_native_projection_support(initial, request.revision_pin)
+        revision = support.listing.identity.revision_id
+        projection = project_native_world(
+            context,
+            support,
+            WorldGraphProjectionSnapshot(
+                world_id=initial.native_world_id,
+                campaign_id="",
+                revision_id=revision,
+                head_revision_id=head,
+                is_head=revision == head,
+                focus=native_request.focus,
+                admissibility="gm",
+                scope_mode="world",
+            ),
+            access=access,
+            managed_world_id=initial.managed_world_id,
+        )
+        if request.query_text:
+            projection.query_context = project_query_context(projection, request.query_text)
+    else:
+        projection = project_world_graph(native_request)
 
     current = resolve_managed_world_binding(request.managed_world_id, root=root)
     if current != initial:

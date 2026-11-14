@@ -634,3 +634,97 @@ def test_catalog_fetches_the_pinned_revision_once(inspection, monkeypatch):
     scope = result["scope"]
     assert reads == [(scope["native_world_id"], scope["revision_id"])]
     assert result["assertions"]
+
+
+def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch):
+    from apps.live_control_server.routes.world_graph_projection import router as projection_router
+    from apps.live_control_server.services import managed_world_graph_projection as managed
+
+    lane = inspection.lane
+    space = lane.bound["native_world_id"]
+    binding = managed.VerifiedManagedWorldBinding("managed", space, 1, "")
+    monkeypatch.setattr(managed, "resolve_managed_world_binding", lambda *a, **kw: binding)
+    monkeypatch.setenv("DMB_VNEXT_MANAGED_PROJECTION_WORLD", "managed")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Native managed route used the classic graph")
+
+    monkeypatch.setattr(managed, "project_world_graph", forbidden)
+    inspection.app.include_router(projection_router)
+    revision = lane.repo.get_head(space).head_revision_id
+    response = inspection.client.post(
+        "/api/live/world-graph/managed-projection",
+        json={
+            "schema": "dmb_managed_world_graph_projection_request_v1",
+            "managedWorldId": "managed",
+            "revisionPin": revision,
+            "queryText": "Object 0",
+        },
+    )
+    assert response.status_code == 200, response.text
+    projection = response.json()["projection"]
+    assert projection["snapshot"]["revisionId"] == revision
+    nodes = {node["nodeId"]: node for node in projection["nodes"]}
+    source = nodes[inspection.objects["object:0"]]
+    target = nodes[inspection.objects["endpoint"]]
+    assert source["adjacency"][0]["direction"] == "outgoing"
+    assert target["adjacency"][0]["direction"] == "incoming"
+    assert target["evidenceRefIds"] == []
+    assert target["evidenceBadges"] == []
+    assert source["campaignScopeUnknown"] is True
+    assert source["campaignScope"] is None
+    assert [badge["evidenceRefId"] for badge in source["evidenceBadges"]] == source["evidenceRefIds"]
+    assert source["suggestedExpansions"][0]["nodeId"] == target["nodeId"]
+    assert source["nodeId"] in projection["queryContext"]["matchedNodeIds"]
+    assert projection["attributes"] == []
+    assert lane.repo.get_head(space).head_revision_id == revision
+    unavailable = inspection.client.post(
+        "/api/live/world-graph/managed-projection",
+        json={
+            "schema": "dmb_managed_world_graph_projection_request_v1",
+            "managedWorldId": "managed",
+            "revisionPin": "missing-native-revision",
+        },
+    )
+    assert unavailable.status_code >= 400
+    assert "projection" not in unavailable.json()
+    assert lane.repo.get_head(space).head_revision_id == revision
+
+    citation = read(
+        inspection,
+        catalog(inspection)["scope"],
+        {
+            "kind": "source",
+            "assertion_id": inspection.assertions["name:0"],
+            "evidence_ref_id": lane.support_ids["first"],
+        },
+    )
+    assert citation.status_code == 200, citation.text
+    cited_source = citation.json()["source"]
+    projected_citation = next(
+        item for item in projection["evidence"]
+        if item["evidenceRefId"] == lane.support_ids["first"]
+    )
+    assert projected_citation["sourceArtifactId"] == cited_source["source_artifact_id"]
+    assert cited_source["text"] == lane.text.splitlines(keepends=True)[0]
+    head = lane.repo.get_head(space)
+    events = lane.repo.head_events(space)
+    lane.repo.withdraw_native_source(
+        space_id=space,
+        source_artifact_id=cited_source["source_artifact_id"],
+        source_revision_id=cited_source["source_revision_id"],
+    )
+    after = inspection.client.post(
+        "/api/live/world-graph/managed-projection",
+        json={
+            "schema": "dmb_managed_world_graph_projection_request_v1",
+            "managedWorldId": "managed",
+            "revisionPin": revision,
+        },
+    )
+    assert after.status_code == 200, after.text
+    assert lane.support_ids["first"] not in {
+        item["evidenceRefId"] for item in after.json()["projection"]["evidence"]
+    }
+    assert lane.repo.get_head(space) == head
+    assert lane.repo.head_events(space) == events
