@@ -23,7 +23,7 @@ from src.live_play.session_memory_materializer import (
     _materialize_one,
 )
 from src.agent.recap_frontmatter_seed import build_frontmatter_seed
-from src.agent.corpus_writer import is_writable_corpus_path, write_corpus_file
+from corpus.corpus_writer import is_writable_corpus_path, write_corpus_file
 from src.agent.recap_ingest_helpers import assemble_recap
 from src.corpus.session_recap_paths import (
     breadcrumbed_relpath,
