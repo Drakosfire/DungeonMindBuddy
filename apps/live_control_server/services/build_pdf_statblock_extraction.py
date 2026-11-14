@@ -132,6 +132,9 @@ def _provider_schema() -> dict:
         for keyword in ("anyOf", "oneOf", "allOf"):
             if keyword in node:
                 result[keyword] = [expand(branch, active) for branch in node[keyword]]
+        if "oneOf" in result:
+            result["anyOf"] = result.pop("oneOf")
+        result.pop("discriminator", None)
         return result
 
     return make_schema_strict(expand(schema))
