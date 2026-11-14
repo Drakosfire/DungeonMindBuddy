@@ -1,4 +1,4 @@
-import { listWorldMechanicsAssociations } from "../api/liveApi";
+import { listWorldCreatures, listWorldMechanicsAssociations } from "../api/liveApi";
 import type { WorldMechanicsAssociation } from "../api/worldMechanicsTypes";
 import { buildSavedStatblockHref } from "../statblocks/savedStatblockLocation";
 import { interceptPrimaryNavigationClick } from "../chrome/appNavigation";
@@ -80,9 +80,15 @@ function BuildThreats({ worldId, close }: { worldId: string; close: () => void }
   const [query, setQuery] = useState("");
   useEffect(() => {
     let active = true;
-    void listWorldMechanicsAssociations(worldId).then(associations => {
+    void Promise.all([listWorldMechanicsAssociations(worldId), listWorldCreatures(worldId)]).then(([associations, catalog]) => {
+      const creatureIds = new Set(catalog.targets.filter(target =>
+        target.kind === "creature" && target.campaign_scope === null,
+      ).map(target => target.node_id));
+
       if (active) setRecords(associations.filter(({ request: { target } }) =>
-        target.managed_world_id === worldId && target.kind === "creature" && target.campaign_scope === null,
+        target.managed_world_id === worldId && target.native_world_id === catalog.native_world_id
+        && target.binding_version === catalog.binding_version && target.kind === "creature"
+        && target.campaign_scope === null && creatureIds.has(target.node_id),
       ));
     }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
