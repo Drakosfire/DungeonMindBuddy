@@ -259,7 +259,7 @@ function formatDamageKindLabel(kind: string): string {
   return `Damage ${normalized.replace(/\b\w/g, (ch) => ch.toUpperCase())}`;
 }
 
-function CampaignRuleElement({ element }: { element: FormattedRuleElement }) {
+function CampaignRuleElement({ element, editor }: { element: FormattedRuleElement; editor?: ReactNode }) {
   const metaBits = [
     element.usage.summary && element.usage.summary !== "at will" ? element.usage.summary : null,
     ...element.mechanicDetails.lines.slice(0, 2),
@@ -280,6 +280,7 @@ function CampaignRuleElement({ element }: { element: FormattedRuleElement }) {
       ) : element.summary ? (
         <p className="statblock-campaign-rule__text">{element.summary}</p>
       ) : null}
+      {editor}
     </div>
   );
 }
@@ -425,10 +426,8 @@ function CampaignStatblockBody({ view, portrait, draft }: {
           {sections.map(({ section, elements }) => (
             <CampaignSectionCard key={section} heading={section.replace(/_/g, " ")}>
               {elements.map((element) => (
-                <div key={element.key}>
-                  <CampaignRuleElement element={element} />
-                  {draft?.ruleEditor(element.key, element.name)}
-                </div>
+                <CampaignRuleElement key={element.key} element={element}
+                  editor={draft?.ruleEditor(element.key, element.name)} />
               ))}
             </CampaignSectionCard>
           ))}
