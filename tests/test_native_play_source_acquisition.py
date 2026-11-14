@@ -102,7 +102,7 @@ def acquired(application_state_dsn, monkeypatch, request):
     adapter.last_provider_attempt_id = provider.provider_attempt_id
     calls = []
     pin = t.GraphSourceScopeAnchorV2(
-        anchor_id="anchor:new",
+        anchor_id=("native-neighborhood:fixture" if getattr(request, "param", None) == "native_search" else "anchor:new"),
         evidence_ref_id="evidence:new",
         source_artifact_id="source:new",
         source_revision_id="revision:new",
@@ -174,7 +174,11 @@ def acquired(application_state_dsn, monkeypatch, request):
         lambda *_: pytest.fail("Native Play selected a predecessor read"),
     )
 
-    def source(arguments, *, receipt_version, root):
+    def source(arguments, *, receipt_version, root, **kwargs):
+        if getattr(request, "param", None) == "native_search":
+            assert kwargs == {"native_principal": adapter.native_principal, "native_authority": authority}
+        else:
+            assert not kwargs
         calls.append("source")
         assert receipt_version == 2 and arguments["anchorIds"] == [pin.anchor_id]
         rid = "synthetic-source-read"
@@ -465,6 +469,7 @@ def test_actual_play_provider_preparation_retains_only_exposed_source_reads(
     assert f.calls == ["graph", "source"]
 
 
+@pytest.mark.parametrize("acquired", ["native_search"], indirect=True)
 def test_scoped_play_search_persists_native_source_extension(acquired, monkeypatch):
     from apps.live_control_server.services import native_graph_inspection
     from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
@@ -518,3 +523,17 @@ def test_scoped_play_search_persists_native_source_extension(acquired, monkeypat
     assert isinstance(extension, t.SourceScopeExtensionEventV3)
     assert extension.origin_graph_event_id == event.event_id
     assert extension.pins == event.returned_source_pins == [f.pin]
+
+    response = f.adapter.broker_source_read({
+        "toolName": "read_graph_source",
+        "arguments": {"retrievalSessionId": f.session.id, "anchorIds": [f.pin.anchor_id], "maxChars": 1000},
+    })
+    assert json.loads(response["resultJson"]).get("content") == f.text, response["resultJson"]
+    reopened = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    authorization, read = reopened.graph_context_execution.events[-2:]
+    assert isinstance(authorization, t.SourceReadAuthorizationEventV2)
+    assert isinstance(read, t.ValidatedSourceReadEventV2)
+    assert authorization.anchors == [f.pin]
+    receipt, = read.receipts
+    assert receipt.source_revision_id == f.pin.source_revision_id
+    assert receipt.content_sha256 == sha256(f.text.encode()).hexdigest()

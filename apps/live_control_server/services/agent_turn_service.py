@@ -4084,12 +4084,13 @@ class _PolicyExecutionAdapter:
                 error = source_authorization_error(self.fence.turn, request.anchor_ids)
                 if error is not None:
                     return denied(error, 409)
+            authority = self._broker_graph_receipt().graph_authority
             scope = execution.policy.source_read_scope
             session = get_session(scope.retrieval_session_id)
             if (
                 request.retrieval_session_id != scope.retrieval_session_id
                 or session.snapshot.world_id
-                != self._broker_graph_receipt().graph_authority.native_world_id
+                != authority.native_world_id
                 or session.snapshot.campaign_id != (scope.campaign_id or "")
                 or session.snapshot.revision_id != scope.graph_revision
             ):
