@@ -84,14 +84,6 @@ export function LiveControlApp() {
     [refreshAll],
   );
 
-  const handleLayoutSaved = useCallback(
-    async (savedLayout: SurfaceLayout) => {
-      setLayout(savedLayout);
-      await refreshAll();
-    },
-    [refreshAll],
-  );
-
   const handleSelectTarget = useCallback((target: PaneTarget) => {
     setInspectorPane({ status: "open", target });
   }, []);
@@ -162,7 +154,7 @@ export function LiveControlApp() {
         jobs={jobs}
         planView={planView}
         onQuerySuccess={handleQuerySuccess}
-        onLayoutSaved={handleLayoutSaved}
+        onLayoutSaved={setLayout}
         onSelectTarget={handleSelectTarget}
       />
       <InspectorPane
