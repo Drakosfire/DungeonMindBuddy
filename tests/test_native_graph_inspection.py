@@ -675,7 +675,8 @@ def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch
     assert source["campaignScope"] is None
     assert [badge["evidenceRefId"] for badge in source["evidenceBadges"]] == source["evidenceRefIds"]
     assert source["suggestedExpansions"][0]["nodeId"] == target["nodeId"]
-    assert source["nodeId"] in projection["queryContext"]["matchedNodeIds"]
+    assert projection["queryContext"]["matchedNodeIds"][:2] == [source["nodeId"], target["nodeId"]]
+    assert "relationship_or_related_object_phrase" in projection["queryContext"]["matchReasons"][target["nodeId"]]
     assert projection["attributes"] == []
     assert lane.repo.get_head(space).head_revision_id == revision
     unavailable = inspection.client.post(
