@@ -140,7 +140,8 @@ const GraphEdge = memo(function GraphEdge({
         onMouseEnter={() => onInspect(id)} onMouseLeave={() => onInspect(null)}
         onFocus={() => onInspect(id)} onBlur={() => onInspect(null)}
         onKeyDown={event => { if (event.key === "Escape") { onInspect(null); event.stopPropagation(); } }}>
-        <path d={path} markerEnd={`url(#${markerId})`} />
+        <path className="world-graph-canvas__edge-arrow" d={path} markerEnd={`url(#${markerId})`}
+          style={{ "--quiet-edge-marker": `url(#${markerId}-quiet)` } as CSSProperties} />
         {captionText !== undefined ? <text className="world-graph-canvas__edge-phrase" aria-hidden="true" style={{ fontSize: fontSize }}
           transform={captionTransform} dominantBaseline="central">{captionText}</text> : null}
         <title>{label}</title>
@@ -1524,7 +1525,12 @@ export function WorldGraphCanvas({
           }}
         >
           <title>Ctrl+scroll: zoom at pointer. Focus graph: +/− zoom, 0 fit.</title>
-          <defs><marker id={markerId} markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 z" /></marker></defs>
+          <defs>
+            <marker id={markerId} markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 z" /></marker>
+            <marker id={`${markerId}-quiet`} markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+              <path d="M0,0 L9,3.5 L0,7 z" fillOpacity=".12" />
+            </marker>
+          </defs>
           <g className="world-graph-canvas__scene" data-testid="graph-scene" data-all-relationships={allRelationships} data-has-selection={selectedIds.length > 0} data-detail={focusedLayoutId || camera.zoom >= 0.9 ? "relationships" : camera.zoom >= 0.45 ? "names" : "overview"} transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>
           <g className="world-graph-canvas__edges" aria-label="Relationships">
             {edgeLayer}
