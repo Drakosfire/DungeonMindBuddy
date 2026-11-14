@@ -65,9 +65,17 @@ curl -fsS http://127.0.0.1:7860/api/internal/dungeonbuddy/v1/statblocks/health/l
 
 ```bash
 cd "${BUDDY_ROOT:?Set BUDDY_ROOT}" || exit 1
-export DUNGEONMIND_LIVE_SESSION_DIR=evals/c2_live_prep/live/session_22
+scratch_session="$(mktemp -d "${TMPDIR:-/tmp}/buddy-statblock-session.XXXXXX")"
+cp -a evals/c2_live_prep/live/session_22/. "$scratch_session/"
+export DUNGEONMIND_LIVE_SESSION_DIR="$scratch_session"
+printf 'Dogfood session: %s\n' "$scratch_session"
 uv run uvicorn apps.live_control_server.main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+Keep the printed session path if you run reset from a second terminal. Use
+`uv run python scripts/live_dogfood_reset.py --session-dir "$scratch_session"`
+to preview the reset. The corpus purge flag targets checkout-wide generated
+files, so omit it for this session-only rehearsal.
 
 Confirm surface + readiness:
 
