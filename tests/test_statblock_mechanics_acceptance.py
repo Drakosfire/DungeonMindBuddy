@@ -203,7 +203,8 @@ def test_pdf_review_provenance_is_host_owned(mock_validate, tmp_path: Path) -> N
     assert mock_validate.call_count == 1
 
 
-def test_pdf_acceptance_rejects_stale_review_and_replays_original(tmp_path, monkeypatch):
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_pdf_acceptance_rejects_stale_review_and_replays_original(tmp_path, monkeypatch, interrupted):
     from uuid import UUID
 
     from fastapi import FastAPI
@@ -234,7 +235,17 @@ def test_pdf_acceptance_rejects_stale_review_and_replays_original(tmp_path, monk
     with TestClient(app) as http:
         assert http.post(path, json={**payload, "expected_revision": 1}).status_code == 409
         assert not client.create_calls
-        accepted = http.post(path, json={**payload, "expected_revision": 2})
+        if interrupted:
+            client.error = downstream_timeout()
+            interrupted_result = http.post(path, json={**payload, "expected_revision": 2})
+            assert interrupted_result.json()["result_label"] == "dispatched_unknown"
+            assert get_threat_draft(tmp_path, draft.draft_id).accepted_mechanics_ref is None
+            client.error = None
+        accepted = http.post(path, json={
+            **payload, "expected_revision": 2,
+            "operation_id": "e33a3855-e6d7-44d6-8c23-db120c3076c8" if interrupted else payload["operation_id"],
+        })
+        assert accepted.json()["operation_id"] == payload["operation_id"]
         assert accepted.json()["result_label"] == "mechanics_saved", accepted.text
         review["revision"] = 3
         assert http.post(path, json={**payload, "expected_revision": 3}).status_code == 409
@@ -253,7 +264,9 @@ def test_pdf_acceptance_rejects_stale_review_and_replays_original(tmp_path, monk
         })
         assert refused.status_code == 409, refused.text
         assert refused.json()["detail"]["code"] == "pdf_statblock_draft_already_has_mechanics"
-        assert len(client.create_calls) == 1
+        assert len(client.create_calls) == (2 if interrupted else 1)
+        if interrupted:
+            assert client.create_calls[0] == client.create_calls[1]
 
 
 @patch.object(acceptance, "validate_definition", side_effect=_validate_ok)
