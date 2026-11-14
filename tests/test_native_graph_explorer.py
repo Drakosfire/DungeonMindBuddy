@@ -1146,14 +1146,21 @@ def test_presentation_read_uses_one_catalogue_and_never_writes(explorer, monkeyp
     x = explorer
     ids = _seed_objects(x)
     before = _snapshot(x.lane.repo)
-    original = service.native_graph_inspection.catalog
+    original = service.native_graph_inspection.catalog_with_profile
     calls = []
 
     def catalog(scope, principal):
         calls.append(scope)
         return original(scope, principal)
 
-    monkeypatch.setattr(service.native_graph_inspection, "catalog", catalog)
+    repository_reads = []
+
+    def read_repository():
+        repository_reads.append(True)
+        return x.lane.repo
+
+    monkeypatch.setattr(service.native, "read_repository", read_repository)
+    monkeypatch.setattr(service.native_graph_inspection, "catalog_with_profile", catalog)
     response = _read(x)
     assert response.status_code == 200, response.text
     graph = response.json()["graph"]
@@ -1165,4 +1172,5 @@ def test_presentation_read_uses_one_catalogue_and_never_writes(explorer, monkeyp
         "recorded_names": [], "classification_terms": ["dnd5e:location"],
     }
     assert len(calls) == 1
+    assert len(repository_reads) == 1
     assert _snapshot(x.lane.repo) == before

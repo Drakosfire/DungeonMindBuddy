@@ -49,7 +49,7 @@ def _pinned(scope, principal):
         if head is None:
             raise InspectionUnavailable("native_inspection_head_unavailable")
         revision = head.head_revision_id
-    read, access, _, _ = native.read_context(
+    read, access, _, profile = native.read_context(
         repo,
         space,
         revision,
@@ -65,7 +65,7 @@ def _pinned(scope, principal):
         scope_mode=scope.scope_mode,
         campaign_id=scope.campaign_id,
     )
-    return bound, read, access, pin
+    return bound, read, access, pin, profile
 
 
 def _response(bound, pin, **payload):
@@ -75,25 +75,31 @@ def _response(bound, pin, **payload):
 
 
 def catalog(scope, principal):
-    bound, read, access, pin = _pinned(scope, principal)
+    response, _ = catalog_with_profile(scope, principal)
+    return response
+
+
+def catalog_with_profile(scope, principal):
+    bound, read, access, pin, profile = _pinned(scope, principal)
     listing = EntityReadService().list_entities(read)
     # Only Core's admitted IDs from this same immutable context are serialized.
     assertions = [
         native.assertion_contract(access.parsed.get_assertion(identity)).model_dump(mode="json")
         for identity in listing.admitted_assertion_ids
     ]
-    return _response(
+    response = _response(
         bound,
         pin,
         schema="dmb_native_graph_catalog_v1",
         catalogue=jsonable_encoder(listing),
         assertions=assertions,
     )
+    return response, profile
 
 
 def authoring_identities(scope, principal):
     """Read authorized identity fields at one binding and graph revision."""
-    bound, read, _, pin = _pinned(scope, principal)
+    bound, read, _, pin, _ = _pinned(scope, principal)
     service = EntityReadService()
     listing, admitted_aliases = service.list_entities_with_aliases(read)
     if listing.completeness.status != "complete":
@@ -138,7 +144,7 @@ def authoring_identities(scope, principal):
 
 
 def inspect(request, principal):
-    bound, read, access, pin = _pinned(request.scope, principal)
+    bound, read, access, pin, _ = _pinned(request.scope, principal)
     selection = request.selection
     if selection.kind == "chronology":
         listing = EntityReadService().list_entities(read)
@@ -217,7 +223,7 @@ def statblock_pdf_support(reference, regions, principal):
         binding_version=reference.binding_version,
         revision_id=reference.graph_revision,
     )
-    bound, read, access, pin = _pinned(scope, principal)
+    bound, read, access, pin, _ = _pinned(scope, principal)
     entity = EntityReadService().get_complete_entity(read, reference.node_id)
     if not entity.found or entity.completeness.status != "complete":
         return _response(bound, pin, support=[])

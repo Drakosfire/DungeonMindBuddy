@@ -493,15 +493,8 @@ def _graph_envelope(
                 revision_id=revision_id,
             )
         )
-        catalogue = native_graph_inspection.catalog(scope, principal)
-        repo = native.read_repository()
-        graph = _safe_graph_from_catalogue(
-            bound,
-            catalogue,
-            native.descriptors(
-                repo, bound["native_world_id"], catalogue["scope"]["revision_id"]
-            )[1],
-        )
+        catalogue, profile = native_graph_inspection.catalog_with_profile(scope, principal)
+        graph = _safe_graph_from_catalogue(bound, catalogue, profile)
     except NativeGraphExplorerError:
         raise
     except Exception:
