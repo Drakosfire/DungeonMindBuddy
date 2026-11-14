@@ -1533,6 +1533,23 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
 
   const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) ?? null : null;
+  const selectedStripEvent = selectedNodeId && focusedEventIds?.has(selectedNodeId)
+    ? selectedNodeId : undefined;
+  const stripConnections = useMemo(() => {
+    const connected = new Set<string>();
+    if (!focusedEventIds || !selectedNodeId || !graph) return connected;
+    for (const edge of graph.edges) {
+      if (edge.source_id === selectedNodeId) connected.add(edge.target_id);
+      if (edge.target_id === selectedNodeId) connected.add(edge.source_id);
+    }
+    return connected;
+  }, [focusedEventIds, graph, selectedNodeId]);
+  const stripHighlightRules = selectedStripEvent && typeof globalThis.CSS?.escape === "function"
+    ? [...stripConnections].map(id =>
+      `#loaded-native-graph-canvas [data-node-id=${CSS.escape(id)}] .world-graph-canvas__node-circle`,
+    ).join(", ")
+    : "";
+
   const graphEdges = graph?.edges;
   const selectedLabels = useMemo(
     () => new Map(graphNodes?.map((node) => [node.id, compactNodeLabel(node)])),
@@ -1835,6 +1852,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 handleCanvasSelectionChange(nodeId as LocalObjectId);
                 requestCameraFocus(nodeId);
               }} />}
+            {stripHighlightRules && <style>{`${stripHighlightRules} {
+              stroke: #a05b09; stroke-width: 5; paint-order: stroke fill;
+            }`}</style>}
             {record ? (
               <WorldGraphCanvas
                 key={graph.world_id}
@@ -1867,6 +1887,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
             ) : null}
             {focusedEventIds && viewFocusId && api.readChronology && !chronologyOpen &&
               <GraphChronology graph={graph} read={api.readChronology} relatedTo={viewFocusId} strip
+                selectedEvent={selectedStripEvent} connectedIds={stripConnections}
                 onExplore={nodeId => {
                   if (pendingRef.current) return;
                   focusInspectorRef.current = true;

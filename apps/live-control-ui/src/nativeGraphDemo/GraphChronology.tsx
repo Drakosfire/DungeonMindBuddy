@@ -3,11 +3,13 @@ import { nativeGraphPresentation } from "./nativeGraphPresentation";
 import { buildGraphChronology } from "./graphChronologyModel";
 import type { NativeGraph, NativeGraphDemoApi } from "./nativeGraphDemoApi";
 
-export function GraphChronology({ graph, read, relatedTo, onExplore, strip = false }: {
+export function GraphChronology({ graph, read, relatedTo, onExplore, strip = false, selectedEvent, connectedIds }: {
   graph: NativeGraph;
   read: NonNullable<NativeGraphDemoApi["readChronology"]>;
   relatedTo?: string;
   strip?: boolean;
+  selectedEvent?: string;
+  connectedIds?: ReadonlySet<string>;
   onExplore: (nodeId: string) => void;
 }) {
   const [result, setResult] = useState<{
@@ -50,7 +52,9 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
     return <section className="native-demo-event-strip" aria-label="Connected Events">
       {status}
       <ul>{connected.map(node => <li key={node.id}>
-        <button type="button" onClick={() => onExplore(node.id)}>{node.name}</button>
+        <button type="button" aria-pressed={node.id === selectedEvent}
+          data-connected={connectedIds?.has(node.id) || undefined}
+          onClick={() => onExplore(node.id)}>{node.name}</button>
       </li>)}</ul>
     </section>;
   }
@@ -207,7 +211,9 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
         return items.length > 0 && <div key={label}>
           <strong>{label}</strong>
           <ul>{items.map(event => <li key={event.node.id}>
-            <button type="button" onClick={() => onExplore(event.node.id)}>{event.node.name}</button>
+            <button type="button" aria-pressed={event.node.id === selectedEvent}
+              data-connected={connectedIds?.has(event.node.id) || undefined}
+              onClick={() => onExplore(event.node.id)}>{event.node.name}</button>
             {sessionNumber(event) !== undefined && <small>Session {sessionNumber(event)}</small>}
             {cyclic.has(event.node.id) && <small>Conflicting recorded order</small>}
             {event.sourceSessions.length > 0 && <small>Source {event.sourceSessions.join(", ")}</small>}

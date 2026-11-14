@@ -399,3 +399,14 @@
 .native-demo-event-strip small {
   display: block;
 }
+
+.native-demo-event-strip button[aria-pressed="true"],
+.native-demo-event-strip button[data-connected="true"] {
+  outline: 2px solid #dfb65f;
+  outline-offset: 1px;
+}
+
+.native-demo-event-strip button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
