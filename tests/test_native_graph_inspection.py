@@ -446,6 +446,32 @@ def test_native_complete_object_binding_opens_exact_pinned_citation(inspection):
     expected = x.lane.text.splitlines(keepends=True)[0].encode()
     assert source["text"].encode() == expected
     assert binding["excerpt"].encode() == expected
+    # Classic presentation trims the paragraph delimiter. Native citation keeps it.
+    from apps.live_control_server.models.world_graph_object_projection import (
+        WorldGraphObjectProjectionSourceBinding,
+    )
+    from apps.live_control_server.services.world_graph_object_projection import (
+        _apply_durable_bindings,
+    )
+
+    classic_binding = WorldGraphObjectProjectionSourceBinding(
+        evidence_ref_id=evidence_id,
+        source_artifact_id=binding["sourceArtifactId"],
+        source_revision_id=binding["sourceRevisionId"],
+        content_sha256=x.lane.digest,
+        source_span_ref_id="src:fixture:paragraph:1",
+        provenance_status="span_unresolvable",
+    )
+    classic, = _apply_durable_bindings(
+        SimpleNamespace(source_bindings=[classic_binding]),
+        records={
+            (classic_binding.source_artifact_id, x.lane.digest): SimpleNamespace(
+                markdown=x.lane.text, media_type="text/markdown",
+            ),
+        },
+    )
+    assert classic.provenance_status == "excerpt_ready"
+    assert classic.excerpt == binding["excerpt"].removesuffix("\r\n")
     assert binding["provenanceStatus"] == "excerpt_ready"
     assert source["span_sha256"] == sha256(expected).hexdigest()
     assert source["source_artifact_id"] == binding["sourceArtifactId"]
