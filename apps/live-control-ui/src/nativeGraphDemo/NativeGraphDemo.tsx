@@ -1244,7 +1244,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         await applyOperationLookup(after, operation, null, owner);
         return;
       }
-      if (!safeWriteDraft(latestGraph.world_id, draftRef.current, null, "prepare", placementIntentRef.current, stateScopeId)) {
+      if (!safeWriteDraft(latestGraph.world_id, draftRef.current, null, "prepare",
+        latestGraph.world_id === layout.worldId
+          ? placementIntentRef.current
+          : safeReadDraft(latestGraph.world_id, stateScopeId)?.placement ?? null,
+        stateScopeId)) {
         setPendingStatus("prepared");
         setStorageWarning(true);
         setReviewSummary(after.review?.summary ?? reviewSummary);
@@ -1297,7 +1301,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       if (freshGraph.world_id !== layout.worldId) {
         setLayout({ worldId: freshGraph.world_id, positions: readLayout(freshGraph.world_id, stateScopeId), revision: 0 });
       }
-      const cleared = safeWriteDraft(freshGraph.world_id, draftRef.current, null, "prepare", placementIntentRef.current, stateScopeId);
+      const cleared = safeWriteDraft(freshGraph.world_id, draftRef.current, null, "prepare",
+        freshGraph.world_id === layout.worldId
+          ? placementIntentRef.current
+          : safeReadDraft(freshGraph.world_id, stateScopeId)?.placement ?? null,
+        stateScopeId);
       setStorageWarning(!cleared);
       setPendingOperation(null);
       setPendingStatus("none");
