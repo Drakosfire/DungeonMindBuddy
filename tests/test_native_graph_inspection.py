@@ -1166,3 +1166,14 @@ def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch)
     assert read["receipt"]["source_revision_id"] == pin.source_revision_id
     assert read["receipt"]["graph_revision"] == pin.graph_revision
     assert session.source_reads[0].receipt_v2 is not None
+
+    stale_authority = SimpleNamespace(**{
+        **vars(authority), "binding_version": authority.binding_version + 1,
+    })
+    rejected = expansion_executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": [pin.anchor_id],
+    }, receipt_version=2, native_principal=principal, native_authority=stale_authority)
+    denied_read, = rejected["reads"]
+    assert denied_read["receipt"] is None
+    assert denied_read["result"]["code"] == "native_source_unavailable"
+    assert "content" not in denied_read["result"]
