@@ -493,7 +493,11 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
         <ul aria-label="What blocks publication">
         {publishBlockers.map((blocker, index) => <li key={index}>
           {typeof blocker === "string" ? blocker :
-            <button type="button" onClick={() => focusIssue(issueTarget(blocker.field_path), blocker.field_path, blocker.code)}>
+            <button type="button" onClick={event => {
+              const disclosure = event.currentTarget.closest("details");
+              if (disclosure) disclosure.open = false;
+              focusIssue(issueTarget(blocker.field_path), blocker.field_path, blocker.code);
+            }}>
               {blocker.message}
             </button>}
         </li>)}
