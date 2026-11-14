@@ -1239,3 +1239,12 @@ def test_native_recap_pages_reauthorize_exact_span_after_withdrawal(inspection):
     with pytest.raises(InspectionUnavailable):
         read_native_recap_page(request, principal, max_chars=2, continuation=cursor)
     assert repo.get_head(space) == head
+    withdrawn = x.client.post(route, json={**payload, "continuation": cursor})
+    assert withdrawn.status_code == 409
+    assert "source" not in withdrawn.json()
+    x.client.headers.pop("Authorization")
+    assert x.client.post(route, json=payload).status_code == 401
+    assert x.client.post("/api/live/native-graph-inspection/related-recaps", json={
+        "scope": request.scope.model_dump(mode="json"),
+        "assertion_id": request.selection.assertion_id,
+    }).status_code == 401
