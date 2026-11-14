@@ -470,25 +470,29 @@ def shared_neighborhood(request, principal, *, object_id=None):
         map_nodes, map_relationships, read_neighborhood,
     )
     _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
-    result, bounded = read_neighborhood(
-        read, request.seed_node_ids, request.max_depth, request.bounds
-    )
     attributes = []
-    node_bounds = bounded
-    if object_id is not None:
-        from dataclasses import replace
-
-        node_bounds = replace(
-            bounded, node_ids=tuple(node for node in bounded.node_ids if node == object_id),
-        )
     selected = None
-    if object_id is not None and node_bounds.node_ids:
-        from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import map_entity_result
+    if object_id is not None:
+        from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import BoundedNeighborhood, map_entity_result
+        from dungeonmind.application.vnext.records import ParsedEntityRefValue
 
-        selected = EntityReadService().get_entity(read, object_id)
-        nodes = [map_entity_result(selected, object_id, attributes=attributes)]
+        result = EntityReadService().get_complete_entity(read, object_id)
+        relationships = sorted(
+            (row for row in result.assertions if isinstance(row.value, ParsedEntityRefValue)),
+            key=lambda row: row.assertion_id,
+        )
+        cap = request.bounds.max_relationships
+        bounded = BoundedNeighborhood(
+            node_ids=(object_id,) if result.found else (),
+            edges=tuple(relationships[:cap]),
+            nodes_truncated=False,
+            relationships_truncated=len(relationships) > cap,
+        )
+        selected = EntityReadService().get_entity(read, object_id) if result.found else None
+        nodes = [map_entity_result(selected, object_id, attributes=attributes)] if selected else []
     else:
-        nodes = map_nodes(read, node_bounds, attributes=attributes)
+        result, bounded = read_neighborhood(read, request.seed_node_ids, request.max_depth, request.bounds)
+        nodes = map_nodes(read, bounded, attributes=attributes)
     edges = map_relationships(read, result, bounded)
     evidence = {row.evidence_ref_id: row for row in result.evidence}
     artifacts = {row.source_artifact_id: row for row in result.source_artifacts}
@@ -558,7 +562,7 @@ def shared_neighborhood(request, principal, *, object_id=None):
     attributes.sort(key=lambda row: row.assertion_id)
     if len(attributes) > request.bounds.max_attributes:
         truncated.append("attributes")
-    missing = list(result.missing_seed_entity_ids)
+    missing = ([] if nodes else [object_id]) if object_id is not None else list(result.missing_seed_entity_ids)
     return WorldGraphRetrievalResult(
         operation="object" if object_id is not None else "neighborhood",
         requested_node_id=object_id,

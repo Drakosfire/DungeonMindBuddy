@@ -941,6 +941,7 @@ def test_shared_exact_object_selects_one_native_node(inspection, monkeypatch):
             "worldId": "managed",
             "campaignId": lane.lane.run.campaign_id,
             "nodeId": node_id,
+            "bounds": {"maxNodes": 1},
         },
     )
     assert response.status_code == 200, response.text
