@@ -164,6 +164,15 @@
 
 /* Every relationship remains present. Overview emphasizes structure, not every crossing. */
 .world-graph-canvas--full .world-graph-canvas__edge { opacity: .12; }
+/* Paint quiet edges directly without compositing a group for each relationship. */
+.world-graph-canvas--full [data-detail="overview"][data-all-relationships="false"][data-has-selection="false"] .world-graph-canvas__edge {
+  opacity: 1;
+  stroke-opacity: .12;
+  fill-opacity: .12;
+}
+.world-graph-canvas--full [data-detail="overview"][data-all-relationships="false"][data-has-selection="false"] .world-graph-canvas__edge-arrow {
+  marker-end: var(--quiet-edge-marker);
+}
 .world-graph-canvas--full [data-detail="names"] .world-graph-canvas__edge { opacity: .22; }
 .world-graph-canvas--full [data-detail="relationships"] .world-graph-canvas__edge { opacity: .35; }
 .world-graph-canvas--full [data-has-selection="true"] .world-graph-canvas__edge:not(.is-selected) { opacity: .04; }
