@@ -546,7 +546,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
         <button disabled={pending} type="submit">Set walking speed</button>
       </form>}
       {review && editor && <>
-        <StatblockRenderer draft={{
+        <StatblockRenderer chrome="campaign" draft={{
           definition: editor.workingCopy,
           hitPoints: summary => <details id="pdf-review-hp">
             <summary>{summary}</summary>

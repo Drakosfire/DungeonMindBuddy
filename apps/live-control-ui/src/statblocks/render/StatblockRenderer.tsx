@@ -40,7 +40,7 @@ export type StatblockRendererProps =
       mode?: StatblockRenderMode;
       chrome?: StatblockRendererChrome;
     }
-  | { candidate?: never; revision?: never; draft: DraftProjection; mode?: never; chrome?: never };
+  | { candidate?: never; revision?: never; draft: DraftProjection; mode?: never; chrome?: StatblockRendererChrome };
 
 /** Native bindings own image identity; this projection only admits web image URLs. */
 function SavedPortrait({asset,name}:{asset:AssetRefV1;name:string}) {
@@ -299,7 +299,11 @@ function CampaignSectionCard({
   );
 }
 
-function CampaignStatblockBody({ view,portrait }: { view: StatblockViewModel;portrait:ReactNode }) {
+function CampaignStatblockBody({ view, portrait, draft }: {
+  view: StatblockViewModel;
+  portrait: ReactNode;
+  draft?: DraftProjection;
+}) {
   const sections = groupRuleElementsBySection(view.ruleElements);
   const damageRows = view.damageInteractions.map((entry) => ({
     label: formatDamageKindLabel(entry.kind),
@@ -335,7 +339,7 @@ function CampaignStatblockBody({ view,portrait }: { view: StatblockViewModel;por
             </div>
             <div>
               <dt>Hit Points</dt>
-              <dd>{view.hitPointsSummary}</dd>
+              <dd>{draft ? draft.hitPoints(view.hitPointsSummary) : view.hitPointsSummary}</dd>
             </div>
             <div>
               <dt>Speed</dt>
@@ -421,7 +425,10 @@ function CampaignStatblockBody({ view,portrait }: { view: StatblockViewModel;por
           {sections.map(({ section, elements }) => (
             <CampaignSectionCard key={section} heading={section.replace(/_/g, " ")}>
               {elements.map((element) => (
-                <CampaignRuleElement key={element.key} element={element} />
+                <div key={element.key}>
+                  <CampaignRuleElement element={element} />
+                  {draft?.ruleEditor(element.key, element.name)}
+                </div>
               ))}
             </CampaignSectionCard>
           ))}
@@ -539,7 +546,7 @@ export function StatblockRenderer({
       aria-label={`Statblock ${view.recordKind} ${view.name}`}
     >
       {campaignChrome ? (
-        <CampaignStatblockBody view={view} portrait={portrait} />
+        <CampaignStatblockBody view={view} portrait={portrait} draft={draft} />
       ) : (
         <>
           <header className="statblock-renderer-header">
