@@ -7,7 +7,7 @@ import {
   GraphNodeChipRuntimeProvider,
   type GraphNodeChipDeltaPresentation,
 } from "../../graphReference";
-import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/markdownEditorExtensions";
 import { analyzeMarkdownBody } from "../../tiptap/markdown/markdownAdmission";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";

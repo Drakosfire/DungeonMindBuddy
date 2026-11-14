@@ -1,6 +1,6 @@
 import { closeHistory } from '@tiptap/pm/history';
 import { Editor, type JSONContent } from '@tiptap/core';
-import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../tiptap/MarkdownEditorCore';
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../tiptap/markdownEditorExtensions';
 import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
 import { semanticMarkdownSerializationDiagnostics } from '../tiptap/markdown/semanticMarkdownSafety';

@@ -21,7 +21,7 @@ import {
   validatePlayableHeadingAttrs,
   validatePlayableOptionItemAttrs,
 } from "../../tiptap/playable/playableElementIdentity";
-import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/markdownEditorExtensions";
 import { planSectionTargetForSelection, type PlanSectionTarget } from "./planSectionTarget";
 import {
   playableBodyProtectedStructureMatches,
