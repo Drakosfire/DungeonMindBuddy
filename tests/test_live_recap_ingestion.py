@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.live_play.recap_ingestion import ingest_recap_markdown
+from live_play.recap_ingestion import ingest_recap_markdown
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests/fixtures/live_bootstrap/session_22_fresh_recap.md"
