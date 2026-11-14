@@ -1388,7 +1388,15 @@ export async function getSurface(): Promise<LiveSurfaceResponse> {
 }
 
 export async function getSurfaceSessionViews(): Promise<LiveSurfaceResponse & LiveEventsResponse & LiveJobsResponse & { plan_view: PlanViewProjection }> {
-  return apiFetch("/api/live/surface?include_session_views=true");
+  const surface = await apiFetch<LiveSurfaceResponse & Partial<LiveEventsResponse & LiveJobsResponse & { plan_view: PlanViewProjection }>>(
+    "/api/live/surface?include_session_views=true",
+  );
+  if (surface.events && surface.jobs && surface.plan_view) {
+    return { ...surface, events: surface.events, jobs: surface.jobs, plan_view: surface.plan_view };
+  }
+
+  const [events, jobs, planView] = await Promise.all([getEvents(), getJobs(), getPlanView()]);
+  return { ...surface, ...events, ...jobs, plan_view: planView };
 }
 
 export async function getEvents(since?: string): Promise<LiveEventsResponse> {

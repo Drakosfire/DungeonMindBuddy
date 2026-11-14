@@ -18,6 +18,7 @@ import {
   createWorkspaceDocument,
   DEFAULT_PLANNING_MANIFEST_PATH,
   getArtifact,
+  getSurfaceSessionViews,
   getPlayActiveRun,
   getWorldPlayActiveRun,
   getBuildSourceNavigation,
@@ -3456,4 +3457,23 @@ it("forwards authored-page scope, cursor and cancellation", async () => {
   });
   expect(fetchSpy.mock.calls[0][1]?.signal).toBe(controller.signal);
   fetchSpy.mockRestore();
+});
+
+it.each([true, false])("loads surface views with combined response supported: %s", async (supported) => {
+  const surface = { catalog: [], layout: {}, state: {} };
+  const views = { events: [{ id: "event" }], jobs: [], plan_view: { timeline: [] } };
+  const fetch = vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    if (path.endsWith("/surface?include_session_views=true")) {
+      return Response.json(supported ? { ...surface, ...views } : surface);
+    }
+    if (path.endsWith("/events")) return Response.json({ events: views.events });
+    if (path.endsWith("/jobs")) return Response.json({ jobs: views.jobs });
+    if (path.endsWith("/plan-view")) return Response.json(views.plan_view);
+    throw new Error("Unexpected request: " + path);
+  });
+  vi.stubGlobal("fetch", fetch);
+
+  expect(await getSurfaceSessionViews()).toEqual({ ...surface, ...views });
+  expect(fetch).toHaveBeenCalledTimes(supported ? 1 : 4);
 });
