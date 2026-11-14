@@ -558,10 +558,10 @@ def test_authored_page_inventory_route_continues_within_world(world):
     metadata = pages.PageMetadata(
         document_class="place", authority_state="draft", visibility_state="internal"
     )
-    older = pages.create_page(world_id=world, title="Older", metadata=metadata)
+    older = pages.create_page(world_id=world, title="Older", campaign_id="off-page", metadata=metadata)
     newer = pages.create_page(world_id=world, title="Newer", metadata=metadata)
     other = create_world(name="Other World", owner_subject="subject:owner").record.world_id
-    pages.create_page(world_id=other, title="Outside scope", metadata=metadata)
+    pages.create_page(world_id=other, title="Outside scope", campaign_id="foreign", metadata=metadata)
     app = FastAPI()
     app.include_router(router)
     client = TestClient(app)
@@ -572,6 +572,8 @@ def test_authored_page_inventory_route_continues_within_world(world):
     first = response.json()
     assert [row["document_id"] for row in first["records"]] == [ident(newer)]
 
+    assert first["campaign_tags"] == ["off-page"]
+
     params["before_updated_at"] = first["next_before_updated_at"]
     assert client.get(url, params=params).status_code == 422
     params["before_document_id"] = first["next_before_document_id"]
@@ -579,5 +581,6 @@ def test_authored_page_inventory_route_continues_within_world(world):
     assert response.status_code == 200, response.text
     second = response.json()
     assert [row["document_id"] for row in second["records"]] == [ident(older)]
+    assert second["campaign_tags"] is None
     assert second["next_before_document_id"] is None
     assert second["next_before_updated_at"] is None

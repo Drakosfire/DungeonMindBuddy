@@ -44,6 +44,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document_snapshot,
     get_committed_page_snapshot,
     list_workspace_documents,
+    list_workspace_page_campaign_tags,
     list_world_owned_plans_v2,
     create_world_owned_plan_v2,
     create_world_owned_runbook_v2,
@@ -122,6 +123,7 @@ def get_workspace_documents(
 
 
 class WorkspacePageInventoryResponse(WorkspaceDocumentsListResponse):
+    campaign_tags: list[str] | None = None
     next_before_updated_at: str | None = None
     next_before_document_id: str | None = None
 
@@ -145,12 +147,18 @@ def get_workspace_page_inventory(
             repo_root(), world_id=world_id, campaign_id=campaign_id,
             kind="worldbuilding_source", status=status, limit=limit + 1, before=before,
         )
+        campaign_tags = None
+        if before is None:
+            campaign_tags = list_workspace_page_campaign_tags(
+                world_id=world_id, campaign_id=campaign_id, status=status,
+            )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     records = inventory[:limit]
     boundary = records[-1] if len(inventory) > limit else None
     return WorkspacePageInventoryResponse(
         records=records,
+        campaign_tags=campaign_tags,
         next_before_updated_at=boundary.updated_at if boundary else None,
         next_before_document_id=boundary.document_id if boundary else None,
     )
