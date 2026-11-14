@@ -67,6 +67,9 @@ markers = [
 ]
 addopts = ["-m", "not live_llm", "-p", "tests.application_state.isolate_dsn"]
 
+[tool.setuptools]
+py-modules = ["bootstrap_env", "model_policy"]
+
 [tool.setuptools.package-dir]
 "" = "src"
 
