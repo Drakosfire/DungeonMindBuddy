@@ -842,9 +842,15 @@ describe("NativeGraphDemo", () => {
     const palette = screen.getByTestId("node-palette");
     expect(palette).toBeVisible();
     await user.click(within(palette).getByRole("button", { name: "Person" }));
-    await user.type(screen.getByLabelText("Name"), "Mira");
-
     const draftKey = `dungeonmind-native-demo:draft:${encodeURIComponent(graph.world_id)}`;
+    const storageReads = vi.spyOn(Storage.prototype, "getItem");
+    try {
+      await user.type(screen.getByLabelText("Name"), "Mira");
+      expect(storageReads.mock.calls.filter(([key]) => key === draftKey)).toHaveLength(0);
+    } finally {
+      storageReads.mockRestore();
+    }
+
     const beforePrepare = JSON.parse(sessionStorage.getItem(draftKey) ?? "null");
     expect(beforePrepare.placement).toMatchObject({ kind: "person", operation_id: null, base_revision_id: graph.revision_id });
     const placement = beforePrepare.placement.position;

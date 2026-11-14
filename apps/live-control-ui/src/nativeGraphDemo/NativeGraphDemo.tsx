@@ -758,7 +758,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     draftRef.current = next;
     setDraft(next);
     if (!worldId || draftReadyWorldId !== worldId) return;
-    setStorageWarning(!safeWriteDraft(worldId, next, pendingRef.current, "prepare", undefined, stateScopeId));
+    setStorageWarning(!safeWriteDraft(
+      worldId, next, pendingRef.current, pendingPhaseRef.current, placementIntentRef.current, stateScopeId,
+    ));
   }, [draftReadyWorldId, graph?.world_id, stateScopeId]);
 
   const setPendingOperation = useCallback((operation: PendingNativeOperation | null, phase: "prepare" | "confirm" = "prepare") => {
