@@ -698,6 +698,11 @@ def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch
     )
     assert citation.status_code == 200, citation.text
     cited_source = citation.json()["source"]
+    projected_citation = next(
+        item for item in projection["evidence"]
+        if item["evidenceRefId"] == lane.support_ids["first"]
+    )
+    assert projected_citation["sourceArtifactId"] == cited_source["source_artifact_id"]
     assert cited_source["text"] == lane.text.splitlines(keepends=True)[0]
     head = lane.repo.get_head(space)
     events = lane.repo.head_events(space)
