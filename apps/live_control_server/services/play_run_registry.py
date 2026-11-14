@@ -287,6 +287,7 @@ class WorldPlayRunsListResponse(BaseModel):
 
     schema_version: Literal["dmb_world_play_runs_list_v2"] = WORLD_PLAY_RUNS_LIST_SCHEMA
     records: list[WorldPlayRunRecord] = Field(default_factory=list)
+    source_titles: dict[str, str] = Field(default_factory=dict)
 
 
 def _world_record_from_aggregate(aggregate: object) -> WorldPlayRunRecord:
@@ -781,7 +782,7 @@ def list_world_play_runs(
     *,
     world_id: str,
     playable_artifact_id: str | None = None,
-) -> list[WorldPlayRunRecord]:
+) -> WorldPlayRunsListResponse:
     from application_state.errors import ApplicationStateError
     from application_state.play.service import list_world_play_run_aggregates
 
@@ -798,7 +799,14 @@ def list_world_play_runs(
         )
     except ApplicationStateError as exc:
         raise _map_application_state(exc) from exc
-    return [_world_record_from_aggregate(aggregate) for aggregate in aggregates]
+    return WorldPlayRunsListResponse(
+        records=[_world_record_from_aggregate(aggregate) for aggregate in aggregates],
+        source_titles={
+            str(item.run.playable_work_object_id): item.active_source_title
+            for item in aggregates
+            if item.active_source_title
+        },
+    )
 
 
 def world_session_outcome(result):

@@ -466,6 +466,13 @@ def list_world_play_run_aggregates(
             world_id=canonical_world_id,
             playable_work_object_id=artifact,
         )
+        source_ids = list({run.playable_work_object_id for run in runs})
+        titles = dict(conn.execute(
+            "SELECT work_object_id, title FROM content.work_object "
+            "WHERE work_object_id = ANY(%s) AND world_id = %s "
+            "AND campaign_id IS NULL AND status = 'active' AND kind IN ('plan', 'runbook')",
+            (source_ids, canonical_world_id),
+        ).fetchall()) if source_ids else {}
         aggregates: list[WorldPlayRunAggregate] = []
         for run in runs:
             resolved_world_id = _resolve_world_run_owner(
@@ -477,6 +484,7 @@ def list_world_play_run_aggregates(
                     run=aggregate.run,
                     manifest=aggregate.manifest,
                     world_id=resolved_world_id,
+                    active_source_title=titles.get(run.playable_work_object_id),
                 )
             )
         return aggregates
