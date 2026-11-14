@@ -612,7 +612,7 @@ describe("NativeGraphDemo", () => {
     expect(navbar.getByText("Partial native read")).toBeInTheDocument();
     expect(navbar.getByText("2/3 objects shown · 1 relationships")).toBeInTheDocument();
     expect(document.querySelector(".native-demo-graph-meta")).toBeNull();
-    expect(document.querySelector(".native-demo-completeness")).toBeNull();
+    expect(document.querySelector(".native-demo-completeness")).toBeInTheDocument();
     await user.click(navbar.getByRole("button", { name: "Partial native read" }));
     expect(screen.getByText(/2 entities omitted, 0 unexamined; 1 assertions omitted, 0 unexamined/)).toBeInTheDocument();
     expect(screen.getAllByText("Some entities have no usable name").length).toBeGreaterThan(0);
@@ -798,7 +798,7 @@ describe("NativeGraphDemo", () => {
     await waitFor(() => expect(JSON.parse(sessionStorage.getItem(keyFor("managed:world-a")) ?? "null").pending.operation_id).toBe(operationA));
   });
 
-  it("reveals the committed Event while the overview hides Events", async () => {
+  it("reveals the committed Event in the overview", async () => {
     const user = userEvent.setup();
     const initial: NativeGraph = {
       ...graph,
@@ -814,7 +814,8 @@ describe("NativeGraphDemo", () => {
         graph: { ...initial, revision_id: "revision-002", nodes: [...initial.nodes, event] },
       }),
     }) });
-    await user.click(await screen.findByRole("button", { name: /Hide Events in overview/ }));
+    await screen.findByRole("navigation", { name: "Graph sidebar" });
+    expect(screen.queryByRole("button", { name: /Hide Events in overview/ })).not.toBeInTheDocument();
     await user.click(graphAction("Place node"));
     await user.click(within(screen.getByTestId("node-palette")).getByRole("button", { name: "Event" }));
     await user.type(screen.getByLabelText("Name"), event.name);
