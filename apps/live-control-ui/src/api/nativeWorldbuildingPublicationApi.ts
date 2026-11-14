@@ -121,5 +121,16 @@ export async function getNativeWorldbuildingContext(source: ReviewSource) {
     workspace_document_id: coordinates.workspace_document_id,
     workspace_document_revision: coordinates.workspace_document_revision,
   };
-  return { prepareCoordinates, nativeWorldId: binding.native_world_id };
+  const records = value.records;
+  const sourceSupport = value.source_support;
+  if (!Array.isArray(records) || !Array.isArray(sourceSupport) ||
+      records.some(row => !record(row) || (row.kind !== "node" && row.kind !== "edge") ||
+        typeof row.record_id !== "string" || !row.record_id || !record(row.fields)) ||
+      sourceSupport.some(row => !record(row) || typeof row.evidence_ref_id !== "string" ||
+        !row.evidence_ref_id || typeof row.text !== "string" ||
+        typeof row.start_byte !== "number" || !Number.isSafeInteger(row.start_byte) || row.start_byte < 0 ||
+        typeof row.end_byte !== "number" || !Number.isSafeInteger(row.end_byte) || row.end_byte <= row.start_byte)) {
+    throw new LiveApiError("Invalid native Worldbuilding review inventory.", 0);
+  }
+  return { prepareCoordinates, nativeWorldId: binding.native_world_id, records, sourceSupport };
 }
