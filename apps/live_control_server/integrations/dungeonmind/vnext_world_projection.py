@@ -107,6 +107,7 @@ def project_assertion_views(context, support, artifacts, evidence):
     source_by_id = {item.source_artifact_id: item for item in artifacts}
     session_by_evidence = {row.evidence_ref_id: row.session_id for row in evidence}
     attributes = []
+    assertions_by_entity = defaultdict(list)
     relationships = []
     for assertion_id in support.listing.admitted_assertion_ids:
         assertion = context.parsed.get_assertion(assertion_id)
@@ -137,24 +138,20 @@ def project_assertion_views(context, support, artifacts, evidence):
                 )
             )
         else:
+            assertions_by_entity[assertion.subject_entity_id].append(assertion)
+            if assertion.predicate in {"dnd5e:name", "dnd5e:classification", "dnd5e:summary"}:
+                continue
             attribute = _map_assertion(assertion, evidence_by_id=evidence_by_id)
             attributes.append(
                 WorldGraphProjectionAttributeView(
                     **attribute.model_dump(include=set(WorldGraphProjectionAttributeView.model_fields))
                 )
             )
-    return attributes, relationships
+    return attributes, relationships, assertions_by_entity
 
 
-def project_node_views(context, support, attributes, artifacts, evidence):
+def project_node_views(support, assertions_by_entity, artifacts, evidence):
     """Present each admitted entity with its own evidence and authorized aliases."""
-    assertions_by_entity = defaultdict(list)
-    for attribute in attributes:
-        assertion = context.parsed.get_assertion(attribute.assertion_id)
-        assertions_by_entity[attribute.subject_node_id].append(assertion)
-    attributes_by_entity = defaultdict(list)
-    for attribute in attributes:
-        attributes_by_entity[attribute.subject_node_id].append(attribute)
     aliases_by_entity = defaultdict(set)
     for alias in support.aliases:
         aliases_by_entity[alias.entity_id].add(alias.alias_text)
@@ -180,9 +177,11 @@ def project_node_views(context, support, attributes, artifacts, evidence):
         label, kind, summary = world_object_display_values(
             assertions_by_entity[entity_id], entity_id
         )
-        own_attributes = attributes_by_entity[entity_id]
-        evidence_ids = sorted({key for row in own_attributes for key in row.evidence_ref_ids})
-        artifact_ids = sorted({key for row in own_attributes for key in row.source_artifact_ids})
+        evidence_ids = sorted({
+            key for row in assertions_by_entity[entity_id]
+            for key in row.metadata.evidence_ref_ids
+        })
+        artifact_ids = sorted({badges[key].source_artifact_id for key in evidence_ids})
         nodes.append(
             WorldGraphProjectionNodeView(
                 node_id=entity_id,
@@ -245,14 +244,10 @@ def project_native_world(
     evidence, artifacts = project_source_views(
         context, support, access=access, managed_world_id=managed_world_id
     )
-    attributes, relationships = project_assertion_views(context, support, artifacts, evidence)
-    nodes = project_node_views(context, support, attributes, artifacts, evidence)
-    # Keep display assertions in node evidence, but present them only as node fields.
-    attributes = [
-        row for row in attributes
-        if context.parsed.get_assertion(row.assertion_id).predicate
-        not in {"dnd5e:name", "dnd5e:classification", "dnd5e:summary"}
-    ]
+    attributes, relationships, assertions_by_entity = project_assertion_views(
+        context, support, artifacts, evidence
+    )
+    nodes = project_node_views(support, assertions_by_entity, artifacts, evidence)
     attach_adjacency(nodes, relationships)
     degree_by_node = {node.node_id: len(node.adjacency) for node in nodes}
     for node in nodes:
