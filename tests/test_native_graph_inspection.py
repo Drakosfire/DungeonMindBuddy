@@ -1189,3 +1189,53 @@ def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch)
     assert denied_read["receipt"] is None
     assert denied_read["result"]["code"] == "native_source_unavailable"
     assert "content" not in denied_read["result"]
+
+
+def test_native_recap_pages_reauthorize_exact_span_after_withdrawal(inspection):
+    from apps.live_control_server.models.native_graph_inspection import InspectionRead
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from apps.live_control_server.services.native_graph_inspection import InspectionUnavailable
+    from apps.live_control_server.services.native_recap_pages import read_native_recap_page
+
+    x = inspection
+    principal = NativeGraphPrincipal(subject="test:gm", role="gm", auth_method="local_operator")
+    request = InspectionRead.model_validate({
+        "scope": catalog(x)["scope"],
+        "selection": {
+            "kind": "source",
+            "assertion_id": x.assertions["name:0"],
+            "evidence_ref_id": x.lane.support_ids["first"],
+        },
+    })
+    first = read_native_recap_page(request, principal, max_chars=2)
+    cursor = first["next_continuation"]
+    assert cursor
+    last = read_native_recap_page(request, principal, max_chars=1000, continuation=cursor)
+    assert first["source"]["text"] + last["source"]["text"] == x.lane.text.splitlines(keepends=True)[0]
+    assert last["next_continuation"] is None
+    discovered = x.client.post("/api/live/native-graph-inspection/related-recaps", json={
+        "scope": request.scope.model_dump(mode="json"),
+        "assertion_id": request.selection.assertion_id,
+    })
+    assert discovered.status_code == 200
+    target, = discovered.json()["targets"]
+    assert target["selection"] == request.selection.model_dump(mode="json")
+    assert target["source_revision_id"] == first["source"]["source_revision_id"]
+    route = "/api/live/native-graph-inspection/recap-page"
+    payload = {"read": request.model_dump(mode="json"), "max_chars": 2}
+    assert x.client.post(route, json=payload).json() == first
+    assert x.client.post(route, json={**payload, "continuation": cursor + "0"}).status_code == 409
+    with pytest.raises(ValueError, match="invalid recap continuation"):
+        read_native_recap_page(request, principal, max_chars=2, continuation=cursor + "0")
+
+    repo = x.lane.repo
+    space = request.scope.native_world_id
+    head = repo.get_head(space)
+    repo.withdraw_native_source(
+        space_id=space,
+        source_artifact_id=first["source"]["source_artifact_id"],
+        source_revision_id=first["source"]["source_revision_id"],
+    )
+    with pytest.raises(InspectionUnavailable):
+        read_native_recap_page(request, principal, max_chars=2, continuation=cursor)
+    assert repo.get_head(space) == head

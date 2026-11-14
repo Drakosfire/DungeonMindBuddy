@@ -5,6 +5,7 @@ from base64 import b64encode
 from dungeonmind.application.vnext import (
     EntityReadService,
     EvidenceReadService,
+    list_admitted_native_text_sources,
     open_admitted_native_text,
     open_native_text_source_access_context,
 )
@@ -147,7 +148,33 @@ def authoring_identities(scope, principal):
     return _response(bound, pin, identities=identities)
 
 
-def inspect(request, principal, *, include_source_span=False):
+SESSION_RECAP_SOURCE = "dungeonbuddy.source:session_recap"
+
+
+def related_recaps(scope, principal, assertion_id):
+    """Discover readable recap spans attached as support to the pinned assertion."""
+    bound, read, access, pin, _ = _pinned(scope, principal)
+    result = EvidenceReadService().get_assertion_evidence(read, assertion_id)
+    if not result.available or result.completeness.status != "complete":
+        raise InspectionUnavailable("native_inspection_assertion_unavailable")
+    support = tuple(e.evidence_ref_id for e in result.evidence if e.evidence_role == "support")
+    sources = list_admitted_native_text_sources(access, evidence_ref_ids=support)
+    if not sources.complete:
+        raise InspectionUnavailable("native_inspection_source_unavailable")
+    targets = [
+        {
+            "selection": {"kind": "source", "assertion_id": assertion_id, "evidence_ref_id": ref},
+            "source_artifact_id": row.source_artifact.source_artifact_id,
+            "source_revision_id": row.source_revision.source_revision_id,
+        }
+        for row in sources.sources
+        if row.source_artifact.source_classification == SESSION_RECAP_SOURCE
+        for ref in row.evidence_ref_ids
+    ]
+    return _response(bound, pin, schema="dmb_native_related_recaps_v1", targets=targets)
+
+
+def inspect(request, principal, *, include_source_span=False, source_classification=None):
     bound, read, access, pin, _ = _pinned(request.scope, principal)
     selection = request.selection
     if selection.kind == "neighborhood":
@@ -218,6 +245,16 @@ def inspect(request, principal, *, include_source_span=False):
     ):
         raise InspectionUnavailable("native_inspection_evidence_unavailable")
     evidence = access.parsed.get_evidence(selection.evidence_ref_id)
+    if source_classification is not None:
+        sources = list_admitted_native_text_sources(
+            access, evidence_ref_ids=(selection.evidence_ref_id,),
+        )
+        if not sources.complete or not any(
+            row.source_artifact.source_classification == source_classification
+            and selection.evidence_ref_id in row.evidence_ref_ids
+            for row in sources.sources
+        ):
+            raise InspectionUnavailable("native_inspection_source_unavailable")
     if evidence is not None and evidence.evidence_ref_id.startswith("pdf-region:"):
         try:
             region, image = render_admitted_pdf_evidence(
