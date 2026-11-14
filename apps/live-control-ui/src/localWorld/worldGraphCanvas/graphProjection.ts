@@ -365,11 +365,11 @@ export function projectLocalWorldGraph(
         (index.relationshipCounts.get(b) ?? 0) - (index.relationshipCounts.get(a) ?? 0) || a.localeCompare(b);
       const ranked = eligibleObjects.map(({ id }) => id).sort(compare);
       const eligibleIds = new Set(ranked);
-      const picked = new Set<Id>();
       const limit = Math.min(64, maxNodes);
-      for (const id of [...revealedIds, ...ranked]) {
+      const picked = new Set([...revealedIds].filter(id => eligibleIds.has(id)).slice(0, limit));
+      for (const id of ranked) {
         if (picked.size >= limit) break;
-        if (!eligibleIds.has(id) || picked.has(id)) continue;
+        if (picked.has(id)) continue;
         picked.add(id);
         const neighbors = [...new Set(index.neighbors.get(id) ?? [])].filter(other => eligibleIds.has(other));
         for (const neighbor of neighbors.sort(compare).slice(0, 9)) {
