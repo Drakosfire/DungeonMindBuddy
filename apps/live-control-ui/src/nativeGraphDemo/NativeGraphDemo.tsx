@@ -927,6 +927,25 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     setNotice({ kind: "warning", text: "DungeonMind recorded an uncertain outcome. Do not retry or replace this operation ID. Check its status again when the service is available." });
   }
 
+  const restoreWorldState = useCallback((restoredGraph: NativeGraph) => {
+    const saved = readOnly ? null : safeReadDraft(restoredGraph.world_id, stateScopeId);
+    const restoredDraft = saved?.draft ?? EMPTY_DRAFT;
+    draftRef.current = restoredDraft;
+    setDraft(restoredDraft);
+    setCustomPredicateMode(Boolean(restoredGraph.capabilities.allows_custom_predicates && restoredDraft.predicate
+      && !restoredGraph.capabilities.allowed_predicates?.includes(restoredDraft.predicate)));
+    setDraftReadyWorldId(readOnly ? null : restoredGraph.world_id);
+    placementIntentRef.current = saved?.placement ?? null;
+    setPlacementIntent(saved?.placement ?? null);
+    setPendingOperation(saved?.pending ?? null, saved?.pending_phase ?? "prepare");
+    setLayout({
+      worldId: restoredGraph.world_id,
+      positions: readLayout(restoredGraph.world_id, stateScopeId),
+      revision: 0,
+    });
+    return saved?.pending ?? null;
+  }, [readOnly, setPendingOperation, stateScopeId]);
+
   useEffect(() => {
     const owner = ++generationRef.current;
     mountedOwnerRef.current = owner;
@@ -943,27 +962,10 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     const controller = new AbortController();
     api.readGraph(controller.signal).then(async (loadedGraph) => {
       if (!installReadGraph(loadedGraph, graphRequest, owner)) return;
-      const saved = readOnly ? null : safeReadDraft(loadedGraph.world_id, stateScopeId);
-      const restoredDraft = saved?.draft ?? EMPTY_DRAFT;
-      draftRef.current = restoredDraft;
-      setDraft(restoredDraft);
-      setCustomPredicateMode(Boolean(loadedGraph.capabilities.allows_custom_predicates && restoredDraft.predicate
-        && !loadedGraph.capabilities.allowed_predicates?.includes(restoredDraft.predicate)));
-      setDraftReadyWorldId(readOnly ? null : loadedGraph.world_id);
-      placementIntentRef.current = saved?.placement ?? null;
-      setPlacementIntent(saved?.placement ?? null);
-      setPendingOperation(saved?.pending ?? null);
-      pendingPhaseRef.current = saved?.pending_phase ?? "prepare";
-      setPendingPhaseState(saved?.pending_phase ?? "prepare");
-      pendingRef.current = saved?.pending ?? null;
-      setLayout({
-        worldId: loadedGraph.world_id,
-        positions: readLayout(loadedGraph.world_id, stateScopeId),
-        revision: 0,
-      });
+      const pending = restoreWorldState(loadedGraph);
       setLoading(false);
       setStorageWarning(false);
-      if (saved?.pending) await recoverOperation(saved.pending, null, owner);
+      if (pending) await recoverOperation(pending, null, owner);
     }).catch((error: unknown) => {
       if (!ownsMount(owner) || graphRequest !== graphRequestGenerationRef.current) return;
       setLoading(false);
@@ -975,7 +977,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       refreshControllerRef.current = null;
       if (mountedOwnerRef.current === owner) mountedOwnerRef.current = null;
     };
-  }, [api, componentScope, readOnly, recoverOperation, stateScopeId]);
+  }, [api, componentScope, recoverOperation, restoreWorldState, stateScopeId]);
 
   const refreshGraph = useCallback(async () => {
     const owner = mountedOwnerRef.current;
@@ -989,23 +991,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       if (!ownsMount(owner) || pendingRef.current) return;
       if (!installReadGraph(nextGraph, graphRequest, owner)) return;
       if (nextGraph.world_id !== layout.worldId) {
-        const positions = readLayout(nextGraph.world_id, stateScopeId);
-        setLayout({ worldId: nextGraph.world_id, positions, revision: 0 });
-        setDraftReadyWorldId(readOnly ? null : nextGraph.world_id);
-        const saved = readOnly ? null : safeReadDraft(nextGraph.world_id, stateScopeId);
-        const nextDraft = saved?.draft ?? EMPTY_DRAFT;
-        draftRef.current = nextDraft;
-        setDraft(nextDraft);
-        setCustomPredicateMode(Boolean(nextGraph.capabilities.allows_custom_predicates && nextDraft.predicate
-          && !nextGraph.capabilities.allowed_predicates?.includes(nextDraft.predicate)));
-        placementIntentRef.current = saved?.placement ?? null;
-        setPlacementIntent(saved?.placement ?? null);
-        setPendingOperation(saved?.pending ?? null);
-        pendingPhaseRef.current = saved?.pending_phase ?? "prepare";
-        setPendingPhaseState(saved?.pending_phase ?? "prepare");
-        pendingRef.current = saved?.pending ?? null;
-        setPendingStatus(saved?.pending ? "checking" : "none");
-        if (saved?.pending) await recoverOperation(saved.pending, null, owner);
+        const pending = restoreWorldState(nextGraph);
+        setPendingStatus(pending ? "checking" : "none");
+        if (pending) await recoverOperation(pending, null, owner);
       }
       if (!ownsMount(owner)) return;
       setNotice({ kind: "success", text: "Latest graph revision loaded from DungeonMind. Your current form draft is preserved." });
@@ -1018,7 +1006,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         if (ownsMount(owner)) setRefreshing(false);
       }
     }
-  }, [api, layout.worldId, readOnly, recoverOperation, setPendingOperation, stateScopeId]);
+  }, [api, layout.worldId, recoverOperation, restoreWorldState]);
 
   function updateDraft(patch: Partial<DemoFormDraft>) {
     setDraftAndPersist({ ...draftRef.current, ...patch });
