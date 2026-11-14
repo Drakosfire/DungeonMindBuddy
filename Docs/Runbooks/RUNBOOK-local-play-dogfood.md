@@ -31,12 +31,18 @@ workflows, install `poppler-utils` on Debian or Ubuntu and verify that
   `dungeonmind_cutover_live`, or the configured World Graph database.
 - The same PostgreSQL **server** may host both databases.
 
+The example DSN below targets the shared durable APP-STATE instance. Compose
+project names do not isolate this database across checkouts. For parallel
+dogfood that needs isolated state, provision a separate disposable PostgreSQL
+target using the [recovery runbook](RUNBOOK-application-state-authority-recovery.md#restore-into-a-second-clean-target-recovery-witness).
+Confirm the configured host, port, and database name before running bootstrap.
+
 ## First setup / after application-state schema changes
 
 1. Configure repo `.env` or `.env.development` with a safe Buddy DSN:
 
    ```bash
-   DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL=postgresql://USER:PASSWORD@127.0.0.1:54329/dungeonbuddy_application_state
+   DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL=postgresql://USER:PASSWORD@127.0.0.1:54331/dungeonbuddy_application_state
    ```
 
 2. Run the explicit bootstrap:
