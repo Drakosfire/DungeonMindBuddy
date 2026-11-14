@@ -81,10 +81,19 @@ def read_context(repo, space, revision, campaign, role="gm", *, scope_mode="camp
     from graph_memory.vnext.domain_runtime import (
         DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context,
     )
-    domain, profile = descriptors(repo, space, revision)
+    def resolve_domain(domain_ref, profile_ref):
+        domain, _ = resolve_dungeonbuddy_descriptors(
+            domain_ref=domain_ref, profile_ref=profile_ref,
+        )
+        return domain
+
     access = open_native_text_source_access_context(
-        repository=repo, space_id=space, revision_id=revision, domain_contract=domain,
+        repository=repo, space_id=space, revision_id=revision, domain_contract=resolve_domain,
         audience_labels=(GM_LABEL, PLAYER_LABEL) if role == "gm" else (PLAYER_LABEL,),
+    )
+    domain, profile = resolve_dungeonbuddy_descriptors(
+        domain_ref=access.parsed.domain_contract_ref,
+        profile_ref=access.parsed.semantic_profile_ref,
     )
     read = build_dungeonbuddy_read_context(
         parsed_revision=access.parsed,
