@@ -907,3 +907,21 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
         assert refused.status_code == 200, refused.text
         assert refused.json()["outcome"] == "empty"
         assert refused.json()["content"] is None
+
+
+def test_shared_native_neighborhood_requires_authentication(inspection, monkeypatch):
+    from apps.live_control_server.routes.world_graph_retrieval import router
+
+    inspection.app.include_router(router)
+    monkeypatch.setenv("DMB_NATIVE_NEIGHBORHOOD_WORLD", "managed")
+    inspection.client.headers.pop("Authorization")
+    response = inspection.client.post(
+        "/api/live/world-graph/retrieval/neighborhood",
+        json={
+            "schema": "dmb_world_graph_neighborhood_request_v1",
+            "worldId": "managed",
+            "campaignId": inspection.lane.run.campaign_id,
+            "seedNodeIds": [inspection.objects["object:0"]],
+        },
+    )
+    assert response.status_code == 401, response.text
