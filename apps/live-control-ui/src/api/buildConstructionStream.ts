@@ -41,12 +41,13 @@ export async function readBuildConstructionStream(response:Response, request:Wor
   const reader=response.body.getReader();const decoder=new TextDecoder('utf-8',{fatal:true});
   let buffer='';let sequence=0;let identity:string|null=null;
   const capability=request.build_write_capability;
-  const expectedBasis=capability ? stable(capability.basis) : null;
+  let expectedBasis:string|null=null;
+  try{if(capability)expectedBasis=stable(capability.basis);}catch{/* An invalid preview basis cannot discard the saved command result. */}
   let workingHash:string|null=null;
   try{if(request.build_draft_context)workingHash=await snapshotDigest(request.build_draft_context.snapshot);}catch{/* Preview hashing cannot discard the saved command result. */}
   let previousSteps:BuildPlanConstructionProgress['steps']=[];let incomplete=false;let previousObjective:string|null=null;
   function progress(value:unknown){
-    if(!capability||!value||typeof value!=='object')return;
+    if(!capability||expectedBasis===null||!value||typeof value!=='object')return;
     if(['dmb_build_plan_construction_v1','dmb_build_plan_construction_v2','dmb_build_plan_construction_v3'].includes(String((value as {schema?:string}).schema))){
       const p=value as BuildPlanConstructionProgress;
       if(!workingHash||!exact(p,['schema','placement_id','basis','world_id','conversation_id','client_turn_id','durable_turn_id','turn_attempt','working_snapshot_sha256','provider_attempt_id','sequence','status','steps',...(p.schema!=='dmb_build_plan_construction_v1'?['objective']:[])])
