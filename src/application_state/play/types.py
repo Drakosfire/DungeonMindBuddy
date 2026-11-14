@@ -46,6 +46,7 @@ class WorldPlayRunAggregate(BaseModel):
     run: PlayRun
     manifest: PlayRunManifest
     world_id: str
+    active_source_title: str | None = None
 
 
 class PlayActiveRun(BaseModel):
