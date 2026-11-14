@@ -189,6 +189,7 @@ def project_node_views(context, support, attributes, artifacts, evidence):
                 label=label,
                 kind=kind,
                 role=kind,
+                campaign_scope_unknown=True,
                 summary=summary,
                 aliases=sorted(aliases_by_entity[entity_id]),
                 evidence_ref_ids=evidence_ids,

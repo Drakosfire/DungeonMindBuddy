@@ -671,6 +671,8 @@ def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch
     assert target["adjacency"][0]["direction"] == "incoming"
     assert target["evidenceRefIds"] == []
     assert target["evidenceBadges"] == []
+    assert source["campaignScopeUnknown"] is True
+    assert source["campaignScope"] is None
     assert [badge["evidenceRefId"] for badge in source["evidenceBadges"]] == source["evidenceRefIds"]
     assert source["suggestedExpansions"][0]["nodeId"] == target["nodeId"]
     assert source["nodeId"] in projection["queryContext"]["matchedNodeIds"]

@@ -217,6 +217,7 @@ class WorldGraphProjectionNodeView(_ProjectionModel):
     # Effective campaign tenancy (null = world-universal). Surfaced so
     # cross-campaign world-scope results remain attributable.
     campaign_scope: str | None = None
+    campaign_scope_unknown: bool = False
     evidence_badges: list[WorldGraphProjectionEvidenceBadge] = Field(default_factory=list)
     adjacency: list[WorldGraphProjectionAdjacencyCandidate] = Field(default_factory=list)
     suggested_expansions: list[WorldGraphProjectionSuggestedExpansion] = Field(

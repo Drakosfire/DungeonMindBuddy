@@ -134,7 +134,7 @@ function Assembly({worldId,disabled,remainingSlots,onAdd}:AssemblyProps) {
             discardPreview(); setError(null);
             setSelected({...node});
             setName(node.label);
-          }}>{node.label} <small>{node.kind} · {node.campaign_scope || 'World'} · {node.node_id}</small></button>
+          }}>{node.label} <small>{node.kind} · {node.campaign_scope || (node.campaign_scope_unknown ? 'Scope unknown' : 'World')} · {node.node_id}</small></button>
         </li>)}</ul>
         {candidates.length === 0 && <p>No matching creatures. You can enter a manual combatant below.</p>}
       </>}

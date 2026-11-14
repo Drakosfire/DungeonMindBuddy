@@ -3784,6 +3784,7 @@ export interface GraphProjectionNodeView {
   summary?: string | null;
   /** Cross-campaign provenance when projection scopeMode is world. */
   campaign_scope?: string | null;
+  campaign_scope_unknown?: boolean;
   /** Authored overlay metadata (A6+) */
   source?: string | null;
   authored?: boolean;
@@ -3952,6 +3953,7 @@ export interface WorldGraphProjectionNodeView {
   aliases: string[];
   sourceDomains: string[];
   campaignScope?: string | null;
+  campaignScopeUnknown?: boolean;
   summary?: string | null;
   anchoredToFocusSession: boolean;
   evidenceBadges: WorldGraphProjectionEvidenceBadge[];
