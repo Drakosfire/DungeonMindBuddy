@@ -21,7 +21,7 @@ from apps.live_control_server.services.world_container_registry import (  # noqa
     WorldContainerRegistryError,
     list_world_containers,
 )
-from src.bootstrap_env import (  # noqa: E402
+from bootstrap_env import (  # noqa: E402
     LOCAL_GRAPH_PROFILE_ENV,
     LocalGraphProfileError,
     load_dungeonmindbuddy_dotenv,

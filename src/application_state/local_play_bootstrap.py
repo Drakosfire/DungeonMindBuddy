@@ -27,7 +27,7 @@ from application_state.errors import (
     ApplicationStateUnavailableError,
 )
 from application_state.naming import database_name_from_dsn
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 
 STANDARD_DATABASE_NAME = "dungeonbuddy_application_state"
 _STANDARD_PREFIX = STANDARD_DATABASE_NAME + "_"

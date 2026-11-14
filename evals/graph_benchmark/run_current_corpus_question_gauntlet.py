@@ -796,8 +796,8 @@ def serve_gauntlet_api(
     hermes_model: str | None,
 ) -> int:
     """Start FastAPI pinned to the acceptance World (evaluation-only)."""
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
-    import src.bootstrap_env as bootstrap_env
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
+    import bootstrap_env as bootstrap_env
 
     load_dungeonmindbuddy_dotenv(override=True)
     bootstrap_env.load_dungeonmindbuddy_dotenv = lambda **_kwargs: None

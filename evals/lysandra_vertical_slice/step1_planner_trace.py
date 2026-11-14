@@ -51,7 +51,7 @@ from evals.lysandra_vertical_slice.step2_canonical_intent import (  # noqa: E402
     load_step2_gold,
 )
 from src.agent.synthesis import _load_api_key  # noqa: E402
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
+from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 from evals.planner_slice.live_eval import (  # noqa: E402
     LiveEvalResult,
     evaluate_scenario_detail,

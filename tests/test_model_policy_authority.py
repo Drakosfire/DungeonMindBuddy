@@ -81,7 +81,7 @@ def test_agent_model_selection_preserves_other_e1b_consumer_models(monkeypatch) 
     from src.npc_statblock_pipeline.canonical_intent import _resolve_intent_classifier_model
 
     monkeypatch.setattr(
-        "src.bootstrap_env.load_dungeonmindbuddy_dotenv",
+        "bootstrap_env.load_dungeonmindbuddy_dotenv",
         lambda: None,
     )
     provider, model, base_url = resolve_agent_graph_openai_inference(require_api_key=False)
@@ -197,7 +197,7 @@ def test_tolerant_consumers_fall_back_when_policy_missing_or_malformed(
     from src.live_play.live_query_context import _live_query_model
     from src.npc_statblock_pipeline.canonical_intent import _resolve_intent_classifier_model
 
-    monkeypatch.setattr("src.bootstrap_env.load_dungeonmindbuddy_dotenv", lambda: None)
+    monkeypatch.setattr("bootstrap_env.load_dungeonmindbuddy_dotenv", lambda: None)
     monkeypatch.delenv("DUNGEONMIND_HERMES_GRAPH_MODEL", raising=False)
     monkeypatch.delenv("LIVE_TURN_CLASSIFIER_MODEL", raising=False)
     monkeypatch.delenv("NPC_INTENT_CLASSIFIER_MODEL", raising=False)

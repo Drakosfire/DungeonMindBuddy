@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.graph_memory import identity_resolution as ir
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,

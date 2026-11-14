@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from apps.live_control_server.config import SESSION_DIR_ENV
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 from tests.application_state.isolate_dsn import needs_disposable_application_state
 
 pytest_plugins = ["tests.application_state.conftest"]

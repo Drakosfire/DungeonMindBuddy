@@ -89,7 +89,7 @@ from src.agent.planner_retrieval_router import (
 )
 from src.agent.planner_telemetry import router_telemetry_row
 from src.agent.synthesis import _load_api_key
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 
 
 def _resolve_records(

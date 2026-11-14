@@ -50,7 +50,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_tagging_scorer im
 )
 from src.agent.planner_pricing import usage_cost_usd  # noqa: E402
 from src.agent.synthesis import _load_api_key  # noqa: E402
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
+from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 
 DEFAULT_MODEL = "gpt-5.3-codex"
 DEFAULT_RECAP_REL = "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"

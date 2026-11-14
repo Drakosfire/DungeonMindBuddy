@@ -109,7 +109,7 @@ def seeded_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         lambda: "gpt-test-mini",
     )
     monkeypatch.setattr(
-        "src.bootstrap_env.load_dungeonmindbuddy_dotenv",
+        "bootstrap_env.load_dungeonmindbuddy_dotenv",
         lambda: None,
     )
     return repo

@@ -1019,7 +1019,7 @@ def run_preflight(
     require_clean_worktree: bool = False,
 ) -> AcceptanceState:
     """Zero model calls; zero graph mutation."""
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
     root = (repo_root or REPO_ROOT).resolve()
@@ -1068,7 +1068,7 @@ def run_execute(
     require_clean_worktree: bool = False,
 ) -> AcceptanceState:
     """Full fresh acceptance from pristine authority; stop on first failure."""
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
     root = (repo_root or REPO_ROOT).resolve()

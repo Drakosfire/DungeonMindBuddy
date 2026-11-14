@@ -12,7 +12,7 @@ from copy import deepcopy
 from typing import Any, Mapping, Protocol, Sequence
 
 from src.graph_memory.extraction.compact_evidence_context import CompactEvidenceContext, COMPACT_EVIDENCE_GUIDANCE
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.graph_memory import identity_resolution as ir
 from src.graph_memory.anchor_quotes import coerce_anchor_quotes
 from src.graph_memory.predicate_catalog import (

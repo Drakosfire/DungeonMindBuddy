@@ -1902,7 +1902,7 @@ def run_preflight(
     require_clean_worktree: bool = False,
 ) -> ReplayState:
     """Zero model calls; zero graph mutation."""
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
     root = (repo_root or REPO_ROOT).resolve()
@@ -1949,7 +1949,7 @@ def run_execute(
     require_clean_worktree: bool = False,
 ) -> ReplayState:
     """Fresh pristine replay; stop on first failure. Never resumes."""
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
     root = (repo_root or REPO_ROOT).resolve()
@@ -2099,7 +2099,7 @@ def run_product_smoke_from_run(
         or []
     )
     dsn_value = dsn or str(report.get("dsn") or "") or _default_dsn()
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
 
     load_dungeonmindbuddy_dotenv()
     assert_runtime_dsn(dsn_value)

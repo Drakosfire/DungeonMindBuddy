@@ -49,7 +49,7 @@ OUTPUT_DIR = EVAL_DIR / "output"
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
+from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 
 load_dungeonmindbuddy_dotenv()
 

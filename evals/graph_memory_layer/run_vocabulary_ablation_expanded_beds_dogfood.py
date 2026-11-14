@@ -31,7 +31,7 @@ from evals.graph_memory_layer.session_1_candidate_graph_gold_fixture import (
     load_gold_candidate_graph_dict as load_c1s1_gold_candidate_graph_dict,
 )
 from evals.graph_memory_layer.session_1_recap_ingest_fixture import load_expected_normalized_recap
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.graph_memory import identity_resolution as ir
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
