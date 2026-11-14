@@ -595,8 +595,17 @@ def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=N
     if len(attributes) > request.bounds.max_attributes:
         truncated.append("attributes")
     missing = [] if object_id is not None else list(result.missing_seed_entity_ids)
+    if search_entities is not None:
+        operation = "search"
+        request_summary = {"query_text": request.query_text, "seed_node_ids": request.seed_node_ids}
+    elif object_id is not None:
+        operation = "object"
+        request_summary = {"node_id": object_id}
+    else:
+        operation = "neighborhood"
+        request_summary = {"seed_node_ids": list(request.seed_node_ids), "max_depth": request.max_depth}
     return WorldGraphRetrievalResult(
-        operation="object" if object_id is not None else "neighborhood",
+        operation=operation,
         requested_node_id=object_id,
         resolved_node_id=object_id if nodes else None,
         outcome="partial" if truncated or missing else "enough" if nodes else "empty",
@@ -607,12 +616,7 @@ def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=N
             focus=request.focus.to_projection_focus(), admissibility=request.admissibility,
             scope_mode=request.scope_mode,
         ),
-        request_summary=(
-            {"node_id": object_id} if object_id is not None else {} if search_entities is not None else {
-                "seed_node_ids": list(request.seed_node_ids),
-                "max_depth": request.max_depth,
-            }
-        ),
+        request_summary=request_summary,
         nodes=nodes, relationships=edges,
         attributes=attributes[:request.bounds.max_attributes],
         source_anchors=anchors[:request.bounds.max_source_anchors],
@@ -755,9 +759,7 @@ def shared_search(request, principal):
     if len(others) > remaining or search.completeness.status != "complete":
         truncated = list(dict.fromkeys([*truncated, "nodes"]))
     return result.model_copy(update={
-        "operation": "search",
         "outcome": "partial" if missing or truncated else "enough" if selected else "empty",
-        "request_summary": {"query_text": request.query_text, "seed_node_ids": request.seed_node_ids},
         "matched_node_ids": selected,
         "match_reasons": {entity_id: reasons[entity_id] for entity_id in selected},
         "coverage": result.coverage.model_copy(update={
@@ -766,6 +768,8 @@ def shared_search(request, principal):
             "truncated_fields": truncated,
         }),
     })
+
+
 def plan_subject_search(request, principal):
     """Return navigation labels from the broker's pinned native read."""
     from dungeonmind.application.vnext import SearchReadService
