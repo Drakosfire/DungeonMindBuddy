@@ -21,6 +21,7 @@ import {
 export type StatblockRendererChrome = "default" | "campaign";
 
 type DraftProjection = {
+  portrait?: ReactNode;
   definition: Parameters<typeof buildDraftStatblockViewModel>[0];
   hitPoints: (summary: string) => ReactNode;
   ruleEditor: (key: string, name: string) => ReactNode;
@@ -532,7 +533,7 @@ export function StatblockRenderer({
   const sections = groupRuleElementsBySection(view.ruleElements);
   const campaignChrome = chrome === "campaign";
   const binding=revision?.asset_bindings?.find(item=>item.role==='portrait'&&item.phase_key==null);
-  const portrait=binding?<SavedPortrait key={`${revision!.revision_id}:${binding.asset.asset_id}:${binding.asset.url}`} asset={binding.asset} name={view.name}/>:null;
+  const portrait=draft?.portrait ?? (binding?<SavedPortrait key={`${revision!.revision_id}:${binding.asset.asset_id}:${binding.asset.url}`} asset={binding.asset} name={view.name}/>:null);
 
   return (
     <article
