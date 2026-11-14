@@ -89,6 +89,18 @@ jobs:
           fi
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
+      - name: Sample runner disk use during builds
+        shell: bash
+        run: |
+          (
+            while true; do
+              printf '%s ' "$(date -u +%FT%TZ)"
+              df -B1 --output=used,avail / | tail -1
+              sleep 2
+            done
+          ) > "$RUNNER_TEMP/buddy-build-disk.tsv" 2>&1 < /dev/null &
+          echo "$!" > "$RUNNER_TEMP/buddy-build-disk.pid"
+
       - name: Test and build hosted auth UI without publishing
         env:
           UI_BUILD_IMAGE: ${{ steps.ui-image.outputs.image }}
@@ -108,3 +120,22 @@ jobs:
 
       - name: Build production image without publishing
         run: docker buildx build --no-cache --file Dockerfile.production --tag dungeonmindbuddy:validation-${GITHUB_SHA::12} --load --progress plain .
+
+
+      - name: Report sampled runner disk peak
+        if: always()
+        shell: bash
+        run: |
+          samples="$RUNNER_TEMP/buddy-build-disk.tsv"
+          pid_file="$RUNNER_TEMP/buddy-build-disk.pid"
+          if [[ -f "$pid_file" ]]; then
+            kill "$(cat "$pid_file")" 2>/dev/null || true
+          fi
+          if [[ -s "$samples" ]]; then
+            awk 'NF == 3 && $2 ~ /^[0-9]+$/ {
+              if (!count++) start=$2
+              if ($2 > peak) { peak=$2; time=$1 }
+            } END {
+              if (count) printf "Root disk: baseline %.0f bytes, sampled peak %.0f bytes at %s, increase %.0f bytes (%d samples)\n", start, peak, time, peak-start, count
+            }' "$samples" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
