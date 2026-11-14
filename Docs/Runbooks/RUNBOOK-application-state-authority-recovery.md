@@ -152,3 +152,36 @@ Set `DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL` in `.env` to the durable coord
 ## History
 
 - **2026-09-07:** the previous APP-STATE database lived on the tmpfs dev server (54329) and was destroyed by an ordinary container stop before any backup existed. This runbook and the durable substrate are the corrective authority. Repopulation of C1/C2 content through supported product seams is the Stage 2B successor.
+
+## Historical adoption commands
+
+Run these commands from the Buddy repository root with the repository's
+Python environment. For database-backed adoption, confirm that the configured
+application-state database is the intended recovery target.
+
+- Preview World catalog metadata adoption using an explicit export and its
+  expected SHA-256. Add `--apply` after reviewing the preview.
+
+  ```sh
+  uv run python -m scripts.adopt_world_catalog \
+    --input "$WORLD_CATALOG_JSON" --expected-sha256 "$WORLD_CATALOG_SHA256"
+  ```
+
+- Preview source input metadata adoption from an explicit registry export.
+  Artifact bodies must already exist in application state with the exact
+  artifact and digest binding. Add `--apply` after reviewing the preview.
+
+  ```sh
+  uv run python -m scripts.adopt_source_input_descriptors \
+    --registry-json "$SOURCE_INPUTS_JSON"
+  ```
+
+- Adopt a single historical connected-page operation under the selected data
+  root. This command applies immediately. Use a disposable copy for rehearsal.
+  It adopts the operation record without creating pages or publishing Graph
+  changes.
+
+  ```sh
+  uv run python -m scripts.adopt_connected_page_operation \
+    --root "$BUDDY_DATA_ROOT" "$CONNECTED_PAGE_OPERATION"
+  ```
