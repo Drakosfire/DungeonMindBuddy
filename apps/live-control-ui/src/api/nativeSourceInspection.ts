@@ -39,6 +39,7 @@ export type NativeSourceBody={section_catalog:NativeSourceSections|null;schema:'
  body_text:string;body_sha256:string;evidence_ref_id:string;source_authority_epoch:number}};
 
 export type PublishedNativeRecap = {
+ evidence_ref_ids: string[];
  schema: 'dmb_native_published_recap_v1';
  scope: InspectionPin;
  campaign_id: string;

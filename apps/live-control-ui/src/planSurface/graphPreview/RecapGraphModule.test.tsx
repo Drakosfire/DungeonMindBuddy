@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as liveApi from "../../api/liveApi";
 import type { RecapArtifactRecord } from "../../api/types";
 import { RecapGraphModule } from "./RecapGraphModule";
+import { SelectedWorldProvider } from "../../selectedWorld/SelectedWorldContext";
 import { session23WorldGraphRecapFixture } from "../../test/worldGraphRecapFixture";
 
 const context = {
@@ -150,8 +151,8 @@ describe("RecapGraphModule", () => {
 
     render(<RecapGraphModule context={context} />);
 
-    expect(await screen.findByRole("combobox", { name: "Focus session" })).toBeInTheDocument();
     expect(await findRecapPill(/Caelynn/i)).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Focus session" })).toBeInTheDocument();
   }, 15000);
 
   it("shows unavailable message for recap_markdown_unavailable without preview fallback", async () => {
@@ -545,4 +546,56 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
       "session-26",
     );
   });
+});
+
+it("drills into a native recap object and renders only its matching excerpt", async () => {
+  vi.restoreAllMocks();
+  window.history.replaceState({}, "", "/plan?world=elderwyld&session=session-24");
+  const scope = {
+    managed_world_id: "elderwyld", native_world_id: "elderwyld",
+    binding_version: 3, revision_id: "rev:recap", scope_mode: "world" as const, campaign_id: null,
+  };
+  const pin = { ...scope, scope_mode: "campaign" as const, campaign_id: "longmont-c2" };
+  mockArtifacts();
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{ schema_version: "dmb_world_container_record_v1", world_id: "elderwyld",
+      name: "Elderwyld", source_root_relpath: "", created_at: "" }],
+  });
+  vi.spyOn(liveApi, "readPublishedNativeRecap").mockResolvedValue({
+    schema: "dmb_native_published_recap_v1", scope, campaign_id: "longmont-c2", session_id: "session-24",
+    evidence_ref_ids: ["ev:recap"],
+    source: { status: "available", source_artifact_id: "source:recap", source_revision_id: "srev:recap",
+      body_text: "Admitted recap body.", body_sha256: "digest", evidence_ref_id: "ev:recap", source_authority_epoch: 1 },
+  });
+  const catalog = vi.spyOn(liveApi, "getNativeGraphCatalog").mockResolvedValue({
+    schema: "dmb_native_graph_catalog_v1", scope: pin,
+    catalogue: { identity: { space_id: "elderwyld", revision_id: pin.revision_id },
+      entities: [{ entity_id: "ent:recap" }], admitted_assertion_ids: ["asrt:recap"],
+      completeness: { status: "complete", reason: null }, request_sha256: "digest", result_digest: "digest" },
+    assertions: [{ assertion_id: "asrt:recap", subject_entity_id: "ent:recap", predicate: "dnd5e:name",
+      value: { kind: "literal", value: "Recap Object" }, metadata: { evidence_ref_ids: ["ev:recap"],
+        scope: [], visibility: null, epistemic_basis: "", claim_mode: "", standing: "",
+        temporal_scope: null, domain_metadata: [] } }],
+  });
+  const read = vi.spyOn(liveApi, "postNativeWorldGraphCompleteObject").mockResolvedValue({
+    schema: "dmb_world_graph_object_projection_v1", found: true,
+    completeness: { status: "complete", truncatedFields: [] },
+    snapshot: { ...session23WorldGraphRecapFixture.snapshot, revisionId: pin.revision_id },
+    requestedNodeId: "ent:recap", resolvedNodeId: "ent:recap",
+    node: null, relatedNodes: [], semanticFingerprint: "digest",
+    sourceBindings: [{ evidenceRefId: "ev:recap", excerpt: "Exact admitted excerpt." },
+      { evidenceRefId: "ev:other", excerpt: "Unrelated excerpt." }],
+  });
+  const classic = vi.spyOn(liveApi, "postWorldGraphRecapProjection");
+  render(<SelectedWorldProvider locationSnapshot={window.location.href}>
+    <RecapGraphModule context={context} />
+  </SelectedWorldProvider>);
+  expect(await screen.findByText("Admitted recap body.")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Recap Object" }));
+  expect(await screen.findByText("Exact admitted excerpt.")).toBeInTheDocument();
+  expect(screen.queryByText("Unrelated excerpt.")).not.toBeInTheDocument();
+  expect(catalog).toHaveBeenCalledWith(pin, expect.any(AbortSignal));
+  expect(read).toHaveBeenCalledWith(expect.objectContaining({ revisionPin: pin.revision_id, nodeId: "ent:recap" }), pin);
+  expect(classic).not.toHaveBeenCalled();
 });

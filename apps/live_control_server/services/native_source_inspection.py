@@ -136,6 +136,7 @@ def published_recap(request, principal):
             return _response(
                 context, pin, schema="dmb_native_published_recap_v1",
                 campaign_id=request.campaign_id, session_id=request.session_id,
+                evidence_ref_ids=list(item.evidence_ref_ids),
                 source=opened.model_dump(mode="json"),
             )
     raise SourceInspectionUnavailable("native_published_recap_source_unavailable")
