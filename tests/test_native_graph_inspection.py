@@ -1142,8 +1142,15 @@ def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch)
     from graph_memory.interaction import expansion_executor
     from graph_memory.interaction.session import GraphRetrievalSession, SessionSnapshot, SourceAnchorState
 
+    from types import SimpleNamespace
+
+    authority = SimpleNamespace(
+        managed_world_id=scope["worldId"], native_world_id=inspection.lane.bound["native_world_id"],
+        binding_version=inspection.lane.bound["binding_version"], graph_revision=pin.graph_revision,
+    )
+    assert authority.managed_world_id != authority.native_world_id
     session = GraphRetrievalSession(
-        snapshot=SessionSnapshot(world_id=scope["worldId"], campaign_id=scope["campaignId"],
+        snapshot=SessionSnapshot(world_id=authority.native_world_id, campaign_id=scope["campaignId"],
                                  revision_id=pin.graph_revision),
         question="Object 1",
         source_anchors=[SourceAnchorState(anchor_id=pin.anchor_id, readable=True)],
@@ -1153,7 +1160,7 @@ def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch)
     monkeypatch.setattr(expansion_executor, "replace_session", lambda _: None)
     batch = expansion_executor.execute_read_graph_source({
         "retrievalSessionId": session.id, "anchorIds": [pin.anchor_id],
-    }, receipt_version=2, native_principal=principal)
+    }, receipt_version=2, native_principal=principal, native_authority=authority)
     read, = batch["reads"]
     assert read["result"]["content"] == receipt.result.content
     assert read["receipt"]["source_revision_id"] == pin.source_revision_id

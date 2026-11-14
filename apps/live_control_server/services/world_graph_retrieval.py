@@ -264,6 +264,7 @@ def read_source_anchors_internal_v2(
     repo_root: Path | None = None,
     native_services: DirectWorldGraphReadServices | None = None,
     native_principal=None,
+    native_authority=None,
 ) -> tuple[ResolvedSourceAnchorReadV2 | WorldGraphRetrievalServiceError, ...]:
     """Resolve one pinned native batch, then preserve each body's outcome."""
     _require_mounted_native_read(root)
@@ -279,7 +280,7 @@ def read_source_anchors_internal_v2(
         results = []
         for request in requests:
             try:
-                results.append(open_neighborhood_anchor(request, native_principal, include_receipt=True))
+                results.append(open_neighborhood_anchor(request, native_principal, include_receipt=True, authority=native_authority))
             except InspectionUnavailable:
                 results.append(WorldGraphRetrievalServiceError(
                     "The selected native source is unavailable.",

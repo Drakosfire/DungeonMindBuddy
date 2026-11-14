@@ -3499,7 +3499,8 @@ class _PolicyExecutionAdapter:
                 request.operation == "search"
                 and plan_services is None
                 and isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1))
-                and common["worldId"] == os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip()
+                and self._broker_graph_receipt().graph_authority.managed_world_id
+                == os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip()
             )
             if services is None and not (native_subject_search or native_shared_search):
                 services = direct_services_from_config(self.bootstrap.world_scope.world_id)
@@ -3577,8 +3578,16 @@ class _PolicyExecutionAdapter:
                 elif native_shared_search:
                     from .native_graph_inspection import shared_search
 
-                    resolved = shared_search(effective_request, self.native_principal, include_source_pins=True)
-                    result = resolved.result
+                    authority = self._broker_graph_receipt().graph_authority
+                    resolved = shared_search(
+                        effective_request.model_copy(update={"world_id": authority.managed_world_id}),
+                        self.native_principal, include_source_pins=True,
+                        expected_native_world_id=authority.native_world_id,
+                        expected_binding_version=authority.binding_version,
+                    )
+                    result = resolved.result.model_copy(update={
+                        "snapshot": resolved.result.snapshot.model_copy(update={"world_id": authority.native_world_id}),
+                    })
                 else:
                     resolved = (
                         search_world_graph_direct_v3(services, effective_request)
@@ -4141,7 +4150,7 @@ class _PolicyExecutionAdapter:
             internal = execute_read_graph_source(
                 request.model_dump(mode="json", by_alias=True), receipt_version=2,
                 root=self.root,
-                **({"native_principal": self.native_principal} if scoped_native_source else {}),
+                **({"native_principal": self.native_principal, "native_authority": authority} if scoped_native_source else {}),
                 **({"native_services": self._build_native_acquisition_services}
                    if getattr(self, "_build_native_acquisition_services", None) is not None else {}),
             )
