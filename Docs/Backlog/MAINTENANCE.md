@@ -6,7 +6,7 @@ This queue holds the maintenance items explicitly transferred out of the root pr
 
 | Candidate | Component owner | Evidence and next check |
 | --- | --- | --- |
-| Give retained PDF shortcuts a browser storage lifecycle | Buddy Build frontend | Build can remove one browser shortcut without a PDF service request. The capture review test proves existing entries remain readable and removal persists across remount. Opening a preview still scans all localStorage keys. Measure growth and scan cost with repeated captures, then evaluate scoped indexing that preserves existing shortcuts and isolates Worlds. |
+| Give retained PDF shortcuts a browser storage lifecycle | Buddy Build frontend | [#3380](https://github.com/Drakosfire/DungeonMindBuddy/pull/3380) shipped removal and passed 19 focused tests. In a synthetic Chrome run with 50 selected-World shortcuts and 200 reads per scenario, scans averaged 0.034, 0.104 and 0.518 ms across 100, 1,000 and 5,000 storage keys. A simulated World-scoped lookup averaged about 0.01 ms and serialized 50 entries in 9,991 ASCII bytes. Revisit indexing when representative profiles show a user-visible preview delay or report quota pressure. Any storage change must preserve legacy shortcuts and cross-tab updates and verify World isolation. |
 
 ## Transfer record
 
