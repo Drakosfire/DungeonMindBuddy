@@ -427,3 +427,14 @@
   border-radius: 1rem;
   width: 100%;
 }
+
+.native-demo-timeline-overlay .native-demo-event-strip ul {
+  align-items: start;
+  background: linear-gradient(#ad8a4b, #ad8a4b) left 2.25rem / 100% 1px no-repeat;
+}
+
+.native-demo-timeline-overlay .native-demo-event-strip button {
+  min-height: 3.5rem;
+  background: #303c50;
+  border: 1px solid #ba9959;
+}

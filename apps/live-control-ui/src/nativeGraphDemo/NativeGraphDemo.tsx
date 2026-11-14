@@ -1870,14 +1870,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 Timeline
               </button>
             )}
-            {chronologyOpen && api.readChronology && <GraphChronology key={chronology.relatedTo ?? ""}
-              graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} onExplore={nodeId => {
-                if (pendingRef.current) return;
-                setChronology(null);
-                focusInspectorRef.current = true;
-                handleCanvasSelectionChange(nodeId as LocalObjectId);
-                requestCameraFocus(nodeId);
-              }} />}
             {stripHighlightRules && <style>{`${stripHighlightRules} {
               stroke: #a05b09; stroke-width: 5; paint-order: stroke fill;
             }`}</style>}
@@ -1885,7 +1877,18 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               <WorldGraphCanvas
                 key={graph.world_id}
                 canvasId={embedded ? "loaded-native-graph-canvas" : undefined}
-                viewportOverlay={focusedEventIds && viewFocusId && api.readChronology && !chronologyOpen && timelineVisible && (
+                viewportOverlay={chronologyOpen && api.readChronology ? (
+                  <div className="native-demo-timeline-overlay" onWheel={event => event.stopPropagation()}>
+                    <GraphChronology graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} strip
+                      onExplore={nodeId => {
+                        if (pendingRef.current) return;
+                        setChronology(null);
+                        focusInspectorRef.current = true;
+                        handleCanvasSelectionChange(nodeId as LocalObjectId);
+                        requestCameraFocus(nodeId);
+                      }} />
+                  </div>
+                ) : focusedEventIds && viewFocusId && api.readChronology && !chronologyOpen && timelineVisible && (
                   <div className="native-demo-timeline-overlay" onWheel={event => event.stopPropagation()}>
                     <GraphChronology graph={graph} read={api.readChronology} relatedTo={viewFocusId} strip
                       selectedEvent={selectedStripEvent} connectedIds={stripConnections}
