@@ -1,6 +1,5 @@
 from __future__ import annotations
-from tests.page_fixtures import create_page_fixture, page_text
-from apps.live_control_server.services.workspace_document_registry import get_workspace_document
+from tests.page_fixtures import create_page_fixture, page_text, save_page
 
 import hashlib
 from pathlib import Path
@@ -177,10 +176,7 @@ def _commit_source(tmp_path: Path, *, body: str = "Mirathorn is a river city.\n"
         authority_state="draft",
         visibility_state="internal",
     )
-    target = tmp_path / (record.target_relpath or "")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(body, encoding="utf-8")
-    committed = get_workspace_document(tmp_path, record.document_id)
+    committed = save_page(tmp_path, record.document_id, body)
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
     return committed, digest
 
@@ -239,8 +235,7 @@ def test_launch_rejects_digest_mismatch_without_creating_run(
     tmp_path: Path,
 ) -> None:
     committed, digest = _commit_source(tmp_path)
-    target = tmp_path / (committed.target_relpath or "")
-    target.write_text("Bytes changed under the same revision.\n", encoding="utf-8")
+    digest = "0" * 64
     response = client.post(
         "/api/live/graph-preview/extraction-runs",
         json={
@@ -260,6 +255,7 @@ def test_launch_returns_exact_run_and_status_reload(
 ) -> None:
     _patch_build_extraction(monkeypatch)
     committed, digest = _commit_source(tmp_path)
+    assert committed.target_relpath is None
 
     launch = client.post(
         "/api/live/graph-preview/extraction-runs",
