@@ -1608,3 +1608,15 @@ def test_worldbuilding_publishes_explicit_observation_with_exact_support(persist
     assert observation["value"] == {"kind": "literal", "value": "A traveller met Pippa"}
     assert observation["metadata"]["evidence_ref_ids"] == [x.evidence_id]
     assert confirm(x, packet).json()["result"] == result.json()["result"]
+
+    from dungeonmind.application.vnext.prospective import get_prospective_publication
+
+    context, = [item["payload"] for item in observation["metadata"]["domain_metadata"]
+                if item["schema"] == service.WORLD_CONTEXT]
+    publication_id = context[service.OBSERVATION_PUBLICATION]
+    publication = get_prospective_publication(SPACE_ID, publication_id, repository=x.repo)
+    assert publication.publication_receipt.published_revision_id == child.revision.revision_id
+    assert any(
+        binding.result_kind == "assertion" and binding.durable_id == observation["assertion_id"]
+        for binding in publication.prospective_result.results
+    )

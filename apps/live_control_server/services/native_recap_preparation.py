@@ -65,25 +65,33 @@ def _require(condition, code):
         raise ReviewRefused(code)
 
 
-def _metadata(review, campaign, evidence, *, description_selection=None):
+OBSERVATION_PUBLICATION = "reviewed_observation_publication_id"
+
+
+def _metadata(review, campaign, evidence, *, description_selection=None, observation_publication=None):
+    owned_context = {}
+    if description_selection is not None:
+        owned_context[DESCRIPTION_SELECTION] = description_selection
+    if observation_publication is not None:
+        owned_context[OBSERVATION_PUBLICATION] = observation_publication
     domain_metadata = []
     context_found = False
     for item in review.domain_metadata:
         if item.schema_term == WORLD_CONTEXT:
-            _require(not isinstance(item.payload, dict) or DESCRIPTION_SELECTION not in item.payload,
+            _require(not isinstance(item.payload, dict) or not {DESCRIPTION_SELECTION, OBSERVATION_PUBLICATION}.intersection(item.payload),
                      "candidate_description_provenance_reserved")
-            if description_selection is not None:
+            if owned_context:
                 _require(not context_found and isinstance(item.payload, dict),
                          "candidate_description_context_invalid")
                 domain_metadata.append(wk.DomainMetadata.from_json(
-                    WORLD_CONTEXT, {**item.payload, DESCRIPTION_SELECTION: description_selection},
+                    WORLD_CONTEXT, {**item.payload, **owned_context},
                 ))
                 context_found = True
                 continue
         domain_metadata.append(item.native())
-    if description_selection is not None and not context_found:
+    if owned_context and not context_found:
         domain_metadata.append(wk.DomainMetadata.from_json(
-            WORLD_CONTEXT, {DESCRIPTION_SELECTION: description_selection},
+            WORLD_CONTEXT, owned_context,
         ))
     return wk.AssertionMetadata(
         scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, campaign),) if campaign is not None else (),
@@ -278,7 +286,7 @@ def _validate_placement(review, session_id):
 
 
 def _intent(preview, selections, space, campaign, admitted, data, access, *,
-            candidate_sha256, producer=PRODUCER):
+            candidate_sha256, operation_id, producer=PRODUCER):
     records = {
         **{("node", row.node_id): row for row in preview.nodes},
         **{("edge", row.edge_id): row for row in preview.edges},
@@ -314,7 +322,8 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
             f"observation:{index}", DUNGEONBUDDY_OBSERVATION_PREDICATE,
             wk.LiteralFactValue.from_json(observation.description),
             _metadata(selection.metadata, campaign,
-                      _support_refs(selection.metadata, witness.evidence, access, admitted)),
+                      _support_refs(selection.metadata, witness.evidence, access, admitted),
+                      observation_publication=operation_id),
         )
         observation_facts.setdefault(subject, []).append(fact)
     operations, inventory, endpoints, edge_witnesses = [], [], {}, {}
@@ -672,14 +681,15 @@ def prepare(request, principal):
     domain_name = run.source_domain
     campaign = request.campaign_id if isinstance(request, NativeRecapPrepareRequest) else None
     producer = f"dungeonbuddy:reviewed-{domain_name}"
+    operation_id = f"{domain_name}-review:{uuid4()}"
     intent, inventory = _intent(preview, request.selections, space, campaign,
                                 admitted, data, access, candidate_sha256=candidate_sha256,
-                                producer=producer)
+                                operation_id=operation_id, producer=producer)
     prepared = None
     if intent.operations:
         domain, profile = native.descriptors(repo, space, context["revision_id"])
         prepared = transport.runtime(repo, domain, profile, now=datetime.now(UTC),
-                                     operation_id=f"{domain_name}-review:{uuid4()}").prepare_change(intent)
+                                     operation_id=operation_id).prepare_change(intent)
         transport.verify_prepared_parent(prepared, context)
         _require(prepared.prepared_operations == intent.operations, "candidate_preparation_changed")
     _require(native.binding(request.managed_world_id) == bound, "candidate_binding_changed")
