@@ -23,6 +23,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const reviewPath = `${sourcePath}/statblock-reviews/${encodeURIComponent(reviewId)}`;
   const [review, setReview] = useState<Review>();
   const [editor, setEditor] = useState<StatblockEditorState<EditableStatblockOutput>>();
+  const [sourceHidden, setSourceHidden] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [developerTools, setDeveloperTools] = useState(false);
@@ -476,6 +477,9 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
             window.location.assign(returnToBuild.href);
           }
         }}>Back to Build</button>
+        <button type="button" aria-expanded={!sourceHidden} onClick={() => setSourceHidden(hidden => !hidden)}>
+          {sourceHidden ? "Show PDF" : "Hide PDF"}
+        </button>
         {editor && <button type="button" disabled={pending} onClick={() => void save()}>Save review draft</button>}
         {saved && <span role="status">Draft saved</span>}
         {editor && review && <button type="button" disabled={pending || published || publishBlockers.length > 0}
@@ -495,7 +499,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       </ul>}
       {error && <p role="alert">{error}</p>}
       {!review && !error && <p role="status">Opening review…</p>}
-      <BuildSourceWorkspace source={<>
+      <BuildSourceWorkspace sourceHidden={sourceHidden} source={<>
         {review?.regions.map((locator, index) => (
           <button type="button" key={index} onClick={() => { setRegion({ ...locator }); setRegionSelection(current => current + 1); }}>
             Open source region {index + 1} · Page {locator.page}
