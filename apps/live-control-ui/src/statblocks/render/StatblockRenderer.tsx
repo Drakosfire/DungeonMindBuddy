@@ -324,10 +324,11 @@ function CampaignStatblockBody({ view, portrait, draft }: {
         <h3>{view.name}</h3>
         <p className="statblock-campaign-identity">{view.identityLine}</p>
       </header>
-      {portrait}
+      {!draft && portrait}
 
       <div className="statblock-campaign-grid">
         <div className="statblock-campaign-col">
+          {draft && portrait}
           {view.flavorSummary ? (
             <p className="statblock-campaign-flavor" data-testid="statblock-campaign-flavor">
               {view.flavorSummary}

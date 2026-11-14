@@ -64,6 +64,7 @@
   margin-block-end: .75rem;
 }
 
+.pdf-statblock-review .statblock-renderer-portrait,
 .pdf-statblock-review .statblock-campaign-vitals,
 .pdf-statblock-review .statblock-campaign-ability-table,
 .pdf-statblock-review .statblock-campaign-quickfacts,
