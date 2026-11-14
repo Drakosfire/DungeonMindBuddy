@@ -833,7 +833,9 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
   const target = apiRequestTarget(path, init);
   const localCatalogRead = isLoopbackApiDestination(target.url) && path === "/api/live/world-containers"
     && (init?.method ?? "GET").toUpperCase() === "GET" && init?.body == null;
-  if (!localCatalogRead && !isShareableRead(path, init)) {
+  const hostedCatalogRead = target.hostedGraphRequest && hostedGraphSubject !== null
+    && path === "/api/live/world-containers";
+  if (!localCatalogRead && !hostedCatalogRead && !isShareableRead(path, init)) {
     if (["GET", "HEAD"].includes((init?.method ?? "GET").toUpperCase())) return authenticatedApiFetchOnce(path, init);
     startReadWave();
     try {

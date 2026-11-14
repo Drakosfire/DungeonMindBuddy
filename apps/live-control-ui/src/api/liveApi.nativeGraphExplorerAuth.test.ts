@@ -282,3 +282,23 @@ it("authenticates Build authoring identity reads for the selected World", async 
   expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer synthetic-managed-graph-token");
   expect(init).toMatchObject({ method: "POST", credentials: "same-origin", redirect: "error" });
 });
+
+it("shares pending catalog reads within an account and fences an account switch", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.invalidateHostedGraphAccess("owner-a");
+  let resolveOld!: (response: Response) => void;
+  const fetch = vi.spyOn(globalThis, "fetch")
+    .mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve; }))
+    .mockResolvedValueOnce(Response.json({ records: [] }))
+    .mockResolvedValueOnce(Response.json({ records: [] }));
+  const first = expect(api.listWorldContainers()).rejects.toThrow(/account changed|session changed/);
+  const second = expect(api.listWorldContainers()).rejects.toThrow(/account changed|session changed/);
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+  api.invalidateHostedGraphAccess("owner-b");
+  await expect(api.listWorldContainers()).resolves.toEqual({ records: [] });
+  resolveOld(Response.json({ records: [{ world_id: "owner-a-world" }] }));
+  await Promise.all([first, second]);
+  await api.listWorldContainers();
+  expect(fetch).toHaveBeenCalledTimes(3);
+});
