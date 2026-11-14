@@ -36,11 +36,11 @@ RUN python scripts/prepare_patched_hermes.py
 
 # Install locked dependencies before copying Buddy package inputs.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-dev --no-editable --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-editable --no-install-project
 
 COPY README.md ./
 COPY src/ ./src/
-RUN uv sync --locked --no-dev --no-editable
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-editable
 
 FROM python-base AS api
 ENV PATH="/app/.venv/bin:${PATH}" \
