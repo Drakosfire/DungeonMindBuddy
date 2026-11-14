@@ -6,7 +6,7 @@ these functions; nothing here reads slice-specific paths on disk.
 
 from __future__ import annotations
 
-from src.npc_statblock_pipeline.canonical_intent import (
+from .canonical_intent import (
     IntentClassification,
     IntentMode,
     PowerAxis,
