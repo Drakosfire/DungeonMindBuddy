@@ -641,6 +641,12 @@ def worldbuilding_review_context(request, principal):
              "from_record_id": row.from_node_id, "to_record_id": row.to_node_id,
              "relationship_type": row.relationship_type}
             for row in preview.edges
+        ] + [
+            {"kind": "source_observation", "record_id": row.observation_id,
+             "label": row.title, "subject_record_id": row.subject_candidate_node_id,
+             "fields": {"description": row.description}}
+            for row in preview.source_observations
+            if access.parsed.semantic_profile_ref.profile_revision == DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION
         ],
         "prepare_coordinates": coordinates.model_dump(exclude={"selections"}),
     }

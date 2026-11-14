@@ -279,6 +279,7 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
   const selectedObjects = Object.entries(choices).filter(([, choice]) =>
     choice.fields.length && choice.support && (!choice.bindExisting || choice.existingId.trim()));
   const [relationshipChoices, setRelationshipChoices] = useState<Record<string, string>>({});
+  const [observationChoices, setObservationChoices] = useState<Record<string, string>>({});
   const metadata = (support: string) => ({
     evidence_ref_ids: [support],
     visibility: { kind: "labels_any", labels: ["dungeonbuddy.visibility:gm"] },
@@ -309,10 +310,19 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
     endpointIds.has(row.from_record_id) && endpointIds.has(row.to_record_id)
       ? [{id: row.record_id, label: row.relationship_type, from: row.from_record_id, to: row.to_record_id}]
       : []);
+  const observations = (context?.records ?? []).flatMap(row =>
+    row && typeof row === "object" && !Array.isArray(row) && row.kind === "source_observation" &&
+    typeof row.record_id === "string" && typeof row.subject_record_id === "string" &&
+    typeof row.label === "string" && row.fields && typeof row.fields === "object" &&
+    !Array.isArray(row.fields) && typeof row.fields.description === "string"
+      ? [{id: row.record_id, subject: row.subject_record_id, title: row.label, text: row.fields.description}]
+      : []);
   const incompleteObjects = Object.keys(choices).length !== selectedObjects.length;
   const readyToPrepare = selectedObjects.length > 0 && !incompleteObjects &&
     Object.entries(relationshipChoices).every(([id, support]) =>
-      support && relationships.some(row => row.id === id));
+      support && relationships.some(row => row.id === id)) &&
+    Object.keys(observationChoices).every(id =>
+      observations.some(row => row.id === id && endpointIds.has(row.subject)));
   async function run(confirm: boolean) {
     if (!context || lock.current || isCurrent?.() === false) return;
     lock.current = true;
@@ -331,6 +341,9 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
               kind: "node", record_id: id, action: choice.bindExisting ? "use_existing" : "create",
               ...(choice.bindExisting ? {entity_id: choice.existingId.trim()} : {}),
               facts: choice.fields.map(field => ({ field, metadata: metadata(choice.support) })),
+            })),
+            ...Object.entries(observationChoices).map(([id, support]) => ({
+              kind: "source_observation", record_id: id, action: "create", metadata: metadata(support),
             })),
             ...Object.entries(relationshipChoices).map(([id, support]) => ({
               kind: "edge", record_id: id, action: "create", metadata: metadata(support),
@@ -410,6 +423,24 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
           delete next[recordId];
           return next;
         })}>Clear choices for this object</button>}
+        {observations.filter(row => row.subject === recordId || observationChoices[row.id]).map(row =>
+          <div key={row.id}>
+            <p>{row.text}</p>
+            <label>Supporting excerpt for observation {row.title}<select
+              value={observationChoices[row.id] ?? ""} onChange={event => {
+                const support = event.target.value;
+                setObservationChoices(current => {
+                  const next = {...current};
+                  if (support) next[row.id] = support;
+                  else delete next[row.id];
+                  return next;
+                });
+              }}>
+              <option value="">Leave observation unselected</option>
+              {context.sourceSupport.map(source => source && typeof source === "object" && !Array.isArray(source) &&
+                <option key={String(source.evidence_ref_id)} value={String(source.evidence_ref_id)}>{String(source.text)}</option>)}
+            </select></label>
+          </div>)}
         {incompleteObjects && <p role="status">Complete or clear unfinished object choices before preparing.</p>}
         <button type="button" disabled={!readyToPrepare}
           onClick={() => void run(false)}>Prepare selected facts</button>

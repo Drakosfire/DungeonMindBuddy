@@ -135,7 +135,7 @@ export async function getNativeWorldbuildingContext(source: ReviewSource) {
   const records = value.records;
   const sourceSupport = value.source_support;
   if (!Array.isArray(records) || !Array.isArray(sourceSupport) ||
-      records.some(row => !record(row) || (row.kind !== "node" && row.kind !== "edge") ||
+      records.some(row => !record(row) || (row.kind !== "node" && row.kind !== "edge" && row.kind !== "source_observation") ||
         typeof row.record_id !== "string" || !row.record_id || !record(row.fields)) ||
       sourceSupport.some(row => !record(row) || typeof row.evidence_ref_id !== "string" ||
         !row.evidence_ref_id || typeof row.text !== "string" ||
