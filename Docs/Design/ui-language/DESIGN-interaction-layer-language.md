@@ -237,3 +237,7 @@ From root Backlog, still binding:
 - Eliminate overlapping fixed-position composition rather than adding z-index exceptions.
 - Converge on shared layout / typography / parchment / dark-chrome tokens when a slice touches paint.
 - Each cleanup is justified by this language or a bounded defect, not a whole-app rewrite.
+
+### Document viewers with editing or extraction
+
+Put navigation and actions in a persistent toolbar at the top of the view. Keep page navigation, selection actions, and the primary extraction action reachable while the document scrolls. Group optional settings and diagnostics into disclosures in the toolbar. The same rule applies when the viewer opens in a dialog or popover. Keep the source and captured previews in the reading area.
