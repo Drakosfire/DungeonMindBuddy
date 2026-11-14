@@ -159,13 +159,15 @@ describe("BuildGraphObjectContext", () => {
       schema_version: "dmb_workspace_document_registry_v1",
       records: [],
     });
-    vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot").mockResolvedValue({
+    vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot").mockImplementation(id => liveApi.getCommittedPageSnapshot(id));
+    vi.spyOn(liveApi, "getCommittedPageSnapshot").mockResolvedValue({
       schema_version: "dmb_workspace_document_snapshot_v1",
       record: {
         schema_version: "dmb_workspace_document_record_v1",
         document_id: documentId,
         title: "Untitled worldbuilding source",
         campaign_id: "longmont-c2",
+        world_id: "eldyrwild",
         target_session: null,
         kind: "worldbuilding_source",
         target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
