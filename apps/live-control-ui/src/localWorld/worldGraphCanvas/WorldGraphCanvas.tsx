@@ -474,9 +474,17 @@ export function WorldGraphCanvas({
   const [unconnectedVisibility, setUnconnectedVisibility] = useState<{ worldId: string; show: boolean } | null>(null);
   const showUnconnected = unconnectedVisibility?.worldId === record.snapshot.worldId
     ? unconnectedVisibility.show : (projectionOptions?.showUnconnected ?? !fullCorpus);
-  const revealObjectIds = useMemo(() => showUnconnected ? undefined : [...new Set([...(clearingSelection ? [] : selectedIds), ...(projectionOptions?.revealObjectIds ?? []),
-    ...(cameraFocusRequest?.nodeId ? [cameraFocusRequest.nodeId] : []), ...(revealObjectId ? [revealObjectId] : [])])],
-    [showUnconnected, selectedIds, clearingSelection, projectionOptions?.revealObjectIds, cameraFocusRequest?.nodeId, revealObjectId]);
+  // Only isolated objects need a reveal to remain visible after selection.
+  // Use a value key so selecting connected nodes keeps the projection stable.
+  const selectedHiddenKey = showUnconnected || clearingSelection ? "" : JSON.stringify(
+    selectedIds.filter((id) => index.objects.has(id) && !index.relationshipCounts.get(id)),
+  );
+  const revealObjectIds = useMemo(() => showUnconnected ? undefined : [...new Set([
+    ...(selectedHiddenKey ? JSON.parse(selectedHiddenKey) as LocalObjectId[] : []),
+    ...(projectionOptions?.revealObjectIds ?? []),
+    ...(cameraFocusRequest?.nodeId ? [cameraFocusRequest.nodeId] : []),
+    ...(revealObjectId ? [revealObjectId] : []),
+  ])], [showUnconnected, selectedHiddenKey, projectionOptions?.revealObjectIds, cameraFocusRequest?.nodeId, revealObjectId]);
   const fallbackRef = useRef<{ worldId: string; signature: string; positions: ReturnType<typeof createGraphFallbackPositions> } | null>(null);
   const fallbackPositions = useMemo(() => {
     if (!fullCorpus) return undefined;
