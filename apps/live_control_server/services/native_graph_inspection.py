@@ -457,10 +457,17 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
         scope_mode=request.scope_mode,
         campaign_id=request.campaign_id if request.scope_mode == "campaign" else None,
     )
-    packet = inspect(InspectionRead(
-        scope=pin,
-        selection={"kind": "source", "assertion_id": assertion_id, "evidence_ref_id": evidence_ref_id},
-    ), principal, include_source_span=include_receipt)
+    from dungeonmind.application.vnext.errors import KnowledgeReadContextIntegrityError
+
+    try:
+        packet = inspect(InspectionRead(
+            scope=pin,
+            selection={"kind": "source", "assertion_id": assertion_id, "evidence_ref_id": evidence_ref_id},
+        ), principal, include_source_span=include_receipt)
+    except KnowledgeReadContextIntegrityError:
+        if native.read_repository().get_revision(pin.native_world_id, pin.revision_id) is None:
+            return empty
+        raise
     source = packet.get("source")
     if source is None or native.binding(managed_world_id) != bound:
         return empty
