@@ -84,3 +84,19 @@ def test_relationship_mapping_loads_only_retained_edge_sources():
     assert (mapped.source_node_id, mapped.target_node_id) == ("seed", "near")
     assert mapped.evidence_ref_ids == ["ev:edge"]
     assert mapped.source_artifact_ids == ["src:edge"]
+
+
+def test_native_anchor_selector_preserves_exact_ids():
+    import pytest
+
+    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import (
+        native_anchor_id,
+        native_anchor_selection,
+    )
+
+    identity = ("asrt:é", "ev:exact")
+    encoded = native_anchor_id(*identity)
+    assert native_anchor_selection(encoded) == identity
+    for malformed in ("classic:abc", encoded + "!", native_anchor_id("", "ev:exact")):
+        with pytest.raises(ValueError, match="invalid native neighborhood anchor"):
+            native_anchor_selection(malformed)

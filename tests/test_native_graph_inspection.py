@@ -766,6 +766,17 @@ def test_native_neighborhood_citation_round_trip(inspection, depth):
     expected = [seed, x.objects["endpoint"]] + ([boundary] if depth == 2 else [])
     assert packet["node_ids"] == expected
     assert set(packet["missing_seed_node_ids"]) == {foreign, "ent:absent"}
+    capped = read(x, pin, {
+        "kind": "neighborhood",
+        "seed_node_ids": [seed],
+        "max_depth": depth,
+        "max_nodes": 1,
+        "max_relationships": 1,
+    })
+    assert capped.status_code == 200, capped.text
+    assert capped.json()["node_ids"] == [seed]
+    assert capped.json()["nodes_truncated"] is True
+    assert capped.json()["relationships"] == []
     historical = read(x, historical_pin, {
         "kind": "neighborhood",
         "seed_node_ids": [seed],
@@ -786,3 +797,113 @@ def test_native_neighborhood_citation_round_trip(inspection, depth):
         })
         assert source.status_code == 200, source.text
         assert source.json()["source"]["text"] == x.lane.text.splitlines(keepends=True)[0]
+
+
+def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypatch):
+    from apps.live_control_server.routes.world_graph_retrieval import router as retrieval_router
+    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import native_anchor_id
+    from graph_memory.retrieval.models import WorldGraphSourceAnchorReadRequest
+
+    x = inspection
+    body = "Second source: café."
+    digest = sha256(body.encode()).hexdigest()
+    space = x.lane.bound["native_world_id"]
+    second = publish_native_text_source_evidence(
+        repository=x.lane.repo, domain_contract=x.lane.domain, semantic_profile=x.lane.profile,
+        request=NativeTextSourceAdmissionV1(
+            space_id=space, admission_id="neighborhood-second-source",
+            expected_parent_revision_id=x.lane.repo.get_head(space).head_revision_id,
+            created_at=datetime.now(UTC), body_text=body, expected_body_sha256=digest,
+            source_classification="dungeonbuddy.source:session_recap", authority="primary",
+            visibility={"kind": "labels_any", "labels": ["dungeonbuddy.visibility:gm"]},
+            spans=[dict(client_ref="support", evidence_role="support", start_byte=0,
+                        end_byte=len(body.encode()), expected_slice_sha256=digest)],
+        ),
+    )
+    second_id = second.bindings[0].evidence_ref_id
+    runtime = transport.runtime(
+        x.lane.repo, x.lane.domain, x.lane.profile,
+        now=datetime.now(UTC), operation_id="neighborhood-multisource",
+    )
+    committed = runtime.commit_prepared_change(
+        runtime.prepare_change(wk.WorldChangeIntent(space, "multisource", (
+            wk.CreateObject("second-target"),
+        wk.UseExisting(x.objects["object:0"], (
+            wk.CreateFact("source-kind", "dungeonbuddy:source_classification",
+                          wk.TermRefFactValue("dungeonbuddy.source:session_recap"), x.meta),
+        )),
+            wk.CreateRelationship(
+                "multisource-edge", wk.DurableObjectRef(x.objects["object:0"]),
+                "dnd5e:located_in", wk.ResultOf("second-target"),
+                replace(x.meta, evidence_ref_ids=(x.lane.support_ids["first"], second_id)),
+            ),
+        ))), confirmed_by="local_operator",
+    )
+    multi_edge = committed.assertion_results[0].durable_assertion_id
+    pin = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
+    request = WorldGraphSourceAnchorReadRequest.model_validate({
+        "schema": "dmb_world_graph_source_anchor_read_request_v1",
+        "worldId": "managed",
+        "campaignId": x.lane.run.campaign_id,
+        "revisionPin": pin["revision_id"],
+        "anchorId": native_anchor_id(x.assertions["relationship"], x.lane.support_ids["first"]),
+    })
+    monkeypatch.setenv("DMB_NATIVE_NEIGHBORHOOD_WORLD", "managed")
+    x.app.include_router(retrieval_router)
+    neighborhood = x.client.post(
+        "/api/live/world-graph/retrieval/neighborhood",
+        json={
+            "schema": "dmb_world_graph_neighborhood_request_v1",
+            "worldId": "managed",
+            "campaignId": x.lane.run.campaign_id,
+            "revisionPin": pin["revision_id"],
+            "seedNodeIds": [x.objects["object:0"]],
+        },
+    )
+    assert neighborhood.status_code == 200, neighborhood.text
+    packet = neighborhood.json()
+    assert packet["requestSummary"] == {
+        "seed_node_ids": [x.objects["object:0"]],
+        "max_depth": 1,
+    }
+    assert packet["nodes"][0]["label"] == "Object 0"
+    attribute, = packet["attributes"]
+    assert attribute["predicate"] == "dungeonbuddy:source_classification"
+    assert attribute["value"] == {"term": "dungeonbuddy.source:session_recap"}
+    assert attribute["subjectNodeId"] == x.objects["object:0"]
+    assert attribute["evidenceRefIds"] == [x.lane.support_ids["first"]]
+    anchor = next(row for row in packet["sourceAnchors"] if row["evidenceRefId"] == x.lane.support_ids["first"])
+    assert set(anchor["supportingAssertionIds"]) == {x.assertions["relationship"], multi_edge}
+    assert len(packet["sourceAnchors"]) == 2
+    assert anchor["revisionId"] == pin["revision_id"]
+    response = x.client.post(
+        "/api/live/world-graph/retrieval/source-anchor/read",
+        json=request.model_dump(mode="json", by_alias=True),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["outcome"] == "enough"
+    assert response.json()["content"] == x.lane.text.splitlines(keepends=True)[0]
+    exact_sources = {
+        x.lane.support_ids["first"]: x.lane.text.splitlines(keepends=True)[0],
+        second_id: body,
+    }
+    multi_anchors = [
+        row for row in packet["sourceAnchors"] if multi_edge in row["supportingAssertionIds"]
+    ]
+    assert {row["evidenceRefId"] for row in multi_anchors} == set(exact_sources)
+    assert len({row["sourceArtifactId"] for row in multi_anchors}) == 2
+    for row in multi_anchors:
+        opened = x.client.post(
+            "/api/live/world-graph/retrieval/source-anchor/read",
+            json={**request.model_dump(mode="json", by_alias=True), "anchorId": row["anchorId"]},
+        )
+        assert opened.status_code == 200, opened.text
+        assert opened.json()["content"] == exact_sources[row["evidenceRefId"]]
+    for change in ({"campaignId": "foreign"}, {"revisionPin": None}):
+        refused = x.client.post(
+            "/api/live/world-graph/retrieval/source-anchor/read",
+            json={**request.model_dump(mode="json", by_alias=True), **change},
+        )
+        assert refused.status_code == 200, refused.text
+        assert refused.json()["outcome"] == "empty"
+        assert refused.json()["content"] is None

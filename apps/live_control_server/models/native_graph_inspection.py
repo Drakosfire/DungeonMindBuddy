@@ -49,6 +49,8 @@ class NeighborhoodSelection(Closed):
     kind: Literal["neighborhood"]
     seed_node_ids: list[Text] = Field(min_length=1, max_length=8)
     max_depth: Literal[1, 2] = 1
+    max_nodes: int = Field(default=8, ge=1, le=12)
+    max_relationships: int = Field(default=16, ge=1, le=24)
 
 
 class InspectionRead(Closed):
