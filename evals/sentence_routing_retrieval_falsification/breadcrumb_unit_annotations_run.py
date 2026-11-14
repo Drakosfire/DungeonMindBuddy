@@ -60,7 +60,7 @@ from evals.sentence_routing_retrieval_falsification.capture import (
 from llm.planner_pricing import usage_cost_usd
 from src.agent.synthesis import _load_api_key
 from bootstrap_env import load_dungeonmindbuddy_dotenv
-from src.llm.api_client import DungeonMindApiClient
+from llm.api_client import DungeonMindApiClient
 
 
 def _default_output_path() -> Path:
