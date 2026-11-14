@@ -202,6 +202,14 @@ or starting the application.
 
 Require the access probe to succeed before continuing.
 
+If the mount probe succeeds but prompt capture reports
+`prompt_evidence_unavailable` or `prompt_evidence_directory_not_private`,
+inspect the existing `artifacts/out/agent_request_evidence` path under
+`BUDDY_PERSISTENT_ROOT`. Buddy opens the artifact root and each of those
+subdirectories without following symlinks. The final directory must be
+owned by UID 10001 and have mode `0700`. On a fresh mount Buddy creates
+the missing subdirectories when it first stores prompt evidence.
+
 Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
 
 
