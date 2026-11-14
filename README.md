@@ -60,7 +60,10 @@ uses `/surface`. See the [frontend smoke guide](apps/live-control-ui/README.md#m
 Start Buddy locally with an OpenRouter credential configured as
 `OPENROUTER_API_KEY` or `DUNGEONBUDDY_OPENROUTER`. Recap extraction sends
 the source text to OpenRouter, so use the synthetic text below. Select a
-fresh test World. In Build, save a Markdown
+disposable test World with an active native Graph. Creating a World reserves
+its identity. If it is still provisioning, review and publish a first
+Worldbuilding extraction before attempting to merge Recap changes, or select
+an already initialized test World. In Build, save a Markdown
 document named **The sealed door beneath the mill** with this text:
 
 ```markdown
