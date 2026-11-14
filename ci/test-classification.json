@@ -66,7 +66,6 @@
       "apps/live-control-ui/src/api/playSceneEditApi.test.ts",
       "apps/live-control-ui/src/api/recapNativeReviewApi.test.ts",
       "apps/live-control-ui/src/api/recapSemanticReviewApi.test.ts",
-      "apps/live-control-ui/src/api/nativeWorldbuildingPublicationApi.test.ts",
       "apps/live-control-ui/src/api/savedRecapRunsApi.test.ts",
       "apps/live-control-ui/src/api/worldMechanicsApi.test.ts",
       "apps/live-control-ui/src/api/worldbuildingPublicationApi.test.ts",
