@@ -69,7 +69,7 @@ def test_agent_model_selection_preserves_other_e1b_consumer_models(monkeypatch) 
     from src.agent.document_planner import _resolve_document_planner_model
     from src.agent.planner import _resolve_planner_model
     from src.agent.synthesis import _resolve_model
-    from src.compiler.wiki_compiler import _resolve_wiki_model
+    from compiler.wiki_compiler import _resolve_wiki_model
     from src.graph_memory.extraction.category_candidate_graph_extractor import (
         resolve_category_graph_model,
     )
@@ -151,7 +151,7 @@ def test_strict_consumers_fall_back_when_policy_missing_and_raise_when_malformed
     monkeypatch.delenv("DMB_WIKI_COMPILE_MODEL", raising=False)
 
     from src.agent.synthesis import _resolve_model
-    from src.compiler.wiki_compiler import _resolve_wiki_model
+    from compiler.wiki_compiler import _resolve_wiki_model
     from src.graph_memory.extraction.category_candidate_graph_extractor import (
         resolve_category_graph_model,
     )

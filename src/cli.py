@@ -32,7 +32,7 @@ from src.agent.retriever import (
 from reducer.scope_relevance import question_mentioned_entity_ids
 from src.agent.planner import run_planning_session
 from src.agent.synthesis import synthesize_answer_async
-from src.compiler.wiki_compiler import compile_wiki, list_wiki_targets
+from compiler.wiki_compiler import compile_wiki, list_wiki_targets
 from ingestion.chunker import chunk_document
 from ingestion.frontmatter import (
     FrontmatterError,

@@ -1,6 +1,6 @@
 """Compiled artifacts (e.g. LLM-authored wiki pages) built from the fact store."""
 
-from src.compiler.wiki_compiler import (
+from compiler.wiki_compiler import (
     compile_entity_page,
     compile_wiki,
     list_wiki_targets,
