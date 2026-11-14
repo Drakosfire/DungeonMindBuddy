@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services.world_container_registry import (
@@ -44,6 +44,16 @@ def get_world_containers(request: Request = None) -> WorldContainersListResponse
     return WorldContainersListResponse(
         records=[WorldContainerPublicRecord.from_record(record) for record in records]
     )
+
+
+@router.get("/world-containers/lookup", response_model=WorldContainerPublicRecord)
+def lookup_hosted_world_container(
+    request: Request, response: Response, managed_world_id: str
+) -> WorldContainerPublicRecord:
+    from apps.live_control_server.services.hosted_native_graph_access import read_hosted_world_lookup
+
+    response.headers["Cache-Control"] = "no-store"
+    return read_hosted_world_lookup(request, managed_world_id)
 
 
 @router.post("/world-containers", response_model=WorldContainerPublicRecord)

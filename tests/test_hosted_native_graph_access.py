@@ -241,6 +241,7 @@ def hosted(monkeypatch, request):
                 for operation in OPERATIONS
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
+            ("GET", access.WORLD_LOOKUP_PATH): access.resolve_hosted_world_lookup,
         },
         collection_authorizers={("GET", COLLECTION): access.hosted_owner_collection},
     )
@@ -1449,3 +1450,34 @@ def test_entity_inspection_result_is_withheld_after_midread_revocation(
     assert response.status_code == (403 if revoke == "owner" else 409), response.text
     assert "entity" not in response.json()
     _assert_unchanged(x, before, journal)
+
+
+def test_exact_world_lookup_returns_the_same_public_record(hosted):
+    response = hosted.client.request("GET", f"{COLLECTION}/lookup?managed_world_id=managed")
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json() == hosted.client.request("GET", COLLECTION).json()["records"][0]
+
+
+@pytest.mark.parametrize("query", [
+    "managed_world_id=unowned",
+    "managed_world_id=managed&managed_world_id=managed",
+    "managed_world_id=managed&extra=1",
+])
+def test_exact_world_lookup_rejects_unowned_or_ambiguous_selection(hosted, query):
+    response = hosted.client.request("GET", f"{COLLECTION}/lookup?{query}")
+    assert response.status_code == 403, response.text
+
+
+def test_exact_world_lookup_denies_ownership_transfer_after_admission(hosted, monkeypatch):
+    original = catalog.get_world
+
+    def transfer_after_admission(world_id):
+        record = original(world_id)
+        hosted.records[world_id] = hosted.records[world_id].model_copy(update={"owner_subject": OTHER_OWNER})
+        return record
+
+    monkeypatch.setattr(catalog, "get_world", transfer_after_admission)
+    response = hosted.client.request("GET", f"{COLLECTION}/lookup?managed_world_id=managed")
+    assert response.status_code == 403, response.text
+    assert hosted.catalog_reads == ["managed", "managed"]

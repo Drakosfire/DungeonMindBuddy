@@ -118,8 +118,10 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     EXPLORER_PREFIX,
     INSPECTION_READ_PATH,
     WORLD_COLLECTION_PATH,
+    WORLD_LOOKUP_PATH,
     hosted_owner_collection,
     resolve_hosted_explorer_world,
+    resolve_hosted_world_lookup,
 )
 from bootstrap_env import load_dungeonmindbuddy_dotenv
 
@@ -149,6 +151,7 @@ HOSTED_WORLD_COLLECTION_AUTHORIZERS = {
 }
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("GET", WORLD_LOOKUP_PATH): resolve_hosted_world_lookup,
     ("POST", INSPECTION_READ_PATH): resolve_hosted_explorer_world,
     ("POST", f"{EXPLORER_PREFIX}/graph"): resolve_hosted_explorer_world,
 }
