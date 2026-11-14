@@ -1,6 +1,7 @@
+import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { SavedStatblockFullView } from "../statblocks/StatblockPage";
 import { readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
 import { announceSelectedWorldLocationChange, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
@@ -42,6 +43,8 @@ export function BuildSurfacePage() {
     return () => window.removeEventListener("popstate", syncHistory);
   }, []);
   const params = new URLSearchParams(entrySearch);
+  const graphPointer = useMemo(() => parseBuildGraphPointerFromLocation(entrySearch), [entrySearch]);
+  const nativeObject = graphPointer?.nativePin;
   const statblock = readSavedStatblockTarget("/build" + entrySearch);
   const reviewWorldId = params.get("world");
   const pdfReviewId = new URLSearchParams(window.location.search).get("world") === reviewWorldId
@@ -71,6 +74,8 @@ export function BuildSurfacePage() {
           <BuildSurfaceContext {...controller} />
           <SavedStatblockFullView target={statblock} />
         </>
+      ) : graphPointer && nativeObject && nativeObject.managed_world_id === worldId ? (
+        <BuildGraphObjectContext key={entrySearch} pointer={graphPointer} />
       ) : droppedPdf && droppedPdf.worldId === worldId ? (
         <section className="build-pdf-workspace" aria-label="PDF workspace">
           <header className="build-pdf-workspace__toolbar">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { LiveApiError } from "../api/liveApi";
+import type { InspectionPin } from "../api/nativeGraphInspection";
+import { LiveApiError, postNativeWorldGraphCompleteObject } from "../api/liveApi";
 import type { GraphProjectionNodeView, WorldGraphObjectProjectionResult } from "../api/types";
 import {
   GraphObjectProjectionCard,
@@ -18,19 +19,50 @@ export interface BuildGraphPointer {
   campaignId: string;
   graphNodeId: string;
   graphRevision: string | null;
+  nativePin?: InspectionPin;
 }
 
-export function parseBuildGraphPointerFromLocation(): BuildGraphPointer | null {
-  if (typeof window === "undefined") return null;
-  const params = new URLSearchParams(window.location.search);
+export function parseBuildGraphPointerFromLocation(
+  search = typeof window === "undefined" ? "" : window.location.search,
+): BuildGraphPointer | null {
+  const params = new URLSearchParams(search);
   const campaignId = params.get("campaign")?.trim() ?? "";
   const graphNodeId = params.get("graphNodeId")?.trim() ?? "";
   const graphRevision = params.get("graphRevision")?.trim() || null;
+  if (params.has("nativeWorld")) {
+    const managedWorld = params.get("world")?.trim();
+    const nativeWorld = params.get("nativeWorld")?.trim();
+    const bindingVersion = Number(params.get("bindingVersion"));
+    if (!managedWorld || !nativeWorld || !graphNodeId || !graphRevision ||
+        !Number.isSafeInteger(bindingVersion) || bindingVersion < 1) return null;
+    return { campaignId: "", graphNodeId, graphRevision, nativePin: {
+      managed_world_id: managedWorld, native_world_id: nativeWorld,
+      binding_version: bindingVersion, revision_id: graphRevision,
+      scope_mode: "world", campaign_id: null,
+    } };
+  }
   if (!campaignId || !graphNodeId) return null;
   return { campaignId, graphNodeId, graphRevision };
 }
 
+function readBuildObject(pointer: BuildGraphPointer, worldId: string, nodeId: string) {
+  const request = {
+    schema: "dmb_world_graph_object_projection_request_v1",
+    worldId,
+    campaignId: pointer.campaignId,
+    nodeId,
+    admissibility: "gm",
+    revisionPin: pointer.graphRevision,
+    originSurface: "build",
+    focus: { kind: "none", sessionId: null },
+  } as const;
+  return pointer.nativePin
+    ? postNativeWorldGraphCompleteObject({ ...request, scopeMode: "world" }, pointer.nativePin)
+    : loadCompleteWorldObject(request);
+}
+
 export interface BuildGraphObjectContextProps {
+  pointer?: BuildGraphPointer;
   documentCampaignId?: string | null;
   /**
    * When true, refuse to load until document campaign admission succeeds.
@@ -49,10 +81,11 @@ type ContextStatus =
   | "missing_node";
 
 export function BuildGraphObjectContext({
+  pointer: providedPointer,
   documentCampaignId,
   requireDocumentScope = false,
 }: BuildGraphObjectContextProps) {
-  const pointer = useMemo(() => parseBuildGraphPointerFromLocation(), []);
+  const pointer = useMemo(() => providedPointer ?? parseBuildGraphPointerFromLocation(), [providedPointer]);
   const [status, setStatus] = useState<ContextStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [nodeViews, setNodeViews] = useState<Record<string, GraphProjectionNodeView>>({});
@@ -101,7 +134,7 @@ export function BuildGraphObjectContext({
       }
     }
 
-    const worldId = getWorldIdForCampaign(pointer.campaignId);
+    const worldId = pointer.nativePin?.managed_world_id ?? getWorldIdForCampaign(pointer.campaignId);
     if (!worldId) {
       if (!isCurrent()) return;
       setStatus("error");
@@ -114,16 +147,7 @@ export function BuildGraphObjectContext({
       setError(null);
     }
     try {
-      const result = await loadCompleteWorldObject({
-        schema: "dmb_world_graph_object_projection_request_v1",
-        worldId,
-        campaignId: pointer.campaignId,
-        nodeId: pointer.graphNodeId,
-        admissibility: "gm",
-        revisionPin: pointer.graphRevision,
-        originSurface: "build",
-        focus: { kind: "none", sessionId: null },
-      });
+      const result = await readBuildObject(pointer, worldId, pointer.graphNodeId);
       if (!isCurrent()) return;
       const adapted = completeObjectNodeMap(result);
       setNodeViews(adapted);
@@ -164,18 +188,11 @@ export function BuildGraphObjectContext({
     (targetId: string) => {
       setSelectedRelationshipId(targetId);
       if (!pointer) return;
-      const worldId = getWorldIdForCampaign(pointer.campaignId);
+      const worldId = pointer.nativePin?.managed_world_id ?? getWorldIdForCampaign(pointer.campaignId);
       if (!worldId) return;
-      void loadCompleteWorldObject({
-        schema: "dmb_world_graph_object_projection_request_v1",
-        worldId,
-        campaignId: pointer.campaignId,
-        nodeId: targetId,
-        admissibility: "gm",
-        revisionPin: pointer.graphRevision,
-        originSurface: "build",
-        focus: { kind: "none", sessionId: null },
-      }).then((next) => {
+      const generation = ++requestGenerationRef.current;
+      void readBuildObject(pointer, worldId, targetId).then((next) => {
+        if (generation !== requestGenerationRef.current) return;
         const adaptedNext = completeObjectNodeMap(next);
         setNodeViews(adaptedNext);
         setLoadedResult(next);
@@ -189,6 +206,11 @@ export function BuildGraphObjectContext({
           return;
         }
         setStatus(next.completeness.status === "complete" ? "ready" : "partial");
+        setError(null);
+      }).catch((error: unknown) => {
+        if (generation !== requestGenerationRef.current) return;
+        setStatus("error");
+        setError(error instanceof Error ? error.message : "Failed to load related object.");
       });
     },
     [pointer],
