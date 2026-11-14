@@ -22,7 +22,7 @@ _PATH_CONSTRUCTION = re.compile(
 
 
 def test_buddy_model_policy_path_is_inside_repo() -> None:
-    from src.model_policy import buddy_model_policy_path, buddy_repo_root
+    from model_policy import buddy_model_policy_path, buddy_repo_root
 
     policy = buddy_model_policy_path().resolve()
     root = buddy_repo_root().resolve()
@@ -32,7 +32,7 @@ def test_buddy_model_policy_path_is_inside_repo() -> None:
 
 
 def test_active_runtime_does_not_construct_external_model_policy_paths() -> None:
-    """Active apps/src code may only construct MODEL_POLICY.json via src.model_policy."""
+    """Active apps/src code may only construct MODEL_POLICY.json via model_policy."""
     offenders: list[str] = []
     for scan_root in SCAN_ROOTS:
         for path in scan_root.rglob("*.py"):
@@ -51,7 +51,7 @@ def test_active_runtime_does_not_construct_external_model_policy_paths() -> None
                     continue
                 offenders.append(f"{path.relative_to(ROOT)}: {stripped}")
     assert offenders == [], (
-        "Active apps/src code must load policy via src.model_policy; "
+        "Active apps/src code must load policy via model_policy; "
         f"found forbidden MODEL_POLICY.json path usage in: {offenders}"
     )
 
@@ -104,11 +104,11 @@ def test_agent_model_selection_preserves_other_e1b_consumer_models(monkeypatch) 
 
 
 def _point_policy_at(monkeypatch, path: Path) -> None:
-    monkeypatch.setattr("src.model_policy.buddy_model_policy_path", lambda: path)
+    monkeypatch.setattr("model_policy.buddy_model_policy_path", lambda: path)
 
 
 def test_missing_policy_returns_empty_dict_in_both_modes(tmp_path, monkeypatch) -> None:
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     _point_policy_at(monkeypatch, tmp_path / "MODEL_POLICY.json")
     assert load_buddy_model_policy() == {}
@@ -116,7 +116,7 @@ def test_missing_policy_returns_empty_dict_in_both_modes(tmp_path, monkeypatch) 
 
 
 def test_malformed_policy_strict_raises_tolerant_returns_empty(tmp_path, monkeypatch) -> None:
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     path = tmp_path / "MODEL_POLICY.json"
     path.write_text("{not-json", encoding="utf-8")
@@ -127,7 +127,7 @@ def test_malformed_policy_strict_raises_tolerant_returns_empty(tmp_path, monkeyp
 
 
 def test_unreadable_policy_strict_raises_tolerant_returns_empty(tmp_path, monkeypatch) -> None:
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     path = tmp_path / "MODEL_POLICY.json"
     path.write_text("{}", encoding="utf-8")

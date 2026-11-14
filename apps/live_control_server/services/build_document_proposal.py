@@ -25,7 +25,7 @@ from apps.live_control_server.models.build_document_proposal import BuildDocumen
 from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
 from apps.live_control_server.services.world_container_registry import get_world_container
 from apps.live_control_server.config import managed_world_data_root
-from src.model_policy import load_buddy_model_policy
+from model_policy import load_buddy_model_policy
 
 # A written artifact can stream beyond GE's generic 60-second operation budget.
 # This is a host-owned total deadline, not a token limit or model instruction.

@@ -137,7 +137,7 @@ def _resolve_model(model: str | None) -> str:
     if model:
         return model
 
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     policy = load_buddy_model_policy(strict=True)
     role = policy.get("actions", {}).get("retrieval_synthesis", "retrieval_synthesis")

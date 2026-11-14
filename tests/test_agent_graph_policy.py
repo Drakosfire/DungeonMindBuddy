@@ -10,7 +10,7 @@ from apps.live_control_server.services.agent_graph_policy import (
     GRAPH_SYSTEM_POLICY,
     resolve_agent_graph_openai_inference,
 )
-from src.model_policy import buddy_model_policy_path, buddy_repo_root, load_buddy_model_policy
+from model_policy import buddy_model_policy_path, buddy_repo_root, load_buddy_model_policy
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVICES = ROOT / "apps/live_control_server/services"
