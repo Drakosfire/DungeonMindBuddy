@@ -853,7 +853,7 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
     .sort(([a], [b]) => a.localeCompare(b));
   const key = JSON.stringify([baseUrl, acquisitionEpoch, path, requestOptions]);
   const result = await shareInFlightRead(key, ownedSignal => {
-    if (acquisitionEpoch !== nativeGraphSessionEpoch || !target.hostedGraphRequest && nativeGraphSessionRevoked) {
+    if (acquisitionEpoch !== nativeGraphSessionEpoch || !localCatalogRead && !target.hostedGraphRequest && nativeGraphSessionRevoked) {
       throw new LiveApiError("Local session changed before this read. Retry deliberately.", 401,
         { code: "local_graph_session_changed" });
     }
@@ -861,7 +861,7 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
   }, signal);
   const assertCurrent = () => {
     if (signal?.aborted) throw signal.reason ?? new DOMException("Read cancelled", "AbortError");
-    if (result.requestEpoch !== nativeGraphSessionEpoch || !target.hostedGraphRequest && nativeGraphSessionRevoked) {
+    if (result.requestEpoch !== nativeGraphSessionEpoch || !localCatalogRead && !target.hostedGraphRequest && nativeGraphSessionRevoked) {
       throw new LiveApiError("Local session changed during this read. Retry deliberately.", 401,
         { code: "local_graph_session_changed" });
     }

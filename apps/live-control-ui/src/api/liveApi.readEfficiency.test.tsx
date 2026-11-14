@@ -320,3 +320,15 @@ describe("protected read acquisition",()=>{
   const page={conversation_id:null,turns:[],next_cursor:null};fetch.mockResolvedValueOnce(Response.json(page));expect(await api.getWorldAgentConversationHistory("elderwyld")).toEqual(page);expect(fetch).toHaveBeenCalledTimes(2);
  });
 });
+
+ it("keeps the local World catalog accessible after native Graph revocation", async () => {
+  api.setNativeGraphAccessToken("catalog-revocation");
+  const catalog = { records: [] };
+  const fetch = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ csrf_token: "test-csrf" }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    .mockResolvedValueOnce(Response.json(catalog));
+  await api.revokeNativeGraphSession();
+  await expect(api.listWorldContainers()).resolves.toEqual(catalog);
+  expect(fetch).toHaveBeenCalledTimes(3);
+ });
