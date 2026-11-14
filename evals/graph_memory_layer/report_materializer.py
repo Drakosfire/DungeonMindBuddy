@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from src.graph_memory.report import materialize_validate_and_report, render_graph_report_markdown
+from graph_memory.report import materialize_validate_and_report, render_graph_report_markdown
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TAXONOMY_REGISTRY_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "taxonomy_registry.json"
