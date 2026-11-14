@@ -26,6 +26,8 @@ pr_body_template: |
 
 # HANDOFF — prove identity lifecycle through alias_remove
 
+> Run the [historical builder](https://github.com/Drakosfire/DungeonMindBuddy/blob/0fe9f88cfafda38319145e88d0f8b354d53830ca/scripts/build_cutover_identity_lifecycle_through_alias_remove.py) from its pinned checkout. [Replay inputs and verification](https://github.com/Drakosfire/DungeonMindBuddy/issues/3554).
+
 **Created:** 2026-08-13
 **Status:** DONE / HISTORICAL — do not redispatch
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-identity-lifecycle-through-alias-remove.md`
