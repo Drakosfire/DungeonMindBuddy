@@ -110,7 +110,7 @@ export function navigatePrimaryAppHref(href: string): void {
   if (normalizeAppPathname(window.location.pathname) === pathname) {
     const currentWorld = new URLSearchParams(window.location.search).get("world");
     const nextWorld = url.searchParams.get("world");
-    if (currentWorld === nextWorld && pathname !== "/statblock") return;
+    if (currentWorld === nextWorld && pathname !== "/statblock" && !(pathname === "/build" && url.searchParams.has("draft") && url.searchParams.has("revision"))) return;
   }
   const next = `${pathname}${url.search}${url.hash}`;
   if (getAppLocationSnapshot() === next) return;
