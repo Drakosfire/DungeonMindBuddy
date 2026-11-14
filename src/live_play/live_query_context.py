@@ -12,7 +12,7 @@ from typing import Any
 
 from generationengine import FailureCode, GenerationClient, GenerationEngineError, TextRequest
 
-from src.agent.synthesis import _load_api_key
+from bootstrap_env import load_openai_api_key as _load_api_key
 from bootstrap_env import load_dungeonmindbuddy_dotenv
 from llm.generation_sync import run_awaitable_sync
 from src.live_play.classify_live_turn import TurnClassification
