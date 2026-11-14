@@ -463,3 +463,58 @@ def test_actual_play_provider_preparation_retains_only_exposed_source_reads(
         )
         assert text == "Bridge journal describes three lanterns."
     assert f.calls == ["graph", "source"]
+
+
+def test_scoped_play_search_persists_native_source_extension(acquired, monkeypatch):
+    from apps.live_control_server.services import native_graph_inspection
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from graph_memory.retrieval.models import WorldGraphRetrievalResult
+
+    f = acquired
+    authority = f.adapter.fence.turn.graph_context_receipt.graph_authority
+    monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", authority.managed_world_id)
+    f.adapter.native_principal = NativeGraphPrincipal(
+        subject="test:gm", role="gm", auth_method="local_operator",
+    )
+
+    def search(request, principal, **kwargs):
+        assert request.world_id == authority.managed_world_id
+        assert request.revision_pin == authority.graph_revision
+        assert principal == f.adapter.native_principal
+        assert kwargs == {
+            "include_source_pins": True,
+            "expected_native_world_id": authority.native_world_id,
+            "expected_binding_version": authority.binding_version,
+        }
+        result = WorldGraphRetrievalResult.model_validate({
+            "operation": "search", "outcome": "enough",
+            "snapshot": {
+                "world_id": authority.managed_world_id, "campaign_id": "",
+                "revision_id": authority.graph_revision, "head_revision_id": authority.graph_revision,
+                "is_head": True, "focus": {"kind": "none"}, "admissibility": "gm", "scope_mode": "world",
+            },
+            "source_anchors": [{
+                "anchor_id": f.pin.anchor_id, "revision_id": authority.graph_revision,
+                "evidence_ref_id": f.pin.evidence_ref_id, "source_artifact_id": f.pin.source_artifact_id,
+                "source_domain": "worldbuilding", "readable": True, "locator_kind": "source_span",
+            }],
+        })
+        pin = direct.ResolvedSourceAnchorMetadataV2(
+            **f.pin.model_dump(), graph_revision=authority.graph_revision,
+        )
+        return direct.ResolvedWorldGraphOperationV3(result, (pin,))
+
+    monkeypatch.setattr(native_graph_inspection, "shared_search", search)
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda *_: pytest.fail("classic search resolved"))
+    reply = f.adapter.broker_graph_operation({
+        "toolName": "expand_graph_retrieval",
+        "arguments": {"retrievalSessionId": f.session.id, "operation": "search", "queryText": "bridge"},
+    })
+    assert f.adapter.failure is None, reply
+    turn = f.adapter.fence.turn
+    reopened = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    event, extension = reopened.graph_context_execution.events[-2:]
+    assert isinstance(event, t.ValidatedGraphOperationEventV3)
+    assert isinstance(extension, t.SourceScopeExtensionEventV3)
+    assert extension.origin_graph_event_id == event.event_id
+    assert extension.pins == event.returned_source_pins == [f.pin]
