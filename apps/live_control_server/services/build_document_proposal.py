@@ -299,7 +299,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
         else:
             advance({"sending": "sdk_entered", "response_received": "response_received", "outcome_unknown": "unknown"}[event.outcome])
         return True
-    from .build_construction_stream import MarkdownStringProgress, construction_sink, observe
+    from .build_construction_stream import MarkdownStringProgress, construction_sink, observe_deferred
     projection = MarkdownStringProgress() if construction_sink.get() is not None else None
     sequence = 0
 
@@ -309,14 +309,19 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
         if projection is None or origin is None or record.authorization is None:
             return
         sequence += 1
-        observe({"schema": "dmb_build_construction_v1", "action_id": str(record.action_id),
-            "reservation_sha256": record.request_fingerprint,
+        published_sequence = sequence
+        line_count = len(projection.lines)
+        authorization = record.authorization
+        action_id = str(record.action_id)
+        fingerprint = record.request_fingerprint
+        observe_deferred(lambda: {"schema": "dmb_build_construction_v1", "action_id": action_id,
+            "reservation_sha256": fingerprint,
             "conversation_id": str(reservation.conversation_id),
             "basis": reservation.basis.model_dump(mode="json"),
             "origin": origin.model_dump(mode="json"),
-            "provider_attempt_id": str(record.authorization.provider_attempt_id),
-            "sequence": sequence, "status": status,
-            "markdown": projection.markdown if markdown is None else markdown})
+            "provider_attempt_id": str(authorization.provider_attempt_id),
+            "sequence": published_sequence, "status": status,
+            "markdown": "".join(projection.lines[:line_count]) if markdown is None else markdown})
 
     class ObservedProvider:
         def __init__(self, provider):
