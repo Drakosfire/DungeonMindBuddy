@@ -1071,12 +1071,13 @@ def test_shared_search_preserves_admitted_seed_under_node_bound(inspection, monk
             "schema": "dmb_world_graph_search_request_v1",
             "worldId": "managed",
             "campaignId": inspection.lane.run.campaign_id,
-            "queryText": "Object 0",
+            "queryText": "Object 1",
             "bounds": {"maxNodes": 1},
         },
     )
     assert lexical.status_code == 200, lexical.text
     result = lexical.json()
-    assert result["matchedNodeIds"] == [inspection.objects["object:0"]]
+    assert result["matchedNodeIds"] == [inspection.objects["object:1"]]
+    assert result["relationships"] == []
     anchor, = result["sourceAnchors"]
     assert anchor["evidenceRefId"] == inspection.lane.support_ids["first"]

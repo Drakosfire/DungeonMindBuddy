@@ -471,7 +471,7 @@ def shared_neighborhood(request, principal, *, object_id=None, search_ids=None):
     )
     _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
     attributes = []
-    selected = None
+    selected_entities = {}
     if search_ids is not None:
         from types import SimpleNamespace
         from dungeonmind.application.vnext.records import ParsedEntityRefValue
@@ -494,7 +494,13 @@ def shared_neighborhood(request, principal, *, object_id=None, search_ids=None):
             source_artifacts=[row for item in complete for row in item.source_artifacts],
             missing_seed_entity_ids=(),
         )
-        nodes = map_nodes(read, bounded, attributes=attributes)
+        from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import map_entity_result
+
+        selected_entities = {entity_id: reader.get_entity(read, entity_id) for entity_id in search_ids}
+        nodes = [
+            map_entity_result(entity, entity_id, attributes=attributes)
+            for entity_id, entity in selected_entities.items()
+        ]
     elif object_id is not None:
         from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import BoundedNeighborhood, map_entity_result
         from dungeonmind.application.vnext.records import ParsedEntityRefValue
@@ -513,6 +519,8 @@ def shared_neighborhood(request, principal, *, object_id=None, search_ids=None):
         )
         selected = EntityReadService().get_entity(read, object_id) if result.found else None
         nodes = [map_entity_result(selected, object_id, attributes=attributes)] if selected else []
+        if selected is not None:
+            selected_entities[object_id] = selected
     else:
         result, bounded = read_neighborhood(read, request.seed_node_ids, request.max_depth, request.bounds)
         nodes = map_nodes(read, bounded, attributes=attributes)
@@ -548,8 +556,8 @@ def shared_neighborhood(request, principal, *, object_id=None, search_ids=None):
             supporting_assertion_ids=assertion_ids,
             readable=ref.can_open_source, locator_kind="source_span",
         ))
-    if selected is not None:
-        by_id = {anchor.evidence_ref_id: anchor for anchor in anchors}
+    by_id = {anchor.evidence_ref_id: anchor for anchor in anchors}
+    for entity_id, selected in selected_entities.items():
         selected_sources = {source.source_artifact_id: source for source in selected.source_artifacts}
         for ref in selected.evidence:
             if ref.evidence_role != "support" or not ref.source_span_ref_id:
@@ -563,6 +571,7 @@ def shared_neighborhood(request, principal, *, object_id=None, search_ids=None):
             existing = by_id.get(ref.evidence_ref_id)
             if existing is not None:
                 existing.supporting_assertion_ids = sorted(supporters.union(existing.supporting_assertion_ids))
+                existing.supporting_graph_object_ids = sorted({entity_id, *existing.supporting_graph_object_ids})
                 continue
             by_id[ref.evidence_ref_id] = WorldGraphSourceAnchor(
                 anchor_id=native_anchor_id(min(supporters), ref.evidence_ref_id),
@@ -571,11 +580,11 @@ def shared_neighborhood(request, principal, *, object_id=None, search_ids=None):
                 source_artifact_id=ref.source_artifact_id,
                 source_domain=_source_domain(selected_sources[ref.source_artifact_id].source_classification),
                 source_span_ref_id=ref.source_span_ref_id,
-                supporting_graph_object_ids=[object_id],
+                supporting_graph_object_ids=[entity_id],
                 supporting_assertion_ids=sorted(supporters),
                 readable=ref.can_open_source, locator_kind="source_span",
             )
-        anchors = [by_id[key] for key in sorted(by_id)]
+    anchors = [by_id[key] for key in sorted(by_id)]
     _response(bound, pin)
     truncated = [
         field for field in ("nodes", "relationships") if getattr(bounded, f"{field}_truncated")
