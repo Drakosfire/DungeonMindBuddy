@@ -7,11 +7,11 @@ from typing import Any, Literal
 
 from apps.live_control_server.schema_validation import validate_before_append
 from live_store import append_jsonl
-from src.live_play.projections.artifact_patching import execute_patch_artifact_command
-from src.live_play.projections.commands import ProjectionCommand
-from src.live_play.projections.invalidation import ProjectionInvalidation
-from src.live_play.projections.targets import ProjectionTarget
-from src.live_play.projections.write_results import ProjectionConflict, ProjectionWriteResult
+from live_play.projections.artifact_patching import execute_patch_artifact_command
+from live_play.projections.commands import ProjectionCommand
+from live_play.projections.invalidation import ProjectionInvalidation
+from live_play.projections.targets import ProjectionTarget
+from live_play.projections.write_results import ProjectionConflict, ProjectionWriteResult
 
 SUPPORTED_TARGET_TYPE = Literal["event", "roll_table"]
 MAX_OBSERVATION_LEN = 2000

@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from src.live_play import projections
-from src.live_play.projections import (
+from live_play import projections
+from live_play.projections import (
     ProjectionCapability,
     ProjectionCommand,
     ProjectionCommandRequester,

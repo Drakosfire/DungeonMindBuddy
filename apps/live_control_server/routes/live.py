@@ -76,7 +76,7 @@ from apps.live_control_server.session_store import (
     refresh_loaded_current_state,
     validate_and_save_layout,
 )
-from src.live_play.projections import (
+from live_play.projections import (
     ArtifactReadResponse,
     CapabilityReadResponse,
     ProjectionCommand,
@@ -87,7 +87,7 @@ from src.live_play.projections import (
     execute_projection_command,
     read_artifact_for_target,
 )
-from src.live_play.projections.artifacts import ArtifactReadError
+from live_play.projections.artifacts import ArtifactReadError
 from live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
 from src.live_play.source_bundle import (
     IngestionSourceBundle,
