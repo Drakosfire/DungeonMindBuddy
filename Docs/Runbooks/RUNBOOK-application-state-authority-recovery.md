@@ -15,6 +15,14 @@
 
 Buddy APP-STATE and DungeonMind World are separate authorities. Never point Buddy at a DungeonMind database; the tooling blocks World DSNs as targets.
 
+The APP-STATE Compose file uses the fixed container `dungeonbuddy-app-state`,
+loopback port `54331`, and volume `dungeonbuddy_app_state_data`. A different
+Compose project name still refers to those same resources. For a restore
+rehearsal or isolated parallel dogfood, provision a
+[second clean target](#restore-into-a-second-clean-target-recovery-witness)
+with a separate DSN. Before any migration or restore, check the host, port,
+and database name against the intended target.
+
 ## Operating law
 
 1. **No migrate-on-start.** Schema changes are explicit: `uv run python scripts/bootstrap_local_play.py apply` (or `python -m application_state.cli upgrade`) with the target DSN configured. Neither the compose service nor the Buddy API migrates on boot.
