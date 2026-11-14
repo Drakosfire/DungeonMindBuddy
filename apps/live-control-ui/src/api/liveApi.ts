@@ -1,7 +1,7 @@
 import type { PdfLocator } from "./retainedPdfRegions";
 import {verifyNativeThreatReply,type NativeThreatReply,type PreparedNativeThreat,type PublishedNativeThreat} from './nativeThreatCreation';
 import {verifyWorldCreatureCatalog} from './worldMechanicsTypes';
-import type {NativeSourceCatalog,NativeSourceBody,NativeSourceSelection} from './nativeSourceInspection';
+import type {NativeSourceCatalog,NativeSourceBody,NativeSourceSelection,PublishedNativeRecap} from './nativeSourceInspection';
 import type {InspectionScope,InspectionPin,InspectionSelection,NativeGraphCatalog,NativeGraphEntity,NativeGraphSource,NativeGraphPdfRegion} from "./nativeGraphInspection";
 import {readBuildConstructionStream,ConstructionStreamError,type BuildObjectConstructionProgress} from './buildConstructionStream';
 import type {
@@ -324,6 +324,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   const pathname = path.split("?", 1)[0];
   if ([
     "/api/live/native-graph-inspection/complete-object",
+    "/api/live/native-source-inspection/published-recap",
     "/api/live/native-graph-explorer/graph",
     "/api/live/native-graph-explorer/prepare",
     "/api/live/native-graph-explorer/confirm",
@@ -3246,4 +3247,23 @@ export async function getNativeThreat(draft:string,world:string):Promise<Publish
   const reply=await verifyNativeThreatReply(value,world,draft);
   if(reply.state!=='published')throw new Error('Creature status is not a published result.');
   return reply;
+}
+
+export async function readPublishedNativeRecap(
+  managedWorldId: string, campaignId: string, sessionId: string, signal?: AbortSignal,
+): Promise<PublishedNativeRecap> {
+  const packet = await apiFetch<PublishedNativeRecap>("/api/live/native-source-inspection/published-recap", {
+    method: "POST", cache: "no-store", signal,
+    body: JSON.stringify({ managed_world_id: managedWorldId, campaign_id: campaignId, session_id: sessionId }),
+  });
+  if (packet?.schema !== "dmb_native_published_recap_v1" ||
+      packet.scope?.managed_world_id !== managedWorldId ||
+      packet.scope.scope_mode !== "world" || packet.scope.campaign_id !== null ||
+      !packet.scope.native_world_id || !packet.scope.revision_id ||
+      !Number.isSafeInteger(packet.scope.binding_version) || packet.scope.binding_version < 1 ||
+      packet.campaign_id !== campaignId || packet.session_id !== sessionId ||
+      packet.source?.status !== "available" || typeof packet.source.body_text !== "string") {
+    throw new Error("The published recap did not match the selected World and session.");
+  }
+  return packet;
 }

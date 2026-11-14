@@ -99,3 +99,41 @@ def inspect(request, principal):
         section_catalog=None if sections is None else {"selector_policy": SELECTOR,
                          "sections": [row.model_dump(mode="json") for row in sections]},
     )
+
+def published_recap(request, principal):
+    world = request.managed_world_id
+    binding = native.binding(world)
+    repo = native.read_repository()
+    head = repo.get_head(binding["native_world_id"])
+    if head is None:
+        raise SourceInspectionUnavailable("native_published_recap_head_unavailable")
+    context, pin = _pinned(InspectionPin(
+        managed_world_id=world,
+        native_world_id=binding["native_world_id"],
+        binding_version=binding["binding_version"],
+        revision_id=head.head_revision_id,
+    ), principal)
+    catalogue = list_admitted_native_text_sources(context.access)
+    navigation = source_display_metadata(catalogue.sources, pin.managed_world_id)
+    matches = [
+        item for item, display in zip(catalogue.sources, navigation, strict=True)
+        if display["kind"] == "recap"
+        and display["status"] == "available"
+        and display["origin_matches_current_metadata"] is True
+        and display["campaign_id"] == request.campaign_id
+        and display["session_id"] == request.session_id
+    ]
+    if len(matches) != 1:
+        raise SourceInspectionUnavailable("native_published_recap_selection_unavailable")
+    item = matches[0]
+    for evidence_ref_id in sorted(item.evidence_ref_ids):
+        opened = open_admitted_native_text(context.access, evidence_ref_id)
+        if opened.status == "available":
+            if native.binding(world) != binding:
+                raise SourceInspectionUnavailable("native_published_recap_binding_changed")
+            return _response(
+                context, pin, schema="dmb_native_published_recap_v1",
+                campaign_id=request.campaign_id, session_id=request.session_id,
+                source=opened.model_dump(mode="json"),
+            )
+    raise SourceInspectionUnavailable("native_published_recap_source_unavailable")

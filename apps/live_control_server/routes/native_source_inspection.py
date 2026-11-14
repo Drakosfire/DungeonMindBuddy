@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.models.native_graph_inspection import InspectionScope
-from apps.live_control_server.models.native_source_inspection import NativeSourceRead
+from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapRead
 from apps.live_control_server.services import native_source_inspection as service
 from apps.live_control_server.services.agent_graph_auth import (
     native_graph_gm_dependency,
@@ -39,3 +39,7 @@ def catalog(body: InspectionScope, principal=Depends(native_graph_gm_dependency)
 @router.post("/read")
 def inspect(body: NativeSourceRead, principal=Depends(native_graph_gm_dependency)):
     return _call(service.inspect, body, principal)
+
+@router.post("/published-recap")
+def published_recap(body: PublishedRecapRead, principal=Depends(native_graph_gm_dependency)):
+    return _call(service.published_recap, body, principal)

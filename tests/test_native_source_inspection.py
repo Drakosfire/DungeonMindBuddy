@@ -451,3 +451,27 @@ def test_blank_native_source_remains_readable_without_section_selectors(inspecti
     assert response.status_code == 200
     assert response.json()["source"]["body_text"] == text
     assert response.json()["section_catalog"] is None
+
+
+@pytest.mark.parametrize("copies,expected", [(0, 409), (1, 200), (2, 409)])
+def test_published_recap_requires_one_verified_match(inspection, monkeypatch, copies, expected):
+    receipt = admit(inspection.lane)
+    monkeypatch.setattr(service.native, "binding", lambda _: {
+        "native_world_id": "world:test", "binding_version": inspection.lane.bound.binding_version,
+    })
+    catalog = service.list_admitted_native_text_sources
+    monkeypatch.setattr(service, "list_admitted_native_text_sources", lambda access:
+                        replace(result := catalog(access), sources=result.sources * copies))
+    monkeypatch.setattr(service, "source_display_metadata", lambda items, _: [{
+        "kind": "recap", "status": "available", "origin_matches_current_metadata": True,
+        "campaign_id": "campaign-a", "session_id": "session-1",
+    } for item in items])
+    body = {"managed_world_id": "managed", "campaign_id": "campaign-a", "session_id": "session-1"}
+    response = inspection.client.post(PATH + "/published-recap", json=body)
+    assert response.status_code == expected, response.text
+    if expected == 200:
+        packet = response.json()
+        assert packet["scope"]["revision_id"] == receipt.published_revision_id
+        assert packet["source"]["body_sha256"] == sha256(BODY.encode()).hexdigest()
+    else:
+        assert "body_text" not in response.text
