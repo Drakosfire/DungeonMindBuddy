@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.agent.planner_pricing import pricing_rates_for_model, usage_cost_usd
+from llm.planner_pricing import pricing_rates_for_model, usage_cost_usd
 
 
 def test_pricing_longest_prefix_matches_chat_latest() -> None:

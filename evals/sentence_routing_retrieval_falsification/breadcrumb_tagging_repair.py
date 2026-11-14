@@ -465,7 +465,7 @@ def adjudicate_repairs_with_llm(
     """
     import time
 
-    from src.agent.planner_pricing import usage_cost_usd
+    from llm.planner_pricing import usage_cost_usd
 
     instructions, user_text = build_repair_prompt(recap_body=recap_body, candidates=candidates)
     t0 = time.perf_counter()
