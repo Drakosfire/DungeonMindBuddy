@@ -39,7 +39,7 @@ from graph_memory.extraction.extraction_profile import (
 )
 from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
 from graph_memory.extraction import worldbuilding_profile_catalog as _worldbuilding_catalog  # noqa: F401
-from src.graph_memory.vocabulary.model import ContextVocabularyPacket
+from graph_memory.vocabulary.model import ContextVocabularyPacket
 
 # Ensure profiles register on import.
 from graph_memory.extraction import recap_extraction_profile as _recap_profiles  # noqa: F401
