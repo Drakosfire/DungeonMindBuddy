@@ -21,7 +21,6 @@ def _require_combat_mechanics(exact) -> None:
         label for label, value in (
             ("D&D edition", definition.ruleset),
             ("movement", definition.movement),
-            ("proficiency bonus", definition.challenge.proficiency_bonus),
         )
         if value is None
     ]

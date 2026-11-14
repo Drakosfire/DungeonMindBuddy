@@ -47,8 +47,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
 
   const [versions, setVersions] = useState<SavedMechanicsVersionList>();
   const [parentId, setParentId] = useState("");
-  const mechanicsResolved = Boolean(editor?.workingCopy.movement && editor.workingCopy.ruleset)
-    && editor?.workingCopy.challenge.proficiency_bonus != null;
+  const mechanicsResolved = Boolean(editor?.workingCopy.movement && editor.workingCopy.ruleset);
   const selectedDraft = drafts.find(item => item.draft_id === draftId);
   const savedParents = versions ? [
     ...versions.operations.flatMap(operation => operation.state === "committed" && operation.result ? [operation.result] : []),
@@ -537,8 +536,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
       </>}>
       {editor && !mechanicsResolved && <ul aria-label="Fields needed for combat adoption">
         {!editor.workingCopy.movement && <li>Movement is unspecified. Enter a speed if the source supports it.</li>}
-        {editor.workingCopy.challenge.proficiency_bonus == null &&
-          <li>Proficiency bonus is unspecified. A bonus is needed for combat adoption.</li>}
       </ul>}
       {editor && !editor.workingCopy.movement && <form onSubmit={event => {
         event.preventDefault();
