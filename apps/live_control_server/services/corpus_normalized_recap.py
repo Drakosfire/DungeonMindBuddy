@@ -18,7 +18,7 @@ from corpus.session_recap_paths import (
     campaign_number_from_id,
     normalized_recap_candidates,
 )
-from src.live_play.recap_stage_paths import corpus_root
+from live_play.recap_stage_paths import corpus_root
 
 
 class CorpusNormalizedRecapLoadError(ValueError):

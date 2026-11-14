@@ -32,7 +32,7 @@ from apps.live_control_server.services.party_registry_surface import (
 from evals.graph_memory_layer.live_vs_gold_compare import parts_from_raw_graph
 from contracts.npc_registry import load_npc_registry
 from src.graph_memory.party_context import resolve_campaign_corpus
-from src.live_play.recap_stage_paths import corpus_root
+from live_play.recap_stage_paths import corpus_root
 
 
 class GraphObjectCandidateScope(str, Enum):
