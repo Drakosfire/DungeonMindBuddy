@@ -93,7 +93,7 @@ def seeded_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     _seed_campaign(repo, campaign_number=1, sessions=[1, 2])
     _seed_campaign(repo, campaign_number=2, sessions=[1])
     monkeypatch.setattr(
-        "src.live_play.recap_stage_paths.corpus_root",
+        "live_play.recap_stage_paths.corpus_root",
         lambda: repo / "corpus" / "eldyrwild-markdown",
     )
     monkeypatch.setattr(

@@ -22,7 +22,7 @@ from generationengine import (
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.live_agent_loop import process_live_query
-from src.live_play import live_query_context
+from live_play import live_query_context
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED_SESSION = ROOT / "evals/c2_live_prep/live/session_23"

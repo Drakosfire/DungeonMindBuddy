@@ -9,7 +9,7 @@ from pathlib import Path
 from src.session_memory.breadcrumb_normalize import (
     normalize_breadcrumb_artifact,
 )
-from src.live_play.recap_derivative_provenance import (
+from live_play.recap_derivative_provenance import (
     archive_existing,
     atomic_write_bytes,
 )

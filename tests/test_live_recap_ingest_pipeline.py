@@ -14,19 +14,19 @@ from corpus.session_recap_paths import (
     normalized_basename_from_disk,
     pick_normalized_basename_from_disk,
 )
-from src.live_play.recap_derivative_provenance import (
+from live_play.recap_derivative_provenance import (
     sha256_bytes,
     sha256_file,
     store_provenanced_artifact,
 )
-from src.live_play.recap_ingest_pipeline import (
+from live_play.recap_ingest_pipeline import (
     PipelineOptions,
     _expected_normalized_content,
     inspect_recap_ingest_status,
     run_pipeline,
 )
 from scripts.materialize_session_memory import main as materialize_session_memory_main
-from src.live_play.session_memory_materializer import _materialize_one as materialize_session_memory_one
+from live_play.session_memory_materializer import _materialize_one as materialize_session_memory_one
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW_FIXTURE = ROOT / "tests/fixtures/live_recap_ingest/session_22_raw_recap.md"
@@ -776,8 +776,8 @@ def test_materialize_runs_when_breadcrumb_exists(tmp_path: Path, monkeypatch: py
         called["check"] = True
         return True
 
-    monkeypatch.setattr("src.live_play.recap_ingest_pipeline._materialize_one", _fake_materialize_one)
-    monkeypatch.setattr("src.live_play.recap_ingest_pipeline._check_one", _fake_check_one)
+    monkeypatch.setattr("live_play.recap_ingest_pipeline._materialize_one", _fake_materialize_one)
+    monkeypatch.setattr("live_play.recap_ingest_pipeline._check_one", _fake_check_one)
 
     status = run_pipeline(
         _opts(
@@ -812,8 +812,8 @@ def test_materialize_uses_disk_breadcrumb_when_slug_mismatches(
         called["materialize"] = True
         return {"record_count": 3, "outcome": "created"}
 
-    monkeypatch.setattr("src.live_play.recap_ingest_pipeline._materialize_one", _fake_materialize_one)
-    monkeypatch.setattr("src.live_play.recap_ingest_pipeline._check_one", lambda **_kwargs: True)
+    monkeypatch.setattr("live_play.recap_ingest_pipeline._materialize_one", _fake_materialize_one)
+    monkeypatch.setattr("live_play.recap_ingest_pipeline._check_one", lambda **_kwargs: True)
 
     status = run_pipeline(
         _opts(
