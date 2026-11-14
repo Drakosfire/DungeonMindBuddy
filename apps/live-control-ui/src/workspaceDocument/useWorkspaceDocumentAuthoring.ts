@@ -338,10 +338,9 @@ export function useWorkspaceDocumentAuthoring(
     dispatch({type:"EDIT"});
   },[dispatch,queueLocalState]);
 
-  const persistEditorState = useCallback((nextEditor: Editor) => {
+  const persistEditorState = useCallback((tiptapJson: JSONContent) => {
     const current = localStateRef.current;
     if (!current) return;
-    const tiptapJson = nextEditor.getJSON();
     const serializationUnsafe = semanticMarkdownSerializationDiagnostics(tiptapJson).length > 0;
     const snap = snapshotRef.current;
     const sourceHasBlockingImport = snap != null && hasBlockingMarkdownImportDiagnostics(snap.markdown);
@@ -395,13 +394,13 @@ export function useWorkspaceDocumentAuthoring(
   }, []);
 
   const handleEditorUpdate = useCallback((
-    _json: JSONContent,
-    nextEditor: Editor,
+    json: JSONContent,
+    _nextEditor: Editor,
     meta: { programmatic: boolean },
   ) => {
     if (meta.programmatic) return;
     editorMutationGenerationRef.current += 1;
-    persistEditorState(nextEditor);
+    persistEditorState(json);
   }, [persistEditorState]);
 
   const reimportFromAuthoritativeMarkdown = useCallback(() => {
