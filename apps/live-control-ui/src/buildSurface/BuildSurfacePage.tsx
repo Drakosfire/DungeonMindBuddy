@@ -79,11 +79,8 @@ export function BuildSurfacePage() {
         <BuildGraphObjectContext key={entrySearch} pointer={graphPointer} />
       ) : droppedPdf && droppedPdf.worldId === worldId ? (
         <section className="build-pdf-workspace" aria-label="PDF workspace">
-          <header className="build-pdf-workspace__toolbar">
-            <strong>{droppedPdf.file.name}</strong>
-            <button type="button" onClick={() => setDroppedPdf(undefined)}>Close PDF</button>
-          </header>
-          <BuildPdfPreview key={droppedPdf.version} worldId={droppedPdf.worldId} initialFile={droppedPdf.file} />
+          <BuildPdfPreview key={droppedPdf.version} worldId={droppedPdf.worldId} initialFile={droppedPdf.file}
+            toolbarControls={<button type="button" onClick={() => setDroppedPdf(undefined)}>Close PDF</button>} />
         </section>
       ) : controller.activeDocumentId ? (
         <MarkdownCanvasSessionProvider

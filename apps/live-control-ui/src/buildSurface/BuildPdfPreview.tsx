@@ -1,3 +1,4 @@
+import "./BuildPdfPreview.css";
 import { createPortal } from "react-dom";
 import { StartPdfStatblockReview } from "./StartPdfStatblockReview";
 import { completePdfTextLines, hasClippedPdfTextLine, pdfTextBoundsOverlap } from "./completePdfTextLines";
@@ -6,7 +7,7 @@ import { PdfTableCandidate } from "./PdfTableCandidate";
 import type { PdfRegionTextRun } from "./parsePdfDiceTable";
 import { pdfRegionKey, readRetainedPdfRegions, retainedPdfKey, type PdfLocator, type PdfReceipt, type RetainedPdf } from "../api/retainedPdfRegions";
 import { authenticatedApiFetch } from "../api/liveApi";
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
@@ -110,11 +111,12 @@ function CropPreviewImage({ canvas, page }: { canvas: HTMLCanvasElement; page: n
   return <img src={url} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />;
 }
 
-export function PdfPages({ file, worldId, restored, onRetained, readOnly = false, navigationHost }: {
+export function PdfPages({ file, worldId, restored, onRetained, readOnly = false, navigationHost, toolbarControls }: {
   file: File; worldId?: string; restored?: PdfLocator;
   onRetained?: (locator: PdfLocator) => void;
   readOnly?: boolean;
   navigationHost?: HTMLElement | null;
+  toolbarControls?: ReactNode;
 }) {
   const [admission] = useState(() => ({ id: crypto.randomUUID(), createdAt: new Date().toISOString() }));
   const [receipt, setReceipt] = useState<PdfReceipt | undefined>(restored);
@@ -347,45 +349,13 @@ export function PdfPages({ file, worldId, restored, onRetained, readOnly = false
 
   return (
     <section aria-label="PDF preview">
-      {!navigationHost && <p>{file.name}</p>}
+      {(error || !document) && toolbarControls}
       {error ? <p role="alert">{error}</p> : !document ? <p role="status">Opening PDF…</p> : (
         <>
+          <header className={readOnly ? undefined : "pdf-extractor-toolbar"} aria-label={readOnly ? undefined : "PDF extractor controls"}>
+          {toolbarControls}
+          {!navigationHost && <strong>{file.name}</strong>}
           {navigationHost ? createPortal(navigation, navigationHost) : navigation}
-          <div style={{ position: "relative", width: readOnly ? `${zoom}%` : "fit-content", maxWidth: readOnly ? undefined : "100%" }}>
-            <canvas
-              key={page}
-              ref={canvas}
-              aria-label={`PDF page ${page}`}
-              style={{ display: "block", width: readOnly ? "100%" : undefined, maxWidth: "100%", height: "auto", touchAction: readOnly ? "auto" : "none", cursor: readOnly ? undefined : "crosshair" }}
-              onPointerDown={event => {
-                if (readOnly || renderedPage !== page || event.button !== 0 || drag.current) return;
-                const start = pagePoint(event);
-                event.currentTarget.setPointerCapture(event.pointerId);
-                drag.current = { pointerId: event.pointerId, start };
-                setCapture(undefined);
-                setRegion({ start, end: start });
-              }}
-              onPointerMove={event => {
-                if (drag.current?.pointerId !== event.pointerId) return;
-                setRegion({ start: drag.current.start, end: pagePoint(event) });
-              }}
-              onPointerUp={event => {
-                if (drag.current?.pointerId !== event.pointerId) return;
-                setRegion({ start: drag.current.start, end: pagePoint(event) });
-                drag.current = undefined;
-              }}
-              onLostPointerCapture={() => {
-                if (!drag.current) return;
-                drag.current = undefined;
-                setRegion(undefined);
-              }}
-            />
-            {rectangle && <div aria-hidden="true" style={{
-              position: "absolute", pointerEvents: "none", outline: "2px solid #b18127",
-              background: "#b1812733", left: `${rectangle.left * 100}%`, top: `${rectangle.top * 100}%`,
-              width: `${rectangle.width * 100}%`, height: `${rectangle.height * 100}%`,
-            }} />}
-          </div>
           {!readOnly && <><button type="button" disabled={!rectangle?.width || !rectangle.height} onClick={captureRegion}>
             Capture region
           </button>
@@ -394,7 +364,6 @@ export function PdfPages({ file, worldId, restored, onRetained, readOnly = false
           </button>}
           {capture && (
             <section aria-label={`Capture from page ${page}`}>
-              <CropPreviewImage key={capture.id} canvas={capture.canvas} page={page} />
               {worldId && receipt && <button type="button" onClick={() => {
                 const locator = captureLocator(receipt, page, capture.region);
                 setStatblockRegions(current => current.some(region => pdfRegionKey(region) === pdfRegionKey(locator))
@@ -439,8 +408,6 @@ export function PdfPages({ file, worldId, restored, onRetained, readOnly = false
               </details>
             </section>
           )}</>}
-        </>
-      )}
       {worldId && <StartPdfStatblockReview
         worldId={worldId}
         regions={statblockRegions}
@@ -465,11 +432,50 @@ export function PdfPages({ file, worldId, restored, onRetained, readOnly = false
         onRemoveRegion={removed => setStatblockRegions(current =>
           current.filter(region => pdfRegionKey(region) !== pdfRegionKey(removed)))}
       />}
+          </header>
+          <div style={{ position: "relative", width: readOnly ? `${zoom}%` : "fit-content", maxWidth: readOnly ? undefined : "100%" }}>
+            <canvas
+              key={page}
+              ref={canvas}
+              aria-label={`PDF page ${page}`}
+              style={{ display: "block", width: readOnly ? "100%" : undefined, maxWidth: "100%", height: "auto", touchAction: readOnly ? "auto" : "none", cursor: readOnly ? undefined : "crosshair" }}
+              onPointerDown={event => {
+                if (readOnly || renderedPage !== page || event.button !== 0 || drag.current) return;
+                const start = pagePoint(event);
+                event.currentTarget.setPointerCapture(event.pointerId);
+                drag.current = { pointerId: event.pointerId, start };
+                setCapture(undefined);
+                setRegion({ start, end: start });
+              }}
+              onPointerMove={event => {
+                if (drag.current?.pointerId !== event.pointerId) return;
+                setRegion({ start: drag.current.start, end: pagePoint(event) });
+              }}
+              onPointerUp={event => {
+                if (drag.current?.pointerId !== event.pointerId) return;
+                setRegion({ start: drag.current.start, end: pagePoint(event) });
+                drag.current = undefined;
+              }}
+              onLostPointerCapture={() => {
+                if (!drag.current) return;
+                drag.current = undefined;
+                setRegion(undefined);
+              }}
+            />
+            {rectangle && <div aria-hidden="true" style={{
+              position: "absolute", pointerEvents: "none", outline: "2px solid #b18127",
+              background: "#b1812733", left: `${rectangle.left * 100}%`, top: `${rectangle.top * 100}%`,
+              width: `${rectangle.width * 100}%`, height: `${rectangle.height * 100}%`,
+            }} />}
+          </div>
+          {!readOnly && capture && <CropPreviewImage key={capture.id} canvas={capture.canvas} page={page} />}
+        </>
+      )}
     </section>
   );
 }
 
-export function BuildPdfPreview({ worldId, initialFile, onPdfOpen }: { worldId?: string; initialFile?: File; onPdfOpen?: () => void }) {
+export function BuildPdfPreview({ worldId, initialFile, onPdfOpen, toolbarControls }: { worldId?: string; initialFile?: File; onPdfOpen?: () => void; toolbarControls?: ReactNode }) {
   const [selection, setSelection] = useState<{ file: File; version: number; restored?: PdfLocator } | undefined>(() => initialFile ? { file: initialFile, version: 0 } : undefined);
   const [reopenError, setReopenError] = useState("");
   const [reopening, setReopening] = useState(false);
@@ -553,7 +559,7 @@ export function BuildPdfPreview({ worldId, initialFile, onPdfOpen }: { worldId?:
         </li>)}
       </ul>}
       {reopenError && <p role="alert">{reopenError}</p>}
-      {selection && <PdfPages key={`${worldId ?? ""}:${selection.version}`} file={selection.file} worldId={worldId} restored={selection.restored} onRetained={saveLocator} />}
+      {selection && <PdfPages key={`${worldId ?? ""}:${selection.version}`} file={selection.file} worldId={worldId} restored={selection.restored} onRetained={saveLocator} toolbarControls={toolbarControls} />}
     </div>
   );
 }

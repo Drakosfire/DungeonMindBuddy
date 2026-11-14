@@ -1,0 +1,27 @@
+.pdf-extractor-toolbar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .375rem;
+  padding: .5rem;
+  margin-block-end: .5rem;
+  background: #151d2a;
+  border-block-end: 1px solid #354056;
+  max-block-size: 42vh;
+  overflow: auto;
+}
+
+.pdf-extractor-toolbar button,
+.pdf-extractor-toolbar select {
+  font-size: .875rem;
+  padding: .2rem .5rem;
+}
+
+.pdf-extractor-toolbar p,
+.pdf-extractor-toolbar h4,
+.pdf-extractor-toolbar ul {
+  margin: .25rem 0;
+}
