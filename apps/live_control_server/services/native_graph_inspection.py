@@ -456,20 +456,20 @@ def shared_exact_object(request, principal):
     return shared_neighborhood(neighborhood, principal, object_id=request.node_id)
 
 
-def shared_neighborhood(request, principal, *, object_id=None, search_ids=None):
-    from graph_memory.retrieval.models import (
-        WorldGraphRetrievalCoverage,
-        WorldGraphRetrievalResult,
-        WorldGraphRetrievalSnapshot,
-        WorldGraphSourceAnchor,
-    )
-    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import native_anchor_id
-
+def shared_neighborhood(request, principal, *, object_id=None):
     bound, head, pin = _shared_retrieval_pin(request, principal)
-    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import (
-        map_nodes, map_relationships, read_neighborhood,
-    )
     _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    return _shared_retrieval_projection(request, bound, head, pin, read, object_id=object_id)
+
+
+def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=None, search_ids=None):
+    from graph_memory.retrieval.models import (
+        WorldGraphRetrievalCoverage, WorldGraphRetrievalResult,
+        WorldGraphRetrievalSnapshot, WorldGraphSourceAnchor,
+    )
+    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import (
+        map_nodes, map_relationships, read_neighborhood, native_anchor_id,
+    )
     attributes = []
     selected_entities = {}
     if search_ids is not None:
@@ -608,7 +608,7 @@ def shared_neighborhood(request, principal, *, object_id=None, search_ids=None):
             scope_mode=request.scope_mode,
         ),
         request_summary=(
-            {"node_id": object_id} if object_id is not None else {
+            {"node_id": object_id} if object_id is not None else {} if search_ids is not None else {
                 "seed_node_ids": list(request.seed_node_ids),
                 "max_depth": request.max_depth,
             }
@@ -719,9 +719,8 @@ def shared_evidence(request, principal):
 
 def shared_search(request, principal):
     from dungeonmind.application.vnext import SearchReadService
-    from graph_memory.retrieval.models import WorldGraphNeighborhoodRequest
 
-    _, _, pin = _shared_retrieval_pin(request, principal)
+    bound, head, pin = _shared_retrieval_pin(request, principal)
     _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
     search = SearchReadService().search_entities(read, request.query_text, limit=20)
     seeds = list(dict.fromkeys(request.seed_node_ids))
@@ -735,16 +734,7 @@ def shared_search(request, principal):
     remaining = max(request.bounds.max_nodes - len(present), 0)
     selected = present + others[:remaining]
 
-    projection = WorldGraphNeighborhoodRequest(
-        schema="dmb_world_graph_neighborhood_request_v1",
-        seedNodeIds=selected or ["ent:empty-search-result"],
-        maxDepth=1,
-        **request.model_dump(
-            by_alias=True, exclude={"schema_", "query_text", "seed_node_ids", "revision_pin"}
-        ),
-        revisionPin=pin.revision_id,
-    )
-    result = shared_neighborhood(projection, principal, search_ids=selected)
+    result = _shared_retrieval_projection(request, bound, head, pin, read, search_ids=selected)
     truncated = list(result.coverage.truncated_fields)
     if len(others) > remaining or search.completeness.status != "complete":
         truncated = list(dict.fromkeys([*truncated, "nodes"]))
