@@ -12,15 +12,15 @@ from typing import Any, Literal
 import blake3
 from pydantic import BaseModel, Field, field_validator
 
-from src.graph_memory.party_context import (
+from graph_memory.party_context import (
     PARTY_REGISTRY_BASENAME,
     PARTY_REGISTRY_SCHEMA,
     load_party_registry,
     party_registry_path,
     resolve_campaign_corpus,
 )
-from src.graph_memory.session_graph_context import normalize_registry_view
-from src.live_play.recap_stage_paths import corpus_root
+from graph_memory.session_graph_context import normalize_registry_view
+from live_play.recap_stage_paths import corpus_root
 
 _SLUG_RE = re.compile(r"^[a-z0-9_]+$")
 _ALLOWED_REGISTRY_RE = re.compile(
