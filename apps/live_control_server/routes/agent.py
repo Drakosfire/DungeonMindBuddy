@@ -2484,7 +2484,7 @@ def post_accept_pdf_statblock_review(
     for operation in list_acceptance_operations_for_draft(root, draft_id=draft_key):
         provenance = (operation.request_body.get("accepted_through") or {}).get(PDF_REVIEW_PROVENANCE, {})
         recoverable = (
-            operation.locator == locator and operation.authority_state == "reconciled"
+            operation.locator == locator and operation.authority_state in {"server_committed", "reconciled"}
             if locator is not None else
             operation.source_draft_version == draft.version
             and operation.authority_state in {"dispatched_unknown", "server_committed"}
