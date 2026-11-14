@@ -595,7 +595,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
                     commitEdit(updateWorkingCopy(editor, current => ({
                       ...current,
                       rule_elements: current.rule_elements.map(element => {
-                        if (element.key !== key || element.mechanic.kind !== "composite") return element;
+                        if (element.key !== key || !("effects" in element.mechanic)) return element;
                         return { ...element, mechanic: { ...element.mechanic,
                           effects: element.mechanic.effects?.filter((_, index) => index !== Number(phase[1])) } };
                       }),
