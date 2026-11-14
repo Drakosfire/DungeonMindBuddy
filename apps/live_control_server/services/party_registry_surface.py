@@ -16,7 +16,7 @@ from src.graph_memory.session_graph_context import (
     build_session_graph_context,
     normalize_registry_view,
 )
-from src.live_play.recap_stage_paths import corpus_root
+from live_play.recap_stage_paths import corpus_root
 
 
 PARTY_REGISTRY_SURFACE_SCHEMA = "dmb_party_registry_surface_v1"
