@@ -101,7 +101,6 @@ export function WorldSelector({ compact = false, creationPath = "/plan" }: { com
             setError(null);
             void createWorldContainer({ name }).then((world) => {
               if (!mounted.current) return;
-              setWorlds((current) => [world, ...current.filter((item) => item.world_id !== world.world_id)]);
               setNewWorldName("");
               setOpen(false);
               if (!navigationChanged.current && getAppLocationSnapshot() === startingLocation) {
