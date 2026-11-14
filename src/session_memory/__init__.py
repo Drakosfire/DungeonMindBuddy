@@ -6,7 +6,7 @@ modules re-export the same symbols for benchmark compatibility.
 
 from __future__ import annotations
 
-from src.session_memory.breadcrumb_normalize import (
+from .breadcrumb_normalize import (
     BreadcrumbNormalizeError,
     NormalizedRecord,
     normalize_breadcrumb_artifact,

@@ -1,3 +1,3 @@
-"""Compatibility shim — canonical implementation: ``src.session_memory.breadcrumb_normalize``."""
+"""Compatibility shim — canonical implementation: ``session_memory.breadcrumb_normalize``."""
 
-from src.session_memory.breadcrumb_normalize import *  # noqa: F403
+from session_memory.breadcrumb_normalize import *  # noqa: F403

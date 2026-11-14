@@ -48,7 +48,7 @@ from live_play.recap_derivative_provenance import (
     sha256_file,
 )
 from live_play.recap_stage_paths import RecapStagePaths, corpus_root
-from src.session_memory.breadcrumb_normalize import BreadcrumbNormalizeError
+from session_memory.breadcrumb_normalize import BreadcrumbNormalizeError
 
 _GENERIC_RECAP_TITLE_RE = re.compile(r"^Session\s+\d+\s*(?:-\s*)?Recap\s*:?\s*$", re.IGNORECASE)
 _SESSION_TITLE_RE = re.compile(r"^Session\s+\d+\s*(?:-\s*)?(.+?)\s*$", re.IGNORECASE)

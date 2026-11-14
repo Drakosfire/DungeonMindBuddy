@@ -1,3 +1,3 @@
-"""Compatibility shim — canonical implementation: ``src.session_memory.breadcrumb_smoke``."""
+"""Compatibility shim — canonical implementation: ``session_memory.breadcrumb_smoke``."""
 
-from src.session_memory.breadcrumb_smoke import *  # noqa: F403
+from session_memory.breadcrumb_smoke import *  # noqa: F403
