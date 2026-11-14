@@ -319,11 +319,11 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     from graph_memory.extraction.bounded_recap_execution import (
         BoundedRecapPassClient,
         DEEPSEEK_MODEL,
+        RecapExecutionLimits,
     )
     from graph_memory.extraction.worldbuilding_gazetteer_scenario_scope import (
         GAZETTEER_PREPARED_SCENARIO_PROFILE,
     )
-    from types import SimpleNamespace
 
     source_text = "\n\n".join([
         "#### Fantastic Livestock for the Exampleland",
@@ -380,11 +380,10 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     }
     class BoundedFixtureClient(BoundedRecapPassClient):
         def __init__(self):
-            self.limits = SimpleNamespace(
+            super().__init__(RecapExecutionLimits(
                 provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8,
-            )
+            ))
             self.fixture = FixtureCategoryGraphPassClient(outputs)
-            self.calls = []
 
         def run_pass(self, pass_name, **kwargs):
             result = self.fixture.run_pass(pass_name, **kwargs)
