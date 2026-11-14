@@ -159,5 +159,36 @@ def test_scoped_authenticated_route_and_no_path_selectors(evidence, monkeypatch)
         asyncio.run(get(path.replace(str(trace.trace_id), str(uuid4())))).status_code
         == 404
     )
+    batch_path = path.split(f"/{trace.trace_id}/prompt/")[0] + "/prompts"
+    selector = {
+        "trace_id": str(trace.trace_id),
+        "provider_attempt_id": str(ref.provider_attempt_id),
+    }
+    missing = {**selector, "provider_attempt_id": str(uuid4())}
+
+    async def post(url=batch_path, auth=True):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 1234)),
+            base_url="http://test",
+        ) as client:
+            return await client.post(
+                url, json={"prompts": [missing, selector]},
+                headers={"Authorization": "Bearer " + token} if auth else {},
+            )
+
+    reads.clear()
+    assert asyncio.run(post(auth=False)).status_code == 401
+    assert not reads
+    batch = asyncio.run(post())
+    assert batch.status_code == 200
+    assert batch.headers["cache-control"] == "no-store"
+    assert batch.json() == {
+        "schema": "dmb_agent_prompt_evidence_batch_v1",
+        "results": [{"unavailable": "prompt_not_captured"}, response.json()],
+    }
+    assert reads == [{"world_id": "world", "turn_id": trace.turn_id}]
+    foreign = asyncio.run(post(batch_path.replace("/world/", "/foreign/")))
+    assert foreign.json()["results"] == [{"unavailable": "prompt_not_captured"}] * 2
+
     trace.observations = []
     assert asyncio.run(get()).status_code == 404  # Orphan blob is not read authority.
