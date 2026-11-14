@@ -1,3 +1,5 @@
+import { PdfPages } from "./BuildPdfPreview";
+import { BuildSourceWorkspace } from "./BuildSourceWorkspace";
 import { publishPdfStatblock } from "./publishPdfStatblock";
 import { useEffect, useState } from "react";
 import type { ThreatDraft } from "../api/types";
@@ -27,7 +29,10 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [validation, setValidation] = useState("");
   const [issues, setIssues] = useState<ValidationIssueV1[]>([]);
   const [region, setRegion] = useState<PdfLocator>();
-  const [image, setImage] = useState("");
+  const [regionSelection, setRegionSelection] = useState(0);
+  const [source, setSource] = useState<{ key: string; file: File }>();
+  const [sourceError, setSourceError] = useState("");
+  const sourceKey = region && JSON.stringify([region.source_revision_id, region.content_sha256]);
   const [drafts, setDrafts] = useState<ThreatDraft[]>([]);
   const [draftId, setDraftId] = useState("");
   const [acceptOpen, setAcceptOpen] = useState(false);
@@ -302,29 +307,23 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   }, [reviewPath, worldId]);
 
   useEffect(() => {
-    if (!region) return;
+    if (!region || !sourceKey || source?.key === sourceKey) return;
     const abort = new AbortController();
-    let url: string | undefined;
-    setImage("");
+    setSourceError("");
     void (async () => {
       try {
-        const { response } = await authenticatedApiFetch(sourcePath + "/open?render=true", {
+        const { response } = await authenticatedApiFetch(sourcePath + "/open", {
           method: "POST", body: JSON.stringify(region), signal: abort.signal,
         });
         if (!response.ok) throw new Error();
-        const blob = await response.blob();
-        if (abort.signal.aborted) return;
-        url = URL.createObjectURL(blob);
-        setImage(url);
+        const file = new File([await response.blob()], "Source PDF", { type: "application/pdf" });
+        if (!abort.signal.aborted) setSource({ key: sourceKey, file });
       } catch {
-        if (!abort.signal.aborted) setError("Could not open the exact PDF region.");
+        if (!abort.signal.aborted) setSourceError("Could not open the retained PDF.");
       }
     })();
-    return () => {
-      abort.abort();
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [region, sourcePath]);
+    return () => abort.abort();
+  }, [region, sourceKey, source, sourcePath]);
 
   async function validate() {
     if (!review || !editor || pending) return;
@@ -447,22 +446,17 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       </ul>}
       {error && <p role="alert">{error}</p>}
       {!review && !error && <p role="status">Opening review…</p>}
-      <div className="pdf-statblock-review__panes">
-        <section aria-label="PDF source" className="pdf-statblock-review__pane" tabIndex={0}>
-      {review && <>
-          {review.regions.map((locator, index) => (
-            <button type="button" key={index} onClick={() => { setError(""); setRegion({ ...locator }); }}>
-              Open source region {index + 1} · Page {locator.page}
-            </button>
-          ))}
-          {image && region && <figure className="pdf-statblock-review__source-preview"
-            aria-label={`Source evidence · Page ${region.page}`}>
-            <figcaption>Source evidence · Page {region.page}</figcaption>
-            <img src={image} alt={`Exact PDF region on page ${region.page}`} />
-          </figure>}
-      </>}
-        </section>
-        <section aria-label="Statblock fields" className="pdf-statblock-review__pane" tabIndex={0}>
+      <BuildSourceWorkspace source={<>
+        {review?.regions.map((locator, index) => (
+          <button type="button" key={index} onClick={() => { setRegion({ ...locator }); setRegionSelection(current => current + 1); }}>
+            Open source region {index + 1} · Page {locator.page}
+          </button>
+        ))}
+        {sourceError ? <p role="alert">{sourceError}</p>
+          : region && source && source.key === sourceKey
+            ? <PdfPages key={regionSelection} file={source.file} restored={region} readOnly />
+            : region && <p role="status">Opening source PDF…</p>}
+      </>}>
       {editor && !mechanicsResolved && <ul aria-label="Fields needed for combat adoption">
         {!editor.workingCopy.movement && <li>Movement is unspecified. Enter a speed if the source supports it.</li>}
         {editor.workingCopy.challenge.proficiency_bonus == null &&
@@ -572,8 +566,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
             recoveryHint="Save the review draft to keep your edits." />
         </fieldset>
       </>}
-        </section>
-      </div>
+      </BuildSourceWorkspace>
     </section>
   );
 }
