@@ -831,7 +831,9 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
 }> {
   // Validate the destination before touching a shared acquisition.
   const target = apiRequestTarget(path, init);
-  if (!isShareableRead(path, init)) {
+  const localCatalogRead = isLoopbackApiDestination(target.url) && path === "/api/live/world-containers"
+    && (init?.method ?? "GET").toUpperCase() === "GET" && init?.body == null;
+  if (!localCatalogRead && !isShareableRead(path, init)) {
     if (["GET", "HEAD"].includes((init?.method ?? "GET").toUpperCase())) return authenticatedApiFetchOnce(path, init);
     startReadWave();
     try {

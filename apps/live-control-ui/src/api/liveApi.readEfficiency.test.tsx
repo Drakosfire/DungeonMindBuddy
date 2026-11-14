@@ -28,6 +28,7 @@ describe("protected read acquisition",()=>{
   unmount();
  });
  it.each([
+  ["World catalog",()=>api.listWorldContainers(),"/api/live/world-containers"],
   ["Plan action history",()=>api.getWorldPlanDocumentEditActions("elderwyld","doc-1"),"/api/live/world-plan-edit/actions?world_id=elderwyld&document_id=doc-1"],
   ["Plan conversation action history",()=>api.getWorldPlanConversationActions("elderwyld","conversation-1"),"/api/live/world-plan-edit/conversation-actions?world_id=elderwyld&conversation_id=conversation-1"],
 ])("coalesces concurrent %s refreshes and fetches fresh data after settlement",async(_label,read,path)=>{
