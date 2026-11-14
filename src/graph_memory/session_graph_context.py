@@ -11,8 +11,8 @@ import re
 from pathlib import Path
 from typing import Any, Mapping
 
-from src.graph_memory import identity_resolution as ir
-from src.graph_memory.party_context import (
+from graph_memory import identity_resolution as ir
+from graph_memory.party_context import (
     CAMPAIGN_CORPUS,
     DEFAULT_CAMPAIGN_REL,
     DEFAULT_CORPUS_ROOT,
