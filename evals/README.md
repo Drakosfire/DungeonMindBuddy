@@ -9,8 +9,17 @@ Start with the suite that owns the question you are testing.
 | Did session-event extraction preserve chronology? | [Session-event extraction suite](session_events_extraction_vertical_slice/README.md) |
 | How does the canon layering baseline score? | [Canon layering runner](canon_layering/run_benchmarks.py) |
 
-Use the locked environment from the [root quickstart](../README.md).
-The canon baseline runs with `uv run python evals/canon_layering/run_benchmarks.py`.
+Run local Buddy evaluations through the Projects storage check. Use a task slug
+you own and reuse it only for runs with compatible dependencies.
+
+```bash
+scripts/run_local_lab.sh canon-baseline uv run python evals/canon_layering/run_benchmarks.py
+```
+
+The launcher verifies the Projects filesystem before allocating scratch, a uv
+cache, and a task-local Python environment. Use `TMPDIR` for explicit generated
+output paths too. The launcher exits if the Projects filesystem is unavailable.
+
 Read the suite's inputs before running it. Some runners use paid providers or
 private campaign sources. Record the source revision, inputs, runner options,
 and result location. Keep generated runs in the task's output location and
