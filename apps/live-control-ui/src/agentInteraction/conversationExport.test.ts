@@ -1,9 +1,9 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 import {collectConversationExport} from './conversationExport';
-import {readConversationName,readExportTurns,verifyExportTurns,type LibraryTurn} from '../api/conversationLibraryApi';
+import {readConversationName,readConversationTurns,readExportTurns,verifyExportTurns,type LibraryTurn} from '../api/conversationLibraryApi';
 import {getWorldAgentTurnContextTrace,getWorldAgentTurnPrompt} from '../api/liveApi';
 import type {BuddyTracePromptReference,BuddyTurnContextTrace} from '../api/buddyContextTraceTypes';
-vi.mock('../api/conversationLibraryApi',()=>({readConversationName:vi.fn(),readExportTurns:vi.fn(),verifyExportTurns:vi.fn()}));
+vi.mock('../api/conversationLibraryApi',()=>({readConversationName:vi.fn(),readConversationTurns:vi.fn(),readExportTurns:vi.fn(),verifyExportTurns:vi.fn()}));
 vi.mock('../api/liveApi',()=>({getWorldAgentTurnContextTrace:vi.fn(),getWorldAgentTurnPrompt:vi.fn()}));
 const id='11111111-1111-4111-8111-111111111111',world='world';
 const uuid=(n:number)=>`22222222-2222-4222-8222-${String(n).padStart(12,'0')}`;
@@ -87,4 +87,18 @@ it('collects diagnostic turns two at a time while preserving transcript order', 
  expect(peak).toBe(2);
  expect(getWorldAgentTurnContextTrace).toHaveBeenCalledTimes(3);
  expect(JSON.parse(result.content).diagnostics.map((row: {turn_id: string}) => row.turn_id)).toEqual([uuid(1),uuid(2),uuid(3)]);
+});
+
+it('uses full pages to verify an export when digest negotiation falls back', async () => {
+ const page = await readExportTurns(world, id);
+ vi.mocked(readExportTurns).mockResolvedValue({...page, page_sha256: null});
+ const {page_sha256, ...legacyPage} = page;
+ expect(page_sha256).toBeTruthy();
+ vi.mocked(readConversationTurns).mockResolvedValue(legacyPage);
+ await expect(collectConversationExport(world,id,'readable',()=>{})).resolves.toBeDefined();
+ expect(verifyExportTurns).not.toHaveBeenCalled();
+ vi.mocked(readConversationTurns).mockResolvedValue({
+  ...legacyPage, turns: [{...turn(1), assistant_text: 'Changed'}],
+ });
+ await expect(collectConversationExport(world,id,'readable',()=>{})).rejects.toThrow('reply changed');
 });

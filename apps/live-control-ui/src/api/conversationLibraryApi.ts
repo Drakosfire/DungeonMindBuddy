@@ -55,7 +55,14 @@ function isPageDigest(value: unknown): value is string {
 }
 
 export async function readExportTurns(world: string, id: string, before?: number, signal?: AbortSignal) {
- const value = await readExportTurnPage(world, id, 'full', before, signal);
+ let value;
+ try {
+  value = await readExportTurnPage(world, id, 'full', before, signal);
+ } catch (error) {
+  if (before !== undefined || !(error instanceof LiveApiError)
+   || error.status !== 422 || error.message !== 'Unexpected or repeated conversation selector') throw error;
+  return {...await readConversationTurns(world, id, before, signal), page_sha256: null};
+ }
  const {page_sha256, ...page} = value;
  if (!isPageDigest(page_sha256)) throw new Error('Transcript page digest is invalid.');
  return {...decodeLibraryTurns(page, world, id, before), page_sha256};

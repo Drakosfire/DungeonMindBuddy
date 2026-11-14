@@ -1,5 +1,5 @@
 import { downloadBlob } from "../shared/downloadBlob";
-import {readConversationName,readExportTurns,verifyExportTurns,type ConversationSummary,type LibraryTurn} from '../api/conversationLibraryApi';
+import {readConversationName,readConversationTurns,readExportTurns,verifyExportTurns,type ConversationSummary,type LibraryTurn} from '../api/conversationLibraryApi';
 import {getWorldAgentTurnContextTrace,getWorldAgentTurnPrompt} from '../api/liveApi';
 import type {BuddyPromptEvidence} from '../api/buddyContextTraceTypes';
 
@@ -43,9 +43,17 @@ export async function collectConversationExport(world:string,id:string,format:Co
    diagnostics.push(...await Promise.all(turns.slice(start, start + concurrency).map(collectDiagnostic)));
   }
  }
- for (const {before, ...expected} of pages) {
+ for (const {before, page_sha256, next_before_sequence, legacyTurns} of pages) {
   signal?.throwIfAborted();checkOwner();
-  await verifyExportTurns(world, id, expected, before, signal);
+  if (page_sha256 === null) {
+   const page = await readConversationTurns(world, id, before, signal);
+   if (page.next_before_sequence !== next_before_sequence
+    || JSON.stringify(page.turns) !== JSON.stringify(legacyTurns)) {
+    throw new Error('A reply changed during export. Retry to collect the latest saved reply.');
+   }
+  } else {
+   await verifyExportTurns(world, id, {page_sha256, next_before_sequence}, before, signal);
+  }
   signal?.throwIfAborted();checkOwner();
  }
  const after=await readConversationName(world,id,signal);signal?.throwIfAborted();checkOwner();
@@ -60,9 +68,11 @@ export async function collectConversationExport(world:string,id:string,format:Co
 }
 async function readAllTurns(world:string,id:string,count:number,checkOwner:()=>void,signal?:AbortSignal){
  const turns:LibraryTurn[]=[],ids=new Set<string>(),sequences=new Set<number>();let before:number|undefined;
- const pages: {before?: number; page_sha256: string; next_before_sequence: number | null}[] = [];
+ const pages: {before?: number; page_sha256: string | null; next_before_sequence: number | null; legacyTurns?: LibraryTurn[]}[] = [];
  do {
-  const page=await readExportTurns(world,id,before,signal);signal?.throwIfAborted();checkOwner();
+  const page = pages[0]?.page_sha256 === null
+   ? {...await readConversationTurns(world, id, before, signal), page_sha256: null}
+   : await readExportTurns(world, id, before, signal);signal?.throwIfAborted();checkOwner();
   if(page.world_id!==world||page.conversation_id!==id)throw new Error('Transcript differs from the selected conversation.');
   for(const turn of page.turns){
    if(ids.has(turn.turn_id)||sequences.has(turn.sequence)||turn.sequence<1||(before!==undefined&&turn.sequence>=before))throw new Error('Transcript pagination repeated or skipped its ordering boundary.');
@@ -71,7 +81,7 @@ async function readAllTurns(world:string,id:string,count:number,checkOwner:()=>v
   }
   const next=page.next_before_sequence;
   if(next!==null&&(!page.turns.length||next!==Math.min(...page.turns.map(t=>t.sequence))||(before!==undefined&&next>=before)))throw new Error('Transcript pagination did not advance.');
-  pages.push({before, page_sha256: page.page_sha256, next_before_sequence: next});
+  pages.push({before, page_sha256: page.page_sha256, next_before_sequence: next, legacyTurns: page.page_sha256 === null ? page.turns : undefined});
   before=next??undefined;
  }while(before!==undefined);
  turns.sort((a,b)=>a.sequence-b.sequence);
