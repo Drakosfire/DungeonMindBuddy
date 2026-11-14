@@ -1599,6 +1599,18 @@ def test_worldbuilding_publishes_explicit_observation_with_exact_support(persist
         kind="source_observation", record_id="observation:one", action="create",
         metadata={**META, "evidence_ref_ids": [x.evidence_id]},
     ))
+    metadata = x.body["selections"][-1]["metadata"]
+    metadata["domain_metadata"] = [{
+        "schema_term": service.WORLD_CONTEXT,
+        "payload": {service.OBSERVATION_PUBLICATION: "forged"},
+    }]
+    parent = x.repo.get_head(SPACE_ID)
+    refused = x.post()
+    assert refused.status_code == 409, refused.text
+    assert "candidate_description_provenance_reserved" in refused.text
+    assert x.repo.get_head(SPACE_ID) == parent
+    del metadata["domain_metadata"]
+
     packet = confirmation(x)
     result = confirm(x, packet)
     assert result.status_code == 200, result.text
