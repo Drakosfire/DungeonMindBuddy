@@ -195,6 +195,10 @@ class PlanJevDriver:
         from application_state.errors import ApplicationStateValidationError
         operations = set()
         if selected.operation == "discover_more":
+            from application_state.agent_conversation.jev_retrieval_contract import NativePlanPassageDecisionInputV4
+            if isinstance(dispatch.parent, NativePlanPassageDecisionInputV4) and (dispatch.parent.ranked_passages or dispatch.parent.graph_facts):
+                # The coverage decision unlocks source navigation; Graph discovery is already complete.
+                return
             if self.discovered: raise ValueError("Plan discovery cannot repeat the same query")
             self.discovered = True
             from .plan_jev_acquisition import query_identity
@@ -295,7 +299,20 @@ class PlanJevDriver:
                     self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))
             from application_state.agent_conversation.native_batch_completion import selected_read_closure
             turn = self.adapter.fence.turn
-            if selected_read_closure(turn.graph_context_receipt, turn.graph_context_execution,
+            # Review source text before deciding whether the evidence is sufficient.
+            source_review_required = any(
+                handle.startswith(('native-body:', 'native-full-document:', 'native-direct-source:'))
+                for handle in admitted.selected_handles
+            )
+            from application_state.agent_conversation.native_corpus import initial_source_discovery_enabled
+            from application_state.agent_conversation.native_plan_assertions import next_graph_review
+
+            graph_review_required = (
+                initial_source_discovery_enabled(turn.graph_context_execution)
+                and bool(next_graph_review(turn.graph_context_receipt.native_query, turn.graph_context_execution))
+            )
+            if not (source_review_required or graph_review_required) and selected_read_closure(
+                    turn.graph_context_receipt, turn.graph_context_execution,
                     admitted.event_id) is not None:
                 from uuid import uuid4
                 self.adapter.turn, fresh = self.adapter.fence.commit('conclude_native_read_batch',
@@ -553,10 +570,23 @@ class PlanJevDriver:
                     kind=f'Previously selected native statement: {status}; not an answer-sufficiency verdict'))
         return tuple(result)
 
-    def decision_arguments(self):
+    def decision_arguments(self, *, opening=False):
         """One actual catalog producer for opening and subsequent decisions."""
         operations = (('select_candidates', 'finish_retrieval') if self.discovered else
             ('select_candidates', 'discover_more', 'finish_retrieval'))
+        if not opening:
+            fence = getattr(self.adapter, "fence", None)
+            execution = fence.turn.graph_context_execution if fence is not None else None
+            if execution is not None:
+                from application_state.agent_conversation.native_corpus import (
+                    initial_source_discovery_enabled, next_ranked_review,
+                )
+                from application_state.agent_conversation.native_plan_assertions import next_graph_review
+                if (initial_source_discovery_enabled(execution)
+                        and (next_ranked_review(execution) or next_graph_review(
+                            fence.turn.graph_context_receipt.native_query, execution))):
+                    return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
+                                allowed_operations=('discover_more', 'finish_retrieval'))
         examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
         if self.rules is not None and self.rules.selected:
             examined.append(rules_candidate())
@@ -568,7 +598,19 @@ class PlanJevDriver:
         else:
             examined.extend(self._native_statement_examined())
             examined.extend(self._native_assertion_examined())
-        return dict(candidates=self.offered(), dialogue=self.dialogue,
+        candidates = self.offered()
+        ranked = tuple(candidate.handle for candidate in candidates
+                       if candidate.handle.startswith('native-body:'))
+        if ranked or not opening:
+            documents = tuple(candidate.handle for candidate in candidates
+                              if candidate.handle.startswith(('native-direct-source:', 'native-full-document:')))
+            offered_sources = set(ranked[:8])
+            if not opening:
+                offered_sources.update(documents[:1])
+            candidates = tuple(candidate for candidate in candidates
+                if not candidate.handle.startswith(('native-body:', 'native-direct-source:', 'native-full-document:'))
+                or candidate.handle in offered_sources)
+        return dict(candidates=candidates, dialogue=self.dialogue,
             examined_candidates=examined, allowed_operations=operations)
 
     async def run(self, *, transport=None, api_key=None):

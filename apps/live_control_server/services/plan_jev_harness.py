@@ -58,7 +58,7 @@ class PlanJevHarness:
                 acquire(adapter)
                 driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
                 driver.native_sources.discover_initial()
-                semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title, **driver.decision_arguments())
+                semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title, **driver.decision_arguments(opening=True))
             selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
             if selected == 'different_destination':
                 raise AgentTurnServiceError('This request needs another page or object. The request is retained; choose that destination before generating.',
