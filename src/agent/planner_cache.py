@@ -14,7 +14,7 @@ from src.agent.planner import (
     _is_managed_dungeonbuddy_storage,
     build_corpus_manifest,
 )
-from src.prompts.corpus_session_planner import INSTRUCTIONS_TEMPLATE_ID
+from prompts.corpus_session_planner import INSTRUCTIONS_TEMPLATE_ID
 
 
 def corpus_fingerprint(corpus_dir: Path) -> str:
