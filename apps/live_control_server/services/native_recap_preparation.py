@@ -532,6 +532,16 @@ def _resolve_source(request, root, bound, data):
     return source, admitted
 
 
+def _reviewable_preview(data):
+    run, artifact = data.run, data.source_artifact
+    classification = classify_candidate_document_integrity(json.loads(data.candidate_bytes))
+    _require(not classification.is_document_integrity_failure, "candidate_document_invalid")
+    preview = classification.preview
+    _require(preview.campaign_id == run.campaign_id and preview.session_id == run.session_id
+             and tuple(preview.source_artifact_ids) == (artifact.source_artifact_id,), "candidate_document_scope_mismatch")
+    return preview
+
+
 def worldbuilding_review_context(request, principal):
     """Resolve the current preparation coordinates for an exact saved source."""
     require_native_graph_gm(principal)
@@ -561,12 +571,21 @@ def worldbuilding_review_context(request, principal):
         selections=[],
     )
     _resolve_source(coordinates, root, bound, data)
+    preview = _reviewable_preview(data)
     _require(native.binding(request.managed_world_id) == bound, "candidate_binding_changed")
     return {
         "schema": "dmb_native_worldbuilding_review_context_v1",
         "binding": bound,
         "source_artifact_id": artifact.source_artifact_id,
         "source_sha256": artifact.content_sha256,
+        "records": [
+            {"kind": "node", "record_id": row.node_id, "label": row.label,
+             "fields": _fields("node", row)}
+            for row in preview.nodes
+        ] + [
+            {"kind": "edge", "record_id": row.edge_id, "fields": {}}
+            for row in preview.edges
+        ],
         "prepare_coordinates": coordinates.model_dump(exclude={"selections"}),
     }
 
@@ -582,11 +601,7 @@ def prepare(request, principal):
     candidate_sha256 = hashlib.sha256(data.candidate_bytes).hexdigest()
     _require(candidate_sha256 == request.candidate_sha256, "candidate_bytes_changed")
     source, admitted = _resolve_source(request, root, bound, data)
-    classification = classify_candidate_document_integrity(json.loads(data.candidate_bytes))
-    _require(not classification.is_document_integrity_failure, "candidate_document_invalid")
-    preview = classification.preview
-    _require(preview.campaign_id == run.campaign_id and preview.session_id == run.session_id
-             and tuple(preview.source_artifact_ids) == (artifact.source_artifact_id,), "candidate_document_scope_mismatch")
+    preview = _reviewable_preview(data)
     repo = native.repository()
     context, access = native.access_context(repo, space)
     _require(context["revision_id"] == request.expected_parent_revision_id, "candidate_parent_stale")

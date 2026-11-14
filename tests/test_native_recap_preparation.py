@@ -1528,6 +1528,14 @@ def test_worldbuilding_context_binds_saved_source_and_native_prepare(world_lane)
     assert result["prepare_coordinates"] == {
         key: value for key, value in x.body.items() if key != "selections"
     }
+    records = {(row["kind"], row["record_id"]): row for row in result["records"]}
+    for selection in x.body["selections"]:
+        record = records[selection["kind"], selection["record_id"]]
+        for fact in selection.get("facts", ()):
+            field = fact["field"]
+            if fact.get("index") is not None:
+                field = f'{field}:{fact["index"]}'
+            assert field in record["fields"]
     wrong = x.client.post(path, json={**request, "source_sha256": "0" * 64}, headers=headers)
     assert wrong.status_code == 409, wrong.text
     assert x.repo.head_events(SPACE_ID) == before
