@@ -101,13 +101,13 @@ function BuddyGraphPage({
   return (
     <AppChrome activeRoute="graph" localOnlyNavigation={localOnlyNavigation} workspaceLayout="bounded">
       {explorer}
-      <details className="buddy-index-legacy" onToggle={(event) => setLegacyWorldsOpen(event.currentTarget.open)}>
+      {auth.status === "local_operator" && !managedWorldId && <details className="buddy-index-legacy" onToggle={(event) => setLegacyWorldsOpen(event.currentTarget.open)}>
         <summary>Existing browser-only Worlds and notes</summary>
         <p>These older Worlds stay in this browser and remain separate from the private DungeonMind graph above. Opening them does not migrate or publish them.</p>
         {legacyWorldsOpen
           ? <LocalWorldSurface />
           : null}
-      </details>
+      </details>}
     </AppChrome>
   );
 }
