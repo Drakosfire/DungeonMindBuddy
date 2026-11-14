@@ -25,6 +25,7 @@ from apps.live_control_server.services.native_graph_inspection import (
     InspectionUnavailable,
     NativeCompleteObjectRead,
     open_neighborhood_anchor,
+    shared_exact_object,
     shared_neighborhood,
 )
 from apps.live_control_server.models.world_graph_object_projection import (
@@ -151,9 +152,15 @@ def post_world_graph_retrieval_object(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        response = get_campaign_object(request)
+        native_world = os.environ.get("DMB_NATIVE_EXACT_OBJECT_WORLD", "").strip()
+        if native_world and request.world_id == native_world:
+            response = shared_exact_object(request, enforce_native_graph_gm(request_context))
+        else:
+            response = get_campaign_object(request)
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
+    except HTTPException:
+        raise
     except Exception:
         return _error_response(
             WorldGraphRetrievalServiceError(
@@ -251,7 +258,9 @@ def post_world_graph_retrieval_source_anchor_read(
     try:
         _reject_query_params(request_context)
         native_world = os.environ.get("DMB_NATIVE_NEIGHBORHOOD_WORLD", "").strip()
-        if native_world and request.world_id == native_world and request.anchor_id.startswith("native-neighborhood:"):
+        exact_world = os.environ.get("DMB_NATIVE_EXACT_OBJECT_WORLD", "").strip()
+        native_worlds = {world for world in (native_world, exact_world) if world}
+        if request.world_id in native_worlds and request.anchor_id.startswith("native-neighborhood:"):
             try:
                 response = open_neighborhood_anchor(request, enforce_native_graph_gm(request_context))
             except InspectionUnavailable:
