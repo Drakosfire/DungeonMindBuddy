@@ -42,6 +42,8 @@ export interface GraphProjection {
 export interface GraphProjectionOptions {
   /** Overview ignores budgets; an explicit focus still uses bounded exploration. */
   readonly fullCorpus?: boolean;
+  /** Explicit compact overview. Focus continues to use its own neighborhood budget. */
+  readonly compactOverview?: boolean;
   /** Hide zero-degree objects except explicit focus/reveal IDs. */
   readonly showUnconnected?: boolean;
   readonly revealObjectIds?: readonly LocalWorldObject["id"][];
@@ -323,7 +325,8 @@ export function projectLocalWorldGraph(
   const index = suppliedIndex?.snapshot === record.snapshot ? suppliedIndex : indexLocalWorldGraph(record.snapshot);
   const objects = record.snapshot.objects;
   const focused = Boolean(options.focusObjectId && index.objects.has(options.focusObjectId));
-  const fullOverview = options.fullCorpus && !focused;
+  const compactOverview = options.compactOverview && !focused;
+  const fullOverview = options.fullCorpus && !focused && !compactOverview;
   const retainedPositions = options.fullCorpus ? options.fallbackPositions : undefined;
   let generatedPositions: GraphFallbackPositions | undefined;
   const focusId = options.focusObjectId;
@@ -356,12 +359,40 @@ export function projectLocalWorldGraph(
   } else {
     const eligibleObjects = options.showUnconnected === false ? objects.filter(isEligible) : objects;
     eligibleCount = eligibleObjects.length;
-    visibleObjects = fullOverview ? eligibleObjects : eligibleObjects.slice(0, maxNodes);
+    if (compactOverview && eligibleObjects.length > 64) {
+      type Id = LocalWorldObject["id"];
+      const compare = (a: Id, b: Id) =>
+        (index.relationshipCounts.get(b) ?? 0) - (index.relationshipCounts.get(a) ?? 0) || a.localeCompare(b);
+      const ranked = eligibleObjects.map(({ id }) => id).sort(compare);
+      const eligibleIds = new Set(ranked);
+      const picked = new Set<Id>();
+      const limit = Math.min(64, maxNodes);
+      for (const id of [...revealedIds, ...ranked]) {
+        if (picked.size >= limit) break;
+        if (!eligibleIds.has(id) || picked.has(id)) continue;
+        picked.add(id);
+        const neighbors = [...new Set(index.neighbors.get(id) ?? [])].filter(other => eligibleIds.has(other));
+        for (const neighbor of neighbors.sort(compare).slice(0, 9)) {
+          if (picked.size >= limit) break;
+          picked.add(neighbor);
+        }
+      }
+      visibleObjects = [...picked].map(id => index.objects.get(id)!);
+    } else {
+      visibleObjects = fullOverview ? eligibleObjects : eligibleObjects.slice(0, maxNodes);
+    }
   }
   const visibleIds = new Set(visibleObjects.map((object) => object.id));
+  const compactPositions = compactOverview ? createGraphFallbackPositions({
+    ...index,
+    objects: new Map(visibleObjects.map(object => [object.id, object])),
+    neighbors: new Map(visibleObjects.map(({ id }) => [
+      id, (index.neighbors.get(id) ?? []).filter(other => visibleIds.has(other)),
+    ])),
+  }, { savedPositions: record.layout.positions }) : undefined;
   const nodes = visibleObjects.map((object, position) => {
     const saved = record.layout.positions[object.id];
-    let fallback = retainedPositions?.get(object.id);
+    let fallback = (compactPositions ?? retainedPositions)?.get(object.id);
     if (options.fullCorpus && (!fallback || !Number.isFinite(fallback.x) || !Number.isFinite(fallback.y))) {
       generatedPositions ??= createGraphFallbackPositions(index, { savedPositions: record.layout.positions });
       fallback = generatedPositions.get(object.id);
