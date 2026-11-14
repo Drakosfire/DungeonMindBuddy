@@ -18,6 +18,8 @@ from apps.live_control_server.services.graph_run_registry import (
     validate_recap_source_run_world_binding,
 )
 from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+    DirectWorldGraphReadError,
+    direct_services_from_config,
     extract_span_from_revision_bound_text,
 )
 from apps.live_control_server.services.managed_world_graph_projection import (
@@ -341,9 +343,35 @@ def build_historical_recap_world_projection(
                 status_code=409,
             )
 
+    revision_pin = None
+    if isinstance(frozen_context, dict):
+        revision_pin = frozen_context.get("head_revision_id")
+        if not revision_pin:
+            raise _error(
+                "exact ExtractionRun has no retained graph revision",
+                code="historical_graph_revision_unavailable",
+                status_code=409,
+            )
+        try:
+            graph = direct_services_from_config(native_world_id).bundle.world_graph
+            retained = graph.get_revision(native_world_id, revision_pin)
+        except DirectWorldGraphReadError as exc:
+            raise _error(str(exc), code=exc.code, status_code=exc.status_code) from exc
+        if (
+            retained is None
+            or retained.revision.graph_schema != frozen_context["graph_schema"]
+            or retained.revision.graph_payload_sha256 != frozen_context["graph_payload_sha256"]
+        ):
+            raise _error(
+                "retained graph revision does not match the exact ExtractionRun context",
+                code="historical_graph_revision_mismatch",
+                status_code=409,
+            )
+
     request = WorldGraphProjectionRequest(
         schema="dmb_world_graph_projection_request_v1",
         world_id=native_world_id,
+        revision_pin=revision_pin,
         campaign_id=run.campaign_id,
         focus={
             "kind": "session",
@@ -365,6 +393,13 @@ def build_historical_recap_world_projection(
             status_code=exc.status_code,
             diagnostics=exc.diagnostics,
         ) from exc
+
+    if revision_pin is not None and world.snapshot.revision_id != revision_pin:
+        raise _error(
+            "World Graph projection returned a different revision",
+            code="projection_revision_mismatch",
+            status_code=502,
+        )
 
     if managed_world_id is not None and world.snapshot.world_id != native_world_id:
         raise _error(
