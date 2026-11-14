@@ -1081,3 +1081,18 @@ def test_shared_search_preserves_admitted_seed_under_node_bound(inspection, monk
     assert result["relationships"] == []
     anchor, = result["sourceAnchors"]
     assert anchor["evidenceRefId"] == inspection.lane.support_ids["first"]
+
+    foreign_scope = inspection.client.post(
+        "/api/live/world-graph/retrieval/search",
+        json={
+            "schema": "dmb_world_graph_search_request_v1",
+            "worldId": "managed",
+            "campaignId": "campaign:foreign",
+            "queryText": "Object 1",
+            "seedNodeIds": [inspection.objects["object:1"]],
+        },
+    )
+    assert foreign_scope.status_code == 200, foreign_scope.text
+    result = foreign_scope.json()
+    assert result["matchedNodeIds"] == result["nodes"] == result["sourceAnchors"] == []
+    assert result["coverage"]["missingSeedNodeIds"] == [inspection.objects["object:1"]]

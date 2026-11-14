@@ -725,7 +725,7 @@ def shared_search(request, principal):
     search = SearchReadService().search_entities(read, request.query_text, limit=20)
     seeds = list(dict.fromkeys(request.seed_node_ids))
     reader = EntityReadService()
-    present = sorted(seed for seed in seeds if reader.get_entity(read, seed).found)
+    present = sorted(seed for seed in seeds if reader.get_complete_entity(read, seed).assertions)
     missing = sorted(set(seeds) - set(present))
     reasons = {hit.entity.entity_id: list(hit.match_kinds) for hit in search.hits}
     for seed in present:
