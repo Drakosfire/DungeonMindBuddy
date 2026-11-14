@@ -49,3 +49,28 @@
   align-items: center;
   gap: .375rem;
 }
+
+.pdf-statblock-review .statblock-renderer--campaign .statblock-campaign-grid {
+  display: block;
+  columns: 2 19rem;
+  column-gap: 1rem;
+}
+
+.pdf-statblock-review .statblock-renderer--campaign .statblock-campaign-col {
+  display: contents;
+}
+
+.pdf-statblock-review .statblock-campaign-col > * {
+  margin-block-end: .75rem;
+}
+
+.pdf-statblock-review .statblock-campaign-vitals,
+.pdf-statblock-review .statblock-campaign-ability-table,
+.pdf-statblock-review .statblock-campaign-quickfacts,
+.pdf-statblock-review .statblock-campaign-rule {
+  break-inside: avoid;
+}
+
+.pdf-statblock-review .statblock-campaign-card__heading {
+  break-after: avoid;
+}
