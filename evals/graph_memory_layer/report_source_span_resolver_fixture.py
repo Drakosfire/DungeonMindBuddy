@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 
 from evals.graph_memory_layer.validate_source_span_resolver_fixture import build_registries, load_fixture
-from src.graph_memory.source_span import analyze_evidence_resolution, resolve_many_source_span_refs
+from graph_memory.source_span import analyze_evidence_resolution, resolve_many_source_span_refs
 
 
 def _cell(value: object) -> str:

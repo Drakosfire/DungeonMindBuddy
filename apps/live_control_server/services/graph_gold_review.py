@@ -55,7 +55,7 @@ from graph_memory.projection.recap_projection_contracts import (
     RecapProjectionMention,
     RecapProjectionSourceSpan,
 )
-from src.graph_memory.source_span import ResolvedEvidence, resolve_many_source_span_refs
+from graph_memory.source_span import ResolvedEvidence, resolve_many_source_span_refs
 
 COMPARISON_SCHEMA = "dmb_graph_gold_review_compare_v1"
 COMPARISON_VERSION = "0.1"

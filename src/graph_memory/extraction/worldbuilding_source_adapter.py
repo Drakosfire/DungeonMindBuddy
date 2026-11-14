@@ -10,7 +10,7 @@ from src.graph_memory.extraction.recap_source_adapter import (
     split_paragraph_spans,
 )
 from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
-from src.graph_memory.source_span import build_stable_source_span_id
+from graph_memory.source_span import build_stable_source_span_id
 
 
 def build_worldbuilding_source_span_index(

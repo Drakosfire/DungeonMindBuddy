@@ -17,7 +17,7 @@ from evals.graph_memory_layer.session_23_recap_ingest_fixture import (
     load_raw_recap, load_source_span_seed_refs, validate_manifest, load_manifest,
 )
 from src.graph_memory.candidate_graph_preview import CandidateGraphPreview, candidate_graph_preview_from_dict, validate_candidate_graph_preview
-from src.graph_memory.source_span import ResolvedEvidence, SourceSpanRef, resolve_many_source_span_refs
+from graph_memory.source_span import ResolvedEvidence, SourceSpanRef, resolve_many_source_span_refs
 
 HARNESS_SCHEMA = "dmb_eval_only_extractor_harness_manifest_v0"
 HARNESS_VERSION = "0.1"

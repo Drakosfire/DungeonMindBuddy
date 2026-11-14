@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from src.agent.recap_ingest_helpers import IngestReport, assemble_recap, numbered_lines_for_recap, split_paragraphs_robust
-from src.graph_memory.source_span import SourceArtifactStructured, SourceArtifactText, SourceSpanRef, ResolvedEvidence, resolve_many_source_span_refs, source_span_ref_from_dict
+from graph_memory.source_span import SourceArtifactStructured, SourceArtifactText, SourceSpanRef, ResolvedEvidence, resolve_many_source_span_refs, source_span_ref_from_dict
 
 FIXTURE_ID = "graph-memory:session-23-recap-ingest:v0"
 MANIFEST_SCHEMA = "dmb_session_23_recap_ingest_fixture_manifest_v0"

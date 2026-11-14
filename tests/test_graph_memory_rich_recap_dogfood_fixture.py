@@ -18,7 +18,7 @@ from evals.graph_memory_layer.rich_recap_dogfood import (
 from src.graph_memory.recap_ingestion_materialize import materialize_recap_ingestion_source_artifacts
 from src.graph_memory.recap_ingestion_materializer_report import KNOWN_ARTIFACT_FAMILIES, analyze_recap_ingestion_materializer_output
 from src.graph_memory.recap_ingestion_projection_readiness import assess_recap_ingestion_projection_readiness
-from src.graph_memory.source_span import DEFAULT_CONTEXT_MAX_CHARS, DEFAULT_SNIPPET_MAX_CHARS, resolve_many_source_span_refs
+from graph_memory.source_span import DEFAULT_CONTEXT_MAX_CHARS, DEFAULT_SNIPPET_MAX_CHARS, resolve_many_source_span_refs
 
 
 def test_rich_recap_cli_commands_exit_zero() -> None:

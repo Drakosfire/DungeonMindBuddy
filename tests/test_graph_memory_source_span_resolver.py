@@ -5,7 +5,7 @@ import subprocess
 import sys
 
 from evals.graph_memory_layer.validate_source_span_resolver_fixture import FIXTURE_PATH, build_registries, load_fixture
-from src.graph_memory.source_span import (
+from graph_memory.source_span import (
     DEFAULT_CONTEXT_MAX_CHARS,
     DEFAULT_SNIPPET_MAX_CHARS,
     EvidenceResolutionIssue,
