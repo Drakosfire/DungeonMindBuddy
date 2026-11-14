@@ -721,6 +721,7 @@ describe("canonical local guest entry", () => {
     const user = userEvent.setup();
     render(<App />);
     await revealIsolatedObject(user, "Aster");
+    expect(screen.queryByText("Existing browser-only Worlds and notes")).not.toBeInTheDocument();
     await user.click(await graphMenuAction("Add object"));
     expect(screen.getByLabelText("Name")).toHaveValue("Pre-existing local draft");
   });
