@@ -721,6 +721,74 @@ def shared_evidence(request, principal):
     )
 
 
+def _reviewed_search_matches(hits, result, read, space, repository):
+    from hashlib import sha256
+
+    from graph_memory.retrieval.models import WorldGraphNativeReviewedSourceObservationMatch
+    from dungeonmind.application.vnext.prospective import get_prospective_publication
+    from graph_memory.vnext.domain_runtime import (
+        CAMPAIGN_SCOPE_AXIS, DUNGEONBUDDY_OBSERVATION_PREDICATE, PLAYER_LABEL,
+    )
+
+    nodes = {node.node_id: node for node in result.nodes}
+    publications = {}
+    matches = []
+    for hit in hits:
+        node = nodes.get(hit.entity.entity_id)
+        if node is None:
+            continue
+        for assertion in hit.admitted_match_assertions:
+            if assertion.predicate != DUNGEONBUDDY_OBSERVATION_PREDICATE:
+                continue
+            row = native.assertion_contract(assertion).model_dump(mode="json")
+            text = row["value"].get("value")
+            metadata = row["metadata"]
+            ids = [item["payload"].get("reviewed_observation_publication_id")
+                   for item in metadata["domain_metadata"]
+                   if item["schema"] == "dungeonbuddy.domain_metadata:world_context_v1"
+                   and isinstance(item["payload"], dict)]
+            if not isinstance(text, str) or len(ids) != 1 or not isinstance(ids[0], str):
+                continue
+            publication_id = ids[0]
+            if publication_id not in publications:
+                publications[publication_id] = get_prospective_publication(
+                    space, publication_id, repository=repository,
+                )
+            publication = publications[publication_id]
+            if publication is None or not any(
+                binding.result_kind == "assertion" and binding.durable_id == assertion.assertion_id
+                for binding in publication.prospective_result.results
+            ):
+                continue
+            anchor = next((anchor for anchor in result.source_anchors
+                           if anchor.readable and assertion.assertion_id in anchor.supporting_assertion_ids), None)
+            if anchor is None:
+                continue
+            evidence = read.parsed.evidence_by_id.get(anchor.evidence_ref_id)
+            if evidence is None:
+                continue
+            excerpt = text[:768]
+            matches.append(WorldGraphNativeReviewedSourceObservationMatch(
+                assertion_id=assertion.assertion_id,
+                subject_node_id=node.node_id,
+                observation_kind="worldbuilding_observation",
+                text_excerpt=excerpt, excerpt_start=0, excerpt_end=len(excerpt),
+                text_length=len(text), text_sha256=sha256(text.encode("utf-8")).hexdigest(),
+                entity_kind=node.kind,
+                publication_id=publication_id,
+                publication_revision_id=publication.publication_receipt.published_revision_id,
+                source_artifact_id=evidence.source_artifact_id,
+                source_revision_id=evidence.source_revision_id,
+                evidence_ref_ids=[anchor.evidence_ref_id],
+                campaign_scope=next((binding["value"] for binding in metadata["scope"]
+                                     if binding["axis"] == CAMPAIGN_SCOPE_AXIS), None),
+                visibility="player" if PLAYER_LABEL in metadata["visibility"].get("labels", ()) else "gm",
+                epistemic_kind=metadata["epistemic_basis"],
+                temporal_scope=metadata["temporal_scope"],
+            ))
+    return matches
+
+
 def shared_search(request, principal):
     from dungeonmind.application.vnext import SearchReadService
 
@@ -758,9 +826,16 @@ def shared_search(request, principal):
     truncated = list(result.coverage.truncated_fields)
     if len(others) > remaining or search.completeness.status != "complete":
         truncated = list(dict.fromkeys([*truncated, "nodes"]))
+    observations = _reviewed_search_matches(
+        search.hits, result, read, pin.native_world_id, native.read_repository()
+    )
+    for match in observations:
+        if "reviewed_source_observation" not in reasons[match.subject_node_id]:
+            reasons[match.subject_node_id].append("reviewed_source_observation")
     return result.model_copy(update={
         "outcome": "partial" if missing or truncated else "enough" if selected else "empty",
         "matched_node_ids": selected,
+        "reviewed_source_observation_matches": observations,
         "match_reasons": {entity_id: reasons[entity_id] for entity_id in selected},
         "coverage": result.coverage.model_copy(update={
             "requested_seed_node_ids": seeds,

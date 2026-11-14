@@ -1632,3 +1632,29 @@ def test_worldbuilding_publishes_explicit_observation_with_exact_support(persist
         binding.result_kind == "assertion" and binding.durable_id == observation["assertion_id"]
         for binding in publication.prospective_result.results
     )
+
+    from apps.live_control_server.routes.world_graph_retrieval import router
+
+    x.monkeypatch.setattr(service.native, "read_repository", lambda: x.repo)
+    x.monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", x.world.world_id)
+    x.client.app.include_router(router)
+    base = "/api/live/world-graph/retrieval"
+    headers = {"Authorization": "Bearer " + TOKEN}
+    scope = {"worldId": x.world.world_id, "campaignId": x.world.world_id}
+    searched = x.client.post(base + "/search", headers=headers, json={
+        **scope, "schema": "dmb_world_graph_search_request_v1", "queryText": "traveller",
+    })
+    assert searched.status_code == 200, searched.text
+    payload = searched.json()
+    match, = payload["reviewedSourceObservationMatches"]
+    assert match["publicationId"] == publication_id
+    assert match["assertionId"] == observation["assertion_id"]
+    assert match["publicationRevisionId"] == child.revision.revision_id
+    anchor = next(row for row in payload["sourceAnchors"]
+                  if observation["assertion_id"] in row["supportingAssertionIds"])
+    opened = x.client.post(base + "/source-anchor/read", headers=headers, json={
+        **scope, "schema": "dmb_world_graph_source_anchor_read_request_v1",
+        "revisionPin": anchor["revisionId"], "anchorId": anchor["anchorId"],
+    })
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["content"] == x.text.splitlines(keepends=True)[0]
