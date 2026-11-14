@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -21,7 +21,12 @@ from apps.live_control_server.services.agent_graph_auth import (
 from apps.live_control_server.routes.native_graph_inspection import (
     complete_object as native_complete_object,
 )
-from apps.live_control_server.services.native_graph_inspection import NativeCompleteObjectRead
+from apps.live_control_server.services.native_graph_inspection import (
+    InspectionUnavailable,
+    NativeCompleteObjectRead,
+    open_neighborhood_anchor,
+    shared_neighborhood,
+)
 from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectProjectionRequest,
     WorldGraphObjectProjectionResult,
@@ -197,7 +202,11 @@ def post_world_graph_retrieval_neighborhood(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        response = get_object_neighborhood(request)
+        native_world = os.environ.get("DMB_NATIVE_NEIGHBORHOOD_WORLD", "").strip()
+        if native_world and request.world_id == native_world:
+            response = shared_neighborhood(request, enforce_native_graph_gm(request_context))
+        else:
+            response = get_object_neighborhood(request)
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
     except Exception:
@@ -239,9 +248,18 @@ def post_world_graph_retrieval_source_anchor_read(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        response = read_source_anchor(request)
+        native_world = os.environ.get("DMB_NATIVE_NEIGHBORHOOD_WORLD", "").strip()
+        if native_world and request.world_id == native_world and request.anchor_id.startswith("native-neighborhood:"):
+            try:
+                response = open_neighborhood_anchor(request, enforce_native_graph_gm(request_context))
+            except InspectionUnavailable:
+                response = WorldGraphSourceAnchorReadResult(outcome="empty", anchor_id=request.anchor_id)
+        else:
+            response = read_source_anchor(request)
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
+    except HTTPException:
+        raise
     except Exception:
         return _error_response(
             WorldGraphRetrievalServiceError(

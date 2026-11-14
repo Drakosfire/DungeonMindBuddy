@@ -91,5 +91,56 @@ def map_relationships(context, result: NeighborhoodResult, bounded: BoundedNeigh
         edges.append(WorldGraphRetrievalRelationship(
             **edge.model_dump(include=set(WorldGraphRetrievalRelationship.model_fields)),
             direction_from_node_id=edge.source_node_id,
+            source_domains=sorted({sources[key].source_domain for key in edge.source_artifact_ids}),
         ))
     return edges
+
+
+def map_nodes(context, bounded: BoundedNeighborhood):
+    """Resolve display claims only for entities retained in the response."""
+    from dungeonmind.application.vnext import EntityReadService
+    from graph_memory.retrieval.models import WorldGraphRetrievalNode
+
+    from .vnext_complete_object import world_object_display_values
+
+    reader = EntityReadService()
+    nodes = []
+    for entity_id in bounded.node_ids:
+        result = reader.get_entity(context, entity_id)
+        label, kind, summary = world_object_display_values(result.assertions, entity_id)
+        nodes.append(WorldGraphRetrievalNode(
+            node_id=entity_id, label=label, kind=kind, role=kind, summary=summary,
+            evidence_ref_ids=[item.evidence_ref_id for item in result.evidence],
+            source_artifact_ids=sorted({item.source_artifact_id for item in result.evidence}),
+        ))
+    return nodes
+
+
+def native_anchor_id(assertion_id: str, evidence_ref_id: str) -> str:
+    """Encode a source selector. Opening it still requires admission at the request pin."""
+    from base64 import urlsafe_b64encode
+    from json import dumps
+
+    payload = dumps([assertion_id, evidence_ref_id], separators=(",", ":")).encode()
+    return "native-neighborhood:" + urlsafe_b64encode(payload).decode("ascii")
+
+
+def native_anchor_selection(anchor_id: str) -> tuple[str, str]:
+    from base64 import b64decode
+    from json import loads
+
+    prefix, _, encoded = anchor_id.partition(":")
+    if prefix != "native-neighborhood" or not 0 < len(encoded) <= 4096:
+        raise ValueError("invalid native neighborhood anchor")
+    try:
+        fields = loads(b64decode(encoded, altchars=b"-_", validate=True))
+    except (ValueError, UnicodeError) as exc:
+        raise ValueError("invalid native neighborhood anchor") from exc
+    if (
+        not isinstance(fields, list)
+        or len(fields) != 2
+        or any(not isinstance(value, str) or not value.strip() for value in fields)
+        or native_anchor_id(*fields) != anchor_id
+    ):
+        raise ValueError("invalid native neighborhood anchor")
+    return fields[0], fields[1]
