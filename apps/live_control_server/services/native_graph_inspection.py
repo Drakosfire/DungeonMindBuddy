@@ -690,10 +690,11 @@ def plan_subject_search(request, principal):
     from dungeonmind.application.vnext import SearchReadService
     from graph_memory.retrieval.models import (
         WorldGraphRetrievalCoverage,
+        WorldGraphRetrievalNode,
         WorldGraphRetrievalResult,
         WorldGraphRetrievalSnapshot,
     )
-    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import map_entity_result
+    from .native_graph_reads import _navigation_labels
 
     if request.revision_pin is None or request.seed_node_ids:
         raise ValueError("Plan subject search requires a pinned query without seeds")
@@ -703,13 +704,13 @@ def plan_subject_search(request, principal):
     reader = EntityReadService()
     hits = [hit for hit in search.hits if hit.admitted_match_assertions]
     limit = request.bounds.max_nodes
-    nodes = []
-    reasons = {}
-    for hit in hits[:limit]:
-        entity_id = hit.entity.entity_id
-        row = map_entity_result(reader.get_entity(read, entity_id), entity_id)
-        nodes.append(row.model_copy(update={"evidence_ref_ids": [], "source_artifact_ids": []}))
-        reasons[entity_id] = list(hit.match_kinds)
+    retained = {hit.entity.entity_id: hit for hit in hits[:limit]}
+    labels = _navigation_labels({entity_id: reader.get_entity(read, entity_id) for entity_id in retained})
+    nodes = [
+        WorldGraphRetrievalNode(node_id=entity_id, label=labels[entity_id], kind="entity", role="match")
+        for entity_id in retained
+    ]
+    reasons = {entity_id: list(hit.match_kinds) for entity_id, hit in retained.items()}
     _response(bound, pin)
     truncated = len(hits) > limit or search.completeness.status != "complete"
     return WorldGraphRetrievalResult(
