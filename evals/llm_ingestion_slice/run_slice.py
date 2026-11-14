@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-validate_many = importlib.import_module("src.contracts.schema_validation").validate_many
+validate_many = importlib.import_module("contracts.schema_validation").validate_many
 campaign_temporal_tick_violations = importlib.import_module(
     "src.contracts.temporal_tick_gate"
 ).campaign_temporal_tick_violations

@@ -13,7 +13,7 @@ import blake3
 from generationengine import GenerationClient, TextRequest
 from pydantic import BaseModel, Field
 
-from src.contracts.schema_validation import validate_many
+from contracts.schema_validation import validate_many
 from src.ingestion.entity_extractor import UsageStats
 from src.llm.generation_sync import run_awaitable_sync
 

@@ -8,7 +8,7 @@ from typing import Any
 import blake3
 import pytest
 
-from src.contracts.schema_validation import validate_many
+from contracts.schema_validation import validate_many
 from src.ingestion.entity_extractor import (
     AsyncOpenAIResponsesEntityClient,
     OpenAIResponsesEntityClient,

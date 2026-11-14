@@ -25,7 +25,7 @@ from evals.session_events_extraction_vertical_slice.grader import (
     collect_session_events_violations,
     per_gate_verdict,
 )
-from src.contracts.schema_validation import validate_instance
+from contracts.schema_validation import validate_instance
 from jsonschema.exceptions import ValidationError
 
 

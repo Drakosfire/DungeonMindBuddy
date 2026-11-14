@@ -23,7 +23,7 @@ OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.contracts.schema_validation import validate_many  # noqa: E402
+from contracts.schema_validation import validate_many  # noqa: E402
 from src.reducer.canon_projection import project_entity_state  # noqa: E402
 
 CAMPAIGN_ID = "longmont_01"

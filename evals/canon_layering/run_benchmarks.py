@@ -10,7 +10,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 try:
-    from src.contracts.schema_validation import validate_many
+    from contracts.schema_validation import validate_many
     from src.reducer.canon_projection import project_entity_state
     from src.reducer.projection_compare import (
         assert_attribute_keys_match_golden_contract,
@@ -19,7 +19,7 @@ try:
 except ModuleNotFoundError:
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
-    from src.contracts.schema_validation import validate_many
+    from contracts.schema_validation import validate_many
     from src.reducer.canon_projection import project_entity_state
     from src.reducer.projection_compare import (
         assert_attribute_keys_match_golden_contract,

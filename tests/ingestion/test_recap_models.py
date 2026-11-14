@@ -8,7 +8,7 @@ from typing import Any
 import blake3
 import pytest
 
-from src.contracts.schema_validation import validate_instance
+from contracts.schema_validation import validate_instance
 from src.ingestion.entity_extractor import (
     _build_recap_system_prompt,
     _build_recap_user_prompt,

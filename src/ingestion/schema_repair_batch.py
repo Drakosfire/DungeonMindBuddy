@@ -15,7 +15,7 @@ from typing import Any
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, ValidationError as PydanticValidationError
 
-from src.contracts.schema_validation import (
+from contracts.schema_validation import (
     list_validation_failures,
     validate_instance,
 )
@@ -57,7 +57,7 @@ class EntitySchemaRepairOutput(BaseModel):
 
 
 def _entity_schema_hint_block() -> str:
-    from src.contracts.schema_validation import load_schema
+    from contracts.schema_validation import load_schema
 
     schema = load_schema("entity.schema.json")
     props = schema.get("properties") or {}

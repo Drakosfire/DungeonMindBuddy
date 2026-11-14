@@ -60,7 +60,7 @@ from src.ingestion.fact_extractor import (
 )
 from src.ingestion.source_anchor import lint_source_anchors
 from src.ingestion.openai_batch_pipeline import run_batch_job
-from src.contracts.schema_validation import validate_many
+from contracts.schema_validation import validate_many
 from src.contracts.temporal_tick_gate import (
     campaign_temporal_quality_summary,
     campaign_temporal_consistency_violations,

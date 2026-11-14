@@ -45,7 +45,7 @@ from pydantic import BaseModel, Field, model_validator  # noqa: E402
 
 from src.agent.planner_pricing import usage_cost_usd  # noqa: E402
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
-from src.contracts.schema_validation import validate_many  # noqa: E402
+from contracts.schema_validation import validate_many  # noqa: E402
 from src.ingestion.entity_extractor import _usage_dict_from_openai_response  # noqa: E402
 from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha  # noqa: E402
 from src.llm.api_client import DungeonMindApiClient  # noqa: E402
@@ -1094,7 +1094,7 @@ def run_session_events_extraction(
 
     # SE1: validate each event against JSON schema (fail-loud if malformed)
     from jsonschema.exceptions import ValidationError
-    from src.contracts.schema_validation import list_validation_failures
+    from contracts.schema_validation import list_validation_failures
 
     schema_failures = list_validation_failures(events_raw, "event_record.schema.json")
     if schema_failures:

@@ -16,7 +16,7 @@ INPUT_DIR = Path(__file__).resolve().parent / "input"
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.contracts.schema_validation import validate_many  # noqa: E402
+from contracts.schema_validation import validate_many  # noqa: E402
 from src.reducer.canon_projection import project_entity_state  # noqa: E402
 
 

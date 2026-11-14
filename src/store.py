@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.contracts.schema_validation import validate_many
+from contracts.schema_validation import validate_many
 from src.contracts.entity_tags import normalize_entity_tags
 from src.contracts.entity_taxonomy import normalize_semantic_facets
 from src.reducer.canon_projection import project_entity_state
