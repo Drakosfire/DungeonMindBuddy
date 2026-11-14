@@ -1320,18 +1320,19 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }, [api.readChronology, embedded, graph, mode]);
   const overviewSnapshot = useMemo(() => {
     if (!embedded || mode !== "managed" || !canvasSnapshot) return canvasSnapshot;
-    const hidden = hideOverviewEvents ? overviewEventIds : null;
+    const revealedId = createdNodeReveal?.worldId === graph?.world_id ? createdNodeReveal?.nodeId : undefined;
+    const hidden = (id: string) => hideOverviewEvents && id !== revealedId && overviewEventIds?.has(id);
     const relationships = canvasSnapshot.relationships.filter(({ kind, fromObjectId, toObjectId }) =>
       kind !== "on_timeline" && kind !== "precedes"
       && kind !== "dungeonbuddy.custom:on_timeline" && kind !== "dungeonbuddy.custom:precedes"
-      && !hidden?.has(fromObjectId) && !hidden?.has(toObjectId),
+      && !hidden(fromObjectId) && !hidden(toObjectId),
     );
     return {
       ...canvasSnapshot,
-      objects: hidden ? canvasSnapshot.objects.filter(node => !hidden.has(node.id)) : canvasSnapshot.objects,
+      objects: hideOverviewEvents ? canvasSnapshot.objects.filter(node => !hidden(node.id)) : canvasSnapshot.objects,
       relationships,
     };
-  }, [embedded, mode, canvasSnapshot, hideOverviewEvents, overviewEventIds]);
+  }, [embedded, mode, canvasSnapshot, hideOverviewEvents, overviewEventIds, createdNodeReveal, graph?.world_id]);
   const focusedEventIds = useMemo(() => {
     if (!embedded || mode !== "managed" || !graph || !api.readChronology || !viewFocusId
       || neighborhoodDepth !== 1) return null;
