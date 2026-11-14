@@ -28,6 +28,7 @@ describe("protected read acquisition",()=>{
   unmount();
  });
  it.each([
+  ["World catalog",()=>api.listWorldContainers(),"/api/live/world-containers"],
   ["Plan action history",()=>api.getWorldPlanDocumentEditActions("elderwyld","doc-1"),"/api/live/world-plan-edit/actions?world_id=elderwyld&document_id=doc-1"],
   ["Plan conversation action history",()=>api.getWorldPlanConversationActions("elderwyld","conversation-1"),"/api/live/world-plan-edit/conversation-actions?world_id=elderwyld&conversation_id=conversation-1"],
 ])("coalesces concurrent %s refreshes and fetches fresh data after settlement",async(_label,read,path)=>{
@@ -317,5 +318,21 @@ describe("protected read acquisition",()=>{
   const reads=[api.getWorldAgentConversationHistory("elderwyld"),api.getWorldAgentConversationHistory("elderwyld")];await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));gate.resolve(Response.json({detail:{code:"downstream_failed",message:"Read unavailable"}},{status:503}));
   const results=await Promise.allSettled(reads);expect(results.every(r=>r.status==="rejected"&&r.reason.status===503&&r.reason.code==="downstream_failed")).toBe(true);
   const page={conversation_id:null,turns:[],next_cursor:null};fetch.mockResolvedValueOnce(Response.json(page));expect(await api.getWorldAgentConversationHistory("elderwyld")).toEqual(page);expect(fetch).toHaveBeenCalledTimes(2);
+ });
+ it("keeps the local World catalog accessible after native Graph revocation", async () => {
+  api.setNativeGraphAccessToken("catalog-revocation");
+  const catalog = { records: [] };
+  const fetch = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ csrf_token: "test-csrf" }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    .mockResolvedValueOnce(Response.json(catalog));
+  try {
+   await api.revokeNativeGraphSession();
+   await expect(api.listWorldContainers()).resolves.toEqual(catalog);
+   expect(fetch).toHaveBeenCalledTimes(3);
+  } finally {
+   fetch.mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "restored-csrf" }));
+   await api.connectNativeGraphSession();
+  }
  });
 });
