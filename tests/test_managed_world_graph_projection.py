@@ -237,7 +237,8 @@ def test_native_projection_support_uses_exact_revision(monkeypatch, revision_pin
     context = object()
     support = object()
 
-    def read_context(repo, space, revision, campaign, *, scope_mode):
+    def read_context(repo, space, revision, campaign, *, scope_mode, parsed_cache):
+        assert parsed_cache is not None
         assert repo is repository
         assert (space, revision, campaign, scope_mode) == (
             "elderwyld", revision_pin or "current", None, "world"

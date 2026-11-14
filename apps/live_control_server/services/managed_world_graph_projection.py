@@ -179,6 +179,11 @@ def resolve_managed_source_identity(
     )
 
 
+from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+
+_managed_projection_parsed_cache = NativeParsedRevisionCache()
+
+
 def _read_native_projection_support(
     binding: VerifiedManagedWorldBinding, revision_pin: str | None
 ):
@@ -199,7 +204,8 @@ def _read_native_projection_support(
     revision_id = head.head_revision_id if revision_pin is None else revision_pin
     try:
         context, access, _, _ = native_registry_source.read_context(
-            repository, binding.native_world_id, revision_id, None, scope_mode="world"
+            repository, binding.native_world_id, revision_id, None, scope_mode="world",
+            parsed_cache=_managed_projection_parsed_cache
         )
     except KnowledgeReadContextIntegrityError as exc:
         # Core currently reports a missing revision through this integrity error.
