@@ -13,7 +13,16 @@ const world='test-world',doc='11111111-1111-4111-8111-111111111111',key=relation
 const seed={document_source:{documentId:doc,revision:4,contentSha256:'a'.repeat(64)},quote:'Rowan worked with Brin temporarily.'};
 const prepared={prepared:true,campaign_id:world,world_id:'native-world',authority_operation_id:'operation',expressibility:'EXPRESSIBLE',confirm_token:'exact-token',current_overlay_token:null,assertions_preview:[{assertion_id:'r',summary:'Past temporary work'}]} as any;
 const receipt={committed:true,campaign_id:world,world_id:'native-world',operation_id:'operation',published_revision_id:'revision'} as any;
-function View({initial=seed}: {initial?:typeof seed|null}){return <BuildRelationshipReview worldId={world} documentId={doc} seed={initial} onConsumed={()=>{}}/>;}
+function View({initial=seed,native=false}: {initial?:typeof seed|null;native?:boolean}){
+ if(initial&&!native&&!localStorage.getItem(key)){
+  localStorage.setItem(key,JSON.stringify({
+   schema:'dmb_saved_relationship_review_v1',
+   intent:{world_id:world,...initial,source:{node_id:null,label:'',kind:'npc'},target:{node_id:null,label:'',kind:'npc'},predicate:'',label:'',context:''},
+   request:null,prepared:null,submitted:false,receipt:null,
+  }));
+ }
+ return <BuildRelationshipReview worldId={world} documentId={doc} seed={initial} onConsumed={()=>{}}/>;
+}
 const retained=()=>readRelationshipReview(localStorage.getItem(key),world,doc)!;
 beforeAll(()=>Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value(this:HTMLDialogElement){this.setAttribute('open','');}}));
 beforeEach(()=>{
@@ -144,7 +153,7 @@ it('retains native preparation and retries the same confirmation after reopening
  const preparation={prepared:{fixture:true},confirm_token:'native-review'};
  vi.mocked(prepareNativeRelationship).mockResolvedValue(preparation);
  vi.mocked(confirmNativeRelationship).mockRejectedValueOnce(new Error('Response lost'));
- const first=render(<View/>);
+ const first=render(<View native/>);
  await filled();
  await preview();
  const operationId=retained().native!.operationId;
