@@ -180,19 +180,14 @@ function safeReadDraft(worldId: string, stateScopeId?: string): StoredDraftEnvel
   }
 }
 
-function safeWriteDraft(worldId: string, draft: DemoFormDraft, pending: PendingNativeOperation | null, phase: "prepare" | "confirm" = "prepare", placement: StoredPlacementIntent | null | undefined = undefined, stateScopeId?: string): boolean {
+function safeWriteDraft(worldId: string, draft: DemoFormDraft, pending: PendingNativeOperation | null, phase: "prepare" | "confirm", placement: StoredPlacementIntent | null, stateScopeId?: string): boolean {
   try {
-    const retainedPlacement = placement === undefined ? safeReadDraft(worldId, stateScopeId)?.placement ?? null : placement;
-    const envelope: StoredDraftEnvelope = { version: STORAGE_VERSION, world_id: worldId, draft, pending, pending_phase: phase, placement: retainedPlacement };
+    const envelope: StoredDraftEnvelope = { version: STORAGE_VERSION, world_id: worldId, draft, pending, pending_phase: phase, placement };
     window.sessionStorage.setItem(storageKey("draft", worldId, stateScopeId), JSON.stringify(envelope));
     return true;
   } catch {
     return false;
   }
-}
-
-function safeClearDraft(worldId: string, draft: DemoFormDraft, stateScopeId?: string): boolean {
-  return safeWriteDraft(worldId, draft, null, "prepare", undefined, stateScopeId);
 }
 
 function readLayout(worldId: string, stateScopeId?: string): Readonly<Record<string, { readonly x: number; readonly y: number }>> {
@@ -1143,7 +1138,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     const owner = mountedOwnerRef.current;
     if (!ownsOperation(owner, operation.operation_id)) return;
     setReviewSummary(null);
-    if (!graph || !safeWriteDraft(graph.world_id, draftRef.current, operation, "prepare", undefined, stateScopeId)) {
+    if (!graph || !safeWriteDraft(graph.world_id, draftRef.current, operation, "prepare", placementIntentRef.current, stateScopeId)) {
       setPendingStatus("not_sent");
       setStorageWarning(true);
       setNotice({ kind: "error", text: "This browser still cannot save the recovery draft, so the request was not sent." });
@@ -1181,7 +1176,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (!operation || pendingStatus !== "prepared" || !reviewSummary || !ownsOperation(owner, operation.operation_id) || pendingActionRef.current !== null) return;
     pendingActionRef.current = "confirm";
     const currentGraph = graphRef.current;
-    if (!currentGraph || !safeWriteDraft(currentGraph.world_id, draftRef.current, operation, "confirm", undefined, stateScopeId)) {
+    if (!currentGraph || !safeWriteDraft(currentGraph.world_id, draftRef.current, operation, "confirm", placementIntentRef.current, stateScopeId)) {
       setStorageWarning(true);
       setNotice({ kind: "error", text: "This browser could not save the confirmation recovery step, so confirmation was not sent." });
       pendingActionRef.current = null;
@@ -1249,7 +1244,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         await applyOperationLookup(after, operation, null, owner);
         return;
       }
-      if (!safeClearDraft(latestGraph.world_id, draftRef.current, stateScopeId)) {
+      if (!safeWriteDraft(latestGraph.world_id, draftRef.current, null, "prepare", placementIntentRef.current, stateScopeId)) {
         setPendingStatus("prepared");
         setStorageWarning(true);
         setReviewSummary(after.review?.summary ?? reviewSummary);
@@ -1302,7 +1297,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       if (freshGraph.world_id !== layout.worldId) {
         setLayout({ worldId: freshGraph.world_id, positions: readLayout(freshGraph.world_id, stateScopeId), revision: 0 });
       }
-      const cleared = safeClearDraft(freshGraph.world_id, draftRef.current, stateScopeId);
+      const cleared = safeWriteDraft(freshGraph.world_id, draftRef.current, null, "prepare", placementIntentRef.current, stateScopeId);
       setStorageWarning(!cleared);
       setPendingOperation(null);
       setPendingStatus("none");
