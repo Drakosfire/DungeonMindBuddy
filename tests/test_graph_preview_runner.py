@@ -862,7 +862,7 @@ def test_unexpected_typed_parse_exception_fails_closed(
         raise RuntimeError("unexpected typed parse")
 
     monkeypatch.setattr(
-        "src.graph_memory.candidate_document_integrity.candidate_graph_preview_from_dict",
+        "graph_memory.candidate_document_integrity.candidate_graph_preview_from_dict",
         _boom,
     )
     _source, result = _run_recap_extraction(
@@ -985,7 +985,7 @@ def test_integrity_failure_outranks_unsupported_eligibility(
 def test_valid_candidate_semantics_are_unchanged_by_integrity_classification(
     tmp_path: Path,
 ) -> None:
-    from src.graph_memory.candidate_document_integrity import (
+    from graph_memory.candidate_document_integrity import (
         classify_candidate_document_integrity,
     )
 

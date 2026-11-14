@@ -30,7 +30,7 @@ from graph_memory.ingestion.extraction_run import (
     ExtractionRunStatus,
     normalize_content_digest,
 )
-from src.graph_memory.candidate_document_integrity import (
+from graph_memory.candidate_document_integrity import (
     classify_candidate_document_integrity,
 )
 

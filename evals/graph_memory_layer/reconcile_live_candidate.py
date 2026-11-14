@@ -20,7 +20,7 @@ from src.graph_memory.candidate_graph_preview import (
     candidate_graph_preview_from_dict,
     validate_candidate_graph_preview,
 )
-from src.graph_memory.anchor_quotes import (
+from graph_memory.anchor_quotes import (
     anchor_quote_matches_to_dicts,
     coerce_anchor_quotes,
     find_anchor_quote_matches,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.graph_memory.anchor_quotes import (
+from graph_memory.anchor_quotes import (
     AnchorQuoteMatch,
     coerce_anchor_quotes,
     find_anchor_quote_matches,
