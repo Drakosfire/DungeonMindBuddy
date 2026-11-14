@@ -516,8 +516,6 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
             status_code=409,
             detail=f"revision mismatch: expected {expected_revision}, current {record.revision}",
         )
-    if not record.target_relpath:
-        raise HTTPException(status_code=422, detail="workspace document has no target_relpath")
 
     try:
         artifact = create_source_artifact_from_workspace_document(
