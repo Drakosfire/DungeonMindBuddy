@@ -420,8 +420,35 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
 
   const publishBlockers = editor && review ? [
     ...(getLocalFingerprint(editor) !== editor.baselineFingerprint ? ["Save your edits."] : []),
-    ...issues.filter(issue => issue.severity === "error").map(issue => issue.message),
+    ...issues.filter(issue => issue.severity === "error"),
   ] : [];
+
+  function issueTarget(path: string | null | undefined) {
+    const match = /^rule_elements\[(\d+)\]/.exec(path ?? "");
+    const rule = match && editor?.workingCopy.rule_elements[Number(match[1])];
+    if (rule) return `pdf-review-rule-${rule.key}`;
+    if (path === "challenge.proficiency_bonus") return "pdf-review-proficiency";
+    if (path?.startsWith("vitality.hit_points")) return "pdf-review-hp";
+    return "pdf-review-fields";
+  }
+
+  function focusIssue(target: string) {
+    const element = document.getElementById(target);
+    if (!element) return;
+    for (let parent: HTMLElement | null = element; parent; parent = parent.parentElement) {
+      if (parent instanceof HTMLDetailsElement) parent.open = true;
+    }
+    const control = element.querySelector<HTMLElement>("input, textarea, summary") ?? element;
+    control.focus();
+    control.scrollIntoView?.({ block: "nearest" });
+  }
+
+  function fieldIssues(target: string) {
+    const messages = issues.filter(issue => issueTarget(issue.field_path) === target);
+    return messages.length > 0 && <ul aria-label="Validation messages">
+      {messages.map((issue, index) => <li key={index}>{issue.message}</li>)}
+    </ul>;
+  }
 
   function commitEdit(state: StatblockEditorState<EditableStatblockOutput>) {
     setEditor(state);
@@ -450,7 +477,12 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         </>}
       </header>
       {!published && publishBlockers.length > 0 && <ul aria-label="What blocks publication">
-        {publishBlockers.map((blocker, index) => <li key={index}>{blocker}</li>)}
+        {publishBlockers.map((blocker, index) => <li key={index}>
+          {typeof blocker === "string" ? blocker :
+            <button type="button" onClick={() => focusIssue(issueTarget(blocker.field_path))}>
+              {blocker.message}
+            </button>}
+        </li>)}
       </ul>}
       {error && <p role="alert">{error}</p>}
       {!review && !error && <p role="status">Opening review…</p>}
@@ -491,7 +523,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       {review && editor && <>
         <StatblockRenderer draft={{
           definition: editor.workingCopy,
-          hitPoints: summary => <details>
+          hitPoints: summary => <details id="pdf-review-hp">
             <summary>{summary}</summary>
             <form onSubmit={event => {
               event.preventDefault();
@@ -508,18 +540,22 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
               </label>
               <button type="submit" disabled={pending}>Apply hit points</button>
             </form>
+            {fieldIssues("pdf-review-hp")}
           </details>,
-          ruleEditor: (key, name) => <details>
+          ruleEditor: (key, name) => <>
+            <details id={`pdf-review-rule-${key}`}>
             <summary>Edit {name}</summary>
             <label>{name} rules text
               <textarea disabled={pending}
                 value={editor.workingCopy.rule_elements.find(element => element.key === key)?.rules_text ?? ""}
                 onChange={event => commitEdit(setRuleElementRulesText(editor, key, event.currentTarget.value))} />
             </label>
-          </details>,
+            </details>
+            {fieldIssues(`pdf-review-rule-${key}`)}
+          </>,
         }} />
         <details>
-          <summary>More statblock fields</summary>
+          <summary id="pdf-review-fields">More statblock fields</summary>
         <fieldset disabled={pending}>
           <label>D&D edition
             <select value={editor.workingCopy.ruleset?.edition ?? ""} onChange={event => {
@@ -538,7 +574,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
             </select>
           </label>
           <label>Proficiency bonus
-            <input type="number" min="0" step="1" placeholder="Unspecified in source"
+            <input id="pdf-review-proficiency" type="number" min="0" step="1" placeholder="0"
               aria-invalid={issues.some(issue => issue.field_path === "challenge.proficiency_bonus" && issue.severity === "error")}
               value={editor.workingCopy.challenge.proficiency_bonus ?? ""}
               onChange={event => {
@@ -552,8 +588,9 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
                 setIssues([]);
               }} />
           </label>
-          {issues.length > 0 && <ul aria-label="Mechanics validation issues">
-            {issues.map((issue, index) => (
+          {fieldIssues("pdf-review-proficiency")}
+          {issues.some(issue => issueTarget(issue.field_path) === "pdf-review-fields") && <ul aria-label="Mechanics validation issues">
+            {issues.filter(issue => issueTarget(issue.field_path) === "pdf-review-fields").map((issue, index) => (
               <li key={index}>
                 <strong>{issue.severity}</strong> {issue.message}
                 {issue.field_path && <div><code>{issue.field_path}</code></div>}
