@@ -70,8 +70,9 @@ agreed to return with the miller's key.
 ```
 
 With the saved document open, choose **Extraction**, set **Run mode** to
-**Recap**, and fill in the campaign and session for your test World. Select
-**Extract**. Review the proposed changes against the source text. Keep the
+**Recap**, set **Source campaign** to `sealed-door-demo` and **Source
+session** to `1`, and select **Extract**. The selected World is the
+destination. The campaign and session identify the recap source. Review the proposed changes against the source text. Keep the
 discovery and the unresolved lead, and check that the extraction does not
 claim the party opened the door.
 
