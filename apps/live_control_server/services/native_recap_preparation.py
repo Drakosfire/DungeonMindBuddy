@@ -577,12 +577,15 @@ def worldbuilding_review_context(request, principal):
                 or ref.source_revision_id != admitted.source_revision_id):
             continue
         opened = open_admitted_native_text(access, ref.evidence_ref_id)
-        if opened.status == "available":
+        if opened.status == "available" and opened.span_start_byte is not None and opened.span_end_byte is not None:
             _require_source_match(opened, admitted)
             evidence.append({
                 "evidence_ref_id": ref.evidence_ref_id,
                 "start_byte": opened.span_start_byte,
                 "end_byte": opened.span_end_byte,
+                "text": opened.body_text.encode("utf-8")[
+                    opened.span_start_byte:opened.span_end_byte
+                ].decode("utf-8"),
             })
     preview = _reviewable_preview(data)
     _require(native.binding(request.managed_world_id) == bound, "candidate_binding_changed")

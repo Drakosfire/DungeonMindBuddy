@@ -1528,7 +1528,11 @@ def test_worldbuilding_context_binds_saved_source_and_native_prepare(world_lane)
     assert result["prepare_coordinates"] == {
         key: value for key, value in x.body.items() if key != "selections"
     }
-    assert x.evidence_id in {row["evidence_ref_id"] for row in result["source_support"]}
+    supports = {row["evidence_ref_id"]: row for row in result["source_support"]}
+    support = supports[x.evidence_id]
+    assert support["text"].encode() == x.source.markdown.encode()[
+        support["start_byte"]:support["end_byte"]
+    ]
     records = {(row["kind"], row["record_id"]): row for row in result["records"]}
     for selection in x.body["selections"]:
         record = records[selection["kind"], selection["record_id"]]
