@@ -634,6 +634,7 @@
       "tests/test_native_graph_explorer.py",
       "tests/test_native_graph_explorer_storage.py",
       "tests/test_native_graph_inspection.py",
+      "tests/test_vnext_neighborhood_bounds.py",
       "tests/test_native_ingest_review_context.py",
       "tests/test_native_object_retrieval.py",
       "tests/test_native_plan_assertions.py",

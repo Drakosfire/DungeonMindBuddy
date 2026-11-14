@@ -45,6 +45,12 @@ class ChronologySelection(Closed):
     kind: Literal["chronology"]
 
 
+class NeighborhoodSelection(Closed):
+    kind: Literal["neighborhood"]
+    seed_node_ids: list[Text] = Field(min_length=1, max_length=8)
+    max_depth: Literal[1, 2] = 1
+
+
 class InspectionRead(Closed):
     scope: InspectionPin
-    selection: Annotated[EntitySelection | SourceSelection | ChronologySelection, Field(discriminator="kind")]
+    selection: Annotated[EntitySelection | SourceSelection | ChronologySelection | NeighborhoodSelection, Field(discriminator="kind")]
