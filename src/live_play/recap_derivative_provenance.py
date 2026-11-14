@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.agent.corpus_writer import is_writable_corpus_path
+from corpus.corpus_writer import is_writable_corpus_path
 
 SCHEMA = "dmb_recap_derivative_provenance_v1"
 

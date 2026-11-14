@@ -14,7 +14,7 @@ from apps.live_control_server.services.statblock_draft_store import (
     read_statblock_draft,
 )
 from apps.live_control_server.services.statblock_workbench import StatblockWorkbenchAction
-from src.agent.corpus_writer import is_writable_corpus_path
+from corpus.corpus_writer import is_writable_corpus_path
 from src.statblocks.lifecycle_artifact import StatblockBreadcrumb
 from src.statblocks.v2_contract import CombatDefaults, SourceRef
 

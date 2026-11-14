@@ -23,7 +23,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src.agent.corpus_writer import write_corpus_file  # noqa: E402
+from corpus.corpus_writer import write_corpus_file  # noqa: E402
 
 from src.live_play.normalized_recaps import (  # noqa: E402
     _build_normalized_content,

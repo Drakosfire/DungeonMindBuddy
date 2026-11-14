@@ -1392,7 +1392,7 @@ def make_tool_dispatcher(
                     f"Error: {name} is disabled (planner started with "
                     "allow_corpus_writes=False). Re-launch with corpus writes enabled to use it."
                 )
-            from src.agent.corpus_writer import (
+            from corpus.corpus_writer import (
                 append_timeline_row as _append_timeline_row,
                 write_corpus_file as _write_corpus_file,
             )

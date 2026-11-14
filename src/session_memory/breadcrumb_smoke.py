@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.agent.corpus_writer import append_timeline_row
+from corpus.corpus_writer import append_timeline_row
 
 TAG_RE = re.compile(r"\[([A-Za-z]+)\]\[([^\]]+)\]")
 ALLOWED_TAG_TYPES = {"PC", "NPC", "Location", "Party", "NewHubCandidate"}
