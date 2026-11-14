@@ -47,6 +47,96 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
   }
   if (campaign) events.sort((a, b) => sessionOrder(a) - sessionOrder(b) || a.node.name.localeCompare(b.node.name));
 
+  const campaignAxis = "dungeonbuddy.scope:campaign";
+  const selectedScopes = new Set(result.events.flatMap(event =>
+    event.placements.flatMap(placement =>
+      placement.value.kind === "entity_ref" && placement.value.entity_id === campaign
+        ? (placement.metadata.scope ?? []).filter(binding => binding.axis === campaignAxis).map(binding => binding.value)
+        : [])));
+  const candidateScope = selectedScopes.size === 1 ? [...selectedScopes][0] : undefined;
+  const campaignLabelsByScope = new Map<string, Set<string>>();
+  for (const event of result.events) {
+    for (const placement of event.placements) {
+      if (placement.value.kind !== "entity_ref") continue;
+      for (const binding of placement.metadata.scope ?? []) {
+        if (binding.axis !== campaignAxis) continue;
+        const key = JSON.stringify([binding.value]);
+        const ids = campaignLabelsByScope.get(key) ?? new Set<string>();
+        ids.add(placement.value.entity_id);
+        campaignLabelsByScope.set(key, ids);
+      }
+    }
+  }
+  const scopeCampaigns = campaignLabelsByScope.get(JSON.stringify([candidateScope]));
+  const selectedScope = scopeCampaigns?.size === 1 && scopeCampaigns.has(campaign)
+    ? candidateScope : undefined;
+  const orderByEvent = new Map<string, { label: string; other: string; id: string; scope: string }[]>();
+  const eventIds = new Set(result.events.map(event => event.node.id));
+  for (const event of result.events) {
+    for (const assertion of event.assertions) {
+      if (assertion.predicate !== "dungeonbuddy.custom:precedes" || assertion.value.kind !== "entity_ref") continue;
+      if (campaign && (!selectedScope || !(assertion.metadata.scope ?? []).some(
+        binding => binding.axis === campaignAxis && binding.value === selectedScope,
+      ))) continue;
+      const target = assertion.value.entity_id;
+      if (!eventIds.has(target)) continue;
+      for (const [id, other, label] of [[event.node.id, target, "Recorded before"], [target, event.node.id, "Recorded after"]]) {
+        const links = orderByEvent.get(id) ?? [];
+        links.push({ label, other, id: assertion.assertion_id, scope: JSON.stringify((assertion.metadata.scope ?? []).filter(binding => binding.axis === campaignAxis).map(binding => binding.value).sort()) });
+        orderByEvent.set(id, links);
+      }
+    }
+  }
+
+  const cyclic = new Set<string>();
+  const linksByScope = new Map<string, Map<string, NonNullable<ReturnType<typeof orderByEvent.get>>>>();
+  for (const [id, links] of orderByEvent) {
+    for (const link of links) {
+      let scoped = linksByScope.get(link.scope);
+      if (!scoped) {
+        scoped = new Map();
+        linksByScope.set(link.scope, scoped);
+      }
+      const eventLinks = scoped.get(id) ?? [];
+      eventLinks.push(link);
+      scoped.set(id, eventLinks);
+    }
+  }
+  for (const scoped of linksByScope.values()) {
+    const visited = new Set<string>();
+    const finished: string[] = [];
+    for (const root of scoped.keys()) {
+      const pending = [{ id: root, exit: false }];
+      while (pending.length) {
+        const { id, exit } = pending.pop()!;
+        if (exit) { finished.push(id); continue; }
+        if (visited.has(id)) continue;
+        visited.add(id);
+        pending.push({ id, exit: true });
+        for (const link of scoped.get(id) ?? []) {
+          if (link.label === "Recorded before") pending.push({ id: link.other, exit: false });
+        }
+      }
+    }
+    visited.clear();
+    for (const root of finished.reverse()) {
+      if (visited.has(root)) continue;
+      const component = [root];
+      visited.add(root);
+      for (const id of component) {
+        for (const link of scoped.get(id) ?? []) {
+          if (link.label !== "Recorded after" || visited.has(link.other)) continue;
+          visited.add(link.other);
+          component.push(link.other);
+        }
+      }
+      if (component.length > 1 || scoped.get(root)?.some(link => link.other === root)) {
+        for (const id of component) cyclic.add(id);
+      }
+    }
+
+  }
+
   const sessions = new Map<number, string>();
   for (const event of events) {
     const session = sessionOrder(event);
@@ -102,6 +192,13 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
         <div key={id}>{labels.get(id)} · {sessions.size > 1 ? "Conflicting placements · " : ""}
           {[...sessions].sort((a, b) => a - b).map(session => `Session ${session}`).join(", ")}
         </div>)}
+      {cyclic.has(event.node.id) && <div>Conflicting recorded order</div>}
+      {orderByEvent.get(event.node.id)?.map(link => <div key={link.label + link.id}>
+        {link.label} <button type="button" onClick={() => onExplore(link.other)}>{labels.get(link.other)}</button>
+        {!campaign && link.scope !== "[]" && <small> · {campaignLabelsByScope.get(link.scope)?.size === 1
+          ? labels.get([...campaignLabelsByScope.get(link.scope)!][0]!)
+          : "Campaign name unavailable"}</small>}
+      </div>)}
       {event.sourceSessions.length > 0 && <div>Source sessions {event.sourceSessions.join(", ")}</div>}
     </li>)}</ul>
   </section>;
