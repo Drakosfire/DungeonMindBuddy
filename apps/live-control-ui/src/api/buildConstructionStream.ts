@@ -41,18 +41,20 @@ export async function readBuildConstructionStream(response:Response, request:Wor
   const reader=response.body.getReader();const decoder=new TextDecoder('utf-8',{fatal:true});
   let buffer='';let sequence=0;let identity:string|null=null;
   const capability=request.build_write_capability;
+  let expectedBasis:string|null=null;
+  try{if(capability)expectedBasis=stable(capability.basis);}catch{/* An invalid preview basis cannot discard the saved command result. */}
   let workingHash:string|null=null;
   try{if(request.build_draft_context)workingHash=await snapshotDigest(request.build_draft_context.snapshot);}catch{/* Preview hashing cannot discard the saved command result. */}
   let previousSteps:BuildPlanConstructionProgress['steps']=[];let incomplete=false;let previousObjective:string|null=null;
   function progress(value:unknown){
-    if(!capability||!value||typeof value!=='object')return;
+    if(!capability||expectedBasis===null||!value||typeof value!=='object')return;
     if(['dmb_build_plan_construction_v1','dmb_build_plan_construction_v2','dmb_build_plan_construction_v3'].includes(String((value as {schema?:string}).schema))){
       const p=value as BuildPlanConstructionProgress;
       if(!workingHash||!exact(p,['schema','placement_id','basis','world_id','conversation_id','client_turn_id','durable_turn_id','turn_attempt','working_snapshot_sha256','provider_attempt_id','sequence','status','steps',...(p.schema!=='dmb_build_plan_construction_v1'?['objective']:[])])
         ||p.placement_id!==capability.idempotency_key||p.world_id!==request.owner_scope.world_id
         ||p.conversation_id!==capability.conversation_id||p.client_turn_id!==request.turn_id
         ||!uuid(p.durable_turn_id)||!uuid(p.provider_attempt_id)||!Number.isSafeInteger(p.turn_attempt)||p.turn_attempt<1
-        ||p.working_snapshot_sha256!==workingHash||stable(p.basis)!==stable(capability.basis)
+        ||p.working_snapshot_sha256!==workingHash||stable(p.basis)!==expectedBasis
         ||!Number.isSafeInteger(p.sequence)||p.sequence<=sequence||!['building','incomplete'].includes(p.status)
         ||!Array.isArray(p.steps)||p.steps.some(row=>!row||typeof row!=='object'||!exact(row,p.schema==='dmb_build_plan_construction_v3'?['text','kind','selected']:['text','kind'])||p.schema==='dmb_build_plan_construction_v3'&&(!('selected' in row)||typeof row.selected!=='boolean')||typeof row.text!=='string'||!row.text.trim()||!['discuss','prepare_insertion'].includes(row.kind))
         ||p.schema!=='dmb_build_plan_construction_v1'&&(!(p.objective===null||typeof p.objective==='string'&&!!p.objective.trim())||p.objective===null&&p.steps.length>0||previousObjective!==null&&p.objective!==previousObjective)
@@ -66,7 +68,7 @@ export async function readBuildConstructionStream(response:Response, request:Wor
     }
     const p=value as BuildConstructionProgress;
     if(p.schema!=='dmb_build_construction_v1'||p.action_id!==capability.idempotency_key
-      ||p.conversation_id!==capability.conversation_id||stable(p.basis)!==stable(capability.basis)
+      ||p.conversation_id!==capability.conversation_id||stable(p.basis)!==expectedBasis
       ||p.origin?.client_turn_id!==request.turn_id||typeof p.origin?.durable_turn_id!=='string'
       ||!Number.isSafeInteger(p.origin.turn_attempt)||p.origin.turn_attempt<1
       ||typeof p.origin.broker_operation_id!=='string'||!p.origin.broker_operation_id
