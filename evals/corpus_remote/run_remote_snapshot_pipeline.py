@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -54,7 +55,7 @@ def main() -> int:
             ssh_host=str(args.ssh_host),
             remote_root=str(args.remote_root),
             ssh_username=str(args.ssh_username) if args.ssh_username else None,
-            ssh_password=str(args.ssh_password) if args.ssh_password else None,
+            ssh_password=args.ssh_password or os.environ.get("CORPUS_SSH_PASSWORD") or None,
         )
 
     generate_remote_artifacts(
