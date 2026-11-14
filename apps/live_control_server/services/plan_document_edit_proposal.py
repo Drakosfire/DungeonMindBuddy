@@ -50,7 +50,7 @@ from apps.live_control_server.services.world_container_registry import (
     get_world_container,
 )
 from bootstrap_env import load_dungeonmindbuddy_dotenv
-from src.llm.generation_sync import run_awaitable_sync
+from llm.generation_sync import run_awaitable_sync
 from model_policy import load_buddy_model_policy
 
 

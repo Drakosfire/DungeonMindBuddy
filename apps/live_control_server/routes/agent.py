@@ -2164,7 +2164,7 @@ def post_review_build_pdf_region(world_id: str, body: dict, request: Request):
     from generationengine import GenerationEngineError
     from generationengine.providers.errors import ProviderError
     from apps.live_control_server.services.build_pdf_capture_review import review_capture
-    from src.llm.generation_sync import run_awaitable_sync
+    from llm.generation_sync import run_awaitable_sync
 
     instruction = body.get("instruction", "")
     region_body = body.get("region")
@@ -2255,7 +2255,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     from apps.live_control_server.services.build_pdf_statblock_extraction import (
         StatblockExtractionError, extract_statblock,
     )
-    from src.llm.generation_sync import run_awaitable_sync
+    from llm.generation_sync import run_awaitable_sync
     from apps.live_control_server.services.build_pdf_region_render import read_region_text, request_page_renderer
 
     enforce_native_graph_gm(request)
@@ -2568,7 +2568,7 @@ def post_open_build_pdf_source(world_id: str, body: dict, request: Request, rend
 def post_build_document_proposal(world_id: str, body: BuildDocumentProposalRequest, request: Request):
     """Creative authoring proposal only; workspace Save remains a separate owner."""
     from apps.live_control_server.services.build_document_proposal import compose, _public
-    from src.llm.generation_sync import run_awaitable_sync
+    from llm.generation_sync import run_awaitable_sync
     enforce_native_graph_gm(request)
     verified = _verified_world_id(world_id)
     if request.query_params or body.basis.world_id != verified or body.origin is not None:

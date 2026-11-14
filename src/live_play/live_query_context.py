@@ -14,7 +14,7 @@ from generationengine import FailureCode, GenerationClient, GenerationEngineErro
 
 from src.agent.synthesis import _load_api_key
 from bootstrap_env import load_dungeonmindbuddy_dotenv
-from src.llm.generation_sync import run_awaitable_sync
+from llm.generation_sync import run_awaitable_sync
 from src.live_play.classify_live_turn import TurnClassification
 from src.live_play.manifest_context_query import (
     QueryConfig,

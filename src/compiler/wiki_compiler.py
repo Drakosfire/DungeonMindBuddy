@@ -13,7 +13,7 @@ from typing import Any
 
 from generationengine import GenerationClient, TextRequest
 
-from src.llm.generation_sync import run_awaitable_sync
+from llm.generation_sync import run_awaitable_sync
 from reducer.canon_projection import project_entity_state
 from store import FactStore
 
