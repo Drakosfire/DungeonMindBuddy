@@ -15,7 +15,7 @@ import pytest
 from generationengine import InferenceObservation, ObservationState, TextRequest, TextResult
 
 from src.cli import DungeonBuddyCLI
-from src.compiler.wiki_compiler import (
+from compiler.wiki_compiler import (
     WIKI_SYSTEM_PROMPT,
     _format_facts_for_prompt,
     _resolve_wiki_model,
@@ -229,7 +229,7 @@ def test_env_model_override_reaches_generationengine_and_manifest(
             return _queued_text_result(_ARTICLE)
 
     monkeypatch.setattr(
-        "src.compiler.wiki_compiler.GenerationClient.from_env",
+        "compiler.wiki_compiler.GenerationClient.from_env",
         lambda: _FakeGE(),
     )
     new_pages = compile_wiki(store, None, entity_ids=[_ENTITY_ID], incremental=False)
@@ -304,7 +304,7 @@ def test_production_client_is_constructed_inside_awaited_execution(
         return _FakeGE()
 
     monkeypatch.setattr(
-        "src.compiler.wiki_compiler.GenerationClient.from_env",
+        "compiler.wiki_compiler.GenerationClient.from_env",
         _from_env,
     )
     article = compile_entity_page(
@@ -338,7 +338,7 @@ def test_compile_wiki_constructs_execution_local_clients_not_one_shared(
             return _queued_text_result(f"Article for {entity_id}.")
 
     monkeypatch.setattr(
-        "src.compiler.wiki_compiler.GenerationClient.from_env",
+        "compiler.wiki_compiler.GenerationClient.from_env",
         lambda: _FakeGE(),
     )
     new_pages = compile_wiki(
@@ -378,7 +378,7 @@ def test_compile_wiki_generation_workers_actually_overlap(
             return _queued_text_result(f"Article for {entity_id}.")
 
     monkeypatch.setattr(
-        "src.compiler.wiki_compiler.GenerationClient.from_env",
+        "compiler.wiki_compiler.GenerationClient.from_env",
         lambda: _FakeGE(),
     )
 
@@ -416,7 +416,7 @@ def test_compile_wiki_worker_failure_does_not_partially_commit(
             return _queued_text_result("Article for ent_alpha.")
 
     monkeypatch.setattr(
-        "src.compiler.wiki_compiler.GenerationClient.from_env",
+        "compiler.wiki_compiler.GenerationClient.from_env",
         lambda: _FakeGE(),
     )
 
@@ -451,9 +451,9 @@ def test_compile_wiki_preserves_thread_pool_max_workers(
         async def generate_text(self, request: TextRequest) -> TextResult:
             return _queued_text_result(_ARTICLE)
 
-    monkeypatch.setattr("src.compiler.wiki_compiler.ThreadPoolExecutor", _RecordingTPE)
+    monkeypatch.setattr("compiler.wiki_compiler.ThreadPoolExecutor", _RecordingTPE)
     monkeypatch.setattr(
-        "src.compiler.wiki_compiler.GenerationClient.from_env",
+        "compiler.wiki_compiler.GenerationClient.from_env",
         lambda: _FakeGE(),
     )
     compile_wiki(
@@ -481,7 +481,7 @@ def test_compile_wiki_incremental_skips_unchanged_pages(
             return _queued_text_result(_ARTICLE)
 
     monkeypatch.setattr(
-        "src.compiler.wiki_compiler.GenerationClient.from_env",
+        "compiler.wiki_compiler.GenerationClient.from_env",
         lambda: _FakeGE(),
     )
     first = compile_wiki(store, None, entity_ids=["ent_alpha"], incremental=True)
@@ -501,7 +501,7 @@ def test_production_direct_call_requires_openai_api_key(
         raise AssertionError("missing key must not construct GenerationEngine")
 
     monkeypatch.setattr(
-        "src.compiler.wiki_compiler.GenerationClient.from_env",
+        "compiler.wiki_compiler.GenerationClient.from_env",
         _boom,
     )
     with pytest.raises(RuntimeError, match="OPENAI_API_KEY is required for compile_entity_page."):
@@ -552,7 +552,7 @@ def test_cli_list_does_not_compile_when_key_present(
 
 
 def test_production_path_no_longer_owns_openai_or_wrapper_telemetry() -> None:
-    import src.compiler.wiki_compiler as wiki_compiler
+    import compiler.wiki_compiler as wiki_compiler
 
     source = inspect.getsource(compile_entity_page)
     module_source = inspect.getsource(wiki_compiler)
