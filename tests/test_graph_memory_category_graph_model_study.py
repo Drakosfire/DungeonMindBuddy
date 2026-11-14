@@ -21,7 +21,7 @@ from evals.graph_memory_layer.reconcile_live_candidate import validate_live_cand
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     repair_edge_evidence_refs,
 )
-from src.graph_memory.party_context import build_party_context
+from graph_memory.party_context import build_party_context
 
 
 def test_render_category_pass_prompts_deterministic():

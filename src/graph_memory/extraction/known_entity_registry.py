@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from src.graph_memory.party_context import (
+from graph_memory.party_context import (
     CAMPAIGN_CORPUS,
     PARTY_REGISTRY_BASENAME,
     PartyContext,
