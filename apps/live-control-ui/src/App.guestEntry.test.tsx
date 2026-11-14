@@ -188,6 +188,12 @@ function managedServerFetch({
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input);
     if (path === "/api/auth/session") return Response.json({ status: authStatus, ...(authStatus === "authenticated" ? { subject: "owner-a" } : {}) });
+    if (path === "/api/live/world-containers/lookup?managed_world_id=world-a") {
+      return Response.json(managedWorldRecord("world-a", "World A"));
+    }
+    if (path === "/api/live/world-containers/lookup?managed_world_id=world-b") {
+      return Response.json(managedWorldRecord("world-b", "World B"));
+    }
     if (path === "/api/live/world-containers") return Response.json({
       schema_version: "dmb_world_container_registry_v1",
       records: [managedWorldRecord("world-a", "World A"), managedWorldRecord("world-b", "World B")],
@@ -734,7 +740,7 @@ describe("canonical local guest entry", () => {
       expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Plan" })).not.toBeInTheDocument();
       expect(fetchMock.mock.calls.every(([path]) => [
-        "/api/auth/session", "/api/live/world-containers", "/api/live/native-graph-explorer/graph",
+        "/api/auth/session", "/api/live/world-containers/lookup?managed_world_id=world-a", "/api/live/native-graph-explorer/graph",
       ].includes(String(path)))).toBe(true);
     } finally {
       dom.reconfigure({ url: originalUrl });
@@ -785,8 +791,9 @@ describe("canonical local guest entry", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
       if (path === "/api/auth/session") return Response.json({ status: "authenticated", subject: "hosted-owner" });
-      if (path === "/api/live/world-containers") return Response.json({ schema_version: "dmb_world_container_registry_v1",
-        records: [managedWorldRecord("world-a", "Owned World")] });
+      if (path === "/api/live/world-containers/lookup?managed_world_id=world-a") {
+        return Response.json(managedWorldRecord("world-a", "Owned World"));
+      }
       if (path === "/api/live/native-graph-explorer/graph") return Response.json(envelope);
       if (path === "/api/live/native-graph-inspection/read") {
         const request = JSON.parse(String(init?.body));
@@ -838,7 +845,7 @@ describe("canonical local guest entry", () => {
       expect(reads[0][1]).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
       expect(new Headers(reads[0][1]?.headers).has("Authorization")).toBe(false);
       expect(new Headers(reads[0][1]?.headers).has("X-DMB-Graph-CSRF")).toBe(false);
-      expect(fetchMock.mock.calls.every(([path]) => ["/api/auth/session", "/api/live/world-containers",
+      expect(fetchMock.mock.calls.every(([path]) => ["/api/auth/session", "/api/live/world-containers/lookup?managed_world_id=world-a",
         "/api/live/native-graph-explorer/graph", "/api/live/native-graph-inspection/read"].includes(String(path)))).toBe(true);
     } finally {
       mounted.unmount();
@@ -867,7 +874,7 @@ describe("canonical local guest entry", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Aster, person" })).not.toBeInTheDocument());
     await revealIsolatedObject(user, "Bramble");
     expect(screen.queryByRole("button", { name: "Aster, person" })).not.toBeInTheDocument();
-    expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/world-containers")).toHaveLength(2);
+    expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/world-containers/lookup?managed_world_id=world-a")).toHaveLength(2);
     subject = "owner-a";
     fireEvent(window, new Event("focus"));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Bramble, person" })).not.toBeInTheDocument());
@@ -908,20 +915,19 @@ describe("canonical local guest entry", () => {
     const oldList = new Promise<Response>(resolve => { resolveOld = resolve; });
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input) === "/api/auth/session") return Response.json({ status: "authenticated", subject });
-      if (String(input) === "/api/live/world-containers") return subject === "owner-a" ? oldList
-        : Response.json({ schema_version: "dmb_world_container_registry_v1", records: [] });
+      if (String(input) === "/api/live/world-containers/lookup?managed_world_id=world-a") return subject === "owner-a" ? oldList
+        : Response.json({}, { status: 403 });
       return Response.json({}, { status: 403 });
     });
     vi.stubGlobal("fetch", fetchMock);
     window.history.replaceState({}, "", "/graph?world=world-a");
     render(<App />);
     await screen.findByText("Verifying World selection…");
-    await waitFor(() => expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/world-containers")).toHaveLength(1));
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/world-containers/lookup?managed_world_id=world-a")).toHaveLength(1));
     subject = "owner-b";
     fireEvent(window, new Event("focus"));
     await screen.findByText("World selection unavailable");
-    await act(async () => resolveOld(Response.json({ schema_version: "dmb_world_container_registry_v1",
-      records: [managedWorldRecord("world-a", "Owner A secret world")] })));
+    await act(async () => resolveOld(Response.json(managedWorldRecord("world-a", "Owner A secret world"))));
     expect(screen.queryByText("Owner A secret world")).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/native-graph-explorer/graph")).toBe(false);
   });
