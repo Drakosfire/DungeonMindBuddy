@@ -159,7 +159,7 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
 
   if (strip) {
     const sessionNumber = (event: typeof events[number]) => {
-      const placements = [...event.placementSessions.values()];
+      const placements = campaign ? [event.placementSessions.get(campaign) ?? new Set<number>()] : [...event.placementSessions.values()];
       return placements.length === 1 && placements[0].size === 1 ? [...placements[0]][0] : undefined;
     };
     const byId = new Map(events.map(event => [event.node.id, event]));
@@ -196,7 +196,7 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
       }
     }
     const campaignIds = new Set(events.flatMap(event => event.campaignIds));
-    const canCompareSessions = campaignIds.size === 1;
+    const canCompareSessions = Boolean(campaign) || campaignIds.size === 1;
     const ordered = canCompareSessions
       ? events.filter(event => !recordedIds.has(event.node.id) && sessionNumber(event) !== undefined)
         .sort((a, b) => sessionNumber(a)! - sessionNumber(b)!)
@@ -204,6 +204,10 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
     const orderedIds = new Set(ordered.map(event => event.node.id));
     const unplaced = events.filter(event => !recordedIds.has(event.node.id) && !orderedIds.has(event.node.id));
     return <section className="native-demo-event-strip" aria-label="Connected Events">
+      {campaigns.length > 0 && <label>Campaign <select value={campaign} onChange={event => setCampaign(event.target.value)}>
+        <option value="">All campaigns</option>
+        {campaigns.map(id => <option key={id} value={id}>{labels.get(id)}</option>)}
+      </select></label>}
       {result?.partial && <small>Partial chronology</small>}
       {recorded.length > 0 && <small>Only the labeled links establish order between Events.</small>}
       {([{ items: recorded, label: "Recorded in-world links" },

@@ -410,3 +410,31 @@
   outline: 2px solid currentColor;
   outline-offset: 3px;
 }
+
+.native-demo-timeline-overlay {
+  position: absolute;
+  z-index: 2;
+  inset: 0.5rem 0.5rem auto;
+  max-height: min(45%, 11rem);
+  overflow: auto;
+  color: #f8f4eb;
+  background: #202833;
+  border: 1px solid #927344;
+  border-radius: 0.6rem;
+}
+
+.native-demo-timeline-overlay .native-demo-event-strip button {
+  border-radius: 1rem;
+  width: 100%;
+}
+
+.native-demo-timeline-overlay .native-demo-event-strip ul {
+  align-items: start;
+  background: linear-gradient(#ad8a4b, #ad8a4b) left 2.25rem / 100% 1px no-repeat;
+}
+
+.native-demo-timeline-overlay .native-demo-event-strip button {
+  min-height: 3.5rem;
+  background: #303c50;
+  border: 1px solid #ba9959;
+}

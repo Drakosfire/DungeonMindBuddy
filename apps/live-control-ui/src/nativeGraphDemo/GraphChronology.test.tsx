@@ -91,8 +91,8 @@ it("flags ordering cycles without discarding claims", async () => {
   expect(screen.getAllByText("Recorded after")).toHaveLength(4);
 });
 
-it.each([false, true])("isolates ordering claims with ambiguous Campaign mapping: %s", async (ambiguous) => {
-  const campaigns = ["One", "Two"].map(id => ({
+it.each([{ambiguous: false, single: false}, {ambiguous: true, single: false}, {ambiguous: false, single: true}])("isolates ordering claims with Campaign mapping %j", async ({ ambiguous, single }) => {
+  const campaigns = (single ? ["One"] : ["One", "Two"]).map(id => ({
     id, name: id, kind: "object",
     presentation: { recorded_names: [], classification_terms: ["dungeonbuddy:campaign"] },
   }));
@@ -115,8 +115,14 @@ it.each([false, true])("isolates ordering claims with ambiguous Campaign mapping
     ],
     completeness: { status: "complete" },
   } as unknown as NativeGraphChronology;
-  render(<GraphChronology graph={graph} read={async () => catalogue} onExplore={vi.fn()} />);
+  render(<GraphChronology graph={graph} read={async () => catalogue} onExplore={vi.fn()} strip={single} />);
   await screen.findByRole("option", { name: "One" });
+  if (single) {
+    fireEvent.change(screen.getByRole("combobox", { name: "Campaign" }), { target: { value: "One" } });
+    expect(screen.getByText("Recorded before Departure")).toBeVisible();
+    expect(screen.queryByText("Recorded before Arrival")).toBeNull();
+    return;
+  }
   expect(screen.queryByText("Conflicting recorded order")).toBeNull();
   const orderRows = screen.getAllByText("Recorded before");
   expect(orderRows.find(row => within(row).queryByRole("button", { name: "Departure" }))).toHaveTextContent("· One");
