@@ -308,7 +308,8 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
     endpointIds.has(row.from_record_id) && endpointIds.has(row.to_record_id)
       ? [{id: row.record_id, label: row.relationship_type, from: row.from_record_id, to: row.to_record_id}]
       : []);
-  const readyToPrepare = selectedObjects.length > 0 &&
+  const incompleteObjects = Object.keys(choices).length !== selectedObjects.length;
+  const readyToPrepare = selectedObjects.length > 0 && !incompleteObjects &&
     (!relationship || (relationshipSupport && relationships.some(row => row.id === relationship)));
   async function run(confirm: boolean) {
     if (!context || lock.current || isCurrent?.() === false) return;
@@ -395,6 +396,12 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
               <option key={String(row.evidence_ref_id)} value={String(row.evidence_ref_id)}>{String(row.text)}</option>)}
           </select></label>}
         </>}
+        {choices[recordId] && <button type="button" onClick={() => setChoices(current => {
+          const next = {...current};
+          delete next[recordId];
+          return next;
+        })}>Clear choices for this object</button>}
+        {incompleteObjects && <p role="status">Complete or clear unfinished object choices before preparing.</p>}
         <button type="button" disabled={!readyToPrepare}
           onClick={() => void run(false)}>Prepare selected facts</button>
       </fieldset> : !error && <p role="status">Loading saved Worldbuilding review…</p>}

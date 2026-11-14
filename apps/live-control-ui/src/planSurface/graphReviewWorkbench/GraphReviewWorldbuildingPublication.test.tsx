@@ -441,6 +441,11 @@ it.each([false, true])("prepares selected facts and confirms the exact packet (b
     for (const option of facts.options) option.selected = true;
     fireEvent.change(facts);
     fireEvent.change(screen.getByLabelText("Supporting excerpt"), { target: { value: "support:a" } });
+    fireEvent.change(screen.getByLabelText("Candidate object"), {target: {value: "town:a"}});
+    fireEvent.change(screen.getByLabelText("Supporting excerpt"), {target: {value: "support:a"}});
+    expect(screen.getByRole("button", {name: "Prepare selected facts"})).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", {name: "Clear choices for this object"}));
+    expect(screen.getByRole("button", {name: "Prepare selected facts"})).toBeEnabled();
     expect(screen.queryByLabelText("Relationship")).not.toBeInTheDocument();
     if (bindExisting) {
       fireEvent.change(screen.getByLabelText("Candidate object"), {target: {value: "town:a"}});
