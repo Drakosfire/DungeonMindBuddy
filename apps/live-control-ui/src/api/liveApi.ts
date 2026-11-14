@@ -3262,6 +3262,7 @@ export async function readPublishedNativeRecap(
       !packet.scope.native_world_id || !packet.scope.revision_id ||
       !Number.isSafeInteger(packet.scope.binding_version) || packet.scope.binding_version < 1 ||
       packet.campaign_id !== campaignId || packet.session_id !== sessionId ||
+      !Array.isArray(packet.evidence_ref_ids) || !packet.evidence_ref_ids.every(id => typeof id === "string" && id.length > 0) ||
       packet.source?.status !== "available" || typeof packet.source.body_text !== "string") {
     throw new Error("The published recap did not match the selected World and session.");
   }

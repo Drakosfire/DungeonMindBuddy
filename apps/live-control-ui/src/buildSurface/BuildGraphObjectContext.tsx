@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { InspectionPin } from "../api/nativeGraphInspection";
-import { LiveApiError, postNativeWorldGraphCompleteObject } from "../api/liveApi";
+import { LiveApiError } from "../api/liveApi";
 import type { GraphProjectionNodeView, WorldGraphObjectProjectionResult } from "../api/types";
 import {
   GraphObjectProjectionCard,
@@ -57,7 +57,7 @@ function readBuildObject(pointer: BuildGraphPointer, worldId: string, nodeId: st
     focus: { kind: "none", sessionId: null },
   } as const;
   return pointer.nativePin
-    ? postNativeWorldGraphCompleteObject({ ...request, scopeMode: "world" }, pointer.nativePin)
+    ? loadCompleteWorldObject({ ...request, scopeMode: "world" }, pointer.nativePin)
     : loadCompleteWorldObject(request);
 }
 

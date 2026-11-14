@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.models.native_graph_inspection import (
+    InspectionPin,
     InspectionRead,
     InspectionScope,
 )
@@ -41,7 +42,7 @@ def _call(fn, body, principal):
 
 
 @router.post("/catalog")
-def catalog(body: InspectionScope, principal=Depends(native_graph_gm_dependency)):
+def catalog(body: InspectionPin | InspectionScope, principal=Depends(native_graph_gm_dependency)):
     return _call(service.catalog, body, principal)
 
 
