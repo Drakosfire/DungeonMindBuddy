@@ -675,3 +675,14 @@ def test_managed_projection_uses_native_authorized_graph(inspection, monkeypatch
     assert source["suggestedExpansions"][0]["nodeId"] == target["nodeId"]
     assert source["nodeId"] in projection["queryContext"]["matchedNodeIds"]
     assert lane.repo.get_head(space).head_revision_id == revision
+    unavailable = inspection.client.post(
+        "/api/live/world-graph/managed-projection",
+        json={
+            "schema": "dmb_managed_world_graph_projection_request_v1",
+            "managedWorldId": "managed",
+            "revisionPin": "missing-native-revision",
+        },
+    )
+    assert unavailable.status_code >= 400
+    assert "projection" not in unavailable.json()
+    assert lane.repo.get_head(space).head_revision_id == revision
