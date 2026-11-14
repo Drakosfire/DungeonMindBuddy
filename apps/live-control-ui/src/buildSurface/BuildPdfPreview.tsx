@@ -109,9 +109,10 @@ function CropPreviewImage({ canvas, page }: { canvas: HTMLCanvasElement; page: n
   return <img src={url} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />;
 }
 
-function PdfPages({ file, worldId, restored, onRetained }: {
+export function PdfPages({ file, worldId, restored, onRetained, readOnly = false }: {
   file: File; worldId?: string; restored?: PdfLocator;
-  onRetained: (locator: PdfLocator) => void;
+  onRetained?: (locator: PdfLocator) => void;
+  readOnly?: boolean;
 }) {
   const [admission] = useState(() => ({ id: crypto.randomUUID(), createdAt: new Date().toISOString() }));
   const [receipt, setReceipt] = useState<PdfReceipt | undefined>(restored);
@@ -141,7 +142,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
     try {
       if (!receipt) {
         const admitted = await retainSource();
-        onRetained(captureLocator(admitted, page, selected));
+        onRetained?.(captureLocator(admitted, page, selected));
       } else {
         const locator = captureLocator(receipt, page, selected);
         const { response } = await authenticatedApiFetch(`${path}/region:validate`, {
@@ -150,7 +151,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           body: JSON.stringify(locator),
         });
         if (response.status !== 204) throw new Error();
-        onRetained(locator);
+        onRetained?.(locator);
       }
     } catch {
       setSourceError(receipt ? "Could not validate this retained PDF region." : "Could not retain this PDF.");
@@ -161,6 +162,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
 
   const canvas = useRef<HTMLCanvasElement>(null);
   const [document, setDocument] = useState<PDFDocumentProxy>();
+  const [zoom, setZoom] = useState(100);
   const [page, setPage] = useState(restored?.page ?? 1);
   const [error, setError] = useState("");
   const [renderedPage, setRenderedPage] = useState<number>();
@@ -338,15 +340,19 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           <button type="button" disabled={page === 1} onClick={() => changePage(page - 1)}>Previous page</button>
           <span role="status"> Page {page} of {document.numPages} </span>
           <button type="button" disabled={page === document.numPages} onClick={() => changePage(page + 1)}>Next page</button>
-          <p>Drag across the page to select a region.</p>
-          <div style={{ position: "relative", width: "fit-content", maxWidth: "100%" }}>
+          {readOnly ? <label>Zoom
+            <select value={zoom} onChange={event => setZoom(Number(event.target.value))}>
+              {[75, 100, 125, 150, 200].map(level => <option key={level} value={level}>{level}%</option>)}
+            </select>
+          </label> : <p>Drag across the page to select a region.</p>}
+          <div style={{ position: "relative", width: readOnly ? `${zoom}%` : "fit-content", maxWidth: readOnly ? undefined : "100%" }}>
             <canvas
               key={page}
               ref={canvas}
               aria-label={`PDF page ${page}`}
-              style={{ display: "block", maxWidth: "100%", height: "auto", touchAction: "none", cursor: "crosshair" }}
+              style={{ display: "block", width: readOnly ? "100%" : undefined, maxWidth: "100%", height: "auto", touchAction: readOnly ? "auto" : "none", cursor: readOnly ? undefined : "crosshair" }}
               onPointerDown={event => {
-                if (renderedPage !== page || event.button !== 0 || drag.current) return;
+                if (readOnly || renderedPage !== page || event.button !== 0 || drag.current) return;
                 const start = pagePoint(event);
                 event.currentTarget.setPointerCapture(event.pointerId);
                 drag.current = { pointerId: event.pointerId, start };
@@ -374,7 +380,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
               width: `${rectangle.width * 100}%`, height: `${rectangle.height * 100}%`,
             }} />}
           </div>
-          <button type="button" disabled={!rectangle?.width || !rectangle.height} onClick={captureRegion}>
+          {!readOnly && <><button type="button" disabled={!rectangle?.width || !rectangle.height} onClick={captureRegion}>
             Capture region
           </button>
           {region && <button type="button" onClick={() => { setRegion(undefined); setCapture(undefined); }}>
@@ -426,7 +432,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                 )}
               </details>
             </section>
-          )}
+          )}</>}
         </>
       )}
       {worldId && <StartPdfStatblockReview
@@ -438,7 +444,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           const fullPage = { left: 0, top: 0, width: 1, height: 1 };
           const pages = Array.from({ length: document.numPages }, (_, index) =>
             captureLocator(source, index + 1, fullPage));
-          onRetained(pages[0]);
+          onRetained?.(pages[0]);
           return pages;
         } : undefined}
         prepareRegions={selectedRegion || capture || statblockRegions.length ? async () => {
@@ -446,7 +452,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           if (!activeRegion) return statblockRegions;
           if (sourcePending) throw new Error("Wait for the PDF source to finish opening.");
           const locator = captureLocator(await retainSource(), page, activeRegion);
-          onRetained(locator);
+          onRetained?.(locator);
           return statblockRegions.some(region => pdfRegionKey(region) === pdfRegionKey(locator))
             ? statblockRegions : [...statblockRegions, locator];
         } : undefined}
