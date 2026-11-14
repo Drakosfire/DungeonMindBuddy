@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from src.live_play.roll_table_registry import RollTableRegistry
+from live_play.roll_table_registry import RollTableRegistry
 
 TABLE_ALIASES = {
     "weather": "T-WX",

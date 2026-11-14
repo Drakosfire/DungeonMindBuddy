@@ -19,7 +19,7 @@ from src.live_play.projections.write_results import (
     ProjectionWriteResult,
     ProjectionWriteStatus,
 )
-from src.live_play.roll_table_registry import RollTableRef, parse_roll_table_text
+from live_play.roll_table_registry import RollTableRef, parse_roll_table_text
 
 ALLOWED_PATCH_PAYLOAD_KEYS = frozenset(
     {"expected_file_state_token", "old_text", "new_text", "rationale", "dry_run"}
