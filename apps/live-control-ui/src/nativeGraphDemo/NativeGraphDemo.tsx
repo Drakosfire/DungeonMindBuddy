@@ -624,7 +624,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (nodeId && previous && previous !== nodeId) setInspectionHistory((history) => [...history, previous].slice(-30));
     selectedNodeIdRef.current = nodeId;
     setSelectedNodeId(nodeId);
-    if (nodeId) setChronology(null);
     setActivePanel((current) => nodeId ? "details" : current === "details" ? null : current);
   }, []);
 
@@ -1777,7 +1776,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const authoringPanelOpen = activePanel === "create" || activePanel === "connect";
   const chronologyPanel = chronologyOpen && api.readChronology ? (
     <div className="native-demo-inspector-timeline">
-      <GraphChronology graph={graph} read={api.readChronology} strip
+      <h2>{embedded && selectedNode ? `Chronology · ${compactNodeLabel(selectedNode)}` : `World chronology · ${worldTitle?.trim() || "Selected World"}`}</h2>
+      <GraphChronology relatedTo={embedded ? selectedNode?.id : undefined} graph={graph} read={api.readChronology} strip
         onExplore={nodeId => {
           if (pendingRef.current) return;
           setChronology(null);

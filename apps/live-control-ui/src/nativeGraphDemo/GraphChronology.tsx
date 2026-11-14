@@ -18,7 +18,7 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
     partial?: boolean;
   }>();
   const eventButtons = useRef(new Map<string, HTMLButtonElement>());
-  const [campaign, setCampaign] = useState("");
+  const [requestedCampaign, setCampaign] = useState("");
   useEffect(() => {
     const abort = new AbortController();
     void read(graph, abort.signal).then(catalogue => {
@@ -60,6 +60,7 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
   }
   const relatedEvents = relatedTo ? catalogue.filter(event => relatedIds.has(event.node.id)) : catalogue;
   const campaigns = [...new Set(relatedEvents.flatMap(event => event.campaignIds))];
+  const campaign = campaigns.includes(requestedCampaign) ? requestedCampaign : "";
   const events = relatedEvents.filter(event => !campaign || event.campaignIds.includes(campaign));
   function sessionOrder(event: typeof events[number]): number {
     const sessions = event.placementSessions.get(campaign);
@@ -214,6 +215,7 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
         {campaigns.map(id => <option key={id} value={id}>{labels.get(id)}</option>)}
       </select></label>}
       {result?.partial && <small>Partial chronology</small>}
+      {relatedTo && events.length === 0 && <p>No linked Events in this view.</p>}
       {recorded.length > 0 && <small>Only the labeled links establish order between Events.</small>}
       {groups.map(({ campaignId, session, items }) => (
         <div key={JSON.stringify([campaignId, session])}>
