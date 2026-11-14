@@ -302,6 +302,25 @@ def image_metadata(asset_id: UUID, request: Request, response: Response):
         raise HTTPException(error.status_code, detail='Media asset unavailable.') from error
 
 
+@router.get('/{asset_id}/original', response_class=Response)
+def image_original(asset_id: UUID, request: Request) -> Response:
+    principal = enforce_native_graph_gm(request)
+    try:
+        row = media.get_asset(asset_id, principal.subject)
+        content = media.read_staged_bytes(asset_id, principal.subject)
+    except ApplicationStateError as error:
+        raise HTTPException(error.status_code, detail='Media asset could not be opened.') from error
+    return Response(
+        content,
+        media_type=row['mime_type'],
+        headers={
+            'Cache-Control': 'no-store',
+            'X-Content-Type-Options': 'nosniff',
+            'X-Media-Content-SHA256': row['content_sha256'],
+        },
+    )
+
+
 @router.get('/{asset_id}')
 def image_record(asset_id: UUID, request: Request, response: Response):
     principal = enforce_native_graph_gm(request)

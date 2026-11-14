@@ -12,3 +12,9 @@ class NativeSourceRead(Closed):
     source_artifact_id: Text
     source_revision_id: Text
     evidence_ref_id: Text
+
+
+class PublishedRecapRead(Closed):
+    managed_world_id: Text
+    campaign_id: Text
+    session_id: Text

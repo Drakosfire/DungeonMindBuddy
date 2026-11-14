@@ -410,3 +410,227 @@ def test_withdrawn_source_is_withheld_at_same_graph_pin(inspection):
     assert source["text"] not in after.text
     assert repo.get_head(space) == head
     assert repo.head_events(space) == events
+
+
+def test_native_complete_object_binding_opens_exact_pinned_citation(inspection):
+    x = inspection
+    scope = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
+    route = "/api/live/native-graph-inspection/complete-object"
+    payload = {
+            "scope": scope,
+            "request": {
+                "schema": "dmb_world_graph_object_projection_request_v1",
+                "worldId": scope["managed_world_id"],
+                "scopeMode": "campaign",
+                "campaignId": scope["campaign_id"],
+                "revisionPin": scope["revision_id"],
+                "nodeId": x.objects["object:0"],
+            },
+    }
+    response = x.client.post(route, json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["snapshot"]["revisionId"] == scope["revision_id"]
+    evidence_id = x.lane.support_ids["first"]
+    binding = next(
+        row for row in result["sourceBindings"] if row["evidenceRefId"] == evidence_id
+    )
+    citation = read(x, scope, {
+        "kind": "source",
+        "assertion_id": x.assertions["name:0"],
+        "evidence_ref_id": evidence_id,
+    })
+    assert citation.status_code == 200, citation.text
+    assert citation.json()["scope"] == scope
+    source = citation.json()["source"]
+    expected = x.lane.text.splitlines(keepends=True)[0].encode()
+    assert source["text"].encode() == expected
+    assert binding["excerpt"].encode() == expected
+    assert result["node"]["adjacency"][0]["sourceExcerpt"].encode() == expected
+    assert result["relatedNodes"][0]["adjacency"][0]["sourceExcerpt"].encode() == expected
+    # Classic presentation trims the paragraph delimiter. Native citation keeps it.
+    from apps.live_control_server.models.world_graph_object_projection import (
+        WorldGraphObjectProjectionSourceBinding,
+    )
+    from apps.live_control_server.services.world_graph_object_projection import (
+        _apply_durable_bindings,
+    )
+
+    classic_binding = WorldGraphObjectProjectionSourceBinding(
+        evidence_ref_id=evidence_id,
+        source_artifact_id=binding["sourceArtifactId"],
+        source_revision_id=binding["sourceRevisionId"],
+        content_sha256=x.lane.digest,
+        source_span_ref_id="src:fixture:paragraph:1",
+        provenance_status="span_unresolvable",
+    )
+    classic, = _apply_durable_bindings(
+        SimpleNamespace(source_bindings=[classic_binding]),
+        records={
+            (classic_binding.source_artifact_id, x.lane.digest): SimpleNamespace(
+                markdown=x.lane.text, media_type="text/markdown",
+            ),
+        },
+    )
+    assert classic.provenance_status == "excerpt_ready"
+    assert classic.excerpt == binding["excerpt"].removesuffix("\r\n")
+    assert binding["provenanceStatus"] == "excerpt_ready"
+    assert source["span_sha256"] == sha256(expected).hexdigest()
+    assert source["source_artifact_id"] == binding["sourceArtifactId"]
+    assert source["body_sha256"] == binding["contentSha256"] == x.lane.digest
+
+    repo = x.lane.repo
+    space = scope["native_world_id"]
+    head = repo.get_head(space)
+    events = repo.head_events(space)
+    repo.withdraw_native_source(
+        space_id=space,
+        source_artifact_id=source["source_artifact_id"],
+        source_revision_id=source["source_revision_id"],
+    )
+    after = x.client.post(route, json=payload)
+    assert after.status_code == 409, after.text
+    assert "excerpt" not in after.json()
+    assert expected.decode().strip() not in after.text
+    assert repo.get_head(space) == head
+    assert repo.head_events(space) == events
+
+
+def test_native_complete_object_requires_matching_pin(inspection, monkeypatch):
+    x = inspection
+    scope = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
+    request = {
+        "schema": "dmb_world_graph_object_projection_request_v1",
+        "worldId": scope["managed_world_id"],
+        "scopeMode": "campaign",
+        "campaignId": scope["campaign_id"],
+        "revisionPin": scope["revision_id"],
+        "nodeId": x.objects["endpoint"],
+    }
+    route = "/api/live/native-graph-inspection/complete-object"
+    calls = []
+    get_revision = x.lane.repo.get_revision
+
+    def counted_revision(space_id, revision_id):
+        calls.append((space_id, revision_id))
+        return get_revision(space_id, revision_id)
+
+    with monkeypatch.context() as capture:
+        capture.setattr(x.lane.repo, "get_revision", counted_revision)
+        response = x.client.post(route, json={"scope": scope, "request": request})
+    assert calls == [(scope["native_world_id"], scope["revision_id"])]
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["found"]
+    assert result["node"]["nodeId"] == request["nodeId"]
+    assert result["snapshot"]["revisionId"] == scope["revision_id"]
+    assert result["snapshot"]["scopeMode"] == "campaign"
+    foreign = x.client.post(
+        route,
+        json={"scope": scope, "request": {**request, "nodeId": x.objects["other-campaign"]}},
+    )
+    assert foreign.status_code == 409, foreign.text
+
+    response = x.client.post(
+        route, json={"scope": scope, "request": {**request, "revisionPin": "rev:other"}}
+    )
+    assert response.status_code == 409
+    response = x.client.post(
+        route, json={"scope": {**scope, "binding_version": scope["binding_version"] + 1},
+                     "request": request}
+    )
+    assert response.status_code == 409
+    repo = x.lane.repo
+    body = "Another later source."
+    publish_native_text_source_evidence(
+        repository=repo,
+        domain_contract=x.lane.domain,
+        semantic_profile=x.lane.profile,
+        request=NativeTextSourceAdmissionV1(
+            space_id=x.lane.bound["native_world_id"],
+            admission_id="later-source",
+            expected_parent_revision_id=repo.get_head(
+                x.lane.bound["native_world_id"]
+            ).head_revision_id,
+            created_at=datetime.now(UTC),
+            body_text=body,
+            expected_body_sha256=sha256(body.encode()).hexdigest(),
+            source_classification="dungeonbuddy.source:session_recap",
+            authority="primary",
+            visibility={"kind": "labels_any", "labels": ["dungeonbuddy.visibility:gm"]},
+            spans=[
+                dict(
+                    client_ref="context",
+                    evidence_role="context",
+                    start_byte=0,
+                    end_byte=len(body),
+                    expected_slice_sha256=sha256(body.encode()).hexdigest(),
+                )
+            ],
+        ),
+    )
+    historical = x.client.post(route, json={"scope": scope, "request": request})
+    assert historical.status_code == 200, historical.text
+    historical_result = historical.json()
+    assert historical_result["node"] == result["node"]
+    assert historical_result["snapshot"]["revisionId"] == scope["revision_id"]
+    assert historical_result["snapshot"]["isHead"] is False
+    resolved = x.client.post(route, json={"request": request})
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["snapshot"] == historical_result["snapshot"]
+    assert resolved.json()["node"] == historical_result["node"]
+
+    x.client.headers.pop("Authorization")
+    assert x.client.post(route, json={"scope": scope, "request": request}).status_code == 401
+
+
+def test_product_complete_object_dispatches_selected_world_to_native(inspection, monkeypatch):
+    from apps.live_control_server.routes.world_graph_retrieval import router as product_router
+
+    x = inspection
+    x.app.include_router(product_router)
+    monkeypatch.setenv("DMB_NATIVE_COMPLETE_OBJECT_WORLD", "managed")
+    scope = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
+    request = {
+        "schema": "dmb_world_graph_object_projection_request_v1",
+        "worldId": "managed",
+        "scopeMode": "campaign",
+        "campaignId": scope["campaign_id"],
+        "revisionPin": scope["revision_id"],
+        "nodeId": x.objects["object:0"],
+    }
+    route = "/api/live/world-graph/retrieval/complete-object"
+    expected = x.client.post(
+        "/api/live/native-graph-inspection/complete-object", json={"request": request}
+    )
+    actual = x.client.post(route, json=request)
+    assert expected.status_code == actual.status_code == 200, actual.text
+    assert actual.json() == expected.json()
+    assert actual.json()["sourceBindings"]
+    other_campaign = {**request, "nodeId": x.objects["other-campaign"]}
+    campaign = x.client.post(route, json=other_campaign)
+    assert campaign.status_code == 409, campaign.text
+    world = x.client.post(route, json={**other_campaign, "scopeMode": "world"})
+    assert world.status_code == 200, world.text
+    assert world.json()["node"]["nodeId"] == other_campaign["nodeId"]
+    assert world.json()["snapshot"]["revisionId"] == scope["revision_id"]
+    rejected = x.client.post(route, json={**request, "revisionPin": "rev:unavailable"})
+    assert rejected.status_code == 409, rejected.text
+    x.client.headers.pop("Authorization")
+    assert x.client.post(route, json=request).status_code == 401
+
+
+def test_catalog_fetches_the_pinned_revision_once(inspection, monkeypatch):
+    repo = inspection.lane.repo
+    get_revision = repo.get_revision
+    reads = []
+
+    def count_revision_read(space_id, revision_id):
+        reads.append((space_id, revision_id))
+        return get_revision(space_id, revision_id)
+
+    monkeypatch.setattr(repo, "get_revision", count_revision_read)
+    result = catalog(inspection, scope_mode="campaign", campaign_id=inspection.lane.run.campaign_id)
+    scope = result["scope"]
+    assert reads == [(scope["native_world_id"], scope["revision_id"])]
+    assert result["assertions"]

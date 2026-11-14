@@ -4,6 +4,7 @@ import hashlib
 import json
 import sys
 import time
+import os
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +28,7 @@ except ModuleNotFoundError:
 
 EVAL_DIR = ROOT / "evals" / "canon_layering"
 SCENARIOS_DIR = EVAL_DIR / "scenarios"
-OUT_DIR = ROOT / "out" / "evals" / "canon_layering"
+OUT_DIR = Path(os.environ["TMPDIR"]) / "canon_layering"
 THRESHOLDS_PATH = EVAL_DIR / "thresholds.json"
 MANIFEST_PATH = EVAL_DIR / "scenario_manifest.json"
 

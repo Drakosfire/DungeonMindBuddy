@@ -66,6 +66,7 @@ def test_recovery_client_version_errors_include_actionable_guidance():
 
 
 def test_backup_stages_and_preserves_existing_set(tmp_path, monkeypatch):
+    from contextlib import nullcontext
     from types import SimpleNamespace
 
     import pytest
@@ -77,7 +78,12 @@ def test_backup_stages_and_preserves_existing_set(tmp_path, monkeypatch):
     monkeypatch.setattr(authority, "_require_postgres_client", lambda command: command)
     monkeypatch.setattr(authority, "compute_fingerprint", lambda dsn: fingerprint)
 
+    conn = SimpleNamespace(execute=lambda sql: SimpleNamespace(fetchone=lambda: ("test-snapshot",)))
+    monkeypatch.setattr(authority, "_fingerprint_transaction", lambda dsn: nullcontext(conn))
+    monkeypatch.setattr(authority, "_fingerprint_snapshot", lambda connection: fingerprint)
+
     def dump(args, **kwargs):
+        assert args[args.index("--snapshot") + 1] == "test-snapshot"
         staged = out.parent / args[args.index("--file") + 1]
         assert staged.parent != out.parent
         assert not out.exists()
@@ -144,3 +150,33 @@ def test_recovery_client_deadline_and_interrupt(monkeypatch):
         authority._run_recovery_client(
             ["pg_restore"], env={}, timeout_seconds=None, failure_hint="Discard and recreate the target.",
         )
+
+
+def test_failed_restore_never_reports_ready(tmp_path, monkeypatch, capsys):
+    from types import SimpleNamespace
+
+    from application_state import authority
+
+    def fail_replay(argv, **kwargs):
+        assert "--single-transaction" in argv
+        return SimpleNamespace(returncode=1, stderr="synthetic replay failure")
+
+    def unexpected_fingerprint(*args, **kwargs):
+        raise AssertionError("failed replay must stop before fingerprint verification")
+
+    monkeypatch.setattr("bootstrap_env.load_dungeonmindbuddy_dotenv", lambda: None)
+    monkeypatch.setattr(authority, "verify_backup_digest", lambda *args, **kwargs: None)
+    monkeypatch.setattr(authority, "load_fingerprint_sidecar", lambda path: object())
+    monkeypatch.setattr(authority, "_require_postgres_client", lambda command: command)
+    monkeypatch.setattr(authority, "database_has_app_state_schema", lambda dsn: False)
+    monkeypatch.setattr(authority, "compute_fingerprint", unexpected_fingerprint)
+    monkeypatch.setattr(authority.subprocess, "run", fail_replay)
+    code = cli.main([
+        "restore",
+        "--target-dsn", "postgresql://user@localhost/dungeonbuddy_app_state_test",
+        "--backup", str(tmp_path / "backup.dump"),
+    ])
+    output = capsys.readouterr()
+    assert code == 2
+    assert "READY" not in output.out
+    assert "pg_restore failed: synthetic replay failure" in output.err

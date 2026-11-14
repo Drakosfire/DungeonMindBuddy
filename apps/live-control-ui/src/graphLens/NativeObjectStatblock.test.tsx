@@ -13,7 +13,7 @@ afterEach(cleanup);beforeEach(()=>{vi.resetAllMocks();vi.mocked(listWorldMechani
 it('opens the associated saved portrait version through the shared owner, never latest',async()=>{
  vi.mocked(listWorldMechanicsAssociations).mockResolvedValue([record('link')]);render(<NativeObjectStatblock pin={pin} entityId="ooze"/>);
  fireEvent.click(await screen.findByRole('button',{name:'Preview and edit statblock'}));expect(opened).toHaveBeenCalledWith({worldId:'world',draftId:'saved-draft',revisionId:'portrait-version'});
- expect(screen.getByRole('link',{name:'Open full statblock'})).toHaveAttribute('href','/statblock?world=world&draft=saved-draft&revision=portrait-version');expect(screen.getByText('Linked at Graph revision: linked-graph')).toBeInTheDocument();
+ expect(screen.getByRole('link',{name:'Open full statblock'})).toHaveAttribute('href','/build?world=world&draft=saved-draft&revision=portrait-version');expect(screen.getByText('Linked at Graph revision: linked-graph')).toBeInTheDocument();
 });
 it('keeps campaign links distinct and rejects foreign World, binding and entity matches',async()=>{
  const invalid=['managed_world_id','native_world_id','binding_version','node_id'].map(field=>{const row=record(field);Object.assign(row.request.target,{[field]:field==='binding_version'?2:'foreign'});return row;});

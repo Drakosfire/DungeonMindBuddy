@@ -29,7 +29,7 @@ step() {
   fi
 }
 
-step "canon_layering/run_benchmarks.py" uv run python evals/canon_layering/run_benchmarks.py
+step "canon_layering/run_benchmarks.py" scripts/run_local_lab.sh full-benchmark-suite uv run python evals/canon_layering/run_benchmarks.py
 step "mirathorn_vertical_slice/run_step1.py" uv run python evals/mirathorn_vertical_slice/run_step1.py
 step "mirathorn_vertical_slice/run_step2.py" uv run python evals/mirathorn_vertical_slice/run_step2.py
 step "mirathorn_vertical_slice/run_step3.py" uv run python evals/mirathorn_vertical_slice/run_step3.py

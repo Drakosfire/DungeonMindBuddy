@@ -1,7 +1,7 @@
 import type { PdfLocator } from "./retainedPdfRegions";
 import {verifyNativeThreatReply,type NativeThreatReply,type PreparedNativeThreat,type PublishedNativeThreat} from './nativeThreatCreation';
 import {verifyWorldCreatureCatalog} from './worldMechanicsTypes';
-import type {NativeSourceCatalog,NativeSourceBody,NativeSourceSelection} from './nativeSourceInspection';
+import type {NativeSourceCatalog,NativeSourceBody,NativeSourceSelection,PublishedNativeRecap} from './nativeSourceInspection';
 import type {InspectionScope,InspectionPin,InspectionSelection,NativeGraphCatalog,NativeGraphEntity,NativeGraphSource,NativeGraphPdfRegion} from "./nativeGraphInspection";
 import {readBuildConstructionStream,ConstructionStreamError,type BuildObjectConstructionProgress} from './buildConstructionStream';
 import type {
@@ -323,6 +323,9 @@ function isRecapSelectionContextPath(pathname: string): boolean {
 function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
   const pathname = path.split("?", 1)[0];
   if ([
+    "/api/live/native-graph-inspection/complete-object",
+    "/api/live/native-graph-inspection/authoring-identities",
+    "/api/live/native-source-inspection/published-recap",
     "/api/live/native-graph-explorer/graph",
     "/api/live/native-graph-explorer/prepare",
     "/api/live/native-graph-explorer/confirm",
@@ -1632,6 +1635,21 @@ export async function postManagedWorldGraphProjection(
   );
 }
 
+export async function postNativeWorldGraphCompleteObject(
+  request: WorldGraphObjectProjectionRequest,
+  scope?: InspectionPin,
+  signal?: AbortSignal,
+): Promise<WorldGraphObjectProjectionResult> {
+  return apiFetch<WorldGraphObjectProjectionResult>(
+    "/api/live/native-graph-inspection/complete-object",
+    {
+      signal,
+      method: "POST",
+      body: JSON.stringify({ request, scope }),
+    },
+  );
+}
+
 export async function postWorldGraphCompleteObject(
   request: WorldGraphObjectProjectionRequest,
 ): Promise<WorldGraphObjectProjectionResult> {
@@ -1692,6 +1710,7 @@ export async function commitGraphObjectAuthoringWrite(
 
 export async function getGoldGraphProjection(
   query: GoldGraphProjectionQuery,
+  signal?: AbortSignal,
 ): Promise<GoldGraphProjectionResponse> {
   const params = new URLSearchParams({
     campaign_id: query.campaignId,
@@ -1699,6 +1718,7 @@ export async function getGoldGraphProjection(
   });
   return apiFetch<GoldGraphProjectionResponse>(
     `/api/live/graph-preview/gold-review/projection?${params.toString()}`,
+    { signal },
   );
 }
 
@@ -1715,9 +1735,9 @@ export async function getBuildSourceNavigation(args: {
   );
 }
 
-export function getSourceSessions(campaignId: string): Promise<number[]> {
+export function getSourceSessions(campaignId: string, signal?: AbortSignal): Promise<number[]> {
   const query = new URLSearchParams({ campaign_id: campaignId });
-  return apiFetch<number[]>(`/api/live/source-bundle/sessions?${query}`);
+  return apiFetch<number[]>(`/api/live/source-bundle/sessions?${query}`, { signal });
 }
 
 export async function getSourceBundle(
@@ -2402,6 +2422,27 @@ export async function createWorldContainer(
 export async function listWorldOwnedPlans(worldId: string): Promise<WorldOwnedPlansResponseV2> {
   return apiFetch<WorldOwnedPlansResponseV2>(
     `/api/live/workspace-documents/world-plans?world_id=${encodeURIComponent(worldId)}`,
+  );
+}
+
+export type WorldPlanInventoryPage = WorldOwnedPlansResponseV2 & {
+  next_before_updated_at: string | null;
+  next_before_document_id: string | null;
+};
+
+export function listWorldPlanInventoryPage(
+  worldId: string,
+  before?: { updatedAt: string; documentId: string },
+  signal?: AbortSignal,
+): Promise<WorldPlanInventoryPage> {
+  const query = new URLSearchParams({ world_id: worldId });
+  if (before) {
+    query.set("before_updated_at", before.updatedAt);
+    query.set("before_document_id", before.documentId);
+  }
+  return apiFetch<WorldPlanInventoryPage>(
+    `/api/live/workspace-documents/world-plans/page?${query}`,
+    { signal },
   );
 }
 
@@ -3174,6 +3215,29 @@ export async function getAgentNativeAssertionSource(worldId:string,turnId:string
 }
 
 
+export type NativeAuthoringIdentity = {
+  selectable?: boolean;
+  node_id: string;
+  label: string;
+  kind: string;
+  role: string;
+  summary: string | null;
+};
+
+export async function getNativeAuthoringIdentities(worldId: string): Promise<NativeAuthoringIdentity[]> {
+  const result = await apiFetch<{scope: InspectionPin; identities: NativeAuthoringIdentity[]}>(
+    '/api/live/native-graph-inspection/authoring-identities',
+    {
+      method: 'POST',
+      body: JSON.stringify({managed_world_id: worldId, scope_mode: 'world', campaign_id: null}),
+    },
+  );
+  if (result.scope.managed_world_id !== worldId || result.scope.scope_mode !== 'world') {
+    throw new Error('The object picker did not match this World.');
+  }
+  return result.identities;
+}
+
 export function getNativeGraphCatalog(scope:InspectionScope,signal?:AbortSignal):Promise<NativeGraphCatalog> {
  return apiFetch('/api/live/native-graph-inspection/catalog',{method:'POST',signal,body:JSON.stringify(scope)});
 }
@@ -3207,4 +3271,24 @@ export async function getNativeThreat(draft:string,world:string):Promise<Publish
   const reply=await verifyNativeThreatReply(value,world,draft);
   if(reply.state!=='published')throw new Error('Creature status is not a published result.');
   return reply;
+}
+
+export async function readPublishedNativeRecap(
+  managedWorldId: string, campaignId: string, sessionId: string, signal?: AbortSignal,
+): Promise<PublishedNativeRecap> {
+  const packet = await apiFetch<PublishedNativeRecap>("/api/live/native-source-inspection/published-recap", {
+    method: "POST", cache: "no-store", signal,
+    body: JSON.stringify({ managed_world_id: managedWorldId, campaign_id: campaignId, session_id: sessionId }),
+  });
+  if (packet?.schema !== "dmb_native_published_recap_v1" ||
+      packet.scope?.managed_world_id !== managedWorldId ||
+      packet.scope.scope_mode !== "world" || packet.scope.campaign_id !== null ||
+      !packet.scope.native_world_id || !packet.scope.revision_id ||
+      !Number.isSafeInteger(packet.scope.binding_version) || packet.scope.binding_version < 1 ||
+      packet.campaign_id !== campaignId || packet.session_id !== sessionId ||
+      !Array.isArray(packet.evidence_ref_ids) || !packet.evidence_ref_ids.every(id => typeof id === "string" && id.length > 0) ||
+      packet.source?.status !== "available" || typeof packet.source.body_text !== "string") {
+    throw new Error("The published recap did not match the selected World and session.");
+  }
+  return packet;
 }

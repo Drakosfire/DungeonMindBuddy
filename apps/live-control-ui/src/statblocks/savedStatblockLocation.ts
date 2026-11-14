@@ -10,3 +10,7 @@ export function readSavedStatblockTarget(snapshot:string):SavedStatblockTarget|n
  if(values.some(items=>items.length!==1||!items[0]!.trim()))return null;
  return {worldId:values[0]![0]!,draftId:values[1]![0]!,revisionId:values[2]![0]!};
 }
+
+export function buildSavedStatblockHref(target: SavedStatblockTarget): string {
+ return "/build?" + new URLSearchParams({world: target.worldId, draft: target.draftId, revision: target.revisionId});
+}

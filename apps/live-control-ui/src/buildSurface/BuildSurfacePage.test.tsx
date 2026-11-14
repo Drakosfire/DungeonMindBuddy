@@ -1,3 +1,4 @@
+import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
 vi.mock("./BuildPdfPreview", () => ({ BuildPdfPreview: ({initialFile}: {initialFile?: File}) => initialFile?.name ?? null }));
 import { fireEvent } from "@testing-library/react";
 import { StrictMode, useState } from "react";
@@ -32,7 +33,7 @@ import type { BuildReferenceContextBinding } from "./reference/buildBuildSurface
 import { BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./reference/buildReferenceIds";
 import { BuildReferenceCapability } from "./reference/BuildReferenceCapability";
 
-function renderBuildPage({ withConversationDock = false }: { withConversationDock?: boolean } = {}) {
+function renderBuildPage({ withConversationDock = false, managedWorld = false }: { withConversationDock?: boolean; managedWorld?: boolean } = {}) {
   const page = <>
     <SurfaceContextProvider>
       <PeekRegionProvider>
@@ -44,7 +45,8 @@ function renderBuildPage({ withConversationDock = false }: { withConversationDoc
   </>;
   return render(
     <AgentInteractionProvider>
-      {withConversationDock ? <AskPluginSlotProvider>{page}</AskPluginSlotProvider> : page}
+      {managedWorld ? <SelectedWorldProvider locationSnapshot={window.location.href}>{page}</SelectedWorldProvider>
+        : withConversationDock ? <AskPluginSlotProvider>{page}</AskPluginSlotProvider> : page}
     </AgentInteractionProvider>,
   );
 }
@@ -112,6 +114,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     ...actual,
     createWorkspaceDocument: vi.fn(),
     listWorkspaceDocuments: vi.fn(),
+    listWorldContainers: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
     getCommittedPageSnapshot: vi.fn(),
     updateWorkspaceDocumentMetadata: vi.fn(),
@@ -223,11 +226,19 @@ describe("BuildSurfacePage", () => {
   });
 
   it("opens the PDF import viewer on a canvas file drop", async () => {
-    renderBuildPage();
+    window.history.replaceState({}, "", "/build?world=elderwyld");
+    vi.mocked(liveApi.listWorldContainers).mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{schema_version: "dmb_world_container_record_v1", world_id: "elderwyld", name: "Elderwyld", source_root_relpath: "", created_at: ""}],
+    });
+    renderBuildPage({managedWorld: true});
+    await screen.findByRole("button", {name: "Switch World: Elderwyld"});
     const canvas = await screen.findByRole("heading", {name: /Start with a spark/});
     fireEvent.drop(canvas, {dataTransfer: {files: [new File(["%PDF"], "creature.pdf", {type: "application/pdf"})]}});
-    expect(await screen.findByText("creature.pdf")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", {name: "World"})).toBeInTheDocument();
+    expect(await screen.findByRole("region", {name: "PDF workspace"})).toHaveTextContent("creature.pdf");
+    expect(canvas).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Close PDF"}));
+    expect(screen.queryByText("creature.pdf")).not.toBeInTheDocument();
   });
 
   it("E2: bare /build shows a framed landing and shared conversation dock without creating", async () => {

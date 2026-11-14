@@ -7,7 +7,7 @@ import {graphDocumentRelationshipRequest} from '../api/graphDocumentRelationship
 const state=vi.hoisted(()=>({session:null as any}));
 vi.mock('../markdownCanvas/MarkdownCanvasSession',()=>({useOptionalMarkdownCanvasSession:()=>state.session}));
 vi.mock('../worldGraph/verifyManagedWorldGraphProjectionResponse',()=>({verifyManagedWorldGraphProjectionResponse:()=>null}));
-vi.mock('../api/liveApi',async()=>({LiveApiError:(await vi.importActual<typeof import('../api/liveApi')>('../api/liveApi')).LiveApiError,getGraphObjectAuthoringKinds:vi.fn(),postManagedWorldGraphProjection:vi.fn(),prepareGraphObjectAuthoringWrite:vi.fn(),commitGraphObjectAuthoringWrite:vi.fn()}));
+vi.mock('../api/liveApi',async()=>({LiveApiError:(await vi.importActual<typeof import('../api/liveApi')>('../api/liveApi')).LiveApiError,getGraphObjectAuthoringKinds:vi.fn(),getNativeAuthoringIdentities:vi.fn(),prepareGraphObjectAuthoringWrite:vi.fn(),commitGraphObjectAuthoringWrite:vi.fn()}));
 vi.mock('../api/graphDocumentRelationshipApi',()=>({graphDocumentRelationshipRequest:vi.fn()}));
 const world='test-world',doc='11111111-1111-4111-8111-111111111111',key=relationshipKey(world,doc);
 const seed={document_source:{documentId:doc,revision:4,contentSha256:'a'.repeat(64)},quote:'Rowan worked with Brin temporarily.'};
@@ -20,7 +20,7 @@ beforeEach(()=>{
  vi.clearAllMocks();localStorage.clear();let queue=Promise.resolve();Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_key:string,fn:()=>unknown)=>{const next=queue.then(fn);queue=next.then(()=>{},()=>{});return next;}}});
  state.session={record:{world_id:world,document_id:doc},snapshot:{loaded_revision:4,content_sha256:'a'.repeat(64)},dirty:false,activeCommand:null};
  vi.mocked(api.getGraphObjectAuthoringKinds).mockResolvedValue({objectKinds:['npc','location']});
- vi.mocked(api.postManagedWorldGraphProjection).mockResolvedValue({projection:{nodes:[{nodeId:'node:brin',label:'Brin',kind:'npc'}]}} as any);
+ vi.mocked(api.getNativeAuthoringIdentities).mockResolvedValue([{node_id:'node:brin',label:'Brin',kind:'npc',role:'npc',summary:null}]);
  vi.mocked(graphDocumentRelationshipRequest).mockImplementation(async i=>({worldId:world,campaignId:world,documentSource:i.document_source,proposals:[{localProposalId:'relationship',proposalKind:'relationship',selection:{selectedText:i.quote},relationshipType:i.predicate}]} as any));
  vi.mocked(api.prepareGraphObjectAuthoringWrite).mockResolvedValue(prepared);vi.mocked(api.commitGraphObjectAuthoringWrite).mockResolvedValue(receipt);
 });

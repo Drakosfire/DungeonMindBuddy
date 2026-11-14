@@ -32,7 +32,7 @@ from apps.live_control_server.config import (
     session_dir,
     world_graph_root,
 )
-from apps.live_control_server.services.build_pdf_ocr import PdfCropRequest, read_crop
+from apps.live_control_server.services.build_pdf_ocr import read_crop_png
 from apps.live_control_server.models.build_document_proposal import BuildDocumentProposalRequest
 from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryResponse,
@@ -2142,22 +2142,21 @@ def _authorized_build_pdf_region(world_id: str, body: dict, request: Request):
     return pdf, region
 
 
-def _render_build_pdf_region(pdf, region):
+def _render_build_pdf_region(pdf, region, **kwargs):
     from apps.live_control_server.services.build_pdf_region_render import render_region
 
     try:
-        return render_region(pdf, region)
+        return render_region(pdf, region, **kwargs)
     except ValueError as exc:
         raise HTTPException(status_code=503, detail={"code": "pdf_region_render_unavailable"}) from exc
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/ocr")
 def post_read_build_pdf_region(world_id: str, body: dict, request: Request):
-    from base64 import b64encode
 
     pdf, region = _authorized_build_pdf_region(world_id, body, request)
     png = _render_build_pdf_region(pdf, region)
-    return read_crop(PdfCropRequest(png_base64=b64encode(png).decode("ascii")))
+    return read_crop_png(png)
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/review")
@@ -2227,25 +2226,21 @@ def _authorized_pdf_statblock(world_id: str, body: dict, request: Request, *, al
 @router.put("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}")
 def put_pdf_statblock_review(world_id: str, review_id: UUID, body: dict, request: Request):
     from application_state.errors import ApplicationStateConflictError
-    from application_state.pdf_statblock_review import read_review, save_review
+    from application_state.pdf_statblock_review import save_review
 
     enforce_native_graph_gm(request)
     expected_revision = body.get("expected_revision")
     if type(expected_revision) is not int or expected_revision < 0:
         raise HTTPException(status_code=422, detail={"code": "invalid_review_revision"})
     world_id = _verified_world_id(world_id)
-    existing = read_review(world_id=world_id, review_id=review_id) if expected_revision else None
-    confirmation_required = bool(existing and existing.get("source_confirmation_required"))
     candidate, regions = _authorized_pdf_statblock(
-        world_id, {key: value for key, value in body.items() if key not in {"expected_revision", "source_confirmed"}}, request,
+        world_id, {key: value for key, value in body.items() if key not in {"expected_revision"}}, request,
         allow_unresolved=True,
     )
     try:
         return save_review(
             world_id=_verified_world_id(world_id), review_id=review_id, expected_revision=expected_revision,
             definition=candidate.model_dump(mode="json", by_alias=True), regions=regions,
-            **({"source_confirmation_required": True, "source_confirmed": body.get("source_confirmed") is True}
-               if confirmation_required else {}),
         )
     except ApplicationStateConflictError as exc:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"}) from exc
@@ -2261,14 +2256,15 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         StatblockExtractionError, extract_statblock,
     )
     from src.llm.generation_sync import run_awaitable_sync
-    from apps.live_control_server.services.build_pdf_region_render import read_region_text
-    from base64 import b64encode
+    from apps.live_control_server.services.build_pdf_region_render import read_region_text, request_page_renderer
 
     enforce_native_graph_gm(request)
     instruction = body.get("instruction", "")
     regions_body = body.get("regions")
     edition = body.get("edition")
-    if (set(body) - {"regions", "instruction", "edition"}
+    whole_pdf = body.get("whole_pdf", False)
+    if (set(body) - {"regions", "instruction", "edition", "whole_pdf"}
+            or not isinstance(whole_pdf, bool)
             or edition not in (None, "2014", "2024") or not isinstance(instruction, str)
             or not isinstance(regions_body, list) or not regions_body
             or any(not isinstance(region, dict) for region in regions_body)):
@@ -2290,16 +2286,21 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     transcriptions = []
     embedded_texts = []
     authorized_regions = []
+    render_page = request_page_renderer()
     for locator in regions_body:
         pdf, region = _authorized_build_pdf_region(world_id, locator, request)
-        png = _render_build_pdf_region(pdf, region)
-        transcription = read_crop(PdfCropRequest(png_base64=b64encode(png).decode("ascii")))
+        png = _render_build_pdf_region(pdf, region, render_page=render_page)
+        transcription = read_crop_png(png, allow_empty=True) if whole_pdf else read_crop_png(png)
         text = transcription.get("text") if isinstance(transcription, dict) else None
+        authorized_regions.append(region.model_dump(mode="json"))
+        if whole_pdf and isinstance(text, str) and not text.strip():
+            continue
         if not isinstance(text, str) or not text.strip():
             raise HTTPException(status_code=503, detail={"code": "pdf_statblock_ocr_unavailable"})
         transcriptions.append(text)
         embedded_texts.append(read_region_text(pdf, region) or None)
-        authorized_regions.append(region.model_dump(mode="json"))
+    if not transcriptions:
+        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_extraction_incomplete"})
 
     try:
         options = {}
@@ -2327,7 +2328,6 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         return save_review(
             world_id=verified_world, review_id=review_id, expected_revision=0,
             definition=definition, regions=authorized_regions,
-            **({"source_confirmation_required": True} if any(embedded_texts) else {}),
         )
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_output_invalid"}) from exc
@@ -2348,16 +2348,38 @@ def get_pdf_statblock_review(world_id: str, review_id: UUID, request: Request):
     return review
 
 
-def _require_resolved_pdf_statblock(review: dict) -> dict:
-    if review.get("source_confirmation_required") and not review.get("source_confirmed"):
-        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_source_confirmation_required"})
-    if review["definition"].get("ruleset") is None:
-        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_edition_unresolved"})
-    if review["definition"].get("movement") is None:
-        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_movement_unresolved"})
-    if review["definition"]["challenge"]["proficiency_bonus"] is None:
-        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_proficiency_bonus_unresolved"})
-    return review
+def _pdf_review_creature_draft_id(world_id: str, review_id: UUID) -> UUID:
+    return uuid5(NAMESPACE_URL, f"dungeonbuddy:pdf-review:{world_id}:{review_id}")
+
+
+@router.get("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/publication")
+def get_pdf_statblock_publication(world_id: str, review_id: UUID, request: Request):
+    from application_state.pdf_statblock_review import read_review
+    from application_state.world_mechanics.service import list_current
+
+    from apps.live_control_server.services import native_threat_creation as creature
+
+    enforce_native_graph_gm(request)
+    world_id = _verified_world_id(world_id)
+    if read_review(world_id=world_id, review_id=review_id) is None:
+        raise HTTPException(status_code=404, detail={"code": "pdf_statblock_review_not_found"})
+    draft_id = _pdf_review_creature_draft_id(world_id, review_id)
+    bound = creature.native.binding(world_id)
+    prior = creature.existing(creature.native.read_repository(), bound, draft_id)
+    if prior is None:
+        return None
+    published = creature.published(bound, draft_id, prior, replayed=True)
+    associations = [
+        association for association in list_current(world_id=world_id)
+        if str(association.request.draft_id) == str(draft_id)
+        and association.request.target.campaign_scope is None
+        and association.request.target.node_id == published["node_id"]
+        and association.request.target.native_world_id == published["native_world_id"]
+        and association.request.target.binding_version == published["binding_version"]
+    ]
+    if len(associations) != 1 or creature.native.binding(world_id) != bound:
+        return None
+    return {"draft_id": draft_id, "revision_id": associations[0].proof.locator.revision_id}
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/creature-draft")
@@ -2365,8 +2387,6 @@ def post_pdf_statblock_creature_draft(
     world_id: str, review_id: UUID, request: Request,
     expected_revision: int = Query(ge=1),
 ):
-    from uuid import NAMESPACE_URL, uuid5
-
     from apps.live_control_server.models.threat_draft import CreateWorldThreatDraftRequest
     from apps.live_control_server.routes.statblock_storage import statblock_data_root
     from apps.live_control_server.services.threat_draft_store import (
@@ -2377,7 +2397,7 @@ def post_pdf_statblock_creature_draft(
     world_id = _verified_world_id(world_id)
     if review["revision"] != expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
-    definition = _require_resolved_pdf_statblock(review)["definition"]
+    definition = review["definition"]
     name = definition["identity"]["name"]
     draft_request = CreateWorldThreatDraftRequest(
         scope_mode="world", world_id=world_id, campaign_id=None,
@@ -2386,7 +2406,7 @@ def post_pdf_statblock_creature_draft(
         graph_context_snapshot={"graph_revision_id": None},
         created_by="gm",
     )
-    draft_id = uuid5(NAMESPACE_URL, f"dungeonbuddy:pdf-review:{world_id}:{review_id}")
+    draft_id = _pdf_review_creature_draft_id(world_id, review_id)
     try:
         draft = create_threat_draft(statblock_data_root(repo_root()), draft_request, stable_id=draft_id)
     except ThreatDraftStoreError as exc:
@@ -2406,7 +2426,6 @@ def post_validate_pdf_statblock_review(
     review = get_pdf_statblock_review(world_id, review_id, request)
     if review["revision"] != expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
-    _require_resolved_pdf_statblock(review)
     candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": review["definition"]})
     validation = validate_definition(definition=candidate.definition)
     return {
@@ -2429,7 +2448,7 @@ def post_accept_pdf_statblock_review(
         PDF_REVIEW_PROVENANCE, begin_or_resume_acceptance, recover_acceptance_operation,
     )
     from apps.live_control_server.services.statblock_acceptance_reconciliation import (
-        get_acceptance_operation,
+        get_acceptance_operation, list_acceptance_operations_for_draft,
     )
     from apps.live_control_server.services.threat_draft_store import (
         ThreatDraftStoreError, get_threat_draft,
@@ -2466,13 +2485,32 @@ def post_accept_pdf_statblock_review(
             draft_id=draft_key, operation_id=body.operation_id,
             result_label="acceptance_blocked", message="expected draft version mismatch",
         )
-    if draft.accepted_mechanics_ref is not None:
-        raise HTTPException(status_code=409, detail={"code": "pdf_statblock_draft_already_has_mechanics"})
+    locator = draft.accepted_mechanics_ref.to_mechanics_locator() if draft.accepted_mechanics_ref else None
+    matches = []
+    for operation in list_acceptance_operations_for_draft(root, draft_id=draft_key):
+        provenance = (operation.request_body.get("accepted_through") or {}).get(PDF_REVIEW_PROVENANCE, {})
+        recoverable = (
+            operation.locator == locator and operation.authority_state in {"server_committed", "reconciled"}
+            if locator is not None else
+            operation.source_draft_version == draft.version
+            and operation.authority_state in {"dispatched_unknown", "server_committed"}
+        )
+        if (
+            recoverable
+            and operation.validation_receipt_digest == body.validation_definition_digest
+            and all(provenance.get(key) == value for key, value in identity.items())
+        ):
+            matches.append(operation)
+    if len(matches) == 1:
+        return recover_acceptance_operation(
+            root, draft_id=draft_key, operation_id=matches[0].operation_id,
+        )
+    if matches or locator is not None:
+        raise HTTPException(status_code=409, detail={"code": "pdf_statblock_acceptance_conflict" if matches else "pdf_statblock_draft_already_has_mechanics"})
 
     review = get_pdf_statblock_review(world_id, review_id, request)
     if review["revision"] != body.expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
-    _require_resolved_pdf_statblock(review)
     return begin_or_resume_acceptance(
         root,
         draft_id=draft_key,
@@ -2500,10 +2538,16 @@ def post_append_pdf_statblock_review(
     world_id = _verified_world_id(world_id)
     return _revision_call(
         append_pdf_review, draft_id=str(draft_id), world_id=world_id, review_id=review_id,
-        request=body, load_review=lambda: _require_resolved_pdf_statblock(
-            get_pdf_statblock_review(world_id, review_id, request),
-        ),
+        request=body, load_review=lambda: get_pdf_statblock_review(world_id, review_id, request),
     )
+
+
+@router.post("/worlds/{world_id}/build-pdf-sources/region:validate", status_code=204)
+def post_validate_build_pdf_region(world_id: str, body: dict, request: Request):
+    from fastapi.responses import Response
+
+    _authorized_build_pdf_region(world_id, body, request)
+    return Response(status_code=204, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/open")

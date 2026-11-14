@@ -13,8 +13,6 @@ type Review = {
   revision: number;
   definition: EditableStatblockOutput;
   regions: PdfLocator[];
-  source_confirmation_required?: boolean;
-  source_confirmed?: boolean;
 };
 
 export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string; reviewId: string }) {
@@ -24,7 +22,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [editor, setEditor] = useState<StatblockEditorState<EditableStatblockOutput>>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const [sourceChecked, setSourceChecked] = useState(false);
+  const [developerTools, setDeveloperTools] = useState(false);
   const [saved, setSaved] = useState(false);
   const [validation, setValidation] = useState("");
   const [issues, setIssues] = useState<ValidationIssueV1[]>([]);
@@ -33,7 +31,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [drafts, setDrafts] = useState<ThreatDraft[]>([]);
   const [draftId, setDraftId] = useState("");
   const [acceptOpen, setAcceptOpen] = useState(false);
-  const [published, setPublished] = useState(false);
+  const [publishedLink, setPublishedLink] = useState("");
+  const published = Boolean(publishedLink);
   const [acceptedLink, setAcceptedLink] = useState("");
 
   const [versions, setVersions] = useState<SavedMechanicsVersionList>();
@@ -112,6 +111,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     }
   }
 
+  const returnToBuild = new URL(window.location.href);
+  returnToBuild.searchParams.delete("pdfReview");
   const createKey = `buddy:pdf-creature-draft:${worldId}:${reviewId}`;
   const [createInFlight, setCreateInFlight] = useState(false);
 
@@ -243,14 +244,16 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         setError(result.message || "Mechanics acceptance is unresolved. Select Accept mechanics again to check the same operation.");
         return;
       }
+      const link = `/statblock?${new URLSearchParams({
+        world: worldId, draft: draft.draft_id, revision: result.locator.revision_id,
+      })}`;
       if (publish) {
         const current = await getThreatDraft(draft.draft_id);
         await publishPdfStatblock(worldId, draft.draft_id, current.version, result.locator);
-        setPublished(true);
+        setPublishedLink(link);
+      } else {
+        setAcceptedLink(link);
       }
-      setAcceptedLink(`/statblock?${new URLSearchParams({
-        world: worldId, draft: draft.draft_id, revision: result.locator.revision_id,
-      })}`);
     } catch (failure) {
       setError(publish
         ? (failure instanceof Error ? failure.message : "Publication stopped. Retry Publish to resume.")
@@ -270,12 +273,33 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         if (abort.signal.aborted) return;
         setEditor(createEditorStateFromOutput(result.definition));
         setReview(result);
+        setRegion(result.regions[0]);
       } catch {
         if (!abort.signal.aborted) setError("Could not open the statblock review.");
       }
     })();
     return () => abort.abort();
   }, [reviewPath]);
+
+  useEffect(() => {
+    const abort = new AbortController();
+    void (async () => {
+      try {
+        const { response } = await authenticatedApiFetch(`${reviewPath}/publication`, { signal: abort.signal });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (!abort.signal.aborted && result?.draft_id && result.revision_id) {
+          const link = `/statblock?${new URLSearchParams({
+            world: worldId, draft: result.draft_id, revision: result.revision_id,
+          })}`;
+          setPublishedLink(current => current || link);
+        }
+      } catch {
+        // Publication can still be resumed when status lookup is unavailable.
+      }
+    })();
+    return () => abort.abort();
+  }, [reviewPath, worldId]);
 
   useEffect(() => {
     if (!region) return;
@@ -304,11 +328,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
 
   async function validate() {
     if (!review || !editor || pending) return;
-    if (review.source_confirmation_required &&
-        (!review.source_confirmed || getLocalFingerprint(editor) !== editor.baselineFingerprint)) {
-      setError("Check the visible source and save this revision before validating mechanics.");
-      return;
-    }
     setPending(true);
     setError("");
     setValidation("");
@@ -354,7 +373,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         method: "PUT",
         body: JSON.stringify({
           expected_revision: review.revision, definition: editor.workingCopy, regions: review.regions,
-          ...(review.source_confirmation_required ? { source_confirmed: sourceChecked } : {}),
         }),
       });
       if (response.status === 409) {
@@ -366,7 +384,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       setEditor(createEditorStateFromOutput(result.definition));
       setReview(result);
       setHasInitialAttempt(false);
-      setSourceChecked(false);
       setSaved(true);
     } catch {
       setError("Could not save the review draft.");
@@ -375,12 +392,34 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     }
   }
 
+  useEffect(() => {
+    if (!editor || !review || published || pending) return;
+    const abort = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const { response } = await authenticatedApiFetch("/api/live/statblock-definitions:validate", {
+          method: "POST",
+          signal: abort.signal,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ definition: editor.workingCopy }),
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (!abort.signal.aborted && result?.outcome === "success" && result.validation_receipt) {
+          setIssues(result.validation_receipt.issues ?? []);
+        }
+      } catch {
+        // Publish validates the saved revision even when background validation is unavailable.
+      }
+    }, 450);
+    return () => {
+      window.clearTimeout(timer);
+      abort.abort();
+    };
+  }, [editor, review, published, pending]);
+
   const publishBlockers = editor && review ? [
-    ...(!editor.workingCopy.ruleset ? ["Choose a D&D edition to validate and publish mechanics."] : []),
-    ...(!editor.workingCopy.movement ? ["Resolve walking speed."] : []),
-    ...(editor.workingCopy.challenge.proficiency_bonus == null ? ["Enter a proficiency bonus."] : []),
     ...(getLocalFingerprint(editor) !== editor.baselineFingerprint ? ["Save your edits."] : []),
-    ...(review.source_confirmation_required && !review.source_confirmed ? ["Check the source and save your confirmation."] : []),
     ...issues.filter(issue => issue.severity === "error").map(issue => issue.message),
   ] : [];
 
@@ -388,11 +427,20 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     <section className="pdf-statblock-review" aria-label="PDF statblock review">
       <header className="pdf-statblock-review__toolbar">
         <h1>PDF statblock review</h1>
+        <button type="button" disabled={pending} onClick={() => {
+          const dirty = editor && getLocalFingerprint(editor) !== editor.baselineFingerprint;
+          if (!dirty || window.confirm("Leave without saving your statblock edits?")) {
+            window.location.assign(returnToBuild.href);
+          }
+        }}>Back to Build</button>
         {editor && <button type="button" disabled={pending} onClick={() => void save()}>Save review draft</button>}
         {saved && <span role="status">Draft saved</span>}
         {editor && review && <button type="button" disabled={pending || published || publishBlockers.length > 0}
           onClick={() => void acceptMechanics(true)}>Publish</button>}
-        {published && <span role="status">Creature and statblock published</span>}
+        {published && <>
+          <span role="status">Creature and statblock published</span>
+          <a href={publishedLink}>Open published statblock</a>
+        </>}
       </header>
       {!published && publishBlockers.length > 0 && <ul aria-label="What blocks publication">
         {publishBlockers.map((blocker, index) => <li key={index}>{blocker}</li>)}
@@ -403,7 +451,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         <section aria-label="PDF source" className="pdf-statblock-review__pane" tabIndex={0}>
       {review && <>
           {review.regions.map((locator, index) => (
-            <button type="button" key={index} onClick={() => { setError(""); setRegion(locator); }}>
+            <button type="button" key={index} onClick={() => { setError(""); setRegion({ ...locator }); }}>
               Open source region {index + 1} · Page {locator.page}
             </button>
           ))}
@@ -415,10 +463,10 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       </>}
         </section>
         <section aria-label="Statblock fields" className="pdf-statblock-review__pane" tabIndex={0}>
-      {editor && !mechanicsResolved && <ul aria-label="Fields needed before publishing">
-        {!editor.workingCopy.movement && <li>Movement is unresolved. Enter the walking speed from the crop.</li>}
+      {editor && !mechanicsResolved && <ul aria-label="Fields needed for combat adoption">
+        {!editor.workingCopy.movement && <li>Movement is unspecified. Enter a speed if the source supports it.</li>}
         {editor.workingCopy.challenge.proficiency_bonus == null &&
-          <li>Proficiency bonus is missing. Enter the bonus for the reviewed ruleset.</li>}
+          <li>Proficiency bonus is unspecified. A bonus is needed for combat adoption.</li>}
       </ul>}
       {editor && !editor.workingCopy.movement && <form onSubmit={event => {
         event.preventDefault();
@@ -428,10 +476,11 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         setEditor(updateWorkingCopy(editor, current => ({ ...current, movement: { modes: [{
           key: "walk", mode: "walk" as const, distance: { unit: "feet" as const, value: Number(speed) },
         }] } })));
-        setSourceChecked(false);
         setSaved(false);
+        setIssues([]);
+        setValidation("");
       }}>
-        <p>Movement is unspecified. You can save the review now or enter a speed to validate mechanics.</p>
+        <p>Movement is unspecified. You can publish with movement unspecified.</p>
         <label>Walking speed (feet)
           <input disabled={pending} name="walkSpeed" type="number" min="0" step="1" required />
         </label>
@@ -446,7 +495,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
               setEditor(updateWorkingCopy(editor, current => ({
                 ...current, ruleset: edition ? { ...current.ruleset, system: "dnd5e", edition } : null,
               })));
-              setSourceChecked(false);
               setSaved(false);
               setValidation("");
               setIssues([]);
@@ -457,7 +505,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
             </select>
           </label>
           <label>Proficiency bonus
-            <input type="number" min="0" step="1"
+            <input type="number" min="0" step="1" placeholder="Unspecified in source"
+              aria-invalid={issues.some(issue => issue.field_path === "challenge.proficiency_bonus" && issue.severity === "error")}
               value={editor.workingCopy.challenge.proficiency_bonus ?? ""}
               onChange={event => {
                 const value = event.currentTarget.valueAsNumber;
@@ -465,14 +514,11 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
                 setEditor(updateWorkingCopy(editor, current => ({
                   ...current, challenge: { ...current.challenge, proficiency_bonus: Number.isNaN(value) ? null : value },
                 })));
-                setSourceChecked(false);
                 setSaved(false);
                 setValidation("");
                 setIssues([]);
               }} />
           </label>
-          <button type="button" disabled={!mechanicsResolved} onClick={() => void validate()}>Validate mechanics</button>
-          {validation && <span role="status">{validation}</span>}
           {issues.length > 0 && <ul aria-label="Mechanics validation issues">
             {issues.map((issue, index) => (
               <li key={index}>
@@ -484,45 +530,45 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
           </ul>}
           {editor.workingCopy.movement && <button type="button" onClick={() => {
             setEditor(updateWorkingCopy(editor, current => ({ ...current, movement: null })));
-            setSourceChecked(false);
             setSaved(false);
             setValidation("");
             setIssues([]);
           }}>Mark movement unspecified</button>}
-          {review.source_confirmation_required && <label>
-            <input type="checkbox" checked={sourceChecked}
-              onChange={event => setSourceChecked(event.target.checked)} />
-            I checked the mechanics against the visible PDF regions.
-          </label>}
-          <button type="button" disabled={!mechanicsResolved || createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}
-            onClick={() => void createDraft()}>Create creature draft from review</button>
-          {!acceptOpen && <button type="button" disabled={!mechanicsResolved} onClick={() => void openAcceptance()}>Choose creature draft</button>}
-          {acceptOpen && <>
-            <label>Creature draft
-              <select value={draftId} onChange={event => void chooseDraft(event.target.value)}>
-                <option value="">Select a draft</option>
-                {drafts.map(draft => <option key={draft.draft_id} value={draft.draft_id}>{draft.name}</option>)}
-              </select>
-            </label>
-            {selectedDraft?.workflow_state === "mechanics_saved" ? <>
-              <label>Parent statblock version
-                <select value={parentId} onChange={event => { setParentId(event.target.value); setAcceptedLink(""); }}>
-                  <option value="">Select a saved version</option>
-                  {savedParents.map(locator => <option key={locator.revision_id} value={locator.revision_id}>
-                    {locator.revision_id}{locator.revision_id === versions?.original.revision_id ? " (original)" : ""}
-                  </option>)}
+          <button type="button" aria-expanded={developerTools}
+            onClick={() => setDeveloperTools(!developerTools)}>Developer tools</button>
+          {developerTools && <section aria-label="Developer tools">
+            <button type="button" disabled={!mechanicsResolved} onClick={() => void validate()}>Validate mechanics</button>
+            {validation && <span role="status">{validation}</span>}
+            <button type="button" disabled={!mechanicsResolved || createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+              onClick={() => void createDraft()}>Create creature draft from review</button>
+            {!acceptOpen && <button type="button" disabled={!mechanicsResolved} onClick={() => void openAcceptance()}>Choose creature draft</button>}
+            {acceptOpen && <>
+              <label>Creature draft
+                <select value={draftId} onChange={event => void chooseDraft(event.target.value)}>
+                  <option value="">Select a draft</option>
+                  {drafts.map(draft => <option key={draft.draft_id} value={draft.draft_id}>{draft.name}</option>)}
                 </select>
               </label>
-              <button type="button" disabled={!mechanicsResolved || !parentId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
-                onClick={() => void appendMechanics()}>Append mechanics revision</button>
-            </> : null}
-            {(selectedDraft?.workflow_state !== "mechanics_saved" || hasInitialAttempt) &&
-              <button type="button" disabled={!mechanicsResolved || !draftId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
-              onClick={() => void acceptMechanics()}>{selectedDraft?.workflow_state === "mechanics_saved" ? "Recover initial acceptance" : "Accept mechanics"}</button>}
-            {acceptedLink && <a href={acceptedLink}>Open accepted statblock</a>}
-          </>}
+              {selectedDraft?.workflow_state === "mechanics_saved" ? <>
+                <label>Parent statblock version
+                  <select value={parentId} onChange={event => { setParentId(event.target.value); setAcceptedLink(""); }}>
+                    <option value="">Select a saved version</option>
+                    {savedParents.map(locator => <option key={locator.revision_id} value={locator.revision_id}>
+                      {locator.revision_id}{locator.revision_id === versions?.original.revision_id ? " (original)" : ""}
+                    </option>)}
+                  </select>
+                </label>
+                <button type="button" disabled={!mechanicsResolved || !parentId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+                  onClick={() => void appendMechanics()}>Append mechanics revision</button>
+              </> : null}
+              {(selectedDraft?.workflow_state !== "mechanics_saved" || hasInitialAttempt) &&
+                <button type="button" disabled={!mechanicsResolved || !draftId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+                onClick={() => void acceptMechanics()}>{selectedDraft?.workflow_state === "mechanics_saved" ? "Recover initial acceptance" : "Accept mechanics"}</button>}
+              {acceptedLink && <a href={acceptedLink}>Open accepted statblock</a>}
+            </>}
+          </section>}
           <StatblockDefinitionEditor editRuleMechanics output={review.definition} editorState={editor}
-            onEditorStateChange={state => { setSourceChecked(false); setEditor(state); setSaved(false); setValidation(""); setIssues([]); }}
+            onEditorStateChange={state => { setEditor(state); setSaved(false); setValidation(""); setIssues([]); }}
             recoveryHint="Save the review draft to keep your edits." />
         </fieldset>
       </>}

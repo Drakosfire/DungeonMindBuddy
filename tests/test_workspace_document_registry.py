@@ -936,3 +936,36 @@ def test_current_world_plan_revision_maps_content_conflict_to_registry_conflict(
     assert "digest changed" in str(exc_info.value)
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+def test_world_plan_page_emits_cursor_from_last_returned_record(monkeypatch):
+    from datetime import datetime, timezone
+    from uuid import UUID
+
+    from fastapi import HTTPException
+    from apps.live_control_server.routes import workspace_documents as routes
+
+    stamp = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    seen = []
+
+    def read_page(root, *, world_id, limit, before):
+        seen.append((world_id, limit, before))
+        response = routes.WorldOwnedPlansResponseV2(world_id=world_id)
+        response.records.extend([routes.WorldOwnedPlanRecordV2(
+            world_id=world_id, title="Plan", created_at=stamp.isoformat(),
+            updated_at=stamp.isoformat(), document_id=str(UUID(int=i)),
+        )
+                                 for i in ((3, 2) if before is None else (2,))])
+        return response
+
+    monkeypatch.setattr(routes, "_managed_world_root", lambda: None)
+    monkeypatch.setattr(routes, "list_world_owned_plans_v2", read_page)
+    first = routes.get_world_plan_inventory_page("world-one", limit=1)
+    assert first.next_before_document_id == str(UUID(int=3))
+    assert first.next_before_updated_at == stamp.isoformat()
+    last = routes.get_world_plan_inventory_page("world-one", 1, stamp, UUID(int=3))
+    assert last.next_before_document_id is None
+    assert seen == [("world-one", 2, None), ("world-one", 2, (stamp, UUID(int=3)))]
+    with pytest.raises(HTTPException) as error:
+        routes.get_world_plan_inventory_page("world-one", before_updated_at=stamp)
+    assert error.value.status_code == 422
