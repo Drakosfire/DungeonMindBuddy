@@ -4113,6 +4113,15 @@ class _PolicyExecutionAdapter:
                 or request.max_chars > execution.policy.max_chars_per_source_read
             ):
                 return denied("source_read_over_budget", 413)
+            scoped_native_source = (
+                authority.managed_world_id == os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip()
+                and any(anchor_id.startswith("native-neighborhood:") for anchor_id in request.anchor_ids)
+            )
+            if scoped_native_source:
+                if self.native_principal is None:
+                    return denied("native_source_principal_unavailable", 403)
+                if not all(anchor_id.startswith("native-neighborhood:") for anchor_id in request.anchor_ids):
+                    return denied("mixed_source_authority", 422)
             read_call_id = uuid4()
             authorization = graph_types.SourceReadAuthorizationEventV2(
                 event_id=uuid4(), sequence=len(execution.events),
@@ -4129,12 +4138,6 @@ class _PolicyExecutionAdapter:
                 self.fence.append("authorize_source_read", "authorization", authorization)
             )
             self.turn = updated
-            scoped_native_source = (
-                authority.managed_world_id == os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip()
-                and any(anchor_id.startswith("native-neighborhood:") for anchor_id in request.anchor_ids)
-            )
-            if scoped_native_source and self.native_principal is None:
-                return denied("native_source_principal_unavailable", 403)
             internal = execute_read_graph_source(
                 request.model_dump(mode="json", by_alias=True), receipt_version=2,
                 root=self.root,
