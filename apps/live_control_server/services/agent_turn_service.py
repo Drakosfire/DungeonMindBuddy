@@ -3482,14 +3482,20 @@ class _PolicyExecutionAdapter:
             if services is not None and request.operation != "observations":
                 return denied("native_acquisition_operation_mismatch", 409)
             plan_services = getattr(self, "_plan_graph_read_services", None)
+            native_subject_search = False
             if plan_services is not None:
                 from .plan_jev_acquisition import SubjectSearch
                 allowed_operation = "search" if isinstance(plan_services, SubjectSearch) else "object"
                 if (services is not None or request.operation != allowed_operation
                         or not isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1)):
                     return denied("native_acquisition_operation_mismatch", 409)
-                services = plan_services.resolve()
-            if services is None:
+                native_subject_search = (
+                    isinstance(plan_services, SubjectSearch)
+                    and common["worldId"] == os.environ.get("DMB_NATIVE_PLAN_SUBJECT_SEARCH_WORLD", "").strip()
+                )
+                if not native_subject_search:
+                    services = plan_services.resolve()
+            if services is None and not native_subject_search:
                 services = direct_services_from_config(self.bootstrap.world_scope.world_id)
             reviewed = None
             if request.operation == "observations":
@@ -3558,11 +3564,16 @@ class _PolicyExecutionAdapter:
                     "queryText": request.query_text or session.question,
                     "seedNodeIds": target_ids[:8],
                 })
-                resolved = (
-                    search_world_graph_direct_v3(services, effective_request)
-                    if isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1)) else None
-                )
-                result = resolved.result if resolved is not None else search_world_graph_direct(services, effective_request)
+                if native_subject_search:
+                    from .native_graph_inspection import plan_subject_search
+                    result = plan_subject_search(effective_request, self.native_principal)
+                    resolved = None
+                else:
+                    resolved = (
+                        search_world_graph_direct_v3(services, effective_request)
+                        if isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1)) else None
+                    )
+                    result = resolved.result if resolved is not None else search_world_graph_direct(services, effective_request)
             # Selected-label searches are navigation only. Native search can
             # return supported records/anchors; those require a subsequent
             # explicitly selected object read in this Plan discovery lane.

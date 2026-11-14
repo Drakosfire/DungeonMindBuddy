@@ -683,3 +683,46 @@ def shared_evidence(request, principal):
             truncated_fields=["source_anchors"] if truncated else [],
         ),
     )
+
+
+def plan_subject_search(request, principal):
+    """Return navigation labels from the broker's pinned native read."""
+    from dungeonmind.application.vnext import SearchReadService
+    from graph_memory.retrieval.models import (
+        WorldGraphRetrievalCoverage,
+        WorldGraphRetrievalResult,
+        WorldGraphRetrievalSnapshot,
+    )
+    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import map_entity_result
+
+    if request.revision_pin is None or request.seed_node_ids:
+        raise ValueError("Plan subject search requires a pinned query without seeds")
+    bound, head, pin = _shared_retrieval_pin(request, principal)
+    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    search = SearchReadService().search_entities(read, request.query_text, limit=20)
+    reader = EntityReadService()
+    hits = [hit for hit in search.hits if hit.admitted_match_assertions]
+    limit = request.bounds.max_nodes
+    nodes = []
+    reasons = {}
+    for hit in hits[:limit]:
+        entity_id = hit.entity.entity_id
+        row = map_entity_result(reader.get_entity(read, entity_id), entity_id)
+        nodes.append(row.model_copy(update={"evidence_ref_ids": [], "source_artifact_ids": []}))
+        reasons[entity_id] = list(hit.match_kinds)
+    _response(bound, pin)
+    truncated = len(hits) > limit or search.completeness.status != "complete"
+    return WorldGraphRetrievalResult(
+        operation="search",
+        outcome="partial" if truncated else "enough" if nodes else "empty",
+        snapshot=WorldGraphRetrievalSnapshot(
+            world_id=request.world_id, campaign_id=request.campaign_id,
+            revision_id=pin.revision_id, head_revision_id=head.head_revision_id,
+            is_head=pin.revision_id == head.head_revision_id,
+            focus=request.focus.to_projection_focus(), admissibility=request.admissibility,
+            scope_mode=request.scope_mode,
+        ),
+        request_summary={"query_text": request.query_text, "seed_node_ids": []},
+        matched_node_ids=list(reasons), match_reasons=reasons, nodes=nodes,
+        coverage=WorldGraphRetrievalCoverage(truncated_fields=["nodes"] if truncated else []),
+    )
