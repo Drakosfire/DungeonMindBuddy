@@ -1580,8 +1580,9 @@ def test_worldbuilding_context_binds_saved_source_and_native_prepare(world_lane)
     assert x.repo.head_events(SPACE_ID) == before
 
 @pytest.mark.parametrize("lane", ["reviewed_observation"], indirect=True)
-def test_worldbuilding_publishes_explicit_observation_with_exact_support(world_lane):
-    x = world_lane
+def test_worldbuilding_publishes_explicit_observation_with_exact_support(persistent_world_core, lane, request):
+    x = request.getfixturevalue("world_lane")
+    assert x.repo is persistent_world_core
     node = x.payload["nodes"][0]
     x.payload["version"] = "0.2"
     x.payload["source_observations"] = [{
