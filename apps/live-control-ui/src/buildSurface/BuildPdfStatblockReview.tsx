@@ -433,14 +433,16 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   }
 
   function focusIssue(target: string, path?: string | null) {
-    const structuredRule = target.startsWith("pdf-review-rule-") && !path?.endsWith(".rules_text");
+    const timing = path?.endsWith(".activation") || path?.endsWith(".activation.timing_text");
+    const timingControl = timing && document.getElementById(target)?.querySelector<HTMLElement>("[data-lair-timing]");
+    const structuredRule = target.startsWith("pdf-review-rule-") && !path?.endsWith(".rules_text") && !timingControl;
     if (structuredRule) target = target.replace("pdf-review-rule-", "pdf-review-validation-rule-");
     const element = document.getElementById(target);
     if (!element) return;
     for (let parent: HTMLElement | null = element; parent; parent = parent.parentElement) {
       if (parent instanceof HTMLDetailsElement) parent.open = true;
     }
-    const control = element.querySelector<HTMLElement>("input, textarea, summary") ?? element;
+    const control = timingControl || (element.querySelector<HTMLElement>("input, textarea, summary") ?? element);
     control.focus();
     control.scrollIntoView?.({ block: "nearest" });
   }
@@ -552,6 +554,20 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
                 value={editor.workingCopy.rule_elements.find(element => element.key === key)?.rules_text ?? ""}
                 onChange={event => commitEdit(setRuleElementRulesText(editor, key, event.currentTarget.value))} />
             </label>
+              {editor.workingCopy.rule_elements.find(element => element.key === key)?.activation.kind === "lair_initiative" &&
+                <label>{name} initiative timing
+                  <input data-lair-timing disabled={pending}
+                    value={editor.workingCopy.rule_elements.find(element => element.key === key)?.activation.timing_text ?? ""}
+                    onChange={event => {
+                      const timing = event.currentTarget.value || null;
+                      commitEdit(updateWorkingCopy(editor, current => ({
+                        ...current,
+                        rule_elements: current.rule_elements.map(element => element.key === key
+                          ? { ...element, activation: { ...element.activation, timing_text: timing } }
+                          : element),
+                      })));
+                    }} />
+                </label>}
             </details>
             <div id={`pdf-review-validation-rule-${key}`} tabIndex={-1}>
               {fieldIssues(`pdf-review-rule-${key}`)}
