@@ -386,6 +386,8 @@ def list_workspace_documents(
     campaign_id: str | None = None,
     kind: Literal["plan", "runbook", "worldbuilding_source"] | None = None,
     status: Literal["active", "discarded"] | None = "active",
+    limit: int | None = None,
+    before: tuple[datetime, UUID] | None = None,
 ) -> list[WorkspaceDocumentRecord]:
     from application_state.content import pages
     from application_state.content.service import list_plans, list_runbooks
@@ -395,13 +397,17 @@ def list_workspace_documents(
         raise WorkspaceDocumentRegistryError(
             "world_id inventory requires kind=worldbuilding_source", status_code=422
         )
+    paged = limit is not None or before is not None
+    if paged and kind != "worldbuilding_source":
+        raise WorkspaceDocumentRegistryError("Only authored-page inventory supports paging", status_code=422)
     records = []
     try:
         if kind in (None, "worldbuilding_source"):
             records.extend(
                 _record_from_page(state)
                 for state in pages.page_inventory(
-                    world_id=world_id, campaign_id=campaign_id, status=status
+                    world_id=world_id, campaign_id=campaign_id, status=status,
+                    **({"limit": limit, "before": before} if paged else {}),
                 )
             )
         if kind in (None, "plan"):
@@ -417,7 +423,8 @@ def list_workspace_documents(
             )
     except ApplicationStateError as exc:
         raise _map_application_state_error(exc) from exc
-    records.sort(key=lambda row: row.updated_at, reverse=True)
+    if not paged:
+        records.sort(key=lambda row: row.updated_at, reverse=True)
     return records
 
 

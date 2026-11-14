@@ -547,3 +547,37 @@ def test_page_inventory_keyset_preserves_world_scope_and_timestamp_ties(world, a
         (row.page.work_object_id for row in expected), reverse=True
     )
     assert all(row.metadata == metadata for row in first + second)
+
+
+def test_authored_page_inventory_route_continues_within_world(world):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from apps.live_control_server.routes.workspace_documents import router
+
+    metadata = pages.PageMetadata(
+        document_class="place", authority_state="draft", visibility_state="internal"
+    )
+    older = pages.create_page(world_id=world, title="Older", metadata=metadata)
+    newer = pages.create_page(world_id=world, title="Newer", metadata=metadata)
+    other = create_world(name="Other World", owner_subject="subject:owner").record.world_id
+    pages.create_page(world_id=other, title="Outside scope", metadata=metadata)
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+    url = "/api/live/workspace-documents/pages/inventory"
+    params = {"world_id": world, "limit": 1}
+    response = client.get(url, params=params)
+    assert response.status_code == 200, response.text
+    first = response.json()
+    assert [row["document_id"] for row in first["records"]] == [ident(newer)]
+
+    params["before_updated_at"] = first["next_before_updated_at"]
+    assert client.get(url, params=params).status_code == 422
+    params["before_document_id"] = first["next_before_document_id"]
+    response = client.get(url, params=params)
+    assert response.status_code == 200, response.text
+    second = response.json()
+    assert [row["document_id"] for row in second["records"]] == [ident(older)]
+    assert second["next_before_document_id"] is None
+    assert second["next_before_updated_at"] is None
