@@ -518,3 +518,32 @@ def test_connected_page_reservation_cannot_change_campaign_tag(world):
             document_id=ident(page),
         )
     assert pages.get_page(ident(page), world_id=world) == page
+
+
+def test_page_inventory_keyset_preserves_world_scope_and_timestamp_ties(world, application_state_dsn):
+    other_world = create_world(name="Other page owner", owner_subject="subject:owner").record.world_id
+    metadata = pages.PageMetadata(
+        document_class="place", authority_state="draft", visibility_state="internal"
+    )
+    expected = [
+        pages.create_page(world_id=world, title=f"Place {index}", metadata=metadata)
+        for index in range(3)
+    ]
+    pages.create_page(world_id=other_world, title="Outside scope", metadata=metadata)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE content.work_object SET updated_at = '2026-01-01T00:00:00Z' WHERE world_id = %s",
+            (world,),
+        )
+
+    first = pages.page_inventory(world_id=world, limit=2)
+    boundary = first[-1].page
+    second = pages.page_inventory(
+        world_id=world, limit=2, before=(boundary.updated_at, boundary.work_object_id)
+    )
+
+    assert len(first) == 2
+    assert [row.page.work_object_id for row in first + second] == sorted(
+        (row.page.work_object_id for row in expected), reverse=True
+    )
+    assert all(row.metadata == metadata for row in first + second)
