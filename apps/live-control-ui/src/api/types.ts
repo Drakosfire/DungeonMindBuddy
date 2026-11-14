@@ -2821,6 +2821,7 @@ export type AnyPlayRunRecord = PlayRunRecord | WorldPlayRunRecordV2;
 export interface WorldPlayRunsListResponseV2 {
   schema_version: "dmb_world_play_runs_list_v2";
   records: WorldPlayRunRecordV2[];
+  source_titles?: Record<string, string>;
 }
 
 export interface PlayRunsListResponse {
