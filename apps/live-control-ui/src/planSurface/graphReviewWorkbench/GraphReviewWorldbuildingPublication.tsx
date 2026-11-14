@@ -276,6 +276,14 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
   }
   const selectedObjects = Object.entries(choices).filter(([, choice]) =>
     choice.fields.length && choice.support && (!choice.bindExisting || choice.existingId.trim()));
+  const [relationship, setRelationship] = useState("");
+  const [relationshipSupport, setRelationshipSupport] = useState("");
+  const metadata = (support: string) => ({
+    evidence_ref_ids: [support],
+    visibility: { kind: "labels_any", labels: ["dungeonbuddy.visibility:gm"] },
+    epistemic_basis: "asserted", claim_mode: "dungeonbuddy.claim:fact",
+    standing: "provisional", temporal_scope: { kind: "timeless" },
+  });
   const [packet, setPacket] = useState<NativeWorldbuildingConfirmation>();
   const [error, setError] = useState<string>();
   const [committed, setCommitted] = useState(false);
@@ -292,6 +300,16 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
   }, [managedWorldId, review.runId, review.sourceArtifactId, review.sourceRevisionId]);
   const records = context?.records.filter(row => row && typeof row === "object" && !Array.isArray(row) && row.kind === "node") ?? [];
   const record = records.find(row => row && typeof row === "object" && !Array.isArray(row) && row.record_id === recordId);
+  const endpointIds = new Set(selectedObjects.map(([id]) => id));
+  const relationships = (context?.records ?? []).flatMap(row =>
+    row && typeof row === "object" && !Array.isArray(row) && row.kind === "edge" &&
+    typeof row.record_id === "string" && typeof row.from_record_id === "string" &&
+    typeof row.to_record_id === "string" && typeof row.relationship_type === "string" &&
+    endpointIds.has(row.from_record_id) && endpointIds.has(row.to_record_id)
+      ? [{id: row.record_id, label: row.relationship_type, from: row.from_record_id, to: row.to_record_id}]
+      : []);
+  const readyToPrepare = selectedObjects.length > 0 &&
+    (!relationship || (relationshipSupport && relationships.some(row => row.id === relationship)));
   async function run(confirm: boolean) {
     if (!context || lock.current || isCurrent?.() === false) return;
     lock.current = true;
@@ -302,19 +320,19 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
       if (confirm && packet) {
         await submitNativeWorldbuildingConfirmation(review, managedWorldId, packet);
         if (isCurrent?.() !== false) setCommitted(true);
-      } else if (!confirm && selectedObjects.length) {
+      } else if (!confirm && readyToPrepare) {
         const result = await prepareNativeWorldbuilding({
           ...context.prepareCoordinates,
-          selections: selectedObjects.map(([id, choice]) => ({
-            kind: "node", record_id: id, action: choice.bindExisting ? "use_existing" : "create",
-            ...(choice.bindExisting ? {entity_id: choice.existingId.trim()} : {}),
-            facts: choice.fields.map(field => ({ field, metadata: {
-              evidence_ref_ids: [choice.support],
-              visibility: { kind: "labels_any", labels: ["dungeonbuddy.visibility:gm"] },
-              epistemic_basis: "asserted", claim_mode: "dungeonbuddy.claim:fact",
-              standing: "provisional", temporal_scope: { kind: "timeless" },
-            }})),
-          })),
+          selections: [
+            ...selectedObjects.map(([id, choice]) => ({
+              kind: "node", record_id: id, action: choice.bindExisting ? "use_existing" : "create",
+              ...(choice.bindExisting ? {entity_id: choice.existingId.trim()} : {}),
+              facts: choice.fields.map(field => ({ field, metadata: metadata(choice.support) })),
+            })),
+            ...(relationship ? [{
+              kind: "edge", record_id: relationship, action: "create", metadata: metadata(relationshipSupport),
+            }] : []),
+          ],
         });
         if (isCurrent?.() !== false) {
           if (result.status === "prepared") setPacket(result.confirmation);
@@ -360,7 +378,24 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
           {context.sourceSupport.map(row => row && typeof row === "object" && !Array.isArray(row) &&
             <option key={String(row.evidence_ref_id)} value={String(row.evidence_ref_id)}>{String(row.text)}</option>)}
         </select></label>
-        <button type="button" disabled={!selectedObjects.length}
+        {(relationships.length > 0 || relationship) && <>
+          <label>Relationship<select value={relationship} onChange={event => {
+            setRelationship(event.target.value);
+            setRelationshipSupport("");
+          }}>
+            <option value="">No relationship selected</option>
+            {relationships.map(row => <option key={row.id} value={row.id}>
+              {row.from} → {row.to} ({row.label})
+            </option>)}
+          </select></label>
+          {relationship && <label>Relationship excerpt<select value={relationshipSupport}
+            onChange={event => setRelationshipSupport(event.target.value)}>
+            <option value="">Choose exact source evidence</option>
+            {context.sourceSupport.map(row => row && typeof row === "object" && !Array.isArray(row) &&
+              <option key={String(row.evidence_ref_id)} value={String(row.evidence_ref_id)}>{String(row.text)}</option>)}
+          </select></label>}
+        </>}
+        <button type="button" disabled={!readyToPrepare}
           onClick={() => void run(false)}>Prepare selected facts</button>
       </fieldset> : !error && <p role="status">Loading saved Worldbuilding review…</p>}
   </section>;
