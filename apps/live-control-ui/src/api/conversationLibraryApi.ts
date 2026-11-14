@@ -42,6 +42,39 @@ export async function readConversationTurns(world:string,id:string,before?:numbe
  const value=await read(path(world)+'/'+encodeURIComponent(id)+'/turns?'+q,{signal});
  return decodeLibraryTurns(value,world,id,before);
 }
+async function readExportTurnPage(
+ world: string, id: string, view: 'full' | 'digest', before?: number, signal?: AbortSignal,
+) {
+ const query = new URLSearchParams({limit: '50', view});
+ if (before !== undefined) query.set('before_sequence', String(before));
+ return read(path(world) + '/' + encodeURIComponent(id) + '/turns?' + query, {signal});
+}
+
+function isPageDigest(value: unknown): value is string {
+ return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
+}
+
+export async function readExportTurns(world: string, id: string, before?: number, signal?: AbortSignal) {
+ const value = await readExportTurnPage(world, id, 'full', before, signal);
+ const {page_sha256, ...page} = value;
+ if (!isPageDigest(page_sha256)) throw new Error('Transcript page digest is invalid.');
+ return {...decodeLibraryTurns(page, world, id, before), page_sha256};
+}
+
+export async function verifyExportTurns(
+ world: string, id: string, expected: {page_sha256: string; next_before_sequence: number | null},
+ before?: number, signal?: AbortSignal,
+) {
+ const value = await readExportTurnPage(world, id, 'digest', before, signal);
+ if (!exactObject(value, ['schema', 'world_id', 'conversation_id', 'page_sha256', 'next_before_sequence'])
+  || value.schema !== 'dmb_conversation_library_turn_digest_v1'
+  || value.world_id !== world || value.conversation_id !== id
+  || value.page_sha256 !== expected.page_sha256
+  || value.next_before_sequence !== expected.next_before_sequence) {
+  throw new Error('A reply changed during export. Retry to collect the latest saved reply.');
+ }
+}
+
 export function decodeLibraryTurns(value:any,world:string,id:string,before?:number):LibraryTurns {
  if(!exactObject(value,['schema','world_id','conversation_id','turns','next_before_sequence'])||value.schema!=='dmb_conversation_library_turns_v3'||value.world_id!==world||value.conversation_id!==id||!Array.isArray(value.turns)||value.turns.length>50
   ||!(value.next_before_sequence===null||Number.isInteger(value.next_before_sequence)&&value.next_before_sequence>0))throw new Error('Transcript differs from the selected conversation.');
