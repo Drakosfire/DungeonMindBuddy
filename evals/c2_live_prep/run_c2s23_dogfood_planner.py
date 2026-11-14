@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.agent.corpus_path_tools import read_paths_from_tool_trace  # noqa: E402
+from corpus.tool_trace import read_paths_from_tool_trace  # noqa: E402
 from src.agent.planner import (  # noqa: E402
     _planner_tools_responses,
     _resolve_planner_model,

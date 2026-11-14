@@ -25,7 +25,7 @@ from generationengine import (
     TextResult,
 )
 
-from src.agent.corpus_path_tools import read_paths_from_tool_trace
+from corpus.tool_trace import read_paths_from_tool_trace
 from bootstrap_env import load_openai_api_key as _load_api_key
 from llm.generation_sync import run_awaitable_sync
 

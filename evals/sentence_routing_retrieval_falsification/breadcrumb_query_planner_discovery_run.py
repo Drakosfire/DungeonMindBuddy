@@ -53,7 +53,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_query_llm import 
     resolve_breadcrumb_query_llm_model,
     synthesize_answer_from_hit_context,
 )
-from src.agent.corpus_path_tools import (
+from corpus.tool_trace import (
     read_paths_from_tool_trace,
     unit_ids_from_query_session_memory_trace,
 )

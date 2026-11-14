@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from src.agent.corpus_path_tools import unit_ids_from_query_session_memory_trace
+from corpus.tool_trace import unit_ids_from_query_session_memory_trace
 from src.agent.planner import make_tool_dispatcher
 from src.agent.session_memory_query import (
     query_session_memory_candidate,
