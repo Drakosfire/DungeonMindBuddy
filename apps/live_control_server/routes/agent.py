@@ -14,7 +14,7 @@ from apps.live_control_server.models.statblock_mechanics_acceptance import (
 )
 from apps.live_control_server.models.statblock_saved_revision import AppendPdfStatblockReviewRequest
 from fastapi import APIRouter, HTTPException, Query, Request
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
@@ -1864,6 +1864,75 @@ def get_world_turn_prompt(world_id: str, turn_id: UUID, trace_id: UUID, provider
         raise HTTPException(status_code=exc.status_code, detail={"code": "prompt_evidence_unavailable"}) from exc
     except PromptEvidenceError as exc:
         raise HTTPException(status_code=409, detail={"code": str(exc)}) from exc
+
+
+class PromptEvidenceSelector(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    trace_id: UUID
+    provider_attempt_id: UUID
+
+
+class PromptEvidenceBatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    prompts: list[PromptEvidenceSelector] = Field(min_length=1, max_length=8)
+
+
+@router.post("/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/prompts")
+def get_world_turn_prompts(
+    world_id: str, turn_id: UUID, request: Request, body: PromptEvidenceBatch,
+):
+    from fastapi.responses import JSONResponse
+    from application_state.agent_conversation.context_trace import TracePromptReference
+    from apps.live_control_server.services.agent_prompt_evidence import MAX_PROMPT_BYTES, PromptEvidenceError, read_prompt
+
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="prompt read does not accept query selectors")
+    try:
+        attempts = _conversation_service(request).list_context_trace_attempts(
+            world_id=verified, turn_id=turn_id,
+        )
+    except ApplicationStateError as exc:
+        raise HTTPException(
+            status_code=exc.status_code, detail={"code": "prompt_evidence_unavailable"},
+        ) from exc
+
+    results = []
+    remaining_bytes = MAX_PROMPT_BYTES
+    for selector in body.prompts:
+        matches = [
+            (trace, item)
+            for trace in attempts
+            if trace.trace_id == selector.trace_id and trace.world_id == verified and trace.turn_id == turn_id
+            for item in trace.observations
+            if isinstance(item, TracePromptReference) and item.provider_attempt_id == selector.provider_attempt_id
+        ]
+        if len(matches) != 1:
+            results.append({"unavailable": "prompt_not_captured"})
+            continue
+        trace, reference = matches[0]
+        if reference.payload_utf8_bytes > remaining_bytes:
+            results.append({"unavailable": "prompt_batch_byte_limit"})
+            continue
+        try:
+            payload = read_prompt(reference)
+        except PromptEvidenceError as exc:
+            results.append({"unavailable": str(exc)})
+            continue
+        remaining_bytes -= reference.payload_utf8_bytes
+        results.append({
+            "schema": "dmb_agent_prompt_evidence_v1", "world_id": verified,
+            "conversation_id": str(trace.conversation_id), "turn_id": str(turn_id),
+            "trace_id": str(trace.trace_id), "attempt": trace.attempt,
+            "reference": reference.model_dump(mode="json"), "payload_json": payload,
+        })
+    return JSONResponse(
+        {"schema": "dmb_agent_prompt_evidence_batch_v1", "results": results},
+        headers={"Cache-Control": "no-store", "Pragma": "no-cache"},
+    )
 
 
 @router.get("/worlds/{world_id}/conversation/commands/{command_id}", response_model=AgentNewConversationStatusV1)
