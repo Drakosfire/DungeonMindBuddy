@@ -30,9 +30,17 @@ it('keeps an uncertain typed name and retries its exact revision',async()=>{
  fireEvent.click(screen.getByRole('button',{name:'Save name'}));await screen.findByRole('alert');expect(screen.getByLabelText('Conversation name')).toHaveValue('Keep name');
  fireEvent.click(screen.getByRole('button',{name:'Save name'}));await screen.findByText('Name saved.');expect(vi.mocked(api.renameConversation).mock.calls).toEqual([['world-one',current,'Keep name',0],['world-one',current,'Keep name',0]]);
 });
+it('reuses the initial list summary and refreshes an explicitly selected row',async()=>{
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
+ await screen.findByText('Current question');
+ expect(api.readConversationName).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:/Archived piece/}));
+ await screen.findByText('Archived question');
+ expect(api.readConversationName).toHaveBeenCalledExactlyOnceWith('world-one',old,expect.any(AbortSignal));
+});
 it('ignores departed World reads even after A B A',async()=>{
  let finish!:(v:api.ConversationSummary)=>void;vi.mocked(api.readConversationName).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
- const view=render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);await waitFor(()=>expect(api.readConversationName).toHaveBeenCalled());
+ const view=render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);await screen.findByText('Current question');fireEvent.click(screen.getByRole('button',{name:/Archived piece/}));await waitFor(()=>expect(api.readConversationName).toHaveBeenCalled());
  view.rerender(<ConversationLibrary worldId="world-two" onClose={()=>{}}/>);await screen.findByText('Current question');view.rerender(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);await screen.findByText('Current question');
  await act(async()=>{finish({...meta(),title:'STALE NAME'});});expect(screen.queryByDisplayValue('STALE NAME')).not.toBeInTheDocument();expect(screen.queryByText('STALE NAME')).not.toBeInTheDocument();
 });
@@ -158,4 +166,34 @@ it('cancels a pending detail read when the library closes', async () => {
  expect(pendingSignal?.aborted).toBe(false);
  unmount();
  expect(pendingSignal?.aborted).toBe(true);
+});
+
+it('loads each view without refetching the selected conversation name',async()=>{
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
+ await screen.findByText('Current question');
+ fireEvent.click(screen.getByRole('button',{name:'Load saved details'}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Show message preview'})).toBeEnabled());
+ expect(api.readConversationTurns).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole('button',{name:'Show message preview'}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Load saved details'})).toBeEnabled());
+ expect(api.readConversationMessages).toHaveBeenCalledTimes(2);
+ expect(api.readConversationName).not.toHaveBeenCalled();
+});
+
+it('waits for the pending rename before allowing a view change',async()=>{
+ let finish!:(value:api.ConversationSummary)=>void;
+ vi.mocked(api.renameConversation).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
+ await screen.findByText('Current question');
+ fireEvent.click(screen.getByText('•••'));
+ fireEvent.click(screen.getByRole('button',{name:'Rename conversation'}));
+ fireEvent.change(screen.getByLabelText('Conversation name'),{target:{value:'Updated name'}});
+ fireEvent.click(screen.getByRole('button',{name:'Save name'}));
+ const toggle=screen.getByRole('button',{name:'Load saved details'});
+ expect(toggle).toBeDisabled();
+ await act(async()=>finish({...meta(),title:'Updated name',name_revision:1}));
+ expect(toggle).toBeEnabled();
+ fireEvent.click(toggle);
+ await waitFor(()=>expect(api.readConversationTurns).toHaveBeenCalledTimes(1));
+ expect(screen.getByRole('button',{name:/Updated name/})).toBeInTheDocument();
 });

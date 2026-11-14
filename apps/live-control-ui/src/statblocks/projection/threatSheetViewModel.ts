@@ -187,9 +187,7 @@ export function isCompleteStatblockRevisionResource(
         ))
       )
     )
-    && isRecord(ruleset)
-    && isString(ruleset.system)
-    && isString(ruleset.edition)
+    && (ruleset === null || (isRecord(ruleset) && isString(ruleset.system) && isString(ruleset.edition)))
     && isRecord(identity)
     && isString(identity.name)
     && isString(identity.size)
@@ -206,8 +204,7 @@ export function isCompleteStatblockRevisionResource(
     ))
     && isRecord(vitality)
     && isHitPointProfile(hitPoints)
-    && isRecord(movement)
-    && Array.isArray(movementModes)
+    && (movement === null || (Array.isArray(movementModes)
     && movementModes.length > 0
     && movementModes.every((mode) => (
       isRecord(mode)
@@ -215,6 +212,7 @@ export function isCompleteStatblockRevisionResource(
       && isString(mode.mode)
       && isDistance(mode.distance)
       && (mode.qualifiers === undefined || mode.qualifiers === null || isStringArray(mode.qualifiers))
+    ))
     ))
     && isRecord(abilities)
     && ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"]
@@ -241,7 +239,7 @@ export function isCompleteStatblockRevisionResource(
       || isDistance(communication.telepathy_range))
     && isRecord(challenge)
     && isString(challenge.rating)
-    && isFiniteNumber(challenge.proficiency_bonus)
+    && (challenge.proficiency_bonus === null || isFiniteNumber(challenge.proficiency_bonus))
     && Array.isArray(definition.rule_elements)
     && definition.rule_elements.length > 0
     && definition.rule_elements.every(isRuleElement)

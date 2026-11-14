@@ -37,3 +37,12 @@ export function isNativeSourceSections(value:unknown,body:string):value is Nativ
 export type NativeSourceBody={section_catalog:NativeSourceSections|null;schema:'dmb_native_source_body_v1';scope:InspectionPin;
  source:{status:'available';source_artifact_id:string;source_revision_id:string;
  body_text:string;body_sha256:string;evidence_ref_id:string;source_authority_epoch:number}};
+
+export type PublishedNativeRecap = {
+ evidence_ref_ids: string[];
+ schema: 'dmb_native_published_recap_v1';
+ scope: InspectionPin;
+ campaign_id: string;
+ session_id: string;
+ source: NativeSourceBody['source'];
+};

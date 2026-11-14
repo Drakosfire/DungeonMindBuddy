@@ -377,3 +377,36 @@
 .graph-node-explorer__menu-content summary { cursor: pointer; }
 .graph-node-explorer__warning { color: #e2c98d; font-size: 11px; }
 .native-demo-object-details .graph-node-explorer__navbar button { display: inline-flex; align-items: center; justify-content: center; }
+
+.native-demo-event-strip {
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+}
+
+.native-demo-event-strip ul {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  list-style: none;
+  margin: 0.25rem 0;
+  padding: 0.25rem;
+}
+
+.native-demo-event-strip li {
+  flex: 0 0 12rem;
+}
+
+.native-demo-event-strip small {
+  display: block;
+}
+
+.native-demo-event-strip button[aria-pressed="true"],
+.native-demo-event-strip button[data-connected="true"] {
+  outline: 2px solid #dfb65f;
+  outline-offset: 1px;
+}
+
+.native-demo-event-strip button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}

@@ -16,13 +16,26 @@ from pydantic import BaseModel, Field
 _worker = Lock()
 
 
+_MAX_BASE64_LENGTH = 6_000_000
+_MAX_PNG_BYTES = _MAX_BASE64_LENGTH // 4 * 3
+
+
 class PdfCropRequest(BaseModel):
-    png_base64: str = Field(max_length=6_000_000)
+    png_base64: str = Field(max_length=_MAX_BASE64_LENGTH)
 
 
 def read_crop(body: PdfCropRequest) -> dict[str, str]:
     try:
         raw = base64.b64decode(body.png_base64, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise HTTPException(422, "Provide a valid PNG capture from Build.") from exc
+    return read_crop_png(raw)
+
+
+def read_crop_png(raw: bytes, *, allow_empty: bool = False) -> dict[str, str]:
+    try:
+        if len(raw) > _MAX_PNG_BYTES:
+            raise ValueError("Unexpected crop size")
         with Image.open(io.BytesIO(raw), formats=["PNG"]) as image:
             if max(image.size) > 1024 or getattr(image, "n_frames", 1) != 1:
                 raise ValueError("Unexpected crop dimensions or frame count")
@@ -47,7 +60,7 @@ def read_crop(body: PdfCropRequest) -> dict[str, str]:
                 capture_output=True, check=True, timeout=120,
             )
         text = json.loads(result.stdout)["text"]
-        if not isinstance(text, str) or not text.strip():
+        if not isinstance(text, str) or (not allow_empty and not text.strip()):
             raise ValueError("Empty OCR transcription")
         return {"text": text}
     except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError) as exc:

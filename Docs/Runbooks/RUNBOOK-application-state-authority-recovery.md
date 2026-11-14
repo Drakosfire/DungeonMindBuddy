@@ -30,7 +30,7 @@ Buddy APP-STATE and DungeonMind World are separate authorities. Never point Budd
 
 ```bash
 # 1. Start the durable substrate
-docker compose -f compose.postgres.app-state.yml up -d
+docker compose -f compose.postgres.app-state.yml up -d --wait
 
 # 2. Point this shell at the durable authority (local dev default credentials)
 export DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL=\
@@ -44,6 +44,8 @@ uv run python scripts/application_state_authority.py check
 # OBSERVED. Capture the fingerprint JSON if you will need a later READY check:
 uv run python scripts/application_state_authority.py fingerprint --out out/application_state/birth.fingerprint.json
 ```
+
+The startup command waits for PostgreSQL to accept TCP connections. Before migrating or checking a restore, use the intended DSN to confirm that an authenticated query succeeds.
 
 ## PostgreSQL client prerequisites
 
@@ -69,7 +71,8 @@ client subprocess. The default leaves the client deadline unset. The option
 does not time database inspection or fingerprinting. Ctrl-C during the client
 call reports an interruption. After a timeout or interruption, use a fresh
 backup output path or discard and recreate the disposable restore target
-before retrying. A timed-out restore can have applied part of the dump.
+before retrying. Restore replays in one transaction. A timeout may occur
+after the database commits but before the client reports success.
 
 ## Routine backup
 
@@ -84,7 +87,7 @@ uv run python scripts/application_state_authority.py backup \
   --out out/application_state/authority-backup-$(date -u +%Y%m%dT%H%M%SZ).dump
 ```
 
-Produces the custom-format dump plus `.sha256` and `.fingerprint.json` sidecars. The command fingerprints the source before and after the dump; if the source changed mid-backup it fails — recapture, never claim a stale dump is current authority. Restore will refuse the dump if either sidecar is missing or the dump bytes no longer match the SHA-256 sidecar.
+Produces the custom-format dump plus `.sha256` and `.fingerprint.json` sidecars. The command fingerprints the same PostgreSQL snapshot that `pg_dump` imports and checks the source again after the dump; if the source changed mid-backup it fails — recapture, never claim a stale dump is current authority. Restore will refuse the dump if either sidecar is missing or the dump bytes no longer match the SHA-256 sidecar.
 
 ## Restore into a second clean target (recovery witness)
 
@@ -131,7 +134,8 @@ Set `DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL` in `.env` to the durable coord
 | `check` exits 0, OBSERVED | reachable and at head; not a READY claim | capture `--expect-fingerprint` before treating it as recovered |
 | `check` exits 2, unreachable | authority container down or wrong DSN | start the compose service; verify coordinates |
 | `check` exits 2, behind head | schema not migrated | explicit `apply` with the target DSN configured |
-| `check` / `restore` exits 2, NOT_READY | live fingerprint does not match expected | do not bless the target; investigate per-domain mismatch output |
+| Restore replay fails or is interrupted | target state needs verification | discard and recreate the disposable target before retrying |
+| `check` / `restore` exits 2, NOT_READY | live fingerprint does not match expected | investigate per-domain mismatches and recreate the disposable target before retrying |
 | `restore` refuses SHA-256 mismatch / missing sidecar | dump bytes are unverified or tampered | recapture; never restore an unverified dump |
 | `restore` refuses non-empty target | target already holds APP-STATE | use a second clean target; destructive restore is out of scope |
 | `backup` reports source changed | writes during dump | recapture; never claim a stale dump |

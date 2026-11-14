@@ -432,7 +432,7 @@ function buildViewModelFromDefinition(
     return `${ac.value}${label}${condition}`;
   });
 
-  const speedParts = definition.movement.modes.map((mode) => {
+  const speedParts = (definition.movement?.modes ?? []).map((mode) => {
     const distance = formatDistance(mode.distance);
     const qualifiers = mode.qualifiers?.length ? ` (${mode.qualifiers.join(", ")})` : "";
     return `${mode.mode} ${distance}${qualifiers}`.trim();
@@ -470,7 +470,7 @@ function buildViewModelFromDefinition(
     armorClassSummary: acParts.length ? acParts.join("; ") : "—",
     hitPointsSummary: formatHitPoints(definition.vitality.hit_points),
     speedSummary: speedParts.length ? speedParts.join(", ") : "—",
-    challengeSummary: `CR ${definition.challenge.rating} (PB ${formatModifier(definition.challenge.proficiency_bonus)})`,
+    challengeSummary: `CR ${definition.challenge.rating} (PB ${definition.challenge.proficiency_bonus == null ? "unspecified" : formatModifier(definition.challenge.proficiency_bonus)})`,
     abilities: ABILITY_ORDER.map((ability) => ({
       ability,
       score: definition.abilities[ability],

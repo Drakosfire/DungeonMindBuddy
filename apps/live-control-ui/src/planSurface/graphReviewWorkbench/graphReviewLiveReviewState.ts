@@ -452,31 +452,27 @@ export function useGraphReviewLiveReviewState({
   );
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setGoldProjection(null);
     setGoldProjectionError(null);
     if (!hasGold || !campaignId || !sessionId) {
       setGoldProjectionStatus("idle");
-      return () => {
-        cancelled = true;
-      };
+      return;
     }
     setGoldProjectionStatus("loading");
-    void getGoldGraphProjection({ campaignId, sessionId })
+    void getGoldGraphProjection({ campaignId, sessionId }, controller.signal)
       .then((response) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setGoldProjection(response);
         setGoldProjectionStatus("ready");
       })
       .catch((error) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setGoldProjection(null);
         setGoldProjectionStatus("error");
         setGoldProjectionError(friendlyProjectionError(error));
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [campaignId, hasGold, sessionId]);
 
   const selectGoldNodeCard = useCallback(

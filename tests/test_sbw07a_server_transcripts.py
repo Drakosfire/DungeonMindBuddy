@@ -38,6 +38,14 @@ def _transcript(name: str) -> dict:
     return json.loads((TRANSCRIPT_DIR / f"{name}.json").read_text(encoding="utf-8"))
 
 
+def test_capture_publication_is_complete() -> None:
+    marker = TRANSCRIPT_DIR / ".capture-in-progress"
+    assert not marker.exists(), (
+        f"Interrupted or active statblock capture: {marker}. "
+        "See the recovery steps in the transcript fixture README."
+    )
+
+
 def test_manifest_cites_clean_server_commit_fingerprint_and_fixture_hashes() -> None:
     manifest = json.loads((TRANSCRIPT_DIR / "MANIFEST.json").read_text(encoding="utf-8"))
     assert manifest["schema"] == "sbw07a_server_create_transcript_manifest_v1"

@@ -693,7 +693,7 @@ def main() -> None:
         dest="detach",
         help=(
             "Spawn the same run in a background subprocess (same flags except --detach) "
-            "and exit immediately. Logs stdout+stderr to --detach-log (default under /tmp). "
+            "and exit immediately. Logs stdout+stderr to --detach-log (default under task scratch). "
             "Requires OPENAI_API_KEY (same as the synchronous run)."
         ),
     )
@@ -703,7 +703,7 @@ def main() -> None:
         default=None,
         metavar="PATH",
         help=(
-            "Log file for a detached run. Default: /tmp/recap_ingest_detach_<UTC>.log. "
+            "Log file for a detached run. Default in task scratch: recap_ingest_detach_<UTC>.log. "
             "Not used when --detach is absent."
         ),
     )
@@ -746,7 +746,7 @@ def main() -> None:
             log_path = args.detach_log.expanduser()
         else:
             compact = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-            log_path = Path("/tmp") / f"recap_ingest_detach_{compact}.log"
+            log_path = Path(os.environ["TMPDIR"]) / f"recap_ingest_detach_{compact}.log"
         proc = _spawn_detached_benchmark_child(log_path=log_path)
         abs_log = log_path.resolve()
         print(

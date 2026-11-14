@@ -9,6 +9,13 @@ export function NativeGraphObjectDetails({detail,entityId,label,labels=new Map<s
  return <>
   <h3>{label}</h3>
   {!detail.entity.found?<p>This object is unavailable in the selected revision.</p>:<>
+   {!entityOnly && detail.scope.scope_mode === "world" && <a href={"/build?" + new URLSearchParams({
+    world: detail.scope.managed_world_id,
+    nativeWorld: detail.scope.native_world_id,
+    bindingVersion: String(detail.scope.binding_version),
+    graphRevision: detail.scope.revision_id,
+    graphNodeId: entityId,
+   })}>Open object in Build</a>}
    {entityOnly?<p>Source excerpts and linked statblocks are not available in the hosted explorer yet.</p>:<NativeObjectStatblock key={JSON.stringify([detail.scope,entityId])} pin={detail.scope} entityId={entityId} inlineHost={inlineHost} onInlineOpened={onInlineOpened}/>}
    {detail.entity.completeness.status!=='complete'?<p role="status">Some records are unavailable.</p>:null}
    {!detail.entity.assertions.length?<p>No admitted records for this object in this view.</p>:null}

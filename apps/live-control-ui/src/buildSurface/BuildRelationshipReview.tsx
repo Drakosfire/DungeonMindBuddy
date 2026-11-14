@@ -1,12 +1,11 @@
+import type {NativeAuthoringIdentity} from '../api/liveApi';
 import {publishRelationshipReviewHost} from './relationshipReviewHost';
 import type {DocumentRelationshipIntent} from '../api/graphDocumentRelationshipApi';
 import {useLayoutEffect,useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {useOptionalMarkdownCanvasSession} from '../markdownCanvas/MarkdownCanvasSession';
-import {LiveApiError,getGraphObjectAuthoringKinds,postManagedWorldGraphProjection,prepareGraphObjectAuthoringWrite,commitGraphObjectAuthoringWrite} from '../api/liveApi';
-import {verifyManagedWorldGraphProjectionResponse} from '../worldGraph/verifyManagedWorldGraphProjectionResponse';
+import {LiveApiError,getGraphObjectAuthoringKinds,getNativeAuthoringIdentities,prepareGraphObjectAuthoringWrite,commitGraphObjectAuthoringWrite} from '../api/liveApi';
 import {graphDocumentRelationshipRequest} from '../api/graphDocumentRelationshipApi';
-import type {WorldGraphProjectionNodeView} from '../api/types';
 import {relationshipKey,readRelationshipReview,type RelationshipReview,type RelationshipSeed} from './buildRelationshipRecovery';
 const message=(e:unknown)=>e instanceof Error?e.message:'Relationship review could not finish.';
 export function BuildRelationshipReview({worldId,documentId,seed,onConsumed}:{worldId:string;documentId:string;seed:RelationshipSeed|null;onConsumed:()=>void}){
@@ -16,7 +15,7 @@ export function BuildRelationshipReview({worldId,documentId,seed,onConsumed}:{wo
  const rawRef=useRef(initial.raw),valueRef=useRef(initial.value);
  const [value,setValue]=useState(initial.value),[error,setError]=useState(initial.error),[open,setOpen]=useState(false),[busy,setBusy]=useState(false);
  const [editableRefusal,setEditableRefusal]=useState(false);
- const [nodes,setNodes]=useState<WorldGraphProjectionNodeView[]>([]),[kinds,setKinds]=useState<string[]>([]),[loaded,setLoaded]=useState(false);
+ const [nodes,setNodes]=useState<NativeAuthoringIdentity[]>([]),[kinds,setKinds]=useState<string[]>([]),[loaded,setLoaded]=useState(false);
  const exact=()=>{const s=sessionRef.current,i=valueRef.current?.intent;return alive.current&&!!i&&s?.record?.world_id===worldId&&s.record.document_id===documentId&&!s.dirty&&!s.activeCommand&&s.snapshot?.loaded_revision===i.document_source.revision&&s.snapshot.content_sha256===i.document_source.contentSha256;};
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  async function persist(change:(previous:RelationshipReview|null)=>RelationshipReview|null){
@@ -33,10 +32,9 @@ export function BuildRelationshipReview({worldId,documentId,seed,onConsumed}:{wo
  useEffect(()=>{if(!seed)return;if(seed.document_source.documentId!==documentId){onConsumed();return;}setOpen(true);if(!valueRef.current&&!initial.error){void persist(()=>({schema:'dmb_saved_relationship_review_v1',intent:{world_id:worldId,...seed,source:{node_id:null,label:'',kind:'npc'},target:{node_id:null,label:'',kind:'npc'},predicate:'',label:'',context:''},request:null,prepared:null,submitted:false,receipt:null})).catch(e=>setError(message(e)));}onConsumed();},[seed]);
  useEffect(()=>{if(open&&dialog.current&&!dialog.current.open)dialog.current.showModal();},[open]);
  useEffect(()=>{if(!open)return;let active=true;setLoaded(false);setNodes([]);setKinds([]);
-  void Promise.all([postManagedWorldGraphProjection({schema:'dmb_managed_world_graph_projection_request_v1',managedWorldId:worldId}),getGraphObjectAuthoringKinds()]).then(([graph,catalog])=>{
+  void Promise.all([getNativeAuthoringIdentities(worldId),getGraphObjectAuthoringKinds()]).then(([graph,catalog])=>{
    if(!active)return;
-   const invalid=verifyManagedWorldGraphProjectionResponse({managedWorldId:worldId,request:{schema:'dmb_world_graph_projection_request_v1',worldId,campaignId:'',scopeMode:'world',focus:{kind:'none',sessionId:null},admissibility:'gm'},response:graph,revisionKind:'head'});
-   if(invalid||!catalog.objectKinds.length)throw new Error(invalid||'World object kinds are unavailable.');setNodes(graph.projection.nodes);setKinds(catalog.objectKinds);setLoaded(true);
+   if(!catalog.objectKinds.length)throw new Error('World object kinds are unavailable.');setNodes(graph);setKinds(catalog.objectKinds);setLoaded(true);
   }).catch(e=>{if(active)setError(message(e));});return()=>{active=false;};
  },[open,worldId]);
  function edit(change:(v:RelationshipReview)=>RelationshipReview){if(busyRef.current||valueRef.current?.request)return;void persist(v=>v?change(v):v).catch(e=>{if(alive.current)setError(message(e));});}
@@ -80,7 +78,7 @@ export function BuildRelationshipReview({worldId,documentId,seed,onConsumed}:{wo
  };
  useLayoutEffect(()=>publishRelationshipReviewHost({worldId,documentId,open:intent=>openProposal.current(intent)}),[worldId,documentId]);
  const endpoint=(side:'source'|'target')=>{const e=value!.intent[side];return <fieldset><legend>{side==='source'?'From':'To'}</legend>
-  <label>{side} identity<select value={e.node_id??'__new__'} onChange={event=>{const n=nodes.find(n=>n.nodeId===event.target.value);edit(v=>({...v,intent:{...v.intent,[side]:n?{node_id:n.nodeId,label:n.label,kind:n.kind}:{node_id:null,label:'',kind:'npc'}}}));}}><option value="__new__">Create a new identity</option>{nodes.map(n=><option key={n.nodeId} value={n.nodeId}>{n.label} · {n.kind} · {n.nodeId}</option>)}</select></label>
+  <label>{side} identity<select value={e.node_id??'__new__'} onChange={event=>{const n=nodes.find(n=>n.node_id===event.target.value);edit(v=>({...v,intent:{...v.intent,[side]:n?{node_id:n.node_id,label:n.label,kind:n.kind}:{node_id:null,label:'',kind:'npc'}}}));}}><option value="__new__">Create a new identity</option>{nodes.map(n=><option key={n.node_id} value={n.node_id} disabled={n.selectable === false}>{n.label} · {n.kind} · {n.node_id}</option>)}</select></label>
   {!e.node_id&&<><label>{side} name<input value={e.label} onChange={event=>{const label=event.target.value;edit(v=>({...v,intent:{...v.intent,[side]:{...v.intent[side],label}}}));}}/></label>
   <label>{side} kind<select value={e.kind} onChange={event=>{const kind=event.target.value;edit(v=>({...v,intent:{...v.intent,[side]:{...v.intent[side],kind}}}));}}>{kinds.map(k=><option key={k} value={k}>{k}</option>)}</select></label></>}
  </fieldset>;};

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.models.native_graph_inspection import (
+    InspectionPin,
     InspectionRead,
     InspectionScope,
 )
@@ -41,8 +42,16 @@ def _call(fn, body, principal):
 
 
 @router.post("/catalog")
-def catalog(body: InspectionScope, principal=Depends(native_graph_gm_dependency)):
+def catalog(body: InspectionPin | InspectionScope, principal=Depends(native_graph_gm_dependency)):
     return _call(service.catalog, body, principal)
+
+
+@router.post("/authoring-identities")
+def authoring_identities(
+    body: InspectionPin | InspectionScope,
+    principal=Depends(native_graph_gm_dependency),
+):
+    return _call(service.authoring_identities, body, principal)
 
 
 @router.post("/read")
@@ -58,3 +67,11 @@ def inspect(body: InspectionRead, principal=Depends(native_graph_explorer_depend
                 "message": "The selected reviewed Graph material is unavailable. Refresh and inspect again.",
             },
         ) from None
+
+
+@router.post("/complete-object")
+def complete_object(
+    body: service.NativeCompleteObjectRead,
+    principal=Depends(native_graph_gm_dependency),
+):
+    return _call(service.complete_object, body, principal)

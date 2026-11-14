@@ -15,6 +15,22 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.client import 
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import locator_from_exact_revision, same_mechanics_locator
 
 
+def _require_combat_mechanics(exact) -> None:
+    definition = exact.definition
+    missing = [
+        label for label, value in (
+            ("D&D edition", definition.ruleset),
+            ("movement", definition.movement),
+            ("proficiency bonus", definition.challenge.proficiency_bonus),
+        )
+        if value is None
+    ]
+    if missing:
+        raise ApplicationStateConflictError(
+            "Resolve these statblock fields before combat adoption: " + ", ".join(missing)
+        )
+
+
 def preview(*, world_id: str, selection: CombatMechanicsSelection, records=None, creature_view=None):
     if selection.target.managed_world_id != world_id:
         raise ApplicationStateConflictError("Creature belongs to a different World")
@@ -31,6 +47,7 @@ def preview(*, world_id: str, selection: CombatMechanicsSelection, records=None,
         verify_exact_revision_mechanics_integrity(exact)
         if not same_mechanics_locator(locator_from_exact_revision(exact), record.proof.locator.model_dump(mode="json")):
             raise ApplicationStateConflictError("Exact accepted mechanics identity changed")
+        _require_combat_mechanics(exact)
         resource = exact.model_dump(mode="json")
         resource["definition"] = json.loads(exact.canonical_definition)
     finally:
@@ -73,6 +90,7 @@ def prepare_accepted_snapshot(*, world_id: str, selection: AcceptedCombatMechani
         verify_exact_revision_mechanics_integrity(exact)
         if not same_mechanics_locator(locator_from_exact_revision(exact), accepted.to_mechanics_locator()):
             raise ApplicationStateIntegrityError('Exact mechanics differ from saved acceptance')
+        _require_combat_mechanics(exact)
         resource = exact.model_dump(mode='json')
         resource['definition'] = json.loads(exact.canonical_definition)
     finally:
@@ -113,6 +131,7 @@ def prepare_saved_override(*,world_id,draft_id,locator):
         world_id=world_id,draft_id=draft_id,locator=locator)
     if exact.validation_receipt.status=='invalid' or any(issue.severity=='error' for issue in exact.validation_receipt.issues or []):
         raise ApplicationStateIntegrityError('Selected mechanics have an invalid validation receipt')
+    _require_combat_mechanics(exact)
     resource=exact.model_dump(mode='json');resource['definition']=json.loads(exact.canonical_definition)
     payload=dict(origin='buddy_saved_mechanics_override_v1',managed_world_id=world_id,draft_id=str(draft_id),
         origin_acceptance_operation_id=str(anchor),revision_operation_id=str(operation) if operation else None,
