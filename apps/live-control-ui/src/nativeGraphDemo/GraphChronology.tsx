@@ -205,7 +205,8 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
     const unplaced = events.filter(event => !recordedIds.has(event.node.id) && !orderedIds.has(event.node.id));
     return <section className="native-demo-event-strip" aria-label="Connected Events">
       {result?.partial && <small>Partial chronology</small>}
-      {([{ items: recorded, label: "Recorded in-world order (relative)" },
+      {recorded.length > 0 && <small>Only the labeled links establish order between Events.</small>}
+      {([{ items: recorded, label: "Recorded in-world links" },
         { items: ordered, label: "Campaign session order" },
         { items: unplaced, label: "Unplaced Events" }]).map(({ items, label }) => {
         return items.length > 0 && <div key={label}>
@@ -216,6 +217,9 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
               onClick={() => onExplore(event.node.id)}>{event.node.name}</button>
             {sessionNumber(event) !== undefined && <small>Session {sessionNumber(event)}</small>}
             {cyclic.has(event.node.id) && <small>Conflicting recorded order</small>}
+            {recordedIds.has(event.node.id) && orderByEvent.get(event.node.id)
+              ?.filter(link => recordedIds.has(link.other))
+              .map(link => <small key={link.label + link.id}>{link.label} {labels.get(link.other)}</small>)}
             {event.sourceSessions.length > 0 && <small>Source {event.sourceSessions.join(", ")}</small>}
           </li>)}</ul>
         </div>;
