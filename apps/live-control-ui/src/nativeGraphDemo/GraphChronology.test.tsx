@@ -131,3 +131,22 @@ it.each([false, true])("isolates ordering claims with ambiguous Campaign mapping
     expect(screen.queryByText("Conflicting recorded order")).toBeNull();
   }
 });
+
+it("keeps connected Events selectable when their chronology cannot load", async () => {
+  const graph = {
+    nodes: [
+      { id: "person", name: "Caelynn", kind: "character" },
+      { id: "arrival", name: "Arrival", kind: "event" },
+      { id: "unrelated", name: "Unrelated", kind: "event" },
+    ],
+    edges: [{ source_id: "person", target_id: "arrival" }],
+  } as unknown as NativeGraph;
+  const explore = vi.fn();
+  render(<GraphChronology graph={graph} read={vi.fn().mockRejectedValue(new Error("Unavailable"))}
+    relatedTo="person" strip selectedEvent="arrival" onExplore={explore} />);
+  await screen.findByRole("alert");
+  expect(screen.queryByRole("button", { name: "Unrelated" })).toBeNull();
+  const event = screen.getByRole("button", { name: "Arrival", pressed: true });
+  fireEvent.click(event);
+  expect(explore).toHaveBeenCalledWith("arrival");
+});

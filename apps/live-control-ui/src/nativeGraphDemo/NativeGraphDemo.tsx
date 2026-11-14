@@ -1323,7 +1323,30 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       ? canvasSnapshot
       : { ...canvasSnapshot, relationships };
   }, [embedded, mode, canvasSnapshot]);
-  const displayedSnapshot = viewFocusId ? canvasSnapshot : overviewSnapshot;
+  const focusedEventIds = useMemo(() => {
+    if (!embedded || mode !== "managed" || !graph || !api.readChronology || !viewFocusId
+      || neighborhoodDepth !== 1) return null;
+    const focus = graph.nodes.find(node => node.id === viewFocusId);
+    if (!focus || nativeGraphPresentation(focus).displayKind === "event") return null;
+    const neighbors = new Set<string>();
+    for (const edge of graph.edges) {
+      if (edge.source_id === viewFocusId) neighbors.add(edge.target_id);
+      if (edge.target_id === viewFocusId) neighbors.add(edge.source_id);
+    }
+    const events = new Set(graph.nodes.filter(node => neighbors.has(node.id)
+      && nativeGraphPresentation(node).displayKind === "event").map(node => node.id));
+    return events.size ? events : null;
+  }, [api.readChronology, embedded, graph, mode, neighborhoodDepth, viewFocusId]);
+  const focusedSnapshot = useMemo(() => {
+    if (!canvasSnapshot || !focusedEventIds) return canvasSnapshot;
+    return {
+      ...canvasSnapshot,
+      objects: canvasSnapshot.objects.filter(node => !focusedEventIds.has(node.id)),
+      relationships: canvasSnapshot.relationships.filter(edge =>
+        !focusedEventIds.has(edge.fromObjectId) && !focusedEventIds.has(edge.toObjectId)),
+    };
+  }, [canvasSnapshot, focusedEventIds]);
+  const displayedSnapshot = viewFocusId ? focusedSnapshot : overviewSnapshot;
   const record = useMemo(
     () => graph && displayedSnapshot ? toCanvasRecord(graph, displayedSnapshot, layout) : null,
     [graph, displayedSnapshot, layout],
@@ -1510,6 +1533,23 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
 
   const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) ?? null : null;
+  const selectedStripEvent = selectedNodeId && focusedEventIds?.has(selectedNodeId)
+    ? selectedNodeId : undefined;
+  const stripConnections = useMemo(() => {
+    const connected = new Set<string>();
+    if (!focusedEventIds || !selectedNodeId || !graph) return connected;
+    for (const edge of graph.edges) {
+      if (edge.source_id === selectedNodeId) connected.add(edge.target_id);
+      if (edge.target_id === selectedNodeId) connected.add(edge.source_id);
+    }
+    return connected;
+  }, [focusedEventIds, graph, selectedNodeId]);
+  const stripHighlightRules = selectedStripEvent && typeof globalThis.CSS?.escape === "function"
+    ? [...stripConnections].map(id =>
+      `#loaded-native-graph-canvas [data-node-id=${CSS.escape(id)}] .world-graph-canvas__node-circle`,
+    ).join(", ")
+    : "";
+
   const graphEdges = graph?.edges;
   const selectedLabels = useMemo(
     () => new Map(graphNodes?.map((node) => [node.id, compactNodeLabel(node)])),
@@ -1812,6 +1852,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 handleCanvasSelectionChange(nodeId as LocalObjectId);
                 requestCameraFocus(nodeId);
               }} />}
+            {stripHighlightRules && <style>{`${stripHighlightRules} {
+              stroke: #a05b09; stroke-width: 5; paint-order: stroke fill;
+            }`}</style>}
             {record ? (
               <WorldGraphCanvas
                 key={graph.world_id}
@@ -1842,6 +1885,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 } : {})}
               />
             ) : null}
+            {focusedEventIds && viewFocusId && api.readChronology && !chronologyOpen &&
+              <GraphChronology graph={graph} read={api.readChronology} relatedTo={viewFocusId} strip
+                selectedEvent={selectedStripEvent} connectedIds={stripConnections}
+                onExplore={nodeId => {
+                  if (pendingRef.current) return;
+                  focusInspectorRef.current = true;
+                  handleCanvasSelectionChange(nodeId as LocalObjectId);
+                }} />}
             {!embedded ? <div className="native-demo-graph-meta">
               <span><strong>{graph.nodes.length}</strong> {completeness?.status === "partial" ? "listed objects" : "objects"}</span>
               <span><strong>{graph.edges.length}</strong> {completeness?.status === "partial" ? "listed relationships" : "relationships"}</span>

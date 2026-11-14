@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from "react";
+import { nativeGraphPresentation } from "./nativeGraphPresentation";
 import { buildGraphChronology } from "./graphChronologyModel";
 import type { NativeGraph, NativeGraphDemoApi } from "./nativeGraphDemoApi";
 
-export function GraphChronology({ graph, read, relatedTo, onExplore }: {
+export function GraphChronology({ graph, read, relatedTo, onExplore, strip = false, selectedEvent, connectedIds }: {
   graph: NativeGraph;
   read: NonNullable<NativeGraphDemoApi["readChronology"]>;
   relatedTo?: string;
+  strip?: boolean;
+  selectedEvent?: string;
+  connectedIds?: ReadonlySet<string>;
   onExplore: (nodeId: string) => void;
 }) {
   const [result, setResult] = useState<{
@@ -28,8 +32,6 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
     return () => abort.abort();
   }, [graph, read]);
 
-  if (result?.graph !== graph) return <p role="status">Loading chronology…</p>;
-  if (!result.events) return <p role="alert">Chronology could not be loaded. Refresh the graph and try again.</p>;
   const labels = new Map(graph.nodes.map(node => [node.id, node.name]));
   const relatedIds = new Set([relatedTo]);
   if (relatedTo) {
@@ -38,7 +40,25 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
       if (edge.target_id === relatedTo) relatedIds.add(edge.source_id);
     }
   }
-  const relatedEvents = relatedTo ? result.events.filter(event => relatedIds.has(event.node.id)) : result.events;
+  const loading = result?.graph !== graph;
+  const catalogue = loading ? null : result.events;
+  if (!catalogue) {
+    const status = loading
+      ? <p role="status">Loading chronology…</p>
+      : <p role="alert">Chronology could not be loaded. Refresh the graph and try again.</p>;
+    if (!strip) return status;
+    const connected = graph.nodes.filter(node => relatedIds.has(node.id)
+      && nativeGraphPresentation(node).displayKind === "event");
+    return <section className="native-demo-event-strip" aria-label="Connected Events">
+      {status}
+      <ul>{connected.map(node => <li key={node.id}>
+        <button type="button" aria-pressed={node.id === selectedEvent}
+          data-connected={connectedIds?.has(node.id) || undefined}
+          onClick={() => onExplore(node.id)}>{node.name}</button>
+      </li>)}</ul>
+    </section>;
+  }
+  const relatedEvents = relatedTo ? catalogue.filter(event => relatedIds.has(event.node.id)) : catalogue;
   const campaigns = [...new Set(relatedEvents.flatMap(event => event.campaignIds))];
   const events = relatedEvents.filter(event => !campaign || event.campaignIds.includes(campaign));
   function sessionOrder(event: typeof events[number]): number {
@@ -48,14 +68,14 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
   if (campaign) events.sort((a, b) => sessionOrder(a) - sessionOrder(b) || a.node.name.localeCompare(b.node.name));
 
   const campaignAxis = "dungeonbuddy.scope:campaign";
-  const selectedScopes = new Set(result.events.flatMap(event =>
+  const selectedScopes = new Set(catalogue.flatMap(event =>
     event.placements.flatMap(placement =>
       placement.value.kind === "entity_ref" && placement.value.entity_id === campaign
         ? (placement.metadata.scope ?? []).filter(binding => binding.axis === campaignAxis).map(binding => binding.value)
         : [])));
   const candidateScope = selectedScopes.size === 1 ? [...selectedScopes][0] : undefined;
   const campaignLabelsByScope = new Map<string, Set<string>>();
-  for (const event of result.events) {
+  for (const event of catalogue) {
     for (const placement of event.placements) {
       if (placement.value.kind !== "entity_ref") continue;
       for (const binding of placement.metadata.scope ?? []) {
@@ -71,8 +91,8 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
   const selectedScope = scopeCampaigns?.size === 1 && scopeCampaigns.has(campaign)
     ? candidateScope : undefined;
   const orderByEvent = new Map<string, { label: string; other: string; id: string; scope: string }[]>();
-  const eventIds = new Set(result.events.map(event => event.node.id));
-  for (const event of result.events) {
+  const eventIds = new Set(catalogue.map(event => event.node.id));
+  for (const event of catalogue) {
     for (const assertion of event.assertions) {
       if (assertion.predicate !== "dungeonbuddy.custom:precedes" || assertion.value.kind !== "entity_ref") continue;
       if (campaign && (!selectedScope || !(assertion.metadata.scope ?? []).some(
@@ -137,6 +157,76 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
 
   }
 
+  if (strip) {
+    const sessionNumber = (event: typeof events[number]) => {
+      const placements = [...event.placementSessions.values()];
+      return placements.length === 1 && placements[0].size === 1 ? [...placements[0]][0] : undefined;
+    };
+    const byId = new Map(events.map(event => [event.node.id, event]));
+    const edgesByScope = new Map<string, Map<string, Set<string>>>();
+    for (const [source, links] of orderByEvent) {
+      if (!byId.has(source) || cyclic.has(source)) continue;
+      for (const link of links) {
+        if (link.label !== "Recorded before" || !byId.has(link.other) || cyclic.has(link.other)) continue;
+        const edges = edgesByScope.get(link.scope) ?? new Map<string, Set<string>>();
+        const targets = edges.get(source) ?? new Set<string>();
+        targets.add(link.other);
+        edges.set(source, targets);
+        edgesByScope.set(link.scope, edges);
+      }
+    }
+    const recordedIds = new Set<string>();
+    const recorded: typeof events = [];
+    if (edgesByScope.size === 1) {
+      const [edges] = edgesByScope.values();
+      const incoming = new Map<string, number>();
+      for (const [source, targets] of edges) {
+        if (!incoming.has(source)) incoming.set(source, 0);
+        for (const target of targets) incoming.set(target, (incoming.get(target) ?? 0) + 1);
+      }
+      const ready = [...incoming].filter(([, count]) => count === 0).map(([id]) => id);
+      for (const id of ready) {
+        recordedIds.add(id);
+        recorded.push(byId.get(id)!);
+        for (const target of edges.get(id) ?? []) {
+          const remaining = incoming.get(target)! - 1;
+          incoming.set(target, remaining);
+          if (remaining === 0) ready.push(target);
+        }
+      }
+    }
+    const campaignIds = new Set(events.flatMap(event => event.campaignIds));
+    const canCompareSessions = campaignIds.size === 1;
+    const ordered = canCompareSessions
+      ? events.filter(event => !recordedIds.has(event.node.id) && sessionNumber(event) !== undefined)
+        .sort((a, b) => sessionNumber(a)! - sessionNumber(b)!)
+      : [];
+    const orderedIds = new Set(ordered.map(event => event.node.id));
+    const unplaced = events.filter(event => !recordedIds.has(event.node.id) && !orderedIds.has(event.node.id));
+    return <section className="native-demo-event-strip" aria-label="Connected Events">
+      {result?.partial && <small>Partial chronology</small>}
+      {recorded.length > 0 && <small>Only the labeled links establish order between Events.</small>}
+      {([{ items: recorded, label: "Recorded in-world links" },
+        { items: ordered, label: "Campaign session order" },
+        { items: unplaced, label: "Unplaced Events" }]).map(({ items, label }) => {
+        return items.length > 0 && <div key={label}>
+          <strong>{label}</strong>
+          <ul>{items.map(event => <li key={event.node.id}>
+            <button type="button" aria-pressed={event.node.id === selectedEvent}
+              data-connected={connectedIds?.has(event.node.id) || undefined}
+              onClick={() => onExplore(event.node.id)}>{event.node.name}</button>
+            {sessionNumber(event) !== undefined && <small>Session {sessionNumber(event)}</small>}
+            {cyclic.has(event.node.id) && <small>Conflicting recorded order</small>}
+            {recordedIds.has(event.node.id) && orderByEvent.get(event.node.id)
+              ?.filter(link => recordedIds.has(link.other))
+              .map(link => <small key={link.label + link.id}>{link.label} {labels.get(link.other)}</small>)}
+            {event.sourceSessions.length > 0 && <small>Source {event.sourceSessions.join(", ")}</small>}
+          </li>)}</ul>
+        </div>;
+      })}
+    </section>;
+  }
+
   const sessions = new Map<number, string>();
   for (const event of events) {
     const session = sessionOrder(event);
@@ -157,7 +247,7 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
       <option value="">All campaigns</option>
       {campaigns.map(id => <option key={id} value={id}>{labels.get(id)}</option>)}
     </select></label>
-    {result.partial && <p role="status">Partial chronology</p>}
+    {result?.partial && <p role="status">Partial chronology</p>}
     {events.length === 0 && <p>No Events found.</p>}
     {campaign && sessions.size > 0 && <details>
       <summary>Campaign session spiral</summary>
