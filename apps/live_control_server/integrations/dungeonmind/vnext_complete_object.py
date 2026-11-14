@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -357,12 +358,24 @@ def _map_relationship(
             if source_by_id[evidence_by_id[evidence_id].source_artifact_id].session_id
         }
     )
+    label = predicate.replace("_", " ")
+    for entry in assertion.metadata.domain_metadata:
+        if entry.schema_term != "dungeonbuddy.domain_metadata:world_context_v1":
+            continue
+        payload = thaw_json_value(entry.payload)
+        if not isinstance(payload, dict):
+            continue
+        reviewed_label = payload.get("relationship_label")
+        reviewed_context = payload.get("relationship_context")
+        if isinstance(reviewed_label, str) and isinstance(reviewed_context, str):
+            label = f"{reviewed_label} — {reviewed_context}"
+            break
     return WorldGraphObjectProjectionRelationship(
         edge_id=assertion.assertion_id,
         source_node_id=assertion.subject_entity_id,
         target_node_id=value.entity_id,
         predicate=predicate,
-        label=predicate.replace("_", " "),
+        label=label,
         direction=direction,
         session_ids=session_ids,
         visibility=_visibility(assertion),

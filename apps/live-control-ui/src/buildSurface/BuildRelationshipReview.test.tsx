@@ -3,17 +3,26 @@ import {afterEach,beforeAll,beforeEach,expect,it,vi} from 'vitest';
 import {BuildRelationshipReview} from './BuildRelationshipReview';
 import {relationshipKey,readRelationshipReview} from './buildRelationshipRecovery';
 import * as api from '../api/liveApi';
-import {graphDocumentRelationshipRequest} from '../api/graphDocumentRelationshipApi';
+import {graphDocumentRelationshipRequest,prepareNativeRelationship,confirmNativeRelationship} from '../api/graphDocumentRelationshipApi';
 const state=vi.hoisted(()=>({session:null as any}));
 vi.mock('../markdownCanvas/MarkdownCanvasSession',()=>({useOptionalMarkdownCanvasSession:()=>state.session}));
 vi.mock('../worldGraph/verifyManagedWorldGraphProjectionResponse',()=>({verifyManagedWorldGraphProjectionResponse:()=>null}));
 vi.mock('../api/liveApi',async()=>({LiveApiError:(await vi.importActual<typeof import('../api/liveApi')>('../api/liveApi')).LiveApiError,getGraphObjectAuthoringKinds:vi.fn(),getNativeAuthoringIdentities:vi.fn(),prepareGraphObjectAuthoringWrite:vi.fn(),commitGraphObjectAuthoringWrite:vi.fn()}));
-vi.mock('../api/graphDocumentRelationshipApi',()=>({graphDocumentRelationshipRequest:vi.fn()}));
+vi.mock('../api/graphDocumentRelationshipApi',()=>({graphDocumentRelationshipRequest:vi.fn(),prepareNativeRelationship:vi.fn(),confirmNativeRelationship:vi.fn()}));
 const world='test-world',doc='11111111-1111-4111-8111-111111111111',key=relationshipKey(world,doc);
 const seed={document_source:{documentId:doc,revision:4,contentSha256:'a'.repeat(64)},quote:'Rowan worked with Brin temporarily.'};
 const prepared={prepared:true,campaign_id:world,world_id:'native-world',authority_operation_id:'operation',expressibility:'EXPRESSIBLE',confirm_token:'exact-token',current_overlay_token:null,assertions_preview:[{assertion_id:'r',summary:'Past temporary work'}]} as any;
 const receipt={committed:true,campaign_id:world,world_id:'native-world',operation_id:'operation',published_revision_id:'revision'} as any;
-function View({initial=seed}: {initial?:typeof seed|null}){return <BuildRelationshipReview worldId={world} documentId={doc} seed={initial} onConsumed={()=>{}}/>;}
+function View({initial=seed,native=false}: {initial?:typeof seed|null;native?:boolean}){
+ if(initial&&!native&&!localStorage.getItem(key)){
+  localStorage.setItem(key,JSON.stringify({
+   schema:'dmb_saved_relationship_review_v1',
+   intent:{world_id:world,...initial,source:{node_id:null,label:'',kind:'npc'},target:{node_id:null,label:'',kind:'npc'},predicate:'',label:'',context:''},
+   request:null,prepared:null,submitted:false,receipt:null,
+  }));
+ }
+ return <BuildRelationshipReview worldId={world} documentId={doc} seed={initial} onConsumed={()=>{}}/>;
+}
 const retained=()=>readRelationshipReview(localStorage.getItem(key),world,doc)!;
 beforeAll(()=>Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value(this:HTMLDialogElement){this.setAttribute('open','');}}));
 beforeEach(()=>{
@@ -138,4 +147,29 @@ it('requires another exact refusal after reload before permitting edit',async()=
  vi.mocked(api.commitGraphObjectAuthoringWrite).mockRejectedValue(new api.LiveApiError('Unsupported relationship',409,{code:'authoring_predicate_unsupported'}));
  const view=render(<View/>);await filled();await preview();fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));await screen.findByRole('button',{name:'Edit relationship'});const sent=vi.mocked(api.commitGraphObjectAuthoringWrite).mock.calls[0][0];view.unmount();render(<View initial={null}/>);fireEvent.click(screen.getByRole('button',{name:'Resume relationship review'}));
  expect(screen.queryByRole('button',{name:'Edit relationship'})).not.toBeInTheDocument();fireEvent.click(await screen.findByRole('button',{name:'Retry exact confirmation'}));await screen.findByRole('button',{name:'Edit relationship'});expect(vi.mocked(api.commitGraphObjectAuthoringWrite).mock.calls[1][0]).toEqual(sent);expect(api.prepareGraphObjectAuthoringWrite).toHaveBeenCalledTimes(1);
+});
+
+it('retains native preparation and retries the same confirmation after reopening',async()=>{
+ const preparation={prepared:{fixture:true},confirm_token:'native-review'};
+ vi.mocked(prepareNativeRelationship).mockResolvedValue(preparation);
+ vi.mocked(confirmNativeRelationship).mockRejectedValueOnce(new Error('Response lost'));
+ const first=render(<View native/>);
+ await filled();
+ await preview();
+ const operationId=retained().native!.operationId;
+ const review=retained().intent;
+ expect(prepareNativeRelationship).toHaveBeenCalledWith(review,operationId);
+ fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));
+ await screen.findByText(/Response lost/);
+ expect(retained().submitted).toBe(true);
+ first.unmount();
+ vi.mocked(confirmNativeRelationship).mockResolvedValueOnce({
+  child_revision_id:'rev:native-child',dungeonmind_publication_id:`dmb-build-relationship:v1:${operationId}`,
+ });
+ render(<View initial={null}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Resume relationship review'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Retry exact confirmation'}));
+ await screen.findByText('Relationship published to the World.');
+ expect(vi.mocked(confirmNativeRelationship).mock.calls).toEqual([[review,preparation],[review,preparation]]);
+ expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
 });

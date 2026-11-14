@@ -171,3 +171,143 @@ def test_relationship_reader_uses_committed_snapshot_not_file_witness(request, g
         with pytest.raises(GraphObjectAuthoringError):
             reader.relationship_request(c.root, request, GM)
     assert c.authority.publish_calls == 0
+
+
+def test_reviewed_passage_uses_utf8_byte_offsets(case, monkeypatch):
+    from hashlib import sha256
+
+    from apps.live_control_server.services import graph_document_relationship as reader
+
+    snapshot = reader.get_committed_page_snapshot(case.root, case.record.document_id)
+    request = DocumentRelationshipRequest.model_validate(intent(case))
+    prefix = "Élderwyld — "
+    body = prefix + request.quote
+    replacement = snapshot.model_copy(update={"markdown": body})
+    monkeypatch.setattr(reader, "get_committed_page_snapshot", lambda *_: replacement)
+
+    _, character_offset, span = reader.resolve_reviewed_passage(case.root, request)
+    expected = request.quote.encode("utf-8")
+    assert character_offset == len(prefix)
+    assert span["start_byte"] == len(prefix.encode("utf-8"))
+    assert body.encode("utf-8")[span["start_byte"]:span["end_byte"]] == expected
+    assert span["expected_slice_sha256"] == sha256(expected).hexdigest()
+
+
+def test_native_relationship_intent_retains_reviewed_passage_and_text(case):
+    from datetime import UTC, datetime
+
+    from apps.live_control_server.services import graph_document_relationship as reader
+
+    request = DocumentRelationshipRequest.model_validate(intent(case))
+    admission = SimpleNamespace(
+        state="admitted", document_id=request.document_source.document_id,
+        world_id=request.world_id, space_id="space:elderwyld",
+        body_sha256=request.document_source.content_sha256,
+        admission_id="admission:test", source_artifact_id="artifact:test",
+        source_revision_id="source-revision:test",
+    )
+    extension = reader.native_relationship_evidence_request(
+        case.root, request, admission=admission,
+        context={"space_id": admission.space_id, "revision_id": "rev:test", "source_epoch": 1},
+        operation_id="publication:test", created_at=datetime.now(UTC),
+    )
+    span, = extension.spans
+    snapshot = reader.get_committed_page_snapshot(case.root, admission.document_id)
+    assert snapshot.markdown.encode()[span.start_byte:span.end_byte] == request.quote.encode()
+
+    change = reader.native_relationship_intent(
+        request, space_id=extension.space_id,
+        predicate="dungeonbuddy.custom:visits", evidence_ref_id="ev:reviewed",
+    )
+    relationship = change.operations[-1]
+    assert change.space_id == admission.space_id
+    assert relationship.metadata.evidence_ref_ids == ("ev:reviewed",)
+    assert dict(relationship.metadata.domain_metadata[0].payload.items) == {
+        "relationship_label": request.label, "relationship_context": request.context,
+    }
+
+
+def test_signed_native_review_publishes_once(case, graph, monkeypatch):
+    from datetime import UTC, datetime
+
+    from dungeonmind.application.vnext import (
+        initialize_empty_knowledge_space,
+        publish_native_text_source_evidence,
+    )
+    from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
+    from dungeonmind.infrastructure.memory.vnext_sources import InMemoryNativeSourceEvidenceRepository
+
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
+    from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as source
+    from apps.live_control_server.services import graph_document_relationship as reader
+
+    repo = InMemoryNativeSourceEvidenceRepository()
+    domain, profile = source._genesis_descriptors()
+    from graph_memory.vnext.domain_runtime import dungeonbuddy_dnd5e_custom_predicate_profile
+    profile = dungeonbuddy_dnd5e_custom_predicate_profile()
+    space = 'space:relationship'
+    now = datetime.now(UTC)
+    genesis = initialize_empty_knowledge_space(
+        repository=repo, space_id=space, initialization_id='init:relationship',
+        created_at=now, domain_contract=domain, semantic_profile=profile,
+    )
+    review = intent(case)
+    request = DocumentRelationshipRequest.model_validate(review)
+    body = reader.get_committed_page_snapshot(case.root, case.record.document_id).markdown
+    root = publish_native_text_source_evidence(
+        repository=repo, domain_contract=domain, semantic_profile=profile,
+        request=NativeTextSourceAdmissionV1(
+            space_id=space, admission_id='admission:relationship',
+            expected_parent_revision_id=genesis.published_revision_id, created_at=now,
+            body_text=body, expected_body_sha256=request.document_source.content_sha256,
+            source_classification=source.SOURCE_CLASSIFICATION, authority='primary',
+            visibility={'kind': 'public'},
+            spans=[{
+                'client_ref': 'opening', 'evidence_role': 'context',
+                'start_byte': 0, 'end_byte': 1,
+                'expected_slice_sha256': __import__('hashlib').sha256(body.encode()[:1]).hexdigest(),
+            }],
+        ),
+    )
+    monkeypatch.setattr(native, 'repository', lambda: repo)
+    def refuse_classic_capture(*args, **kwargs):
+        pytest.fail('Native preparation attempted classic source capture')
+
+    monkeypatch.setattr(reader, 'resolve_graph_document_source', refuse_classic_capture)
+    monkeypatch.setattr(native, 'binding', lambda _: {'native_world_id': space})
+    monkeypatch.setattr(source, 'get_native_world_source_status', lambda *a, **kw: SimpleNamespace(
+        state='admitted', document_id=case.record.document_id, world_id=request.world_id,
+        space_id=space, body_sha256=request.document_source.content_sha256,
+        admission_id=root.admission_id, source_artifact_id=root.source_artifact_id,
+        source_revision_id=root.source_revision_id,
+    ))
+    head = repo.get_head(space)
+    epoch = repo.open_native_source_view(space).epoch
+    prefix = '/api/live/graph-authoring/document-relationship'
+    operation = str(uuid4())
+    preview = case.client.post(f'{prefix}/native-prepare', json={'review': review, 'operation_id': operation})
+    assert preview.status_code == 200, preview.text
+    assert repo.get_head(space) == head
+    assert repo.open_native_source_view(space).epoch == epoch
+
+    confirmed = {'review': review, **preview.json()}
+    from copy import deepcopy
+
+    tampered = deepcopy(confirmed)
+    tampered['prepared']['extension']['spans'][0]['start_byte'] += 1
+    rejected = case.client.post(f'{prefix}/native-confirm', json=tampered)
+    assert rejected.status_code == 409, rejected.text
+    assert rejected.json()['detail']['code'] == 'confirmation_invalid'
+    assert repo.get_head(space) == head
+    assert repo.open_native_source_view(space).epoch == epoch
+
+    receipt = case.client.post(f'{prefix}/native-confirm', json=confirmed)
+    assert receipt.status_code == 200, receipt.text
+    child = repo.get_revision(space, receipt.json()['child_revision_id'])
+    assert child.revision.parent_revision_id == head.head_revision_id
+    assert repo.open_native_source_view(space).epoch == epoch + 1
+    retry = case.client.post(f'{prefix}/native-confirm', json=confirmed)
+    assert retry.status_code == 200, retry.text
+    assert retry.json() == receipt.json()
+    assert repo.get_head(space).head_revision_id == child.revision.revision_id
+    assert repo.open_native_source_view(space).epoch == epoch + 1
