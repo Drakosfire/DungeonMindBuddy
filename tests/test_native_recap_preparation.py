@@ -59,18 +59,29 @@ def lane(monkeypatch, tmp_path, request):
     monkeypatch.setenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", "synthetic-native-recap-review-key")
     seed = _repository(evidence=False, v3=getattr(request, "param", None) != "source_order_closed")
     snapshot = seed.get_revision(SPACE_ID, seed.get_head(SPACE_ID).head_revision_id)
+    profile_ref = snapshot.revision.semantic_profile_ref
+    if getattr(request, "param", None) == "source_order_observation":
+        from graph_memory.vnext.domain_runtime import (
+            DUNGEONBUDDY_OBSERVATION_PROFILE_DIGEST,
+            DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION,
+        )
+
+        profile_ref = profile_ref.model_copy(update={
+            "profile_revision": DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION,
+            "descriptor_sha256": DUNGEONBUDDY_OBSERVATION_PROFILE_DIGEST,
+        })
     repo = InMemoryNativeSourceEvidenceRepository()
     repo.publish_revision(PublishKnowledgeRevisionCommand(
         space_id=SPACE_ID, operation_ids=["fixture-genesis"],
         graph_schema=snapshot.revision.graph_schema, graph_payload=snapshot.graph_payload,
         domain_contract_ref=snapshot.revision.domain_contract_ref,
-        semantic_profile_ref=snapshot.revision.semantic_profile_ref,
+        semantic_profile_ref=profile_ref,
         created_at=datetime(2026, 10, 31, tzinfo=UTC),
     ))
     bound = {"native_world_id": SPACE_ID, "binding_version": 3}
     source_id = "artifact:recap:v2:review-fixture"
     text = "A traveller met Pippa near the towér.\r\n\r\nThe traveller brought a lantern.\r\n\r\nAnother unrelated episode.\r\n"
-    source_order = getattr(request, "param", None) in {"source_order", "source_order_closed"}
+    source_order = getattr(request, "param", None) in {"source_order", "source_order_closed", "source_order_observation"}
     if source_order:
         text = ("An arrival happened. A discussion happened. Each occurred before a departure. "
                 "Their relative order is not stated. Pippa is a person.\r\n\r\n"
@@ -1292,7 +1303,7 @@ def _source_order_candidate(lane):
     assert not document.is_document_integrity_failure, (document.parse_error, document.integrity_issues)
 
 
-@pytest.mark.parametrize("lane", ["source_order"], indirect=True)
+@pytest.mark.parametrize("lane", ["source_order", "source_order_observation"], indirect=True)
 def test_source_order_description_only_events_publish_and_open_real_evidence(lane):
     _source_order_candidate(lane)
     packet = confirmation(lane)

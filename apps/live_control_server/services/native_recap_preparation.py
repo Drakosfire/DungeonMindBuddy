@@ -34,6 +34,7 @@ from graph_memory.candidate_document_integrity import classify_candidate_documen
 from graph_memory.candidate_graph_preview import NODE_TYPES
 from graph_memory.vnext.domain_runtime import (
     CAMPAIGN_SCOPE_AXIS, DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
+    DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION,
     DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context,
 )
 from graph_memory.predicate_catalog import SOURCE_PRECEDENCE_PREDICATE, source_precedence_endpoints_admitted
@@ -379,7 +380,8 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
                 # Capability adoption, not a duplicate semantic-profile validator:
                 # access_context already resolves and verifies this immutable ref.
                 _require(profile_ref.profile_id == DUNGEONBUDDY_PROFILE_ID
-                         and profile_ref.profile_revision == DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
+                         and profile_ref.profile_revision in (DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
+                                                              DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION),
                          "precedence_profile_not_adopted")
                 _require(source_precedence_endpoints_admitted(
                     records[("node", edge.from_node_id)].node_type,
