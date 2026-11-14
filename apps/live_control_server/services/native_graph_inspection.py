@@ -273,6 +273,20 @@ def complete_object(body: NativeCompleteObjectRead, principal):
         binding.provenance_status = "excerpt_ready"
         result.telemetry.excerpt_count += 1
     if result.telemetry.excerpt_count:
+        from apps.live_control_server.services.world_graph_object_projection import (
+            hydrate_adjacency_excerpts,
+        )
+
+        bindings_by_evidence = {
+            binding.evidence_ref_id: binding for binding in result.source_bindings
+        }
+        result.node = hydrate_adjacency_excerpts(
+            result.node, bindings_by_evidence=bindings_by_evidence
+        )
+        result.related_nodes = [
+            hydrate_adjacency_excerpts(node, bindings_by_evidence=bindings_by_evidence)
+            for node in result.related_nodes
+        ]
         result.semantic_fingerprint = object_projection_semantic_fingerprint(
             revision_id=pin.revision_id,
             node_id=request.node_id,
