@@ -457,22 +457,51 @@ def shared_exact_object(request, principal):
 
 
 def shared_neighborhood(request, principal, *, object_id=None):
-    from graph_memory.retrieval.models import (
-        WorldGraphRetrievalCoverage,
-        WorldGraphRetrievalResult,
-        WorldGraphRetrievalSnapshot,
-        WorldGraphSourceAnchor,
-    )
-    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import native_anchor_id
-
     bound, head, pin = _shared_retrieval_pin(request, principal)
-    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import (
-        map_nodes, map_relationships, read_neighborhood,
-    )
     _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    return _shared_retrieval_projection(request, bound, head, pin, read, object_id=object_id)
+
+
+def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=None, search_entities=None):
+    from graph_memory.retrieval.models import (
+        WorldGraphRetrievalCoverage, WorldGraphRetrievalResult,
+        WorldGraphRetrievalSnapshot, WorldGraphSourceAnchor,
+    )
+    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import (
+        map_nodes, map_relationships, read_neighborhood, native_anchor_id,
+    )
     attributes = []
-    selected = None
-    if object_id is not None:
+    selected_entities = {}
+    if search_entities is not None:
+        from types import SimpleNamespace
+        from dungeonmind.application.vnext.records import ParsedEntityRefValue
+        from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import BoundedNeighborhood
+
+        reader = EntityReadService()
+        complete = search_entities.values()
+        edges = {
+            row.assertion_id: row
+            for item in complete for row in item.assertions
+            if isinstance(row.value, ParsedEntityRefValue)
+        }
+        cap = request.bounds.max_relationships
+        bounded = BoundedNeighborhood(
+            tuple(search_entities), tuple(edges[key] for key in sorted(edges)[:cap]),
+            False, len(edges) > cap,
+        )
+        result = SimpleNamespace(
+            evidence=[row for item in complete for row in item.evidence],
+            source_artifacts=[row for item in complete for row in item.source_artifacts],
+            missing_seed_entity_ids=(),
+        )
+        from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import map_entity_result
+
+        selected_entities = {entity_id: reader.get_entity(read, entity_id) for entity_id in search_entities}
+        nodes = [
+            map_entity_result(entity, entity_id, attributes=attributes, allow_multiple=True)
+            for entity_id, entity in selected_entities.items()
+        ]
+    elif object_id is not None:
         from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import BoundedNeighborhood, map_entity_result
         from dungeonmind.application.vnext.records import ParsedEntityRefValue
 
@@ -490,6 +519,8 @@ def shared_neighborhood(request, principal, *, object_id=None):
         )
         selected = EntityReadService().get_entity(read, object_id) if result.found else None
         nodes = [map_entity_result(selected, object_id, attributes=attributes)] if selected else []
+        if selected is not None:
+            selected_entities[object_id] = selected
     else:
         result, bounded = read_neighborhood(read, request.seed_node_ids, request.max_depth, request.bounds)
         nodes = map_nodes(read, bounded, attributes=attributes)
@@ -525,8 +556,8 @@ def shared_neighborhood(request, principal, *, object_id=None):
             supporting_assertion_ids=assertion_ids,
             readable=ref.can_open_source, locator_kind="source_span",
         ))
-    if selected is not None:
-        by_id = {anchor.evidence_ref_id: anchor for anchor in anchors}
+    by_id = {anchor.evidence_ref_id: anchor for anchor in anchors}
+    for entity_id, selected in selected_entities.items():
         selected_sources = {source.source_artifact_id: source for source in selected.source_artifacts}
         for ref in selected.evidence:
             if ref.evidence_role != "support" or not ref.source_span_ref_id:
@@ -540,6 +571,7 @@ def shared_neighborhood(request, principal, *, object_id=None):
             existing = by_id.get(ref.evidence_ref_id)
             if existing is not None:
                 existing.supporting_assertion_ids = sorted(supporters.union(existing.supporting_assertion_ids))
+                existing.supporting_graph_object_ids = sorted({entity_id, *existing.supporting_graph_object_ids})
                 continue
             by_id[ref.evidence_ref_id] = WorldGraphSourceAnchor(
                 anchor_id=native_anchor_id(min(supporters), ref.evidence_ref_id),
@@ -548,11 +580,11 @@ def shared_neighborhood(request, principal, *, object_id=None):
                 source_artifact_id=ref.source_artifact_id,
                 source_domain=_source_domain(selected_sources[ref.source_artifact_id].source_classification),
                 source_span_ref_id=ref.source_span_ref_id,
-                supporting_graph_object_ids=[object_id],
+                supporting_graph_object_ids=[entity_id],
                 supporting_assertion_ids=sorted(supporters),
                 readable=ref.can_open_source, locator_kind="source_span",
             )
-        anchors = [by_id[key] for key in sorted(by_id)]
+    anchors = [by_id[key] for key in sorted(by_id)]
     _response(bound, pin)
     truncated = [
         field for field in ("nodes", "relationships") if getattr(bounded, f"{field}_truncated")
@@ -563,8 +595,17 @@ def shared_neighborhood(request, principal, *, object_id=None):
     if len(attributes) > request.bounds.max_attributes:
         truncated.append("attributes")
     missing = [] if object_id is not None else list(result.missing_seed_entity_ids)
+    if search_entities is not None:
+        operation = "search"
+        request_summary = {"query_text": request.query_text, "seed_node_ids": request.seed_node_ids}
+    elif object_id is not None:
+        operation = "object"
+        request_summary = {"node_id": object_id}
+    else:
+        operation = "neighborhood"
+        request_summary = {"seed_node_ids": list(request.seed_node_ids), "max_depth": request.max_depth}
     return WorldGraphRetrievalResult(
-        operation="object" if object_id is not None else "neighborhood",
+        operation=operation,
         requested_node_id=object_id,
         resolved_node_id=object_id if nodes else None,
         outcome="partial" if truncated or missing else "enough" if nodes else "empty",
@@ -575,12 +616,7 @@ def shared_neighborhood(request, principal, *, object_id=None):
             focus=request.focus.to_projection_focus(), admissibility=request.admissibility,
             scope_mode=request.scope_mode,
         ),
-        request_summary=(
-            {"node_id": object_id} if object_id is not None else {
-                "seed_node_ids": list(request.seed_node_ids),
-                "max_depth": request.max_depth,
-            }
-        ),
+        request_summary=request_summary,
         nodes=nodes, relationships=edges,
         attributes=attributes[:request.bounds.max_attributes],
         source_anchors=anchors[:request.bounds.max_source_anchors],
@@ -683,6 +719,130 @@ def shared_evidence(request, principal):
             truncated_fields=["source_anchors"] if truncated else [],
         ),
     )
+
+
+def _reviewed_search_matches(hits, result, read, space, repository):
+    from hashlib import sha256
+
+    from graph_memory.retrieval.models import WorldGraphNativeReviewedSourceObservationMatch
+    from dungeonmind.application.vnext.prospective import get_prospective_publication
+    from graph_memory.vnext.domain_runtime import (
+        CAMPAIGN_SCOPE_AXIS, DUNGEONBUDDY_OBSERVATION_PREDICATE, PLAYER_LABEL,
+    )
+
+    nodes = {node.node_id: node for node in result.nodes}
+    publications = {}
+    matches = []
+    for hit in hits:
+        node = nodes.get(hit.entity.entity_id)
+        if node is None:
+            continue
+        for assertion in hit.admitted_match_assertions:
+            if assertion.predicate != DUNGEONBUDDY_OBSERVATION_PREDICATE:
+                continue
+            row = native.assertion_contract(assertion).model_dump(mode="json")
+            text = row["value"].get("value")
+            metadata = row["metadata"]
+            ids = [item["payload"].get("reviewed_observation_publication_id")
+                   for item in metadata["domain_metadata"]
+                   if item["schema"] == "dungeonbuddy.domain_metadata:world_context_v1"
+                   and isinstance(item["payload"], dict)]
+            if not isinstance(text, str) or len(ids) != 1 or not isinstance(ids[0], str):
+                continue
+            publication_id = ids[0]
+            if publication_id not in publications:
+                publications[publication_id] = get_prospective_publication(
+                    space, publication_id, repository=repository,
+                )
+            publication = publications[publication_id]
+            if publication is None or not any(
+                binding.result_kind == "assertion" and binding.durable_id == assertion.assertion_id
+                for binding in publication.prospective_result.results
+            ):
+                continue
+            anchor = next((anchor for anchor in result.source_anchors
+                           if anchor.readable and assertion.assertion_id in anchor.supporting_assertion_ids), None)
+            if anchor is None:
+                continue
+            evidence = read.parsed.evidence_by_id.get(anchor.evidence_ref_id)
+            if evidence is None:
+                continue
+            excerpt = text[:768]
+            matches.append(WorldGraphNativeReviewedSourceObservationMatch(
+                assertion_id=assertion.assertion_id,
+                subject_node_id=node.node_id,
+                observation_kind="worldbuilding_observation",
+                text_excerpt=excerpt, excerpt_start=0, excerpt_end=len(excerpt),
+                text_length=len(text), text_sha256=sha256(text.encode("utf-8")).hexdigest(),
+                entity_kind=node.kind,
+                publication_id=publication_id,
+                publication_revision_id=publication.publication_receipt.published_revision_id,
+                source_artifact_id=evidence.source_artifact_id,
+                source_revision_id=evidence.source_revision_id,
+                evidence_ref_ids=[anchor.evidence_ref_id],
+                campaign_scope=next((binding["value"] for binding in metadata["scope"]
+                                     if binding["axis"] == CAMPAIGN_SCOPE_AXIS), None),
+                visibility="player" if PLAYER_LABEL in metadata["visibility"].get("labels", ()) else "gm",
+                epistemic_kind=metadata["epistemic_basis"],
+                temporal_scope=metadata["temporal_scope"],
+            ))
+    return matches
+
+
+def shared_search(request, principal):
+    from dungeonmind.application.vnext import SearchReadService
+
+    bound, head, pin = _shared_retrieval_pin(request, principal)
+    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    search = SearchReadService().search_entities(read, request.query_text, limit=20)
+    seeds = list(dict.fromkeys(request.seed_node_ids))
+    reader = EntityReadService()
+    complete_entities = {}
+
+    def complete_entity(entity_id):
+        if entity_id not in complete_entities:
+            complete_entities[entity_id] = reader.get_complete_entity(read, entity_id)
+        return complete_entities[entity_id]
+
+    present = sorted(seed for seed in seeds if complete_entity(seed).assertions)
+    missing = sorted(set(seeds) - set(present))
+    reasons = {
+        hit.entity.entity_id: list(hit.match_kinds)
+        for hit in search.hits
+        if hit.admitted_match_assertions
+        or hit.entity.entity_id in present
+        or complete_entity(hit.entity.entity_id).assertions
+    }
+    for seed in present:
+        reasons.setdefault(seed, []).append("exact_seed")
+    others = [entity_id for entity_id in reasons if entity_id not in present]
+    remaining = max(request.bounds.max_nodes - len(present), 0)
+    selected = present + others[:remaining]
+
+    result = _shared_retrieval_projection(
+        request, bound, head, pin, read,
+        search_entities={entity_id: complete_entity(entity_id) for entity_id in selected},
+    )
+    truncated = list(result.coverage.truncated_fields)
+    if len(others) > remaining or search.completeness.status != "complete":
+        truncated = list(dict.fromkeys([*truncated, "nodes"]))
+    observations = _reviewed_search_matches(
+        search.hits, result, read, pin.native_world_id, native.read_repository()
+    )
+    for match in observations:
+        if "reviewed_source_observation" not in reasons[match.subject_node_id]:
+            reasons[match.subject_node_id].append("reviewed_source_observation")
+    return result.model_copy(update={
+        "outcome": "partial" if missing or truncated else "enough" if selected else "empty",
+        "matched_node_ids": selected,
+        "reviewed_source_observation_matches": observations,
+        "match_reasons": {entity_id: reasons[entity_id] for entity_id in selected},
+        "coverage": result.coverage.model_copy(update={
+            "requested_seed_node_ids": seeds,
+            "missing_seed_node_ids": missing,
+            "truncated_fields": truncated,
+        }),
+    })
 
 
 def plan_subject_search(request, principal):

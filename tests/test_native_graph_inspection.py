@@ -1037,3 +1037,75 @@ def test_shared_evidence_resolves_native_target_kinds(inspection, monkeypatch):
             },
         )
         assert opened.status_code == 200, opened.text
+
+
+def test_shared_search_preserves_admitted_seed_under_node_bound(inspection, monkeypatch):
+    from apps.live_control_server.routes import world_graph_retrieval as routes
+
+    monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", "managed")
+    monkeypatch.setattr(routes, "search_campaign_graph", lambda _: pytest.fail("classic search fallback"))
+    inspection.app.include_router(routes.router)
+    from collections import Counter
+    from dungeonmind.application.vnext import EntityReadService
+
+    reads = Counter()
+    original_read = EntityReadService.get_complete_entity
+
+    def count_complete_read(self, context, entity_id):
+        reads[entity_id] += 1
+        return original_read(self, context, entity_id)
+
+    monkeypatch.setattr(EntityReadService, "get_complete_entity", count_complete_read)
+    seeds = sorted(inspection.objects[key] for key in ("object:0", "object:1"))
+    response = inspection.client.post(
+        "/api/live/world-graph/retrieval/search",
+        json={
+            "schema": "dmb_world_graph_search_request_v1",
+            "worldId": "managed",
+            "campaignId": inspection.lane.run.campaign_id,
+            "queryText": "Object",
+            "seedNodeIds": [*reversed(seeds), "ent:missing"],
+            "bounds": {"maxNodes": 1},
+        },
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["operation"] == "search"
+    assert result["matchedNodeIds"] == seeds
+    assert [node["nodeId"] for node in result["nodes"]] == seeds
+    assert all("exact_seed" in result["matchReasons"][seed] for seed in seeds)
+    assert result["coverage"]["missingSeedNodeIds"] == ["ent:missing"]
+
+    assert reads == Counter({seed: 1 for seed in [*seeds, "ent:missing"]})
+
+    lexical = inspection.client.post(
+        "/api/live/world-graph/retrieval/search",
+        json={
+            "schema": "dmb_world_graph_search_request_v1",
+            "worldId": "managed",
+            "campaignId": inspection.lane.run.campaign_id,
+            "queryText": "Object 1",
+            "bounds": {"maxNodes": 1},
+        },
+    )
+    assert lexical.status_code == 200, lexical.text
+    result = lexical.json()
+    assert result["matchedNodeIds"] == [inspection.objects["object:1"]]
+    assert result["relationships"] == []
+    anchor, = result["sourceAnchors"]
+    assert anchor["evidenceRefId"] == inspection.lane.support_ids["first"]
+
+    foreign_scope = inspection.client.post(
+        "/api/live/world-graph/retrieval/search",
+        json={
+            "schema": "dmb_world_graph_search_request_v1",
+            "worldId": "managed",
+            "campaignId": "campaign:foreign",
+            "queryText": inspection.objects["object:1"],
+            "seedNodeIds": [inspection.objects["object:1"]],
+        },
+    )
+    assert foreign_scope.status_code == 200, foreign_scope.text
+    result = foreign_scope.json()
+    assert result["matchedNodeIds"] == result["nodes"] == result["sourceAnchors"] == []
+    assert result["coverage"]["missingSeedNodeIds"] == [inspection.objects["object:1"]]
