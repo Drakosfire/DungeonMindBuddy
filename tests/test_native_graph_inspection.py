@@ -1109,3 +1109,32 @@ def test_shared_search_preserves_admitted_seed_under_node_bound(inspection, monk
     result = foreign_scope.json()
     assert result["matchedNodeIds"] == result["nodes"] == result["sourceAnchors"] == []
     assert result["coverage"]["missingSeedNodeIds"] == [inspection.objects["object:1"]]
+
+
+def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+    from apps.live_control_server.services import native_graph_inspection as native, world_graph_retrieval
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from graph_memory.retrieval.models import WorldGraphSearchRequest, WorldGraphSourceAnchorReadRequest
+
+    principal = NativeGraphPrincipal(subject="test:gm", role="gm", auth_method="local_operator")
+    scope = {"worldId": "managed", "campaignId": inspection.lane.run.campaign_id}
+    search = native.shared_search(WorldGraphSearchRequest.model_validate({
+        **scope, "schema": "dmb_world_graph_search_request_v1", "queryText": "Object 1",
+        "bounds": {"maxNodes": 1},
+    }), principal, include_source_pins=True)
+    pin, = search.source_pins
+    monkeypatch.setattr(world_graph_reads, "direct_services_from_config",
+                        lambda *_: pytest.fail("classic source reader invoked"))
+    receipt, = world_graph_retrieval.read_source_anchors_internal_v2((
+        WorldGraphSourceAnchorReadRequest.model_validate({
+            **scope, "schema": "dmb_world_graph_source_anchor_read_request_v1",
+            "revisionPin": pin.graph_revision, "anchorId": pin.anchor_id,
+        }),
+    ), native_principal=principal)
+    assert receipt.result.content == inspection.lane.text.splitlines(keepends=True)[0]
+    assert receipt.result.snapshot.revision_id == receipt.graph_revision == pin.graph_revision
+    assert receipt.source_revision_id == pin.source_revision_id
+    assert receipt.evidence_ref_id == pin.evidence_ref_id
+    assert receipt.source_artifact_id == pin.source_artifact_id
+    assert receipt.source_span_ref_id == receipt.result.source_span_ref_id
