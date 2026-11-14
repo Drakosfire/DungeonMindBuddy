@@ -428,6 +428,20 @@ def list_workspace_documents(
     return records
 
 
+def list_workspace_page_campaign_tags(
+    *, world_id: str | None, campaign_id: str | None, status: str | None
+) -> list[str]:
+    from application_state.content.pages import page_inventory_campaign_tags
+    from application_state.errors import ApplicationStateError
+
+    try:
+        return page_inventory_campaign_tags(
+            world_id=world_id, campaign_id=campaign_id, status=status
+        )
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+
+
 def _validate_world_id(world_id: str) -> str:
     cleaned = world_id.strip()
     if not cleaned or not _SAFE_WORLD_ID_RE.fullmatch(cleaned):

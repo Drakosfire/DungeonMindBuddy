@@ -438,6 +438,28 @@ def page_inventory(
         return result
 
 
+def page_inventory_campaign_tags(
+    *, world_id: str | None, campaign_id: str | None, status: str | None
+) -> list[str]:
+    """Return campaign tags visible under the same authored-page filters."""
+    if status not in {None, "active", "discarded"}:
+        raise ApplicationStateValidationError("invalid page status")
+    clauses = ["kind = 'worldbuilding_source'", "campaign_id IS NOT NULL"]
+    params = []
+    for column, value in (("world_id", world_id), ("campaign_id", campaign_id), ("status", status)):
+        if value is not None:
+            clauses.append(f"{column} = %s")
+            params.append(value)
+    with unit_of_work(_dsn()) as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT campaign_id FROM content.work_object WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY campaign_id",
+            params,
+        ).fetchall()
+    return [row[0] for row in rows]
+
+
 def _committed_snapshot(conn, state: PageState) -> CommittedPageSnapshot:
     revision = None
     if state.page.current_revision_id is not None:
