@@ -498,7 +498,7 @@ def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=N
 
         selected_entities = {entity_id: reader.get_entity(read, entity_id) for entity_id in search_entities}
         nodes = [
-            map_entity_result(entity, entity_id, attributes=attributes)
+            map_entity_result(entity, entity_id, attributes=attributes, allow_multiple=True)
             for entity_id, entity in selected_entities.items()
         ]
     elif object_id is not None:

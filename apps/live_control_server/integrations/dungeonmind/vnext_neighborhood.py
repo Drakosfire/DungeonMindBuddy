@@ -106,7 +106,7 @@ def map_nodes(context, bounded: BoundedNeighborhood, *, attributes=None):
     ]
 
 
-def map_entity_result(result, entity_id: str, *, attributes=None):
+def map_entity_result(result, entity_id: str, *, attributes=None, allow_multiple=False):
     from graph_memory.retrieval.models import WorldGraphRetrievalAttribute, WorldGraphRetrievalNode
 
     from .vnext_complete_object import _map_assertion, world_object_display_values
@@ -122,7 +122,9 @@ def map_entity_result(result, entity_id: str, *, attributes=None):
             attributes.append(WorldGraphRetrievalAttribute(
                 **presentation.model_dump(include=set(WorldGraphRetrievalAttribute.model_fields))
             ))
-    label, kind, summary = world_object_display_values(result.assertions, entity_id)
+    label, kind, summary = world_object_display_values(
+        result.assertions, entity_id, allow_multiple=allow_multiple,
+    )
     return WorldGraphRetrievalNode(
         node_id=entity_id, label=label, kind=kind, role=kind, summary=summary,
         evidence_ref_ids=[item.evidence_ref_id for item in result.evidence],
