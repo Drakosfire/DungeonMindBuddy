@@ -7,8 +7,8 @@ Run the fixed 12-case matched cohort after validating it offline:
 ```bash
 uv run pytest -q tests/test_hermes_tuning_style_pairs.py
 uv run ruff check evals/hermes_tuning/run_style_pairs.py tests/test_hermes_tuning_style_pairs.py
-scripts/run_local_lab.sh hermes-tuning uv run python evals/hermes_tuning/run_style_pairs.py --output /tmp/hermes-style-cohort.json --stop-after 2
-scripts/run_local_lab.sh hermes-tuning uv run python evals/hermes_tuning/run_style_pairs.py --resume --output /tmp/hermes-style-cohort.json --stop-after 12 --blind-output /tmp/hermes-style-blind.json
+scripts/run_local_lab.sh hermes-tuning bash -c 'uv run python evals/hermes_tuning/run_style_pairs.py --output "$TMPDIR/hermes-style-cohort.json" --stop-after 2'
+scripts/run_local_lab.sh hermes-tuning bash -c 'uv run python evals/hermes_tuning/run_style_pairs.py --resume --output "$TMPDIR/hermes-style-cohort.json" --stop-after 12 --blind-output "$TMPDIR/hermes-style-blind.json"'
 ```
 
 The harness requires policy-resolved `openai-api` / `gpt-6-luna`, a key in the established environment, and exactly twelve checked-in synthetic cases. Each pair uses the same evidence, task request, conversation-only policy, and system prompt. The treatment appends only the fixed `voice_variation` sentence from `scenario.json` to the user request. Arm order is randomized by a saved seed. Each turn uses a fresh session and one Hermes call; no direct API arm or Graph tool is enabled. Raw answers, safe call telemetry, evidence, prompt hashes, gates, and order are stored in the raw cohort. The separate blind packet contains A/B answers and scoring keys only, with no condition mapping, timing, or token/cost measures. Have reviewers score that packet before consulting the raw mapping.
@@ -131,7 +131,7 @@ The worker-phase slice adds six bounded spans inside the actual Rung 3 execution
 Reproduce that run with:
 
 ```bash
-scripts/run_local_lab.sh hermes-tuning uv run python evals/hermes_tuning/run_host_phases.py --samples 5 --output evals/hermes_tuning/artifacts/host-phases-20261002T080751Z.json
+scripts/run_local_lab.sh hermes-tuning bash -c 'uv run python evals/hermes_tuning/run_host_phases.py --samples 5 --output "$TMPDIR/host-phases-20261002T080751Z.json"'
 ```
 
 | Sample | Worker | Direct wall | Host wall | Host acquire/ready | Model call | Host residual | Bootstrap/logger+home setup | Cached factory lookup | Plugin discovery | Agent construction | Provider conversation | Normalize/project | Unallocated in worker wait | Direct cost | Hermes cost |
@@ -163,9 +163,9 @@ uv run ruff check evals/hermes_tuning/run_graph_crawl_pairs.py tests/test_hermes
 After PRIME reviews the exact handoff pin and authorizes provider use, run only the first two matched pairs into temporary files:
 
 ```bash
-scripts/run_local_lab.sh hermes-tuning uv run python evals/hermes_tuning/run_graph_crawl_pairs.py --stop-after 2 --output /tmp/hermes-graph-crawl-pilot.json --blind-output /tmp/hermes-graph-crawl-pilot-blind.json
+scripts/run_local_lab.sh hermes-tuning bash -c 'uv run python evals/hermes_tuning/run_graph_crawl_pairs.py --stop-after 2 --output "$TMPDIR/hermes-graph-crawl-pilot.json" --blind-output "$TMPDIR/hermes-graph-crawl-pilot-blind.json"'
 # After PRIME reviews the two-pair check-in and gives an approval reference:
-scripts/run_local_lab.sh hermes-tuning uv run python evals/hermes_tuning/run_graph_crawl_pairs.py --resume --stop-after 6 --prime-approval-reference "<PRIME approval reference>" --output /tmp/hermes-graph-crawl-pilot.json --blind-output /tmp/hermes-graph-crawl-blind.json
+scripts/run_local_lab.sh hermes-tuning bash -c 'uv run python evals/hermes_tuning/run_graph_crawl_pairs.py --resume --stop-after 6 --prime-approval-reference "<PRIME approval reference>" --output "$TMPDIR/hermes-graph-crawl-pilot.json" --blind-output "$TMPDIR/hermes-graph-crawl-blind.json"'
 ```
 
 Before provider calls, both prompts are built and checked for system-policy parity after normalizing only the fresh `retrievalSessionId`; raw prompt hashes are retained. Resume requires the exact pending pilot or an approved continuation checkpoint, matching model/provider and fixture/instruction hashes, immutable pilot-row hash, full checkpoint hash, requested phase, and (for cases 3–6) the same explicit PRIME approval reference. Each completed arm raw answer, calls, trace, timing, tokens, and cost is atomically checkpointed before gate/parity checks. A fresh run refuses to overwrite an existing output. The earlier nonce-mismatch run is discarded; its two arm turns have unknown model-call counts, tokens, and cost and are not reusable. The completed cohort is preserved in the final artifact below; no partial pilot artifact was committed. The blinded packet contains each randomized A/B answer and only that answer's actually returned node, relationship, and identity-attribute evidence, followed by a separate gold answer key. It includes answer hashes but no arm mapping, style instruction, operation sequence, timing, costs, model/tool counts, or tool traces. Reviewer scores and hashes were locked before labels were mapped back to arms by exact answer hash.
