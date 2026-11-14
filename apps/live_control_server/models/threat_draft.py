@@ -89,7 +89,7 @@ class RulesetRefV1(StrictModel):
 
 
 class GenerationIntentV1(StrictModel):
-    ruleset: RulesetRefV1
+    ruleset: RulesetRefV1 | None
     target_cr: str | None = Field(default=None, max_length=_MAX_CR)
     complexity: str | None = Field(default=None, max_length=_MAX_SHORT)
     must_include: list[str] = Field(default_factory=list, max_length=_MAX_LIST)

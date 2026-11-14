@@ -12,7 +12,7 @@ import psycopg
 from psycopg.rows import dict_row
 from pydantic import ValidationError
 
-from application_state.cli import assert_at_head
+from application_state.cli import assert_at_head, assert_connection_at_head
 from application_state.config import load_runtime_dsn
 from application_state.errors import (
     ApplicationStateConflictError, ApplicationStateIntegrityError,
@@ -154,17 +154,17 @@ def _records(conn, *, world_id: str | None = None) -> list[StoredWorld]:
 
 def list_worlds() -> list[StoredWorld]:
     dsn = load_runtime_dsn()
-    assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
         conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+        assert_connection_at_head(conn)
         return _records(conn)
 
 
 def get_world(world_id: str) -> StoredWorld | None:
     dsn = load_runtime_dsn()
-    assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
         conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+        assert_connection_at_head(conn)
         rows = _records(conn, world_id=world_id)
         return rows[0] if rows else None
 

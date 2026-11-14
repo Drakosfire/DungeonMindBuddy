@@ -156,3 +156,15 @@ it('includes the exact opened source or native section as unread author input',a
  expect(choose).toHaveBeenLastCalledWith(expect.objectContaining({selection_kind:'section',section_id:'b'.repeat(64),source_revision_id:'src18'}));
  expect(readNativeSource).toHaveBeenCalledTimes(1);
 });
+
+
+it('starts the recap shortcut filtered without changing World authority or hiding the other source types permanently',async()=>{
+ vi.mocked(getNativeSourceCatalog).mockResolvedValue(catalog([item(29,'longmont-c2'),item(29,'longmont-c2','worldbuilding')]));
+ render(<NativeSourceInspection worldId="w" initialKind="recap"/>);
+ expect(await screen.findByRole('button',{name:/Session 29 recap/})).toBeVisible();
+ expect(screen.getByLabelText('Type')).toHaveValue('recap');
+ expect(screen.queryByRole('button',{name:/Worldbuilding 29/})).not.toBeInTheDocument();
+ expect(getNativeSourceCatalog).toHaveBeenCalledWith({managed_world_id:'w',scope_mode:'world',campaign_id:null},expect.any(AbortSignal));
+ fireEvent.change(screen.getByLabelText('Type'),{target:{value:''}});
+ expect(screen.getByRole('button',{name:/Worldbuilding 29/})).toBeVisible();
+});

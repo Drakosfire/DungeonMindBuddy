@@ -29,6 +29,7 @@ import {
 import { BuildConnectedPageControl } from "./BuildConnectedPageControl";
 import { BuildDocumentCreateControl } from "./BuildDocumentCreateControl";
 import { BuildDocumentRenameControl } from "./BuildDocumentRenameControl";
+import { LoadedWorldGraphExplorer } from "../graphLens/LoadedWorldGraphExplorer";
 import { BuildDocumentSelector } from "./BuildDocumentSelector";
 import { buildSavedAt, buildSaveStateFor } from "./useBuildAutosave";
 import type { BuildWorkspaceDocumentController } from "./useBuildWorkspaceDocumentController";
@@ -158,6 +159,7 @@ export function BuildSurfaceContext({
                 switching={documentMutationBusy}
                 onSelect={selectDocument}
               />
+              <LoadedWorldGraphExplorer entry="recaps" />
               {authoringStatusLabel ? (
                 <>
                   <SurfaceContextStatus
@@ -196,6 +198,7 @@ export function BuildSurfaceContext({
                 switching={switching || creating}
                 onSelect={selectDocument}
               />
+              <LoadedWorldGraphExplorer entry="recaps" />
             </>
           )}
           <details className="build-source-actions">

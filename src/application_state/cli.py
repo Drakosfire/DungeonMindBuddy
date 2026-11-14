@@ -41,6 +41,17 @@ def _alembic_head() -> str:
     return heads[0]
 
 
+def _revision_from_connection(conn) -> str | None:
+    rows = conn.execute(
+        "SELECT version_num FROM application_state.schema_migrations LIMIT 2"
+    ).fetchall()
+    if len(rows) > 1:
+        raise ApplicationStateMigrationError(
+            "application-state migration table contains multiple revisions"
+        )
+    return str(rows[0][0]) if rows else None
+
+
 def _read_current_revision(dsn: str, *, periodic: bool = False) -> str | None:
     """Read Alembic current revision without creating schema, tables, or rows."""
     import psycopg
@@ -48,14 +59,7 @@ def _read_current_revision(dsn: str, *, periodic: bool = False) -> str | None:
     limits = {"connect_timeout": 2, "options": "-c statement_timeout=1000"} if periodic else {}
     try:
         with psycopg.connect(dsn, autocommit=True, **limits) as conn:
-            rows = conn.execute(
-                "SELECT version_num FROM application_state.schema_migrations LIMIT 2"
-            ).fetchall()
-            if len(rows) > 1:
-                raise ApplicationStateMigrationError(
-                    "application-state migration table contains multiple revisions"
-                )
-            return str(rows[0][0]) if rows else None
+            return _revision_from_connection(conn)
     except psycopg.errors.UndefinedTable:
         return None
     except psycopg.Error as exc:
@@ -85,6 +89,25 @@ def upgrade_to_head(*, dsn: str | None = None) -> tuple[str, str]:
 def assert_at_head(*, dsn: str | None = None) -> None:
     target = dsn or load_runtime_dsn()
     current, head = _current_and_head(target)
+    _require_current_revision(current, head)
+
+
+def assert_connection_at_head(conn) -> None:
+    """Validate the live revision in the caller's transaction."""
+    import psycopg
+
+    try:
+        current = _revision_from_connection(conn)
+    except psycopg.errors.UndefinedTable:
+        current = None
+    except psycopg.Error as exc:
+        raise ApplicationStateUnavailableError(
+            f"application-state PostgreSQL is unavailable: {exc}"
+        ) from exc
+    _require_current_revision(current, _alembic_head())
+
+
+def _require_current_revision(current: str | None, head: str) -> None:
     if current != head:
         raise ApplicationStateMigrationError(
             "application-state schema is behind Alembic head; "

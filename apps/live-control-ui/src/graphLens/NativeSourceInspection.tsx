@@ -11,17 +11,17 @@ const label=(s:NativeSourceMetadata)=>s.navigation.label??'Unnamed source';
 const failureText=(e:unknown)=>e instanceof Error?e.message:'Sources are unavailable.';
 
 /** Human navigation and exact reads; filters never restrict agent evidence. */
-export function NativeSourceInspection({worldId,onChoose,disabled=false}:{worldId:string;onChoose?:(reference:AuthoredSourceReferenceV1)=>void;disabled?:boolean}) {
+export function NativeSourceInspection({worldId,onChoose,disabled=false,initialKind=""}:{worldId:string;onChoose?:(reference:AuthoredSourceReferenceV1)=>void;disabled?:boolean;initialKind?:""|"recap"}) {
  const id=useId(),generation=useRef(0);
  const [catalog,setCatalog]=useState<NativeSourceCatalog|null>(null),[failure,setFailure]=useState<string|null>(null);
- const [refresh,setRefresh]=useState(0),[query,setQuery]=useState(''),[kind,setKind]=useState(''),[campaign,setCampaign]=useState(''),[session,setSession]=useState('');
+ const [refresh,setRefresh]=useState(0),[query,setQuery]=useState(''),[kind,setKind]=useState<string>(initialKind),[campaign,setCampaign]=useState(''),[session,setSession]=useState('');
  const [readAttempt,setReadAttempt]=useState(0);
  const [sections,setSections]=useState<NativeSourceSection[]>([]),[passage,setPassage]=useState('');
  const [selected,setSelected]=useState<NativeSourceMetadata|null>(null),[body,setBody]=useState<string|null>(null),[readFailure,setReadFailure]=useState<string|null>(null);
  useEffect(()=>{
   const epoch=++generation.current,abort=new AbortController();
   setCatalog(null);setFailure(null);setSelected(null);setBody(null);setReadFailure(null);
-  setQuery('');setKind('');setCampaign('');setSession('');
+  setQuery('');setKind(initialKind);setCampaign('');setSession('');
   getNativeSourceCatalog({managed_world_id:worldId,scope_mode:'world',campaign_id:null},abort.signal)
    .then(packet=>{if(epoch!==generation.current)return;
     if(packet.schema!=='dmb_native_source_catalog_v1'||packet.scope.managed_world_id!==worldId||packet.scope.scope_mode!=='world'||packet.scope.campaign_id!==null||packet.catalogue.space_id!==packet.scope.native_world_id||packet.catalogue.revision_id!==packet.scope.revision_id)throw new Error('The World changed. Refresh sources.');
@@ -29,7 +29,7 @@ export function NativeSourceInspection({worldId,onChoose,disabled=false}:{worldI
     setCatalog(packet);
    }).catch(e=>{if(epoch===generation.current&&!abort.signal.aborted)setFailure(failureText(e));});
   return()=>{generation.current++;abort.abort();};
- },[worldId,refresh]);
+ },[worldId,refresh,initialKind]);
  const current=catalog?.scope.managed_world_id===worldId?catalog:null;
  useEffect(()=>{
   setBody(null);setReadFailure(null);setSections([]);setPassage('');

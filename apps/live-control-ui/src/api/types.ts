@@ -4889,7 +4889,7 @@ export interface ThreatDraftRulesetRefV1 {
 }
 
 export interface ThreatDraftGenerationIntentV1 {
-  ruleset: ThreatDraftRulesetRefV1;
+  ruleset: ThreatDraftRulesetRefV1 | null;
   target_cr?: string | null;
   complexity?: string | null;
   must_include: string[];

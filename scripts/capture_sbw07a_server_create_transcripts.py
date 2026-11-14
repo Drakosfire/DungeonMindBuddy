@@ -21,6 +21,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -65,14 +66,58 @@ def _assert_package_from_checkout(server_repo: Path) -> Path:
     return package_file
 
 
+_TRACKED_TRANSCRIPT_SUBDIR = Path("tests/fixtures/statblocks/v1/server_transcripts")
+
+
+def _output_dirs(buddy_repo: Path, out_subdir: Path | None) -> tuple[Path, Path]:
+    if out_subdir is None:
+        transcripts = buddy_repo / _TRACKED_TRANSCRIPT_SUBDIR
+        return transcripts, transcripts.parent
+
+    transcripts = (buddy_repo / out_subdir).resolve()
+    tracked_fixtures = (buddy_repo / _TRACKED_TRANSCRIPT_SUBDIR.parent).resolve()
+    if transcripts == tracked_fixtures or transcripts.is_relative_to(tracked_fixtures):
+        raise SystemExit("Scratch output must be outside the tracked statblock fixture directory.")
+    return transcripts, transcripts / "leaf_fixtures"
+
+
+def _prepare_output_dirs(out_dir: Path, fixtures_dir: Path, *, scratch: bool) -> None:
+    if not scratch:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        try:
+            out_dir.mkdir(parents=True)
+        except FileExistsError as exc:
+            raise SystemExit("Scratch output must be a new directory.") from exc
+        fixtures_dir.mkdir()
+
+
+def _publish_capture(out_dir: Path, outputs: dict[Path, bytes]) -> None:
+    marker = out_dir / ".capture-in-progress"
+    with tempfile.TemporaryDirectory(prefix=".capture-stage-", dir=out_dir) as directory:
+        staged = Path(directory)
+        for index, payload in enumerate(outputs.values()):
+            (staged / str(index)).write_bytes(payload)
+
+        try:
+            marker.touch(exist_ok=False)
+        except FileExistsError as exc:
+            raise SystemExit(f"Interrupted or active capture: {marker}") from exc
+
+        # Keep the marker on failure. The manifest is the final replacement.
+        for index, target in enumerate(outputs):
+            (staged / str(index)).replace(target)
+        marker.unlink()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--buddy-repo", type=Path, required=True)
     parser.add_argument("--server-repo", type=Path, default=Path.cwd())
     parser.add_argument(
         "--out-subdir",
-        type=str,
-        default="tests/fixtures/statblocks/v1/server_transcripts",
+        type=Path,
+        help="New scratch directory for both transcripts and leaf fixtures.",
     )
     parser.add_argument(
         "--allow-fingerprint-mismatch",
@@ -129,8 +174,7 @@ def main() -> None:
     )
     from statblocks_v1.testing import create_test_app
 
-    out_dir = buddy_repo / args.out_subdir
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir, fixtures_dir = _output_dirs(buddy_repo, args.out_subdir)
 
     fixture_root = server_repo / "Docs/Design/fixtures/dungeonbuddy-statblock-v1"
     simple_bruiser_path = fixture_root / "simple_bruiser.json"
@@ -327,20 +371,20 @@ def main() -> None:
         "create-persistence-validation-failed.json": invalid_body,
         "create-invalid-request.json": bad_req_res.json(),
     }
-    fixtures_dir = buddy_repo / "tests/fixtures/statblocks/v1"
-    for name, payload in leaf.items():
-        (fixtures_dir / name).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
-
-    for name, payload in transcripts.items():
-        (out_dir / f"{name}.json").write_text(
-            json.dumps(payload, indent=2, sort_keys=True) + "\n"
-        )
-
     # Prove create request body is an untransformed copy of the source fixture definition.
     if create_req["definition"] != definition:
         raise SystemExit(
             "Capture mutated simple_bruiser definition before create; refuse to write transcripts."
         )
+
+    leaf_bytes = {
+        name: (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        for name, payload in leaf.items()
+    }
+    transcript_bytes = {
+        f"{name}.json": (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        for name, payload in transcripts.items()
+    }
 
     manifest = {
         "schema": "sbw07a_server_create_transcript_manifest_v1",
@@ -390,10 +434,7 @@ def main() -> None:
         "transcripts": sorted(transcripts.keys()),
         "leaf_fixtures": sorted(leaf.keys()),
         "leaf_fixture_sha256": {
-            name: _sha256_bytes(
-                json.dumps(payload, indent=2, sort_keys=True).encode("utf-8") + b"\n"
-            )
-            for name, payload in leaf.items()
+            name: _sha256_bytes(payload) for name, payload in leaf_bytes.items()
         },
         "notes": [
             "Transcripts were recorded from a clean DungeonMindServer checkout TestClient.",
@@ -403,7 +444,12 @@ def main() -> None:
             "validation_failed is terminal only when details.is_persistence_ready is exactly false.",
         ],
     }
-    (out_dir / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    manifest_bytes = (json.dumps(manifest, indent=2) + "\n").encode("utf-8")
+    _prepare_output_dirs(out_dir, fixtures_dir, scratch=args.out_subdir is not None)
+    outputs = {fixtures_dir / name: payload for name, payload in leaf_bytes.items()}
+    outputs.update({out_dir / name: payload for name, payload in transcript_bytes.items()})
+    outputs[out_dir / "MANIFEST.json"] = manifest_bytes
+    _publish_capture(out_dir, outputs)
     print(
         json.dumps(
             {

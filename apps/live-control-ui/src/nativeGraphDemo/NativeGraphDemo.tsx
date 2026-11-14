@@ -1313,9 +1313,43 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }
 
   const canvasSnapshot = useMemo(() => graph ? toCanvasSnapshot(graph) : null, [graph]);
+  const overviewSnapshot = useMemo(() => {
+    if (!embedded || mode !== "managed" || !canvasSnapshot) return canvasSnapshot;
+    const relationships = canvasSnapshot.relationships.filter(({ kind }) =>
+      kind !== "on_timeline" && kind !== "precedes"
+      && kind !== "dungeonbuddy.custom:on_timeline" && kind !== "dungeonbuddy.custom:precedes",
+    );
+    return relationships.length === canvasSnapshot.relationships.length
+      ? canvasSnapshot
+      : { ...canvasSnapshot, relationships };
+  }, [embedded, mode, canvasSnapshot]);
+  const focusedEventIds = useMemo(() => {
+    if (!embedded || mode !== "managed" || !graph || !api.readChronology || !viewFocusId
+      || neighborhoodDepth !== 1) return null;
+    const focus = graph.nodes.find(node => node.id === viewFocusId);
+    if (!focus || nativeGraphPresentation(focus).displayKind === "event") return null;
+    const neighbors = new Set<string>();
+    for (const edge of graph.edges) {
+      if (edge.source_id === viewFocusId) neighbors.add(edge.target_id);
+      if (edge.target_id === viewFocusId) neighbors.add(edge.source_id);
+    }
+    const events = new Set(graph.nodes.filter(node => neighbors.has(node.id)
+      && nativeGraphPresentation(node).displayKind === "event").map(node => node.id));
+    return events.size ? events : null;
+  }, [api.readChronology, embedded, graph, mode, neighborhoodDepth, viewFocusId]);
+  const focusedSnapshot = useMemo(() => {
+    if (!canvasSnapshot || !focusedEventIds) return canvasSnapshot;
+    return {
+      ...canvasSnapshot,
+      objects: canvasSnapshot.objects.filter(node => !focusedEventIds.has(node.id)),
+      relationships: canvasSnapshot.relationships.filter(edge =>
+        !focusedEventIds.has(edge.fromObjectId) && !focusedEventIds.has(edge.toObjectId)),
+    };
+  }, [canvasSnapshot, focusedEventIds]);
+  const displayedSnapshot = viewFocusId ? focusedSnapshot : overviewSnapshot;
   const record = useMemo(
-    () => graph && canvasSnapshot ? toCanvasRecord(graph, canvasSnapshot, layout) : null,
-    [graph, canvasSnapshot, layout],
+    () => graph && displayedSnapshot ? toCanvasRecord(graph, displayedSnapshot, layout) : null,
+    [graph, displayedSnapshot, layout],
   );
   const connectionOptions = useMemo(() => graph?.nodes.map((node) => {
     const { displayName, displayKind } = nativeGraphPresentation(node);
@@ -1349,7 +1383,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const limitations = graph ? detailLimitations(graph) : [];
 
   const saveLayout = useCallback(async (_record: LocalWorldRecord, changedPositions: Readonly<Record<string, { readonly x: number; readonly y: number }>>): Promise<WriteLayoutResult> => {
-    if (!graph || !canvasSnapshot) return { status: "missing" };
+    if (!graph || !displayedSnapshot) return { status: "missing" };
     const current: LayoutState = layout.worldId === graph.world_id ? layout : { worldId: graph.world_id, positions: {}, revision: 0 };
     const mergedPositions: Record<string, { x: number; y: number }> = { ...current.positions };
     let changed = false;
@@ -1364,17 +1398,17 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       mergedPositions[id] = nextPosition;
     }
     if (!changed && !current.writeFailed) {
-      return { status: "written", record: toCanvasRecord(graph, canvasSnapshot, current) };
+      return { status: "written", record: toCanvasRecord(graph, displayedSnapshot, current) };
     }
     const saved = writeLayout(graph.world_id, mergedPositions, stateScopeId);
     const nextLayout: LayoutState = { worldId: graph.world_id, positions: mergedPositions, revision: current.revision + 1, writeFailed: !saved };
     setLayout(nextLayout);
-    const nextRecord = toCanvasRecord(graph, canvasSnapshot, nextLayout);
+    const nextRecord = toCanvasRecord(graph, displayedSnapshot, nextLayout);
     if (!saved) {
       return { status: "error", message: "This arrangement is visible for now, but the browser could not save its presentation-only layout." };
     }
     return { status: "written", record: nextRecord };
-  }, [graph, canvasSnapshot, nodesById, layout, stateScopeId]);
+  }, [graph, displayedSnapshot, nodesById, layout, stateScopeId]);
 
   const creationKinds = graph?.capabilities.create
     ? graph.capabilities.object_kinds.map((kind) => ({ kind, label: kind.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) }))
@@ -1499,6 +1533,23 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
 
   const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) ?? null : null;
+  const selectedStripEvent = selectedNodeId && focusedEventIds?.has(selectedNodeId)
+    ? selectedNodeId : undefined;
+  const stripConnections = useMemo(() => {
+    const connected = new Set<string>();
+    if (!focusedEventIds || !selectedNodeId || !graph) return connected;
+    for (const edge of graph.edges) {
+      if (edge.source_id === selectedNodeId) connected.add(edge.target_id);
+      if (edge.target_id === selectedNodeId) connected.add(edge.source_id);
+    }
+    return connected;
+  }, [focusedEventIds, graph, selectedNodeId]);
+  const stripHighlightRules = selectedStripEvent && typeof globalThis.CSS?.escape === "function"
+    ? [...stripConnections].map(id =>
+      `#loaded-native-graph-canvas [data-node-id=${CSS.escape(id)}] .world-graph-canvas__node-circle`,
+    ).join(", ")
+    : "";
+
   const graphEdges = graph?.edges;
   const selectedLabels = useMemo(
     () => new Map(graphNodes?.map((node) => [node.id, compactNodeLabel(node)])),
@@ -1801,6 +1852,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 handleCanvasSelectionChange(nodeId as LocalObjectId);
                 requestCameraFocus(nodeId);
               }} />}
+            {stripHighlightRules && <style>{`${stripHighlightRules} {
+              stroke: #a05b09; stroke-width: 5; paint-order: stroke fill;
+            }`}</style>}
             {record ? (
               <WorldGraphCanvas
                 key={graph.world_id}
@@ -1831,6 +1885,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 } : {})}
               />
             ) : null}
+            {focusedEventIds && viewFocusId && api.readChronology && !chronologyOpen &&
+              <GraphChronology graph={graph} read={api.readChronology} relatedTo={viewFocusId} strip
+                selectedEvent={selectedStripEvent} connectedIds={stripConnections}
+                onExplore={nodeId => {
+                  if (pendingRef.current) return;
+                  focusInspectorRef.current = true;
+                  handleCanvasSelectionChange(nodeId as LocalObjectId);
+                }} />}
             {!embedded ? <div className="native-demo-graph-meta">
               <span><strong>{graph.nodes.length}</strong> {completeness?.status === "partial" ? "listed objects" : "objects"}</span>
               <span><strong>{graph.edges.length}</strong> {completeness?.status === "partial" ? "listed relationships" : "relationships"}</span>

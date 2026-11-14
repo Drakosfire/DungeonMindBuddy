@@ -39,7 +39,7 @@ describe("legacy focus bundle demand", () => {
     view.rerender(<StrictMode><Harness enabled /></StrictMode>);
     await waitFor(() => expect(observation().status).toBe("valid"));
     expect(load).toHaveBeenCalledTimes(1);
-    expect(load).toHaveBeenCalledWith("longmont-c2");
+    expect(load).toHaveBeenCalledWith("longmont-c2", expect.any(AbortSignal));
     expect(observation().focusOptions).toEqual([
       { campaignId: "longmont-c2", sessionNumber: 20, label: "C2 · Session 20" },
     ]);
@@ -80,7 +80,10 @@ describe("legacy focus bundle demand", () => {
     const load = vi.spyOn(api, "getSourceSessions").mockReturnValue(old.promise);
     const view = render(<Harness enabled />);
     expect(load).toHaveBeenCalledTimes(1);
+    const signal = load.mock.calls[0][1];
+    expect(signal?.aborted).toBe(false);
     view.rerender(<Harness enabled generation="world-b" worldId="world-b" />);
+    expect(signal?.aborted).toBe(true);
     const current = observation();
     expect(current).toMatchObject({ lens: { selectedCampaignIds: [], focus: null },
       focusOptions: [], status: "none", derived: null });

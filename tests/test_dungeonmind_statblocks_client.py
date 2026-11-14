@@ -1287,3 +1287,23 @@ def test_revise_receipt_binds_exact_current_dms_canonical_digest() -> None:
     response["generation_receipt"]["source_definition_digest"] = "sha256:" + "0" * 64
     with pytest.raises(StatblockIntegrationError, match="source_definition_digest"):
         _client(httpx.MockTransport(handler)).revise_candidate(body)
+
+
+def test_validate_sends_required_unknown_fields():
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+        ValidateDefinitionRequestV1,
+    )
+
+    definition = _fixture("candidate-response.json")["definition"]
+    definition.update(ruleset=None, movement=None)
+    definition["challenge"]["proficiency_bonus"] = None
+
+    def handler(request):
+        sent = json.loads(request.content)["definition"]
+        assert sent["ruleset"] is None
+        assert sent["movement"] is None
+        assert sent["challenge"]["proficiency_bonus"] is None
+        return httpx.Response(200, json=_fixture("validate-response.json"))
+
+    client = _client(httpx.MockTransport(handler))
+    client.validate_definition(ValidateDefinitionRequestV1(definition=definition))

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from dungeonmind.application.vnext.admission import AlwaysAdmitPolicy
 from dungeonmind.application.vnext import (
     KnowledgeProvenanceSnapshot,
     KnowledgeReadContext,
@@ -330,7 +331,7 @@ def build_dungeonbuddy_read_context(
         domain_ref=parsed_revision.domain_contract_ref,
         profile_ref=parsed_revision.semantic_profile_ref,
     )
-    policy = DungeonBuddyWorldAdmissionPolicy()
+    policy = AlwaysAdmitPolicy(policy_id=DUNGEONBUDDY_POLICY_ID)
     if policy.policy_id != domain_contract.admission_policy_id:
         raise ValueError("DungeonBuddy policy identity does not match DomainContract")
     return KnowledgeReadContext(
