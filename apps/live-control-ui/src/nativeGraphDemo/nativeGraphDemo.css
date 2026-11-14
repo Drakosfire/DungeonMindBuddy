@@ -430,3 +430,24 @@
   width: 100%;
   text-align: start;
 }
+
+.native-demo-sidebar-switch {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  background: #202522;
+}
+
+.native-demo-sidebar-switch button[aria-pressed="true"] {
+  border-color: #ad8a4b;
+}
+
+.native-demo-session-heading {
+  margin: 0.8rem 0 0.35rem;
+  padding-block-start: 0.45rem;
+  border-block-start: 1px solid #65563c;
+  font-size: 0.9rem;
+}

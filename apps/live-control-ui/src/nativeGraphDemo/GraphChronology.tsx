@@ -195,21 +195,19 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
         }
       }
     }
-    const campaignIds = new Set(events.flatMap(event => event.campaignIds));
-    const canCompareSessions = Boolean(campaign) || campaignIds.size === 1;
-    const ordered = canCompareSessions
-      ? events.filter(event => !recordedIds.has(event.node.id) && sessionNumber(event) !== undefined)
-        .sort((a, b) => sessionNumber(a)! - sessionNumber(b)!)
-      : [];
-    const orderedIds = new Set(ordered.map(event => event.node.id));
-    const unplaced = events.filter(event => !recordedIds.has(event.node.id) && !orderedIds.has(event.node.id));
-    const sessions = new Map<number | undefined, typeof events>();
-    for (const event of [...recorded, ...ordered, ...unplaced]) {
-      const session = canCompareSessions ? sessionNumber(event) : undefined;
-      const group = sessions.get(session) ?? [];
-      group.push(event);
-      sessions.set(session, group);
+    const sessions = new Map<string, { campaignId?: string; session?: number; items: typeof events }>();
+    for (const event of [...recorded, ...events.filter(event => !recordedIds.has(event.node.id))]) {
+      const campaignId = campaign || (event.placementSessions.size === 1
+        ? event.placementSessions.keys().next().value : undefined);
+      const session = sessionNumber(event);
+      const key = JSON.stringify([campaignId, session]);
+      const group = sessions.get(key) ?? { campaignId, session, items: [] };
+      group.items.push(event);
+      sessions.set(key, group);
     }
+    const groups = [...sessions.values()].sort((a, b) =>
+      (labels.get(a.campaignId ?? "") ?? "").localeCompare(labels.get(b.campaignId ?? "") ?? "")
+      || (a.session ?? Infinity) - (b.session ?? Infinity));
     return <section className="native-demo-event-strip" aria-label="Connected Events">
       {campaigns.length > 0 && <label>Campaign <select value={campaign} onChange={event => setCampaign(event.target.value)}>
         <option value="">All campaigns</option>
@@ -217,11 +215,12 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
       </select></label>}
       {result?.partial && <small>Partial chronology</small>}
       {recorded.length > 0 && <small>Only the labeled links establish order between Events.</small>}
-      {[...sessions].sort(([a], [b]) => (a ?? Infinity) - (b ?? Infinity)).map(([session, items]) => (
-        <div key={session ?? "unplaced"}>
-          <strong>{session === undefined
-            ? (canCompareSessions ? "Unplaced Events" : "Events across campaigns")
-            : `Session ${session}`}</strong>
+      {groups.map(({ campaignId, session, items }) => (
+        <div key={JSON.stringify([campaignId, session])}>
+          <h3 className="native-demo-session-heading">
+            {!campaign && campaignId && <span>{labels.get(campaignId)} · </span>}
+            {session === undefined ? "Unplaced Events" : `Session ${session}`}
+          </h3>
           <ul>{items.map(event => <li key={event.node.id}>
             <button type="button" aria-pressed={event.node.id === selectedEvent}
               data-connected={connectedIds?.has(event.node.id) || undefined}
