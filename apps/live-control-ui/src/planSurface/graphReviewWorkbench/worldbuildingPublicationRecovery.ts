@@ -1,3 +1,4 @@
+import {confirmNativeWorldbuilding, type NativeWorldbuildingConfirmation} from "../../api/nativeWorldbuildingPublicationApi";
 import type {ExactRunReviewPackage, ManagedWorldGraphProjectionResponse} from '../../api/types';
 import type {WorldbuildingDecision, WorldbuildingPlan} from '../../api/worldbuildingPublicationApi';
 
@@ -102,4 +103,68 @@ export async function setAsideRejectedWorldbuildingPublication(review: ExactRunR
     localStorage.setItem(key + ':retained:' + value.plan.planId, JSON.stringify(value));
     localStorage.removeItem(key);
   });
+}
+
+interface NativeWorldbuildingPublicationRecovery {
+  schema: 'dmb_native_worldbuilding_publication_recovery_v1';
+  scope: string;
+  confirmation: NativeWorldbuildingConfirmation;
+}
+
+function assertNativeRecovery(
+  confirmation: NativeWorldbuildingConfirmation, review: ExactRunReviewPackage, worldId: string,
+) {
+  const envelope = confirmation?.envelope;
+  const selected = envelope?.review;
+  if (review.worldId !== worldId || review.sourceDomain !== 'worldbuilding' ||
+      !confirmation?.prepared || !nonblank(confirmation.token) ||
+      envelope?.purpose !== 'dmb_native_worldbuilding_confirm_v1' ||
+      !nonblank(envelope.prepared_change_id) ||
+      !selected || typeof selected !== 'object' || Array.isArray(selected) ||
+      selected.managed_world_id !== worldId || selected.run_id !== review.runId) {
+    throw new Error('Saved native publication does not match this World and review.');
+  }
+}
+
+export function readNativeWorldbuildingPublicationRecovery(review: ExactRunReviewPackage, worldId: string) {
+  const scope = worldbuildingPublicationScope(review, worldId);
+  const raw = localStorage.getItem(worldbuildingPublicationRecoveryKey(scope));
+  if (raw === null) return null;
+  const saved = JSON.parse(raw) as NativeWorldbuildingPublicationRecovery;
+  if (saved?.schema !== 'dmb_native_worldbuilding_publication_recovery_v1' || saved.scope !== scope) {
+    throw new Error('Recover the existing publication before submitting a native review.');
+  }
+  assertNativeRecovery(saved.confirmation, review, worldId);
+  return saved.confirmation;
+}
+
+export function retainNativeWorldbuildingConfirmation(
+  review: ExactRunReviewPackage, worldId: string, confirmation: NativeWorldbuildingConfirmation,
+) {
+  assertNativeRecovery(confirmation, review, worldId);
+  return withPublicationLock(review, worldId, () => {
+    const current = readNativeWorldbuildingPublicationRecovery(review, worldId);
+    if (current && JSON.stringify(current) !== JSON.stringify(confirmation)) {
+      throw new Error('Recover the original native confirmation before submitting another.');
+    }
+    const scope = worldbuildingPublicationScope(review, worldId);
+    const saved: NativeWorldbuildingPublicationRecovery = {
+      schema: 'dmb_native_worldbuilding_publication_recovery_v1', scope, confirmation,
+    };
+    localStorage.setItem(worldbuildingPublicationRecoveryKey(scope), JSON.stringify(saved));
+  });
+}
+
+/** Retain the signed request before dispatch so a lost response can be retried exactly. */
+export async function submitNativeWorldbuildingConfirmation(
+  review: ExactRunReviewPackage, worldId: string, confirmation: NativeWorldbuildingConfirmation,
+) {
+  await retainNativeWorldbuildingConfirmation(review, worldId, confirmation);
+  return confirmNativeWorldbuilding(confirmation);
+}
+
+export async function retryNativeWorldbuildingConfirmation(review: ExactRunReviewPackage, worldId: string) {
+  const confirmation = readNativeWorldbuildingPublicationRecovery(review, worldId);
+  if (!confirmation) throw new Error('No native Worldbuilding confirmation was retained for this review.');
+  return submitNativeWorldbuildingConfirmation(review, worldId, confirmation);
 }
