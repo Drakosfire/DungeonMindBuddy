@@ -5133,7 +5133,8 @@ describe("World Plan conversation consumer", () => {
       if(context.receipt.native_query.schema!=='dmb_native_plan_query_unavailable_v1')context.receipt.native_query.question=request.message;
       const row=policyHistoryTurn(1,turnId,request.message,answer,context,'completed',request);await seal(row);
       api.setCurrent(await historyV3('conversation-a',1,[withPersistedCorrelation(row,await expectedHistoryCorrelationKey(worldId,request.turn_id),turnId)]));
-      return {...await policyResponse(request,'conversation-a',answer),plan_context:context};
+      const response = await policyResponse(request,'conversation-a',answer);
+      return {...response,answer:{...response.answer,saved_statblocks:[]},plan_context:context};
     });
     const open=vi.spyOn(liveApi,'getAgentNativeAssertionSource').mockResolvedValue({...fixture.source,world_id:worldId,turn_id:turnId,citation});
     if(delayed){
