@@ -183,7 +183,7 @@ def test_builder_uses_planning_beats_when_present(tmp_path: Path) -> None:
     import shutil
 
     from src.live_play.session_bootstrap import bootstrap_session_workspace
-    from src.live_play.session_paths import live_sessions_root
+    from live_play.session_paths import live_sessions_root
 
     fixture = ROOT / "tests/fixtures/live_bootstrap/session_22_fresh_recap.md"
     out = live_sessions_root() / "_pytest" / tmp_path.name / "session_23"

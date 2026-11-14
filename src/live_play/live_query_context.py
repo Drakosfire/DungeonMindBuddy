@@ -16,7 +16,7 @@ from bootstrap_env import load_openai_api_key as _load_api_key
 from bootstrap_env import load_dungeonmindbuddy_dotenv
 from llm.generation_sync import run_awaitable_sync
 from live_play.classify_live_turn import TurnClassification
-from src.live_play.manifest_context_query import (
+from live_play.manifest_context_query import (
     QueryConfig,
     QueryRequest,
     build_context_packet,

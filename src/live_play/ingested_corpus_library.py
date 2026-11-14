@@ -14,7 +14,7 @@ from corpus.session_recap_paths import (
     campaign_id_from_number,
     session_recaps_prefix,
 )
-from src.live_play.session_paths import repo_root
+from live_play.session_paths import repo_root
 
 SCHEMA_ID = "dmb_ingested_corpus_library_v1"
 C2S23_MANIFEST = Path("evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json")

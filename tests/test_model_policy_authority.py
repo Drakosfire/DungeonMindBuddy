@@ -77,7 +77,7 @@ def test_agent_model_selection_preserves_other_e1b_consumer_models(monkeypatch) 
     from src.ingestion.fact_extractor import _load_model_id as load_fact_model
     from src.ingestion.frontmatter_inference import _load_model_id as load_frontmatter_model
     from live_play.classify_live_turn import _resolve_classifier_model
-    from src.live_play.live_query_context import _live_query_model
+    from live_play.live_query_context import _live_query_model
     from src.npc_statblock_pipeline.canonical_intent import _resolve_intent_classifier_model
 
     monkeypatch.setattr(
@@ -194,7 +194,7 @@ def test_tolerant_consumers_fall_back_when_policy_missing_or_malformed(
     from src.agent.document_planner import DEFAULT_MODEL, _resolve_document_planner_model
     from src.agent.planner import _resolve_planner_model
     from live_play.classify_live_turn import _resolve_classifier_model
-    from src.live_play.live_query_context import _live_query_model
+    from live_play.live_query_context import _live_query_model
     from src.npc_statblock_pipeline.canonical_intent import _resolve_intent_classifier_model
 
     monkeypatch.setattr("bootstrap_env.load_dungeonmindbuddy_dotenv", lambda: None)

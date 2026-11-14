@@ -29,14 +29,14 @@ if str(ROOT) not in sys.path:
 
 from src.agent.synthesis import _load_api_key  # noqa: E402
 from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
-from src.live_play.live_query_context import (  # noqa: E402
+from live_play.live_query_context import (  # noqa: E402
     _build_citations,
     _default_query_config,
     _extract_answer_text,
     assign_evidence_ids,
     render_grounded_prompt,
 )
-from src.live_play.manifest_context_query import (  # noqa: E402
+from live_play.manifest_context_query import (  # noqa: E402
     QueryRequest,
     build_context_packet,
     infer_session_numbers,
@@ -212,7 +212,7 @@ def _run_llm_step(
 
 
 def _citation_diagnostics(answer: str, packet: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str], dict[str, Any]]:
-    from src.live_play.live_query_context import _extract_cited_evidence_ids
+    from live_play.live_query_context import _extract_cited_evidence_ids
 
     cited = _extract_cited_evidence_ids(answer)
     admitted_by_id = {
@@ -330,7 +330,7 @@ def run_telemetry_trace(
     llm_warnings = list(step3_result.get("warnings") or [])
 
     if not answer:
-        from src.live_play.live_query_context import build_fallback_grounded_answer
+        from live_play.live_query_context import build_fallback_grounded_answer
 
         answer = build_fallback_grounded_answer(question, context_packet)
         answer_source = "fallback"

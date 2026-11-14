@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from corpus.session_recap_paths import campaign_number_from_id, session_recaps_prefix
-from src.live_play.session_paths import repo_root
+from live_play.session_paths import repo_root
 
 
 def corpus_root() -> Path:

@@ -14,7 +14,7 @@ REPORT_SOURCE_PATH = REPO_ROOT / "src" / "graph_memory" / "report.py"
 FORBIDDEN_IMPORT_SNIPPETS = {
     "src.agent.session_memory_query",
     "src.agent.planner_retrieval_router",
-    "src.live_play.manifest_context_query",
+    "live_play.manifest_context_query",
     "src.session_memory.capture",
     "src.session_memory.breadcrumb_normalize",
     "openai",
