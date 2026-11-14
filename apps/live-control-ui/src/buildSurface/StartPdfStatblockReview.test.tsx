@@ -130,3 +130,18 @@ it("does not rewrite the destination URL when extraction completes after navigat
   await screen.findByRole("link", { name: "Open statblock review" });
   expect(window.location.pathname + window.location.search).toBe("/plan?world=another");
 });
+
+it("extracts both full pages without a crop and opens the editor", async () => {
+  const fetch = vi.mocked(authenticatedApiFetch);
+  fetch.mockClear();
+  fetch.mockResolvedValue({ response: Response.json({ revision: 1 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+  const pages = [1, 2].map(page => ({ ...first, page, left: 0, top: 0, right: 1, bottom: 1 }));
+  render(<StartPdfStatblockReview worldId="elderwyld" regions={[]} onRemoveRegion={vi.fn()}
+    prepareWholePdf={async () => pages} />);
+  fireEvent.click(screen.getByRole("button", { name: "Extract whole PDF" }));
+  await screen.findByRole("link", { name: "Open statblock review" });
+  expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/from-regions"), {
+    method: "POST", body: JSON.stringify({ regions: pages, instruction: "" }),
+  });
+  expect(new URL(window.location.href).searchParams.get("pdfReview")).toBeTruthy();
+});
