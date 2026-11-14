@@ -75,6 +75,7 @@ py-modules = ["bootstrap_env", "model_policy", "store"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+exclude = ["agent", "agent.*"]
 
 [tool.setuptools.package-data]
 application_state = [
