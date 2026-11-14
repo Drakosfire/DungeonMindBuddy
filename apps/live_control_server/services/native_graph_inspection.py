@@ -727,7 +727,13 @@ def shared_search(request, principal):
     reader = EntityReadService()
     present = sorted(seed for seed in seeds if reader.get_complete_entity(read, seed).assertions)
     missing = sorted(set(seeds) - set(present))
-    reasons = {hit.entity.entity_id: list(hit.match_kinds) for hit in search.hits}
+    reasons = {
+        hit.entity.entity_id: list(hit.match_kinds)
+        for hit in search.hits
+        if hit.admitted_match_assertions
+        or hit.entity.entity_id in present
+        or reader.get_complete_entity(read, hit.entity.entity_id).assertions
+    }
     for seed in present:
         reasons.setdefault(seed, []).append("exact_seed")
     others = [entity_id for entity_id in reasons if entity_id not in present]

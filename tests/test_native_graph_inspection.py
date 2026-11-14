@@ -1088,7 +1088,7 @@ def test_shared_search_preserves_admitted_seed_under_node_bound(inspection, monk
             "schema": "dmb_world_graph_search_request_v1",
             "worldId": "managed",
             "campaignId": "campaign:foreign",
-            "queryText": "Object 1",
+            "queryText": inspection.objects["object:1"],
             "seedNodeIds": [inspection.objects["object:1"]],
         },
     )
