@@ -22,7 +22,7 @@ from graph_memory.source_span import (
     build_source_span_index_for_text,
     source_span_index_to_dict,
 )
-from src.graph_memory.candidate_document_integrity import (
+from graph_memory.candidate_document_integrity import (
     classify_candidate_document_integrity,
 )
 from src.graph_memory.extraction.category_candidate_graph_extractor import (

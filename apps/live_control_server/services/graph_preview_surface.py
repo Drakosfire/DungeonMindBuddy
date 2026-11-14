@@ -21,7 +21,7 @@ from apps.live_control_server.services.recap_artifacts import (
     ensure_recap_artifacts_registry,
     resolve_recap_artifact_record,
 )
-from src.graph_memory.anchor_quotes import (
+from graph_memory.anchor_quotes import (
     anchor_quote_matches_to_dicts,
     coerce_anchor_quotes,
     find_anchor_quote_matches,
