@@ -25,7 +25,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from corpus.corpus_writer import write_corpus_file  # noqa: E402
 
-from src.live_play.normalized_recaps import (  # noqa: E402
+from live_play.normalized_recaps import (  # noqa: E402
     _build_normalized_content,
     _clean_body,
     _extract_recap_raw,

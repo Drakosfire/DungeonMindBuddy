@@ -11,13 +11,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TextIO
 
-from src.live_play.normalized_recaps import (
+from live_play.normalized_recaps import (
     _build_normalized_content,
     _clean_body,
     _extract_recap_raw,
     _parse_minimal_frontmatter,
 )
-from src.live_play.session_memory_materializer import (
+from live_play.session_memory_materializer import (
     _check_one,
     _expected_session_memory_outputs,
     _materialize_one,
@@ -38,8 +38,8 @@ from corpus.session_recap_paths import (
     session_memory_meta_relpath,
     session_recaps_prefix,
 )
-from src.live_play.recap_ingest_status import RecapIngestStatus
-from src.live_play.recap_derivative_provenance import (
+from live_play.recap_ingest_status import RecapIngestStatus
+from live_play.recap_derivative_provenance import (
     archive_existing,
     provenance_path,
     record_archived_artifacts,
@@ -47,7 +47,7 @@ from src.live_play.recap_derivative_provenance import (
     sha256_bytes,
     sha256_file,
 )
-from src.live_play.recap_stage_paths import RecapStagePaths, corpus_root
+from live_play.recap_stage_paths import RecapStagePaths, corpus_root
 from src.session_memory.breadcrumb_normalize import BreadcrumbNormalizeError
 
 _GENERIC_RECAP_TITLE_RE = re.compile(r"^Session\s+\d+\s*(?:-\s*)?Recap\s*:?\s*$", re.IGNORECASE)

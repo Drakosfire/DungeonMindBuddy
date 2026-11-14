@@ -12,7 +12,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from corpus.session_recap_paths import PILOT_BLESSED_SESSIONS  # noqa: E402
-from src.live_play.session_memory_materializer import _check_one, _materialize_one  # noqa: E402
+from live_play.session_memory_materializer import _check_one, _materialize_one  # noqa: E402
 from src.session_memory.breadcrumb_normalize import BreadcrumbNormalizeError  # noqa: E402
 
 _DEFAULT_CORPUS = _REPO_ROOT / "corpus" / "eldyrwild-markdown"
@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             # The CLI is also a public materialization entry point, so enforce
             # the same upstream lineage gate used by the API pipeline.
-            from src.live_play.recap_ingest_pipeline import inspect_recap_ingest_status
+            from live_play.recap_ingest_pipeline import inspect_recap_ingest_status
 
             lineage = inspect_recap_ingest_status(
                 campaign_id=f"longmont-c{campaign_number}",

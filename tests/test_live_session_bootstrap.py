@@ -14,7 +14,7 @@ from apps.live_control_server.schema_validation import validate_live_packet
 from apps.live_control_server.session_store import load_session
 from live_store import iter_jsonl, load_json
 from live_play.projections import build_session_plan_projection
-from src.live_play.session_bootstrap import (
+from live_play.session_bootstrap import (
     activate_session_workspace,
     bootstrap_session_workspace,
     build_live_packet,

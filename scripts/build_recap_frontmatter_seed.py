@@ -10,13 +10,13 @@ if str(REPO_ROOT) not in sys.path:
 
 from src.agent.recap_frontmatter_seed import build_frontmatter_seed, default_frontmatter_seed_path  # noqa: E402
 from corpus.session_recap_paths import normalized_recap_relpath  # noqa: E402
-from src.live_play.recap_derivative_provenance import (  # noqa: E402
+from live_play.recap_derivative_provenance import (  # noqa: E402
     sha256_bytes,
     sha256_file,
     store_provenanced_artifact,
 )
-from src.live_play.recap_ingest_pipeline import inspect_recap_ingest_status  # noqa: E402
-from src.live_play.recap_stage_paths import corpus_root  # noqa: E402
+from live_play.recap_ingest_pipeline import inspect_recap_ingest_status  # noqa: E402
+from live_play.recap_stage_paths import corpus_root  # noqa: E402
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:

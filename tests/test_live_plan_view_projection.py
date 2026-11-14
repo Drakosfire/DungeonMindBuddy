@@ -182,7 +182,7 @@ def test_plan_view_unknown_world_does_not_depend_on_file_root(
 def test_builder_uses_planning_beats_when_present(tmp_path: Path) -> None:
     import shutil
 
-    from src.live_play.session_bootstrap import bootstrap_session_workspace
+    from live_play.session_bootstrap import bootstrap_session_workspace
     from live_play.session_paths import live_sessions_root
 
     fixture = ROOT / "tests/fixtures/live_bootstrap/session_22_fresh_recap.md"
