@@ -3,8 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from src.graph_memory.projection_readiness import REQUIRED_FIELDS, assess_projection_readiness, projection_readiness_report_to_dict, render_projection_readiness_report
-from src.graph_memory.session_memory_materialize import materialize_session_memory_jsonl
+from graph_memory.projection_readiness import REQUIRED_FIELDS, assess_projection_readiness, projection_readiness_report_to_dict, render_projection_readiness_report
+from graph_memory.session_memory_materialize import materialize_session_memory_jsonl
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "examples" / "session_memory_sentence_units_minimal.jsonl"
