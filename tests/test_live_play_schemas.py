@@ -9,7 +9,7 @@ import pytest
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
-from src.live_play.current_state_derive import derive_current_state_fields
+from current_state_derive import derive_current_state_fields
 from live_store import append_jsonl, iter_jsonl, load_json, write_json
 from src.live_play.surface_layout_invariants import (
     validate_catalog_layout_consistency,
