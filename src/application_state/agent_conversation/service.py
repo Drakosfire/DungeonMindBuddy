@@ -1074,24 +1074,31 @@ class AgentConversationService:
         limit: int,
         before_sequence: int | None,
         lookahead: bool = True,
+        connection=None,
     ) -> tuple[list[TurnReadModel], bool]:
         world_id = _world_id(world_id)
         if not 1 <= limit <= 100:
             raise ApplicationStateValidationError("turn page limit must be between 1 and 100")
         if before_sequence is not None and before_sequence < 1:
             raise ApplicationStateValidationError("before_sequence must be positive")
-        dsn = _ready_dsn()
-        with unit_of_work(dsn) as conn:
-            if repo.get_conversation(conn, world_id, conversation_id) is None:
-                raise ApplicationStateNotFoundError("conversation not found in verified World")
-            return repo.list_turn_page(
-                conn,
-                world_id,
-                conversation_id,
-                limit=limit,
-                before_sequence=before_sequence,
-                lookahead=lookahead,
-            )
+        if connection is None:
+            with unit_of_work(_ready_dsn()) as conn:
+                return self.list_turn_page(
+                    world_id, conversation_id, limit=limit,
+                    before_sequence=before_sequence, lookahead=lookahead,
+                    connection=conn,
+                )
+        conn = connection
+        if repo.get_conversation(conn, world_id, conversation_id) is None:
+            raise ApplicationStateNotFoundError("conversation not found in verified World")
+        return repo.list_turn_page(
+            conn,
+            world_id,
+            conversation_id,
+            limit=limit,
+            before_sequence=before_sequence,
+            lookahead=lookahead,
+        )
 
     def retained_graph_navigation(self, *, world_id, conversation_id, authority, previous_turns):
         """Read a metadata projection of the caller's one canonical history page."""
