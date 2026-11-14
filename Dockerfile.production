@@ -29,13 +29,15 @@ ENV UV_COMPILE_BYTECODE=1 \
 RUN apt-get -o Acquire::Check-Valid-Until=false update \
     && apt-get install --yes --no-install-recommends ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
-# Build the locked Python environment from its package and patch inputs.
-COPY pyproject.toml uv.lock README.md ./
-COPY src/ ./src/
+# Cache the pinned Hermes patch independently of Buddy source and lock edits.
 COPY scripts/prepare_patched_hermes.py ./scripts/
 COPY patches/hermes-agent/ ./patches/hermes-agent/
-RUN python scripts/prepare_patched_hermes.py \
-    && uv sync --locked --no-dev --no-editable
+RUN python scripts/prepare_patched_hermes.py
+
+# Build the locked Python environment from the prepared patch and package inputs.
+COPY pyproject.toml uv.lock README.md ./
+COPY src/ ./src/
+RUN uv sync --locked --no-dev --no-editable
 
 FROM python-base AS api
 ENV PATH="/app/.venv/bin:${PATH}" \
