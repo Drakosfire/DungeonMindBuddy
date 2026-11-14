@@ -174,7 +174,7 @@ def _distinct_subject_values(
 
 
 def world_object_display_values(
-    assertions: tuple[ParsedAssertion, ...], entity_id: str
+    assertions: tuple[ParsedAssertion, ...], entity_id: str, *, allow_multiple: bool = False
 ) -> tuple[str, str, str | None]:
     names = _distinct_subject_values(
         assertions,
@@ -182,7 +182,7 @@ def world_object_display_values(
         predicate="dnd5e:name",
         value_kind=ParsedLiteralValue,
     )
-    if len(names) > 1:
+    if len(names) > 1 and not allow_multiple:
         raise VNextCompleteObjectProjectionError(
             f"ambiguous dnd5e:name for {entity_id}"
         )
@@ -192,7 +192,7 @@ def world_object_display_values(
         predicate="dnd5e:classification",
         value_kind=ParsedTermRefValue,
     )
-    if len(classifications) > 1:
+    if len(classifications) > 1 and not allow_multiple:
         raise VNextCompleteObjectProjectionError(
             f"ambiguous dnd5e:classification for {entity_id}"
         )
@@ -203,8 +203,8 @@ def world_object_display_values(
         value_kind=ParsedLiteralValue,
     )
     return (
-        names[0] if names else entity_id,
-        _wire_term(classifications[0]) if classifications else "entity",
+        " / ".join(names) if names else entity_id,
+        _wire_term(classifications[0]) if len(classifications) == 1 else "entity",
         summaries[0] if len(summaries) == 1 else None,
     )
 

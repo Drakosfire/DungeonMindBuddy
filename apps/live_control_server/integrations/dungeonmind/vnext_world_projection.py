@@ -175,7 +175,7 @@ def project_node_views(support, assertions_by_entity, artifacts, evidence):
     for entity in support.listing.entities:
         entity_id = entity.entity_id
         label, kind, summary = world_object_display_values(
-            assertions_by_entity[entity_id], entity_id
+            assertions_by_entity[entity_id], entity_id, allow_multiple=True
         )
         evidence_ids = sorted({
             key for row in assertions_by_entity[entity_id]
