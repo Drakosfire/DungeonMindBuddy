@@ -34,8 +34,11 @@ COPY scripts/prepare_patched_hermes.py ./scripts/
 COPY patches/hermes-agent/ ./patches/hermes-agent/
 RUN python scripts/prepare_patched_hermes.py
 
-# Build the locked Python environment from the prepared patch and package inputs.
-COPY pyproject.toml uv.lock README.md ./
+# Install locked dependencies before copying Buddy package inputs.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-dev --no-editable --no-install-project
+
+COPY README.md ./
 COPY src/ ./src/
 RUN uv sync --locked --no-dev --no-editable
 
