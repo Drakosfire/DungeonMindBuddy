@@ -280,7 +280,7 @@ auto-start `SBW06d` or `SBW08`.
 
 ## Offline lifecycle smoke
 
-From the Buddy repository root, run the fixture checks before a live dependency rehearsal.
+Complete the [local Python setup](../../README.md#run-locally), including the pinned Hermes preparation and locked dependency sync. From the Buddy repository root, run the fixture checks before a live dependency rehearsal.
 
 ```bash
 uv run --locked python scripts/statblock_lifecycle_smoke.py health --provider mock
