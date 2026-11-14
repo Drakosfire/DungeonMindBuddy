@@ -5,7 +5,7 @@ import hashlib
 import json
 import re
 from markdown_it import MarkdownIt
-from src.ingestion.frontmatter import split_frontmatter
+from ingestion.frontmatter import split_frontmatter
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, model_validator
 
 LANGUAGE = "dmb-roll-table-v1"

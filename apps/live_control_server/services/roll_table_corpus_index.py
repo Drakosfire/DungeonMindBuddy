@@ -14,7 +14,7 @@ from apps.live_control_server.services.corpus_index_helpers import (
     _title_from_body,
     parse_loose_frontmatter,
 )
-from src.ingestion.frontmatter import FrontmatterParseError, split_frontmatter
+from ingestion.frontmatter import FrontmatterParseError, split_frontmatter
 
 CORPUS_MARKDOWN_ROOT = Path("corpus") / "eldyrwild-markdown"
 SCHEMA_VERSION = "dmb_roll_table_corpus_index_v1"

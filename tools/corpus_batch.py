@@ -445,7 +445,7 @@ def cmd_submit(args: argparse.Namespace) -> int:
     from src.ingestion.fact_extractor import (
         _load_model_id as _load_fact_model_id,
     )
-    from src.ingestion.frontmatter import load_document_frontmatter
+    from ingestion.frontmatter import load_document_frontmatter
     from src.ingestion.openai_batch_pipeline import write_jsonl
 
     corpus_root = args.corpus_root.resolve()

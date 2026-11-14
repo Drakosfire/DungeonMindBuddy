@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.ingestion.frontmatter import (
+from ingestion.frontmatter import (
     FrontmatterParseError,
     FrontmatterValidationError,
     parse_document_frontmatter,

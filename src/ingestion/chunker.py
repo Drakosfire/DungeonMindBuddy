@@ -10,7 +10,7 @@ import blake3
 
 from contracts.schema_validation import validate_many
 from src.ingestion.docx_converter import docx_to_markdown, markdown_passthrough
-from src.ingestion.frontmatter import DocumentMetadata, parse_document_frontmatter
+from ingestion.frontmatter import DocumentMetadata, parse_document_frontmatter
 from src.ingestion.source_anchor import (
     body_first_line_0based_in_file,
     build_recap_extracted_anchor,

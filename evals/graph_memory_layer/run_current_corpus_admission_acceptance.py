@@ -195,7 +195,7 @@ def resolved_production_model_id() -> str:
 
 
 def parse_flat_frontmatter(markdown: str) -> dict[str, str | int | None]:
-    from src.ingestion.frontmatter import (
+    from ingestion.frontmatter import (
         FrontmatterParseError,
         _parse_frontmatter_block,
         split_frontmatter,

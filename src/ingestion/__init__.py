@@ -15,7 +15,7 @@ from src.ingestion.fact_extractor import (
     run_fact_extraction,
 )
 from src.ingestion.event_sourced_slice import build_mirathorn_event_slice
-from src.ingestion.frontmatter import (
+from ingestion.frontmatter import (
     DocumentMetadata,
     FrontmatterError,
     FrontmatterParseError,
