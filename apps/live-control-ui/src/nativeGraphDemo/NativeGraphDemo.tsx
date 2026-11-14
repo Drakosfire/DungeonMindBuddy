@@ -1888,17 +1888,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                         requestCameraFocus(nodeId);
                       }} />
                   </div>
-                ) : focusedEventIds && viewFocusId && api.readChronology && !chronologyOpen && timelineVisible && (
-                  <div className="native-demo-timeline-overlay" onWheel={event => event.stopPropagation()}>
-                    <GraphChronology graph={graph} read={api.readChronology} relatedTo={viewFocusId} strip
-                      selectedEvent={selectedStripEvent} connectedIds={stripConnections}
-                      onExplore={nodeId => {
-                        if (pendingRef.current) return;
-                        focusInspectorRef.current = true;
-                        handleCanvasSelectionChange(nodeId as LocalObjectId);
-                      }} />
-                  </div>
-                )}
+                ) : undefined}
                 record={record}
                 onMoveObjects={saveLayout}
                 {...(embedded ? {
@@ -1937,6 +1927,20 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
             pendingOperation ? (
               <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label="Pending graph review">
                 {reviewPanel}
+              </aside>
+            ) : timelineVisible && !chronologyOpen && focusedEventIds && viewFocusId && api.readChronology
+              && (!activePanel || activePanel === "details") ? (
+              <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label="Selected object details">
+                <div className="native-demo-inspector-timeline">
+                  <GraphChronology graph={graph} read={api.readChronology} relatedTo={viewFocusId} strip
+                      selectedEvent={selectedStripEvent} connectedIds={stripConnections}
+                      onExplore={nodeId => {
+                        if (pendingRef.current) return;
+                        focusInspectorRef.current = true;
+                        handleCanvasSelectionChange(nodeId as LocalObjectId);
+                      }} />
+                </div>
+                {selectedNode ? detailsPanel : null}
               </aside>
             ) : activePanel && (activePanel !== "details" || selectedNode) ? (
               <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label={activePanel === "info" ? "Graph information" : activePanel === "details" ? "Selected object details" : "Graph actions"}>
