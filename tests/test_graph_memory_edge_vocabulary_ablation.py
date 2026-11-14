@@ -11,7 +11,7 @@ from src.graph_memory.extraction.staged_edge_extraction import (
     build_graph_context_packet,
     render_relation_observation_prompt,
 )
-from src.graph_memory.party_context import PartyContext
+from graph_memory.party_context import PartyContext
 from src.graph_memory.vocabulary import (
     ContextVocabularyPacket,
     ExtractedVocabularyEdge,

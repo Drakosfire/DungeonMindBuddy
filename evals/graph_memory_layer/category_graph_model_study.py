@@ -39,7 +39,7 @@ from evals.graph_memory_layer.session_22_recap_ingest_fixture import (
 )
 from src.graph_memory import identity_resolution as ir
 from graph_memory.anchor_quotes import coerce_anchor_quotes
-from src.graph_memory.party_context import build_party_context
+from graph_memory.party_context import build_party_context
 
 STUDY_SCHEMA = "dmb_category_graph_model_study_v0"
 STUDY_VERSION = "0.1"
