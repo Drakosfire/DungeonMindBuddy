@@ -1037,3 +1037,30 @@ def test_shared_evidence_resolves_native_target_kinds(inspection, monkeypatch):
             },
         )
         assert opened.status_code == 200, opened.text
+
+
+def test_shared_search_preserves_admitted_seed_under_node_bound(inspection, monkeypatch):
+    from apps.live_control_server.routes import world_graph_retrieval as routes
+
+    monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", "managed")
+    monkeypatch.setattr(routes, "search_campaign_graph", lambda _: pytest.fail("classic search fallback"))
+    inspection.app.include_router(routes.router)
+    seed = inspection.objects["object:0"]
+    response = inspection.client.post(
+        "/api/live/world-graph/retrieval/search",
+        json={
+            "schema": "dmb_world_graph_search_request_v1",
+            "worldId": "managed",
+            "campaignId": inspection.lane.run.campaign_id,
+            "queryText": "Object",
+            "seedNodeIds": [seed, "ent:missing"],
+            "bounds": {"maxNodes": 1},
+        },
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["operation"] == "search"
+    assert result["matchedNodeIds"] == [seed]
+    assert [node["nodeId"] for node in result["nodes"]] == [seed]
+    assert "exact_seed" in result["matchReasons"][seed]
+    assert result["coverage"]["missingSeedNodeIds"] == ["ent:missing"]

@@ -456,7 +456,7 @@ def shared_exact_object(request, principal):
     return shared_neighborhood(neighborhood, principal, object_id=request.node_id)
 
 
-def shared_neighborhood(request, principal, *, object_id=None):
+def shared_neighborhood(request, principal, *, object_id=None, search_ids=None):
     from graph_memory.retrieval.models import (
         WorldGraphRetrievalCoverage,
         WorldGraphRetrievalResult,
@@ -472,7 +472,30 @@ def shared_neighborhood(request, principal, *, object_id=None):
     _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
     attributes = []
     selected = None
-    if object_id is not None:
+    if search_ids is not None:
+        from types import SimpleNamespace
+        from dungeonmind.application.vnext.records import ParsedEntityRefValue
+        from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import BoundedNeighborhood
+
+        reader = EntityReadService()
+        complete = [reader.get_complete_entity(read, entity_id) for entity_id in search_ids]
+        edges = {
+            row.assertion_id: row
+            for item in complete for row in item.assertions
+            if isinstance(row.value, ParsedEntityRefValue)
+        }
+        cap = request.bounds.max_relationships
+        bounded = BoundedNeighborhood(
+            tuple(search_ids), tuple(edges[key] for key in sorted(edges)[:cap]),
+            False, len(edges) > cap,
+        )
+        result = SimpleNamespace(
+            evidence=[row for item in complete for row in item.evidence],
+            source_artifacts=[row for item in complete for row in item.source_artifacts],
+            missing_seed_entity_ids=(),
+        )
+        nodes = map_nodes(read, bounded, attributes=attributes)
+    elif object_id is not None:
         from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import BoundedNeighborhood, map_entity_result
         from dungeonmind.application.vnext.records import ParsedEntityRefValue
 
@@ -683,3 +706,50 @@ def shared_evidence(request, principal):
             truncated_fields=["source_anchors"] if truncated else [],
         ),
     )
+
+
+def shared_search(request, principal):
+    from dungeonmind.application.vnext import SearchReadService
+    from graph_memory.retrieval.models import WorldGraphNeighborhoodRequest
+
+    _, _, pin = _shared_retrieval_pin(request, principal)
+    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
+    search = SearchReadService().search_entities(read, request.query_text, limit=20)
+    seeds = list(dict.fromkeys(request.seed_node_ids))
+    reader = EntityReadService()
+    present = [seed for seed in seeds if reader.get_entity(read, seed).found]
+    missing = sorted(set(seeds) - set(present))
+    reasons = {hit.entity.entity_id: list(hit.match_kinds) for hit in search.hits}
+    for seed in present:
+        reasons.setdefault(seed, []).append("exact_seed")
+    others = [entity_id for entity_id in reasons if entity_id not in present]
+    remaining = max(request.bounds.max_nodes - len(present), 0)
+    selected = present + others[:remaining]
+    if len(present) > request.bounds.max_nodes:
+        raise InspectionUnavailable("native_search_seed_bound_exceeded")
+
+    projection = WorldGraphNeighborhoodRequest(
+        schema="dmb_world_graph_neighborhood_request_v1",
+        seedNodeIds=selected or ["ent:empty-search-result"],
+        maxDepth=1,
+        **request.model_dump(
+            by_alias=True, exclude={"schema_", "query_text", "seed_node_ids", "revision_pin"}
+        ),
+        revisionPin=pin.revision_id,
+    )
+    result = shared_neighborhood(projection, principal, search_ids=selected)
+    truncated = list(result.coverage.truncated_fields)
+    if len(others) > remaining or search.completeness.status != "complete":
+        truncated = list(dict.fromkeys([*truncated, "nodes"]))
+    return result.model_copy(update={
+        "operation": "search",
+        "outcome": "partial" if missing or truncated else "enough" if selected else "empty",
+        "request_summary": {"query_text": request.query_text, "seed_node_ids": request.seed_node_ids},
+        "matched_node_ids": selected,
+        "match_reasons": {entity_id: reasons[entity_id] for entity_id in selected},
+        "coverage": result.coverage.model_copy(update={
+            "requested_seed_node_ids": seeds,
+            "missing_seed_node_ids": missing,
+            "truncated_fields": truncated,
+        }),
+    })
