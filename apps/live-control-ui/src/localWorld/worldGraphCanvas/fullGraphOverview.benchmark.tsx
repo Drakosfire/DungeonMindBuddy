@@ -17,12 +17,17 @@ function summary(values: number[]) {
   return { samples: sorted.length, median_ms: sorted[Math.floor(sorted.length / 2)], p95_ms: sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * .95))] };
 }
 
-it("reports the 1404-object/559-edge full SVG experiment without claiming browser performance", async () => {
+const fixtures = [
+  { id: "overview-historical-v1", objectCount: 1404, edgeCount: 559 },
+  { id: "overview-scale-v1", objectCount: 6000, edgeCount: 5300 },
+];
+
+it.each(fixtures)("reports renderer costs for $id", async ({ id, objectCount, edgeCount }) => {
   const repository = new InMemoryLocalWorldRepository({ idFactory: sequenceLocalIds() });
   const empty = await createTestWorld(repository, "Synthetic full graph benchmark");
-  const objects = Array.from({ length: 1404 }, (_, i) => ({ id: repository.allocateObjectId(empty.snapshot.worldId), name: `Object ${i}`, kind: ["person", "location", "event", "faction"][i % 4], properties: {} }));
-  const relationships = Array.from({ length: 559 }, (_, i) => {
-    const source = i < 43 ? i : 800 + i - 43;
+  const objects = Array.from({ length: objectCount }, (_, i) => ({ id: repository.allocateObjectId(empty.snapshot.worldId), name: `Object ${i}`, kind: ["person", "location", "event", "faction"][i % 4], properties: {} }));
+  const relationships = Array.from({ length: edgeCount }, (_, i) => {
+    const source = i < 43 ? i : objectCount === 1404 ? 800 + i - 43 : i;
     return { id: repository.allocateRelationshipId(empty.snapshot.worldId), fromObjectId: objects[source].id, toObjectId: objects[source + 1].id, kind: "linked_to", properties: {} };
   });
   const record: LocalWorldRecord = { ...empty, snapshot: { ...empty.snapshot, objects, relationships } };
@@ -38,8 +43,10 @@ it("reports the 1404-object/559-edge full SVG experiment without claiming browse
       if (clearance < 0) overlappingPairs += 1;
     }
   }
-  expect(overlappingPairs).toBe(0);
-  expect(minimumClearance).toBeGreaterThanOrEqual(4 - 1e-7);
+  if (id === "overview-historical-v1") {
+    expect(overlappingPairs).toBe(0);
+    expect(minimumClearance).toBeGreaterThanOrEqual(4 - 1e-7);
+  }
   const layoutSamples: number[] = [];
   for (let i = 0; i < 31; i += 1) {
     const started = performance.now();
@@ -47,8 +54,8 @@ it("reports the 1404-object/559-edge full SVG experiment without claiming browse
     const fallbackPositions = createGraphFallbackPositions(index);
     const graph = projectLocalWorldGraph(record, { fullCorpus: true, fallbackPositions }, index);
     if (i) layoutSamples.push(performance.now() - started);
-    expect(graph.nodes).toHaveLength(1404);
-    expect(graph.edges).toHaveLength(559);
+    expect(graph.nodes).toHaveLength(objectCount);
+    expect(graph.edges).toHaveLength(edgeCount);
   }
   const runs = [];
   for (const fullCorpus of [false, true]) {
@@ -67,5 +74,5 @@ it("reports the 1404-object/559-edge full SVG experiment without claiming browse
     runs.push({ mode: fullCorpus ? "full SVG" : "legacy bounded SVG with camera optimization", nodes: view.container.querySelectorAll("[data-node-id]").length, edges: view.container.querySelectorAll("[data-edge-id]").length, total_svg_elements: svg.querySelectorAll("*").length, react_commit_cpu: Object.fromEntries(Object.entries(renderSamples).map(([key, samples]) => [key, summary(samples)])) });
     cleanup();
   }
-  console.info(JSON.stringify({ evidence: "synthetic topology; development React/jsdom CPU only; no browser paint, frame-rate, network or weak-device evidence", geometry: { minimum_clearance: minimumClearance, overlapping_pairs: overlappingPairs }, index_layout_projection: summary(layoutSamples), runs }));
+  console.info(JSON.stringify({ fixture: { id, objectCount, edgeCount }, evidence: "synthetic topology; development React/jsdom CPU only; no browser paint, frame-rate, network or weak-device evidence", geometry: { minimum_clearance: minimumClearance, overlapping_pairs: overlappingPairs }, index_layout_projection: summary(layoutSamples), runs }));
 }, 60000);
