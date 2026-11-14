@@ -1467,3 +1467,42 @@ def test_source_order_postgres_confirm_and_fresh_readback(
     assert reads and not unavailable
     assert all(row.spans[0].evidence_ref_id == x.support_ids["first"] for row in reads)
     assert confirm(x, packet).json()["result"] == result
+
+
+@pytest.fixture
+def persistent_world_core(description_native_core_dsn, monkeypatch):
+    from dungeonmind.infrastructure.postgres import (
+        PostgresDatabase,
+        PostgresNativeSourceEvidenceRepository,
+    )
+
+    repository = PostgresNativeSourceEvidenceRepository(PostgresDatabase(description_native_core_dsn))
+    monkeypatch.setattr(
+        __name__ + ".InMemoryNativeSourceEvidenceRepository", lambda: repository
+    )
+    return repository
+
+
+def test_worldbuilding_postgres_confirmation_replays_one_head_advance(
+    persistent_world_core, request,
+):
+    lane = request.getfixturevalue("world_lane")
+    assert lane.repo is persistent_world_core
+    parent = lane.repo.get_head(SPACE_ID)
+    events = lane.repo.head_events(SPACE_ID)
+    packet = confirmation(lane)
+    assert lane.repo.get_head(SPACE_ID) == parent
+    assert lane.repo.head_events(SPACE_ID) == events
+
+    first = confirm(lane, packet)
+    assert first.status_code == 200, first.text
+    result = first.json()["result"]
+    child = lane.repo.get_head(SPACE_ID)
+    assert child.head_revision_id == result["child_revision_id"]
+    assert child != parent
+
+    retry = confirm(lane, packet)
+    assert retry.status_code == 200, retry.text
+    assert retry.json()["result"] == result
+    assert lane.repo.get_head(SPACE_ID) == child
+    assert len(lane.repo.head_events(SPACE_ID)) == len(events) + 1
