@@ -32,7 +32,10 @@ class InspectionUnavailable(ValueError):
         super().__init__(code)
 
 
-def _pinned(scope, principal):
+from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+
+
+def _pinned(scope, principal, *, parsed_cache=None):
     require_native_graph_gm(principal)
     bound = native.binding(scope.managed_world_id)
     repo = native.read_repository()
@@ -56,6 +59,7 @@ def _pinned(scope, principal):
         scope.campaign_id,
         principal.role,
         scope_mode=scope.scope_mode,
+        parsed_cache=parsed_cache,
     )
     pin = InspectionPin(
         managed_world_id=scope.managed_world_id,
@@ -418,6 +422,9 @@ def open_neighborhood_anchor(request, principal):
     )
 
 
+_shared_neighborhood_parsed_cache = NativeParsedRevisionCache()
+
+
 def shared_neighborhood(request, principal):
     from graph_memory.retrieval.models import (
         WorldGraphRetrievalCoverage,
@@ -445,7 +452,7 @@ def shared_neighborhood(request, principal):
     from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import (
         map_nodes, map_relationships, read_neighborhood,
     )
-    _, read, _, _, _ = _pinned(pin, principal)
+    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_neighborhood_parsed_cache)
     result, bounded = read_neighborhood(
         read, request.seed_node_ids, request.max_depth, request.bounds
     )
