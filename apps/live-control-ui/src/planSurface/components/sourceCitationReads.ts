@@ -1,3 +1,5 @@
+import {getNativeRelatedRecaps, readNativeRecapPage} from "../../api/liveApi";
+import {sameInspectionPin, type InspectionPin} from "../../api/nativeGraphInspection";
 import {getAgentSavedSection} from '../../api/liveApi';
 import {isSavedSectionTargets} from './BuildSavedSectionEvidence';
 import {getAgentNativeAssertionSource,getAgentNativeSourceClause,getAgentSourcePassage,getAgentNativeSourceSection,getAgentNativeBodyExcerpt,getAgentRelatedPage} from '../../api/liveApi';
@@ -113,4 +115,43 @@ export function nativeSavedChoices(completion:{surface_id:string;answer_segments
       return result.content;
     },
   })));
+}
+
+export function nativeRecapChoices(
+  completion: SurfaceEvidenceCompletion | SurfaceNativeCompletionV1,
+  scope: InspectionPin, segmentIndex: number,
+): CitationChoice[] {
+  if (!("native_assertion_citations" in completion)) return [];
+  return completion.native_assertion_citations.flatMap((citation, index) => {
+    if (citation.segment_index !== segmentIndex || citation.managed_world_id !== scope.managed_world_id
+        || citation.native_world_id !== scope.native_world_id || citation.read_revision_id !== scope.revision_id) return [];
+    return [{
+      key: `native-recap:${index}`, number: 0, title: "Related session recap",
+      label: "Open related session recap", kind: "section" as const,
+      load: async () => {
+        const discovered = await getNativeRelatedRecaps(scope, citation.assertion_id);
+        const target = discovered.targets.find(row => row.selection.assertion_id === citation.assertion_id
+          && row.selection.evidence_ref_id === citation.evidence_ref_id
+          && row.source_artifact_id === citation.source_artifact_id
+          && row.source_revision_id === citation.source_revision_id);
+        if (!sameInspectionPin(discovered.scope, scope) || !target) throw new Error("Related recap unavailable");
+        let content = "";
+        let cursor: string | undefined;
+        const seen = new Set<string>();
+        do {
+          const page = await readNativeRecapPage(scope, target.selection, cursor);
+          if (!sameInspectionPin(page.scope, scope) || page.source.span_sha256 !== citation.span_sha256
+              || page.source.body_sha256 !== citation.body_sha256 || page.source.source_revision_id !== citation.source_revision_id
+              || page.source.source_artifact_id !== citation.source_artifact_id || !page.source.text) throw new Error("Related recap binding differs");
+          content += page.source.text;
+          cursor = page.next_continuation ?? undefined;
+          if (new TextEncoder().encode(content).length > citation.end_byte - citation.start_byte
+              || (cursor && seen.has(cursor))) throw new Error("Related recap pagination differs");
+          if (cursor) seen.add(cursor);
+        } while (cursor);
+        if (await hash(content) !== citation.span_sha256) throw new Error("Related recap bytes differ");
+        return content;
+      },
+    }];
+  });
 }

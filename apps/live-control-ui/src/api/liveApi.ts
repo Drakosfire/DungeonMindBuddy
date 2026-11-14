@@ -3309,6 +3309,30 @@ export function inspectNativeGraph(scope:InspectionPin,selection:InspectionSelec
  return apiFetch('/api/live/native-graph-inspection/read',{method:'POST',signal,body:JSON.stringify({scope,selection})});
 }
 
+type NativeRecapSelection = Extract<InspectionSelection, { kind: "source" }>;
+
+export function getNativeRelatedRecaps(scope: InspectionPin, assertionId: string, signal?: AbortSignal) {
+  return apiFetch<{
+    scope: InspectionPin;
+    targets: Array<{
+      selection: NativeRecapSelection;
+      source_artifact_id: string;
+      source_revision_id: string;
+    }>;
+  }>("/api/live/native-graph-inspection/related-recaps", {
+    method: "POST", signal, body: JSON.stringify({ scope, assertion_id: assertionId }),
+  });
+}
+
+export function readNativeRecapPage(
+  scope: InspectionPin, selection: NativeRecapSelection, continuation?: string, signal?: AbortSignal,
+) {
+  return apiFetch<NativeGraphSource & { next_continuation: string | null }>(
+    "/api/live/native-graph-inspection/recap-page",
+    { method: "POST", signal, body: JSON.stringify({ read: { scope, selection }, continuation }) },
+  );
+}
+
 export function getNativeSourceCatalog(scope:InspectionScope,signal?:AbortSignal):Promise<NativeSourceCatalog> {
  return apiFetch('/api/live/native-source-inspection/catalog',{method:'POST',cache:'no-store',signal,body:JSON.stringify(scope)});
 }

@@ -1,6 +1,6 @@
 import {sessionSummaryMarkdown} from "../../shared/sessionEvidenceCitation";
 import {SourceCitationEvidence} from './SourceCitationEvidence';
-import {passageChoices,nativeChoices,nativeSavedChoices} from './sourceCitationReads';
+import {passageChoices,nativeChoices,nativeSavedChoices,nativeRecapChoices} from './sourceCitationReads';
 import {canonical} from '../../shared/sourcePassageProtocol';
 import type {SurfaceEvidenceCompletion,SurfaceNativeCompletionV1} from "../../api/types";
 import {WorldPlanAgentAnswer} from "./WorldPlanAgentAnswer";
@@ -8,8 +8,8 @@ import {WorldPlanAgentAnswer} from "./WorldPlanAgentAnswer";
 
 type Composition = {text:string;ranges:{domain:string;base_segment_index:number|null;text_start:number;text_end:number}[]};
 /** Same visible authority and exact passage selector in Plan, Play and Rules compositions. */
-export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,buildSourceBasis}:{
-  completion:SurfaceEvidenceCompletion|SurfaceNativeCompletionV1;composition?:Composition;worldId?:string|null;turnId?:string;buildSourceBasis?:import('../../api/types').WorldBuildGraphReceiptV1['source_basis'];
+export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,buildSourceBasis,nativeScope}:{
+  nativeScope?:import("../../api/nativeGraphInspection").InspectionPin;completion:SurfaceEvidenceCompletion|SurfaceNativeCompletionV1;composition?:Composition;worldId?:string|null;turnId?:string;buildSourceBasis?:import('../../api/types').WorldBuildGraphReceiptV1['source_basis'];
 }) {
   // Number visible citations across this answer, independent of transport indexes.
   let nextNumber=0;
@@ -20,7 +20,7 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,bui
       return [];
     }
     return worldId && turnId ? [...passageChoices(completion,worldId,turnId,index),...('native_source_citations' in completion || 'native_body_citations' in completion
-      ? nativeChoices(completion,worldId,turnId,index):[]),...(completion.schema==='dmb_surface_native_completion_v1'&&buildSourceBasis?nativeSavedChoices(completion,buildSourceBasis,worldId,turnId,index):[])].map(c=>({...c,number:++nextNumber})) : [];
+      ? nativeChoices(completion,worldId,turnId,index):[]),...(nativeScope?nativeRecapChoices(completion,nativeScope,index):[]),...(completion.schema==='dmb_surface_native_completion_v1'&&buildSourceBasis?nativeSavedChoices(completion,buildSourceBasis,worldId,turnId,index):[])].map(c=>({...c,number:++nextNumber})) : [];
   });
   const renderSegment=(s:(SurfaceEvidenceCompletion|SurfaceNativeCompletionV1)['answer_segments'][number],index:number,key:number) => {
     if(s.kind==='session_summary') {
