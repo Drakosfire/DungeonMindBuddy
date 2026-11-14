@@ -195,13 +195,13 @@ def get_world_play_runs_v2(
     playable_artifact_id: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
     try:
-        records = list_world_play_runs(
+        response = list_world_play_runs(
             world_id=world_id,
             playable_artifact_id=playable_artifact_id,
         )
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return WorldPlayRunsListResponse(records=records).model_dump(mode="json")
+    return response.model_dump(mode="json")
 
 
 @router.get(
