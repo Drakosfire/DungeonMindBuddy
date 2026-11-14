@@ -126,11 +126,12 @@ function assertNativeRecovery(
   }
 }
 
-export function readNativeWorldbuildingPublicationRecovery(review: ExactRunReviewPackage, worldId: string) {
+export function readNativeWorldbuildingPublicationRecovery(review: ExactRunReviewPackage, worldId: string, { allowClassic = false } = {}) {
   const scope = worldbuildingPublicationScope(review, worldId);
   const raw = localStorage.getItem(worldbuildingPublicationRecoveryKey(scope));
   if (raw === null) return null;
   const saved = JSON.parse(raw) as NativeWorldbuildingPublicationRecovery;
+  if (allowClassic && (saved?.schema as string) === 'dmb_worldbuilding_publication_recovery_v1' && saved.scope === scope) return null;
   if (saved?.schema !== 'dmb_native_worldbuilding_publication_recovery_v1' || saved.scope !== scope) {
     throw new Error('Recover the existing publication before submitting a native review.');
   }

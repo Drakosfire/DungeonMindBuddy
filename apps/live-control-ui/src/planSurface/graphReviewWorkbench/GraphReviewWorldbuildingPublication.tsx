@@ -9,6 +9,7 @@ import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
 import { GraphReviewFirstWorldPublishSheet } from "./GraphReviewFirstWorldPublishSheet";
 
 import {assertWorldbuildingPlan, clearUnsubmittedWorldbuildingPublication, readWorldbuildingPublicationRecovery,
+  readNativeWorldbuildingPublicationRecovery, retryNativeWorldbuildingConfirmation,
   saveWorldbuildingPublicationRecovery, setAsideRejectedWorldbuildingPublication} from "./worldbuildingPublicationRecovery";
 
 import {obsoleteUnsubmittedRecovery,readFirstWorldRecovery} from './firstWorldPublicationRecovery';
@@ -41,7 +42,51 @@ function PublicationEntry(props: Props & {managedWorldId: string; onReset: () =>
   });
   if (entry.creation) return <GraphReviewFirstWorldPublishSheet {...props}/>;
   if (entry.error) return <p role="alert">{entry.error}</p>;
+  return <ExistingWorldPublication {...props}/>;
+}
+
+function ExistingWorldPublication(props: Props & {managedWorldId: string; onReset: () => void}) {
+  const [saved] = useState(() => {
+    try {
+      return {packet: readNativeWorldbuildingPublicationRecovery(props.review, props.managedWorldId, {allowClassic: true}), error: null};
+    } catch (reason) {
+      return {packet: null, error: message(reason)};
+    }
+  });
+  if (saved.error) return <p role="alert">{saved.error}</p>;
+  if (saved.packet) return <NativePublicationRecovery {...props}/>;
   return <Publication {...props}/>;
+}
+
+function NativePublicationRecovery({review, managedWorldId, isCurrent, onConfirmInFlightChange}: Props & {managedWorldId: string}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [committed, setCommitted] = useState(false);
+  const lock = useRef(false);
+  async function retry() {
+    if (lock.current || committed || isCurrent?.() === false) return;
+    lock.current = true;
+    setBusy(true);
+    setError(null);
+    onConfirmInFlightChange?.(true);
+    try {
+      await retryNativeWorldbuildingConfirmation(review, managedWorldId);
+      if (isCurrent?.() !== false) setCommitted(true);
+    } catch (reason) {
+      if (isCurrent?.() !== false) setError(message(reason));
+    } finally {
+      lock.current = false;
+      if (isCurrent?.() !== false) setBusy(false);
+      onConfirmInFlightChange?.(false);
+    }
+  }
+  return <section aria-label="Native Worldbuilding publication recovery">
+    {committed ? <p role="status">Worldbuilding publication confirmed.</p> :
+      <button type="button" disabled={busy} onClick={() => void retry()}>
+        Retry saved publication
+      </button>}
+    {error && <p role="alert">{error}</p>}
+  </section>;
 }
 
 function Publication({review, managedWorldId, onConfirmInFlightChange, onReset, isCurrent}: Props & {managedWorldId: string; onReset: () => void}) {
