@@ -13,7 +13,7 @@ from jsonschema import Draft202012Validator
 from apps.live_control_server.config import MANAGED_WORLD_DATA_ROOT_ENV, SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.session_store import load_session
-from src.live_play.projections import build_session_plan_projection
+from live_play.projections import build_session_plan_projection
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "schemas/live/plan_view.schema.json"
