@@ -32,7 +32,7 @@ def read_crop(body: PdfCropRequest) -> dict[str, str]:
     return read_crop_png(raw)
 
 
-def read_crop_png(raw: bytes) -> dict[str, str]:
+def read_crop_png(raw: bytes, *, allow_empty: bool = False) -> dict[str, str]:
     try:
         if len(raw) > _MAX_PNG_BYTES:
             raise ValueError("Unexpected crop size")
@@ -60,7 +60,7 @@ def read_crop_png(raw: bytes) -> dict[str, str]:
                 capture_output=True, check=True, timeout=120,
             )
         text = json.loads(result.stdout)["text"]
-        if not isinstance(text, str) or not text.strip():
+        if not isinstance(text, str) or (not allow_empty and not text.strip()):
             raise ValueError("Empty OCR transcription")
         return {"text": text}
     except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError) as exc:

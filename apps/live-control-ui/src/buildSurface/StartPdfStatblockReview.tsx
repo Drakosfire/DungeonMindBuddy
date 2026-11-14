@@ -53,7 +53,7 @@ export function StartPdfStatblockReview({
     return `Buddy could not create a statblock review from these regions${suffix}.`;
   }
 
-  async function start(prepare = prepareRegions) {
+  async function start(prepare = prepareRegions, wholePdf = false) {
     if ((!regions.length && !prepare) || pending) return;
     const startUrl = window.location.href;
     setPending(true);
@@ -63,7 +63,7 @@ export function StartPdfStatblockReview({
       const source = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/statblock-reviews/${id}/from-regions`;
       const { response } = await authenticatedApiFetch(source, {
         method: "POST",
-        body: JSON.stringify({ regions: selected, instruction, ...(edition ? { edition } : {}) }),
+        body: JSON.stringify({ regions: selected, instruction, ...(wholePdf ? { whole_pdf: true } : {}), ...(edition ? { edition } : {}) }),
       });
       if (response.status === 409) {
         setConflict(true);
@@ -115,7 +115,7 @@ export function StartPdfStatblockReview({
       <label>Guidance for Buddy (optional)
         <textarea rows={2} value={instruction} onChange={event => setInstruction(event.target.value)} disabled={pending} />
       </label>
-      {prepareWholePdf && <button type="button" disabled={pending} onClick={() => void start(prepareWholePdf)}>
+      {prepareWholePdf && <button type="button" disabled={pending} onClick={() => void start(prepareWholePdf, true)}>
         Extract whole PDF
       </button>}
       {(regions.length > 0 || prepareRegions) && <button type="button" onClick={() => void start()} disabled={(!regions.length && !prepareRegions) || pending}>

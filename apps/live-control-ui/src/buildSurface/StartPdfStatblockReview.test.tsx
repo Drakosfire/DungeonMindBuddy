@@ -141,7 +141,7 @@ it("extracts both full pages without a crop and opens the editor", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Extract whole PDF" }));
   await screen.findByRole("link", { name: "Open statblock review" });
   expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/from-regions"), {
-    method: "POST", body: JSON.stringify({ regions: pages, instruction: "" }),
+    method: "POST", body: JSON.stringify({ regions: pages, instruction: "", whole_pdf: true }),
   });
   expect(new URL(window.location.href).searchParams.get("pdfReview")).toBeTruthy();
 });
