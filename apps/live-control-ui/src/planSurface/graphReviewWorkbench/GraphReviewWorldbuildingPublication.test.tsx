@@ -1,3 +1,5 @@
+import * as native from "../../api/nativeWorldbuildingPublicationApi";
+import {retainNativeWorldbuildingConfirmation} from "./worldbuildingPublicationRecovery";
 import { act, fireEvent, render, screen, waitFor, cleanup, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {ExtractPromoteApiError} from "../../api/extractPromoteApi";
@@ -377,4 +379,25 @@ it('holds publication safely when browser recovery storage is unreadable',()=>{
   expect(()=>render(<GraphReviewWorldbuildingPublication review={review}/>)).not.toThrow();
   expect(screen.getByRole('alert')).toHaveTextContent('storage denied');
   expect(api.prepareWorldbuilding).not.toHaveBeenCalled();expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+});
+
+it("replays a retained native publication when Graph Review reopens", async () => {
+  const packet = {
+    envelope: {
+      purpose: "dmb_native_worldbuilding_confirm_v1",
+      prepared_change_id: "change:a",
+      review: { managed_world_id: "world-a", run_id: "run-a" },
+    },
+    prepared: { operations: [] },
+    token: "signed-fixture",
+  };
+  await retainNativeWorldbuildingConfirmation(review, "world-a", packet);
+  const confirm = vi.spyOn(native, "confirmNativeWorldbuilding")
+    .mockResolvedValue({ recovered: true, result: { child_revision_id: "rev:child" } });
+  render(<GraphReviewWorldbuildingPublication review={review} />);
+  expect(confirm).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Retry saved publication" }));
+  await screen.findByText("Worldbuilding publication confirmed.");
+  expect(confirm).toHaveBeenCalledExactlyOnceWith(packet);
+  expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
 });
