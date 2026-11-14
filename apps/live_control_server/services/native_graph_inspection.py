@@ -562,7 +562,7 @@ def shared_neighborhood(request, principal, *, object_id=None):
     attributes.sort(key=lambda row: row.assertion_id)
     if len(attributes) > request.bounds.max_attributes:
         truncated.append("attributes")
-    missing = ([] if nodes else [object_id]) if object_id is not None else list(result.missing_seed_entity_ids)
+    missing = [] if object_id is not None else list(result.missing_seed_entity_ids)
     return WorldGraphRetrievalResult(
         operation="object" if object_id is not None else "neighborhood",
         requested_node_id=object_id,

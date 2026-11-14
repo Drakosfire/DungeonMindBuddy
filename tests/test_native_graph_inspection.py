@@ -965,3 +965,18 @@ def test_shared_exact_object_selects_one_native_node(inspection, monkeypatch):
     )
     assert opened.status_code == 200, opened.text
     assert opened.json()["content"] == lane.lane.text.split("\r\n\r\n", 1)[0] + "\r\n"
+
+    missing = lane.client.post(
+        "/api/live/world-graph/retrieval/object",
+        json={
+            "schema": "dmb_world_graph_object_request_v1",
+            "worldId": "managed",
+            "campaignId": lane.lane.run.campaign_id,
+            "nodeId": "ent:missing",
+            "revisionPin": payload["snapshot"]["revisionId"],
+        },
+    )
+    assert missing.status_code == 200, missing.text
+    assert missing.json()["outcome"] == "empty"
+    assert missing.json()["snapshot"]["revisionId"] == payload["snapshot"]["revisionId"]
+    assert missing.json()["resolvedNodeId"] is None
