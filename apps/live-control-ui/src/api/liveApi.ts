@@ -2451,8 +2451,8 @@ export function listWorkspacePageInventory(
   );
 }
 
-export async function listWorldContainers(): Promise<WorldContainersListResponse> {
-  return apiFetch<WorldContainersListResponse>("/api/live/world-containers");
+export async function listWorldContainers(signal?: AbortSignal): Promise<WorldContainersListResponse> {
+  return apiFetch<WorldContainersListResponse>("/api/live/world-containers", signal ? { signal } : undefined);
 }
 
 export async function createWorldContainer(

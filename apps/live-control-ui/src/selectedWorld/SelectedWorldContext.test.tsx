@@ -348,3 +348,14 @@ it.each(['clear','inference'] as const)('retires a receipt when leaving its expl
  await act(async()=>pending.resolve({run_id:'unverified',campaign_id:world.world_id} as never));
  expect(screen.getByTestId('identity')).toHaveTextContent('error');
 });
+
+it("cancels a pending catalog read when World selection changes", () => {
+  const catalog = vi.mocked(listWorldContainers);
+  catalog.mockReturnValue(new Promise(() => {}));
+  const view = render(<SelectedWorldProvider locationSnapshot="/plan?world=first"><AdmissionProbe /></SelectedWorldProvider>);
+  const firstSignal = catalog.mock.lastCall?.[0];
+  expect(firstSignal?.aborted).toBe(false);
+  view.rerender(<SelectedWorldProvider locationSnapshot="/plan?world=second"><AdmissionProbe /></SelectedWorldProvider>);
+  expect(firstSignal?.aborted).toBe(true);
+  expect(catalog.mock.lastCall?.[0]?.aborted).toBe(false);
+});
