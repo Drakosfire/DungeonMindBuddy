@@ -184,6 +184,7 @@ def _read_native_projection_support(
 ):
     """Resolve one native World revision and read its authorized projection inputs."""
     from dungeonmind.application.vnext import EntityReadService
+    from dungeonmind.application.vnext.errors import KnowledgeReadContextIntegrityError
 
     from apps.live_control_server.integrations.dungeonmind import native_registry_source
 
@@ -196,9 +197,19 @@ def _read_native_projection_support(
             status_code=404,
         )
     revision_id = head.head_revision_id if revision_pin is None else revision_pin
-    context, access, _, _ = native_registry_source.read_context(
-        repository, binding.native_world_id, revision_id, None, scope_mode="world"
-    )
+    try:
+        context, access, _, _ = native_registry_source.read_context(
+            repository, binding.native_world_id, revision_id, None, scope_mode="world"
+        )
+    except KnowledgeReadContextIntegrityError as exc:
+        # Core currently reports a missing revision through this integrity error.
+        if revision_pin is None or str(exc) != "native source context revision is missing":
+            raise
+        raise WorldGraphProjectionServiceError(
+            "Requested native Graph revision is unavailable.",
+            code="native_graph_revision_unavailable",
+            status_code=404,
+        ) from exc
     return head.head_revision_id, context, access, EntityReadService().list_entities_with_support(context)
 
 

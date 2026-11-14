@@ -291,3 +291,38 @@ def test_source_views_do_not_copy_producer_session_to_unmatched_revision(monkeyp
     assert [(row.campaign_id, row.session_id) for row in evidence] == [
         ("campaign", "session-9"), (None, None)
     ]
+
+
+@pytest.mark.parametrize("message, status", [
+    ("native source context revision is missing", 404),
+    ("native source context domain pin mismatch", None),
+])
+def test_native_projection_distinguishes_missing_pin_from_integrity_failure(
+    monkeypatch, message, status
+):
+    from types import SimpleNamespace
+
+    from dungeonmind.application.vnext.errors import KnowledgeReadContextIntegrityError
+
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source
+
+    repository = SimpleNamespace(
+        get_head=lambda space: SimpleNamespace(head_revision_id="current")
+    )
+    failure = KnowledgeReadContextIntegrityError(message)
+
+    def read_context(*args, **kwargs):
+        raise failure
+
+    monkeypatch.setattr(native_registry_source, "read_repository", lambda: repository)
+    monkeypatch.setattr(native_registry_source, "read_context", read_context)
+    binding = SimpleNamespace(native_world_id="elderwyld")
+    if status is None:
+        with pytest.raises(KnowledgeReadContextIntegrityError) as caught:
+            managed_projection._read_native_projection_support(binding, "missing")
+        assert caught.value is failure
+    else:
+        with pytest.raises(managed_projection.WorldGraphProjectionServiceError) as caught:
+            managed_projection._read_native_projection_support(binding, "missing")
+        assert caught.value.status_code == status
+        assert caught.value.code == "native_graph_revision_unavailable"
