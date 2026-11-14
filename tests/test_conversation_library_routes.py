@@ -227,3 +227,29 @@ def test_retained_discussion_reports_typed_authoring_capture_requirement(client,
     assert response.status_code==409
     assert response.json()=={'detail':{'code':'build_authoring_retry_required','message':'Authoring needs fresh page context'}}
     read.assert_called_once_with('world-one',cid,tid,4)
+
+
+def test_turn_page_digest_matches_full_view_and_changes_with_retry_lineage(client):
+    cid = uuid4()
+    path = f"/api/live/agent/worlds/world-one/conversations/{cid}/turns"
+    page = {
+        "schema": "dmb_conversation_library_turns_v3",
+        "world_id": "world-one",
+        "conversation_id": str(cid),
+        "next_before_sequence": 51,
+        "turns": [{"sequence": 51, "assistant_text": "Saved 🐉", "retry_context": None}],
+    }
+    client.service.read_turns.return_value = page
+    assert client.client.get(path).json() == page
+    full = client.client.get(path, params={"view": "full", "before_sequence": 101}).json()
+    compact = client.client.get(path, params={"view": "digest", "before_sequence": 101}).json()
+    assert full == {**page, "page_sha256": compact["page_sha256"]}
+    assert len(compact["page_sha256"]) == 64
+    assert compact["next_before_sequence"] == 51
+    assert "turns" not in compact
+    client.service.read_turns.assert_called_with("world-one", cid, limit=50, before_sequence=101)
+
+    page["turns"][0]["retry_context"] = {"successor_id": str(uuid4())}
+    changed = client.client.get(path, params={"view": "digest"}).json()
+    assert changed["page_sha256"] != compact["page_sha256"]
+    assert client.client.get(path + "?view=digest&view=full").status_code == 422

@@ -126,6 +126,13 @@ class NativeRecapPrepareRequest(_CandidatePrepareRequest):
     source_admission_run_id: Text
 
 
+class NativeWorldbuildingContextRequest(Closed):
+    managed_world_id: Text
+    run_id: Text
+    source_artifact_id: Text
+    source_sha256: Digest
+
+
 class NativeWorldbuildingPrepareRequest(_CandidatePrepareRequest):
     workspace_document_id: Text
     workspace_document_revision: int = Field(ge=1, strict=True)

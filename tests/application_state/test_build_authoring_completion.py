@@ -305,8 +305,22 @@ def test_owner_record_drift_is_rejected_at_completion(
 def test_history_rechecks_owner_result_even_if_turn_digest_is_untouched(
     build_case, monkeypatch, application_state_dsn
 ):
+    from application_state.agent_conversation import library
+
     service, turn, record, result, _ = prepare(build_case, monkeypatch)
     service.complete_turn(result)
+    queries = []
+    execute = psycopg.Connection.execute
+
+    def record_proposal_reads(conn, query, params=None, **kwargs):
+        if isinstance(query, str) and "SELECT action_id, payload FROM agent.build_proposal" in query:
+            queries.append(params)
+        return execute(conn, query, params, **kwargs)
+
+    monkeypatch.setattr(psycopg.Connection, "execute", record_proposal_reads)
+    page = library.read_turns(turn.world_id, turn.conversation_id)
+    assert queries == [(turn.world_id, [record.action_id])]
+    assert page["turns"][0]["assistant_text"] == t.BUILD_PROPOSAL_READY_TEXT
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute(
             "UPDATE agent.build_proposal SET payload=jsonb_set(payload, '{proposal,summary}', '\"changed\"') WHERE action_id=%s",
@@ -314,6 +328,9 @@ def test_history_rechecks_owner_result_even_if_turn_digest_is_untouched(
         )
     with pytest.raises(ApplicationStateIntegrityError):
         service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+
+    with pytest.raises(ApplicationStateIntegrityError):
+        library.read_turns(turn.world_id, turn.conversation_id)
 
 
 def test_no_model_authored_ack_or_direct_sql_grounding(

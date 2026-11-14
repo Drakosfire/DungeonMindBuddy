@@ -14,7 +14,7 @@ from fastapi.routing import APIRoute
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.integrations.dungeonmind.native_recap_source_admission import NativeRecapError
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import NativeWorldSourceAdmissionError
-from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest, NativeRecapConfirmRequest
+from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest, NativeRecapConfirmRequest, NativeWorldbuildingContextRequest
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
@@ -687,5 +687,21 @@ router.add_api_route(
 )
 router.add_api_route(
     "/native-confirm", confirm_native_recap, methods=["POST"],
+    route_class_override=StrictJSONRoute,
+)
+
+
+def native_worldbuilding_context(
+    body: NativeWorldbuildingContextRequest,
+    request: Request,
+    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+):
+    from apps.live_control_server.services.native_recap_preparation import worldbuilding_review_context
+
+    return _native_recap_operation(body, request, principal, worldbuilding_review_context)
+
+
+router.add_api_route(
+    "/native-worldbuilding-context", native_worldbuilding_context, methods=["POST"],
     route_class_override=StrictJSONRoute,
 )

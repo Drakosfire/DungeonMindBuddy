@@ -304,7 +304,7 @@ def turn_provenance(row, references):
 
 
 def _turn_from_row(
-    conn: psycopg.Connection, row: dict[str, Any], *, references=None
+    conn: psycopg.Connection, row: dict[str, Any], *, references=None, proposal_payloads=None
 ) -> TurnReadModel:
     from .rules_authority_reads import (
         CompletedTurnEnvelopeV1,
@@ -420,7 +420,7 @@ def _turn_from_row(
             raise
         from .build_authoring import validate_stored_proposal
 
-        validate_stored_proposal(conn, turn, turn.completion)
+        validate_stored_proposal(conn, turn, turn.completion, proposal_payloads=proposal_payloads)
         return turn
     if marker!='rules_mixed_v1':
         raise ApplicationStateIntegrityError('mixed turn has missing or invalid accepted Rules summary')
@@ -442,7 +442,7 @@ def _turn_from_row(
             base_turn = Turn(**(fields | {"assistant_text": base_text}))
             from .build_authoring import validate_stored_proposal
 
-            validate_stored_proposal(conn, base_turn, base_turn.completion)
+            validate_stored_proposal(conn, base_turn, base_turn.completion, proposal_payloads=proposal_payloads)
             projection = {"kind": "approved", "turn": base_turn}
         elif binding.base_disposition == "absent":
             if any(
@@ -910,7 +910,32 @@ def list_turn_page(
         rows = cur.fetchall()
     page = rows[:limit]
     references = _turn_reference_page(conn, page)
-    turns = [_turn_from_row(conn, row, references=references[row["turn_id"]]) for row in reversed(page)]
+    action_ids = set()
+    for row in page:
+        completion = row["completion"]
+        if not isinstance(completion, dict) or completion.get("schema") not in {
+            "dmb_build_authoring_completion_v1", "dmb_build_image_preparation_completion_v1",
+        }:
+            continue
+        try:
+            action_ids.add(UUID(completion["action_id"]))
+        except (KeyError, ValueError, TypeError, AttributeError):
+            # The turn codec owns malformed completion errors.
+            continue
+    proposal_payloads = {}
+    if action_ids:
+        proposal_payloads = dict(conn.execute(
+            "SELECT action_id, payload FROM agent.build_proposal "
+            "WHERE world_id=%s AND action_id=ANY(%s)",
+            (world_id, list(action_ids)),
+        ).fetchall())
+    turns = [
+        _turn_from_row(
+            conn, row, references=references[row["turn_id"]],
+            proposal_payloads=proposal_payloads,
+        )
+        for row in reversed(page)
+    ]
     return turns, len(rows) > limit
 
 
