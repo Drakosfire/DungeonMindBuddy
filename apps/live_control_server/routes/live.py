@@ -1057,14 +1057,19 @@ def get_live_jobs() -> dict[str, Any]:
 
 
 @router.get("/surface")
-def get_live_surface() -> dict[str, Any]:
+def get_live_surface(include_session_views: bool = False) -> dict[str, Any]:
     base = session_dir()
     packet, layout, events, jobs = load_session(base)
-    return {
+    surface = {
         "catalog": packet["surface_catalog"],
         "layout": layout,
         "state": refresh_loaded_current_state(base, packet, layout, events, jobs),
     }
+    if include_session_views:
+        surface["events"] = events_since(events, None)
+        surface["jobs"] = jobs
+        surface["plan_view"] = build_session_plan_projection(packet, events, jobs)
+    return surface
 
 
 @router.get("/plan-view")

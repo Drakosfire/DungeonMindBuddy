@@ -517,6 +517,25 @@ def test_get_surface_returns_catalog_layout_state(client: TestClient) -> None:
     assert body["state"]["derived"] is True
 
 
+def test_surface_session_views_reuse_loaded_session(isolated_session, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import live
+
+    load_session = Mock(wraps=live.load_session)
+    monkeypatch.setattr(live, "load_session", load_session)
+
+    snapshot = live.get_live_surface(include_session_views=True)
+
+    load_session.assert_called_once_with(isolated_session)
+    assert snapshot["events"] == live.get_live_events(since=None)["events"]
+    assert snapshot["jobs"] == live.get_live_jobs()["jobs"]
+    expected_plan = live.get_live_plan_view(world_id=None, scope_mode=None)
+    assert snapshot["plan_view"]["generated_at"]
+    assert {**snapshot["plan_view"], "generated_at": expected_plan["generated_at"]} == expected_plan
+    assert set(live.get_live_surface()) == {"catalog", "layout", "state"}
+
+
 def test_put_surface_layout_persists_valid_layout(
     client: TestClient,
     isolated_session: Path,
