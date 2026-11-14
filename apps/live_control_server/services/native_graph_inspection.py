@@ -462,7 +462,7 @@ def shared_neighborhood(request, principal, *, object_id=None):
     return _shared_retrieval_projection(request, bound, head, pin, read, object_id=object_id)
 
 
-def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=None, search_ids=None):
+def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=None, search_entities=None):
     from graph_memory.retrieval.models import (
         WorldGraphRetrievalCoverage, WorldGraphRetrievalResult,
         WorldGraphRetrievalSnapshot, WorldGraphSourceAnchor,
@@ -472,13 +472,13 @@ def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=N
     )
     attributes = []
     selected_entities = {}
-    if search_ids is not None:
+    if search_entities is not None:
         from types import SimpleNamespace
         from dungeonmind.application.vnext.records import ParsedEntityRefValue
         from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import BoundedNeighborhood
 
         reader = EntityReadService()
-        complete = [reader.get_complete_entity(read, entity_id) for entity_id in search_ids]
+        complete = search_entities.values()
         edges = {
             row.assertion_id: row
             for item in complete for row in item.assertions
@@ -486,7 +486,7 @@ def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=N
         }
         cap = request.bounds.max_relationships
         bounded = BoundedNeighborhood(
-            tuple(search_ids), tuple(edges[key] for key in sorted(edges)[:cap]),
+            tuple(search_entities), tuple(edges[key] for key in sorted(edges)[:cap]),
             False, len(edges) > cap,
         )
         result = SimpleNamespace(
@@ -496,7 +496,7 @@ def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=N
         )
         from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import map_entity_result
 
-        selected_entities = {entity_id: reader.get_entity(read, entity_id) for entity_id in search_ids}
+        selected_entities = {entity_id: reader.get_entity(read, entity_id) for entity_id in search_entities}
         nodes = [
             map_entity_result(entity, entity_id, attributes=attributes)
             for entity_id, entity in selected_entities.items()
@@ -608,7 +608,7 @@ def _shared_retrieval_projection(request, bound, head, pin, read, *, object_id=N
             scope_mode=request.scope_mode,
         ),
         request_summary=(
-            {"node_id": object_id} if object_id is not None else {} if search_ids is not None else {
+            {"node_id": object_id} if object_id is not None else {} if search_entities is not None else {
                 "seed_node_ids": list(request.seed_node_ids),
                 "max_depth": request.max_depth,
             }
@@ -725,14 +725,21 @@ def shared_search(request, principal):
     search = SearchReadService().search_entities(read, request.query_text, limit=20)
     seeds = list(dict.fromkeys(request.seed_node_ids))
     reader = EntityReadService()
-    present = sorted(seed for seed in seeds if reader.get_complete_entity(read, seed).assertions)
+    complete_entities = {}
+
+    def complete_entity(entity_id):
+        if entity_id not in complete_entities:
+            complete_entities[entity_id] = reader.get_complete_entity(read, entity_id)
+        return complete_entities[entity_id]
+
+    present = sorted(seed for seed in seeds if complete_entity(seed).assertions)
     missing = sorted(set(seeds) - set(present))
     reasons = {
         hit.entity.entity_id: list(hit.match_kinds)
         for hit in search.hits
         if hit.admitted_match_assertions
         or hit.entity.entity_id in present
-        or reader.get_complete_entity(read, hit.entity.entity_id).assertions
+        or complete_entity(hit.entity.entity_id).assertions
     }
     for seed in present:
         reasons.setdefault(seed, []).append("exact_seed")
@@ -740,7 +747,10 @@ def shared_search(request, principal):
     remaining = max(request.bounds.max_nodes - len(present), 0)
     selected = present + others[:remaining]
 
-    result = _shared_retrieval_projection(request, bound, head, pin, read, search_ids=selected)
+    result = _shared_retrieval_projection(
+        request, bound, head, pin, read,
+        search_entities={entity_id: complete_entity(entity_id) for entity_id in selected},
+    )
     truncated = list(result.coverage.truncated_fields)
     if len(others) > remaining or search.completeness.status != "complete":
         truncated = list(dict.fromkeys([*truncated, "nodes"]))
