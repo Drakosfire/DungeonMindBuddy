@@ -497,6 +497,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const [activePanel, setActivePanel] = useState<EmbeddedPanel>(null);
   const [placementIntent, setPlacementIntent] = useState<StoredPlacementIntent | null>(null);
   const placementIntentRef = useRef<StoredPlacementIntent | null>(null);
+  const [hideOverviewEvents, setHideOverviewEvents] = useState(false);
   const [chronology, setChronology] = useState<{ graph: NativeGraph; relatedTo?: string } | null>(null);
   const chronologyOpen = chronology !== null && chronology.graph === graph;
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -1313,16 +1314,25 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }
 
   const canvasSnapshot = useMemo(() => graph ? toCanvasSnapshot(graph) : null, [graph]);
+  const overviewEventIds = useMemo(() => {
+    if (!embedded || mode !== "managed" || !api.readChronology || !graph) return null;
+    return new Set(graph.nodes.filter(node => nativeGraphPresentation(node).displayKind === "event").map(node => node.id));
+  }, [api.readChronology, embedded, graph, mode]);
   const overviewSnapshot = useMemo(() => {
     if (!embedded || mode !== "managed" || !canvasSnapshot) return canvasSnapshot;
-    const relationships = canvasSnapshot.relationships.filter(({ kind }) =>
+    const revealedId = createdNodeReveal?.worldId === graph?.world_id ? createdNodeReveal?.nodeId : undefined;
+    const hidden = (id: string) => hideOverviewEvents && id !== revealedId && overviewEventIds?.has(id);
+    const relationships = canvasSnapshot.relationships.filter(({ kind, fromObjectId, toObjectId }) =>
       kind !== "on_timeline" && kind !== "precedes"
-      && kind !== "dungeonbuddy.custom:on_timeline" && kind !== "dungeonbuddy.custom:precedes",
+      && kind !== "dungeonbuddy.custom:on_timeline" && kind !== "dungeonbuddy.custom:precedes"
+      && !hidden(fromObjectId) && !hidden(toObjectId),
     );
-    return relationships.length === canvasSnapshot.relationships.length
-      ? canvasSnapshot
-      : { ...canvasSnapshot, relationships };
-  }, [embedded, mode, canvasSnapshot]);
+    return {
+      ...canvasSnapshot,
+      objects: hideOverviewEvents ? canvasSnapshot.objects.filter(node => !hidden(node.id)) : canvasSnapshot.objects,
+      relationships,
+    };
+  }, [embedded, mode, canvasSnapshot, hideOverviewEvents, overviewEventIds, createdNodeReveal, graph?.world_id]);
   const focusedEventIds = useMemo(() => {
     if (!embedded || mode !== "managed" || !graph || !api.readChronology || !viewFocusId
       || neighborhoodDepth !== 1) return null;
@@ -1844,6 +1854,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
             )}
             {api.readChronology && <button type="button" className="native-demo-button native-demo-button--quiet"
               aria-expanded={chronologyOpen} onClick={() => setChronology(chronologyOpen ? null : { graph })}>Chronology</button>}
+            {!viewFocusId && Boolean(overviewEventIds?.size) && (
+              <button type="button" className="native-demo-button native-demo-button--quiet"
+                aria-pressed={hideOverviewEvents} onClick={() => setHideOverviewEvents(value => !value)}>
+                Hide Events in overview ({overviewEventIds?.size})
+              </button>
+            )}
             {chronologyOpen && api.readChronology && <GraphChronology key={chronology.relatedTo ?? ""}
               graph={graph} read={api.readChronology} relatedTo={chronology.relatedTo} onExplore={nodeId => {
                 if (pendingRef.current) return;

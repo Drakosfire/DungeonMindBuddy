@@ -798,6 +798,31 @@ describe("NativeGraphDemo", () => {
     await waitFor(() => expect(JSON.parse(sessionStorage.getItem(keyFor("managed:world-a")) ?? "null").pending.operation_id).toBe(operationA));
   });
 
+  it("reveals the committed Event while the overview hides Events", async () => {
+    const user = userEvent.setup();
+    const initial: NativeGraph = {
+      ...graph,
+      capabilities: { ...graph.capabilities, object_kinds: ["person", "event"] },
+      nodes: [...graph.nodes, { id: "entity:old-event", name: "Earlier Event", kind: "event" }],
+    };
+    const event = { id: "entity:new-event", name: "The Arrival", kind: "event" };
+    renderEmbeddedDemo({ mode: "managed", stateScopeId: "managed:event-reveal", api: makeApi({
+      readGraph: vi.fn().mockResolvedValue(initial),
+      readChronology: vi.fn(),
+      confirm: vi.fn().mockResolvedValue({
+        status: "committed", created_node_id: event.id,
+        graph: { ...initial, revision_id: "revision-002", nodes: [...initial.nodes, event] },
+      }),
+    }) });
+    await user.click(await screen.findByRole("button", { name: /Hide Events in overview/ }));
+    await user.click(graphAction("Place node"));
+    await user.click(within(screen.getByTestId("node-palette")).getByRole("button", { name: "Event" }));
+    await user.type(screen.getByLabelText("Name"), event.name);
+    await user.click(screen.getByRole("button", { name: "Prepare object" }));
+    await user.click(await screen.findByRole("button", { name: "Confirm in DungeonMind" }));
+    expect(await screen.findByRole("button", { name: "The Arrival, event" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it.each([false, true])("retains exact placement after readback (new node beyond initial canvas: %s)", async (beyondCanvas) => {
     const user = userEvent.setup();
     const readback = beyondCanvas ? { ...createdGraph, nodes: [
