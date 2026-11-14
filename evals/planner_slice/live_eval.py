@@ -10,7 +10,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from src.agent.corpus_path_tools import CORPUS_PATH_TOOL_NAMES, read_paths_from_tool_trace
+from corpus.tool_trace import CORPUS_PATH_TOOL_NAMES, read_paths_from_tool_trace
 from src.agent.planner import (
     PlanningModelStepRecord,
     PlanningTurnDetail,

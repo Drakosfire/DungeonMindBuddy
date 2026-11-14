@@ -69,7 +69,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_query_planner_dis
     planner_message_from_final_text,
     query_session_memory_call_count,
 )
-from src.agent.corpus_path_tools import (
+from corpus.tool_trace import (
     read_paths_from_tool_trace,
     unit_ids_from_query_session_memory_trace,
 )

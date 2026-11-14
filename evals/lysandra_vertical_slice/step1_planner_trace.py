@@ -57,7 +57,7 @@ from evals.planner_slice.live_eval import (  # noqa: E402
     evaluate_scenario_detail,
     resolve_planner_user_message,
 )
-from src.agent.corpus_path_tools import CORPUS_PATH_TOOL_NAMES  # noqa: E402
+from corpus.tool_trace import CORPUS_PATH_TOOL_NAMES  # noqa: E402
 from src.agent.planner import (  # noqa: E402
     PlanningTurnDetail,
     _planner_tools_responses,
