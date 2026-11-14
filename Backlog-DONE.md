@@ -146,6 +146,8 @@ These links trace original cleanup findings to the change that removed or replac
 
 - Scope streaming proxy settings to routes that stream. [#2717](https://github.com/Drakosfire/DungeonMindBuddy/pull/2717) updated the hosted template for ordinary proxy traffic. Disposable Nginx syntax validation passed, and a Graph request reached the upstream with the expected forwarded headers. Effective-host checks and any future Agent streaming rehearsal remain with the edge owner.
 
+<a id="cleanup-buddy-deployment-bind-port"></a>
+
 - Use one source for the Buddy deployment bind port. The [deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md) validates the resolved loopback TCP binding, compares it to the running binding, and uses it for local smoke and the expected Nginx upstream. Recorded fixtures covered six smoke cases, seven preflight cases, and binding drift. The release operator will rehearse default and custom ports under **Verify Compose interpolation on the release host**.
 
 - Control shell overrides during production Compose interpolation. [#2567](https://github.com/Drakosfire/DungeonMindBuddy/pull/2567) isolated release and rollback interpolation. [#2721](https://github.com/Drakosfire/DungeonMindBuddy/pull/2721) recorded a Compose 2.40.3 rehearsal where conflicting inherited values selected the wrong mount and port before sanitization and the approved values afterward. Pre-start JSON validation and running mount checks are in the deployment runbook. The release operator owns the selected-host verification.
@@ -412,11 +414,11 @@ The production image defines both hosted mode defaults. A direct container and a
 
 ## [DROPPED] Derive the proxy upstream from the effective Buddy bind port
 
-Duplicate of **Use one source for the Buddy deployment bind port** in [Backlog.md](Backlog.md). That item records the resolved Compose preflight and running binding checks, plus the release operator’s remaining default- and custom-port rehearsals through Nginx.
+Duplicate of [Use one source for the Buddy deployment bind port](#cleanup-buddy-deployment-bind-port). That item records the resolved Compose preflight and running binding checks, plus the release operator’s remaining default- and custom-port rehearsals through Nginx.
 
 ## [DROPPED] Detect drift in the design-agent export
 
-Duplicate of **Check design-agent upload bundle freshness against canonical sources** in [Backlog.md](Backlog.md).
+Duplicate of [Check design-agent upload bundle freshness against canonical sources](#done-check-design-agent-upload-bundle-freshness-against-canonical-sources).
 
 ## [DROPPED] Update the recap normalization index convention link
 
