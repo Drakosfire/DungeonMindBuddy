@@ -799,6 +799,38 @@ describe("NativeGraphDemo", () => {
     await waitFor(() => expect(JSON.parse(sessionStorage.getItem(keyFor("managed:world-a")) ?? "null").pending.operation_id).toBe(operationA));
   });
 
+  it("scopes sidebar chronology to the selected node and follows selection changes", async () => {
+    const linked = { id: "entity:arrival", name: "Mara arrives", kind: "event" };
+    const unrelated = { id: "entity:departure", name: "Tomas departs", kind: "event" };
+    const snapshot = {
+      ...graph,
+      nodes: [...graph.nodes, linked, unrelated],
+      edges: [...graph.edges,
+        { id: "arrival", source_id: "entity:mara", target_id: linked.id, predicate: "participates_in" },
+        { id: "departure", source_id: "entity:tomas", target_id: unrelated.id, predicate: "participates_in" }],
+    };
+    const user = userEvent.setup();
+    renderEmbeddedDemo({ mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:chronology", api: makeApi({
+      readGraph: vi.fn().mockResolvedValue(snapshot),
+      readChronology: vi.fn().mockResolvedValue({ assertions: [], completeness: { status: "complete" } }),
+    }) });
+    const switcher = await screen.findByRole("navigation", { name: "Graph sidebar" });
+    await user.click(within(switcher).getByRole("button", { name: "Chronology" }));
+    const chronology = within(screen.getByRole("complementary", { name: "Chronology" }));
+    expect(chronology.getByRole("heading", { name: "World chronology · Elderwyld" })).toBeInTheDocument();
+    expect(await chronology.findByRole("button", { name: unrelated.name })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Mara, npc" }));
+    expect(chronology.getByRole("heading", { name: "Chronology · Mara" })).toBeInTheDocument();
+    expect(chronology.getByRole("button", { name: linked.name })).toBeInTheDocument();
+    expect(chronology.queryByRole("button", { name: unrelated.name })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Tomas, npc" }));
+    expect(chronology.getByRole("heading", { name: "Chronology · Tomas" })).toBeInTheDocument();
+    expect(chronology.getByRole("button", { name: unrelated.name })).toBeInTheDocument();
+    expect(chronology.queryByRole("button", { name: linked.name })).not.toBeInTheDocument();
+  });
+
   it("reveals the committed Event in the overview", async () => {
     const user = userEvent.setup();
     const initial: NativeGraph = {
