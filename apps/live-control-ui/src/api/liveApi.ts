@@ -96,9 +96,7 @@ import type {
   WorldOwnedRunbooksResponseV2,
   WorldOwnedRunbookSnapshotV2,
   WorldOwnedRunbookMarkdownWriteCommitResponseV2,
-  GraphPreviewSurfaceResponse,
   GraphIngestLatestRunResponse,
-  GraphIngestRunsResponse,
   GoldGraphProjectionResponse,
   GraphReviewExistingObjectResolverRequest,
   GraphReviewExistingObjectResolverResponse,
@@ -113,8 +111,6 @@ import type {
   ManualReviewBedDetail,
   ManualReviewBedsResponse,
   RecapArtifactsListResponse,
-  RecapGraphPresentationResponse,
-  RecapGraphQuery,
   WorldGraphProjection,
   WorldGraphProjectionRequest,
   ManagedWorldGraphProjectionRequest,
@@ -1445,66 +1441,9 @@ export async function commitPartyRegistrySessionRosterWrite(
   );
 }
 
-function recapGraphQueryString(query?: RecapGraphQuery): string {
-  if (!query) {
-    return "";
-  }
-  const params = new URLSearchParams();
-  if (query.run_dir) params.set("run_dir", query.run_dir);
-  if (query.artifact_id) params.set("artifact_id", query.artifact_id);
-  if (query.campaign_id) params.set("campaign_id", query.campaign_id);
-  if (query.session_id) params.set("session_id", query.session_id);
-  const serialized = params.toString();
-  return serialized ? `?${serialized}` : "";
-}
-
 export async function getRecapArtifacts(campaignId?: string): Promise<RecapArtifactsListResponse> {
   const query = campaignId ? `?campaign_id=${encodeURIComponent(campaignId)}` : "";
   return apiFetch<RecapArtifactsListResponse>(`/api/live/graph-preview/artifacts${query}`);
-}
-
-export async function getGraphPreviewLatest(
-  runDir?: string,
-  query?: Omit<RecapGraphQuery, "run_dir">,
-): Promise<GraphPreviewSurfaceResponse> {
-  const params = new URLSearchParams();
-  if (runDir) params.set("run_dir", runDir);
-  if (query?.artifact_id) params.set("artifact_id", query.artifact_id);
-  if (query?.campaign_id) params.set("campaign_id", query.campaign_id);
-  if (query?.session_id) params.set("session_id", query.session_id);
-  const suffix = params.toString() ? `?${params.toString()}` : "";
-  return apiFetch<GraphPreviewSurfaceResponse>(`/api/live/graph-preview/latest${suffix}`);
-}
-
-export async function getRecapGraphPresentation(
-  query?: RecapGraphQuery,
-): Promise<RecapGraphPresentationResponse> {
-  return apiFetch<RecapGraphPresentationResponse>(
-    `/api/live/graph-preview/recap${recapGraphQueryString(query)}`,
-  );
-}
-
-export interface GraphIngestRunsQuery {
-  campaignId?: string;
-  sessionId?: string;
-  sourceRecapPath?: string;
-  sourceRecapSha256?: string;
-  status?: string;
-  requirePreviewUnionStore?: boolean;
-}
-
-export async function getGraphIngestRuns(query: GraphIngestRunsQuery = {}): Promise<GraphIngestRunsResponse> {
-  const params = new URLSearchParams();
-  if (query.campaignId) params.set("campaign_id", query.campaignId);
-  if (query.sessionId) params.set("session_id", query.sessionId);
-  if (query.sourceRecapPath) params.set("source_recap_path", query.sourceRecapPath);
-  if (query.sourceRecapSha256) params.set("source_recap_sha256", query.sourceRecapSha256);
-  if (query.status) params.set("status", query.status);
-  if (query.requirePreviewUnionStore != null) {
-    params.set("require_preview_union_store", String(query.requirePreviewUnionStore));
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : "";
-  return apiFetch<GraphIngestRunsResponse>(`/api/live/graph-preview/graph-ingest/runs${suffix}`);
 }
 
 export async function getLatestGraphIngestRun(

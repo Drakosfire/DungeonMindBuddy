@@ -21,7 +21,6 @@ import {
   getWorldPlayActiveRun,
   getBuildSourceNavigation,
   getCapabilities,
-  getGraphIngestRuns,
   getNativeWorldSourceAdmissionStatus,
   getGoldGraphProjection,
   getLatestGraphIngestRun,
@@ -1474,26 +1473,6 @@ describe("liveApi artifact/capability helpers", () => {
     expect(String(url)).not.toContain("file_path");
     expect(String(url)).not.toContain("absolute_path");
     expect(String(url)).not.toContain("relative_path");
-  });
-
-  it("getGraphIngestRuns builds expected query string", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema_version: "dmb_graph_ingest_run_registry_v1", version: "1", runs: [] }),
-    );
-
-    await getGraphIngestRuns({
-      campaignId: "c2",
-      sessionId: "session-22",
-      status: "preview_union_store_ready",
-      requirePreviewUnionStore: true,
-    });
-
-    const [url] = fetchSpy.mock.calls[0];
-    expect(String(url)).toContain("/api/live/graph-preview/graph-ingest/runs?");
-    expect(String(url)).toContain("campaign_id=c2");
-    expect(String(url)).toContain("session_id=session-22");
-    expect(String(url)).toContain("status=preview_union_store_ready");
-    expect(String(url)).toContain("require_preview_union_store=true");
   });
 
   it("getLatestGraphIngestRun calls expected endpoint", async () => {
