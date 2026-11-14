@@ -2,6 +2,7 @@ import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/reac
 import {useEffect,useMemo,useState} from 'react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {App} from '../App';
+import {SurfaceWorldPicker} from "../shared/SurfaceWorldPicker";
 import * as api from '../api/liveApi';
 import * as combatApi from '../combat/combatApi';
 import {useAgentInteraction} from '../agentInteraction/useAgentInteraction';
@@ -24,6 +25,7 @@ vi.mock('../planSurface/PlanSurfacePage',()=>({PlanSurfacePage:()=>{
  const doc=new URLSearchParams(window.location.search).get('documentId')??'doc-A';
  const props=useMemo<WorldPlanAgentConversationProps>(()=>({worldId,worldName:worldId,documentId:doc,surfaceInstanceId:doc,revision:1,
   editBridge:{capture:owner.capture,apply:vi.fn()},onSavePlan:owner.save,savePlanEnabled:true,draftGeneration:0,selectionGeneration:0,savedDirty:false,pageReady:true,saveInFlight:false}),[worldId,doc]);
+ if (!worldId) return <SurfaceWorldPicker surface="plan" />;
  return <main data-testid="plan-page"><WorldPlanConversationRegistration {...props}/><button onClick={owner.capture}>Edit {doc}</button></main>;
 }}));
 vi.mock('../playSurface/PlaySurfacePage',()=>({PlaySurfacePage:()=> <main data-testid="play-page">Play route</main>}));
@@ -136,4 +138,16 @@ it.each([null,'longmont-c2'])('admits a Page by its exact owning World with camp
  window.history.replaceState({},'','/build?world=A&documentId=page');render(<App/>);
  await screen.findByTestId('build-page');expect(screen.queryByRole('alert')).not.toBeInTheDocument();
  navigate('/build?world=B&documentId=page');await screen.findByRole('alert');expect(screen.queryByTestId('build-page')).not.toBeInTheDocument();
+});
+
+it("loads the catalog for the picker and again for World admission", async () => {
+  window.history.replaceState({}, "", "/plan");
+  render(<App />);
+
+  const choice = await screen.findByRole("link", { name: /A Open Plans/ });
+  expect(api.listWorldContainers).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(choice);
+  await waitFor(() => expect(screen.getByTestId("world-controller")).toHaveAttribute("data-world", "A"));
+  expect(api.listWorldContainers).toHaveBeenCalledTimes(2);
 });
