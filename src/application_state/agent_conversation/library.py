@@ -406,17 +406,16 @@ def read_turns(
     before_sequence: int | None = None,
 ):
     service = AgentConversationService()
-    turns, more = service.list_turn_page(
-        world, conversation, limit=limit, before_sequence=before_sequence
-    )
-    rows = [_turn_row(turn, world, conversation) for turn in turns]
-    from .retry import _supports_context, library_contexts
+    from .retry import library_contexts
 
-    contexts = [None] * len(turns)
-    if any(_supports_context(getattr(turn, "envelope", turn)) for turn in turns):
-        with unit_of_work(_ready_dsn()) as conn:
-            conn.execute("SET TRANSACTION READ ONLY")
-            contexts = library_contexts(conn, world, conversation, turns)
+    with unit_of_work(_ready_dsn()) as conn:
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        turns, more = service.list_turn_page(
+            world, conversation, limit=limit, before_sequence=before_sequence,
+            connection=conn,
+        )
+        contexts = library_contexts(conn, world, conversation, turns)
+    rows = [_turn_row(turn, world, conversation) for turn in turns]
     for row, retry_context in zip(rows, contexts, strict=True):
         row["retry_context"] = retry_context
     return {
