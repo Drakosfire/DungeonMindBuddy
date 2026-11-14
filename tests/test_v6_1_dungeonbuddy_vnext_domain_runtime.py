@@ -248,6 +248,9 @@ def _admission(preservation: dict, projection_input: DungeonBuddyVNextProjection
         projection_input=projection_input,
         source_reader=reader,
     )
+    from dungeonmind.application.vnext.admission import AlwaysAdmitPolicy
+
+    assert type(context.domain_policy) is AlwaysAdmitPolicy
     result = context.admit_candidates(tuple(parsed.assertions_by_id))
     return context, result
 
