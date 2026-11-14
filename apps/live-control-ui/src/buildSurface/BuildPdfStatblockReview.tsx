@@ -559,7 +559,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
                   <input data-lair-timing disabled={pending}
                     value={editor.workingCopy.rule_elements.find(element => element.key === key)?.activation.timing_text ?? ""}
                     onChange={event => {
-                      const timing = event.currentTarget.value || null;
+                      const value = event.currentTarget.value;
+                      const timing = value.trim() ? value : null;
                       commitEdit(updateWorkingCopy(editor, current => ({
                         ...current,
                         rule_elements: current.rule_elements.map(element => element.key === key
