@@ -254,3 +254,40 @@ def test_native_projection_support_uses_exact_revision(monkeypatch, revision_pin
     assert managed_projection._read_native_projection_support(binding, revision_pin) == (
         "current", context, None, support
     )
+
+
+def test_source_views_do_not_copy_producer_session_to_unmatched_revision(monkeypatch):
+    from types import SimpleNamespace as Record
+
+    from apps.live_control_server.integrations.dungeonmind import vnext_world_projection as adapter
+
+    artifact = Record(
+        source_artifact_id="artifact", source_classification="buddy:recap",
+        domain_metadata=[], uri=None,
+    )
+    source_reader = Record(get_provenance_snapshot=lambda **_: Record(
+        get_artifact=lambda _: artifact,
+    ))
+    support = Record(evidence=[
+        Record(evidence_ref_id=key, source_artifact_id="artifact", locator=None,
+               source_span_ref_id=None)
+        for key in ("matched", "older")
+    ])
+    selected = Record(source_artifact=artifact, evidence_ref_ids=("matched",))
+
+    def select(access, *, evidence_ref_ids):
+        assert evidence_ref_ids == ["matched", "older"]
+        return Record(sources=(selected,))
+
+    monkeypatch.setattr(adapter, "list_admitted_native_text_sources", select)
+    monkeypatch.setattr(adapter, "source_display_metadata", lambda items, world: [
+        {"origin_matches_current_metadata": True, "campaign_id": "campaign",
+         "session_id": "session-9"}
+    ])
+    evidence, artifacts = adapter.project_source_views(
+        Record(source_reader=source_reader), support, access=object(), managed_world_id="world"
+    )
+    assert artifacts[0].session_id == "session-9"
+    assert [(row.campaign_id, row.session_id) for row in evidence] == [
+        ("campaign", "session-9"), (None, None)
+    ]
