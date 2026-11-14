@@ -431,7 +431,7 @@ it.each([false, true])("prepares selected facts and confirms the exact packet (b
       .mockResolvedValue({ status: "prepared", confirmation: packet, records: [] });
     const confirm = vi.spyOn(native, "confirmNativeWorldbuilding")
       .mockResolvedValue({ recovered: false, result: { child_revision_id: "rev:2" } });
-    render(<GraphReviewWorldbuildingPublication review={review} />);
+    const ui = render(<GraphReviewWorldbuildingPublication review={review} />);
     fireEvent.change(await screen.findByLabelText("Candidate object"), { target: { value: "npc:a" } });
     if (bindExisting) {
       fireEvent.change(screen.getByLabelText("Object action"), { target: { value: "existing" } });
@@ -482,6 +482,8 @@ it.each([false, true])("prepares selected facts and confirms the exact packet (b
     expect(confirm).not.toHaveBeenCalled();
     fireEvent.click(submit);
     await screen.findByText("Worldbuilding publication confirmed.");
+    ui.rerender(<GraphReviewWorldbuildingPublication review={{...review}} />);
+    expect(screen.getByText("Worldbuilding publication confirmed.")).toBeInTheDocument();
     expect(confirm).toHaveBeenCalledExactlyOnceWith(packet);
     expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
   } finally {

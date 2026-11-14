@@ -50,15 +50,17 @@ function PublicationEntry(props: Props & {managedWorldId: string; onReset: () =>
 function ExistingWorldPublication(props: Props & {managedWorldId: string; onReset: () => void}) {
   const [saved] = useState(() => {
     try {
-      return {packet: readNativeWorldbuildingPublicationRecovery(props.review, props.managedWorldId, {allowClassic: true}), error: null};
+      const packet = readNativeWorldbuildingPublicationRecovery(props.review, props.managedWorldId, {allowClassic: true});
+      const useNative = !packet && import.meta.env.VITE_NATIVE_WORLDBUILDING_WORLD === props.managedWorldId &&
+        !readWorldbuildingPublicationRecovery(props.review, props.managedWorldId);
+      return {packet, useNative, error: null};
     } catch (reason) {
       return {packet: null, error: message(reason)};
     }
   });
   if (saved.error) return <p role="alert">{saved.error}</p>;
   if (saved.packet) return <NativePublicationRecovery {...props}/>;
-  if (import.meta.env.VITE_NATIVE_WORLDBUILDING_WORLD === props.managedWorldId &&
-      !readWorldbuildingPublicationRecovery(props.review, props.managedWorldId)) {
+  if (saved.useNative) {
     return <NativePublication {...props}/>;
   }
   return <Publication {...props}/>;
