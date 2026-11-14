@@ -62,7 +62,7 @@ from apps.live_control_server.services.threat_draft_store import (
     ThreatDraftStoreError,
     get_threat_draft,
 )
-from src.live_play.live_store import load_json, write_json
+from live_play.live_store import load_json, write_json
 
 
 DEFAULT_PUBLICATION_REL = "out/threat_publication_operations"

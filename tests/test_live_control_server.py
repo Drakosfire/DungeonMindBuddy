@@ -20,7 +20,7 @@ from apps.live_control_server.services.citation_source_reader import (
     read_citation_source,
 )
 from apps.live_control_server.session_store import events_since
-from src.live_play.live_store import append_jsonl, load_json, write_json
+from live_play.live_store import append_jsonl, load_json, write_json
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_DIR = ROOT / "schemas/live"

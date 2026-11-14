@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from apps.live_control_server.schema_validation import validate_before_append
-from src.live_play.live_store import append_jsonl
+from live_play.live_store import append_jsonl
 from src.live_play.projections.artifact_patching import execute_patch_artifact_command
 from src.live_play.projections.commands import ProjectionCommand
 from src.live_play.projections.invalidation import ProjectionInvalidation

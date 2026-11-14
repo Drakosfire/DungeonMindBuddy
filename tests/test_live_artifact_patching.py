@@ -12,7 +12,7 @@ from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.routes import live as live_routes
 from apps.live_control_server.schema_validation import validate_before_append
-from src.live_play.live_store import append_jsonl
+from live_play.live_store import append_jsonl
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED_SESSION = ROOT / "evals/c2_live_prep/live/session_22"

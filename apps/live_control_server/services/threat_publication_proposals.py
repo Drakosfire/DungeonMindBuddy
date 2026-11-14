@@ -104,7 +104,7 @@ from apps.live_control_server.models.threat_statblock_binding import (
     external_statblock_node_id,
     parse_threat_statblock_binding_assertion,
 )
-from src.live_play.live_store import load_json, write_json
+from live_play.live_store import load_json, write_json
 
 
 DEFAULT_PROPOSAL_REL = "out/threat_publication_proposals"

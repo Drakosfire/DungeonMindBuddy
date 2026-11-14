@@ -79,7 +79,7 @@ from graph_memory.projection.world_projection import (
     rank_search_node_matches,
 )
 from apps.live_control_server.models.threat_statblock_binding import ThreatStatblockBindingV1
-from src.live_play.live_store import load_json, write_json
+from live_play.live_store import load_json, write_json
 
 
 DEFAULT_IDENTITY_REL = "out/threat_publication_identity"

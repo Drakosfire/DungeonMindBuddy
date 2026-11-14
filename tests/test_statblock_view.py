@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.statblock_draft_store import StoredStatblockDraftRecord
-from src.live_play.live_store import load_json, write_json
+from live_play.live_store import load_json, write_json
 
 ROOT = Path(__file__).resolve().parents[1]
 LIVE_SESSION_FIXTURE = ROOT / "evals/c2_live_prep/live/session_22"

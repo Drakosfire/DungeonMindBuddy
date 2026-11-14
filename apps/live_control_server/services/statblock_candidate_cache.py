@@ -11,7 +11,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.config import 
 from apps.live_control_server.integrations.dungeonmind_statblocks.models import (
     GeneratedStatblockCandidateV1,
 )
-from src.live_play.live_store import load_json, write_json
+from live_play.live_store import load_json, write_json
 
 DEFAULT_CACHE_REL = "out/statblock_candidates"
 CACHE_SCHEMA = "dmb_statblock_candidate_cache_v1"
