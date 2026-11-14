@@ -1119,10 +1119,22 @@ def test_native_search_source_pin_matches_batch_receipt(inspection, monkeypatch)
 
     principal = NativeGraphPrincipal(subject="test:gm", role="gm", auth_method="local_operator")
     scope = {"worldId": "managed", "campaignId": inspection.lane.run.campaign_id}
-    search = native.shared_search(WorldGraphSearchRequest.model_validate({
+    search_request = WorldGraphSearchRequest.model_validate({
         **scope, "schema": "dmb_world_graph_search_request_v1", "queryText": "Object 1",
         "bounds": {"maxNodes": 1},
-    }), principal, include_source_pins=True)
+    })
+    binding = inspection.lane.bound
+    with pytest.raises(native.InspectionUnavailable, match="native_inspection_binding_changed"):
+        native.shared_search(
+            search_request, principal, include_source_pins=True,
+            expected_native_world_id=binding["native_world_id"],
+            expected_binding_version=binding["binding_version"] + 1,
+        )
+    search = native.shared_search(
+        search_request, principal, include_source_pins=True,
+        expected_native_world_id=binding["native_world_id"],
+        expected_binding_version=binding["binding_version"],
+    )
     pin, = search.source_pins
     monkeypatch.setattr(world_graph_reads, "direct_services_from_config",
                         lambda *_: pytest.fail("classic source reader invoked"))
