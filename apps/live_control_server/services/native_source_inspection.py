@@ -114,6 +114,8 @@ def published_recap(request, principal):
         revision_id=head.head_revision_id,
     ), principal)
     catalogue = list_admitted_native_text_sources(context.access)
+    if not catalogue.complete:
+        raise SourceInspectionUnavailable("native_published_recap_catalog_incomplete")
     navigation = source_display_metadata(catalogue.sources, pin.managed_world_id)
     matches = [
         item for item, display in zip(catalogue.sources, navigation, strict=True)

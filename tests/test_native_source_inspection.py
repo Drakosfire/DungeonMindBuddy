@@ -454,10 +454,12 @@ def test_blank_native_source_remains_readable_without_section_selectors(inspecti
 
 
 @pytest.mark.parametrize(
-    "copies,rebind,expected", [(0, False, 409), (1, False, 200), (2, False, 409), (1, True, 409)],
+    "copies,rebind,complete,expected",
+    [(0, False, True, 409), (1, False, True, 200), (2, False, True, 409),
+     (1, True, True, 409), (1, False, False, 409)],
 )
 def test_published_recap_requires_one_verified_match(
-    inspection, monkeypatch, copies, rebind, expected,
+    inspection, monkeypatch, copies, rebind, complete, expected,
 ):
     receipt = admit(inspection.lane)
     binding = {
@@ -470,7 +472,7 @@ def test_published_recap_requires_one_verified_match(
 
     def catalog_with_matches(access):
         result = catalog(access)
-        return replace(result, sources=result.sources * copies)
+        return replace(result, sources=result.sources * copies, complete=complete)
 
     monkeypatch.setattr(service, "list_admitted_native_text_sources", catalog_with_matches)
     monkeypatch.setattr(service, "source_display_metadata", lambda items, _: [{
@@ -488,3 +490,5 @@ def test_published_recap_requires_one_verified_match(
         assert "body_text" not in response.text
     if rebind:
         assert response.json()["detail"]["code"] == "native_published_recap_binding_changed"
+    if not complete:
+        assert response.json()["detail"]["code"] == "native_published_recap_catalog_incomplete"
