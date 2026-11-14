@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from src.live_play.projections.targets import ProjectionTarget
+from live_play.projections.targets import ProjectionTarget
 from live_play.roll_table_registry import RollTableRef, load_parsed_table
 
 ArtifactContentType = Literal["application/json", "text/markdown"]
