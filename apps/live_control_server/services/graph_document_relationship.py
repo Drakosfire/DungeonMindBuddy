@@ -73,7 +73,7 @@ def relationship_request(root: Path, request: DocumentRelationshipRequest, princ
     for endpoint in (request.source, request.target):
         if endpoint.node_id:
             matches = [n for n in nodes if n["node_id"] == endpoint.node_id]
-            if len(matches) != 1 or matches[0]["label"] != endpoint.label or matches[0]["kind"] != endpoint.kind:
+            if len(matches) != 1 or not matches[0]["selectable"] or matches[0]["label"] != endpoint.label or matches[0]["kind"] != endpoint.kind:
                 refuse("A selected identity changed or is outside this World. Review its identity again.")
         elif any(endpoint.label.casefold() in {n["label"].casefold(), *(a.casefold() for a in n["aliases"])} for n in nodes):
             refuse("That name or alias already exists. Choose the existing World identity.")

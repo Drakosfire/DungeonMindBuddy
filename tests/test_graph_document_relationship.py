@@ -27,7 +27,7 @@ def graph(case,monkeypatch):
     monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN','synthetic-relationship-local-token-with-adequate-length')
     case.client=TestClient(case.client.app,client=('127.0.0.1',50000),headers={'Authorization':'Bearer synthetic-relationship-local-token-with-adequate-length'})
     nodes=[]
-    monkeypatch.setattr('apps.live_control_server.services.graph_document_relationship.authoring_identities',lambda *a,**kw:{"identities": [vars(node) for node in nodes]})
+    monkeypatch.setattr('apps.live_control_server.services.graph_document_relationship.authoring_identities',lambda *a,**kw:{"identities": [{"selectable": True, **vars(node)} for node in nodes]})
     return nodes
 
 

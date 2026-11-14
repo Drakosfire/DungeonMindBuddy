@@ -19,6 +19,7 @@ from apps.live_control_server.models.native_graph_inspection import Closed, Insp
 from apps.live_control_server.models.world_graph_object_projection import WorldGraphObjectProjectionRequest
 from apps.live_control_server.integrations.dungeonmind.vnext_complete_object import (
     DungeonBuddyVNextReadIdentity,
+    VNextCompleteObjectProjectionError,
     project_complete_world_object_vnext,
     world_object_display_values,
 )
@@ -104,16 +105,30 @@ def authoring_identities(scope, principal):
         complete = service.get_complete_entity(read, entity_id)
         if not complete.found or complete.completeness.status != "complete":
             raise InspectionUnavailable("native_authoring_identities_partial")
-        label, kind, summary = world_object_display_values(complete.assertions, entity_id)
+        aliases = [alias.alias_text for alias in sorted(
+            complete.aliases, key=lambda alias: alias.alias_id
+        )]
+        try:
+            label, kind, summary = world_object_display_values(complete.assertions, entity_id)
+            selectable = True
+        except VNextCompleteObjectProjectionError:
+            label, kind, summary = f"Unresolved identity · {entity_id}", "entity", None
+            selectable = False
+            names = set()
+            for assertion in complete.assertions:
+                if assertion.subject_entity_id == entity_id and assertion.predicate == "dnd5e:name":
+                    value = getattr(assertion.value, "value", None)
+                    if isinstance(value, str):
+                        names.add(value)
+            aliases.extend(sorted(names.difference(aliases)))
         identities.append({
             "node_id": entity_id,
             "label": label,
             "kind": kind,
             "role": kind,
             "summary": summary,
-            "aliases": [alias.alias_text for alias in sorted(
-                complete.aliases, key=lambda alias: alias.alias_id
-            )],
+            "aliases": aliases,
+            "selectable": selectable,
         })
     return _response(bound, pin, identities=identities)
 

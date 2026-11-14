@@ -3215,6 +3215,7 @@ export async function getAgentNativeAssertionSource(worldId:string,turnId:string
 
 
 export type NativeAuthoringIdentity = {
+  selectable?: boolean;
   node_id: string;
   label: string;
   kind: string;

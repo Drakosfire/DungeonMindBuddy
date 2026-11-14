@@ -78,7 +78,7 @@ export function BuildRelationshipReview({worldId,documentId,seed,onConsumed}:{wo
  };
  useLayoutEffect(()=>publishRelationshipReviewHost({worldId,documentId,open:intent=>openProposal.current(intent)}),[worldId,documentId]);
  const endpoint=(side:'source'|'target')=>{const e=value!.intent[side];return <fieldset><legend>{side==='source'?'From':'To'}</legend>
-  <label>{side} identity<select value={e.node_id??'__new__'} onChange={event=>{const n=nodes.find(n=>n.node_id===event.target.value);edit(v=>({...v,intent:{...v.intent,[side]:n?{node_id:n.node_id,label:n.label,kind:n.kind}:{node_id:null,label:'',kind:'npc'}}}));}}><option value="__new__">Create a new identity</option>{nodes.map(n=><option key={n.node_id} value={n.node_id}>{n.label} · {n.kind} · {n.node_id}</option>)}</select></label>
+  <label>{side} identity<select value={e.node_id??'__new__'} onChange={event=>{const n=nodes.find(n=>n.node_id===event.target.value);edit(v=>({...v,intent:{...v.intent,[side]:n?{node_id:n.node_id,label:n.label,kind:n.kind}:{node_id:null,label:'',kind:'npc'}}}));}}><option value="__new__">Create a new identity</option>{nodes.map(n=><option key={n.node_id} value={n.node_id} disabled={n.selectable === false}>{n.label} · {n.kind} · {n.node_id}</option>)}</select></label>
   {!e.node_id&&<><label>{side} name<input value={e.label} onChange={event=>{const label=event.target.value;edit(v=>({...v,intent:{...v.intent,[side]:{...v.intent[side],label}}}));}}/></label>
   <label>{side} kind<select value={e.kind} onChange={event=>{const kind=event.target.value;edit(v=>({...v,intent:{...v.intent,[side]:{...v.intent[side],kind}}}));}}>{kinds.map(k=><option key={k} value={k}>{k}</option>)}</select></label></>}
  </fieldset>;};

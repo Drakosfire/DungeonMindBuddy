@@ -143,9 +143,9 @@ export function BuildManualKnowledge(props:Props){
       <label>Declare <select value={mode} onChange={e=>setMode(e.target.value)}><option value="object">Object</option><option value="relationship">Relationship</option></select></label>
       {mode==='object'?<><label>Name<input value={label} onChange={e=>setLabel(e.target.value)}/></label>
         <label>Kind<select value={kind} onChange={e=>setKind(e.target.value)}>{!kinds.includes(kind)&&<option value={kind} disabled>Choose a supported kind (previously {kind})</option>}{kinds.map(k=><option key={k}>{k}</option>)}</select></label></>
-      :<><label>From<select value={source} onChange={e=>setSource(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.node_id} value={n.node_id}>{nodeCaption(n)}</option>)}</select></label>
+      :<><label>From<select value={source} onChange={e=>setSource(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.node_id} value={n.node_id} disabled={n.selectable === false}>{nodeCaption(n)}</option>)}</select></label>
         <label>Relationship<input value={predicate} onChange={e=>setPredicate(e.target.value)}/></label>
-        <label>To<select value={target} onChange={e=>setTarget(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.node_id} value={n.node_id}>{nodeCaption(n)}</option>)}</select></label></>}
+        <label>To<select value={target} onChange={e=>setTarget(e.target.value)}><option value="">Choose object</option>{nodes.map(n=><option key={n.node_id} value={n.node_id} disabled={n.selectable === false}>{nodeCaption(n)}</option>)}</select></label></>}
       <label>Description<textarea value={summary} onChange={e=>setSummary(e.target.value)}/></label>
       <button type="button" disabled={!selection||(mode==='object'&&!kinds.includes(kind))} onClick={()=>void prepare()}>Preview World change</button>
     </fieldset>}
