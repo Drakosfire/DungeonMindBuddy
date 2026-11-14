@@ -1316,7 +1316,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const overviewSnapshot = useMemo(() => {
     if (!embedded || mode !== "managed" || !canvasSnapshot) return canvasSnapshot;
     const relationships = canvasSnapshot.relationships.filter(({ kind }) =>
-      kind !== "dungeonbuddy.custom:on_timeline" && kind !== "dungeonbuddy.custom:precedes",
+      kind !== "on_timeline" && kind !== "precedes"
+      && kind !== "dungeonbuddy.custom:on_timeline" && kind !== "dungeonbuddy.custom:precedes",
     );
     return relationships.length === canvasSnapshot.relationships.length
       ? canvasSnapshot
