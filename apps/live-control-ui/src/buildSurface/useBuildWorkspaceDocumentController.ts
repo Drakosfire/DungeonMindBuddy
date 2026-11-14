@@ -7,7 +7,7 @@ import {
   commitTiptapMarkdownWrite,
   createWorldContainer,
   getCommittedPageSnapshot,
-  listWorkspaceDocuments,
+  listWorkspacePageInventory,
   listWorldContainers,
   prepareTiptapMarkdownWrite,
   updateWorkspaceDocumentMetadata,
@@ -286,6 +286,8 @@ export interface BuildWorkspaceDocumentController {
   retryImportSource: (payload: { markdown: string }) => void;
   retryCreatedDocument: () => void;
   refreshDocuments: () => void;
+  hasMoreDocuments: boolean;
+  loadMoreDocuments: () => void;
   /** Existing campaign + managed-world destinations for New Source / Import. */
   destinationOptions: BuildSourceDestinationOption[];
   suggestedDestinationValue: string | null;
@@ -314,6 +316,8 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   const switchingRef = useRef(false);
   switchingRef.current = switching;
   const [documents, setDocuments] = useState<WorkspaceDocumentRecord[] | null>(null);
+  const [campaignTags, setCampaignTags] = useState<string[]>([]);
+  const [documentCursor, setDocumentCursor] = useState<{ updatedAt: string; documentId: string } | null>(null);
   const [listStatus, setListStatus] = useState<BuildDocumentListStatus>("loading");
   const [managedWorlds, setManagedWorlds] = useState<WorldContainerRecord[]>([]);
   const [creating, setCreating] = useState(false);
@@ -350,17 +354,23 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     }
   }, []);
 
-  const refreshDocuments = useCallback(async () => {
+  const refreshDocuments = useCallback(async (
+    before?: { updatedAt: string; documentId: string },
+  ) => {
     const generation = ++selectorListGenerationRef.current;
     setListStatus("loading");
     try {
-      const list = await listWorkspaceDocuments({
-        kind: "worldbuilding_source",
-        status: "active",
-        ...(selectedWorldId ? { world_id: selectedWorldId } : {}),
-      });
+      const list = await listWorkspacePageInventory({ worldId: selectedWorldId ?? undefined }, before);
       if (generation !== selectorListGenerationRef.current) return;
-      setDocuments(list.records);
+      if (!before) setCampaignTags(list.campaign_tags ?? []);
+      setDocuments((current) => {
+        if (!before) return list.records;
+        const seen = new Set(current?.map((record) => record.document_id));
+        return [...(current ?? []), ...list.records.filter((record) => !seen.has(record.document_id))];
+      });
+      setDocumentCursor(list.next_before_updated_at && list.next_before_document_id
+        ? { updatedAt: list.next_before_updated_at, documentId: list.next_before_document_id }
+        : null);
       setListStatus("ready");
     } catch {
       if (generation !== selectorListGenerationRef.current) return;
@@ -369,6 +379,9 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   }, [selectedWorldId]);
 
   useEffect(() => {
+    setDocuments(null);
+    setCampaignTags([]);
+    setDocumentCursor(null);
     void refreshDocuments();
     void refreshManagedWorlds();
   }, [refreshDocuments, refreshManagedWorlds]);
@@ -689,10 +702,10 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   const creatableCampaignIds = useMemo(
     () =>
       resolveBuildCreateCampaignChoices({
-        documents,
+        documents: campaignTags.map((campaign_id) => ({ campaign_id })),
         activeCampaignId: activeRecord?.campaign_id,
       }),
-    [activeRecord?.campaign_id, documents],
+    [activeRecord?.campaign_id, campaignTags],
   );
 
   const destinationOptions = useMemo((): BuildSourceDestinationOption[] => {
@@ -1103,6 +1116,10 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     retryImportSource: (payload) => void retryImportSource(payload),
     retryCreatedDocument: () => void retryCreatedDocument(),
     refreshDocuments: () => void refreshDocuments(),
+    hasMoreDocuments: documentCursor !== null,
+    loadMoreDocuments: () => {
+      if (documentCursor && listStatus === "ready") void refreshDocuments(documentCursor);
+    },
     destinationOptions,
     suggestedDestinationValue,
     suggestedCreateCampaignId,

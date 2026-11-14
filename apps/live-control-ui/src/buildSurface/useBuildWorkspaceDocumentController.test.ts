@@ -15,7 +15,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     ...actual,
     getCommittedPageSnapshot: vi.fn(),
     admitNativeWorldSource: vi.fn(),
-    listWorkspaceDocuments: vi.fn(),
+    listWorkspacePageInventory: vi.fn(),
     listWorldContainers: vi.fn(),
     createWorldContainer: vi.fn(),
     createWorkspaceDocument: vi.fn(),
@@ -98,7 +98,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     localStorage.clear();
     sessionStorage.clear();
     window.history.pushState({}, "", "/build");
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [buildRecord(DOC_A), buildRecord(DOC_B, { campaign_id: "longmont-c2" })],
     });
@@ -123,7 +123,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       const {result} = renderHook(() => useBuildWorkspaceDocumentController());
       await waitFor(() => expect(result.current.loadStatus).toBe("ready"));
       expect(result.current.activeRecord?.campaign_id).toBe(campaign_id);
-      expect(liveApi.listWorkspaceDocuments).toHaveBeenCalledWith({kind:"worldbuilding_source",status:"active",world_id:"world"});
+      expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledWith({worldId:"world"}, undefined);
       expect(liveApi.admitNativeWorldSource).not.toHaveBeenCalled();
     } finally { selected.mockRestore(); }
   });
@@ -155,10 +155,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await waitFor(() => {
       expect(result.current.listStatus).toBe("ready");
     });
-    expect(liveApi.listWorkspaceDocuments).toHaveBeenCalledWith({
-      kind: "worldbuilding_source",
-      status: "active",
-    });
+    expect(liveApi.listWorkspacePageInventory).toHaveBeenCalledWith({worldId: undefined}, undefined);
     expect(result.current.documents).toHaveLength(2);
   });
 
@@ -296,8 +293,35 @@ describe("useBuildWorkspaceDocumentController", () => {
     expect(result.current.createError).toMatch(/Choose a campaign/i);
   });
 
+  it("appends later source pages and keeps campaign destinations from page one", async () => {
+    const inventory = vi.mocked(liveApi.listWorkspacePageInventory);
+    const cursor = "2026-01-01T00:00:00.123456Z";
+    inventory.mockImplementation(async (_filters, before) => before ? {
+      schema_version: "dmb_workspace_document_registry_v1",
+      campaign_tags: null,
+      next_before_updated_at: null,
+      next_before_document_id: null,
+      records: [buildRecord(DOC_B)],
+    } : {
+      schema_version: "dmb_workspace_document_registry_v1",
+      campaign_tags: ["eldyrwild"],
+      next_before_updated_at: cursor,
+      next_before_document_id: DOC_A,
+      records: [buildRecord(DOC_A)],
+    });
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.hasMoreDocuments).toBe(true));
+    expect(result.current.documents?.map(record => record.document_id)).toEqual([DOC_A]);
+    expect(result.current.destinationOptions).toContainEqual(expect.objectContaining({ value: "campaign:eldyrwild" }));
+    act(() => result.current.loadMoreDocuments());
+    await waitFor(() => expect(result.current.documents?.map(record => record.document_id)).toEqual([DOC_A, DOC_B]));
+    expect(inventory).toHaveBeenLastCalledWith({worldId: undefined}, {updatedAt: cursor, documentId: DOC_A});
+    expect(result.current.hasMoreDocuments).toBe(false);
+    expect(result.current.destinationOptions).toContainEqual(expect.objectContaining({ value: "campaign:eldyrwild" }));
+  });
+
   it("allows create into an admissible loadable campaign such as eldyrwild", async () => {
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: ["eldyrwild"], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [
         buildRecord(DOC_A),
@@ -954,7 +978,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       world_id: "eldyrwild",
     });
     vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValueOnce(imported);
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [committedActive, buildRecord(DOC_B, { campaign_id: "longmont-c2" })],
     });
