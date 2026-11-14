@@ -58,11 +58,15 @@ export async function readBuildConstructionStream(response:Response, request:Wor
         ||!Number.isSafeInteger(p.sequence)||p.sequence<=sequence||!['building','incomplete'].includes(p.status)
         ||!Array.isArray(p.steps)||p.steps.some(row=>!row||typeof row!=='object'||!exact(row,p.schema==='dmb_build_plan_construction_v3'?['text','kind','selected']:['text','kind'])||p.schema==='dmb_build_plan_construction_v3'&&(!('selected' in row)||typeof row.selected!=='boolean')||typeof row.text!=='string'||!row.text.trim()||!['discuss','prepare_insertion'].includes(row.kind))
         ||p.schema!=='dmb_build_plan_construction_v1'&&(!(p.objective===null||typeof p.objective==='string'&&!!p.objective.trim())||p.objective===null&&p.steps.length>0||previousObjective!==null&&p.objective!==previousObjective)
-        ||p.steps.length<previousSteps.length||stable(p.steps.slice(0,previousSteps.length))!==stable(previousSteps)
+        ||p.steps.length<previousSteps.length||previousSteps.some((row,index)=>{
+          const step=p.steps[index];
+          return row.text!==step.text||row.kind!==step.kind
+            ||("selected" in row?row.selected:undefined)!==("selected" in step?step.selected:undefined);
+        })
         ||incomplete&&p.status!=='incomplete')return;
       const next=stable([p.schema,p.placement_id,p.durable_turn_id,p.turn_attempt,p.provider_attempt_id,p.working_snapshot_sha256]);
       if(identity!==null&&identity!==next)return;
-      identity=next;sequence=p.sequence;if(p.schema!=='dmb_build_plan_construction_v1')previousObjective=p.objective;previousSteps=p.steps.map(row=>({...row}));incomplete=p.status==='incomplete';
+      identity=next;sequence=p.sequence;if(p.schema!=='dmb_build_plan_construction_v1')previousObjective=p.objective;for(let index=previousSteps.length;index<p.steps.length;index++)previousSteps.push({...p.steps[index]});incomplete=p.status==='incomplete';
       try{onProgress(p);}catch{/* Observation cannot change the final receipt. */}
       return;
     }
