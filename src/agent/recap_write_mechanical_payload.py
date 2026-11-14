@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from src.agent.recap_context import RecapContext
-from src.agent.recap_ingest_helpers import IngestReport
+from live_play.recap_ingest_helpers import IngestReport
 from src.agent.recap_write_output_schema import RECAP_WRITE_SCHEMA_VERSION
 
 _PARA_PREVIEW_MAX = 200

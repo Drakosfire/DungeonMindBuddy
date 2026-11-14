@@ -8,7 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.agent.recap_frontmatter_seed import build_frontmatter_seed, default_frontmatter_seed_path  # noqa: E402
+from live_play.recap_frontmatter_seed import build_frontmatter_seed, default_frontmatter_seed_path  # noqa: E402
 from corpus.session_recap_paths import normalized_recap_relpath  # noqa: E402
 from live_play.recap_derivative_provenance import (  # noqa: E402
     sha256_bytes,

@@ -1292,7 +1292,7 @@ def make_tool_dispatcher(
                     "Error: assemble_recap_draft is disabled (planner started with "
                     "allow_corpus_writes=False). Re-launch with corpus writes enabled to use it."
                 )
-            from src.agent.recap_ingest_helpers import assemble_recap as _assemble_recap
+            from live_play.recap_ingest_helpers import assemble_recap as _assemble_recap
 
             raw_rel = str(args.get("raw_notes_path", "")).strip()
             notes_path = _resolve_safe_corpus_notes_staging_file(corpus_path, raw_rel)
@@ -1346,7 +1346,7 @@ def make_tool_dispatcher(
                     "allow_corpus_writes=False). Re-launch with corpus writes enabled to use it."
                 )
             from src.agent.recap_context import RecapContextError, resolve_recap_context
-            from src.agent.recap_ingest_helpers import assemble_recap as _assemble_recap
+            from live_play.recap_ingest_helpers import assemble_recap as _assemble_recap
             from src.agent.recap_write_mechanical_payload import (
                 build_recap_write_payload_from_ingest,
             )
