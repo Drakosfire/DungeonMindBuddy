@@ -8,7 +8,7 @@ from typing import Any
 import blake3
 
 from src.ingestion.fact_extractor import derive_truth_state
-from src.reducer.canon_projection import project_entity_state
+from reducer.canon_projection import project_entity_state
 
 _SCHEMA_VERSION = "0.1.0"
 _NOW = datetime(2026, 3, 27, tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")

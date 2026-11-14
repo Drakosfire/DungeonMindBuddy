@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from src.cli import DungeonBuddyCLI
-from src.store import FactStore
+from store import FactStore
 
 
 def _repo_root() -> Path:

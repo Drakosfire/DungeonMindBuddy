@@ -29,7 +29,7 @@ from src.agent.retriever import (
     retrieve_relevant_entities,
     semantic_rerank_entities,
 )
-from src.agent.scope_relevance import question_mentioned_entity_ids
+from reducer.scope_relevance import question_mentioned_entity_ids
 from src.agent.planner import run_planning_session
 from src.agent.synthesis import synthesize_answer_async
 from src.compiler.wiki_compiler import compile_wiki, list_wiki_targets
@@ -66,8 +66,8 @@ from contracts.temporal_tick_gate import (
     campaign_temporal_consistency_violations,
     campaign_temporal_tick_violations,
 )
-from src.reducer.canon_projection import attach_scope_relevance_metadata
-from src.store import FactStore
+from reducer.canon_projection import attach_scope_relevance_metadata
+from store import FactStore
 
 LOGGER_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
 

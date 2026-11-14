@@ -11,8 +11,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 try:
     from contracts.schema_validation import validate_many
-    from src.reducer.canon_projection import project_entity_state
-    from src.reducer.projection_compare import (
+    from reducer.canon_projection import project_entity_state
+    from reducer.projection_compare import (
         assert_attribute_keys_match_golden_contract,
         normalize_projection_for_compare,
     )
@@ -20,8 +20,8 @@ except ModuleNotFoundError:
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     from contracts.schema_validation import validate_many
-    from src.reducer.canon_projection import project_entity_state
-    from src.reducer.projection_compare import (
+    from reducer.canon_projection import project_entity_state
+    from reducer.projection_compare import (
         assert_attribute_keys_match_golden_contract,
         normalize_projection_for_compare,
     )

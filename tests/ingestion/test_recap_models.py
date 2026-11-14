@@ -19,7 +19,7 @@ from src.ingestion.entity_extractor import (
     run_entity_extraction,
 )
 from src.ingestion.recap_models import ClaimRecord, EventRecord, RecapExtractionResult
-from src.store import FactStore
+from store import FactStore
 
 
 def _legacy_source_anchors(text: str, *, path: str = "fixture/recap_models.md") -> list[dict[str, Any]]:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.reducer.projection_compare import assert_attribute_keys_match_golden_contract
+from reducer.projection_compare import assert_attribute_keys_match_golden_contract
 
 
 def test_assert_attribute_keys_rejects_unknown_payload_keys() -> None:

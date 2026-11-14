@@ -973,7 +973,7 @@ def cmd_complete(args: argparse.Namespace) -> int:
     from src.ingestion.entity_extractor import run_entity_extraction
     from src.ingestion.fact_extractor import run_fact_extraction
     from src.ingestion.source_anchor import resolve_git_commit_sha
-    from src.store import FactStore
+    from store import FactStore
 
     manifest_path = Path(args.manifest)
     manifest = _load_manifest(manifest_path)
