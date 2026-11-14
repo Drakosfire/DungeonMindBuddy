@@ -72,7 +72,7 @@ def synthesize_answer_from_hit_context(
     """Return (assistant_plaintext, estimated_usd, token_usage)."""
     from openai import OpenAI
 
-    from src.agent.planner_pricing import usage_cost_usd
+    from llm.planner_pricing import usage_cost_usd
 
     client = OpenAI()
     user_block = format_synthesis_user_message(question=question, hit_context=hit_context)

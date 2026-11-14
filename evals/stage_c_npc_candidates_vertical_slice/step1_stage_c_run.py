@@ -37,7 +37,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from pydantic import BaseModel, Field  # noqa: E402
 
-from src.agent.planner_pricing import usage_cost_usd  # noqa: E402
+from llm.planner_pricing import usage_cost_usd  # noqa: E402
 from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 from contracts.npc_registry import load_npc_registry  # noqa: E402
 from src.ingestion.entity_extractor import _usage_dict_from_openai_response  # noqa: E402
