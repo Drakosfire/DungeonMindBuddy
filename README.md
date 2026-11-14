@@ -8,9 +8,7 @@ can build with, plan around, and use at the table.
 - **Play** brings prepared material into the live session.
 - **World Graph** lets you inspect what Buddy knows and trace it to its sources.
 
-For example, start with a synthetic recap saying that the party found a sealed
-door beneath the mill. Review the door and its source in Build, then bring the
-unresolved lead into your next session plan.
+Try the [synthetic recap walkthrough](#try-a-synthetic-recap) to see how Build and Plan connect.
 
 ## Run locally
 
@@ -56,6 +54,35 @@ from the npm lockfile when needed.
 
 Plan and Play prompt for a World when none is selected. The legacy Chat smoke
 uses `/surface`. See the [frontend smoke guide](apps/live-control-ui/README.md#manual-smoke).
+
+## Try a synthetic recap
+
+Start Buddy locally with an OpenRouter credential configured as
+`OPENROUTER_API_KEY` or `DUNGEONBUDDY_OPENROUTER`. Recap extraction sends
+the source text to OpenRouter, so use the synthetic text below. Select a
+disposable test World with an active native Graph. Creating a World reserves
+its identity. If it is still provisioning, review and publish a first
+Worldbuilding extraction before attempting to merge Recap changes, or select
+an already initialized test World. In Build, save a Markdown
+document named **The sealed door beneath the mill** with this text:
+
+```markdown
+The party searched the old mill and found a sealed stone door beneath it.
+Mira heard running water behind the door. The party left it unopened and
+agreed to return with the miller's key.
+```
+
+With the saved document open, choose **Extraction**, set **Run mode** to
+**Recap**, set **Source campaign** to `sealed-door-demo` and **Source
+session** to `1`, and select **Extract**. The selected World is the
+destination. The campaign and session identify the recap source. Review the proposed changes against the source text. Keep the
+discovery and the unresolved lead, and check that the extraction does not
+claim the party opened the door.
+
+Choose **Prepare changes for review**. Check the selected changes before
+merging them into campaign memory. Open **Plan** in the same World and check
+the matching session's recap projection. Use the unresolved lead to draft
+the next session's opening question: who has the miller's key?
 
 ## Hosted Buddy
 
