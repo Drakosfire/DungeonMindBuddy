@@ -408,3 +408,20 @@ git show f1c748848fa6a1e4323dde4c7a2f5bad93b4acdc:graph_data/approved_existing_w
 ```
 
 After the checksum passes, use the same `git show` command to write the sealed input to a disposable destination for replay.
+
+## Retrieve the sealed bundle from Git
+
+From the Buddy repository root, write the pinned blob to a fresh scratch file
+and verify its checksum before use.
+
+```sh
+bundle=$(mktemp)
+git show ef71a7eb6cb376d01144e1c01242d16a77803886:graph_data/approved_existing_world_adoptions/eldyrwild/dungeonmind-v6/bundle.json > "$bundle" &&
+  printf '%s  %s\n' 90574dfc4101e4198c7fd96478d6f49e65aa534d0aa91fa41a9a17da9d49695f "$bundle" | sha256sum -c -
+```
+
+The recovered blob passed all 16 unit and integration proof tests at
+DungeonMind revision `935d3d9` with disposable PostgreSQL 16 and pgvector
+0.8.6. The replay covered first adoption, idempotent retry, rollback, and
+durable readback. Buddy World recovery must confirm operator access to the
+pinned blob before removing the checkout copy. [Recovery follow-up #3579](https://github.com/Drakosfire/DungeonMindBuddy/issues/3579)
