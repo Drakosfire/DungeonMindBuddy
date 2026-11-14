@@ -9,7 +9,7 @@ import blake3
 import pytest
 from generationengine import InferenceObservation, ObservationState, TextRequest, TextResult
 
-from src.contracts.schema_validation import validate_many
+from contracts.schema_validation import validate_many
 from src.ingestion.fact_extractor import (
     AsyncOpenAIResponsesFactClient,
     BatchedFactExtractionResult,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.contracts.schema_validation import validate_instance
+from contracts.schema_validation import validate_instance
 
 _SCHEMA_DIR = Path(__file__).resolve().parent.parent / "schemas" / "v0.1"
 _EXAMPLE = _SCHEMA_DIR / "examples" / "corpus_entity_profile.example.json"

@@ -61,7 +61,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from src.contracts.schema_validation import list_validation_failures
+from contracts.schema_validation import list_validation_failures
 from src.ingestion.source_anchor import anchor_bytes_verify_at_head
 
 _SCHEMA_FILENAME = "event_record.schema.json"

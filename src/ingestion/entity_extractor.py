@@ -19,7 +19,7 @@ from src.contracts.entity_taxonomy import (
     EntityClass,
     normalize_semantic_facets,
 )
-from src.contracts.schema_validation import list_validation_failures, validate_many
+from contracts.schema_validation import list_validation_failures, validate_many
 from src.llm.generation_sync import run_awaitable_sync
 from src.store import FactStore
 

@@ -19,7 +19,7 @@ from src.contracts.npc_registry import (
     dump_npc_registry,
     load_npc_registry,
 )
-from src.contracts.schema_validation import validate_instance
+from contracts.schema_validation import validate_instance
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
