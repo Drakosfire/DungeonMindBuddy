@@ -2542,7 +2542,11 @@ async function validateWorldPlanResponse(
   const expectedGraphGrounded = mixedContext ? mixedContext.accepted_binding.graph_used : planContext?.completion
     ? ["graph_grounded", "graph_grounded_partial"].includes(planContext.completion.answer_context_status)
     : false;
-  if (!hasExactKeys(answer, ["status", "text", "code", "message", "graph_grounded", "trace"])
+  const answerKeys = ["status", "text", "code", "message", "graph_grounded", "trace"];
+  if (isRecord(answer) && Array.isArray(answer.saved_statblocks) && answer.saved_statblocks.length === 0) {
+    answerKeys.push("saved_statblocks");
+  }
+  if (!hasExactKeys(answer, answerKeys)
     || !["ok", "error"].includes(String(answer.status))
     || !isNullableString(answer.text)
     || !isNullableString(answer.code)
