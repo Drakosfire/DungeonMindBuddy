@@ -1,7 +1,7 @@
 # HANDOFF — CUTOVER re-pin to DungeonMind world-object-v5 after PR #30
 
 **Created:** 2026-08-12  
-**Status:** READY FOR BUILD  
+**Status:** DONE / HISTORICAL. [PR #571](https://github.com/Drakosfire/DungeonMindBuddy/pull/571) completed this repin. Do not redispatch this handoff.
 **Workstream:** CUTOVER  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Direction:** DESIGN → CODE  
