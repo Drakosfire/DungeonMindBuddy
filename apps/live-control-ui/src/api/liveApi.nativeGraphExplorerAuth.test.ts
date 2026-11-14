@@ -266,3 +266,19 @@ it("authenticates native complete-object reads with their exact revision pin", a
   expect(JSON.parse(String(init?.body))).toEqual({ request, scope });
   expect(init?.signal).toBe(signal);
 });
+
+it("authenticates Build authoring identity reads for the selected World", async () => {
+  const api = await setup();
+  api.setNativeGraphAccessToken("synthetic-managed-graph-token");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({
+    scope: { managed_world_id: "managed-a", scope_mode: "world", campaign_id: null },
+    identities: [],
+  }));
+
+  await expect(api.getNativeAuthoringIdentities("managed-a")).resolves.toEqual([]);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toBe("/api/live/native-graph-inspection/authoring-identities");
+  expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer synthetic-managed-graph-token");
+  expect(init).toMatchObject({ method: "POST", credentials: "same-origin", redirect: "error" });
+});
