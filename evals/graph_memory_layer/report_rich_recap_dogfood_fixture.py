@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from evals.graph_memory_layer.rich_recap_dogfood import build_rich_recap_materializer_inputs, build_rich_recap_source_span_registries, load_rich_recap_requirements
 from src.graph_memory.recap_ingestion_materialize import materialize_recap_ingestion_source_artifacts
-from src.graph_memory.source_span import resolve_many_source_span_refs
+from graph_memory.source_span import resolve_many_source_span_refs
 
 
 def main() -> int:

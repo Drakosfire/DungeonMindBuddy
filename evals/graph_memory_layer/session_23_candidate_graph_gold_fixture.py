@@ -16,7 +16,7 @@ from src.graph_memory.candidate_graph_preview import (
     candidate_graph_preview_to_dict,
     validate_candidate_graph_preview,
 )
-from src.graph_memory.source_span import ResolvedEvidence, SourceSpanRef, resolve_many_source_span_refs
+from graph_memory.source_span import ResolvedEvidence, SourceSpanRef, resolve_many_source_span_refs
 from evals.graph_memory_layer.session_23_recap_ingest_fixture import (
     FIXTURE_ID as SOURCE_FIXTURE_ID,
     build_source_span_artifacts,

@@ -6,7 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from src.graph_memory.source_span import (
+from graph_memory.source_span import (
     ResolvedEvidence,
     SourceArtifactStructured,
     SourceArtifactText,

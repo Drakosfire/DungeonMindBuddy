@@ -6,7 +6,7 @@ from typing import Any
 
 from src.graph_memory.recap_ingestion_materialize import INPUT_MODE, SOURCE_FAMILY, RecapIngestionMaterializerInput
 from src.graph_memory.recap_ingestion_materializer_report import KNOWN_ARTIFACT_FAMILIES
-from src.graph_memory.source_span import SourceArtifactStructured, SourceArtifactText, source_span_ref_from_dict
+from graph_memory.source_span import SourceArtifactStructured, SourceArtifactText, source_span_ref_from_dict
 
 MANIFEST_SCHEMA = "dmb_rich_recap_dogfood_manifest_v0"
 MANIFEST_VERSION = "0.1"

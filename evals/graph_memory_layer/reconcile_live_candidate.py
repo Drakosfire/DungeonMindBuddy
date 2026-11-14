@@ -26,7 +26,7 @@ from src.graph_memory.anchor_quotes import (
     find_anchor_quote_matches,
     quote_found_in_paragraph,
 )
-from src.graph_memory.source_span import SourceSpanRef, resolve_many_source_span_refs
+from graph_memory.source_span import SourceSpanRef, resolve_many_source_span_refs
 
 ENVELOPE_SCHEMA = "dmb_live_extractor_candidate_envelope_v0"
 ENVELOPE_VERSION = "0.1"

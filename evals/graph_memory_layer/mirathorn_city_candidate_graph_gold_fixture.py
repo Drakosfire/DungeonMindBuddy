@@ -25,7 +25,7 @@ from src.graph_memory.candidate_graph_preview import (
     candidate_graph_preview_to_dict,
     validate_candidate_graph_preview,
 )
-from src.graph_memory.source_span import ResolvedEvidence, SourceSpanRef, resolve_many_source_span_refs
+from graph_memory.source_span import ResolvedEvidence, SourceSpanRef, resolve_many_source_span_refs
 
 GOLD_FIXTURE_ID = "graph-memory:mirathorn-city-candidate-graph-gold:v0"
 GOLD_MANIFEST_SCHEMA = "dmb_mirathorn_city_candidate_graph_gold_manifest_v0"
