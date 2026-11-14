@@ -1,0 +1,87 @@
+import { authenticatedApiFetch, LiveApiError } from "./liveApi";
+
+type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+type Packet = Record<string, Json>;
+
+export interface NativeWorldbuildingPrepareInput {
+  managed_world_id: string;
+  run_id: string;
+  expected_run_revision: number;
+  candidate_sha256: string;
+  expected_parent_revision_id: string;
+  expected_source_authority_epoch: number;
+  workspace_document_id: string;
+  workspace_document_revision: number;
+  selections: Packet[];
+}
+
+export interface NativeWorldbuildingConfirmation {
+  envelope: Packet;
+  prepared: Packet;
+  token: string;
+}
+
+const record = (value: unknown): value is Packet =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+async function post(operation: "prepare" | "confirm", body: object): Promise<Packet> {
+  const { response } = await authenticatedApiFetch(
+    `/api/live/extract-promote/native-${operation}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+  );
+  const value: unknown = await response.json();
+  if (!response.ok) {
+    const detail = record(value) && record(value.detail) ? value.detail : {};
+    throw new LiveApiError(
+      typeof detail.message === "string" ? detail.message : "Native Worldbuilding publication failed.",
+      response.status,
+      { code: typeof detail.code === "string" ? detail.code : null },
+    );
+  }
+  if (!record(value)) throw new LiveApiError("Invalid native Worldbuilding response.", response.status);
+  return value;
+}
+
+export async function prepareNativeWorldbuilding(input: NativeWorldbuildingPrepareInput) {
+  const value = await post("prepare", input);
+  if (value.publication !== "not_performed" ||
+      value.run_id !== input.run_id || value.run_revision !== input.expected_run_revision ||
+      value.candidate_sha256 !== input.candidate_sha256 ||
+      value.expected_parent_revision_id !== input.expected_parent_revision_id ||
+      value.expected_source_authority_epoch !== input.expected_source_authority_epoch ||
+      !Array.isArray(value.records)) {
+    throw new LiveApiError("Native preparation changed the selected review scope.", 0);
+  }
+  if (value.status === "held" && value.envelope === null && value.prepared === null && value.token === null) {
+    return { status: "held" as const, records: value.records };
+  }
+  const { envelope, prepared, token } = value;
+  if (value.status !== "prepared" || !record(envelope) || !record(prepared) ||
+      typeof token !== "string" || !token || envelope.purpose !== "dmb_native_worldbuilding_confirm_v1" ||
+      !record(envelope.review) || envelope.review.managed_world_id !== input.managed_world_id ||
+      envelope.review.workspace_document_id !== input.workspace_document_id ||
+      envelope.review.workspace_document_revision !== input.workspace_document_revision) {
+    throw new LiveApiError("Invalid native Worldbuilding confirmation packet.", 0);
+  }
+  return { status: "prepared" as const, records: value.records, confirmation: { envelope, prepared, token } };
+}
+
+export async function confirmNativeWorldbuilding(packet: NativeWorldbuildingConfirmation) {
+  const { envelope } = packet;
+  const review = envelope.review;
+  if (!record(review) || typeof envelope.prepared_change_id !== "string" ||
+      !envelope.prepared_change_id || typeof review.expected_parent_revision_id !== "string" ||
+      envelope.purpose !== "dmb_native_worldbuilding_confirm_v1") {
+    throw new LiveApiError("Invalid native Worldbuilding confirmation packet.", 0);
+  }
+  const value = await post("confirm", packet);
+  if (value.status !== "committed" || typeof value.recovered !== "boolean" ||
+      !record(value.result) || typeof value.result.child_revision_id !== "string" ||
+      !value.result.child_revision_id ||
+      value.result.prepared_change_id !== envelope.prepared_change_id ||
+      value.result.dungeonmind_publication_id !== envelope.prepared_change_id ||
+      value.result.expected_parent_revision_id !== review.expected_parent_revision_id) {
+    throw new LiveApiError("Invalid native Worldbuilding receipt.", 0);
+  }
+  return { result: value.result, recovered: value.recovered };
+}
