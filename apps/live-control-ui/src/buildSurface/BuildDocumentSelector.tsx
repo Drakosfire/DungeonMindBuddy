@@ -4,7 +4,7 @@ import type { NativeSourceMetadata } from "../api/nativeSourceInspection";
 import { useEffect, useId, useMemo, useState, useRef } from "react";
 
 import { listRetainedPdfDocuments, retainedPdfBuildHref, type RetainedPdf } from "../api/retainedPdfRegions";
-import { listWorldThreatDrafts, type WorldThreatDraftSummary } from "../api/liveApi";
+import { listPdfStatblockReviews, listWorldThreatDrafts, type PdfStatblockReviewSummary, type WorldThreatDraftSummary } from "../api/liveApi";
 import { buildSavedStatblockHref, readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
 import type { WorkspaceDocumentRecord } from "../api/types";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
@@ -71,6 +71,17 @@ export function BuildDocumentSelector({
     );
     return () => request.abort();
   }, [worldId]);
+  const [reviewCatalog, setReviewCatalog] = useState<{ worldId: string; reviews: PdfStatblockReviewSummary[]; error?: boolean }>();
+  useEffect(() => {
+    if (!worldId) return;
+    const request = new AbortController();
+    listPdfStatblockReviews(worldId, request.signal).then(
+      reviews => { if (!request.signal.aborted) setReviewCatalog({ worldId, reviews }); },
+      () => { if (!request.signal.aborted) setReviewCatalog({ worldId, reviews: [], error: true }); },
+    );
+    return () => request.abort();
+  }, [worldId]);
+  const currentReviews = reviewCatalog?.worldId === worldId ? reviewCatalog : undefined;
   const currentCatalog = catalog?.worldId === worldId ? catalog : undefined;
   const filter = query.trim().toLowerCase();
   const [category, setCategory] = useState<PickerCategory>("Recent");
@@ -201,6 +212,12 @@ export function BuildDocumentSelector({
       ...option, category: "Pages" as const, detail: group.label,
     }))),
     ...statblocks.map(item => ({ id: item.href, label: item.title, category: "Statblocks" as const })),
+    ...(worldId ? (currentReviews?.reviews ?? []).filter(review =>
+      !currentCatalog?.drafts.some(draft => draft.draft_id === review.draft_id && draft.saved_revision_id)
+    ).map(review => ({
+      id: "/build?" + new URLSearchParams({ world: worldId, pdfReview: review.review_id }),
+      label: review.name, category: "Statblocks" as const, detail: "PDF extraction draft",
+    })) : []),
     ...(worldId ? retainedPdfs.map(entry => ({
       id: retainedPdfBuildHref(worldId, entry), label: entry.name, category: "PDFs" as const,
     })) : []),
@@ -229,8 +246,9 @@ export function BuildDocumentSelector({
     : category === "Recent"
       ? recent.flatMap(id => byId.get(id) ?? [])
       : entries.filter(entry => category === "All documents" || entry.category === category);
-  const pending = listStatus === "loading" || Boolean(worldId && (!currentCatalog || !currentPdfCatalog || !currentNativeCatalog));
+  const pending = listStatus === "loading" || Boolean(worldId && (!currentCatalog || !currentReviews || !currentPdfCatalog || !currentNativeCatalog));
   const errors = [
+    currentReviews?.error && "PDF extraction drafts unavailable",
     currentCatalog?.error && "Saved statblocks unavailable",
     currentPdfCatalog?.error && "PDF documents unavailable",
     currentNativeCatalog?.error && "Ingested text documents unavailable",

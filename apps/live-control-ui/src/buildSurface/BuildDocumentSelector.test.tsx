@@ -42,7 +42,10 @@ describe("BuildDocumentSelector", () => {
   it("finds a saved statblock by title and addresses its exact revision in Build", async () => {
     setNativeGraphAccessToken("fixture");
     const request = vi.spyOn(globalThis, "fetch").mockImplementation(async url => new Response(JSON.stringify(
-      String(url).includes("build-pdf-sources") ? {
+      String(url).includes("statblock-reviews") ? {
+        reviews: [{ review_id: "sewer-review", name: "Sewer Meat Extraction", draft_id: "unpublished" },
+          { review_id: "saved-review", name: "Already saved extraction", draft_id: "creature" }],
+      } : String(url).includes("build-pdf-sources") ? {
         next: null, documents: [{ source_revision_id: "remote", content_sha256: "abcde123",
           created_at: "2026-11-11T00:00:00Z" }],
       } : {
@@ -62,7 +65,10 @@ describe("BuildDocumentSelector", () => {
       openCategory("All documents");
       expect(await screen.findByRole("button", { name: "PDF · 2026-11-11 · abcde123" }))
         .toHaveAttribute("data-document-id", "/build?world=elderwyld&pdf=remote");
+      expect(await screen.findByRole("button", { name: "Sewer Meat Extraction" }))
+        .toHaveAttribute("data-document-id", "/build?world=elderwyld&pdfReview=sewer-review");
       const statblock = await screen.findByRole("button", { name: "Sewer Meat Creature" });
+      expect(screen.queryByRole("button", { name: "Already saved extraction" })).not.toBeInTheDocument();
       expect(statblock).toHaveAttribute("data-document-id", "/build?world=elderwyld&draft=creature&revision=saved-revision");
       expect(screen.queryByRole("button", { name: "Sewer Giant" })).not.toBeInTheDocument();
       await userEvent.type(screen.getByRole("searchbox"), "sewer");

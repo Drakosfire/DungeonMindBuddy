@@ -331,7 +331,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     "/api/live/native-graph-explorer/confirm",
     "/api/live/native-graph-explorer/operations/read",
   ].includes(pathname)) return true;
-  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|ocr|review|statblock:validate))?$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|ocr|review|statblock-reviews|statblock:validate))?$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+(?:\/validate|\/from-regions|\/creature-draft|\/(?:accept|append)\/[^/]+)?$/.test(pathname)) return true;
   if ([
     "/api/live/graph-authoring/document-relationship/request",
@@ -3415,4 +3415,18 @@ export async function readPublishedNativeRecap(
     throw new Error("The published recap did not match the selected World and session.");
   }
   return packet;
+}
+
+
+export interface PdfStatblockReviewSummary {
+  review_id: string;
+  name: string;
+  draft_id: string;
+}
+
+export async function listPdfStatblockReviews(worldId: string, signal: AbortSignal): Promise<PdfStatblockReviewSummary[]> {
+  const result = await apiFetch<{ reviews: PdfStatblockReviewSummary[] }>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/statblock-reviews`, { signal },
+  );
+  return result.reviews;
 }

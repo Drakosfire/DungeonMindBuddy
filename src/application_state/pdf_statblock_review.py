@@ -20,6 +20,18 @@ def read_review(*, world_id, review_id):
     return {"revision": row[0], **row[1]}
 
 
+def list_reviews(*, world_id):
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        return conn.execute(
+            """SELECT review_id, payload #>> '{definition,identity,name}', payload->'regions'
+               FROM public.pdf_statblock_review WHERE world_id = %s
+               ORDER BY lower(payload #>> '{definition,identity,name}'), review_id""",
+            (world_id,),
+        ).fetchall()
+
+
 def save_review(*, world_id, review_id, expected_revision, definition, regions, artwork=None):
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)

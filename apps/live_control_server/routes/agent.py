@@ -2437,6 +2437,41 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"}) from exc
 
 
+@router.get("/worlds/{world_id}/build-pdf-sources/statblock-reviews")
+def list_pdf_statblock_reviews(world_id: str, request: Request):
+    from fastapi.responses import JSONResponse
+    from application_state.pdf_statblock_review import list_reviews
+    from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import (
+        NativeWorldSourceAdmissionError, _repository, _source_world_binding,
+    )
+
+    enforce_native_graph_gm(request)
+    world_id = _verified_world_id(world_id)
+    try:
+        binding = _source_world_binding(None, world_id)
+        repository = _repository()
+        retained = {}
+        after = ""
+        while True:
+            page = repository.list_public_native_pdf_revisions(binding.native_world_id, after_revision_id=after)
+            retained.update((entry.source_revision_id, entry.content_sha256) for entry in page)
+            if len(page) < 100:
+                break
+            after = page[-1].source_revision_id
+        reviews = [
+            {"review_id": str(review_id), "name": name, "draft_id": str(_pdf_review_creature_draft_id(world_id, review_id))}
+            for review_id, name, regions in list_reviews(world_id=world_id)
+            if name and regions and all(
+                retained.get(region["source_revision_id"]) == region["content_sha256"] for region in regions
+            )
+        ]
+        if _source_world_binding(None, world_id) != binding:
+            raise HTTPException(status_code=409, detail="The World changed. Open the picker again.")
+    except NativeWorldSourceAdmissionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    return JSONResponse({"reviews": reviews}, headers={"Cache-Control": "no-store"})
+
+
 @router.get("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}")
 def get_pdf_statblock_review(world_id: str, review_id: UUID, request: Request):
     from application_state.pdf_statblock_review import read_review
