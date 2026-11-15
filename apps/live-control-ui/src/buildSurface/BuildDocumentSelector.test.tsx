@@ -30,6 +30,32 @@ function record(documentId: string, title: string, campaignId: string): Workspac
 }
 
 describe("BuildDocumentSelector", () => {
+  it("finds a saved statblock by title and addresses its exact revision in Build", async () => {
+    const request = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      total: 2,
+      drafts: [
+        { world_id: "elderwyld", draft_id: "creature", name: "Sewer Meat Creature",
+          accepted_mechanics_ref: { revision_id: "saved-revision" } },
+        { world_id: "elsewhere", draft_id: "foreign", name: "Sewer Giant",
+          accepted_mechanics_ref: { revision_id: "other-revision" } },
+      ],
+    })));
+    try {
+      render(<BuildDocumentSelector worldId="elderwyld"
+        documents={[record(DOC_A, "Alpha", "longmont-c1")]} listStatus="ready"
+        activeDocumentId={null} activeRecord={null} preferredCampaignId={null}
+        switching={false} onSelect={vi.fn()} />);
+      const statblock = await screen.findByRole("option", { name: "Sewer Meat Creature" });
+      expect(statblock).toHaveValue("/build?world=elderwyld&draft=creature&revision=saved-revision");
+      expect(screen.queryByRole("option", { name: "Sewer Giant" })).not.toBeInTheDocument();
+      await userEvent.type(screen.getByRole("searchbox"), "sewer");
+      expect(screen.queryByRole("option", { name: "Alpha" })).not.toBeInTheDocument();
+      expect(statblock).toBeInTheDocument();
+    } finally {
+      request.mockRestore();
+    }
+  });
+
   it("shows placeholder when no active document", () => {
     render(
       <BuildDocumentSelector
@@ -43,7 +69,7 @@ describe("BuildDocumentSelector", () => {
       />,
     );
 
-    expect(screen.getByRole("option", { name: "Choose source" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Open document" })).toBeInTheDocument();
   });
 
   it("groups options by campaign with preferred campaign first", () => {

@@ -1,6 +1,8 @@
-import { useMemo, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 
-import type { WorkspaceDocumentRecord } from "../api/types";
+import { listWorldThreatDrafts } from "../api/liveApi";
+import { buildSavedStatblockHref, readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
+import type { ThreatDraft, WorkspaceDocumentRecord } from "../api/types";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
 import { SurfaceContextSelect } from "../surfaceInteraction/contextHost";
 import {
@@ -28,6 +30,7 @@ export function buildDocumentOptionLabel(
 }
 
 interface BuildDocumentSelectorProps {
+  worldId?: string | null;
   documents: WorkspaceDocumentRecord[] | null;
   listStatus: BuildDocumentListStatus;
   activeDocumentId: string | null;
@@ -38,6 +41,7 @@ interface BuildDocumentSelectorProps {
 }
 
 export function BuildDocumentSelector({
+  worldId,
   documents,
   listStatus,
   activeDocumentId,
@@ -46,6 +50,29 @@ export function BuildDocumentSelector({
   switching,
   onSelect,
 }: BuildDocumentSelectorProps) {
+  const [query, setQuery] = useState("");
+  const [catalog, setCatalog] = useState<{ worldId: string; drafts: ThreatDraft[]; error: boolean }>();
+  useEffect(() => {
+    if (!worldId) return;
+    const request = new AbortController();
+    listWorldThreatDrafts(worldId, request.signal).then(
+      drafts => { if (!request.signal.aborted) setCatalog({ worldId, drafts, error: false }); },
+      () => { if (!request.signal.aborted) setCatalog({ worldId, drafts: [], error: true }); },
+    );
+    return () => request.abort();
+  }, [worldId]);
+  const currentCatalog = catalog?.worldId === worldId ? catalog : undefined;
+  const filter = query.trim().toLowerCase();
+  const statblocks = (currentCatalog?.drafts ?? []).flatMap(draft => {
+    const revisionId = draft.accepted_mechanics_ref?.revision_id;
+    if (draft.world_id !== worldId || !revisionId || !draft.name.toLowerCase().includes(filter)) return [];
+    return [{
+      href: buildSavedStatblockHref({ worldId: draft.world_id, draftId: draft.draft_id, revisionId }),
+      title: draft.name,
+    }];
+  });
+  const activeStatblock = readSavedStatblockTarget(window.location.href);
+
   const groupedOptions = useMemo(() => {
     const campaignOrder = [...BUILD_KNOWN_CAMPAIGN_IDS] as BuildKnownCampaignId[];
     if (preferredCampaignId && isBuildKnownCampaignId(preferredCampaignId)) {
@@ -123,11 +150,14 @@ export function BuildDocumentSelector({
     id: "build-document-select",
     "data-testid": "build-document-select",
     "data-guided-control": "source",
-    "aria-label": "Worldbuilding source",
-    value: activeDocumentId ?? "",
+    "aria-label": "Open document",
+    value: activeStatblock ? buildSavedStatblockHref(activeStatblock) : activeDocumentId ?? "",
     onChange: (event: ChangeEvent<HTMLSelectElement>) => {
       const next = event.target.value.trim();
-      if (next) onSelect(next);
+      if (next.startsWith("/build?")) window.location.assign(next);
+      else if (next && activeStatblock) {
+        window.location.assign("/build?" + new URLSearchParams({ world: activeStatblock.worldId, documentId: next }));
+      } else if (next) onSelect(next);
     },
     disabled: listStatus !== "ready" || switching,
   };
@@ -138,21 +168,27 @@ export function BuildDocumentSelector({
       data-testid="build-document-selector"
       aria-busy={switching}
     >
+      <input type="search" aria-label="Search documents" placeholder="Search documents"
+        value={query} onChange={event => setQuery(event.target.value)} />
+      {currentCatalog?.error && <span role="status">Saved statblocks unavailable</span>}
       <SurfaceContextSelect {...selectProps}>
         {!activeDocumentId ? (
           <option value="" disabled>
-            Choose source
+            Open document
           </option>
         ) : null}
         {groupedOptions.map((group) => (
           <optgroup key={group.campaignId} label={group.label}>
-            {group.options.map((option) => (
+            {group.options.filter(option => option.id === activeDocumentId || option.label.toLowerCase().includes(filter)).map((option) => (
               <option key={option.id} value={option.id}>
                 {option.label}
               </option>
             ))}
           </optgroup>
         ))}
+        {statblocks.length > 0 && <optgroup label="Saved statblocks">
+          {statblocks.map(item => <option key={item.href} value={item.href}>{item.title}</option>)}
+        </optgroup>}
       </SurfaceContextSelect>
     </div>
   );
