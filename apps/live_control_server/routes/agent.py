@@ -2512,10 +2512,10 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
         )
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_output_invalid"}) from exc
-        require_build_pdf_access(request, world_id)
-        return saved
     except ApplicationStateConflictError as exc:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"}) from exc
+    require_build_pdf_access(request, world_id)
+    return saved
 
 
 @router.get("/worlds/{world_id}/build-pdf-sources/statblock-reviews")

@@ -185,7 +185,7 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch, unres
         if request.headers.get("authorization") != "Bearer fixture":
             raise HTTPException(status_code=401)
 
-    monkeypatch.setattr(agent, "enforce_native_graph_gm", authorize)
+    monkeypatch.setattr("apps.live_control_server.services.hosted_native_graph_access.require_build_pdf_access", lambda request, _world: authorize(request))
     monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
 
     class Region:
@@ -199,7 +199,7 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch, unres
         def model_dump(self, *, mode):
             return {"schema_version": "dm_native_pdf_region_v1", **self.values}
 
-    def open_region(world, locator, request):
+    def open_region(world, locator, request, **kwargs):
         calls.append(("open", locator["page"]))
         return b"verified PDF", Region(locator)
 
@@ -289,7 +289,7 @@ def test_incomplete_pdf_statblock_extraction_does_not_save(monkeypatch):
         if request.headers.get("authorization") != "Bearer fixture":
             raise HTTPException(status_code=401)
 
-    monkeypatch.setattr(agent, "enforce_native_graph_gm", authorize)
+    monkeypatch.setattr("apps.live_control_server.services.hosted_native_graph_access.require_build_pdf_access", lambda request, _world: authorize(request))
     monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
 
     class Region:
@@ -299,7 +299,7 @@ def test_incomplete_pdf_statblock_extraction_does_not_save(monkeypatch):
 
     locator = {"source_revision_id": "srev:one", "content_sha256": "a" * 64,
                "page": 1, "left": 0.0, "top": 0.0, "right": 1.0, "bottom": 1.0}
-    monkeypatch.setattr(agent, "_authorized_build_pdf_region", lambda *args: (b"PDF", Region()))
+    monkeypatch.setattr(agent, "_authorized_build_pdf_region", lambda *args, **kwargs: (b"PDF", Region()))
     monkeypatch.setattr(agent, "_render_build_pdf_region", lambda *args, **kwargs: b"PNG")
     monkeypatch.setattr(agent, "read_crop_png", lambda crop: {"text": "partial transcription"})
 
@@ -334,14 +334,14 @@ def test_pdf_statblock_failures_never_save_a_review(monkeypatch, failure):
     from application_state import pdf_statblock_review
     from apps.live_control_server.routes import agent
 
-    monkeypatch.setattr(agent, "enforce_native_graph_gm", lambda request: None)
+    monkeypatch.setattr("apps.live_control_server.services.hosted_native_graph_access.require_build_pdf_access", lambda *_: None)
     monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
     locator = {"source_revision_id": "srev:one", "content_sha256": "a" * 64,
                "page": 1, "left": 0.0, "top": 0.0, "right": 1.0, "bottom": 1.0}
     calls = []
 
     if failure == "invalid_region":
-        def reject_region(*args):
+        def reject_region(*args, **kwargs):
             calls.append("region")
             raise HTTPException(status_code=403, detail={"code": "pdf_source_not_authorized"})
 
@@ -353,7 +353,7 @@ def test_pdf_statblock_failures_never_save_a_review(monkeypatch, failure):
             def model_dump(self, *, mode):
                 return {"schema_version": "dm_native_pdf_region_v1", **locator}
 
-        monkeypatch.setattr(agent, "_authorized_build_pdf_region", lambda *args: (b"PDF", Region()))
+        monkeypatch.setattr(agent, "_authorized_build_pdf_region", lambda *args, **kwargs: (b"PDF", Region()))
         monkeypatch.setattr(agent, "_render_build_pdf_region", lambda *args, **kwargs: b"PNG")
         if failure == "ocr":
             def reject_ocr(crop):
@@ -414,7 +414,7 @@ def test_validate_pdf_region_uses_open_authority_without_returning_pdf(monkeypat
     locator = {"revision": "exact"}
     seen = []
 
-    def authorize(world, body, incoming):
+    def authorize(world, body, incoming, **kwargs):
         assert incoming is request
         seen.append((world, body))
         if world != "allowed":
@@ -424,6 +424,7 @@ def test_validate_pdf_region_uses_open_authority_without_returning_pdf(monkeypat
         return b"%PDF-verified fixture", object()
 
     monkeypatch.setattr(agent, "_authorized_build_pdf_region", authorize)
+    monkeypatch.setattr("apps.live_control_server.services.hosted_native_graph_access.require_build_pdf_access", lambda *_: None)
     validated = agent.post_validate_build_pdf_region("allowed", locator, request)
     reopened = agent.post_open_build_pdf_source("allowed", locator, request)
     assert validated.status_code == 204
