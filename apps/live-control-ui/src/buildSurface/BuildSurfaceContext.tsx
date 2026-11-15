@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import {useTourNavigationOwner,useTourNavigationGuard} from '../guidedTour/Navigation';
 import { useOptionalAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { BUILD_FIND_EXISTING_TOOL_ID } from "./reference/buildReferenceIds";
@@ -58,7 +59,7 @@ export type BuildSurfaceContextProps = Pick<
   | "destinationOptions"
   | "suggestedDestinationValue"
   | "suggestedCreateCampaignId"
-> & { extractionTargetRef?: Ref<HTMLDivElement> };
+> & { primaryActionsHost?: HTMLDivElement | null; extractionTargetRef?: Ref<HTMLDivElement> };
 
 export function BuildSurfaceContext({
   activeRecord,
@@ -83,6 +84,7 @@ export function BuildSurfaceContext({
   destinationOptions,
   suggestedDestinationValue,
   suggestedCreateCampaignId,
+  primaryActionsHost,
   extractionTargetRef,
 }: BuildSurfaceContextProps) {
   const session = useOptionalMarkdownCanvasSession();
@@ -155,7 +157,7 @@ export function BuildSurfaceContext({
               <span data-testid="build-canvas-title" hidden>
                 {displayTitle}
               </span>
-              <BuildDocumentSelector
+              {placePicker(<BuildDocumentSelector
                 worldId={documentWorldId}
                 documents={documents}
                 listStatus={listStatus}
@@ -165,7 +167,7 @@ export function BuildSurfaceContext({
                 switching={documentMutationBusy}
                 loadMorePages={hasMoreDocuments ? loadMoreDocuments : undefined}
                 onSelect={selectDocument}
-              />
+              />, primaryActionsHost)}
               <LoadedWorldGraphExplorer entry="recaps" />
               {authoringStatusLabel ? (
                 <>
@@ -196,7 +198,7 @@ export function BuildSurfaceContext({
           ) : (
             <>
               <SurfaceContextValue>No source loaded</SurfaceContextValue>
-              <BuildDocumentSelector
+              {placePicker(<BuildDocumentSelector
                 worldId={documentWorldId}
                 documents={documents}
                 listStatus={listStatus}
@@ -206,7 +208,7 @@ export function BuildSurfaceContext({
                 switching={switching || creating}
                 loadMorePages={hasMoreDocuments ? loadMoreDocuments : undefined}
                 onSelect={selectDocument}
-              />
+              />, primaryActionsHost)}
               <LoadedWorldGraphExplorer entry="recaps" />
             </>
           )}
@@ -290,7 +292,8 @@ export function BuildSurfaceContext({
       creating,
       destinationOptions,
       displayTitle,
-      extractionTargetRef,
+      primaryActionsHost,
+  extractionTargetRef,
       documentClass,
       documentMutationBusy,
       documents,
@@ -326,4 +329,9 @@ export function BuildSurfaceContext({
   });
 
   return <BuildConnectedPageControl selectDocument={selectDocument} refreshDocuments={refreshDocuments} relationshipsHost={relationshipsHost}/>;
+}
+
+
+function placePicker(picker: React.ReactElement, host: HTMLDivElement | null | undefined) {
+  return host === undefined ? picker : host ? createPortal(picker, host) : null;
 }

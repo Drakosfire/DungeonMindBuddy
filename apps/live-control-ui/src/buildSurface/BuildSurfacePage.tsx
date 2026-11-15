@@ -69,13 +69,14 @@ export function BuildSurfacePage() {
   const nativeObject = graphPointer?.nativePin;
   const statblock = readSavedStatblockTarget("/build" + entrySearch);
   const reviewWorldId = params.get("world");
+  const [primaryActions, setPrimaryActions] = useState<HTMLDivElement | null>(null);
   const [reviewToolbar, setReviewToolbar] = useState<HTMLDivElement | null>(null);
   const pdfReviewId = new URLSearchParams(window.location.search).get("world") === reviewWorldId
     ? params.get("pdfReview")
     : null;
 
   return (
-    <AppChrome contextToolbarRef={pdfReviewId ? setReviewToolbar : undefined} activeRoute="build" editorTools={editorTools} editToolboxLayout="dock" workspaceLayout="bounded">
+    <AppChrome primaryActionsRef={setPrimaryActions} contextToolbarRef={pdfReviewId ? setReviewToolbar : undefined} activeRoute="build" editorTools={editorTools} editToolboxLayout="dock" workspaceLayout="bounded">
       <div style={{display: "contents"}} onDragOver={event => {
         if (!pdfReviewId && !statblock && event.dataTransfer.types.includes("Files")) event.preventDefault();
       }} onDrop={event => {
@@ -94,19 +95,19 @@ export function BuildSurfacePage() {
         <BuildPdfStatblockReview key={`${reviewWorldId}:${pdfReviewId}`} worldId={reviewWorldId} reviewId={pdfReviewId} toolbarHost={reviewToolbar} />
       ) : statblock && statblock.worldId === worldId ? (
         <>
-          <BuildSurfaceContext {...controller} />
+          <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} />
           <SavedStatblockFullView target={statblock} />
         </>
       ) : graphPointer && nativeObject && nativeObject.managed_world_id === worldId ? (
         <BuildGraphObjectContext key={entrySearch} pointer={graphPointer} />
       ) : nativeDocumentId && worldId ? (
         <>
-          <BuildSurfaceContext {...controller} />
+          <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} />
           <BuildNativeDocument key={`${worldId}:${nativeDocumentId}`} worldId={worldId} revisionId={nativeDocumentId} />
         </>
       ) : params.has("pdf") && worldId ? (
         <>
-          <BuildSurfaceContext {...controller} />
+          <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} />
           <section className="build-pdf-workspace" aria-label="PDF workspace">
             {retainedPdf ? <BuildPdfPreview key={entrySearch} worldId={worldId} initialRetained={retainedPdf} />
               : <p role="status">{(!pdfId || resolvedPdf) ? "This retained PDF could not be found." : "Opening PDF…"}</p>}
@@ -125,7 +126,7 @@ export function BuildSurfacePage() {
           kind={BUILD_MARKDOWN_CANVAS.kind}
           saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
         >
-          <BuildSurfaceContext {...controller} extractionTargetRef={setExtractionTarget} />
+          <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} extractionTargetRef={setExtractionTarget} />
           <BuildReferenceCapability documentId={controller.activeDocumentId}>
             <BuildIngestToolbar documentId={controller.activeDocumentId} target={extractionTarget} reviewTarget={reviewTarget} />
             <BuildSurfaceShell onEditorTools={setEditorTools} onReviewTarget={setReviewTarget} />
@@ -133,7 +134,7 @@ export function BuildSurfacePage() {
         </MarkdownCanvasSessionProvider>
       ) : (
         <>
-          <BuildSurfaceContext {...controller} />
+          <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} />
           <BuildEmptyLanding loadStatus={controller.loadStatus} />
           <BuildReferenceCapability documentId={null} />
         </>

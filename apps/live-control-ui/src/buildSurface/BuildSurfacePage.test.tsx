@@ -246,7 +246,8 @@ describe("BuildSurfacePage", () => {
       renderBuildPage({ managedWorld: true });
       expect(await screen.findByRole("region", { name: "PDF workspace" }))
         .toHaveTextContent("MeatMindNode.pdf");
-      expect(screen.getByRole("button", { name: "Open document" })).toBeInTheDocument();
+      expect(within(screen.getByRole("navigation", { name: "Command board navigation" }))
+        .getByRole("button", { name: "Open document" })).toBeInTheDocument();
     } finally {
       localStorage.removeItem(key);
     }
