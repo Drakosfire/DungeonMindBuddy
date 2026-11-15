@@ -117,4 +117,16 @@ describe('Page layout authoring boundary',()=>{
   expect(r.result.current.exportedMarkdownAuthoritative).toBe(false);expect(readWorkspaceDocumentLocalState(localStorage,id)?.exported_markdown).toContain('New text');
  });
 
+ it('anchors pending completion to last valid Markdown, not a newer lossy projection',async()=>{
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snap());const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const pending=composed(6);pending.content![0].content![0].content![0].content=[{type:'text',text:'NEW WORDS'}];pending.content![0].content![0].content!.push({type:'paragraph'});
+  act(()=>h.result.current.handleEditorUpdate(pending,{} as Editor,{programmatic:false}));
+  await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation_pending).toBe(true));
+  const completed=structuredClone(pending);completed.content![0].content![0].content!.pop();
+  act(()=>h.result.current.handleEditorUpdate(completed,{} as Editor,{programmatic:false}));
+  await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation_pending).toBe(false));
+  expect(readWorkspaceDocumentLocalState(localStorage,id)?.exported_markdown).toContain('NEW WORDS');h.unmount();
+  const r=mount();await waitFor(()=>expect(r.result.current.dirty).toBe(true));expect(JSON.stringify(r.result.current.editorContent)).toContain('NEW WORDS');
+ });
+
 });
