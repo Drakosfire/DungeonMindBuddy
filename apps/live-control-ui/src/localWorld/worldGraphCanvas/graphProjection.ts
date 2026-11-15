@@ -345,7 +345,8 @@ export function projectLocalWorldGraph(
     const depthLimit = boundedLimit(options.neighborhoodDepth ?? 1, objects.length);
     const queue = [{ id: focusId, depth: 0 }];
     const visited = new Set([focusId]);
-    for (let cursor = 0; cursor < queue.length && queue.length < maxNodes; cursor += 1) {
+    let visibleCount = Number(isVisibleKind(index.objects.get(focusId)!));
+    for (let cursor = 0; cursor < queue.length && visibleCount < maxNodes; cursor += 1) {
       const { id, depth } = queue[cursor];
       if (depth >= depthLimit) continue;
       const neighbors = index.neighbors.get(id);
@@ -354,7 +355,8 @@ export function projectLocalWorldGraph(
         if (visited.has(neighbor)) continue;
         visited.add(neighbor);
         queue.push({ id: neighbor, depth: depth + 1 });
-        if (queue.length >= maxNodes) break;
+        if (isVisibleKind(index.objects.get(neighbor)!)) visibleCount += 1;
+        if (visibleCount >= maxNodes) break;
       }
     }
     visibleObjects = queue.map(({ id }) => index.objects.get(id)!).filter(isVisibleKind);

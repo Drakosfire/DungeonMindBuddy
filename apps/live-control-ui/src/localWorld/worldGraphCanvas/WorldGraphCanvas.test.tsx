@@ -1843,8 +1843,10 @@ it("filters loaded objects and their incident relationships on the mounted canva
   const { record } = await graphRecord();
   const host = document.createElement("div");
   document.body.append(host);
-  const view = render(<WorldGraphCanvas record={record} externalControls controlsHost={host}
-    projectionOptions={{ fullCorpus: true }} />);
+  const onCameraFocusChange = vi.fn();
+  const props = { record, externalControls: true, controlsHost: host,
+    projectionOptions: { fullCorpus: true }, onCameraFocusChange };
+  const view = render(<WorldGraphCanvas {...props} />);
   try {
     const canvas = view.container.querySelector(".world-graph-canvas__svg");
     const scene = view.container.querySelector(".world-graph-canvas__scene");
@@ -1856,11 +1858,22 @@ it("filters loaded objects and their incident relationships on the mounted canva
     expect(view.container.querySelectorAll("[data-edge-id]")).toHaveLength(1);
     expect(view.container.querySelector(".world-graph-canvas__svg")).toBe(canvas);
     expect(scene?.getAttribute("transform")).toBe(camera);
-    fireEvent.click(within(host).getByRole("checkbox", { name: "person" }));
+    const target = record.snapshot.objects[0].id;
+    view.rerender(<WorldGraphCanvas {...props} cameraFocusRequest={{ nodeId: target, requestId: 1, selectNode: true }} />);
+    expect(onCameraFocusChange).toHaveBeenLastCalledWith(target);
     expect(screen.getByRole("button", { name: /Mara Venn/ })).toBeInTheDocument();
     expect(view.container.querySelectorAll("[data-edge-id]")).toHaveLength(4);
   } finally {
     view.unmount();
     host.remove();
   }
+});
+
+it("does not count hidden neighbors against the visible focus limit", async () => {
+  const { record } = await graphRecord();
+  const [, , location, event] = record.snapshot.objects;
+  const projection = projectLocalWorldGraph(record, {
+    fullCorpus: true, focusObjectId: event.id, maxNodes: 2, hiddenKinds: new Set(["person"]),
+  });
+  expect(projection.nodes.map(node => node.id)).toEqual([event.id, location.id]);
 });

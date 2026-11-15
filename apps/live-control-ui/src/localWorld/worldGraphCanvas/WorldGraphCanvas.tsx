@@ -465,7 +465,7 @@ export function WorldGraphCanvas({
   typeStyles = DEFAULT_GRAPH_TYPE_STYLES,
 }: WorldGraphCanvasProps) {
   const [inspectedEdgeId, setInspectedEdgeId] = useState<string | null>(null);
-  const [openControl, setOpenControl] = useState<"tools" | "view" | null>(null);
+  const [openControl, setOpenControl] = useState<"tools" | "view" | "types" | null>(null);
   const index = useMemo(() => indexLocalWorldGraph(record.snapshot), [record.snapshot]);
   const fullCorpus = projectionOptions?.fullCorpus === true;
   const initialDraft = editorDraftState?.draft ?? emptyEditorDraft(editorDraftState?.version ?? 0);
@@ -802,6 +802,15 @@ export function WorldGraphCanvas({
 
   useLayoutEffect(() => {
     if (!cameraFocusRequest || lastCameraFocusRequestRef.current === cameraFocusRequest.requestId) return;
+    const requestedObject = cameraFocusRequest.nodeId && index.objects.get(cameraFocusRequest.nodeId);
+    if (requestedObject && hiddenKinds.has(requestedObject.kind)) {
+      setHiddenKinds(previous => {
+        const next = new Set(previous);
+        next.delete(requestedObject.kind);
+        return next;
+      });
+      return;
+    }
     lastCameraFocusRequestRef.current = cameraFocusRequest.requestId;
     if (cameraFocusRequest.nodeId === null) {
       const previousCamera = originalCameraBeforeFocusRef.current;
@@ -839,7 +848,7 @@ export function WorldGraphCanvas({
     setCamera({ zoom, x: measuredViewport.width / 2 - centerX * zoom,
       y: measuredViewport.height / 2 - centerY * zoom });
     onCameraFocusChange?.(node.id);
-  }, [camera, resetFitCamera, cameraFocusRequest, dimensions.height, dimensions.width, onCameraFocusChange, projection.nodes, viewport.height, viewport.width, focusedLayoutId, persistedPositions, graphBounds]);
+  }, [camera, resetFitCamera, hiddenKinds, index, cameraFocusRequest, dimensions.height, dimensions.width, onCameraFocusChange, projection.nodes, viewport.height, viewport.width, focusedLayoutId, persistedPositions, graphBounds]);
 
 
   const creationSignature = creationKinds?.map((item) => `${item.kind}:${item.label}`).join("|") ?? "";
@@ -1435,7 +1444,7 @@ export function WorldGraphCanvas({
   const hasDiagnostics = Boolean(projection.omittedNodes || projection.hiddenRelationships || projection.invalidRelationships || projection.omittedDiagnostics || projection.diagnostics.length);
   const surfaceControls = <div className="world-graph-surface-controls" onKeyDown={(event) => {
     if (event.key === "Escape" && openControl) {
-      const label = openControl === "tools" ? "Graph tools" : "Graph view options";
+      const label = openControl === "tools" ? "Graph tools" : openControl === "types" ? "Object types" : "Graph view options";
       setOpenControl(null);
       controlsHost?.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)?.focus();
       event.preventDefault();
@@ -1447,8 +1456,9 @@ export function WorldGraphCanvas({
       <div onClick={(event) => { if ((event.target as HTMLElement).closest("button:not(:disabled)")) setOpenControl(null); }}>{dragModeTools}{editingTools}{toolActions}</div>
     </SurfaceContextPopover>
     {cameraTools}
-    <details>
-      <summary>Object types</summary>
+    <SurfaceContextPopover open={openControl === "types"} onOpenChange={open => setOpenControl(open ? "types" : null)} title="Object types"
+      trigger={<SurfaceContextAction aria-expanded={openControl === "types"} aria-haspopup="dialog"
+        onClick={() => setOpenControl(openControl === "types" ? null : "types")}>Object types</SurfaceContextAction>}>
       <div role="group" aria-label="Visible object types">
         {legend.map(kind => <label key={kind} style={{ display: "block" }}>
           <input type="checkbox" checked={!hiddenKinds.has(kind)} onChange={(event) => {
@@ -1463,7 +1473,7 @@ export function WorldGraphCanvas({
           {kind}
         </label>)}
       </div>
-    </details>
+    </SurfaceContextPopover>
     <span className="world-graph-surface-controls__counts" title={`${projection.nodes.length} of ${record.snapshot.objects.length} loaded objects shown; ${projection.edges.length} relationships shown`}>{projection.nodes.length}/{record.snapshot.objects.length} objects shown · {projection.edges.length} relationships</span>
     <SurfaceContextPopover open={openControl === "view"} onOpenChange={(open) => setOpenControl(open ? "view" : null)} title="Graph view"
       trigger={<SurfaceContextAction aria-label="Graph view options" aria-expanded={openControl === "view"} aria-haspopup="dialog" onClick={() => setOpenControl(openControl === "view" ? null : "view")}>View{statusNeedsAttention ? " · attention" : hasDiagnostics ? " · limited" : ""} ▾</SurfaceContextAction>}>
