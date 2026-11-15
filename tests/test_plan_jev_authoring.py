@@ -1389,11 +1389,33 @@ def _shared_plan_authoring_case(
         assert len(selected) == 1
         assert selected[0].requested_work == ("write_current_page" if routing == "write_without_capture" else routing)
         assert selected[0].original_capture_sha256 == (None if routing == "write_without_capture" else capture.sha256)
-        assert PlanActionDialogueService().get_by_key(capture.world_id, capture.idempotency_key) is None
+        action = PlanActionDialogueService().get_by_key(
+            capture.world_id, capture.idempotency_key
+        )
         with psycopg.connect(dsn) as conn:
-            assert get_authoring_for_turn(conn, world_id=turn.world_id,
-                turn_id=turn.turn_id, attempt=turn.attempt) is None
-        assert snapshot_content(capture.document_id).markdown == plan_adapter.work.plan_markdown
+            reservation = get_authoring_for_turn(
+                conn, world_id=turn.world_id, turn_id=turn.turn_id, attempt=turn.attempt
+            )
+        before = (capture.base_revision, plan_adapter.work.plan_markdown)
+        snapshot = snapshot_content(capture.document_id)
+        after = (snapshot.work_object.object_revision, snapshot.markdown)
+        if response is None:
+            assert action is None and reservation is None and before == after
+        else:
+            from evals.buddy_benchmark.action_assessment import assess_conversation_only
+
+            effects = []
+            if reservation is not None or action is not None:
+                effects.append("write_reserved")
+            if response.plan_proposal is not None:
+                effects.append("proposal_created")
+            assessment = assess_conversation_only(
+                events=effects,
+                before=before,
+                after=after,
+                fulfilled=response.answer.status == "ok",
+            )
+            assert assessment["status"] == "pass", assessment
         calls = len(decisions.calls), len(writer.calls)
         if response is None:
             assert turn.failure_code == refused[routing] and turn.completion is None
