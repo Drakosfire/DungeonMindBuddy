@@ -46,11 +46,12 @@ One row per product idea. These rows are pointers, not separate status records. 
 
 | Idea | Next useful slice or decision |
 | --- | --- |
-| [Shared snapping page grid](#idea-high-priority--shared-grid-page-constructor) | Move and resize one image in Build; preserve writing and reading order. |
+| [Shared Build page composer](#idea-high-priority--shared-grid-page-constructor) | Compose text, images, tables and callouts in one reusable, saved row/column layout. |
 | [Layered map editor](Docs/Backlog/IDEA-layered-map-editor.md) | One durable map with editable overlays. Share coordinates where justified, not a single UI with page layout. |
-| [Composable spatial workspace and themes](#deferred-composable-spatial-workspace-and-selectable-themes) | Select either saved canvas arrangements or a reversible theme, not both in one slice. |
+| [App-wide theming](#idea-app-wide-theme-system) | One shared design system, selectable and customizable themes, with reviewed agent proposals. |
+| [Composable spatial workspace](#deferred-composable-spatial-workspace) | Saved canvas arrangements; not page composition or a separate theme system. |
 | [Connected campaign arcs](Docs/Backlog/IDEA-connected-campaign-arcs.md) | Explore the source-backed Wandering Forest arc across sessions; use unrelated material as a negative control. |
-| [Conversation search replay](Docs/Backlog/IDEA-conversation-search-replay.md) | Replay one recorded search and exact cited evidence inside Conversation Details. |
+| [Step through Buddy's work](Docs/Backlog/IDEA-conversation-search-replay.md) | One Conversation Details experience for traces, Jev graph search, and exact cited evidence. |
 | [Campaign recap contributor](Docs/Backlog/IDEA-recap-contributor.md) | One campaign, two accounts, GM publication, and a spoiler-isolation witness. |
 | [Deeper Build document hierarchy](Docs/Backlog/IDEA-build-document-hierarchy.md) | Retain only if dogfood shows a navigation gap after the merged picker and recap browser. |
 | [Independent source archive and restore](#deferred-define-independent-source-artifact-archive-and-restore) | Define what discovery and old citations do before designing controls. |
@@ -84,18 +85,17 @@ One row per product idea. These rows are pointers, not separate status records. 
 **Owner:** Build / shared Surface authoring
 **Captured:** 2026-10-24
 **Last verified:** 2026-10-24 @ `c74b5082ead867cd28fb302935dc05965dc1f4c0`
-**Context:** Edge authoring dogfood: the author wants to move and resize artwork on a snapping grid, then compose images, editable text, tables and callouts intentionally on the page.
+**Context:** Edge authoring dogfood began with the need to place artwork intentionally. The subsequent product discussion selected a shared page composer as the design target, not a standalone image-grid feature. It did not authorize implementation.
 
-**Direction:** Keep Tiptap for writing; define shared row/column layout containers, stable section identities and durable layout representation. Preserve reading order for retrieval, citations and Markdown export. Distinguish this page-layout work from the deferred infinite spatial workspace below.
+**Direction:** Keep Tiptap as the editor. Define shared rows and resizable grid columns with stable identities that can hold ordinary editable paragraphs, images, tables and callouts. One block is not one widget system. Keep regular documents working unchanged and keep spatial workspaces and map placement separate.
 
-**First slice to design:** Move and resize one existing image on a visible snapping grid. Decide persistence ownership and representation before implementation; image centering is an immediate separate convenience, not completion of the grid constructor.
+**First coherent slice to design:** Author a real two-column Build section with editable text and an image, then prove that the same grid can place a table and a callout without special layout primitives. Insert or move an existing block, snap column boundaries, and change block order only through an explicit move. Decide revision ownership and serialization before coding. Reuse existing node editing/resize behavior where applicable without confusing image width with column placement.
 
-**Exit proof:** Ordinary controls place/resize an image; Save, reload and reopen preserve placement, undo/recovery preserve authorship, and narrow screens stack content predictably. Later slices may add adjacent editable text, tables/callouts and agent suggestion placement using stable section identities. Freeform overlap, pan/zoom and connectors require separate selection.
+**Exit proof:** Save, reload and reopen the same layout and content. Undo/redo preserves both. Narrow screens stack content in a stable reading order; semantic Markdown, retrieval and exact citation references preserve that order and content for the saved revision. Layout-only changes must not silently reorder or alter semantic text. Preserve keyboard access, ordinary editing, and unsaved/recovered drafts. Do not require nested grids, overlap, arbitrary positioning, or map-coordinate machinery for this slice.
 
-**Surfaces when:** Planning Build authoring, media placement, shared page layout or proposal insertion. Product sequencing remains owned by `Docs/Roadmaps/ROADMAP-demo.md`; high priority does not activate implementation or resume the paused broad goal.
+**Surfaces when:** Planning Build authoring or shared page layout. Product sequencing remains with `Docs/Roadmaps/ROADMAP-demo.md`; high priority does not create a dispatch or authorize a schema or storage change.
 
 **Refs:** Edge source `bba72416-9dfe-49bb-add0-21a346e9a421`; `apps/live-control-ui/src/tiptap/extensions/MediaImageNode.tsx`; `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
-
 
 ## [DEFERRED] Define independent source-artifact archive and restore
 **Owner:** APP-STATE / source lifecycle
@@ -152,17 +152,29 @@ One row per product idea. These rows are pointers, not separate status records. 
 ---
 
 
-## [DEFERRED] Composable spatial workspace and selectable themes
+## [IDEA] App-wide theme system
+
+**Owner:** Buddy shared presentation and surface owners
+**Captured:** 2026-09-26 (theme ambition; clarified in the 2026-11-14 product discussion)
+**Trigger:** Operator selects coherent, selectable styling as a product capability.
+
+Use one shared vocabulary of semantic color, typography, spacing, focus and interaction tokens and consistent components across surfaces. Ship a selectable default and alternate theme before expanding to customization. Users and the agent should target the same bounded, typed theme settings; agent changes are reviewable and reversible, not arbitrary CSS or an independent styling path. Keep the existing palette as the default until selected otherwise. Reuse the [presentation substrate](Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md). A single surface can prove the shared contract, but do not create a Graph-only theme fork.
+
+<a id="deferred-composable-spatial-workspace-and-selectable-themes"></a>
+
+## [DEFERRED] Composable spatial workspace
+
 **Owner:** Buddy presentation
 **Captured:** 2026-09-26
 **Last verified:** 2026-11-10 @ `8a9ad7902`
-**Trigger:** The operator selects spatial composition or selectable themes for implementation.
+**Trigger:** The operator selects saved spatial composition for implementation.
 
-**Current boundary:** Shared presentation components and graph canvas exist. Current source has no saved multi-object workspace arrangements or selectable theme-pack contract. The shared grid page constructor above owns the separate request for snapping page content into rows and columns.
+**Current boundary:** Shared presentation components and graph canvas exist; saved multi-object workspace arrangements are not established by this backlog. The page composer handles ordered document layout. [App-wide theming](#idea-app-wide-theme-system) owns styling.
 
-**Next slice on trigger:** Select either saved spatial arrangements or selectable themes and bound it independently. For spatial arrangements, investigate existing canvas/projection components and define ownership of positions, sizes and camera state. For themes, investigate existing semantic tokens and define one reversible theme selection. These are separate capabilities.
+**Next slice on trigger:** Investigate existing canvas/projection components and define one saved arrangement with clear ownership of positions, sizes and camera state. Preserve low-cost pan/zoom and do not conflate coordinate mutation with theme or semantic document truth.
 
-**Refs:** [presentation substrate plan](Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md); `apps/live-control-ui/src/localWorld/worldGraphCanvas/`; shared grid page constructor entry above.
+**Refs:** [presentation substrate plan](Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md); `apps/live-control-ui/src/localWorld/worldGraphCanvas/`.
+
 
 ## [DEFERRED] Create a campaign inside an existing World
 **Owner:** Buddy campaign UX + DungeonMind campaign membership
