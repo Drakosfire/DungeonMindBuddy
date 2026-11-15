@@ -77,7 +77,7 @@ def source_display_name(display, fallback):
 
 
 def captured_source_presentation(access, world_id):
-    """Freeze readable names and verified recap numbers, without host IDs."""
+    """Freeze readable names and exact revision-bound recap placement."""
     import re
     from dungeonmind.application.vnext import list_admitted_native_text_sources
     items = list_admitted_native_text_sources(access).sources
@@ -95,7 +95,11 @@ def captured_source_presentation(access, world_id):
                  if display.get('kind') == 'recap' and display['origin_matches_current_metadata'] is True
                  and isinstance(session, str) else None)
         name = label.strip() if isinstance(label, str) and label.strip() else 'Source name unavailable'
-        presentation[key] = (name, int(match[1]) if match else 'unestablished')
+        campaign = (display.get('campaign_id')
+                    if display['kind'] == 'recap' and display['origin_matches_current_metadata'] is True
+                    else None)
+        presentation[key] = (name, int(match[1]) if match else 'unestablished',
+                             campaign or None)
     return presentation
 
 

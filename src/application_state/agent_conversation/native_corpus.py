@@ -52,6 +52,8 @@ class NativeCorpusMemberV1(Strict):
     access_slice_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     proof_epoch: int = Field(ge=0, strict=True)
     campaign_scope: Literal["unestablished"] = "unestablished"
+    registered_campaign_id: str | None = Field(default=None, min_length=1,
+        exclude_if=lambda value: value is None)
     session_scope: Literal["unestablished"] | Annotated[int, Field(gt=0, strict=True)] = "unestablished"
     # Omission preserves already committed historical catalogs and SDK bytes.
     # Every current acquisition supplies a name or explicit unavailable label.
@@ -340,6 +342,7 @@ class NativeBodySectionMatchV1(Strict):
     catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     section_id: str = Field(pattern=r"^[a-f0-9]{64}$")
     matched_terms: tuple[str, ...] = Field(min_length=1)
+    distinctiveness_rank: int | None = Field(default=None, gt=0)
 
 
 class NativeBodySearchObservedV1(NativeBodyEvent):
@@ -637,7 +640,7 @@ def acquired_body_catalogs(execution):
     return catalogs
 
 
-def selected_batch_covering_reads(execution, selection, handle, *, before_sequence=None):
+def selected_batch_covering_reads(execution, selection, handle, *, before_sequence=None, require_passage=False):
     """Exact source extent already obtained by this acknowledged read batch."""
     if (not handle.startswith('native-body:') or selection.operation != 'select_candidates'
             or handle not in selection.selected_handles):
@@ -658,6 +661,7 @@ def selected_batch_covering_reads(execution, selection, handle, *, before_sequen
     return tuple(e.event_id for e in events if isinstance(e, (NativeBodyReadObservedV1, NativeAuthoredSourceReadV1))
         and e.excerpt is not None and e.sequence > selection.sequence
         and identity(catalogs[e.excerpt.catalog_sha256]) == identity(catalog)
+        and (not require_passage or _is_writer_passage(e, catalogs[e.excerpt.catalog_sha256]))
         and e.excerpt.section.byte_start <= section.byte_start
         and e.excerpt.section.byte_end >= section.byte_end)
 
@@ -694,6 +698,21 @@ def selected_body_reads(execution):
                  or body_selection_unit_id(read) in vote.expanded_unit_ids)
 
 
+def _is_writer_passage(read, catalog):
+    excerpt = read.excerpt
+    return (excerpt.selector_policy != "native_full_document_v1"
+            and (excerpt.section.byte_start, excerpt.section.byte_end) != (0, catalog.body_bytes))
+
+
+def writer_passage_reads(execution):
+    """Keep exploration-only whole recaps out of the citation catalogue."""
+    catalogs = acquired_body_catalogs(execution)
+    return tuple(
+        read for read in selected_body_reads(execution)
+        if _is_writer_passage(read, catalogs[read.excerpt.catalog_sha256])
+    )
+
+
 def body_selector(turn, read):
     """Current-input address only; the durable read retains source authority."""
     from .plan_source_selectors import _scope
@@ -712,13 +731,14 @@ def model_body_frame(turn):
         lambda read: body_selector(turn, read))
 
 
-def model_body_frame_records(source_authority, execution, selector):
+def model_body_frame_records(source_authority, execution, selector, *, passages_only=False):
     """Expose only selected body extents; producing-prefix admission is caller-owned."""
     searches = [event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)]
     search = searches[0] if searches else None
     catalogs = acquired_body_catalogs(execution)
     pairs = []
-    for read in selected_body_reads(execution):
+    reads = writer_passage_reads(execution) if passages_only else selected_body_reads(execution)
+    for read in reads:
         catalog = catalogs.get(read.excerpt.catalog_sha256)
         if catalog is None:
             raise ValueError('Native body writer read lacks its exact observed catalog')

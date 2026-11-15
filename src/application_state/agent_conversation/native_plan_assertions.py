@@ -292,10 +292,12 @@ def model_frame(turn):
     return model_frame_records(turn.graph_context_receipt.native_query, turn.graph_context_execution)
 
 
-def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_frame_v1'):
+def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_frame_v1', read_records=None):
     """Project admitted facts; full source proofs stay in the read/citation owner."""
     if schema not in {'dmb_plan_native_assertion_frame_v1', 'dmb_native_assertion_frame_v2'}:
         raise ValueError('Unknown native assertion presentation')
+    if read_records is None:
+        read_records = selected_read_records(execution)
     return {'schema': schema,
         'authority': query.authority.model_dump(mode='json', by_alias=True),
         'status': 'partial' if input_partial_records(query, execution) else 'complete',
@@ -306,7 +308,7 @@ def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_f
             **({'evidence': [e.model_dump(mode='json') for e in read.evidence],
                 'supporting_sources': [s.model_dump(exclude={'text'}) for s in read.spans]}
                 if schema == 'dmb_plan_native_assertion_frame_v1' else {})}
-            for event, read in selected_read_records(execution)]}
+            for event, read in read_records]}
 
 
 def input_partial(turn):

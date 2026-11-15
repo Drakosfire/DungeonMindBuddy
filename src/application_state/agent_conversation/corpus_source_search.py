@@ -17,6 +17,11 @@ def terms(text):
     return sorted(set(re.findall(r"\w+", text.casefold())) - GRAMMAR)
 
 
+def session_cutoff(question):
+    return (re.match(r"^\s*(?:as of|by the end of|at the end of) session (\d+)\s*[, :]", question, re.I)
+            or re.search(r"\b(?:by|as of) session (\d+)\s*[?.!]?\s*$", question, re.I))
+
+
 def enabled(policy):
     return getattr(policy, 'corpus_source_policy', None) == POLICY
 
