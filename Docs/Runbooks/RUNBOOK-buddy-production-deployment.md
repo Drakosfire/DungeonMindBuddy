@@ -242,12 +242,15 @@ try:
     client = build_statblock_v1_client()
     try:
         report = client.get_readiness()
+        capabilities = set(client.get_health().capabilities)
     finally:
         client.close()
 except Exception:
     raise SystemExit("Private statblock provider probe failed")
 if report.status != "ready" or not report.read_routes_enabled:
     raise SystemExit("Private statblock provider is not ready for saved revisions")
+if not {"statblock_create", "statblock_revision_append"} <= capabilities:
+    raise SystemExit("Private statblock provider is missing required write capabilities")
 print("Private statblock provider ready")
 PYTHON
 ```
