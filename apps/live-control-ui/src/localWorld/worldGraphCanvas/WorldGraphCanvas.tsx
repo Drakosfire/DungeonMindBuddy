@@ -505,9 +505,10 @@ export function WorldGraphCanvas({
     fallbackRef.current = { worldId: record.snapshot.worldId, signature, positions };
     return positions;
   }, [fullCorpus, useCompactLayout, index, record.snapshot.worldId, record.layout.positions]);
-  const projection = useMemo(() => projectLocalWorldGraph(record, { ...projectionOptions, fallbackPositions, showUnconnected, revealObjectIds }, index),
+  const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<string>>(() => new Set());
+  const projection = useMemo(() => projectLocalWorldGraph(record, { ...projectionOptions, fallbackPositions, showUnconnected, revealObjectIds, hiddenKinds }, index),
     [record.snapshot, record.layout, index, fullCorpus, fallbackPositions, projectionOptions?.compactOverview, projectionOptions?.maxNodes, projectionOptions?.maxEdges,
-      projectionOptions?.focusObjectId, projectionOptions?.neighborhoodDepth, showUnconnected, revealObjectIds]);
+      projectionOptions?.focusObjectId, projectionOptions?.neighborhoodDepth, showUnconnected, revealObjectIds, hiddenKinds]);
   const legend = useMemo(() => [...new Set(record.snapshot.objects.map((object) => object.kind))].sort(), [record.snapshot]);
   const importantNodeIds = useMemo(() => {
     const ranked = [...index.relationshipCounts].sort(([a, countA], [b, countB]) => countB - countA || a.localeCompare(b));
@@ -1446,6 +1447,23 @@ export function WorldGraphCanvas({
       <div onClick={(event) => { if ((event.target as HTMLElement).closest("button:not(:disabled)")) setOpenControl(null); }}>{dragModeTools}{editingTools}{toolActions}</div>
     </SurfaceContextPopover>
     {cameraTools}
+    <details>
+      <summary>Object types</summary>
+      <div role="group" aria-label="Visible object types">
+        {legend.map(kind => <label key={kind} style={{ display: "block" }}>
+          <input type="checkbox" checked={!hiddenKinds.has(kind)} onChange={(event) => {
+            const visible = event.currentTarget.checked;
+            setHiddenKinds(previous => {
+              const next = new Set(previous);
+              if (visible) next.delete(kind);
+              else next.add(kind);
+              return next;
+            });
+          }} />
+          {kind}
+        </label>)}
+      </div>
+    </details>
     <span className="world-graph-surface-controls__counts" title={`${projection.nodes.length} of ${record.snapshot.objects.length} loaded objects shown; ${projection.edges.length} relationships shown`}>{projection.nodes.length}/{record.snapshot.objects.length} objects shown · {projection.edges.length} relationships</span>
     <SurfaceContextPopover open={openControl === "view"} onOpenChange={(open) => setOpenControl(open ? "view" : null)} title="Graph view"
       trigger={<SurfaceContextAction aria-label="Graph view options" aria-expanded={openControl === "view"} aria-haspopup="dialog" onClick={() => setOpenControl(openControl === "view" ? null : "view")}>View{statusNeedsAttention ? " · attention" : hasDiagnostics ? " · limited" : ""} ▾</SurfaceContextAction>}>
