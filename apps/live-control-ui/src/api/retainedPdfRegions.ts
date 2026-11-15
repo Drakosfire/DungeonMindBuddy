@@ -32,3 +32,17 @@ export function readRetainedPdfRegions(worldId: string): RetainedPdf[] {
     return [];
   }
 }
+
+export function retainedPdfBuildHref(worldId: string, entry: RetainedPdf) {
+  return "/build?" + new URLSearchParams({ world: worldId, pdf: entry.locator.source_revision_id });
+}
+
+export function readRetainedPdfDocuments(worldId: string): RetainedPdf[] {
+  const documents = new Map<string, RetainedPdf>();
+  for (const entry of readRetainedPdfRegions(worldId)) {
+    const id = entry.locator.source_revision_id;
+    const existing = documents.get(id);
+    if (!existing || entry.locator.page < existing.locator.page) documents.set(id, entry);
+  }
+  return [...documents.values()];
+}

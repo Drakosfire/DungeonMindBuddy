@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { pdfRegionKey, retainedPdfKey } from "../api/retainedPdfRegions";
 import type { WorkspaceDocumentRecord } from "../api/types";
 import { BuildDocumentSelector } from "./BuildDocumentSelector";
 
@@ -53,6 +54,27 @@ describe("BuildDocumentSelector", () => {
       expect(statblock).toBeInTheDocument();
     } finally {
       request.mockRestore();
+    }
+  });
+
+  it("lists one Build document for multiple saved regions of a PDF", () => {
+    const locator = { source_revision_id: "source", content_sha256: "digest",
+      page: 1, left: 0, top: 0, right: 1, bottom: 1 };
+    const keys = [locator, { ...locator, page: 2 }].map(region => {
+      const key = retainedPdfKey("elderwyld") + pdfRegionKey(region);
+      localStorage.setItem(key, JSON.stringify({ name: "MeatMindNode.pdf", locator: region }));
+      return key;
+    });
+    const request = vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise(() => {}));
+    try {
+      render(<BuildDocumentSelector worldId="elderwyld" documents={[]} listStatus="ready"
+        activeDocumentId={null} activeRecord={null} preferredCampaignId={null}
+        switching={false} onSelect={vi.fn()} />);
+      expect(screen.getByRole("option", { name: "MeatMindNode.pdf" }))
+        .toHaveValue("/build?world=elderwyld&pdf=source");
+    } finally {
+      request.mockRestore();
+      keys.forEach(key => localStorage.removeItem(key));
     }
   });
 
