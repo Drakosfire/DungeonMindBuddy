@@ -1,3 +1,4 @@
+import { PAGE_IMAGE_TEXT_EXTENSIONS, PageImageTextTools } from './PageImageText';
 import { Extension, Node, mergeAttributes, type Editor } from '@tiptap/core';
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
 import { Plugin, Selection } from '@tiptap/pm/state';
@@ -6,6 +7,7 @@ import { useEffect, useState } from 'react';
 import './PageRow.css';
 
 const BLOCKS = ['paragraph', 'heading', 'blockquote', 'bulletList', 'orderedList', 'table', 'callout', 'horizontalRule'];
+const SLOT_BLOCKS = [...BLOCKS, 'pageImageText'];
 const newId = () => `page-${crypto.randomUUID()}`;
 const clampWidth = (width: number, total = 12) => Math.max(2, Math.min(total - 2, Math.round(width)));
 
@@ -32,7 +34,7 @@ export function wrapPageRow(editor: Editor, dryRun = false, columns: 1 | 2 | 3 =
   const index = $from.index(0);
   if (![1, 2, 3].includes(columns)) return false;
   const blocks = Array.from({ length: columns }, (_, i) => editor.state.doc.maybeChild(index + i));
-  if (blocks.some(block => !block || !BLOCKS.includes(block.type.name))) return false;
+  if (blocks.some(block => !block || !SLOT_BLOCKS.includes(block.type.name))) return false;
   if (dryRun) return true;
   const slot = editor.schema.nodes.pageSlot;
   const rowType = editor.schema.nodes.pageRow;
@@ -142,6 +144,7 @@ export const PageBlockIdentity = Extension.create({
         const seen = new Set<string>();
         const tr = state.tr;
         const stamp = (block: PMNode, pos: number) => {
+          if (block.type.name === 'pageImageText') { block.forEach((child, offset) => stamp(child, pos + 1 + offset)); return; }
           if (!BLOCKS.includes(block.type.name)) return;
           let id = block.attrs.pageBlockId;
           if (typeof id !== 'string' || !id || seen.has(id)) {
@@ -160,7 +163,7 @@ export const PageBlockIdentity = Extension.create({
 });
 
 export const PageSlot = Node.create({
-  name: 'pageSlot', content: `(${BLOCKS.join('|')})*`, defining: true, isolating: true,
+  name: 'pageSlot', content: `(${SLOT_BLOCKS.join('|')})*`, defining: true, isolating: true,
   addAttributes() { return { id: { default: null }, width: { default: 6 } }; },
   parseHTML() { return [{ tag: 'div[data-page-slot]' }]; },
   renderHTML({ HTMLAttributes }) { return ['div', mergeAttributes(HTMLAttributes, { 'data-page-slot': '', class: 'page-composer-slot' }), 0]; },
@@ -265,7 +268,7 @@ export const PageRow = Node.create({
   },
 });
 
-export const PAGE_COMPOSER_EXTENSIONS = [PageBlockIdentity, PageSlot, PageRow];
+export const PAGE_COMPOSER_EXTENSIONS = [PageBlockIdentity, PageSlot, PageRow, ...PAGE_IMAGE_TEXT_EXTENSIONS];
 
 export function PageComposerTools({ editor, disabledReason }: { editor: Editor | null; disabledReason?: string | null }) {
   const [, refresh] = useState(0);
@@ -301,6 +304,7 @@ export function PageComposerTools({ editor, disabledReason }: { editor: Editor |
       onChange={event => { if (editor && row) updatePageRowPresentation(editor, row.pos, { line_mode: event.target.value as 'guide' | 'border' | 'clean' }); }}>
       <option value="guide">Dotted guide</option><option value="border">Bordered</option><option value="clean">Clean</option>
     </select></label>
+    <PageImageTextTools editor={editor} disabledReason={disabledReason} />
     {disabledReason ? <span role="status">{disabledReason}</span> : null}
   </div>;
 }

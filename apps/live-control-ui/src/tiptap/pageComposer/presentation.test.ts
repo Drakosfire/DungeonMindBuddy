@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import type { JSONContent } from "@tiptap/core";
+import { semanticMarkdownSerializationDiagnostics } from "../markdown/semanticMarkdownSafety";
 import { markdownToTiptapDoc } from "../markdown/markdownToTiptap";
 import { admittedPresentationBlocks, flattenPresentation, hasPresentation, hydratePresentation, presentationEligibility, presentationFingerprint, presentationSha256, projectPresentation, type PagePresentation } from "./presentation";
 
@@ -50,7 +51,7 @@ describe('Page presentation exact-source mapper',()=>{
   it.each(['digest','span','identity','extra','order','width','omitted'])('rejects malformed stored %s data',damage=>{
     const p=payload();const r=p.items[0];if(r.kind!=='row') throw new Error('fixture');
     if(damage==='digest') p.markdown_sha256='0'.repeat(64);
-    if(damage==='span') r.slots[0].blocks[0].byte_start=1;
+    if(damage==='span') { const block=r.slots[0].blocks[0]; if(block.kind==='block')block.byte_start=1; }
     if(damage==='identity') r.slots[0].id=r.id;
     if(damage==='extra') Object.assign(p,{unexpected:true});
     if(damage==='order') r.slots.reverse();
@@ -114,5 +115,78 @@ describe('Page presentation exact-source mapper',()=>{
     expect(()=>projectPresentation(unknown,text,markdownToTiptapDoc(text).doc)).toThrow();
     const bad=row();bad.content![0].content![0].content=[row().content![0]];
     expect(()=>flattenPresentation(bad)).toThrow();
+  });
+});
+
+describe('Page image/text presentation',()=>{
+  const source='---\ntitle: Layer 🌲\n---\n\n![Forest art](dmb-media:11111111-1111-4111-8111-111111111111)\n\n## Café **Forest**\n';
+  const original=()=>markdownToTiptapDoc(source).doc;
+  function stack():JSONContent{return {type:'doc',content:[{type:'pageImageText',attrs:{id:'stack-1',anchor:'top-left',inset:'small',backing:'contrast'},content:original().content}]};}
+  function project(doc=stack()){return projectPresentation(doc,source,original());}
+  it('retains exact image then editable text once at top level and in a slot',()=>{
+    const top=project();expect(top.markdown).toBe(source);
+    const saved=hydratePresentation(source,top.presentation);
+    expect(flattenPresentation(saved)).toEqual(original());expect(hasPresentation(saved)).toBe(true);
+    const rowDoc:JSONContent={type:'doc',content:[{type:'pageRow',attrs:{id:'row',min_height:0,line_mode:'guide'},content:[{type:'pageSlot',attrs:{id:'slot',width:12},content:stack().content}]}]};
+    const nested=project(rowDoc);expect(nested.markdown).toBe(source);
+    expect(flattenPresentation(hydratePresentation(source,nested.presentation))).toEqual(original());
+    expect(projectPresentation(saved,source,saved)).toEqual(top);
+  });
+  it('keeps byte bindings and reading order through anchor/inset/backing-only changes and unstack',()=>{
+    const p=project(),before=hydratePresentation(source,p.presentation),after=structuredClone(before);
+    after.content![0].attrs={...after.content![0].attrs,anchor:'bottom-right',inset:'medium',backing:'none'};
+    const result=projectPresentation(after,source,before);
+    expect(result.markdown).toBe(source);expect(presentationFingerprint(result.presentation)).not.toBe(presentationFingerprint(p.presentation));
+    const left=p.presentation!.items[0],right=result.presentation!.items[0];
+    if(left.kind!=='image_text'||right.kind!=='image_text')throw new Error('fixture');
+    expect(right.image).toEqual(left.image);expect(right.text).toEqual(left.text);
+    expect(projectPresentation(flattenPresentation(before),source,before)).toEqual({markdown:source,presentation:null});
+  });
+  it.each(['badAnchor','badInset','badBacking','reverse','nested','duplicate','extra'])('rejects malformed stored stack %s',damage=>{
+    const p=project().presentation!,item=p.items[0];if(item.kind!=='image_text')throw new Error('fixture');
+    if(damage==='badAnchor')Object.assign(item,{anchor:'center'});
+    if(damage==='badInset')Object.assign(item,{inset:12});
+    if(damage==='badBacking')Object.assign(item,{backing:'red'});
+    if(damage==='reverse')[item.image,item.text]=[item.text,item.image];
+    if(damage==='nested')Object.assign(item,{text:structuredClone(item)});
+    if(damage==='duplicate')item.text.id=item.image.id;
+    if(damage==='extra')Object.assign(item,{z_index:2});
+    expect(()=>hydratePresentation(source,p)).toThrow();
+  });
+  it.each(['externalAsset','extraSrc','badAlt','twoImages','imageHeading','unsafeText','nestedText','mediaText','struckText'])('rejects unsafe editor stack %s',damage=>{
+    const doc=stack(),layer=doc.content![0],image=layer.content![0],media=image.content![0],text=layer.content![1];
+    if(damage==='externalAsset')media.attrs!.assetId='https://example.com/art.png';
+    if(damage==='extraSrc')media.attrs!.src='https://example.com/art.png';
+    if(damage==='badAlt')media.attrs!.alt='';
+    if(damage==='twoImages')image.content!.push(structuredClone(media));
+    if(damage==='imageHeading')image.type='heading';
+    if(damage==='unsafeText')text.type='rawHTML';
+    if(damage==='nestedText')layer.content![1]=structuredClone(layer);
+    if(damage==='mediaText')text.content!.push(structuredClone(media));
+    if(damage==='struckText')text.content![0].marks=[{type:'strike'}];
+    expect(()=>project(doc)).toThrow();
+  });
+  it('flattens unfinished empty text without losing the draft, but blocks saving until complete',()=>{
+    const draft=stack();draft.content![0].content![1]={type:'paragraph'};
+    const retained=structuredClone(draft);
+    const flat=flattenPresentation(draft);
+    expect(flat.content![1]).toEqual({type:'paragraph'});
+    expect(semanticMarkdownSerializationDiagnostics(flat)).toEqual([]);
+    expect(()=>project(draft)).toThrow();
+    expect(draft).toEqual(retained);
+    draft.content![0].content![1].content=[{type:'text',text:'Finished title'}];
+    expect(()=>project(draft)).not.toThrow();
+  });
+  it('preserves unknown or nested stack children for semantic draft protection',()=>{
+    for(const child of [{type:'unknownWidget',attrs:{retained:'yes'}},stack().content![0]]){
+      const draft=stack();draft.content![0].content![1]=child;
+      const retained=structuredClone(draft),flat=flattenPresentation(draft);
+      expect(flat.content![1].type).toBe(child.type);
+      expect(semanticMarkdownSerializationDiagnostics(flat).length).toBeGreaterThan(0);
+      expect(()=>project(draft)).toThrow();expect(draft).toEqual(retained);
+    }
+  });
+  it('leaves existing unlayered payload fingerprints unchanged',()=>{
+    const p=payload();expect(projectPresentation(hydratePresentation(text,p),text,hydratePresentation(text,p)).presentation).toEqual(p);
   });
 });

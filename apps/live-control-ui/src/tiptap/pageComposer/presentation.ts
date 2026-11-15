@@ -4,19 +4,38 @@ import { markdownToTiptapDoc } from "../markdown/markdownToTiptap";
 import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
 import { semanticMarkdownSerializationDiagnostics } from "../markdown/semanticMarkdownSafety";
 import { splitLeadingYamlFrontmatter, preserveLeadingYamlFrontmatter } from "../markdown/stripLeadingYamlFrontmatter";
+import { MEDIA_ASSET_ID, mediaMarkdown } from "../../media/mediaReferences";
 import { presentationSha256 } from "./presentationHash";
 
 export interface PageBlockBinding { kind: "block"; id: string; byte_start: number; byte_end: number; sha256: string }
-export interface PageSlot { id: string; width: number; blocks: PageBlockBinding[] }
+export const IMAGE_TEXT_ANCHORS = ["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right"] as const;
+export type ImageTextAnchor = typeof IMAGE_TEXT_ANCHORS[number];
+export interface PageImageText { kind: "image_text"; id: string; image: PageBlockBinding; text: PageBlockBinding; anchor: ImageTextAnchor; inset: "none" | "small" | "medium"; backing: "none" | "contrast" }
+export type PageSlotBlock = PageBlockBinding | PageImageText;
+export interface PageSlot { id: string; width: number; blocks: PageSlotBlock[] }
 export interface PageRow { kind: "row"; id: string; slots: PageSlot[]; min_height: number; line_mode: "guide" | "border" | "clean" }
-export interface PagePresentation { schema_version: "dmb_page_presentation_v1"; markdown_sha256: string; items: (PageBlockBinding | PageRow)[] }
+export interface PagePresentation { schema_version: "dmb_page_presentation_v1"; markdown_sha256: string; items: (PageBlockBinding | PageRow | PageImageText)[] }
 export { presentationSha256 };
 const fail = (reason: string): never => { throw new Error(`Page composition unavailable: ${reason}. The source and draft are unchanged.`); };
 const identifier = /^[A-Za-z0-9_-]{1,80}$/;
 const encoder = new TextEncoder();
 const allowedSource = new Set(["paragraph", "heading", "table", "blockquote", "list", "thematicBreak"]);
 
-/** Only the two owned containers disappear. Unknown editor nodes remain visible to admission. */
+/** The stack retains the existing managed image and editable text, never a duplicate. */
+export function validateImageTextContent(content: JSONContent[] | undefined): void {
+  const [image, text] = content ?? [];
+  if (content?.length !== 2 || image?.type !== "paragraph" || image.content?.length !== 1 || image.content[0].type !== "mediaImage") return fail("image/text needs one standalone managed image then one text block");
+  const media = image.content[0];
+  if (!MEDIA_ASSET_ID.test(String(media.attrs?.assetId ?? "")) || Object.keys(media.attrs ?? {}).some(key => !["assetId","alt","width","collapsed"].includes(key)) || media.content?.length || media.marks?.length) return fail("invalid managed image");
+  try { mediaMarkdown(String(media.attrs?.assetId ?? ""), String(media.attrs?.alt ?? ""), media.attrs?.width, media.attrs?.collapsed); }
+  catch { return fail("invalid managed image presentation"); }
+  if (!text || !["paragraph", "heading"].includes(text.type ?? "") || !text.content?.length
+    || text.content.some(child => !["text", "hardBreak"].includes(child.type ?? "") || !!child.content?.length || child.marks?.some(mark => !["bold","italic","code","link"].includes(mark.type)))
+    || !text.content.some(child => child.type === "text" && child.text?.trim())
+    || semanticMarkdownSerializationDiagnostics({type:"doc",content:[image,text]}).length) return fail("image/text needs a plain editable heading or paragraph");
+}
+
+/** Only the owned containers disappear. Unknown editor nodes remain visible to admission. */
 export function flattenPresentation(doc: JSONContent): JSONContent {
   function clean(node: JSONContent): JSONContent {
     if (node.type === "pageRow" || node.type === "pageSlot") return fail("nested layout container");
@@ -30,14 +49,21 @@ export function flattenPresentation(doc: JSONContent): JSONContent {
     return result;
   }
   if (doc.type !== "doc") return fail("expected a document");
+  const block = (node: JSONContent): JSONContent[] => {
+    if (node.type !== "pageImageText") return [clean(node)];
+    // Drafts can contain an empty title while typing. Flatten only the owned
+    // wrapper here; project/hydrate enforce the complete saved stack contract.
+    // Unknown children stay intact for semantic safety to protect the draft.
+    return (node.content ?? []).map(clean);
+  };
   const content = (doc.content ?? []).flatMap(node => {
-    if (node.type !== "pageRow") return [clean(node)];
+    if (node.type !== "pageRow") return block(node);
     if (!node.content?.length || node.content.some(slot => slot.type !== "pageSlot")) return fail("invalid row");
-    return node.content.flatMap(slot => (slot.content ?? []).map(clean));
+    return node.content.flatMap(slot => (slot.content ?? []).flatMap(block));
   });
   return { ...doc, content };
 }
-export function hasPresentation(doc: JSONContent): boolean { return (doc.content ?? []).some(node => node.type === "pageRow"); }
+export function hasPresentation(doc: JSONContent): boolean { return (doc.content ?? []).some(node => node.type === "pageRow" || node.type === "pageImageText"); }
 
 // Sort keys for comparisons/fingerprints; never normalize source text.
 export function presentationCanonicalJson(value: unknown): string {
@@ -103,16 +129,26 @@ export function hydratePresentation(markdown: string, presentation: PagePresenta
     if (b.kind !== "block" || !expected || b.byte_start !== expected.byte_start || b.byte_end !== expected.byte_end || b.sha256 !== expected.sha256) return fail("invalid source block binding");
     return {...expected.node,attrs:{...expected.node.attrs,pageBlockId:id}};
   };
+  const block = (value: unknown): JSONContent => {
+    const item = object(value,["kind","id","byte_start","byte_end","sha256","image","text","anchor","inset","backing"]);
+    if (item.kind === "block") return bind(value);
+    object(value,["kind","id","image","text","anchor","inset","backing"]);
+    if (item.kind !== "image_text") return fail("unknown slot item or nested layout");
+    const id=identity(item.id);
+    if (!IMAGE_TEXT_ANCHORS.includes(item.anchor as ImageTextAnchor) || !["none","small","medium"].includes(String(item.inset)) || !["none","contrast"].includes(String(item.backing))) return fail("invalid image/text style");
+    const content=[bind(item.image),bind(item.text)];
+    validateImageTextContent(content);
+    return {type:"pageImageText",attrs:{id,anchor:item.anchor,inset:item.inset,backing:item.backing},content};
+  };
   const content=array(p.items,2048).map(value => {
-    const item=object(value,["kind","id","slots","min_height","line_mode","byte_start","byte_end","sha256"]);
-    if(item.kind === "block") return bind(item);
+    const item=object(value,["kind","id","slots","min_height","line_mode","byte_start","byte_end","sha256","image","text","anchor","inset","backing"]);
+    if(item.kind !== "row") return block(value);
     object(value,["kind","id","slots","min_height","line_mode"]);
-    if(item.kind !== "row") return fail("unknown presentation item");
     const id=identity(item.id); const min_height=integer(item.min_height,0,640);
     if(min_height%8 || !["guide","border","clean"].includes(String(item.line_mode))) return fail("invalid row style");
     const slots=array(item.slots,3); if(slots.length < 1) return fail("row must contain one to three slots");
     let sum=0,count=0;
-    const content=slots.map(value => {const slot=object(value,["id","width","blocks"]);const slotId=identity(slot.id),width=integer(slot.width,2,12);sum+=width;const content=array(slot.blocks,2048).map(bind);count+=content.length;return {type:"pageSlot",attrs:{id:slotId,width},content};});
+    const content=slots.map(value => {const slot=object(value,["id","width","blocks"]);const slotId=identity(slot.id),width=integer(slot.width,2,12);sum+=width;const content=array(slot.blocks,2048).map(block);count+=content.length;return {type:"pageSlot",attrs:{id:slotId,width},content};});
     if(sum!==12 || !count) return fail("invalid row widths or empty row");
     return {type:"pageRow",attrs:{id,min_height,line_mode:item.line_mode},content};
   });
@@ -133,10 +169,15 @@ export function projectPresentation(doc: JSONContent, originalMarkdown: string, 
   const used=new Set<string>();let serial=0,cursor=0;
   const identity=(candidate:unknown,prefix:string):string => {if(typeof candidate==='string' && identifier.test(candidate) && !used.has(candidate)){used.add(candidate);return candidate;}let id:string;do{id=`${prefix}-${serial++}`;}while(used.has(id));used.add(id);return id;};
   const bind=(node:JSONContent):PageBlockBinding=>{const b=admitted[cursor++];if(!b) return fail("missing edited block");return {kind:"block",id:identity(node.attrs?.pageBlockId,"block"),byte_start:b.byte_start,byte_end:b.byte_end,sha256:b.sha256};};
-  const items=(doc.content??[]).map((node):PageBlockBinding|PageRow=>{
-    if(node.type!=="pageRow") return bind(node);
+  const block=(node:JSONContent):PageSlotBlock=>{
+    if(node.type!=="pageImageText")return bind(node);
+    validateImageTextContent(node.content);
+    return {kind:"image_text",id:identity(node.attrs?.id,"image-text"),image:bind(node.content![0]),text:bind(node.content![1]),anchor:node.attrs?.anchor,inset:node.attrs?.inset,backing:node.attrs?.backing};
+  };
+  const items=(doc.content??[]).map((node):PageBlockBinding|PageRow|PageImageText=>{
+    if(node.type!=="pageRow") return block(node);
     const id=identity(node.attrs?.id,"row");
-    return {kind:"row",id,min_height:node.attrs?.min_height??0,line_mode:node.attrs?.line_mode??"guide",slots:(node.content??[]).map(slot=>({id:identity(slot.attrs?.id,"slot"),width:slot.attrs?.width,blocks:(slot.content??[]).map(bind)}))};
+    return {kind:"row",id,min_height:node.attrs?.min_height??0,line_mode:node.attrs?.line_mode??"guide",slots:(node.content??[]).map(slot=>({id:identity(slot.attrs?.id,"slot"),width:slot.attrs?.width,blocks:(slot.content??[]).map(block)}))};
   });
   const presentation:PagePresentation={schema_version:"dmb_page_presentation_v1",markdown_sha256:presentationSha256(markdown),items};
   // Reuse the same validation as cold hydration; malformed local wrappers never save.

@@ -1,3 +1,4 @@
+import { wrapPageImageText, unwrapPageImageText, updatePageImageText } from './PageImageText';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Editor, type JSONContent } from '@tiptap/core';
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../MarkdownEditorCore';
@@ -205,4 +206,52 @@ describe('Page row editor transactions', () => {
     expect(unwrapPageRow(editor)).toBe(false);
     expect(resizePageRow(editor, 0, 8)).toBe(false);
   });
+});
+
+
+describe('Image and text stack transactions', () => {
+  const art: JSONContent = { type: 'paragraph', attrs: { pageBlockId: 'art' }, content: [{ type: 'mediaImage', attrs: { assetId: '11111111-1111-4111-8111-111111111111', alt: 'Forest', width: 80, collapsed: false } }] };
+  it('wraps existing image then editable text, changes anchors and unwraps with identities preserved', () => {
+    create([art, paragraph('Forest title', 'title')]);
+    expect(wrapPageImageText(editor)).toBe(true);
+    expect(editor.state.doc.child(0).type.name).toBe('pageImageText');
+    expect(editor.state.doc.child(0).child(0).attrs.pageBlockId).toBe('art');
+    expect(editor.state.doc.child(0).child(1).attrs.pageBlockId).toBe('title');
+    expect(editor.state.doc.textContent).toBe('Forest title');
+    expect(updatePageImageText(editor, { anchor: 'bottom-right', inset: 'medium', backing: 'none' })).toBe(true);
+    expect(editor.state.doc.child(0).attrs).toMatchObject({ anchor: 'bottom-right', inset: 'medium', backing: 'none' });
+    editor.commands.undo();
+    expect(editor.state.doc.child(0).attrs.anchor).toBe('middle-center');
+    expect(unwrapPageImageText(editor)).toBe(true);
+    expect(editor.state.doc.childCount).toBe(2);
+    expect(editor.state.doc.child(0).attrs.pageBlockId).toBe('art');
+    expect(editor.state.doc.child(1).attrs.pageBlockId).toBe('title');
+  });
+  it('rejects non-image starts and nesting within callouts', () => {
+    create([paragraph('Words'), paragraph('More')]);
+    expect(wrapPageImageText(editor)).toBe(false);
+    editor.commands.setContent({ type: 'doc', content: [{ type: 'callout', content: [art, paragraph('Caption')] }] });
+    editor.commands.setTextSelection(2);
+    expect(wrapPageImageText(editor)).toBe(false);
+  });
+  it('rejects unsupported presentation without mutation and retains actual editable title', () => {
+    create([art, paragraph('Caption')]); wrapPageImageText(editor);
+    const before = editor.state.doc;
+    expect(updatePageImageText(editor, { anchor: 'bad' as 'top-left' })).toBe(false);
+    expect(editor.state.doc).toBe(before);
+    editor.commands.insertContent('New ');
+    expect(editor.state.doc.textContent).toBe('New Caption');
+    expect(editor.state.doc.child(0).child(0).child(0).attrs.width).toBe(80);
+    expect(wrapPageImageText(editor)).toBe(false);
+  });
+  it('wraps and unstacks inside an existing slot without nesting rows or changing source order',()=>{
+    create([{type:'pageRow',attrs:{id:'row',min_height:0,line_mode:'guide'},content:[{type:'pageSlot',attrs:{id:'slot',width:12},content:[art,paragraph('Title','caption')]}]}]);
+    editor.commands.setTextSelection(3);expect(wrapPageImageText(editor)).toBe(true);
+    expect(editor.state.doc.child(0).child(0).child(0).type.name).toBe('pageImageText');
+    expect(editor.state.doc.textContent).toBe('Title');expect(unwrapPageImageText(editor)).toBe(true);
+    expect(editor.state.doc.child(0).child(0).childCount).toBe(2);
+    expect(editor.state.doc.child(0).child(0).child(0).attrs.pageBlockId).toBe('art');
+    expect(editor.state.doc.child(0).child(0).child(1).attrs.pageBlockId).toBe('caption');
+  });
+
 });
