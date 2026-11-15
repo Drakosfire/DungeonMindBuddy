@@ -2611,7 +2611,7 @@ def post_pdf_statblock_publication(
     world_id: str, review_id: UUID, request: Request, expected_revision: int = Query(ge=1),
 ):
     from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
-    from application_state.world_mechanics.types import AssociateWorldMechanicsRequest
+    from application_state.world_mechanics.types import AssociateWorldMechanicsRequest, MechanicsLocator
     from apps.live_control_server.models.native_threat_creation import ConfirmNativeThreat, PrepareNativeThreat
     from apps.live_control_server.routes.native_threat_creation import call
     from apps.live_control_server.routes.world_mechanics_associations import (
@@ -2634,7 +2634,7 @@ def post_pdf_statblock_publication(
     draft = call(creature.owned_draft, draft_id, world_id)
     if draft.accepted_mechanics_ref is None:
         raise HTTPException(status_code=409, detail="Save mechanics before publishing")
-    locator = draft.accepted_mechanics_ref.to_mechanics_locator()
+    locator = MechanicsLocator.model_validate(draft.accepted_mechanics_ref.to_mechanics_locator().model_dump())
 
     def verify_source(root):
         verified, _, acceptance_id, revision_operation, exact = creature.resolve_saved_source(

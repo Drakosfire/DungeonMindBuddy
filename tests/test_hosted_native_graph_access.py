@@ -1738,6 +1738,8 @@ def test_hosted_publication_status_only_reads_the_owners_review(hosted, monkeypa
 ])
 def test_hosted_pdf_publish_recovers_only_exact_review(hosted, monkeypatch, session, exact_review, expected):
     from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+    from application_state.world_mechanics.types import MechanicsLocator
+    from apps.live_control_server.models.statblock_mechanics_acceptance import MechanicsLocatorV1
     from apps.live_control_server.routes import agent, native_threat_creation, world_mechanics_associations
     from apps.live_control_server.services import native_threat_creation as creature
 
@@ -1745,16 +1747,23 @@ def test_hosted_pdf_publish_recovers_only_exact_review(hosted, monkeypatch, sess
     draft_id = _pdf_review_creature_draft_id("managed", review_id)
     provenance = {"world_id": "managed", "review_id": str(review_id), "revision": 1 if exact_review else 2, "regions": []}
     through = {PDF_REVIEW_PROVENANCE: provenance}
-    locator = SimpleNamespace(revision_id="rev_published")
-    draft = SimpleNamespace(accepted_mechanics_ref=SimpleNamespace(to_mechanics_locator=lambda: locator))
+    source_locator = MechanicsLocatorV1(
+        provider="dungeonmind", statblock_id="sb_saved", revision_id="rev_published",
+        contract="dungeonmind.dungeonbuddy-statblocks", contract_version="1.0.0",
+        definition_digest="sha256:" + "a" * 64,
+    )
+    locator = MechanicsLocator.model_validate(source_locator.model_dump())
+    draft = SimpleNamespace(accepted_mechanics_ref=SimpleNamespace(to_mechanics_locator=lambda: source_locator))
     calls = []
     monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
     monkeypatch.setattr(pdf_statblock_review, "read_review", lambda **_: {"revision": 1, "regions": []})
     monkeypatch.setattr(native_threat_creation, "statblock_data_root", lambda _: None)
     monkeypatch.setattr(creature, "owned_draft", lambda *_: draft)
-    monkeypatch.setattr(creature, "resolve_saved_source", lambda *_, **__: (
-        draft, locator, "acceptance", None, SimpleNamespace(provenance={"accepted_through": through}),
-    ))
+    def resolve_saved_source(_root, *, world_id, draft_id, locator: MechanicsLocator):
+        assert locator == MechanicsLocator.model_validate(source_locator.model_dump())
+        return draft, locator, "acceptance", None, SimpleNamespace(provenance={"accepted_through": through})
+
+    monkeypatch.setattr(creature, "resolve_saved_source", resolve_saved_source)
     monkeypatch.setattr(creature, "get_acceptance_operation", lambda *_, **__: SimpleNamespace(
         request_body={"accepted_through": through},
     ))
