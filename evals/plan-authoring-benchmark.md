@@ -129,3 +129,11 @@ and independently assessed `reopened` and `protected_state_changed` flags.
 For `blocked_action`, supply `mutations`, `success_receipts`,
 `missing_prerequisite`, and `candidate_preserved`. Use null when evidence is
 unavailable. The result reports each check separately.
+
+
+To include runtime measurements, pin an ordinary HTTP capture as
+`turn_capture` (path and SHA-256) and supply the expected `turn_id` on the same
+case. The harness verifies the response and trace turn IDs and reports duration,
+phase timings, tokens, call count and reported cost independently of the action
+verdict. A null cost means the provider price is unavailable. Operator
+interventions remain unknown until observed separately.
