@@ -2349,6 +2349,9 @@ def post_validate_build_pdf_statblock(world_id: str, body: dict, request: Reques
     from apps.live_control_server.services.statblock_definition_validation import validate_definition
 
     validation = validate_definition(definition=candidate)
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
     return {"validation": validation.model_dump(mode="json", by_alias=True), "regions": regions}
 
 
@@ -2357,7 +2360,9 @@ def _authorized_pdf_statblock(world_id: str, body: dict, request: Request, *, al
         ValidateDefinitionBuddyRequestV1,
     )
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
     regions = body.get("regions")
     if (
         set(body) != {"definition", "regions"}
@@ -2379,7 +2384,7 @@ def _authorized_pdf_statblock(world_id: str, body: dict, request: Request, *, al
 
     authorized_regions = []
     for locator in regions:
-        _, region = _authorized_build_pdf_region(world_id, locator, request)
+        _, region = _authorized_build_pdf_region(world_id, locator, request, hosted_read=True)
         authorized_regions.append(region.model_dump(mode="json"))
     return candidate, authorized_regions
 
@@ -2389,7 +2394,9 @@ def put_pdf_statblock_review(world_id: str, review_id: UUID, body: dict, request
     from application_state.errors import ApplicationStateConflictError
     from application_state.pdf_statblock_review import save_review
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
     expected_revision = body.get("expected_revision")
     if type(expected_revision) is not int or expected_revision < 0:
         raise HTTPException(status_code=422, detail={"code": "invalid_review_revision"})
@@ -2399,10 +2406,13 @@ def put_pdf_statblock_review(world_id: str, review_id: UUID, body: dict, request
         allow_unresolved=True,
     )
     try:
-        return save_review(
+        require_build_pdf_access(request, world_id)
+        saved = save_review(
             world_id=_verified_world_id(world_id), review_id=review_id, expected_revision=expected_revision,
             definition=candidate.model_dump(mode="json", by_alias=True), regions=regions,
         )
+        require_build_pdf_access(request, world_id)
+        return saved
     except ApplicationStateConflictError as exc:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"}) from exc
 
@@ -2419,7 +2429,9 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     from llm.generation_sync import run_awaitable_sync
     from apps.live_control_server.services.build_pdf_region_render import read_region_text, request_page_renderer
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
     instruction = body.get("instruction", "")
     regions_body = body.get("regions")
     edition = body.get("edition")
@@ -2435,12 +2447,13 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     existing = read_review(world_id=verified_world, review_id=review_id)
     if existing is not None:
         authorized_regions = [
-            _authorized_build_pdf_region(world_id, locator, request)[1].model_dump(mode="json")
+            _authorized_build_pdf_region(world_id, locator, request, hosted_read=True)[1].model_dump(mode="json")
             for locator in regions_body
         ]
         if authorized_regions == existing["regions"] and (
             edition is None or existing["definition"]["ruleset"]["edition"] == edition
         ):
+            require_build_pdf_access(request, world_id)
             return existing
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
 
@@ -2450,7 +2463,7 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
     authorized_regions = []
     render_page = request_page_renderer()
     for locator in regions_body:
-        pdf, region = _authorized_build_pdf_region(world_id, locator, request)
+        pdf, region = _authorized_build_pdf_region(world_id, locator, request, hosted_read=True)
         png = _render_build_pdf_region(pdf, region, render_page=render_page)
         transcription = read_crop_png(png, allow_empty=True) if whole_pdf else read_crop_png(png)
         text = transcription.get("text") if isinstance(transcription, dict) else None
@@ -2491,13 +2504,16 @@ def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict
                 and extracted.definition.challenge.proficiency_bonus is not None):
             candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": definition})
             definition = candidate.definition.model_dump(mode="json", by_alias=True)
-        return save_review(
+        require_build_pdf_access(request, world_id)
+        saved = save_review(
             world_id=verified_world, review_id=review_id, expected_revision=0,
             definition=definition, regions=authorized_regions,
             **({"artwork": artwork} if artwork is not None else {}),
         )
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail={"code": "pdf_statblock_output_invalid"}) from exc
+        require_build_pdf_access(request, world_id)
+        return saved
     except ApplicationStateConflictError as exc:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"}) from exc
 
@@ -2510,7 +2526,9 @@ def list_pdf_statblock_reviews(world_id: str, request: Request):
         NativeWorldSourceAdmissionError, _repository, _source_world_binding,
     )
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
     world_id = _verified_world_id(world_id)
     try:
         binding = _source_world_binding(None, world_id)
@@ -2534,6 +2552,7 @@ def list_pdf_statblock_reviews(world_id: str, request: Request):
             raise HTTPException(status_code=409, detail="The World changed. Open the picker again.")
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    require_build_pdf_access(request, world_id)
     return JSONResponse({"reviews": reviews}, headers={"Cache-Control": "no-store"})
 
 
@@ -2541,12 +2560,15 @@ def list_pdf_statblock_reviews(world_id: str, request: Request):
 def get_pdf_statblock_review(world_id: str, review_id: UUID, request: Request):
     from application_state.pdf_statblock_review import read_review
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
     review = read_review(world_id=_verified_world_id(world_id), review_id=review_id)
     if review is None:
         raise HTTPException(status_code=404, detail={"code": "pdf_statblock_review_not_found"})
     for locator in review["regions"]:
-        _authorized_build_pdf_region(world_id, locator, request)
+        _authorized_build_pdf_region(world_id, locator, request, hosted_read=True)
+    require_build_pdf_access(request, world_id)
     return review
 
 
@@ -2630,6 +2652,9 @@ def post_validate_pdf_statblock_review(
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
     candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": review["definition"]})
     validation = validate_definition(definition=candidate.definition)
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
     return {
         "revision": review["revision"],
         "regions": review["regions"],
