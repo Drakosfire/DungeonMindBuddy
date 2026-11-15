@@ -47,6 +47,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 | Idea | Next useful slice or decision |
 | --- | --- |
 | [Shared Build page composer](#idea-high-priority--shared-grid-page-constructor) | Compose text, images, tables and callouts in one reusable, saved row/column layout. |
+| [Agent page-formatting benchmarks](#idea-agent-page-formatting-benchmarks) | Compare Buddy on repeatable Build formatting tasks; preserve content and prove the saved rendered result. |
 | [Layered map editor](Docs/Backlog/IDEA-layered-map-editor.md) | One durable map with editable overlays. Share coordinates where justified, not a single UI with page layout. |
 | [App-wide theming](#idea-app-wide-theme-system) | One shared design system, selectable and customizable themes, with reviewed agent proposals. |
 | [Composable spatial workspace](#deferred-composable-spatial-workspace) | Saved canvas arrangements; not page composition or a separate theme system. |
@@ -98,6 +99,15 @@ One row per product idea. These rows are pointers, not separate status records. 
 **Surfaces when:** Planning Build authoring or shared page layout. Product sequencing remains with `Docs/Roadmaps/ROADMAP-demo.md`; high priority does not create a dispatch or authorize a schema or storage change.
 
 **Refs:** Edge source `bba72416-9dfe-49bb-add0-21a346e9a421`; `apps/live-control-ui/src/tiptap/extensions/MediaImageNode.tsx`; `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
+
+## [IDEA] Agent page-formatting benchmarks
+**Owner:** Build authoring + Buddy benchmark harness
+**Captured:** 2026-11-15
+**Goal:** Give the agent a repeatable improvement loop for turning existing Build content into useful, readable pages. Score formatting separately from drafting or retrieval.
+
+**First benchmark:** Freeze representative input Pages, a plain-language layout brief per task, and the current normal Buddy agent/action path as the baseline. Start with existing composer actions: place artwork beside prose, arrange a real table and callout, and revise the layout on a saved page. Evaluate the actual saved revision and a cold browser reopen at desktop and narrow widths, not the chat response or screenshots alone. Add text over art and sticker/print cases only once the corresponding tools exist.
+
+**Scoring and guardrails:** Hard fail on lost or rewritten content, incorrect reading order, broken source citations, lost asset references, or a claimed save that cannot reopen. For passing runs, grade whether the layout follows the brief and is readable, then compare retries, tool calls, and time. Use structural assertions plus a small blind visual rubric; don't require pixel-perfect matches. Tune on a development set, keep a sealed holdout, and repeat baseline/candidate runs to separate improvements from variance. No benchmark run or tooling activation is implied by this entry.
 
 ## [DEFERRED] Define independent source-artifact archive and restore
 **Owner:** APP-STATE / source lifecycle
