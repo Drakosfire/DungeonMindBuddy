@@ -470,7 +470,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const [graph, setGraph] = useState<NativeGraph | null>(null);
   const [canvasLayout, setCanvasLayout] = useState<"graph" | ChronologyLayout>("graph");
   const readChronology = api.readChronology;
-  const chronologyData = useGraphChronology(embedded ? graph : null, readChronology);
+  const chronologyData = useGraphChronology(embedded && (!readOnly || canvasLayout !== "graph") ? graph : null, readChronology);
   const chronologyLayout = useMemo(() => canvasLayout !== "graph" && chronologyData?.events
     ? layoutGraphChronology(chronologyData.events, canvasLayout, chronologyData.graph)
     : undefined, [canvasLayout, chronologyData]);
@@ -1784,7 +1784,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const chronologyPanel = chronologyOpen && api.readChronology ? (
     <div className="native-demo-inspector-timeline">
       <h2>{embedded && selectedNode ? `Chronology · ${compactNodeLabel(selectedNode)}` : `World chronology · ${worldTitle?.trim() || "Selected World"}`}</h2>
-      <GraphChronology relatedTo={embedded ? selectedNode?.id : undefined} graph={graph} read={api.readChronology} shared={embedded ? { result: chronologyData } : undefined} strip
+      <GraphChronology relatedTo={embedded ? selectedNode?.id : undefined} graph={graph} read={api.readChronology} shared={embedded && (!readOnly || canvasLayout !== "graph") ? { result: chronologyData } : undefined} strip
         onExplore={nodeId => {
           if (pendingRef.current) return;
           setChronology(null);
@@ -1915,7 +1915,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                     <div role="group" aria-label="Graph layout">
                       {(["graph", "line", "spiral"] as const).map(mode =>
                         <SurfaceContextAction key={mode} aria-pressed={canvasLayout === mode}
-                          disabled={mode !== "graph" && !chronologyData?.events}
+                          disabled={mode !== "graph" && !readOnly && !chronologyData?.events}
                           onClick={() => setCanvasLayout(mode)}>
                           {mode === "graph" ? "Graph" : mode === "line" ? "Line" : "Spiral"}
                         </SurfaceContextAction>)}
