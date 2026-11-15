@@ -126,27 +126,30 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
   const createKey = `buddy:pdf-creature-draft:${worldId}:${reviewId}`;
   const [createInFlight, setCreateInFlight] = useState(false);
 
-  async function recoverDraft(revision: number, publishing = false) {
-    const previousDraft = publishing ? null : localStorage.getItem(createKey);
+  async function getOrCreateReviewDraft(revision: number): Promise<{ draft_id: string; version: number }> {
+    const { response } = await authenticatedApiFetch(
+      `${reviewPath}/creature-draft?expected_revision=${revision}`,
+      { method: "POST" },
+    );
+    if (!response.ok) {
+      const failure = await response.json().catch(() => null);
+      throw new Error(typeof failure?.detail === "string" ? failure.detail :
+        failure?.detail?.code === "pdf_statblock_review_conflict" ? "This review changed. Reopen it before creating a creature." :
+        "Could not create the creature draft. Check the source confirmation and try again.");
+    }
+    const result = await response.json();
+    if (typeof result.draft_id !== "string" || !result.draft_id || !Number.isSafeInteger(result.version) || result.version < 1) {
+      throw new Error("The review returned an invalid draft reference.");
+    }
+    return { draft_id: result.draft_id, version: result.version };
+  }
+
+  async function recoverDraft(revision: number) {
+    const previousDraft = localStorage.getItem(createKey);
     if (previousDraft === "pending") {
       throw new Error("Choose the previously created creature draft before continuing.");
     }
-    let id = previousDraft;
-    if (!id) {
-      const { response } = await authenticatedApiFetch(
-        `${reviewPath}/creature-draft?expected_revision=${revision}`,
-        { method: "POST" },
-      );
-      if (!response.ok) {
-        const failure = await response.json().catch(() => null);
-        throw new Error(typeof failure?.detail === "string" ? failure.detail :
-          failure?.detail?.code === "pdf_statblock_review_conflict" ? "This review changed. Reopen it before creating a creature." :
-          "Could not create the creature draft. Check the source confirmation and try again.");
-      }
-      const result = await response.json();
-      if (typeof result.draft_id !== "string" || !result.draft_id) throw new Error();
-      id = result.draft_id as string;
-    }
+    const id = previousDraft ?? (await getOrCreateReviewDraft(revision)).draft_id;
     const draft = await getThreatDraft(id);
     if (draft.schema !== "dmb_threat_draft_v2" || draft.world_id !== worldId || draft.draft_id !== id) throw new Error();
     return draft;
@@ -206,7 +209,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
     setPending(true);
     setError("");
     try {
-      const draft = publish ? await recoverDraft(review.revision, true)
+      const draft = publish ? await getOrCreateReviewDraft(review.revision)
         : drafts.find(item => item.draft_id === draftId);
       if (!draft) return;
       const key = acceptanceKey(draft.draft_id);
@@ -258,7 +261,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
         world: worldId, draft: draft.draft_id, revision: result.locator.revision_id,
       })}`;
       if (publish) {
-        const current = await getThreatDraft(draft.draft_id);
+        const current = await getOrCreateReviewDraft(review.revision);
+        if (current.draft_id !== draft.draft_id) throw new Error("The review draft changed during publication.");
         await publishPdfStatblock(worldId, draft.draft_id, current.version, result.locator);
         setPublishedLink(link);
       } else {
