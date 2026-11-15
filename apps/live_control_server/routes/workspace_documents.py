@@ -20,6 +20,7 @@ from apps.live_control_server.integrations.dungeonmind.native_world_source_admis
     admit_native_world_source,
     get_native_world_source_status as read_native_world_source_status,
 )
+from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_page_inventory
 from apps.live_control_server.services.workspace_document_registry import (
     CreateWorkspaceDocumentRequest,
     UpdateWorkspaceDocumentMetadataRequest,
@@ -130,6 +131,7 @@ class WorkspacePageInventoryResponse(WorkspaceDocumentsListResponse):
 
 @router.get("/workspace-documents/pages/inventory", response_model=WorkspacePageInventoryResponse)
 def get_workspace_page_inventory(
+    request: Request,
     world_id: Annotated[str | None, Query()] = None,
     campaign_id: Annotated[str | None, Query()] = None,
     status: Annotated[Literal["active", "discarded"] | None, Query()] = "active",
@@ -137,6 +139,7 @@ def get_workspace_page_inventory(
     before_updated_at: datetime | None = None,
     before_document_id: UUID | None = None,
 ) -> WorkspacePageInventoryResponse:
+    require_hosted_build_page_inventory(request, world_id)
     before = None
     if before_updated_at is not None or before_document_id is not None:
         if before_updated_at is None or before_document_id is None or before_updated_at.utcoffset() is None:
