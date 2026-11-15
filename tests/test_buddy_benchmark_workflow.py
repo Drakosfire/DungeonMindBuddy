@@ -749,6 +749,22 @@ def test_writer_paragraph_layout_changes_only_admitted_body_presentation(writer_
     w.writer_capture(prepared / "plan.json", tmp_path / "capture", transport=httpx.MockTransport(send))
 
 
+def test_writer_paragraph_layout_preserves_shared_passage_bindings():
+    frame = {
+        "input_status": "complete", "user_question": "What happened?",
+        "native_statements": {}, "native_assertions": None,
+        "native_body_evidence": {
+            "excerpts": [{"excerpt_handle": "body0", "passage": "p0", "passage_line_start": 1}],
+            "passages": {"p0": "First paragraph.\n\nSecond paragraph."},
+        },
+    }
+    packet = {"input": [{"role": "user", "content": json.dumps(frame)}]}
+    w._present_replay_body_paragraphs(packet)
+    rendered = json.loads(packet["input"][0]["content"])["native_body_evidence"]
+    assert rendered["excerpts"] == frame["native_body_evidence"]["excerpts"]
+    assert rendered["passages"]["p0"] == ["First paragraph.\n\n", "Second paragraph."]
+
+
 @pytest.mark.parametrize("layout,instructions", [("unknown", None), ("paragraphs", {})])
 def test_writer_rejects_unrecognized_or_combined_paragraph_layout(writer_replay, tmp_path, layout, instructions):
     replay = writer_replay

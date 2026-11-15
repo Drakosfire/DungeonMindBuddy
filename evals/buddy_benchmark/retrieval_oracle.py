@@ -6,9 +6,11 @@ from pathlib import Path
 import tiktoken
 
 from .context_capture import validate_context_packet
-from application_state.agent_conversation.native_evidence_view import semantic_frame_in_request
+from application_state.agent_conversation.native_evidence_view import (
+    compact_passages, expected_semantic_frame, semantic_frame_in_request,
+)
 from application_state.agent_conversation.types import canonical_sha256
-from application_state.agent_conversation.native_writer import read_evidence_records
+from application_state.agent_conversation.native_writer import model_frame, read_evidence_records
 
 def digest(value):
     return hashlib.sha256(value).hexdigest()
@@ -49,12 +51,17 @@ def score(oracle_path, readback_path, manifest, base):
         writer_index = execution.events.index(packet['authorization'])
         prefix = execution.model_copy(update={'events': execution.events[:writer_index]})
         supports = read_evidence_records(prefix, frame)['body_excerpts']
+        if 'passages' in frame['native_body_evidence']:
+            host = model_frame(packet['turn'].graph_context_receipt, prefix)
+            expected = compact_passages(expected_semantic_frame(host, frame), supports)
+            if expected != frame:
+                raise ValueError(f"Shared passages differ from their selected reads for {case}")
         inventory = []
         for excerpt, support in zip(excerpts, supports, strict=True):
             handle = excerpt['excerpt_handle']
             selected = support.read.excerpt
             source = support.catalog.source
-            if selected.text != excerpt['text']:
+            if 'text' in excerpt and selected.text != excerpt['text']:
                 raise ValueError(f"Serialized excerpt differs from its selected read for {case}/{handle}")
             target = dict(
                 ref=source.evidence_ref_id, event=str(support.read.event_id),
@@ -64,8 +71,10 @@ def score(oracle_path, readback_path, manifest, base):
             exact = [m for m in reopened.get((case, handle), [])
                      if all(m.get(key) == value for key, value in target.items())]
             inventory.append(dict(handle=handle, source=excerpt['source_name'],
-                                  text_tokens=len(encoder.encode_ordinary(excerpt['text'])),
+                                  text_tokens=len(encoder.encode_ordinary(selected.text)),
                                   reopened_targets=exact))
+        excerpts = [row | {'text': support.read.excerpt.text}
+                    for row, support in zip(excerpts, supports, strict=True)]
         items = []
         seen_spans = {}
         duplicate_tokens = 0

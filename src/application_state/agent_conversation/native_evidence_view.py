@@ -285,7 +285,74 @@ def semantic_frame(host):
 
 def output_frame(host, provider):
     """Transient shape for the existing output-schema owner, never sent as context."""
-    return host | _inline_qualifications(provider)
+    result = host | _inline_qualifications(provider)
+    evidence = result['native_body_evidence']
+    if 'passages' in evidence:
+        rows = [row | {'text': original['text']} for row, original in zip(
+            evidence['excerpts'], host['native_body_evidence']['excerpts'], strict=True)]
+        result['native_body_evidence'] = evidence | {'excerpts': rows}
+    return result
+
+
+def compact_passages(frame, supports):
+    """Share exact source text while retaining every original citation handle."""
+    from collections import defaultdict
+
+    evidence = frame["native_body_evidence"]
+    rows = evidence["excerpts"]
+    groups = defaultdict(list)
+    for index, (row, support) in enumerate(zip(rows, supports, strict=True)):
+        excerpt = support.read.excerpt
+        section = excerpt.section
+        source = support.catalog.source.revision
+        if row["text"] != excerpt.text:
+            raise ValueError("Writer passage differs from its selected source")
+        groups[(source.source_revision_id, source.content_sha256)].append(
+            (section.byte_start, section.byte_end, index, excerpt.text.encode()))
+
+    passages = {}
+    projected = list(rows)
+    for spans in groups.values():
+        merged = []
+        for start, end, index, raw in sorted(spans):
+            if merged and start < merged[-1][1]:
+                first, last, body, members = merged[-1]
+                overlap = min(last, end) - start
+                if body[start-first:start-first+overlap] != raw[:overlap]:
+                    raise ValueError("Overlapping source reads disagree")
+                merged[-1] = first, max(last, end), body + raw[overlap:], members + [(index, start, end)]
+            else:
+                merged.append((start, end, raw, [(index, start, end)]))
+        for first, _, body, members in merged:
+            if len(members) < 2:
+                continue
+            text = body.decode()
+            line_offsets = {0: 0}
+            cursor = 0
+            for line_number, line in enumerate(text.splitlines(keepends=True), 1):
+                cursor += len(line.encode())
+                line_offsets[cursor] = line_number
+            ranges = [(index, line_offsets.get(start - first), line_offsets.get(end - first))
+                      for index, start, end in members]
+            if any(start is None or end is None
+                   or end - start != rows[index]["line_end"] - rows[index]["line_start"] + 1
+                   for index, start, end in ranges):
+                continue
+            alias = f"p{len(passages)}"
+            passages[alias] = text
+            for index, start, _ in ranges:
+                projected[index] = {key: value for key, value in rows[index].items() if key != "text"}
+                projected[index]["passage"] = alias
+                projected[index]["passage_line_start"] = start + 1
+    if not passages:
+        return frame
+    compact = evidence | {
+        "passages": passages, "excerpts": projected,
+        "passage_scope": "Passage lines are 1-based. Each excerpt starts at passage_line_start and covers line_end minus line_start plus one lines. Cite its excerpt handle.",
+    }
+    original_size = len(json.dumps(evidence, ensure_ascii=False, separators=(",", ":")).encode())
+    compact_size = len(json.dumps(compact, ensure_ascii=False, separators=(",", ":")).encode())
+    return frame | {"native_body_evidence": compact} if compact_size < original_size else frame
 
 
 def _inline_qualifications(frame):

@@ -281,6 +281,9 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     from .native_evidence_view import is_semantic_frame,expected_semantic_frame,output_frame
     host = model_frame(receipt,prefix) if is_semantic_frame(frame) else model_frame(receipt,prefix,schema=frame.get('schema'))
     expected = expected_semantic_frame(host, frame) if is_semantic_frame(frame) else host
+    if 'passages' in frame['native_body_evidence']:
+        from .native_evidence_view import compact_passages
+        expected = compact_passages(expected, read_evidence_records(prefix, expected)['body_excerpts'])
     schema_frame = output_frame(host,expected)
     from .native_plan_work_view import is_semantic_frame as semantic_work, semantic_frame as plan_work_view
     from .native_play_work import is_semantic_frame as semantic_play, semantic_frame as play_work_view
