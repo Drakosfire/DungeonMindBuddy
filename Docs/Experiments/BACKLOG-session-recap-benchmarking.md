@@ -1,6 +1,6 @@
 # BACKLOG — Session-recap writer benchmarking
 
-**Status:** living backlog. Mechanical Scope-B contract is green (5/5 cohort, 2026-04-19). This file tracks the prioritized follow-ups from the April 2026 Staff Designer review **plus** the original deferred §J item-by-item gates and the original Option-A/B/C/D framing.
+**Status:** retained April 2026 follow-ups for the legacy recap-writer harness. The 5/5 mechanical Scope-B cohort is historical evidence, not current acceptance. Reproduce unresolved items on the current owning path before dispatch.
 **Spec:** [EXPERIMENT-Session-Recap-Ingest-Benchmark.md](EXPERIMENT-Session-Recap-Ingest-Benchmark.md) (§15 = as-built architecture).
 **Live ledger:** [STATUS-Session-Recap-Ingest-Benchmark.md](STATUS-Session-Recap-Ingest-Benchmark.md).
 **Skill under test:** `.cursor/skills/recap-write/SKILL.md`.
@@ -9,7 +9,9 @@
 
 ## §1 Tier-1 — correctness drift risk (do these first)
 
-### 1.0 `commit_required` gate counts call attempts, not commit success (Tier-1 — `gates_passed: true` can lie)
+### 1.0 `commit_required` accepted attempts instead of successful commits — fixed
+
+**Current disposition:** The [Scope-B grader](../../evals/session_recap_ingest_vertical_slice/scope_b_grader.py) now requires the final commit to report success. Explicit failure and unverifiable outcomes are hard failures when a commit is required. The original report below is retained as history, not a prerequisite for running a new cohort.
 
 Discovered by 2026-04-20 smoke test (single run, `gpt-5.4-mini` alias, `recap_ingest--…--PASS--2turn--20260420T014526Z.json`). The run was graded `gates_passed: true` / `tool_trace_gates_passed: true`, but the model's own `notes_for_gm` says: *"Stale token on commit; no write completed."* No file landed in the corpus.
 
@@ -32,7 +34,7 @@ This makes `gates_passed: true` an unreliable signal for "the recap reached the 
 4. **Soft signal in extras:** `commit_succeeded: bool | None` and `commit_error_excerpt: str | None` so cohort summaries can surface "N runs attempted commit, M succeeded, K failed (stale token / other)."
 5. **Test:** synthesize a tool_trace with a `dry_run=false` row whose `output_excerpt` carries a stale-token error; assert grader fails with `commit_required=True`, passes the soft observation when `commit_required=False`.
 
-**Must land before** any cohort that draws conclusions from `gates_pass_rate`. The M1 soft signals (`mechanical_fields_match`, `build_recap_write_payload_called`) are unaffected by this hole and can still be measured in the meantime — they're independent of commit success.
+**Historical gating rationale:** Cohort commit success must depend on the outcome, not the call count. The M1 soft signals (`mechanical_fields_match`, `build_recap_write_payload_called`) are independent of commit success.
 
 **Related:** if `output_excerpt` is too short to reliably carry the dispatcher response (some response shapes may exceed 800 chars), bump the cap *for `write_corpus_file` rows specifically* in `src/agent/planner.py:_dispatch_loop`; it's a one-tool special case, not a global cost.
 
