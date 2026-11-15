@@ -740,3 +740,11 @@ def test_presentation_schema_and_block_admission_are_closed(change):
         value["items"][0]["slots"][0]["blocks"][0]["sha256"] = "0" * 64
     with pytest.raises((ValidationError, ApplicationStateValidationError)):
         PagePresentation.model_validate(value).checked(text)
+
+
+def test_presentation_rejects_reference_definition_that_parser_hides():
+    from application_state.content.page_presentation import PagePresentation
+
+    text = "![Bird][bird]\n\nOther text.\n\n[bird]: dmb-media:11111111-1111-4111-8111-111111111111\n"
+    with pytest.raises(ApplicationStateValidationError, match="reference definitions"):
+        PagePresentation.model_validate(presentation_for(text)).checked(text)

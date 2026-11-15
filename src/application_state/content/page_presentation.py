@@ -81,7 +81,15 @@ class PagePresentation(_Closed):
         # Do not accept raw HTML, fenced widgets, or source definitions that
         # the editor cannot reconstruct from one movable block.
         body = markdown[len(prefix) :]
-        tokens = MarkdownIt("commonmark", {"html": True}).enable("table").parse(body)
+        tokens = (
+            MarkdownIt("commonmark", {"html": True})
+            .enable("table")
+            .parse(body, parser_environment)
+        )
+        if parser_environment.get("references"):
+            raise ApplicationStateValidationError(
+                "presentation cannot bind reference definitions"
+            )
         allowed = {
             "paragraph_open",
             "heading_open",
