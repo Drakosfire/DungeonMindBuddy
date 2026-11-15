@@ -12,12 +12,21 @@ Run the [host inventory](../Plans/RUNBOOK-HOSTED-read-only-host-inventory.md).
 
 ```bash
 bash scripts/host_inventory.sh
-docker compose version &&
+(compose_version=$(docker compose version --short) && python3 - "$compose_version" <<'PYTHON'
+import re
+import sys
+
+version = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:\+[^\s]+)?", sys.argv[1].strip())
+if not version or tuple(map(int, version.groups())) < (2, 30, 0):
+    raise SystemExit("Install Docker Compose 2.30.0 or later with GPU service support")
+print(f"Compose {sys.argv[1]} supports GPU service configuration")
+PYTHON
+) &&
 docker buildx version &&
 docker info --format '{{.DockerRootDir}}'
 ```
 
-Require both Compose and Buildx to report versions before proceeding.
+Require [Compose 2.30.0 or later for GPU service configuration](https://docs.docker.com/reference/compose-file/services/#gpus) and a working Buildx installation before proceeding.
 
 Record disk and RAM minimums in MiB for the release, based on the build and
 upgrade rehearsal. Include room for the serving and rollback images in the Docker
@@ -83,6 +92,8 @@ before use, since the checkpoint contains executable model code. Set
 `BUDDY_OCR_RUNTIME_ROOT` and `BUDDY_OCR_GPU_ID` in the protected Compose file.
 The release host must have NVIDIA Container Toolkit configured. Compose mounts
 the runtime read-only, assigns the selected GPU, and disables model downloads.
+Transformers copies the pinned model modules into a writable cache under
+the container’s temporary directory.
 
 ```bash
 read -r -p 'Approved release commit: ' buddy_release

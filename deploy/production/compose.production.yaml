@@ -27,6 +27,7 @@ services:
       BUDDY_OCR_PYTHON: /opt/buddy-ocr/bin/python
       BUDDY_OCR_COMMAND: /opt/buddy-ocr/run_local_ocr.py
       BUDDY_OCR_CHECKPOINT: /opt/buddy-ocr/checkpoint
+      HF_MODULES_CACHE: /tmp/buddy-ocr-modules
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
     gpus:
