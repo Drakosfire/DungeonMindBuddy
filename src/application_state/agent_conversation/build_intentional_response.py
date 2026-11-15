@@ -65,13 +65,20 @@ _DESTINATION_GUIDANCE = _PREVIOUS_GUIDANCE.replace(
 )
 
 
-GUIDANCE = _DESTINATION_GUIDANCE + """
+_IMAGE_DESTINATION_GUIDANCE = _DESTINATION_GUIDANCE + """
 Classify the deliverable requested now, separately from its later use. A written design,
 layout, specification or description intended to support a later image or map is writing,
 not a request to prepare that image. Use prepare_image for an image/map or image-prompt
 review requested now. If the current deliverable remains ambiguous after reading the
 conversation, choose clarification rather than guessing its destination or format."""
 
+
+GUIDANCE = _IMAGE_DESTINATION_GUIDANCE + """
+When the user explicitly requests a written draft in conversation for review, classify
+it as discuss, including a Markdown statblock or mechanics design. Use change_mechanics
+for creating or revising a persistent mechanics version or running a mechanics action
+requested now. A later save or use in combat does not change the current draft request.
+"""
 
 @dataclass(frozen=True)
 class Work:
@@ -401,7 +408,9 @@ MENU_DIGEST = digest(question())
 # current menu is emitted; the previous digest remains an immutable reader.
 _PREVIOUS_MENU_DIGEST = digest(question(guidance=_PREVIOUS_GUIDANCE))
 _DESTINATION_MENU_DIGEST = digest(question(guidance=_DESTINATION_GUIDANCE))
+_IMAGE_DESTINATION_MENU_DIGEST = digest(question(guidance=_IMAGE_DESTINATION_GUIDANCE))
 _MENU_GUIDANCE = MappingProxyType({
+    _IMAGE_DESTINATION_MENU_DIGEST: _IMAGE_DESTINATION_GUIDANCE,
     MENU_DIGEST: GUIDANCE,
     _PREVIOUS_MENU_DIGEST: _PREVIOUS_GUIDANCE,
     _DESTINATION_MENU_DIGEST: _DESTINATION_GUIDANCE,
