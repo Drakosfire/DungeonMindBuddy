@@ -86,9 +86,34 @@ def test_malformed_and_partial_evidence_cannot_pass():
         with pytest.raises(ValueError):
             assess_conversation_only(**(observation | invalid))
     with pytest.raises(ValueError, match="reopened"):
-        assess_confirmed_action(before_confirmation=[], mutations=[], expected_mutations=[],
+        assess_confirmed_action(before_confirmation=[], mutations=[], expected_mutations=[{"target": "edge", "effect": "replace"}],
                                 reopened="false", protected_state_changed=False)
     assert assess_conversation_only(**observation, journal_complete=False)["status"] == "unproven"
     assert assess_conversation_only(
         **(observation | {"events": ["proposal_created"]}), journal_complete=False
     )["status"] == "fail"
+
+
+def test_confirmed_action_requires_an_expected_mutation():
+    import pytest
+    from evals.buddy_benchmark.action_assessment import assess_confirmed_action
+
+    with pytest.raises(ValueError, match="at least one mutation"):
+        assess_confirmed_action(before_confirmation=[], mutations=[], expected_mutations=[],
+                                reopened=True, protected_state_changed=False)
+
+
+def test_action_checkpoint_invalidates_changed_fixture_and_predecessor(tmp_path):
+    from evals.buddy_benchmark.artifacts import action_checkpoint
+
+    def run(fixture, predecessor):
+        return action_checkpoint(tmp_path, stage="readback",
+                                 binding={"fixture": fixture, "predecessor": predecessor},
+                                 observe=lambda: {"fresh": True})
+
+    original, reused = run("fixture-a", "previous-a")
+    assert not reused
+    assert run("fixture-a", "previous-a") == (original, True)
+    for fixture, predecessor in (("fixture-b", "previous-a"), ("fixture-a", "previous-b")):
+        fresh, reused = run(fixture, predecessor)
+        assert not reused and fresh["digest"] != original["digest"]

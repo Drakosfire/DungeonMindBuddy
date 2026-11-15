@@ -49,8 +49,8 @@ def assess_confirmed_action(*, before_confirmation, mutations, expected_mutation
     for name, value in (("before_confirmation", before_confirmation), ("mutations", mutations),
                         ("expected_mutations", expected_mutations)):
         _journal(name, value, dict)
-    if expected_mutations is None:
-        raise ValueError("expected_mutations must be supplied")
+    if not expected_mutations:
+        raise ValueError("expected_mutations must contain at least one mutation")
     _boolean("protected_state_changed", protected_state_changed)
     checks = {
         "confirmation_boundary": None if before_confirmation is None else not before_confirmation,
