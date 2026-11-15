@@ -40,3 +40,15 @@ it('refuses a nonempty selection without deleting it', () => {
   expect(() => insertReviewedMarkdown(editor, 9, admitMarkdownInsertion('New paragraph').content, before)).toThrow();
   expect(JSON.stringify(editor.getJSON())).toEqual(before);
 });
+
+it('inserts a block table before a heading without splitting the heading', () => {
+  const editor = page();
+  editor.commands.setTextSelection(1);
+  const before = editor.getJSON();
+  const proposal = admitMarkdownInsertion('| NPC | Job |\n| --- | --- |\n| Nella | Ferrier |\n');
+  insertReviewedMarkdown(editor, 1, proposal.content, JSON.stringify(before));
+  expect(editor.getJSON().content?.map(node => node.type)).toEqual(['table', 'heading', 'paragraph', 'paragraph']);
+  expect(editor.getJSON().content?.slice(1)).toEqual(before.content);
+  editor.commands.undo();
+  expect(editor.getJSON()).toEqual(before);
+});
