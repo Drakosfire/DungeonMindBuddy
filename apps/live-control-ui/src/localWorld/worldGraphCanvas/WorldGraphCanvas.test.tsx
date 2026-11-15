@@ -1838,3 +1838,42 @@ it("pans through a transformed SVG when release first crosses the drag threshold
   dispatchPointer(svg, "pointerup", { pointerId: 102, clientX: 440, clientY: 220 });
   expect(cameraFromScene(scene)).toEqual({ ...before, x: before.x + 20, y: before.y + 10 });
 });
+
+it("filters loaded objects and their incident relationships on the mounted canvas", async () => {
+  const { record } = await graphRecord();
+  const host = document.createElement("div");
+  document.body.append(host);
+  const onCameraFocusChange = vi.fn();
+  const props = { record, externalControls: true, controlsHost: host,
+    projectionOptions: { fullCorpus: true }, onCameraFocusChange };
+  const view = render(<WorldGraphCanvas {...props} />);
+  try {
+    const canvas = view.container.querySelector(".world-graph-canvas__svg");
+    const scene = view.container.querySelector(".world-graph-canvas__scene");
+    const camera = scene?.getAttribute("transform");
+    fireEvent.click(within(host).getByText("Object types"));
+    fireEvent.click(within(host).getByRole("checkbox", { name: "person" }));
+    expect(screen.queryByRole("button", { name: /Mara Venn/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /The Winter Accord/ })).toBeInTheDocument();
+    expect(view.container.querySelectorAll("[data-edge-id]")).toHaveLength(1);
+    expect(view.container.querySelector(".world-graph-canvas__svg")).toBe(canvas);
+    expect(scene?.getAttribute("transform")).toBe(camera);
+    const target = record.snapshot.objects[0].id;
+    view.rerender(<WorldGraphCanvas {...props} cameraFocusRequest={{ nodeId: target, requestId: 1, selectNode: true }} />);
+    expect(onCameraFocusChange).toHaveBeenLastCalledWith(target);
+    expect(screen.getByRole("button", { name: /Mara Venn/ })).toBeInTheDocument();
+    expect(view.container.querySelectorAll("[data-edge-id]")).toHaveLength(4);
+  } finally {
+    view.unmount();
+    host.remove();
+  }
+});
+
+it("does not count hidden neighbors against the visible focus limit", async () => {
+  const { record } = await graphRecord();
+  const [, , location, event] = record.snapshot.objects;
+  const projection = projectLocalWorldGraph(record, {
+    fullCorpus: true, focusObjectId: event.id, maxNodes: 2, hiddenKinds: new Set(["person"]),
+  });
+  expect(projection.nodes.map(node => node.id)).toEqual([event.id, location.id]);
+});
