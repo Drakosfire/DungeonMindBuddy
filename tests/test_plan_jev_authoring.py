@@ -1418,6 +1418,7 @@ def _shared_plan_authoring_case(
             report_dir = tmp_path / "aw-report"
             immutable_save(report_dir, "observation", {
                 "events": effects,
+                "journal_complete": False,
                 "before": list(before),
                 "after": list(after),
                 "fulfilled": response.answer.status == "ok",
@@ -1441,7 +1442,7 @@ def _shared_plan_authoring_case(
                 "offline_assessment_ms": report_ms,
                 "provider_mode": "mock_transport",
             })
-            assert assessment["status"] == "pass", assessment
+            assert assessment["status"] == "unproven", assessment
         calls = len(decisions.calls), len(writer.calls)
         if response is None:
             assert turn.failure_code == refused[routing] and turn.completion is None

@@ -75,3 +75,20 @@ def test_blocked_action_requires_evidence_of_no_mutation_or_success():
     assert assess_blocked_action(**evidence)["status"] == "pass"
     assert assess_blocked_action(**{**evidence, "success_receipts": ["receipt"]})["status"] == "fail"
     assert assess_blocked_action(**{**evidence, "mutations": None})["status"] == "unproven"
+
+
+def test_malformed_and_partial_evidence_cannot_pass():
+    import pytest
+    from evals.buddy_benchmark.action_assessment import assess_confirmed_action
+
+    observation = dict(events=[], before="original", after="original", fulfilled=True)
+    for invalid in (dict(events="proposal_created"), dict(fulfilled="false")):
+        with pytest.raises(ValueError):
+            assess_conversation_only(**(observation | invalid))
+    with pytest.raises(ValueError, match="reopened"):
+        assess_confirmed_action(before_confirmation=[], mutations=[], expected_mutations=[],
+                                reopened="false", protected_state_changed=False)
+    assert assess_conversation_only(**observation, journal_complete=False)["status"] == "unproven"
+    assert assess_conversation_only(
+        **(observation | {"events": ["proposal_created"]}), journal_complete=False
+    )["status"] == "fail"
