@@ -803,10 +803,12 @@ describe("NativeGraphDemo", () => {
     const linked = { id: "entity:arrival", name: "Mara arrives", kind: "event" };
     const unrelated = { id: "entity:departure", name: "Tomas departs", kind: "event" };
     const isolated = { id: "entity:unplaced", name: "Unlinked Event", kind: "event" };
+    const player = { id: "entity:player", name: "Iona", kind: "pc" };
     const snapshot = {
       ...graph,
-      nodes: [...graph.nodes, linked, unrelated, isolated],
+      nodes: [...graph.nodes, linked, unrelated, isolated, player],
       edges: [...graph.edges,
+        { id: "player-arrival", source_id: player.id, target_id: linked.id, predicate: "participates_in" },
         { id: "arrival", source_id: "entity:mara", target_id: linked.id, predicate: "participates_in" },
         { id: "departure", source_id: "entity:tomas", target_id: unrelated.id, predicate: "participates_in" }],
     };
@@ -851,8 +853,13 @@ describe("NativeGraphDemo", () => {
     expect(within(canvas).getByRole("button", { name: "Mara, npc" })).toHaveAttribute("aria-pressed", "true");
     await user.click(screen.getByRole("button", { name: "Object types" }));
     const types = within(screen.getByRole("group", { name: "Visible object types" }));
+    await user.click(types.getByRole("checkbox", { name: "pc" }));
     await user.click(types.getByRole("checkbox", { name: "npc" }));
     expect(within(canvas).getByRole("button", { name: "Mara, npc" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(canvas).queryByRole("button", { name: "Tomas, npc" })).not.toBeInTheDocument();
+    expect(within(canvas).queryByRole("button", { name: "Iona, pc" })).not.toBeInTheDocument();
+    await user.click(types.getByRole("checkbox", { name: "pc" }));
+    expect(within(canvas).getByRole("button", { name: "Iona, pc" })).toBeInTheDocument();
     expect(within(canvas).queryByRole("button", { name: "Tomas, npc" })).not.toBeInTheDocument();
     await user.click(types.getByRole("checkbox", { name: "npc" }));
     await user.keyboard("{Escape}");

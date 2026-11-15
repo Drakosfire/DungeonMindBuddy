@@ -522,6 +522,7 @@ export function WorldGraphCanvas({
     [record.snapshot, record.layout, index, fullCorpus, fallbackPositions, projectionOptions?.compactOverview, projectionOptions?.maxNodes, projectionOptions?.maxEdges,
       projectionOptions?.focusObjectId, projectionOptions?.neighborhoodDepth, showUnconnected, revealObjectIds, hiddenKinds, retainedSelectionId, previewObjectId]);
   const legend = useMemo(() => [...new Set(record.snapshot.objects.map((object) => object.kind))].sort(), [record.snapshot]);
+  const filterKinds = layoutControls ? [...new Set([...legend, "event", "pc", "npc"])].sort() : legend;
   const importantNodeIds = useMemo(() => {
     const ranked = [...index.relationshipCounts].sort(([a, countA], [b, countB]) => countB - countA || a.localeCompare(b));
     const threshold = Math.max(2, (ranked[0]?.[1] ?? 0) * 0.2);
@@ -1499,7 +1500,7 @@ export function WorldGraphCanvas({
       trigger={<SurfaceContextAction aria-label="Object types" aria-expanded={openControl === "types"} aria-haspopup="dialog"
         onClick={() => setOpenControl(openControl === "types" ? null : "types")}>Object types</SurfaceContextAction>}>
       <div role="group" aria-label="Visible object types">
-        {legend.map(kind => <label key={kind} style={{ display: "block" }}>
+        {filterKinds.map(kind => <label key={kind} style={{ display: "block" }}>
           <input type="checkbox" checked={!hiddenKinds.has(kind)} onChange={(event) => {
             const visible = event.currentTarget.checked;
             setHiddenKinds(previous => {
