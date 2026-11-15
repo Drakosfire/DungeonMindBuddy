@@ -153,4 +153,30 @@ describe('Page layout authoring boundary',()=>{
   await waitFor(()=>expect(r.result.current.dirty).toBe(false));
  });
 
+ const stackSource='![Art](dmb-media:11111111-1111-4111-8111-111111111111)\n\n# Café title\n';
+ const stackPlain=markdownToTiptapDoc(stackSource).doc;
+ const stackDoc=(anchor='middle-center'):JSONContent=>({type:'doc',content:[{type:'pageImageText',attrs:{id:'stack',anchor,inset:'small',backing:'contrast'},content:stackPlain.content}]});
+ const stackSnap=(anchor='middle-center',revision=1):WorkspaceDocumentSnapshot=>{
+  const layout=projectPresentation(stackDoc(anchor),stackSource,stackPlain).presentation;
+  return {...snap(6,revision),markdown:stackSource,page_presentation:layout,page_presentation_sha256:presentationFingerprint(layout)};
+ };
+ it('recovers anchor-only stack draft and saves the same source and new layout fingerprint',async()=>{
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(stackSnap());const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const doc=stackDoc('bottom-right');act(()=>h.result.current.handleEditorUpdate(doc,{} as Editor,{programmatic:false}));await waitFor(()=>expect(h.result.current.dirty).toBe(true));h.unmount();
+  const r=mount();await waitFor(()=>expect(r.result.current.dirty).toBe(true));expect((r.result.current.editorContent as JSONContent).content![0].attrs!.anchor).toBe('bottom-right');expect(readWorkspaceDocumentLocalState(localStorage,id)?.exported_markdown).toBe(stackSource);
+  const saved=stackSnap('bottom-right',2);vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(saved);vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:true,writer_confirm_token:'token'} as never);vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({document_id:id,committed_revision:2,committed_record:saved.record,normalized_content_sha256:'same-source',file_fingerprint:'postgres',writer_ok:true,page_presentation_sha256:saved.page_presentation_sha256} as never);
+  act(()=>r.result.current.setEditor({getJSON:()=>doc} as Editor));await waitFor(()=>expect(r.result.current.saveDisabled).toBe(false));await act(()=>r.result.current.saveMarkdown());expect(commitTiptapMarkdownWrite).toHaveBeenCalledWith(expect.objectContaining({markdown:stackSource,page_presentation:saved.page_presentation}));await waitFor(()=>expect(r.result.current.dirty).toBe(false));
+ });
+ it('retains an empty live stack title across cold draft reopen and resumes on completion',async()=>{
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(stackSnap());const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const pending=stackDoc();pending.content![0].content=structuredClone(stackPlain.content);pending.content![0].content![1].content=[];
+  act(()=>h.result.current.handleEditorUpdate(pending,{} as Editor,{programmatic:false}));await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation_pending).toBe(true));h.unmount();
+  const r=mount();await waitFor(()=>expect(r.result.current.dirty).toBe(true));expect(r.result.current.editorContent).toEqual(pending);
+  const completed=structuredClone(pending);completed.content![0].content![1].content=[{type:'text',text:'New title'}];act(()=>r.result.current.handleEditorUpdate(completed,{} as Editor,{programmatic:false}));await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation_pending).toBe(false));expect(readWorkspaceDocumentLocalState(localStorage,id)?.exported_markdown).toContain('New title');
+ });
+ it('retains anchor-only draft when the server stack revision has changed',async()=>{
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(stackSnap());const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));act(()=>h.result.current.handleEditorUpdate(stackDoc('bottom-right'),{} as Editor,{programmatic:false}));await waitFor(()=>expect(h.result.current.dirty).toBe(true));h.unmount();
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(stackSnap('top-left',2));const r=mount();await waitFor(()=>expect(r.result.current.phase).toBe('conflict'));expect(JSON.stringify(readWorkspaceDocumentLocalState(localStorage,id)?.tiptap_json)).toContain('bottom-right');
+ });
+
 });

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from uuid import UUID
 from typing import Annotated, Literal
 
 from markdown_it import MarkdownIt
@@ -49,10 +50,33 @@ class BlockBinding(_Closed):
     sha256: Digest
 
 
+class ImageText(_Closed):
+    kind: Literal["image_text"] = "image_text"
+    id: Identifier
+    image: BlockBinding
+    text: BlockBinding
+    anchor: Literal[
+        "top-left",
+        "top-center",
+        "top-right",
+        "middle-left",
+        "middle-center",
+        "middle-right",
+        "bottom-left",
+        "bottom-center",
+        "bottom-right",
+    ] = "middle-center"
+    inset: Literal["none", "small", "medium"] = "small"
+    backing: Literal["none", "contrast"] = "contrast"
+
+
+LocalItem = Annotated[BlockBinding | ImageText, Field(discriminator="kind")]
+
+
 class Slot(_Closed):
     id: Identifier
     width: int = Field(ge=2, le=12)
-    blocks: list[BlockBinding] = Field(max_length=2048)
+    blocks: list[LocalItem] = Field(max_length=2048)
 
 
 class Row(_Closed):
@@ -66,9 +90,9 @@ class Row(_Closed):
 class PagePresentation(_Closed):
     schema_version: Literal["dmb_page_presentation_v1"] = "dmb_page_presentation_v1"
     markdown_sha256: Digest
-    items: list[Annotated[BlockBinding | Row, Field(discriminator="kind")]] = Field(
-        max_length=2048
-    )
+    items: list[
+        Annotated[BlockBinding | Row | ImageText, Field(discriminator="kind")]
+    ] = Field(max_length=2048)
 
     def checked(self, markdown: str) -> "PagePresentation":
         if self.markdown_sha256 != sha256_utf8(markdown):
@@ -128,11 +152,78 @@ class PagePresentation(_Closed):
                 raise ApplicationStateValidationError("duplicate presentation identity")
             seen.add(value)
 
-        for item in self.items:
+        raw = markdown.encode("utf-8")
+
+        def local(item):
             identity(item.id)
             if isinstance(item, BlockBinding):
                 bindings.append(item)
+                return
+            identity(item.image.id)
+            identity(item.text.id)
+            bindings.extend([item.image, item.text])
+
+            # Parse the bound source, not a filename/regex guess. This adds no
+            # media authority: normal Page writer/media admission still owns it.
+            def parsed(binding):
+                try:
+                    source = raw[binding.byte_start : binding.byte_end].decode("utf-8")
+                except UnicodeDecodeError as exc:
+                    raise ApplicationStateValidationError(
+                        "invalid stack source span"
+                    ) from exc
+                return MarkdownIt("commonmark", {"html": True}).parse(source)
+
+            image_tokens, text_tokens = parsed(item.image), parsed(item.text)
+            if (
+                [token.type for token in image_tokens]
+                != ["paragraph_open", "inline", "paragraph_close"]
+                or len(image_tokens[1].children or []) != 1
+                or image_tokens[1].children[0].type != "image"
+            ):
+                raise ApplicationStateValidationError(
+                    "stack requires a standalone managed image"
+                )
+            src = image_tokens[1].children[0].attrGet("src") or ""
+            try:
+                if not src.startswith("dmb-media:") or str(UUID(src[10:])) != src[10:]:
+                    raise ValueError("not a managed media identifier")
+            except ValueError as exc:
+                raise ApplicationStateValidationError(
+                    "stack requires a managed media identifier"
+                ) from exc
+            if (
+                len(text_tokens) != 3
+                or text_tokens[0].type not in {"paragraph_open", "heading_open"}
+                or text_tokens[1].type != "inline"
+                or text_tokens[2].type != text_tokens[0].type.replace("_open", "_close")
+                or not text_tokens[1].content.strip()
+                or any(
+                    token.type
+                    not in {
+                        "text",
+                        "softbreak",
+                        "hardbreak",
+                        "code_inline",
+                        "em_open",
+                        "em_close",
+                        "strong_open",
+                        "strong_close",
+                        "link_open",
+                        "link_close",
+                    }
+                    for token in (text_tokens[1].children or [])
+                )
+            ):
+                raise ApplicationStateValidationError(
+                    "stack requires one safe paragraph or heading"
+                )
+
+        for item in self.items:
+            if not isinstance(item, Row):
+                local(item)
             else:
+                identity(item.id)
                 if sum(slot.width for slot in item.slots) != 12:
                     raise ApplicationStateValidationError("row widths must sum to 12")
                 if not any(slot.blocks for slot in item.slots):
@@ -142,8 +233,7 @@ class PagePresentation(_Closed):
                 for slot in item.slots:
                     identity(slot.id)
                     for block in slot.blocks:
-                        identity(block.id)
-                        bindings.append(block)
+                        local(block)
         if [(b.byte_start, b.byte_end) for b in bindings] != expected:
             raise ApplicationStateValidationError(
                 "presentation must bind every complete body block in source order"
