@@ -42,15 +42,19 @@ describe("BuildDocumentSelector", () => {
   it("finds a saved statblock by title and addresses its exact revision in Build", async () => {
     setNativeGraphAccessToken("fixture");
     const request = vi.spyOn(globalThis, "fetch").mockImplementation(async url => new Response(JSON.stringify(
-      String(url).includes("statblock-reviews") ? {
+      String(url).includes("world-mechanics/associations") ? [
+        { request: { draft_id: "creature", target: { campaign_scope: null } },
+          proof: { locator: { revision_id: "saved-revision" } } },
+      ] : String(url).includes("statblock-reviews") ? {
         reviews: [{ review_id: "sewer-review", name: "Sewer Meat Extraction", draft_id: "unpublished" },
           { review_id: "saved-review", name: "Already saved extraction", draft_id: "creature" }],
       } : String(url).includes("build-pdf-sources") ? {
         next: null, documents: [{ source_revision_id: "remote", content_sha256: "abcde123",
           created_at: "2026-11-11T00:00:00Z" }],
       } : {
-      total: 2,
+      total: 3,
       drafts: [
+        { world_id: "elderwyld", draft_id: "unpublished", name: "Sewer Meat Extraction", saved_revision_id: "unpublished-mechanics" },
         { world_id: "elderwyld", draft_id: "creature", name: "Sewer Meat Creature",
           saved_revision_id: "saved-revision" },
         { world_id: "elsewhere", draft_id: "foreign", name: "Sewer Giant",
@@ -100,7 +104,7 @@ describe("BuildDocumentSelector", () => {
     const request = vi.spyOn(globalThis, "fetch").mockImplementation(async url => new Response(JSON.stringify(
       String(url).includes("build-pdf-sources")
         ? { next: null, documents: [{ source_revision_id: "source", content_sha256: "digest", created_at: "2026-11-11" }] }
-        : { total: 0, drafts: [] },
+        : String(url).includes("world-mechanics/associations") ? [] : { total: 0, drafts: [] },
     )));
     try {
       render(<BuildDocumentSelector worldId="elderwyld" documents={[]} listStatus="ready"

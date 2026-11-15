@@ -4,7 +4,7 @@ import type { NativeSourceMetadata } from "../api/nativeSourceInspection";
 import { useEffect, useId, useMemo, useState, useRef } from "react";
 
 import { listRetainedPdfDocuments, retainedPdfBuildHref, type RetainedPdf } from "../api/retainedPdfRegions";
-import { listPdfStatblockReviews, listWorldThreatDrafts, type PdfStatblockReviewSummary, type WorldThreatDraftSummary } from "../api/liveApi";
+import { listPdfStatblockReviews, listWorldMechanicsAssociations, listWorldThreatDrafts, type PdfStatblockReviewSummary, type WorldThreatDraftSummary } from "../api/liveApi";
 import { buildSavedStatblockHref, readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
 import type { WorkspaceDocumentRecord } from "../api/types";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
@@ -61,14 +61,19 @@ export function BuildDocumentSelector({
   onSelect,
 }: BuildDocumentSelectorProps) {
   const [query, setQuery] = useState("");
-  const [catalog, setCatalog] = useState<{ worldId: string; drafts: WorldThreatDraftSummary[]; error: boolean }>();
+  const [catalog, setCatalog] = useState<{ worldId: string; drafts: WorldThreatDraftSummary[]; published: Set<string>; error: boolean }>();
   useEffect(() => {
     if (!worldId) return;
     const request = new AbortController();
-    listWorldThreatDrafts(worldId, request.signal).then(
-      drafts => { if (!request.signal.aborted) setCatalog({ worldId, drafts, error: false }); },
-      () => { if (!request.signal.aborted) setCatalog({ worldId, drafts: [], error: true }); },
-    );
+    Promise.all([listWorldThreatDrafts(worldId, request.signal), listWorldMechanicsAssociations(worldId)]).then(
+      ([drafts, associations]) => {
+        const published = new Set(associations.filter(association => association.request.target.campaign_scope === null)
+          .map(association => `${association.request.draft_id}:${association.proof.locator.revision_id}`));
+        if (!request.signal.aborted) setCatalog({ worldId, drafts, published, error: false });
+      },
+    ).catch(() => {
+      if (!request.signal.aborted) setCatalog({ worldId, drafts: [], published: new Set(), error: true });
+    });
     return () => request.abort();
   }, [worldId]);
   const [reviewCatalog, setReviewCatalog] = useState<{ worldId: string; reviews: PdfStatblockReviewSummary[]; error?: boolean }>();
@@ -93,10 +98,11 @@ export function BuildDocumentSelector({
   const [recent, setRecent] = useState<string[]>([]);
   const statblocks = (currentCatalog?.drafts ?? []).flatMap(draft => {
     const revisionId = draft.saved_revision_id;
-    if (draft.world_id !== worldId || !revisionId) return [];
+    if (draft.world_id !== worldId || !revisionId || !currentCatalog?.published.has(`${draft.draft_id}:${revisionId}`)) return [];
     return [{
       href: buildSavedStatblockHref({ worldId: draft.world_id, draftId: draft.draft_id, revisionId }),
       title: draft.name,
+      draftId: draft.draft_id,
     }];
   });
   const [pdfCatalog, setPdfCatalog] = useState<{ worldId: string; documents: RetainedPdf[]; error?: boolean }>();
@@ -213,7 +219,7 @@ export function BuildDocumentSelector({
     }))),
     ...statblocks.map(item => ({ id: item.href, label: item.title, category: "Statblocks" as const })),
     ...(worldId ? (currentReviews?.reviews ?? []).filter(review =>
-      !currentCatalog?.drafts.some(draft => draft.draft_id === review.draft_id && draft.saved_revision_id)
+      !statblocks.some(item => item.draftId === review.draft_id)
     ).map(review => ({
       id: "/build?" + new URLSearchParams({ world: worldId, pdfReview: review.review_id }),
       label: review.name, category: "Statblock drafts" as const, detail: "PDF extraction draft",
