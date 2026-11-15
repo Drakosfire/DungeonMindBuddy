@@ -220,7 +220,7 @@ describe("BuildSurfaceContext", () => {
     expect(within(host).queryByText("DOCUMENT")).not.toBeInTheDocument();
     expect(within(host).getByTestId("build-navbar-save")).toBeEnabled();
     expect(within(host).getByText("Source actions")).toBeInTheDocument();
-    expect(within(host).getByTestId("build-document-select")).toHaveValue(DOC_A);
+    expect(within(host).getByTestId("build-document-select")).toHaveAttribute("aria-haspopup", "dialog");
     expect(within(host).getByText("C1")).toBeInTheDocument();
     expect(within(host).getByText("faction")).toBeInTheDocument();
     const saveStatus = within(host).getByTestId("build-document-status");
@@ -260,7 +260,7 @@ describe("BuildSurfaceContext", () => {
 
     const host = screen.getByTestId("surface-context-host");
     expect(within(host).getByText("No source loaded")).toBeInTheDocument();
-    expect(within(host).getByRole("option", { name: "Open document" })).toBeInTheDocument();
+    expect(within(host).getByRole("button", { name: "Open document" })).toBeInTheDocument();
     expect(within(host).queryByTestId("build-document-rename-open")).not.toBeInTheDocument();
   });
 
@@ -299,13 +299,14 @@ describe("BuildSurfaceContext", () => {
     });
     expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Renamed On Canvas");
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved changes");
+    fireEvent.click(screen.getByTestId("build-document-select"));
     expect(
-      within(screen.getByTestId("build-document-select")).getByRole("option", {
+      within(screen.getByRole("dialog", { name: "Open document" })).getByRole("button", {
         name: "Renamed On Canvas",
       }),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByTestId("build-document-select")).queryByRole("option", {
+      within(screen.getByRole("dialog", { name: "Open document" })).queryByRole("button", {
         name: "Stale List Title",
       }),
     ).not.toBeInTheDocument();
