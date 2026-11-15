@@ -12,12 +12,21 @@ Run the [host inventory](../Plans/RUNBOOK-HOSTED-read-only-host-inventory.md).
 
 ```bash
 bash scripts/host_inventory.sh
-docker compose version &&
+(compose_version=$(docker compose version --short) && python3 - "$compose_version" <<'PYTHON'
+import re
+import sys
+
+version = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:\+[^\s]+)?", sys.argv[1].strip())
+if not version or tuple(map(int, version.groups())) < (2, 30, 0):
+    raise SystemExit("Install Docker Compose 2.30.0 or later with GPU service support")
+print(f"Compose {sys.argv[1]} supports GPU service configuration")
+PYTHON
+) &&
 docker buildx version &&
 docker info --format '{{.DockerRootDir}}'
 ```
 
-Require both Compose and Buildx to report versions before proceeding.
+Require [Compose 2.30.0 or later for GPU service configuration](https://docs.docker.com/reference/compose-file/services/#gpus) and a working Buildx installation before proceeding.
 
 Record disk and RAM minimums in MiB for the release, based on the build and
 upgrade rehearsal. Include room for the serving and rollback images in the Docker
@@ -72,6 +81,20 @@ Test required migrations against the restored copies. Before applying them to pr
 
 Provision a protected Compose environment file outside the checkout with the variables required by the [production Compose example](../../deploy/production/compose.production.yaml). Use the approved DMS HTTPS origin, trust `https://buddy.dungeonmind.net`, and configure the approved World assignments and both database URLs. Set the private statblock API origin as reachable from the Buddy container and put its internal API key in this same protected file. Host loopback inside the container is the container itself. Set `BUDDY_PERSISTENT_ROOT` to the absolute path of the approved durable host directory. Create its `managed`, `artifacts`, `sessions`, and `worldgraph` directories with access for container UID/GID 10001.
 
+For PDF extraction, record the approved NVIDIA GPU UUID, GenerationEngine OCR
+runner revision, Python/CUDA runtime version, and DeepSeek OCR 2 checkpoint
+revision and checksums. Use a prepared runtime directory compatible with the
+production image. It must contain executable `bin/python` with OCR dependencies,
+`run_local_ocr.py`, and the complete `checkpoint/`. Keep interpreter and model
+symlinks within the mounted directory. The checkout's host virtualenv may point
+outside the mount and cannot serve as this runtime. Verify the pinned assets
+before use, since the checkpoint contains executable model code. Set
+`BUDDY_OCR_RUNTIME_ROOT` and `BUDDY_OCR_GPU_ID` in the protected Compose file.
+The release host must have NVIDIA Container Toolkit configured. Compose mounts
+the runtime read-only, assigns the selected GPU, and disables model downloads.
+Transformers copies the pinned model modules into a writable cache under
+the container’s temporary directory.
+
 ```bash
 read -r -p 'Approved release commit: ' buddy_release
 read -r -p 'Absolute path to the protected Compose environment file: ' buddy_env
@@ -97,6 +120,8 @@ prepare_buddy_release() {
   local -a candidate_compose=(env
     -u AUTH_TRUSTED_FRONTEND_ORIGINS
     -u BUDDY_HTTP_BIND_PORT
+    -u BUDDY_OCR_RUNTIME_ROOT
+    -u BUDDY_OCR_GPU_ID
     -u BUDDY_PERSISTENT_ROOT
     -u DMB_HOSTED_WORLD_ACCESS_JSON
     -u DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL
@@ -256,6 +281,35 @@ PYTHON
 ```
 
 Continue only when the candidate-container probe succeeds.
+
+Run an actual OCR probe from the candidate container before migrations or
+cutover. This exercises the mounted interpreter, checkpoint and GPU. A host
+without usable CUDA cannot pass the PDF extraction release check.
+
+```bash
+"${buddy_compose[@]}" run --rm --no-deps --no-build -T buddy python - <<'PYTHON'
+from io import BytesIO
+from PIL import Image, ImageDraw
+from apps.live_control_server.services.build_pdf_ocr import read_crop_png
+
+image = Image.new("RGB", (512, 160), "white")
+caption = Image.new("RGB", (128, 40), "white")
+ImageDraw.Draw(caption).text((8, 12), "DUNGEON BUDDY", fill="black")
+image.paste(caption.resize(image.size, Image.Resampling.NEAREST))
+capture = BytesIO()
+image.save(capture, format="PNG")
+try:
+    result = read_crop_png(capture.getvalue())
+except Exception:
+    raise SystemExit("Local OCR inference failed in the candidate container")
+if "DUNGEONBUDDY" not in "".join(c for c in result["text"].upper() if c.isalpha()):
+    raise SystemExit("Local OCR did not recognize the release probe text")
+print("Local OCR inference ready")
+PYTHON
+```
+
+Continue only after the probe recognizes the text. Keep the runtime root and GPU
+assignment in the release record so the prior release can be restored.
 
 Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
 
@@ -445,6 +499,8 @@ override, image tag, and image ID from the release record. Use the same Docker c
   prior_compose=(env
     -u AUTH_TRUSTED_FRONTEND_ORIGINS
     -u BUDDY_HTTP_BIND_PORT
+    -u BUDDY_OCR_RUNTIME_ROOT
+    -u BUDDY_OCR_GPU_ID
     -u BUDDY_PERSISTENT_ROOT
     -u DMB_HOSTED_WORLD_ACCESS_JSON
     -u DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL

@@ -24,7 +24,23 @@ services:
       DUNGEONMIND_LIVE_SESSION_DIR: /var/lib/buddy/sessions
       DUNGEONMIND_WORLD_GRAPH_ROOT: /var/lib/buddy/worldgraph
       DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT: recaps
+      BUDDY_OCR_PYTHON: /opt/buddy-ocr/bin/python
+      BUDDY_OCR_COMMAND: /opt/buddy-ocr/run_local_ocr.py
+      BUDDY_OCR_CHECKPOINT: /opt/buddy-ocr/checkpoint
+      HF_MODULES_CACHE: /tmp/buddy-ocr-modules
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    gpus:
+      - driver: nvidia
+        device_ids:
+          - ${BUDDY_OCR_GPU_ID:?set the approved NVIDIA GPU UUID}
     volumes:
+      - type: bind
+        source: ${BUDDY_OCR_RUNTIME_ROOT:?set the absolute prepared OCR runtime directory}
+        target: /opt/buddy-ocr
+        read_only: true
+        bind:
+          create_host_path: false
       - type: bind
         source: ${BUDDY_PERSISTENT_ROOT:?set an existing durable host directory}
         target: /var/lib/buddy
