@@ -37,6 +37,7 @@ from apps.live_control_server.services.world_container_registry import (
 EXPLORER_PREFIX = "/api/live/native-graph-explorer"
 WORLD_COLLECTION_PATH = "/api/live/world-containers"
 WORLD_LOOKUP_PATH = f"{WORLD_COLLECTION_PATH}/lookup"
+BUILD_PAGE_INVENTORY_PATH = "/api/live/workspace-documents/pages/inventory"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
 _REQUESTS = {
     INSPECTION_READ_PATH: TypeAdapter(InspectionRead),
@@ -164,6 +165,24 @@ def require_explorer_access(
     elif principal.auth_method == "hosted_owner":
         # The global principal type alone carries no scoped ownership proof.
         raise _denied()
+
+
+async def resolve_hosted_build_page_inventory(request: Request) -> str:
+    subject = _hosted_subject(request)
+    selectors = request.query_params.getlist("world_id")
+    if len(selectors) != 1 or not selectors[0] or await request.body():
+        raise _denied()
+    world = _owned_world(subject, selectors[0])
+    request.state.hosted_build_page_inventory_world = world.world_id
+    return world.world_id
+
+
+def require_hosted_build_page_inventory(request: Request, world_id: str | None) -> None:
+    if hosted_auth.deployment_environment() != hosted_auth.PRODUCTION_ENVIRONMENT:
+        return
+    if not world_id or getattr(request.state, "hosted_build_page_inventory_world", None) != world_id:
+        raise _denied()
+    _owned_world(_hosted_subject(request), world_id)
 
 
 async def resolve_hosted_world_lookup(request: Request) -> str:

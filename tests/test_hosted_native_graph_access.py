@@ -30,6 +30,7 @@ from application_state.world_catalog.types import (
 from apps.live_control_server.routes.native_graph_explorer import (
     router as explorer_router,
 )
+from apps.live_control_server.routes import workspace_documents
 from apps.live_control_server.routes.world_containers import router as worlds_router
 from apps.live_control_server.routes.native_graph_inspection import (
     router as inspection_router,
@@ -230,6 +231,7 @@ def hosted(monkeypatch, request):
     app.include_router(explorer_router)
     app.include_router(worlds_router)
     app.include_router(inspection_router)
+    app.include_router(workspace_documents.router)
     install_hosted_request_boundary(
         app,
         world_scope_resolvers={
@@ -241,6 +243,7 @@ def hosted(monkeypatch, request):
                 for operation in OPERATIONS
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
+            ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
             ("GET", access.WORLD_LOOKUP_PATH): access.resolve_hosted_world_lookup,
         },
         collection_authorizers={("GET", COLLECTION): access.hosted_owner_collection},
@@ -1481,3 +1484,40 @@ def test_exact_world_lookup_denies_ownership_transfer_after_admission(hosted, mo
     response = hosted.client.request("GET", f"{COLLECTION}/lookup?managed_world_id=managed")
     assert response.status_code == 403, response.text
     assert hosted.catalog_reads == ["managed", "managed"]
+
+
+@pytest.mark.parametrize("query, session, expected", [
+    ("world_id=managed", "owner-session", 200),
+    ("world_id=managed", "other-session", 403),
+    ("world_id=foreign", "owner-session", 403),
+    ("world_id=managed&world_id=foreign", "owner-session", 403),
+    ("", "owner-session", 403),
+])
+def test_build_page_inventory_is_scoped_to_owned_world(hosted, monkeypatch, query, session, expected):
+    calls = []
+
+    def list_pages(_root, *, world_id, **_filters):
+        calls.append(world_id)
+        return []
+
+    monkeypatch.setattr(workspace_documents, "list_workspace_documents", list_pages)
+    monkeypatch.setattr(workspace_documents, "list_workspace_page_campaign_tags", lambda **_: [])
+    response = hosted.client.request("GET", f"{access.BUILD_PAGE_INVENTORY_PATH}?{query}", session=session)
+    assert response.status_code == expected, response.text
+    assert calls == (["managed"] if expected == 200 else [])
+    if expected == 200:
+        assert response.headers["cache-control"] == "no-store"
+
+
+def test_hosted_build_inventory_denies_ownership_transfer_during_read(hosted, monkeypatch):
+    def list_pages(*_, **__):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return []
+
+    monkeypatch.setattr(workspace_documents, "list_workspace_documents", list_pages)
+    monkeypatch.setattr(workspace_documents, "list_workspace_page_campaign_tags", lambda **_: ["private-tag"])
+    response = hosted.client.request("GET", f"{access.BUILD_PAGE_INVENTORY_PATH}?world_id=managed")
+    assert response.status_code == 403, response.text
+    assert "private-tag" not in response.text
