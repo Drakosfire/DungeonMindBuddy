@@ -118,9 +118,10 @@ Run offline conversation-only scoring with
 `python -m evals.buddy_benchmark.workflow action-report --manifest MANIFEST --output DIR`.
 The manifest schema is `dmb_aw_assessment_v1`. Each case has a unique `id` and
 an `observation` pin with `path` and `sha256`. The pinned JSON supplies
-`events`, `before`, `after`, and `fulfilled`. Use null for unavailable
-observations. An empty event list means capture verified a complete journal
-with no relevant effects. The command scores supplied observations only.
+`events`, `before`, `after`, `fulfilled`, and `journal_complete`. Use null for
+unavailable observations. A no-action pass requires `journal_complete: true`.
+An observed forbidden effect fails even in a partial journal. The command scores
+supplied observations only.
 
 Set case `kind` to `confirmed_action` for a reviewed mutation. Supply
 `before_confirmation` effects, ordered `mutations` and `expected_mutations`,

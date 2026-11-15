@@ -13,7 +13,7 @@ def _journal(name, value, entry_type):
         raise ValueError(f"{name} must be a list of valid entries or null")
 
 
-def assess_conversation_only(*, events, before, after, fulfilled, journal_complete=True):
+def assess_conversation_only(*, events, before, after, fulfilled, journal_complete=None):
     """Use a complete turn journal, including observations before dismissal.
 
     The capture adapter supplies normalized effect names or None when the
