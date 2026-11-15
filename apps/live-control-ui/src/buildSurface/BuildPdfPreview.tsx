@@ -475,7 +475,7 @@ export function PdfPages({ file, worldId, restored, onRetained, readOnly = false
   );
 }
 
-export function BuildPdfPreview({ worldId, initialFile, onPdfOpen, toolbarControls }: { worldId?: string; initialFile?: File; onPdfOpen?: () => void; toolbarControls?: ReactNode }) {
+export function BuildPdfPreview({ worldId, initialFile, initialRetained, onPdfOpen, toolbarControls }: { worldId?: string; initialFile?: File; initialRetained?: RetainedPdf; onPdfOpen?: () => void; toolbarControls?: ReactNode }) {
   const [selection, setSelection] = useState<{ file: File; version: number; restored?: PdfLocator } | undefined>(() => initialFile ? { file: initialFile, version: 0 } : undefined);
   const [reopenError, setReopenError] = useState("");
   const [reopening, setReopening] = useState(false);
@@ -506,25 +506,33 @@ export function BuildPdfPreview({ worldId, initialFile, onPdfOpen, toolbarContro
     setReopenError("");
   }
 
-  async function reopen({ name, locator: restored }: RetainedPdf) {
-    if (!worldId || reopening) return;
+  async function reopen({ name, locator: restored }: RetainedPdf, signal?: AbortSignal) {
+    if (!worldId || (reopening && !signal)) return;
     setReopening(true);
     setReopenError("");
     try {
       const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/open`;
       const { response } = await authenticatedApiFetch(path, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(restored),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(restored), signal,
       });
       if (!response.ok) throw new Error();
       const file = new File([await response.blob()], name, { type: "application/pdf" });
+      if (signal?.aborted) return;
       onPdfOpen?.();
       setSelection(previous => ({ file, restored, version: (previous?.version ?? 0) + 1 }));
     } catch {
-      setReopenError("Could not reopen the retained PDF.");
+      if (!signal?.aborted) setReopenError("Could not reopen the retained PDF.");
     } finally {
-      setReopening(false);
+      if (!signal?.aborted) setReopening(false);
     }
   }
+  useEffect(() => {
+    if (!initialRetained) return;
+    const request = new AbortController();
+    void reopen(initialRetained, request.signal);
+    return () => request.abort();
+  }, [initialRetained, worldId]);
+
   function select(file: File) {
     onPdfOpen?.();
     setSelection(previous => ({ file, version: (previous?.version ?? 0) + 1 }));
@@ -535,19 +543,20 @@ export function BuildPdfPreview({ worldId, initialFile, onPdfOpen, toolbarContro
       onDragOver={event => event.preventDefault()}
       onDrop={event => {
         event.preventDefault();
+        if (initialRetained) return;
         const file = event.dataTransfer.files[0];
         if (file) select(file);
       }}
     >
-      <label>
+      {!initialRetained && <label>
         Choose or drop a PDF
         <input type="file" accept="application/pdf,.pdf" onChange={event => {
           const file = event.currentTarget.files?.[0];
           if (file) select(file);
           event.currentTarget.value = "";
         }} />
-      </label>
-      {retained.length > 0 && <ul aria-label="Retained PDFs">
+      </label>}
+      {!initialRetained && retained.length > 0 && <ul aria-label="Retained PDFs">
         {retained.map(entry => <li key={pdfRegionKey(entry.locator)}>
           <button type="button" disabled={reopening} onClick={() => void reopen(entry)}>
             {entry.name} · Page {entry.locator.page}
@@ -558,6 +567,7 @@ export function BuildPdfPreview({ worldId, initialFile, onPdfOpen, toolbarContro
           </button>
         </li>)}
       </ul>}
+      {reopening && initialRetained && <p role="status">Opening PDF…</p>}
       {reopenError && <p role="alert">{reopenError}</p>}
       {selection && <PdfPages key={`${worldId ?? ""}:${selection.version}`} file={selection.file} worldId={worldId} restored={selection.restored} onRetained={saveLocator} toolbarControls={toolbarControls} />}
     </div>

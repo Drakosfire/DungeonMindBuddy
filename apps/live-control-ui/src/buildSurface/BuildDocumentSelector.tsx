@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 
+import { readRetainedPdfDocuments, retainedPdfBuildHref } from "../api/retainedPdfRegions";
 import { listWorldThreatDrafts, type WorldThreatDraftSummary } from "../api/liveApi";
 import { buildSavedStatblockHref, readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
 import type { WorkspaceDocumentRecord } from "../api/types";
@@ -71,6 +72,9 @@ export function BuildDocumentSelector({
       title: draft.name,
     }];
   });
+  const retainedPdfs = worldId ? readRetainedPdfDocuments(worldId) : [];
+  const activePdf = retainedPdfs.find(entry => entry.locator.source_revision_id ===
+    new URLSearchParams(window.location.search).get("pdf"));
   const activeStatblock = readSavedStatblockTarget(window.location.href);
 
   const groupedOptions = useMemo(() => {
@@ -151,15 +155,15 @@ export function BuildDocumentSelector({
     "data-testid": "build-document-select",
     "data-guided-control": "source",
     "aria-label": "Open document",
-    value: activeStatblock ? buildSavedStatblockHref(activeStatblock) : activeDocumentId ?? "",
+    value: activePdf && worldId ? retainedPdfBuildHref(worldId, activePdf) : activeStatblock ? buildSavedStatblockHref(activeStatblock) : activeDocumentId ?? "",
     onChange: (event: ChangeEvent<HTMLSelectElement>) => {
       const next = event.target.value.trim();
       if (next.startsWith("/build?")) window.location.assign(next);
-      else if (next && activeStatblock) {
-        window.location.assign("/build?" + new URLSearchParams({ world: activeStatblock.worldId, documentId: next }));
+      else if (next && worldId && (activeStatblock || new URLSearchParams(window.location.search).has("pdf"))) {
+        window.location.assign("/build?" + new URLSearchParams({ world: worldId, documentId: next }));
       } else if (next) onSelect(next);
     },
-    disabled: switching || (listStatus !== "ready" && statblocks.length === 0),
+    disabled: switching || (listStatus !== "ready" && statblocks.length === 0 && retainedPdfs.length === 0),
   };
 
   return (
@@ -188,6 +192,12 @@ export function BuildDocumentSelector({
         ))}
         {statblocks.length > 0 && <optgroup label="Saved statblocks">
           {statblocks.map(item => <option key={item.href} value={item.href}>{item.title}</option>)}
+        </optgroup>}
+        {worldId && retainedPdfs.length > 0 && <optgroup label="PDF documents">
+          {retainedPdfs.filter(entry => entry === activePdf || entry.name.toLowerCase().includes(filter)).map(entry => {
+            const href = retainedPdfBuildHref(worldId, entry);
+            return <option key={href} value={href}>{entry.name}</option>;
+          })}
         </optgroup>}
       </SurfaceContextSelect>
     </div>

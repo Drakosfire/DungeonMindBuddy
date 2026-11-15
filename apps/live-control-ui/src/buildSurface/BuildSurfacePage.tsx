@@ -1,3 +1,4 @@
+import { readRetainedPdfDocuments } from "../api/retainedPdfRegions";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { SavedStatblockFullView } from "../statblocks/StatblockPage";
 import { readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
@@ -43,6 +44,10 @@ export function BuildSurfacePage() {
     return () => window.removeEventListener("popstate", syncHistory);
   }, []);
   const params = new URLSearchParams(entrySearch);
+  const retainedPdf = useMemo(() => {
+    const id = new URLSearchParams(entrySearch).get("pdf");
+    return worldId && id && new URLSearchParams(entrySearch).get("world") === worldId ? readRetainedPdfDocuments(worldId).find(entry => entry.locator.source_revision_id === id) : undefined;
+  }, [entrySearch, worldId]);
   const graphPointer = useMemo(() => parseBuildGraphPointerFromLocation(entrySearch), [entrySearch]);
   const nativeObject = graphPointer?.nativePin;
   const statblock = readSavedStatblockTarget("/build" + entrySearch);
@@ -77,6 +82,14 @@ export function BuildSurfacePage() {
         </>
       ) : graphPointer && nativeObject && nativeObject.managed_world_id === worldId ? (
         <BuildGraphObjectContext key={entrySearch} pointer={graphPointer} />
+      ) : params.has("pdf") && worldId ? (
+        <>
+          <BuildSurfaceContext {...controller} />
+          <section className="build-pdf-workspace" aria-label="PDF workspace">
+            {retainedPdf ? <BuildPdfPreview key={entrySearch} worldId={worldId} initialRetained={retainedPdf} />
+              : <p role="status">This retained PDF could not be found.</p>}
+          </section>
+        </>
       ) : droppedPdf && droppedPdf.worldId === worldId ? (
         <section className="build-pdf-workspace" aria-label="PDF workspace">
           <BuildPdfPreview key={droppedPdf.version} worldId={droppedPdf.worldId} initialFile={droppedPdf.file}
