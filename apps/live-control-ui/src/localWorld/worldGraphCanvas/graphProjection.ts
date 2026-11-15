@@ -223,10 +223,17 @@ export function createGraphFallbackPositions(
   }
   let rootCursor = 0;
   const origin = { x: 640, y: 640 };
+  const maximumRootDistance = Math.hypot(
+    Math.max(origin.x, MAX_GRAPH_COORDINATE - origin.x),
+    Math.max(origin.y, MAX_GRAPH_COORDINATE - origin.y),
+  );
   function placeRoot(r: number): Point {
     for (let attempt = 0; attempt < 2048; attempt += 1) {
       const slot = rootCursor++;
       const distance = 70 * Math.sqrt(slot);
+      // Beyond the furthest corner, every subsequent point is outside the domain.
+      // Leave one coordinate unit for floating-point rounding.
+      if (distance > maximumRootDistance + 1) break;
       const angle = slot * 2.399963229728653;
       const point = { x: origin.x + distance * Math.cos(angle), y: origin.y + distance * Math.sin(angle) };
       if (available(point, r)) return point;
