@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -19,7 +20,10 @@ import pytest
 from fastapi import FastAPI
 
 from application_state import pdf_statblock_review
-from apps.live_control_server.routes.agent import get_pdf_statblock_review
+from apps.live_control_server.routes.agent import (
+    _pdf_review_creature_draft_id, get_pdf_statblock_review, post_accept_pdf_statblock_review,
+    post_pdf_statblock_creature_draft,
+)
 from application_state.errors import ApplicationStateUnavailableError
 from application_state.world_catalog import service as catalog
 from application_state.world_catalog.service import StoredWorld
@@ -242,6 +246,8 @@ def hosted(monkeypatch, request):
 
     app.include_router(workspace_documents.router)
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
+    app.add_api_route(f"{PDF_REVIEW}/creature-draft", post_pdf_statblock_creature_draft, methods=["POST"])
+    app.add_api_route(f"{PDF_REVIEW}/accept/{{draft_id}}", post_accept_pdf_statblock_review, methods=["POST"])
     install_hosted_request_boundary(
         app,
         world_scope_resolvers={
@@ -257,6 +263,8 @@ def hosted(monkeypatch, request):
             ("POST", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
+            ("POST", f"{PDF_REVIEW}/accept/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
+            ("POST", f"{PDF_REVIEW}/creature-draft"): access.resolve_hosted_build_pdf_world,
             ("GET", access.WORLD_LOOKUP_PATH): access.resolve_hosted_world_lookup,
         },
         collection_authorizers={("GET", COLLECTION): access.hosted_owner_collection},
@@ -1645,3 +1653,52 @@ def test_hosted_pdf_review_denies_ownership_transfer_during_read(hosted, monkeyp
     response = hosted.client.request("GET", path)
     assert response.status_code == 403, response.text
     assert "private-draft" not in response.text
+
+
+@pytest.mark.parametrize("session, expected_revision, expected", [
+    ("owner-session", 1, 200),
+    ("owner-session", 2, 409),
+    ("other-session", 1, 403),
+])
+def test_hosted_pdf_prepares_only_its_canonical_draft(hosted, monkeypatch, session, expected_revision, expected):
+    from apps.live_control_server.routes import agent, statblock_storage
+    from apps.live_control_server.services import threat_draft_store
+
+    review_id = uuid4()
+    draft_id = _pdf_review_creature_draft_id("managed", review_id)
+    calls = []
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(statblock_storage, "statblock_data_root", lambda _: None)
+    monkeypatch.setattr(pdf_statblock_review, "read_review", lambda **_: {
+        "revision": 1, "regions": [],
+        "definition": {"identity": {"name": "Synthetic creature"}, "ruleset": {"system": "dnd5e", "edition": "2024"}},
+    })
+
+    def create(_root, body, *, stable_id):
+        calls.append((body.world_id, stable_id))
+        return SimpleNamespace(draft_id=stable_id, version=1)
+
+    monkeypatch.setattr(threat_draft_store, "create_threat_draft", create)
+    path = PDF_REVIEW.format(world_id="managed", review_id=review_id)
+    response = hosted.client.request(
+        "POST", f"{path}/creature-draft?expected_revision={expected_revision}", session=session,
+    )
+    assert response.status_code == expected, response.text
+    assert calls == ([("managed", draft_id)] if expected == 200 else [])
+
+@pytest.mark.parametrize("session, expected", [("owner-session", 404), ("other-session", 403)])
+def test_hosted_pdf_accept_refuses_unrelated_draft_before_storage(hosted, monkeypatch, session, expected):
+    from apps.live_control_server.routes import agent, statblock_storage
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(statblock_storage, "statblock_data_root", lambda _: pytest.fail("unexpected draft access"))
+    validation = json.loads((Path(__file__).parent / "fixtures/statblocks/v1/validate-response.json").read_text())
+    path = PDF_REVIEW.format(world_id="managed", review_id=uuid4())
+    response = hosted.client.request("POST", f"{path}/accept/{uuid4()}", session=session, json={
+        "operation_id": str(uuid4()),
+        "expected_draft_version": 1,
+        "expected_revision": 1,
+        "validation_receipt": validation["validation_receipt"],
+        "validation_definition_digest": validation["definition_digest"],
+    })
+    assert response.status_code == expected, response.text

@@ -163,6 +163,8 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("PUT", PDF_STATBLOCK_REVIEW_PATH): resolve_hosted_build_pdf_world,
     ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/from-regions"): resolve_hosted_build_pdf_world,
     ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/validate"): resolve_hosted_build_pdf_world,
+    ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/creature-draft"): resolve_hosted_build_pdf_world,
+    ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/accept/{{draft_id}}"): resolve_hosted_build_pdf_world,
     ("POST", f"{BUILD_PDF_SOURCES_PATH}/statblock:validate"): resolve_hosted_build_pdf_world,
     ("GET", BUILD_PDF_SOURCES_PATH): resolve_hosted_build_pdf_world,
     ("POST", BUILD_PDF_SOURCES_PATH): resolve_hosted_build_pdf_world,
