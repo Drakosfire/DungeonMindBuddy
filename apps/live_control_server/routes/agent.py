@@ -2617,6 +2617,8 @@ def post_pdf_statblock_creature_draft(
         ThreatDraftStoreError, create_threat_draft,
     )
 
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
     review = get_pdf_statblock_review(world_id, review_id, request)
     world_id = _verified_world_id(world_id)
     if review["revision"] != expected_revision:
@@ -2631,10 +2633,12 @@ def post_pdf_statblock_creature_draft(
         created_by="gm",
     )
     draft_id = _pdf_review_creature_draft_id(world_id, review_id)
+    require_build_pdf_access(request, world_id)
     try:
         draft = create_threat_draft(statblock_data_root(repo_root()), draft_request, stable_id=draft_id)
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_build_pdf_access(request, world_id)
     return {"draft_id": draft.draft_id, "version": draft.version}
 
 
@@ -2681,8 +2685,15 @@ def post_accept_pdf_statblock_review(
         ThreatDraftStoreError, get_threat_draft,
     )
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
     world_id = _verified_world_id(world_id)
+    if (
+        getattr(request.state, "hosted_build_pdf_world", None) is not None
+        and draft_id != _pdf_review_creature_draft_id(world_id, review_id)
+    ):
+        raise HTTPException(status_code=404, detail={"code": "threat_draft_not_found"})
     root = statblock_data_root(repo_root())
     draft_key = str(draft_id)
     try:
@@ -2691,6 +2702,14 @@ def post_accept_pdf_statblock_review(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     if draft.world_id != world_id:
         raise HTTPException(status_code=404, detail={"code": "threat_draft_not_found"})
+
+    def recover(operation_id):
+        require_build_pdf_access(request, world_id)
+        if getattr(request.state, "hosted_build_pdf_world", None) is not None:
+            get_pdf_statblock_review(world_id, review_id, request)
+        result = recover_acceptance_operation(root, draft_id=draft_key, operation_id=operation_id)
+        require_build_pdf_access(request, world_id)
+        return result
 
     identity = {"world_id": world_id, "review_id": str(review_id), "revision": body.expected_revision}
     existing = get_acceptance_operation(root, draft_id=draft_key, operation_id=body.operation_id)
@@ -2702,7 +2721,7 @@ def post_accept_pdf_statblock_review(
             or existing.validation_receipt_digest != body.validation_definition_digest
         ):
             raise HTTPException(status_code=409, detail={"code": "pdf_statblock_acceptance_conflict"})
-        return recover_acceptance_operation(root, draft_id=draft_key, operation_id=body.operation_id)
+        return recover(body.operation_id)
 
     if draft.version != body.expected_draft_version:
         from apps.live_control_server.models.statblock_mechanics_acceptance import (
@@ -2729,16 +2748,14 @@ def post_accept_pdf_statblock_review(
         ):
             matches.append(operation)
     if len(matches) == 1:
-        return recover_acceptance_operation(
-            root, draft_id=draft_key, operation_id=matches[0].operation_id,
-        )
+        return recover(matches[0].operation_id)
     if matches or locator is not None:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_acceptance_conflict" if matches else "pdf_statblock_draft_already_has_mechanics"})
 
     review = get_pdf_statblock_review(world_id, review_id, request)
     if review["revision"] != body.expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
-    return begin_or_resume_acceptance(
+    result = begin_or_resume_acceptance(
         root,
         draft_id=draft_key,
         request=AcceptThreatDraftMechanicsRequestV1(
@@ -2751,6 +2768,8 @@ def post_accept_pdf_statblock_review(
         ),
         pdf_review={**identity, "regions": review["regions"]},
     )
+    require_build_pdf_access(request, world_id)
+    return result
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/append/{draft_id}")
