@@ -842,6 +842,22 @@ describe("NativeGraphDemo", () => {
     expect(readGraph).toHaveBeenCalledTimes(1);
     expect(readChronology).toHaveBeenCalledTimes(1);
 
+    await user.click(layouts.getByRole("button", { name: "Spiral" }));
+    const scene = within(canvas).getByTestId("graph-scene");
+    const previousCamera = scene.getAttribute("transform");
+    await user.click(chronology.getByRole("button", { name: linked.name }));
+    expect(scene.getAttribute("transform")).not.toBe(previousCamera);
+    expect(chronology.getByRole("heading", { name: "Chronology · Mara" })).toBeInTheDocument();
+    expect(within(canvas).getByRole("button", { name: "Mara, npc" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Object types" }));
+    const types = within(screen.getByRole("group", { name: "Visible object types" }));
+    await user.click(types.getByRole("checkbox", { name: "npc" }));
+    expect(within(canvas).getByRole("button", { name: "Mara, npc" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(canvas).queryByRole("button", { name: "Tomas, npc" })).not.toBeInTheDocument();
+    await user.click(types.getByRole("checkbox", { name: "npc" }));
+    await user.keyboard("{Escape}");
+    expect(readGraph).toHaveBeenCalledTimes(1);
+
     await user.click(screen.getByRole("button", { name: "Tomas, npc" }));
     expect(chronology.getByRole("heading", { name: "Chronology · Tomas" })).toBeInTheDocument();
     expect(chronology.getByRole("button", { name: unrelated.name })).toBeInTheDocument();

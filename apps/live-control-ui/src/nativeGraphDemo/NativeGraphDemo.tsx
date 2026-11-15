@@ -644,7 +644,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (embedded && graph && createdFocus?.graph === graph) {
       setCreatedNodeReveal({ nodeId: createdFocus.nodeId, worldId: graph.world_id });
       cameraFocusRequestIdRef.current += 1;
-      setCameraFocusRequest({ nodeId: createdFocus.nodeId as LocalObjectId, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode: true });
+      setCameraFocusRequest({ nodeId: createdFocus.nodeId as LocalObjectId, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode });
     }
   }, [graph, embedded, nodesById]);
 
@@ -661,10 +661,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (nodeId === null) setCameraFocusRequest(undefined);
   }, []);
 
-  const requestCameraFocus = useCallback((nodeId: string | null) => {
+  const requestCameraFocus = useCallback((nodeId: string | null, selectNode = true) => {
     if (!graph) return;
-    setViewFocusId(nodeId as LocalObjectId | null);
-    setNeighborhoodDepth(1);
+    if (selectNode) {
+      setViewFocusId(nodeId as LocalObjectId | null);
+      setNeighborhoodDepth(1);
+    }
     cameraFocusRequestIdRef.current += 1;
     setCameraFocusRequest({ nodeId: nodeId as LocalObjectId | null, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode: true });
   }, [graph]);
@@ -1809,10 +1811,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       <GraphChronology relatedTo={embedded ? selectedNode?.id : undefined} graph={graph} read={api.readChronology} shared={embedded && (!readOnly || canvasLayout !== "graph") ? { result: chronologyData } : undefined} strip
         onExplore={nodeId => {
           if (pendingRef.current) return;
-          setChronology(null);
-          focusInspectorRef.current = true;
-          handleCanvasSelectionChange(nodeId as LocalObjectId);
-          requestCameraFocus(nodeId);
+          requestCameraFocus(nodeId, false);
         }} />
     </div>
   ) : null;

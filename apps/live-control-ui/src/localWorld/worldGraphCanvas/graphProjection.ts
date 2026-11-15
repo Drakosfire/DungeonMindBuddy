@@ -54,6 +54,7 @@ export interface GraphProjectionOptions {
   readonly focusObjectId?: LocalWorldObject["id"] | null;
   readonly neighborhoodDepth?: number;
   readonly hiddenKinds?: ReadonlySet<string>;
+  readonly retainedSelectionId?: LocalObjectId;
 }
 
 function boundedLimit(value: number | undefined, ceiling: number): number {
@@ -324,7 +325,8 @@ export function projectLocalWorldGraph(
   const maxEdges = options.maxEdges === undefined ? DEFAULT_GRAPH_LIMITS.edges : boundedLimit(options.maxEdges, MAX_GRAPH_LIMITS.edges);
   // Reject an accidentally retained index from an older World/revision.
   const index = suppliedIndex?.snapshot === record.snapshot ? suppliedIndex : indexLocalWorldGraph(record.snapshot);
-  const isVisibleKind = (object: LocalWorldObject) => !options.hiddenKinds?.has(object.kind);
+  const isVisibleKind = (object: LocalWorldObject) =>
+    object.id === options.retainedSelectionId || !options.hiddenKinds?.has(object.kind);
   const objects = options.hiddenKinds?.size ? record.snapshot.objects.filter(isVisibleKind) : record.snapshot.objects;
   const focused = Boolean(options.focusObjectId && index.objects.has(options.focusObjectId));
   const compactOverview = options.compactOverview && !focused;
