@@ -12,6 +12,7 @@ services:
       - "127.0.0.1:${BUDDY_HTTP_BIND_PORT:-8080}:8000"
     environment:
       DUNGEONMIND_SERVER_API_ORIGIN: ${DUNGEONMIND_SERVER_API_ORIGIN:?set the HTTPS DMS API origin}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?set the protected extraction provider key}
       DUNGEONMIND_STATBLOCKS_ENABLED: "true"
       DUNGEONMIND_STATBLOCKS_BASE_URL: ${DUNGEONMIND_STATBLOCKS_BASE_URL:?set the container-reachable private statblock API origin}
       DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY: ${DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY:?set the protected statblock API key}
