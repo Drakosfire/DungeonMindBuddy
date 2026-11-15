@@ -1,4 +1,5 @@
 import type {
+  LocalObjectId,
   LocalWorldObject,
   LocalWorldRecord,
   LocalWorldRelationship,
