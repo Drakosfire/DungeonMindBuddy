@@ -707,6 +707,21 @@ def prepare(request, principal):
                     or assertion.value.entity_id != decision["target_entity_id"]
                 ):
                     raise ValueError("Reviewed assertion differs from the candidate relationship")
+                cited = set(decision["evidence_ref_ids"])
+                if not cited <= set(assertion.metadata.evidence_ref_ids):
+                    raise ValueError("Reviewed evidence is absent from the assertion")
+                edge = edges[decision["edge_id"]]
+                witness = project_candidate_record_evidence(
+                    assertion_id=edge.edge_id, kind="relationship", label=edge.label,
+                    summary="", evidence_refs=edge.evidence_refs,
+                    source_prose=data.source_bytes.decode("utf-8"),
+                    source_artifact_id=data.source_artifact.source_artifact_id,
+                    span_index=data.span_index,
+                )
+                _support_refs(
+                    assertion.metadata.model_copy(update={"evidence_ref_ids": tuple(sorted(cited))}),
+                    witness.evidence, access, admitted,
+                )
         except (KeyError, TypeError, ValueError) as exc:
             raise ReviewRefused("candidate_cohort_edge_review_invalid") from exc
     domain_name = run.source_domain

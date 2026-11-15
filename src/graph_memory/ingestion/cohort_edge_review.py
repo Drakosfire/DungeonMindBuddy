@@ -39,7 +39,7 @@ def validate(candidate, manifest):
                     raise ValueError(f"{edge_id} requires one {role} binding")
                 fields += tuple(endpoint_fields)
         elif state == "already_present":
-            fields = ("assertion_id", "subject_entity_id", "target_entity_id")
+            fields = ("assertion_id", "subject_entity_id", "target_entity_id", "evidence_ref_ids")
         elif state in {"held", "rejected"}:
             fields = ("reason",)
         else:
