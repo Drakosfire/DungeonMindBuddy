@@ -157,6 +157,7 @@ def get_workspace_page_inventory(
             )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_hosted_build_page_inventory(request, world_id)
     records = inventory[:limit]
     boundary = records[-1] if len(inventory) > limit else None
     return WorkspacePageInventoryResponse(
