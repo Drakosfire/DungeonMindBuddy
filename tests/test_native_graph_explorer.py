@@ -1174,3 +1174,38 @@ def test_presentation_read_uses_one_catalogue_and_never_writes(explorer, monkeyp
     assert len(calls) == 1
     assert len(repository_reads) == 1
     assert _snapshot(x.lane.repo) == before
+
+
+def test_repeat_graph_read_reuses_parsing_but_refetches_the_revision(explorer, monkeypatch):
+    from dungeonmind.application.vnext import native_source_access
+
+    x = explorer
+    _seed_objects(x)
+    repo = x.lane.repo
+    before = _snapshot(repo)
+    cache = native_source_access.NativeParsedRevisionCache()
+    monkeypatch.setattr(service.native_graph_inspection, "_shared_parsed_cache", cache)
+    parse_revision = native_source_access._parse_revision
+    get_revision = repo.get_revision
+    parsed = []
+    loaded = []
+
+    def count_parse(stored):
+        parsed.append(stored)
+        return parse_revision(stored)
+
+    def count_revision_load(space_id, revision_id):
+        loaded.append((space_id, revision_id))
+        return get_revision(space_id, revision_id)
+
+    monkeypatch.setattr(native_source_access, "_parse_revision", count_parse)
+    monkeypatch.setattr(repo, "get_revision", count_revision_load)
+    first = _read(x)
+    second = _read(x)
+
+    assert first.status_code == second.status_code == 200
+    assert first.content == second.content
+    assert len(parsed) == 1
+    revision = first.json()["graph"]["revision_id"]
+    assert loaded == [(x.bound["native_world_id"], revision)] * 2
+    assert _snapshot(repo) == before
