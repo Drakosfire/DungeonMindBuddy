@@ -69,13 +69,13 @@ def validate_prepare(candidate, manifest, request):
             raise ValueError(f"Duplicate prepare selection: {key}")
         selections[key] = selection
     event_ids = set(manifest["event_ids"])
-    created_events = {
+    selected_events = {
         node["node_id"] for node in candidate["nodes"]
         if node["node_type"] == "event"
-        and selections.get(("node", node["node_id"]), {}).get("action") == "create"
+        and selections.get(("node", node["node_id"]), {}).get("action") in {"create", "use_existing"}
     }
-    if not created_events <= event_ids:
-        raise ValueError("Prepare creates Events outside the reviewed cohort")
+    if not selected_events <= event_ids:
+        raise ValueError("Prepare selects Events outside the reviewed cohort")
     placements = {
         record_id for (kind, record_id), selection in selections.items()
         if kind == "placement" and selection["action"] == "create"

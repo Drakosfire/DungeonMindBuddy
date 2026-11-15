@@ -1660,7 +1660,7 @@ def test_worldbuilding_publishes_explicit_observation_with_exact_support(persist
     assert opened.json()["content"] == x.text.splitlines(keepends=True)[0]
 
 
-@pytest.mark.parametrize("decisions", ["missing", "fabricated_witness"])
+@pytest.mark.parametrize("decisions", ["missing", "fabricated_witness", "omitted_event"])
 def test_cohort_prepare_refuses_unaccounted_relationships(lane, decisions):
     lane.payload["nodes"][0]["node_type"] = "event"
     lane.refresh()
@@ -1677,7 +1677,8 @@ def test_cohort_prepare_refuses_unaccounted_relationships(lane, decisions):
             evidence_ref_ids=[lane.support_ids["first"]],
         ))
     body["cohort_edge_review"] = dict(
-        event_ids=["new"], edge_decisions=edge_decisions,
+        event_ids=[] if decisions == "omitted_event" else ["new"],
+        edge_decisions=edge_decisions,
         prepare_pin={key: value for key, value in body.items() if key != "selections"},
     )
 
