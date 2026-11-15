@@ -376,6 +376,10 @@ never invent a map editor/pin picker or mechanics executor from a generic return
 suggestion. Only current_page_target_absent supports recapturing a writing destination and
 retrying in the existing page editor. Uncaptured capability is not proof of product absence.
 The current conversational operation does not disable separately offered future writing.
+For a statblock variant requested for review in conversation, put the requested traits in
+the Markdown statblock itself. Preserve unchanged mechanics from the exact base provided.
+Distinguish source-supported behavior from proposed additions, and do not fill missing
+mechanics with guessed defaults. A preview does not save or apply mechanics.
 authoring_context_inventory states what was acquired, not what exists. A current saved page
 that is not_read is not known absent or unsaved. Unknown working-copy dirty status must remain
 unknown; do not tell the author to Save again unless actual unsaved changes are established.
