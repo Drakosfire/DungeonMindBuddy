@@ -66,25 +66,38 @@ export function layoutGraphChronology(events: readonly EventRow[], mode: Chronol
     anchors.set(id, points);
   }
 
+  // Use a shared grid for non-Events so adjacent anchors cannot place
+  // objects on top of each other. Reserve cells near every Event first.
+  const cellSize = 72;
+  const occupied = new Set<string>();
+  for (const point of positions.values()) {
+    for (let x = Math.ceil((point.x - 64) / cellSize); x <= Math.floor((point.x + 64) / cellSize); x++) {
+      for (let y = Math.ceil((point.y - 64) / cellSize); y <= Math.floor((point.y + 64) / cellSize); y++) {
+        occupied.add(`${x}:${y}`);
+      }
+    }
+  }
   const counts = new Map<string, number>();
-  let detachedSlot = 0;
   const detachedY = laneTop + Math.ceil(unplaced.length / 8) * 80 + 440;
   for (const node of [...graph.nodes].sort((a, b) => a.id.localeCompare(b.id))) {
     if (positions.has(node.id)) continue;
-    const points = anchors.get(node.id);
-    if (!points) {
-      positions.set(node.id, { x: 80 + detachedSlot % 16 * 100, y: detachedY + Math.floor(detachedSlot / 16) * 100 });
-      detachedSlot += 1;
-      continue;
+    const anchor = anchors.get(node.id)?.[0];
+    const column = Math.round((anchor?.x ?? 80) / cellSize);
+    const row = Math.round((anchor ? anchor.y - 100 : detachedY) / cellSize);
+    const columns = anchor ? 5 : 16;
+    const key = `${column}:${row}:${columns}`;
+    let slot = counts.get(key) ?? 0;
+    while (true) {
+      const x = column + slot % columns - (anchor ? 2 : 0);
+      const y = row + Math.floor(slot / columns) * (anchor ? -1 : 1);
+      const cell = `${x}:${y}`;
+      slot += 1;
+      if (occupied.has(cell)) continue;
+      occupied.add(cell);
+      counts.set(key, slot);
+      positions.set(node.id, { x: x * cellSize, y: y * cellSize });
+      break;
     }
-    const anchor = points[0];
-    const key = `${anchor.x}:${anchor.y}`;
-    const slot = counts.get(key) ?? 0;
-    counts.set(key, slot + 1);
-    positions.set(node.id, {
-      x: anchor.x + (slot % 5 - 2) * 72,
-      y: anchor.y - 100 - Math.floor(slot / 5) * 72,
-    });
   }
 
   return { positions, markers, unplacedMarker, eventIds: events.map(event => event.node.id) };

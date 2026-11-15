@@ -60,7 +60,7 @@ interface NodeInteractionHandlers {
 const GraphBubble = memo(function GraphBubble({ node, position, selected, isConnectTarget, nodeShape, fullCorpus, showLabels, canConnect, handlersRef, suppressClickRef, typeStyles }: {
   node: ProjectedGraphNode;
   typeStyles: GraphTypeStyleRegistry;
-  position: { x: number; y: number };
+  position: { x: number; y: number; radius?: number };
   selected: boolean;
   isConnectTarget: boolean;
   nodeShape: NodeShape;
@@ -72,7 +72,7 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
 }) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  const radius = fullCorpus ? graphBubbleRadius(node.relationshipCount) : CIRCLE_RADIUS;
+  const radius = position.radius ?? CIRCLE_RADIUS;
   const names = recordedNames(node);
   const description = `${node.name}, ${node.kind}${fullCorpus ? `, ${node.relationshipCount} relationships in loaded snapshot` : ""}${names.length ? `. Recorded names: ${names.join("; ")}` : ""}`;
   return (

@@ -928,7 +928,15 @@ describe("WorldGraphCanvas", () => {
   it("cancels a temporary focus drag on exit before it can save temporary coordinates", async () => {
     const { record } = await graphRecord();
     const hub = record.snapshot.objects[0]; const save = vi.fn();
-    const props = { record, nodeShape: "circle" as const, onMoveObjects: save };
+    const edge = record.snapshot.relationships[0];
+    const linkedRecord = { ...record, snapshot: { ...record.snapshot, relationships: [
+      ...record.snapshot.relationships,
+      ...Array.from({ length: 4 }, (_, i) => ({
+        ...edge, id: `alternate-radius-${i}` as LocalWorldRelationship["id"], fromObjectId: hub.id,
+        toObjectId: record.snapshot.objects[1].id,
+      })),
+    ] } };
+    const props = { record: linkedRecord, nodeShape: "circle" as const, onMoveObjects: save };
     const view = render(<WorldGraphCanvas {...props} projectionOptions={{ fullCorpus: true, focusObjectId: hub.id }} cameraFocusRequest={{ nodeId: hub.id, requestId: 1 }} />);
     fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
     const node = screen.getByRole("button", { name: `${hub.name}, ${hub.kind}` });
@@ -938,6 +946,17 @@ describe("WorldGraphCanvas", () => {
     view.rerender(<WorldGraphCanvas {...props} projectionOptions={{ fullCorpus: true }} cameraFocusRequest={{ nodeId: null, requestId: 2 }} />);
     fireEvent(graph, new MouseEvent("pointerup", { clientX: 160, clientY: 140, bubbles: true }));
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it("paints the alternate-layout radius used by edge and camera geometry", async () => {
+    const { record } = await graphRecord();
+    const hub = record.snapshot.objects[0];
+    const props = { record, nodeShape: "circle" as const, projectionOptions: { fullCorpus: true } };
+    const view = render(<WorldGraphCanvas {...props} />);
+    const bubble = () => view.container.querySelector(`[data-node-id="${hub.id}"] .world-graph-canvas__node-circle`);
+    expect(Number(bubble()?.getAttribute("r"))).toBeGreaterThan(32);
+    view.rerender(<WorldGraphCanvas {...props} alternatePositions={new Map([[hub.id, { x: 80, y: 80 }]])} />);
+    expect(bubble()).toHaveAttribute("r", "32");
   });
 
   it("fits asymmetric focused neighborhoods and loops even when interrupting an overview pan", async () => {
