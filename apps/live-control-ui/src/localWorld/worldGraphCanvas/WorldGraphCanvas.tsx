@@ -1382,14 +1382,14 @@ export function WorldGraphCanvas({
     return renderedEdges.map(({ edge, geometry }) => {
       const label = edgeLabels.get(edge)!;
       const caption = captions.get(edge.id);
-      const isSelected = selected(edge);
+      const isSelected = selected(edge) || Boolean(alternatePositions && (edge.kind === "precedes" || edge.kind === "dungeonbuddy.custom:precedes"));
       return <GraphEdge key={edge.id} id={edge.id} path={geometry.path} markerId={markerId}
         selected={isSelected} label={label} tabIndex={!fullCorpus || isSelected ? 0 : -1}
         captionText={caption?.text}
         captionTransform={caption ? `translate(${caption.x} ${caption.y}) rotate(${caption.angle})` : undefined}
         fontSize={caption ? 12 * edgeLabelScale : undefined} onInspect={setInspectedEdgeId} />;
     });
-  }, [renderedEdges, edgeLabels, markerId, selectedIds, positions, nodeShape, dimensions.width, dimensions.height, fullCorpus, allRelationships, edgeLabelDetail, edgeLabelScale]);
+  }, [renderedEdges, edgeLabels, markerId, selectedIds, positions, nodeShape, dimensions.width, dimensions.height, fullCorpus, allRelationships, edgeLabelDetail, edgeLabelScale, alternatePositions]);
 
   const editingTools = (
       <div className="world-graph-canvas__toolbar" aria-label="Graph editing tools">

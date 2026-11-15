@@ -86,5 +86,5 @@ export function layoutGraphChronology(events: readonly EventRow[], mode: Chronol
     });
   }
 
-  return { positions, markers, unplacedMarker };
+  return { positions, markers, unplacedMarker, eventIds: events.map(event => event.node.id) };
 }

@@ -802,9 +802,10 @@ describe("NativeGraphDemo", () => {
   it("scopes sidebar chronology to the selected node and follows selection changes", async () => {
     const linked = { id: "entity:arrival", name: "Mara arrives", kind: "event" };
     const unrelated = { id: "entity:departure", name: "Tomas departs", kind: "event" };
+    const isolated = { id: "entity:unplaced", name: "Unlinked Event", kind: "event" };
     const snapshot = {
       ...graph,
-      nodes: [...graph.nodes, linked, unrelated],
+      nodes: [...graph.nodes, linked, unrelated, isolated],
       edges: [...graph.edges,
         { id: "arrival", source_id: "entity:mara", target_id: linked.id, predicate: "participates_in" },
         { id: "departure", source_id: "entity:tomas", target_id: unrelated.id, predicate: "participates_in" }],
@@ -832,6 +833,9 @@ describe("NativeGraphDemo", () => {
       const button = layouts.getByRole("button", { name });
       await user.click(button);
       expect(button).toHaveAttribute("aria-pressed", "true");
+      if (name !== "Graph") {
+        expect(within(canvas).getByRole("button", { name: "Unlinked Event, event" })).toBeInTheDocument();
+      }
       expect(screen.getByRole("group", { name: "DungeonMind native graph world graph" })).toBe(canvas);
       expect(chronology.getByRole("heading", { name: "Chronology · Mara" })).toBeInTheDocument();
     }
