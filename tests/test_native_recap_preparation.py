@@ -1690,7 +1690,7 @@ def test_cohort_prepare_refuses_unaccounted_relationships(lane, decisions):
 
 
 def test_cohort_prepare_keeps_relationship_to_new_event(lane):
-    from graph_memory.ingestion.cohort_edge_review import build_prepare_request
+    from scripts.check_recap_cohort_edges import publish_cohort
     from tests.test_native_recap_event_placement import _declare_campaign
 
     lane.payload["nodes"][0]["node_type"] = "event"
@@ -1720,22 +1720,12 @@ def test_cohort_prepare_keeps_relationship_to_new_event(lane):
         prepare_pin={key: value for key, value in body.items() if key != "selections"},
     )
 
-    response = lane.post(build_prepare_request(lane.payload, manifest, body))
+    lane.client.headers["Authorization"] = "Bearer " + TOKEN
+    with pytest.raises(ValueError, match="Missing decisions"):
+        publish_cohort(lane.client, lane.payload, manifest | {"edge_decisions": []}, body)
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == body["expected_parent_revision_id"]
 
-    assert response.status_code == 200, response.text
-    prepared = transport.decode_prepared(response.json()["prepared"])
-    relationships = [
-        operation for operation in prepared.prepared_operations
-        if isinstance(operation, CreateRelationship)
-    ]
-    assert len(relationships) == 2
-    assert all(operation.source == ResultOf("record:0") for operation in relationships)
-    assert all(operation.target == DurableObjectRef("ent:pippa") for operation in relationships)
-
-    packet = {key: response.json()[key] for key in ("envelope", "prepared", "token")}
-    committed = confirm(lane, packet)
-    assert committed.status_code == 200, committed.text
-    result = committed.json()
+    result = publish_cohort(lane.client, lane.payload, manifest, body)
     child = lane.repo.get_revision(SPACE_ID, result["result"]["child_revision_id"])
     assertions = child.graph_payload["assertions"]
     relationship, = [
