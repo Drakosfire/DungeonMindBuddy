@@ -7,7 +7,9 @@ if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]] || [[ $# != 1 ]]; then
   printf '%s\n' 'Supply the full approved Buddy release SHA.' >&2
   exit 2
 fi
-if [[ $(git rev-parse HEAD) != "$revision" || -n $(git status --porcelain) ]]; then
+checkout=$(git rev-parse HEAD)
+changes=$(git status --porcelain)
+if [[ "$checkout" != "$revision" || -n "$changes" ]]; then
   printf '%s\n' 'Use a clean checkout at the approved Buddy release SHA.' >&2
   exit 1
 fi
