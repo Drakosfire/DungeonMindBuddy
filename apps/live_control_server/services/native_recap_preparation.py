@@ -678,6 +678,19 @@ def prepare(request, principal):
     _require(context["revision_id"] == request.expected_parent_revision_id, "candidate_parent_stale")
     _require(context["source_epoch"] == request.expected_source_authority_epoch,
              "candidate_source_authority_stale")
+    if isinstance(request, NativeRecapPrepareRequest) and request.cohort_edge_review is not None:
+        from dataclasses import asdict
+        from src.graph_memory.ingestion.cohort_edge_review import validate_prepare
+
+        try:
+            validate_prepare(
+                {"nodes": [asdict(node) for node in preview.nodes],
+                 "edges": [asdict(edge) for edge in preview.edges]},
+                request.cohort_edge_review,
+                request.model_dump(mode="json"),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ReviewRefused("candidate_cohort_edge_review_invalid") from exc
     domain_name = run.source_domain
     campaign = request.campaign_id if isinstance(request, NativeRecapPrepareRequest) else None
     producer = f"dungeonbuddy:reviewed-{domain_name}"
