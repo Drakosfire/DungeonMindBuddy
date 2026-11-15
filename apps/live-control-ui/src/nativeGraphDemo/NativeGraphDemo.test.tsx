@@ -802,17 +802,19 @@ describe("NativeGraphDemo", () => {
   it("scopes sidebar chronology to the selected node and follows selection changes", async () => {
     const linked = { id: "entity:arrival", name: "Mara arrives", kind: "event" };
     const unrelated = { id: "entity:departure", name: "Tomas departs", kind: "event" };
+    const isolated = { id: "entity:unplaced", name: "Unlinked Event", kind: "event" };
     const snapshot = {
       ...graph,
-      nodes: [...graph.nodes, linked, unrelated],
+      nodes: [...graph.nodes, linked, unrelated, isolated],
       edges: [...graph.edges,
         { id: "arrival", source_id: "entity:mara", target_id: linked.id, predicate: "participates_in" },
         { id: "departure", source_id: "entity:tomas", target_id: unrelated.id, predicate: "participates_in" }],
     };
     const user = userEvent.setup();
+    const readGraph = vi.fn().mockResolvedValue(snapshot);
+    const readChronology = vi.fn().mockResolvedValue({ assertions: [], completeness: { status: "complete" } });
     renderEmbeddedDemo({ mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:chronology", api: makeApi({
-      readGraph: vi.fn().mockResolvedValue(snapshot),
-      readChronology: vi.fn().mockResolvedValue({ assertions: [], completeness: { status: "complete" } }),
+      readGraph, readChronology,
     }) });
     const switcher = await screen.findByRole("navigation", { name: "Graph sidebar" });
     await user.click(within(switcher).getByRole("button", { name: "Chronology" }));
@@ -824,6 +826,21 @@ describe("NativeGraphDemo", () => {
     expect(chronology.getByRole("heading", { name: "Chronology · Mara" })).toBeInTheDocument();
     expect(chronology.getByRole("button", { name: linked.name })).toBeInTheDocument();
     expect(chronology.queryByRole("button", { name: unrelated.name })).not.toBeInTheDocument();
+
+    const canvas = screen.getByRole("group", { name: "DungeonMind native graph world graph" });
+    const layouts = within(screen.getByRole("group", { name: "Graph layout" }));
+    for (const name of ["Line", "Spiral", "Graph"]) {
+      const button = layouts.getByRole("button", { name });
+      await user.click(button);
+      expect(button).toHaveAttribute("aria-pressed", "true");
+      if (name !== "Graph") {
+        expect(within(canvas).getByRole("button", { name: "Unlinked Event, event" })).toBeInTheDocument();
+      }
+      expect(screen.getByRole("group", { name: "DungeonMind native graph world graph" })).toBe(canvas);
+      expect(chronology.getByRole("heading", { name: "Chronology · Mara" })).toBeInTheDocument();
+    }
+    expect(readGraph).toHaveBeenCalledTimes(1);
+    expect(readChronology).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole("button", { name: "Tomas, npc" }));
     expect(chronology.getByRole("heading", { name: "Chronology · Tomas" })).toBeInTheDocument();

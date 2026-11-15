@@ -940,6 +940,25 @@ describe("WorldGraphCanvas", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  it("paints the alternate-layout radius used by edge and camera geometry", async () => {
+    const { record } = await graphRecord();
+    const hub = record.snapshot.objects[0];
+    const edge = record.snapshot.relationships[0];
+    const linkedRecord = { ...record, snapshot: { ...record.snapshot, relationships: [
+      ...record.snapshot.relationships,
+      ...Array.from({ length: 4 }, (_, i) => ({
+        ...edge, id: `alternate-radius-${i}` as LocalWorldRelationship["id"], fromObjectId: hub.id,
+        toObjectId: record.snapshot.objects[1].id,
+      })),
+    ] } };
+    const props = { record: linkedRecord, nodeShape: "circle" as const, projectionOptions: { fullCorpus: true } };
+    const view = render(<WorldGraphCanvas {...props} />);
+    const bubble = () => view.container.querySelector(`[data-node-id="${hub.id}"] .world-graph-canvas__node-circle`);
+    expect(Number(bubble()?.getAttribute("r"))).toBeGreaterThan(32);
+    view.rerender(<WorldGraphCanvas {...props} alternatePositions={new Map([[hub.id, { x: 80, y: 80 }]])} />);
+    expect(bubble()).toHaveAttribute("r", "32");
+  });
+
   it("fits asymmetric focused neighborhoods and loops even when interrupting an overview pan", async () => {
     const { record } = await graphRecord(); const [hub, neighbor] = record.snapshot.objects;
     const direct = record.snapshot.relationships[0];
