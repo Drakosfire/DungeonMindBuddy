@@ -55,6 +55,7 @@ export interface GraphProjectionOptions {
   readonly neighborhoodDepth?: number;
   readonly hiddenKinds?: ReadonlySet<string>;
   readonly retainedSelectionId?: LocalObjectId;
+  readonly previewObjectId?: LocalObjectId;
 }
 
 function boundedLimit(value: number | undefined, ceiling: number): number {
@@ -326,7 +327,7 @@ export function projectLocalWorldGraph(
   // Reject an accidentally retained index from an older World/revision.
   const index = suppliedIndex?.snapshot === record.snapshot ? suppliedIndex : indexLocalWorldGraph(record.snapshot);
   const isVisibleKind = (object: LocalWorldObject) =>
-    object.id === options.retainedSelectionId || !options.hiddenKinds?.has(object.kind);
+    object.id === options.retainedSelectionId || object.id === options.previewObjectId || !options.hiddenKinds?.has(object.kind);
   const objects = options.hiddenKinds?.size ? record.snapshot.objects.filter(isVisibleKind) : record.snapshot.objects;
   const focused = Boolean(options.focusObjectId && index.objects.has(options.focusObjectId));
   const compactOverview = options.compactOverview && !focused;
@@ -388,6 +389,12 @@ export function projectLocalWorldGraph(
       visibleObjects = fullOverview ? eligibleObjects : eligibleObjects.slice(0, maxNodes);
     }
   }
+  const retainedObjects = new Map<LocalObjectId, LocalWorldObject>();
+  for (const id of [options.retainedSelectionId, options.previewObjectId]) {
+    const object = id && index.objects.get(id);
+    if (object && !visibleObjects.some(candidate => candidate.id === id)) retainedObjects.set(object.id, object);
+  }
+  if (retainedObjects.size) visibleObjects = [...visibleObjects, ...retainedObjects.values()];
   const visibleIds = new Set(visibleObjects.map((object) => object.id));
   const compactPositions = compactOverview ? createGraphFallbackPositions({
     ...index,

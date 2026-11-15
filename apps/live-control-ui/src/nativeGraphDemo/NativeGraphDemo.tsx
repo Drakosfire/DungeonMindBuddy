@@ -644,7 +644,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (embedded && graph && createdFocus?.graph === graph) {
       setCreatedNodeReveal({ nodeId: createdFocus.nodeId, worldId: graph.world_id });
       cameraFocusRequestIdRef.current += 1;
-      setCameraFocusRequest({ nodeId: createdFocus.nodeId as LocalObjectId, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode });
+      setCameraFocusRequest({ nodeId: createdFocus.nodeId as LocalObjectId, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode: true });
     }
   }, [graph, embedded, nodesById]);
 
@@ -668,7 +668,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       setNeighborhoodDepth(1);
     }
     cameraFocusRequestIdRef.current += 1;
-    setCameraFocusRequest({ nodeId: nodeId as LocalObjectId | null, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode: true });
+    setCameraFocusRequest({ nodeId: nodeId as LocalObjectId | null, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode });
   }, [graph]);
 
   const closeSelectedDetails = useCallback(() => {
