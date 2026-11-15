@@ -29,6 +29,23 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
+def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch):
+    table = (
+        "| NPC | Job | Detail |\n| --- | --- | --- |\n"
+        "| Nia | Baker | Carries a copper bell |\n"
+        "| Oren | Ferryman | Keeps a tide diary |\n"
+        "| Tavi | Mason | Carves tiny birds |\n"
+        "| Ivo | Cobbler | Sings while working |\n"
+        "| Mara | Courier | Knows the flood routes |\n"
+        "| Sela | Gardener | Grows striped mint |"
+    )
+    _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, True,
+        message="Create six NPCs for Edge, with jobs and a distinguishing detail, and add them as a table.",
+        proposal_markdown=table,
+    )
+
+
 def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_path, monkeypatch):
     _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
 
@@ -43,7 +60,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -347,7 +364,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             if saved:
                 assert read_ids and 'A proposed conversation.' in str(work)
             if mode:
-                candidate=dict(destination='current_page',target='captured',replacement_markdown='A proposed copper lamp.',
+                candidate=dict(destination='current_page',target='captured',replacement_markdown=proposal_markdown or 'A proposed copper lamp.',
                     summary='Proposed detail.',assumptions=['The lamp is invented.'])
                 if failure == 'target_unavailable' and len(self.calls) == 1:
                     candidate.update(target='unavailable', replacement_markdown='', summary='Untrusted provider summary.')
@@ -510,7 +527,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             body['build_write_capability']['reference_image_id'] = str((wrong if reference_image == 'wrong_same_page' else asset)['asset_id'])
             body['build_write_capability']['basis']['selection'] = {'end': 3, 'text': 'An'}
         if proposal:
-            body['message']=('Add a scene about this: Can I end my move in an occupied space?'
+            body['message']=message or ('Add a scene about this: Can I end my move in an occupied space?'
                 if failure=='used_rules' else 'Prepare an illustration of a copper lamp beside the orchid.'
                 if proposal=='image' else 'Add a proposed copper lamp to this page.')
     if connected_review:
@@ -997,7 +1014,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert context['completion']['schema']=='dmb_build_image_preparation_completion_v1'
         else:
             record=BuildProposalService().get(world,cap.idempotency_key)
-            assert record.state=='proposed' and record.proposal.replacement_markdown=='A proposed copper lamp.'
+            assert record.state=='proposed' and record.proposal.replacement_markdown==(proposal_markdown or 'A proposed copper lamp.')
             authorization=record.authorization
             assert context['completion']['schema']=='dmb_build_authoring_completion_v1'
         assert context['completion']['action_id']==str(record.action_id)
@@ -1028,6 +1045,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert (len(decisions.calls),len(writer.calls))==before
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
+        if proposal_markdown is not None:
+            assert record.reservation.basis.caret == 1
+            edited = proposal_markdown + "\n\n" + draft.snapshot.draft_markdown
+            save_page(tmp_path, page.document_id, edited)
+            reopened = get_workspace_document_snapshot(tmp_path, page.document_id)
+            assert reopened.markdown == edited
+            assert reopened.markdown.count(proposal_markdown) == 1
+            assert lane.repo.get_head(world).head_revision_id == current_revision
         return
     if saved_statblock in {"associated", "by-name"}:
         assert context['completion']['answer_context_status'] == 'source_grounded'
