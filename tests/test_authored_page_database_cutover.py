@@ -508,6 +508,7 @@ def test_layout_only_revision_exact_retry_noop_and_source_continuity(tmp_path, p
         tmp_path, first.committed_record, text, presentation_for(text)
     )
     assert second.committed_revision == first.committed_revision + 1
+    assert second.page_presentation_sha256 is not None
     assert second.normalized_content_sha256 == first.normalized_content_sha256
     assert commit_tiptap_markdown_write(root=tmp_path, request=request) == second
     same, _ = save_composed(
@@ -526,6 +527,8 @@ def test_layout_only_revision_exact_retry_noop_and_source_continuity(tmp_path, p
         == pages.committed_page(page.document_id, world_id=page.world_id).presentation
     )
     assert snap.page_presentation.items[0].slots[0].width == 4
+    assert snap.page_presentation_sha256 == third.page_presentation_sha256
+    assert third.page_presentation_sha256 != second.page_presentation_sha256
     assert (
         sources.load_registered_source_artifact_text(
             tmp_path, source.source_artifact_id

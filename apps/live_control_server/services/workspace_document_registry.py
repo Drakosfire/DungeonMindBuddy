@@ -256,6 +256,7 @@ class WorkspaceDocumentSnapshot(BaseModel):
     )
     record: WorkspaceDocumentRecord
     page_presentation: PagePresentation | None = None
+    page_presentation_sha256: str | None = None
     committed_markdown: str | None = None
     committed_content_sha256: str | None = None
     markdown: str
@@ -402,14 +403,18 @@ def list_workspace_documents(
         )
     paged = limit is not None or before is not None
     if paged and kind != "worldbuilding_source":
-        raise WorkspaceDocumentRegistryError("Only authored-page inventory supports paging", status_code=422)
+        raise WorkspaceDocumentRegistryError(
+            "Only authored-page inventory supports paging", status_code=422
+        )
     records = []
     try:
         if kind in (None, "worldbuilding_source"):
             records.extend(
                 _record_from_page(state)
                 for state in pages.page_inventory(
-                    world_id=world_id, campaign_id=campaign_id, status=status,
+                    world_id=world_id,
+                    campaign_id=campaign_id,
+                    status=status,
                     **({"limit": limit, "before": before} if paged else {}),
                 )
             )
@@ -665,8 +670,12 @@ def create_world_owned_plan_v2(
 
 
 def list_world_owned_plans_v2(
-    root: Path, *, world_id: str, status: str | None = "active",
-    limit: int | None = None, before: tuple[datetime, UUID] | None = None,
+    root: Path,
+    *,
+    world_id: str,
+    status: str | None = "active",
+    limit: int | None = None,
+    before: tuple[datetime, UUID] | None = None,
 ) -> WorldOwnedPlansResponseV2:
     cleaned_world = _validate_world_id(world_id)
     from apps.live_control_server.services.world_container_registry import (
@@ -685,7 +694,9 @@ def list_world_owned_plans_v2(
             )
         records = [
             _record_from_work_object(obj)
-            for obj in list_plans(world_id=cleaned_world, status=status, limit=limit, before=before)
+            for obj in list_plans(
+                world_id=cleaned_world, status=status, limit=limit, before=before
+            )
         ]
     except WorldContainerRegistryError as exc:
         raise WorkspaceDocumentRegistryError(
@@ -865,6 +876,9 @@ def get_workspace_document_snapshot(
             record=_record_from_page(snap, from_working_copy=snap.from_working_copy),
             markdown=snap.markdown,
             page_presentation=snap.presentation,
+            page_presentation_sha256=snap.presentation.fingerprint()
+            if snap.presentation
+            else None,
             content_sha256=snap.content_sha256,
             committed_markdown=snap.committed_revision.markdown
             if snap.committed_revision
@@ -1310,6 +1324,9 @@ def get_committed_page_snapshot(
         return WorkspaceDocumentSnapshot(
             record=_record_from_page(snap),
             page_presentation=snap.presentation,
+            page_presentation_sha256=snap.presentation.fingerprint()
+            if snap.presentation
+            else None,
             markdown=revision.markdown if revision else "",
             content_sha256=revision.content_sha256 if revision else sha256_utf8(""),
             committed_markdown=revision.markdown if revision else None,

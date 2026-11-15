@@ -341,6 +341,7 @@ class TiptapMarkdownWritePrepareRequest(BaseModel):
 
 
 class TiptapMarkdownWritePrepareResponse(BaseModel):
+    page_presentation_sha256: str | None = None
     schema_version: str = "dmb_tiptap_markdown_write_prepare_v1"
     scope_mode: Literal["world"] | None = None
     world_id: str | None = None
@@ -401,6 +402,7 @@ class TiptapMarkdownWriteCommitResponse(BaseModel):
     durable commit succeeded.
     """
 
+    page_presentation_sha256: str | None = None
     schema_version: str = "dmb_tiptap_markdown_write_commit_v1"
     scope_mode: Literal["world"] | None = None
     world_id: str | None = None
@@ -886,6 +888,7 @@ def _prepare_page(request, mode, state):
     )
     locator = _content_receipt_locator(saved.page)
     return TiptapMarkdownWritePrepareResponse(
+        page_presentation_sha256=layout.fingerprint() if layout else None,
         document_id=request.document_id,
         title=saved.page.title,
         target_relpath=locator,
@@ -985,6 +988,7 @@ def _commit_page(request, mode, state):
     record = _record_from_page(committed)
     locator = _content_receipt_locator(committed.page)
     return TiptapMarkdownWriteCommitResponse(
+        page_presentation_sha256=layout.fingerprint() if layout else None,
         document_id=record.document_id,
         title=record.title,
         target_relpath=locator,
