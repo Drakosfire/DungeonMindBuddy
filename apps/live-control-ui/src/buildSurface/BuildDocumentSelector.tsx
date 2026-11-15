@@ -269,7 +269,11 @@ export function BuildDocumentSelector({
         </svg>
       </button>
       <dialog ref={dialog} className="build-document-picker" aria-label="Open document" data-native-escape-owner
-        onCancel={event => { event.preventDefault(); closePicker(); }}>
+        onCancel={event => {
+          if (event.target !== event.currentTarget) return;
+          event.preventDefault();
+          closePicker();
+        }}>
         <header className="build-document-picker__toolbar">
           <input ref={search} type="search" aria-label="Search documents" placeholder="Search documents"
             value={query} onChange={event => setQuery(event.target.value)} />
