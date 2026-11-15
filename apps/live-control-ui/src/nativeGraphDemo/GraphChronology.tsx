@@ -3,7 +3,11 @@ import { nativeGraphPresentation } from "./nativeGraphPresentation";
 import { buildGraphChronology } from "./graphChronologyModel";
 import type { NativeGraph, NativeGraphDemoApi } from "./nativeGraphDemoApi";
 
-export function useGraphChronology(graph: NativeGraph | null, read: NativeGraphDemoApi["readChronology"]) {
+export function useGraphChronology(
+  graph: NativeGraph | null,
+  read: NativeGraphDemoApi["readChronology"],
+  prefetchAfterPaint = false,
+) {
   const [result, setResult] = useState<{
     graph: NativeGraph;
     events: ReturnType<typeof buildGraphChronology> | null;
@@ -12,16 +16,29 @@ export function useGraphChronology(graph: NativeGraph | null, read: NativeGraphD
   useEffect(() => {
     if (!graph || !read) return;
     const abort = new AbortController();
-    void Promise.resolve().then(() => read(graph, abort.signal)).then(catalogue => {
-      if (!abort.signal.aborted) setResult({
-        graph, events: buildGraphChronology(graph, catalogue),
-        partial: catalogue.completeness.status === "partial",
+    const load = () => {
+      if (abort.signal.aborted) return;
+      void Promise.resolve().then(() => read(graph, abort.signal)).then(catalogue => {
+        if (!abort.signal.aborted) setResult({
+          graph, events: buildGraphChronology(graph, catalogue),
+          partial: catalogue.completeness.status === "partial",
+        });
+      }).catch(() => {
+        if (!abort.signal.aborted) setResult({ graph, events: null });
       });
-    }).catch(() => {
-      if (!abort.signal.aborted) setResult({ graph, events: null });
-    });
-    return () => abort.abort();
-  }, [graph, read]);
+    };
+    let frame: number | undefined;
+    if (prefetchAfterPaint) {
+      // Give the mounted graph a paint before starting the catalogue prefetch.
+      frame = requestAnimationFrame(() => { frame = requestAnimationFrame(load); });
+    } else {
+      load();
+    }
+    return () => {
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      abort.abort();
+    };
+  }, [graph, read, prefetchAfterPaint]);
 
   return result?.graph === graph ? result : undefined;
 }

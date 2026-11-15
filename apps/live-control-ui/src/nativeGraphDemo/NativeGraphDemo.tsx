@@ -470,7 +470,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const [graph, setGraph] = useState<NativeGraph | null>(null);
   const [canvasLayout, setCanvasLayout] = useState<"graph" | ChronologyLayout>("graph");
   const readChronology = api.readChronology;
-  const chronologyData = useGraphChronology(embedded && (!readOnly || canvasLayout !== "graph") ? graph : null, readChronology);
+  const chronologyData = useGraphChronology(
+    embedded && (!readOnly || canvasLayout !== "graph") ? graph : null,
+    readChronology,
+    !readOnly,
+  );
   const chronologyLayout = useMemo(() => canvasLayout !== "graph" && chronologyData?.events
     ? layoutGraphChronology(chronologyData.events, canvasLayout, chronologyData.graph)
     : undefined, [canvasLayout, chronologyData]);
