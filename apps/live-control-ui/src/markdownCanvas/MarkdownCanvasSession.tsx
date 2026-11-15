@@ -292,6 +292,8 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       snapshot: authoring.snapshot,
       dirty: authoring.dirty,
       exportedMarkdownAuthoritative: authoring.exportedMarkdownAuthoritative,
+      pageComposerEnabled: authoring.pageComposerEnabled,
+      pageComposerDisabledReason: authoring.pageComposerDisabledReason,
       error: authoring.error,
       statusLabel: authoring.statusLabel,
       reconciliation: authoring.reconciliation,

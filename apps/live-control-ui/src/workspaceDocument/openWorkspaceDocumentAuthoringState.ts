@@ -1,3 +1,5 @@
+import "../tiptap/pageComposer/apiPresentation";
+import { hydratePresentation } from "../tiptap/pageComposer/presentation";
 import type { WorkspaceDocumentSnapshot } from "../api/types";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
 import { hasBlockingMarkdownImportDiagnostics, markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
@@ -147,6 +149,14 @@ export function openWorkspaceDocumentAuthoringState(
     snapshotMarkdown: args.snapshot.markdown,
     emptyMarkdownFallback: args.emptyMarkdownFallback,
   });
+  const presentation = reconciliation.kind === "dirty-match"
+    ? reconciliation.localState?.page_presentation
+    : args.snapshot.page_presentation;
+  if (presentation != null) {
+    // Invalid composed state is a load error, never silently flattened. Caller
+    // retains original local bytes and the immutable server revision.
+    chosen.tiptapJson = hydratePresentation(chosen.exportedMarkdown, presentation);
+  }
   const now = new Date().toISOString();
   const localState: WorkspaceDocumentLocalState = {
     ...buildInitialWorkspaceDocumentLocalState({
@@ -161,6 +171,8 @@ export function openWorkspaceDocumentAuthoringState(
       starterContent: chosen.tiptapJson,
       now,
     }),
+    base_page_presentation_sha256: args.snapshot.page_presentation_sha256 ?? null,
+    ...(presentation !== undefined ? { page_presentation: presentation } : {}),
     tiptap_json: chosen.tiptapJson,
     exported_markdown: chosen.exportedMarkdown,
     exported_markdown_authoritative: chosen.exportedMarkdownAuthoritative,
