@@ -661,12 +661,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (nodeId === null) setCameraFocusRequest(undefined);
   }, []);
 
-  const requestCameraFocus = useCallback((nodeId: string | null) => {
+  const requestCameraFocus = useCallback((nodeId: string | null, selectNode = true) => {
     if (!graph) return;
-    setViewFocusId(nodeId as LocalObjectId | null);
-    setNeighborhoodDepth(1);
+    if (selectNode) {
+      setViewFocusId(nodeId as LocalObjectId | null);
+      setNeighborhoodDepth(1);
+    }
     cameraFocusRequestIdRef.current += 1;
-    setCameraFocusRequest({ nodeId: nodeId as LocalObjectId | null, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode: true });
+    setCameraFocusRequest({ nodeId: nodeId as LocalObjectId | null, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode });
   }, [graph]);
 
   const closeSelectedDetails = useCallback(() => {
@@ -1809,10 +1811,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       <GraphChronology relatedTo={embedded ? selectedNode?.id : undefined} graph={graph} read={api.readChronology} shared={embedded && (!readOnly || canvasLayout !== "graph") ? { result: chronologyData } : undefined} strip
         onExplore={nodeId => {
           if (pendingRef.current) return;
-          setChronology(null);
-          focusInspectorRef.current = true;
-          handleCanvasSelectionChange(nodeId as LocalObjectId);
-          requestCameraFocus(nodeId);
+          if (embedded) {
+            requestCameraFocus(nodeId, false);
+          } else {
+            setChronology(null);
+            focusInspectorRef.current = true;
+            handleCanvasSelectionChange(nodeId as LocalObjectId);
+            requestCameraFocus(nodeId);
+          }
         }} />
     </div>
   ) : null;

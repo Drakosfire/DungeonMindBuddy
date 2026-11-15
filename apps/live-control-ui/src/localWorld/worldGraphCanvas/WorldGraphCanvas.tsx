@@ -514,9 +514,13 @@ export function WorldGraphCanvas({
     return positions;
   }, [fullCorpus, useCompactLayout, index, record.snapshot.worldId, record.layout.positions]);
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<string>>(() => new Set());
-  const projection = useMemo(() => projectLocalWorldGraph(record, { ...projectionOptions, fallbackPositions, showUnconnected, revealObjectIds, hiddenKinds }, index),
+  const retainedSelectionId = layoutControls && !clearingSelection ? selectedIds.at(-1) : undefined;
+  const previewObjectId = cameraFocusRequest?.selectNode === false ? cameraFocusRequest.nodeId ?? undefined : undefined;
+  const projection = useMemo(() => projectLocalWorldGraph(record, {
+    ...projectionOptions, fallbackPositions, showUnconnected, revealObjectIds, hiddenKinds, retainedSelectionId, previewObjectId,
+  }, index),
     [record.snapshot, record.layout, index, fullCorpus, fallbackPositions, projectionOptions?.compactOverview, projectionOptions?.maxNodes, projectionOptions?.maxEdges,
-      projectionOptions?.focusObjectId, projectionOptions?.neighborhoodDepth, showUnconnected, revealObjectIds, hiddenKinds]);
+      projectionOptions?.focusObjectId, projectionOptions?.neighborhoodDepth, showUnconnected, revealObjectIds, hiddenKinds, retainedSelectionId, previewObjectId]);
   const legend = useMemo(() => [...new Set(record.snapshot.objects.map((object) => object.kind))].sort(), [record.snapshot]);
   const importantNodeIds = useMemo(() => {
     const ranked = [...index.relationshipCounts].sort(([a, countA], [b, countB]) => countB - countA || a.localeCompare(b));
@@ -836,7 +840,7 @@ export function WorldGraphCanvas({
   useLayoutEffect(() => {
     if (!cameraFocusRequest || lastCameraFocusRequestRef.current === cameraFocusRequest.requestId) return;
     const requestedObject = cameraFocusRequest.nodeId && index.objects.get(cameraFocusRequest.nodeId);
-    if (requestedObject && hiddenKinds.has(requestedObject.kind)) {
+    if (requestedObject && cameraFocusRequest.selectNode !== false && hiddenKinds.has(requestedObject.kind)) {
       setHiddenKinds(previous => {
         const next = new Set(previous);
         next.delete(requestedObject.kind);
@@ -873,10 +877,11 @@ export function WorldGraphCanvas({
     const focusBaseline = resetFitCamera ?? cancelledPanCameraRef.current ?? camera;
     cancelledPanCameraRef.current = null;
     if (!originalCameraBeforeFocusRef.current) originalCameraBeforeFocusRef.current = focusBaseline;
-    const zoom = focusedLayoutId ? Math.min(1.35, measuredViewport.width / graphBounds.overview.width, measuredViewport.height / graphBounds.overview.height) : Math.max(focusBaseline.zoom, 1.35);
+    const fitNeighborhood = focusedLayoutId && cameraFocusRequest.selectNode !== false;
+    const zoom = fitNeighborhood ? Math.min(1.35, measuredViewport.width / graphBounds.overview.width, measuredViewport.height / graphBounds.overview.height) : Math.max(focusBaseline.zoom, 1.35);
     const focusPoint = persistedPositions.get(node.id) ?? node;
-    const centerX = focusedLayoutId ? graphBounds.overview.left + graphBounds.overview.width / 2 : focusPoint.x + dimensions.width / 2;
-    const centerY = focusedLayoutId ? graphBounds.overview.top + graphBounds.overview.height / 2 : focusPoint.y + dimensions.height / 2;
+    const centerX = fitNeighborhood ? graphBounds.overview.left + graphBounds.overview.width / 2 : focusPoint.x + dimensions.width / 2;
+    const centerY = fitNeighborhood ? graphBounds.overview.top + graphBounds.overview.height / 2 : focusPoint.y + dimensions.height / 2;
     manualCameraRef.current = true;
     setCamera({ zoom, x: measuredViewport.width / 2 - centerX * zoom,
       y: measuredViewport.height / 2 - centerY * zoom });

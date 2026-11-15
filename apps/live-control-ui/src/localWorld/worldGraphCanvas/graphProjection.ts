@@ -1,4 +1,5 @@
 import type {
+  LocalObjectId,
   LocalWorldObject,
   LocalWorldRecord,
   LocalWorldRelationship,
@@ -54,6 +55,8 @@ export interface GraphProjectionOptions {
   readonly focusObjectId?: LocalWorldObject["id"] | null;
   readonly neighborhoodDepth?: number;
   readonly hiddenKinds?: ReadonlySet<string>;
+  readonly retainedSelectionId?: LocalObjectId;
+  readonly previewObjectId?: LocalObjectId;
 }
 
 function boundedLimit(value: number | undefined, ceiling: number): number {
@@ -324,7 +327,8 @@ export function projectLocalWorldGraph(
   const maxEdges = options.maxEdges === undefined ? DEFAULT_GRAPH_LIMITS.edges : boundedLimit(options.maxEdges, MAX_GRAPH_LIMITS.edges);
   // Reject an accidentally retained index from an older World/revision.
   const index = suppliedIndex?.snapshot === record.snapshot ? suppliedIndex : indexLocalWorldGraph(record.snapshot);
-  const isVisibleKind = (object: LocalWorldObject) => !options.hiddenKinds?.has(object.kind);
+  const isVisibleKind = (object: LocalWorldObject) =>
+    object.id === options.retainedSelectionId || object.id === options.previewObjectId || !options.hiddenKinds?.has(object.kind);
   const objects = options.hiddenKinds?.size ? record.snapshot.objects.filter(isVisibleKind) : record.snapshot.objects;
   const focused = Boolean(options.focusObjectId && index.objects.has(options.focusObjectId));
   const compactOverview = options.compactOverview && !focused;
@@ -385,6 +389,22 @@ export function projectLocalWorldGraph(
     } else {
       visibleObjects = fullOverview ? eligibleObjects : eligibleObjects.slice(0, maxNodes);
     }
+  }
+  const retainedIds = new Set([options.retainedSelectionId, options.previewObjectId]);
+  const visibleObjectIds = new Set(visibleObjects.map(object => object.id));
+  const missing = [...retainedIds].flatMap(id => {
+    const object = id && index.objects.get(id);
+    return object && !visibleObjectIds.has(object.id) ? [object] : [];
+  });
+  if (missing.length) {
+    const limit = fullOverview ? objects.length : compactOverview ? Math.min(64, maxNodes) : maxNodes;
+    const kept = [...visibleObjects, ...missing];
+    // Make room for the explicit preview and selection within the view budget.
+    for (let i = visibleObjects.length - 1; i >= 0 && kept.length > limit; i--) {
+      const { id } = kept[i];
+      if (id !== focusId && !retainedIds.has(id)) kept.splice(i, 1);
+    }
+    visibleObjects = kept.slice(0, limit);
   }
   const visibleIds = new Set(visibleObjects.map((object) => object.id));
   const compactPositions = compactOverview ? createGraphFallbackPositions({
