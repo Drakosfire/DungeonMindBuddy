@@ -113,8 +113,7 @@ prepare_buddy_release() {
   local revision
   revision=$(git rev-parse HEAD) || return
   buddy_tag="dungeonmindbuddy:$revision"
-  docker build --target api -f Dockerfile.production -t "$buddy_tag" . || return
-  buddy_image_id=$(docker image inspect "$buddy_tag" --format '{{.Id}}') || return
+  buddy_image_id=$(bash scripts/prepare_buddy_release_image.sh "$buddy_release") || return
   buddy_override=$(mktemp) || return
   printf 'services:\n  buddy:\n    image: %s\n' "$buddy_tag" > "$buddy_override" || return
   local -a candidate_compose=(env
@@ -142,6 +141,12 @@ prepare_buddy_release() {
 }
 prepare_buddy_release
 ```
+
+Image preparation builds a missing release image and reuses an existing image
+only when its revision label matches the full approved SHA. A conflicting tag
+stops preparation without replacing the image. Compare the returned image ID
+with the saved release record on reruns. Run one preparation at a time in the
+deployment Docker context.
 
 The Compose command clears inherited values for the production file’s
 interpolation variables so the protected environment file supplies them.
