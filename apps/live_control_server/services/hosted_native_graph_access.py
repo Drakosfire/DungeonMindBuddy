@@ -37,7 +37,7 @@ from apps.live_control_server.services.world_container_registry import (
 EXPLORER_PREFIX = "/api/live/native-graph-explorer"
 WORLD_COLLECTION_PATH = "/api/live/world-containers"
 WORLD_LOOKUP_PATH = f"{WORLD_COLLECTION_PATH}/lookup"
-BUILD_PDF_SOURCES_PATH = "/api/live/agent/worlds/{world_id}/build-pdf-sources"
+BUILD_PDF_SOURCES_PATH = hosted_auth.BUILD_PDF_SOURCES_PATH
 BUILD_PAGE_INVENTORY_PATH = "/api/live/workspace-documents/pages/inventory"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
 _REQUESTS = {
@@ -178,7 +178,7 @@ async def resolve_hosted_build_pdf_world(request: Request) -> str:
     return world.world_id
 
 
-def require_build_pdf_read_access(request: Request, world_id: str) -> None:
+def require_build_pdf_access(request: Request, world_id: str) -> None:
     if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
         enforce_native_graph_gm(request)
         return
