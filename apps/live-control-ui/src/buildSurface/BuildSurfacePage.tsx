@@ -96,7 +96,7 @@ export function BuildSurfacePage() {
       ) : statblock && statblock.worldId === worldId ? (
         <>
           <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} />
-          <SavedStatblockFullView target={statblock} />
+          <SavedStatblockFullView target={statblock} toolbarHost={primaryActions} />
         </>
       ) : graphPointer && nativeObject && nativeObject.managed_world_id === worldId ? (
         <BuildGraphObjectContext key={entrySearch} pointer={graphPointer} />
