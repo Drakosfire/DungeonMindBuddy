@@ -301,7 +301,7 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
             "the named choices cannot resolve the requested context or additional discovery is needed. "
             "Acquired sources remain available to the writer; exclude repeated reads of their contents. "
             "Names do not establish source coverage, chronology or factual support.")
-    if type(request) in {NativeRetrievalDecisionInputV2, NativePlanBatchDecisionInputV3}:
+    if type(request) is NativePlanBatchDecisionInputV3:
         state["writer_passage_guidance"] = (
             "Whole recap reads are for exploration. They supply no writer evidence. "
             "Search and select each exact source section that supports the answer before finishing."
