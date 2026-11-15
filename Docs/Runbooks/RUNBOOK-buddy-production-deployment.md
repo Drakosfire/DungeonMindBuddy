@@ -284,13 +284,16 @@ to recent startup logs on a disposable stack before exposing Buddy publicly.
 
 ## 4. Verify DNS, TLS, and the proxy
 
-Record the existing Nginx configuration. Install the [hosted read-only proxy fragment](../../deploy/production/nginx-buddy.conf) in the selected Buddy TLS virtual host and match both upstream directives to the verified URL printed in step 3. Use the edge owner's DNS and certificate procedures for records, issuance, and renewal.
+Record the existing Nginx configuration. Install the [hosted read-only proxy fragment](../../deploy/production/nginx-buddy.conf) in the selected Buddy TLS virtual host and match all upstream directives to the verified URL printed in step 3. Use the edge owner's DNS and certificate procedures for records, issuance, and renewal.
 
 The hosted profile serves authentication, the SPA, and read-only World and
 Graph requests. It buffers requests and responses, leaves proxy caching
 disabled, and uses 60-second upstream read and send timeouts. Before replacing
 an existing location, have the edge owner inspect the effective configuration
-and confirm which callers it serves. A deployment that enables streamed Agent
+and confirm which callers it serves. The exact PDF admission route permits
+32 MiB at the edge, matching the application limit. It streams the request to
+Buddy so the application can check access before consuming the body. Verify upload through the
+TLS virtual host with a PDF larger than 1 MiB. A deployment that enables streamed Agent
 turns needs a separately scoped location for the streaming endpoint and a smoke
 test that confirms incremental events arrive through the proxy.
 
