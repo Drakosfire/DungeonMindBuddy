@@ -450,6 +450,9 @@ context with no concurrent release changes. Use the verified image IDs and run
 it first without `--apply` to see the candidate and its stopped containers.
 
 ```bash
+read -r -p 'Retired Buddy image tag: ' retired_tag
+read -r -p 'Serving image ID: ' serving_id
+read -r -p 'Rollback image ID: ' rollback_id
 python3 scripts/retire_buddy_release.py --project "$buddy_project" \
   --retired-tag "$retired_tag" --serving-image "$serving_id" \
   --rollback-image "$rollback_id"
