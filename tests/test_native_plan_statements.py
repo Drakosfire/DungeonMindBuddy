@@ -211,16 +211,40 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
                 'usage': {'input_tokens': 37, 'output_tokens': 9}})
     class Writer(WriterWire):
         async def handle_async_request(self, req):
-            frames = [json.loads(item['content']) for item in json.loads(req.content)['input']
-                      if item['content'] != 'Return JSON.']
-            if shared_sdk_receipt:
-                from application_state.agent_conversation.native_evidence_view import is_semantic_frame
+            body = json.loads(req.content)
+            messages = [item['content'] for item in body['input'] if item['content'] != 'Return JSON.']
+            prose = messages[-1] if messages[-1].startswith('# Plan evidence\n\n') else None
+            if prose is not None:
                 from application_state.agent_conversation.native_plan_assertions import POLICY
-                frame = next(item for item in frames if is_semantic_frame(item))
+
+                assert shared_sdk_receipt
+                assert len(messages) == 1
+                assert body['text']['format']['type'] == 'json_schema'
+                if unavailable_read:
+                    assert '## Recorded statements' not in prose
+                    statements = []
+                else:
+                    recorded = prose.split('## Recorded statements\n\n', 1)[1].split('\n\n## ', 1)[0]
+                    assert recorded.count(expected_quote) == 1
+                    assert 'embedded content factive: False' in recorded
+                    handle, _, _ = recorded.partition(']')
+                    assert handle.startswith('[statement')
+                    statements = [{'statement_handle': handle[1:], 'payload': {
+                        'quote': expected_quote, 'embedded_content_factive': False,
+                    }}]
+                frame = {'native_statements': {'statements': statements}}
                 answer_policy = POLICY
             else:
-                frame = frames[0]
-                answer_policy = frame['answer_policy']
+                frames = [json.loads(message) for message in messages]
+                if shared_sdk_receipt:
+                    from application_state.agent_conversation.native_evidence_view import is_semantic_frame
+                    from application_state.agent_conversation.native_plan_assertions import POLICY
+
+                    frame = next(item for item in frames if is_semantic_frame(item))
+                    answer_policy = POLICY
+                else:
+                    frame = frames[0]
+                    answer_policy = frame['answer_policy']
             if unavailable_read:
                 assert not frame['native_statements']['statements']
                 self.text = json.dumps({'schema': answer_policy, 'answer_segments': [],
