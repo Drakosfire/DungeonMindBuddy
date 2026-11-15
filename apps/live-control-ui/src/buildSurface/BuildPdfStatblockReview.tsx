@@ -126,8 +126,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
   const createKey = `buddy:pdf-creature-draft:${worldId}:${reviewId}`;
   const [createInFlight, setCreateInFlight] = useState(false);
 
-  async function recoverDraft(revision: number) {
-    const previousDraft = localStorage.getItem(createKey);
+  async function recoverDraft(revision: number, publishing = false) {
+    const previousDraft = publishing ? null : localStorage.getItem(createKey);
     if (previousDraft === "pending") {
       throw new Error("Choose the previously created creature draft before continuing.");
     }
@@ -206,8 +206,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
     setPending(true);
     setError("");
     try {
-      const draft = drafts.find(item => item.draft_id === draftId)
-        ?? (publish ? await recoverDraft(review.revision) : undefined);
+      const draft = publish ? await recoverDraft(review.revision, true)
+        : drafts.find(item => item.draft_id === draftId);
       if (!draft) return;
       const key = acceptanceKey(draft.draft_id);
       let payload = localStorage.getItem(key);

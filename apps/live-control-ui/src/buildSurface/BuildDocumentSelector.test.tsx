@@ -42,14 +42,21 @@ describe("BuildDocumentSelector", () => {
   it("finds a saved statblock by title and addresses its exact revision in Build", async () => {
     setNativeGraphAccessToken("fixture");
     const request = vi.spyOn(globalThis, "fetch").mockImplementation(async url => new Response(JSON.stringify(
-      String(url).includes("build-pdf-sources") ? {
+      String(url).includes("world-mechanics/associations") ? [
+        { request: { draft_id: "creature", target: { campaign_scope: null } },
+          proof: { locator: { revision_id: "saved-revision" } } },
+      ] : String(url).includes("statblock-reviews") ? {
+        reviews: [{ review_id: "sewer-review", name: "Sewer Meat Extraction", draft_id: "unpublished" },
+          { review_id: "saved-review", name: "Already saved extraction", draft_id: "creature" }],
+      } : String(url).includes("build-pdf-sources") ? {
         next: null, documents: [{ source_revision_id: "remote", content_sha256: "abcde123",
           created_at: "2026-11-11T00:00:00Z" }],
       } : {
-      total: 2,
+      total: 3,
       drafts: [
+        { world_id: "elderwyld", draft_id: "unpublished", name: "Sewer Meat Extraction", saved_revision_id: "unpublished-mechanics" },
         { world_id: "elderwyld", draft_id: "creature", name: "Sewer Meat Creature",
-          saved_revision_id: "saved-revision" },
+          saved_revision_id: "newer-unpublished-revision" },
         { world_id: "elsewhere", draft_id: "foreign", name: "Sewer Giant",
           saved_revision_id: "other-revision" },
       ],
@@ -62,12 +69,19 @@ describe("BuildDocumentSelector", () => {
       openCategory("All documents");
       expect(await screen.findByRole("button", { name: "PDF · 2026-11-11 · abcde123" }))
         .toHaveAttribute("data-document-id", "/build?world=elderwyld&pdf=remote");
+      expect(screen.queryByRole("button", { name: "Sewer Meat Extraction" })).not.toBeInTheDocument();
       const statblock = await screen.findByRole("button", { name: "Sewer Meat Creature" });
+      expect(screen.queryByRole("button", { name: "Already saved extraction" })).not.toBeInTheDocument();
       expect(statblock).toHaveAttribute("data-document-id", "/build?world=elderwyld&draft=creature&revision=saved-revision");
       expect(screen.queryByRole("button", { name: "Sewer Giant" })).not.toBeInTheDocument();
       await userEvent.type(screen.getByRole("searchbox"), "sewer");
       expect(screen.queryByRole("button", { name: "Alpha" })).not.toBeInTheDocument();
       expect(statblock).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Sewer Meat Extraction" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Statblock drafts", exact: true }));
+      expect(await screen.findByRole("button", { name: "Sewer Meat Extraction" }))
+        .toHaveAttribute("data-document-id", "/build?world=elderwyld&pdfReview=sewer-review");
+
     } finally {
       request.mockRestore();
       setNativeGraphAccessToken(null);
@@ -90,7 +104,7 @@ describe("BuildDocumentSelector", () => {
     const request = vi.spyOn(globalThis, "fetch").mockImplementation(async url => new Response(JSON.stringify(
       String(url).includes("build-pdf-sources")
         ? { next: null, documents: [{ source_revision_id: "source", content_sha256: "digest", created_at: "2026-11-11" }] }
-        : { total: 0, drafts: [] },
+        : String(url).includes("world-mechanics/associations") ? [] : { total: 0, drafts: [] },
     )));
     try {
       render(<BuildDocumentSelector worldId="elderwyld" documents={[]} listStatus="ready"
