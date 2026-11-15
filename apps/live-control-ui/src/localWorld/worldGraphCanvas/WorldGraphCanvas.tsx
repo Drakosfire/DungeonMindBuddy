@@ -1457,7 +1457,7 @@ export function WorldGraphCanvas({
     </SurfaceContextPopover>
     {cameraTools}
     <SurfaceContextPopover open={openControl === "types"} onOpenChange={open => setOpenControl(open ? "types" : null)} title="Object types"
-      trigger={<SurfaceContextAction aria-expanded={openControl === "types"} aria-haspopup="dialog"
+      trigger={<SurfaceContextAction aria-label="Object types" aria-expanded={openControl === "types"} aria-haspopup="dialog"
         onClick={() => setOpenControl(openControl === "types" ? null : "types")}>Object types</SurfaceContextAction>}>
       <div role="group" aria-label="Visible object types">
         {legend.map(kind => <label key={kind} style={{ display: "block" }}>
