@@ -2606,6 +2606,88 @@ def get_pdf_statblock_publication(world_id: str, review_id: UUID, request: Reque
     return {"draft_id": draft_id, "revision_id": associations[0].proof.locator.revision_id}
 
 
+@router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/publication")
+def post_pdf_statblock_publication(
+    world_id: str, review_id: UUID, request: Request, expected_revision: int = Query(ge=1),
+):
+    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+    from application_state.world_mechanics.types import AssociateWorldMechanicsRequest
+    from apps.live_control_server.models.native_threat_creation import ConfirmNativeThreat, PrepareNativeThreat
+    from apps.live_control_server.routes.native_threat_creation import call
+    from apps.live_control_server.routes.world_mechanics_associations import (
+        associate_route, list_associations,
+    )
+    from apps.live_control_server.services import native_threat_creation as creature, world_creature_selection
+    from apps.live_control_server.services.hosted_native_graph_access import build_pdf_publication_principal
+
+    principal = build_pdf_publication_principal(request, world_id)
+    review = get_pdf_statblock_review(world_id, review_id, request)
+    if review["revision"] != expected_revision:
+        raise HTTPException(status_code=409, detail="The PDF review changed before publication")
+    def recheck_review():
+        current = get_pdf_statblock_review(world_id, review_id, request)
+        if current["revision"] != expected_revision or current["regions"] != review["regions"]:
+            raise HTTPException(status_code=409, detail="The PDF review changed before publication")
+        return build_pdf_publication_principal(request, world_id)
+
+    draft_id = _pdf_review_creature_draft_id(world_id, review_id)
+    draft = call(creature.owned_draft, draft_id, world_id)
+    if draft.accepted_mechanics_ref is None:
+        raise HTTPException(status_code=409, detail="Save mechanics before publishing")
+    locator = draft.accepted_mechanics_ref.to_mechanics_locator()
+
+    def verify_source(root):
+        verified, _, acceptance_id, revision_operation, exact = creature.resolve_saved_source(
+            root, world_id=world_id, draft_id=str(draft_id), locator=locator,
+        )
+        provenance = ((exact.provenance or {}).get("accepted_through") or {}).get(PDF_REVIEW_PROVENANCE)
+        operation = creature.get_acceptance_operation(root, draft_id=str(draft_id), operation_id=acceptance_id)
+        recorded = (operation.request_body.get("accepted_through") or {}) if operation else {}
+        creature.require(verified == draft and revision_operation is None
+                         and recorded.get(PDF_REVIEW_PROVENANCE) == provenance and provenance == {
+            "world_id": world_id, "review_id": str(review_id),
+            "revision": expected_revision, "regions": review["regions"],
+        }, "Saved mechanics do not belong to this PDF review revision")
+
+    call(verify_source)
+    principal = recheck_review()
+    result = call(creature.status, draft_id, world_id, principal)
+    if result is None:
+        principal = recheck_review()
+        prepared = call(creature.prepare, draft_id, PrepareNativeThreat(
+            world_id=world_id, expected_draft_version=draft.version, mechanics_locator=locator,
+        ), principal)
+        if prepared["state"] == "published":
+            result = prepared
+        else:
+            principal = recheck_review()
+            result = call(creature.confirm, draft_id, ConfirmNativeThreat(
+                review=prepared["review"], prepared=prepared["prepared"], token=prepared["token"],
+            ), principal)
+    prior = [
+        entry for entry in list_associations(world_id, principal)
+        if entry.request.target.node_id == result["node_id"] and entry.request.target.campaign_scope is None
+    ]
+    if prior:
+        if len(prior) != 1 or prior[0].request.draft_id != draft_id or prior[0].proof.locator != locator:
+            raise HTTPException(status_code=409, detail="This creature already has different saved mechanics")
+    else:
+        catalog = call(lambda _root: world_creature_selection.catalog(world_id))
+        target = next((item for item in catalog.targets
+                       if item.node_id == result["node_id"] and item.campaign_scope is None
+                       and item.native_world_id == result["native_world_id"]
+                       and item.binding_version == result["binding_version"]), None)
+        if target is None:
+            raise HTTPException(status_code=409, detail="Retry Publish when the creature is available for association")
+        principal = recheck_review()
+        associate_route(world_id, AssociateWorldMechanicsRequest(
+            request_id=uuid4(), draft_id=draft_id, expected_draft_version=draft.version,
+            target=target, expected_version=0, locator=locator,
+        ), principal)
+    recheck_review()
+    return {"draft_id": draft_id, "revision_id": locator.revision_id}
+
+
 @router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/creature-draft")
 def post_pdf_statblock_creature_draft(
     world_id: str, review_id: UUID, request: Request,

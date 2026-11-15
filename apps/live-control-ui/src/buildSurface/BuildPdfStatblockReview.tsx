@@ -1,3 +1,4 @@
+import { useHostedAuthStatus } from "../auth/HostedAuthGate";
 import { createPortal } from "react-dom";
 import { PdfPages } from "./BuildPdfPreview";
 import { BuildSourceWorkspace } from "./BuildSourceWorkspace";
@@ -21,6 +22,7 @@ type Review = {
 };
 
 export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { worldId: string; reviewId: string; toolbarHost?: HTMLElement | null }) {
+  const auth = useHostedAuthStatus();
   const sourcePath = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources`;
   const reviewPath = `${sourcePath}/statblock-reviews/${encodeURIComponent(reviewId)}`;
   const [review, setReview] = useState<Review>();
@@ -261,9 +263,21 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
         world: worldId, draft: draft.draft_id, revision: result.locator.revision_id,
       })}`;
       if (publish) {
-        const current = await getOrCreateReviewDraft(review.revision);
-        if (current.draft_id !== draft.draft_id) throw new Error("The review draft changed during publication.");
-        await publishPdfStatblock(worldId, draft.draft_id, current.version, result.locator);
+        if (auth.status === "authenticated") {
+          const { response: publication } = await authenticatedApiFetch(
+            `${reviewPath}/publication?expected_revision=${review.revision}`, { method: "POST" },
+          );
+          const published = await publication.json().catch(() => null);
+          if (!publication.ok) throw new Error(typeof published?.detail === "string"
+            ? published.detail : "Publication stopped. Retry Publish to resume.");
+          if (published?.draft_id !== draft.draft_id || published?.revision_id !== result.locator.revision_id) {
+            throw new Error("Publication returned a different saved revision.");
+          }
+        } else {
+          const current = await getOrCreateReviewDraft(review.revision);
+          if (current.draft_id !== draft.draft_id) throw new Error("The review draft changed during publication.");
+          await publishPdfStatblock(worldId, draft.draft_id, current.version, result.locator);
+        }
         setPublishedLink(link);
       } else {
         setAcceptedLink(link);

@@ -205,6 +205,17 @@ def require_hosted_build_page_inventory(request: Request, world_id: str | None) 
     _owned_world(_hosted_subject(request), world_id)
 
 
+def build_pdf_publication_principal(request: Request, world_id: str) -> NativeGraphPrincipal:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return enforce_native_graph_gm(request)
+    require_build_pdf_access(request, world_id)
+    subject = _hosted_subject(request)
+    return HostedOwnerGraphPrincipal(
+        subject=f"hosted_dms:{subject}", dms_subject=subject, role="gm",
+        auth_method="hosted_owner", managed_world_id=world_id,
+    )
+
+
 async def resolve_hosted_world_lookup(request: Request) -> str:
     subject = _hosted_subject(request)
     selectors = request.query_params.multi_items()
