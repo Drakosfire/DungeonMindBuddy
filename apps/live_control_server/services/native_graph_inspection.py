@@ -85,19 +85,50 @@ def catalog(scope, principal):
 
 
 def catalog_with_profile(scope, principal):
+    return _catalog_with_profile(
+        scope, principal, _wire_assertion, schema="dmb_native_graph_catalog_v1"
+    )
+
+
+def presentation_catalog(scope, principal):
+    return _catalog_with_profile(scope, principal, _presentation_assertion)
+
+
+def _wire_assertion(record):
+    return native.assertion_contract(record).model_dump(mode="json")
+
+
+def _presentation_assertion(record):
+    value = record.value
+    payload = {"kind": value.kind}
+    if value.kind == "literal":
+        payload["value"] = value.value
+    elif value.kind == "term_ref":
+        payload["term"] = value.term
+    elif value.kind == "entity_ref":
+        payload["entity_id"] = value.entity_id
+    return {
+        "assertion_id": record.assertion_id,
+        "subject_entity_id": record.subject_entity_id,
+        "predicate": record.predicate,
+        "value": payload,
+    }
+
+
+def _catalog_with_profile(scope, principal, project_assertion, **metadata):
     bound, read, access, pin, profile = _pinned(
         scope, principal, parsed_cache=_shared_parsed_cache
     )
     listing = EntityReadService().list_entities(read)
-    # Only Core's admitted IDs from this same immutable context are serialized.
+    # Project only Core's admitted IDs from this same immutable context.
     assertions = [
-        native.assertion_contract(access.parsed.get_assertion(identity)).model_dump(mode="json")
+        project_assertion(access.parsed.get_assertion(identity))
         for identity in listing.admitted_assertion_ids
     ]
     response = _response(
         bound,
         pin,
-        schema="dmb_native_graph_catalog_v1",
+        **metadata,
         catalogue=jsonable_encoder(listing),
         assertions=assertions,
     )
