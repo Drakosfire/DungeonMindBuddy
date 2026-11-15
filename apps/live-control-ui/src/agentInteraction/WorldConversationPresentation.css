@@ -105,16 +105,16 @@
 .plan-conversation-dock .plan-conversation-dock__launcher .plan-agent-bar button {
   display: grid;
   place-items: center;
-  inline-size: 2.75rem;
-  block-size: 2.75rem;
+  inline-size: 3.5rem;
+  block-size: 3.5rem;
   min-inline-size: var(--conversation-dock-control-hit-size);
   min-block-size: var(--conversation-dock-control-hit-size);
   padding: 0;
 }
 
 .plan-conversation-dock .plan-conversation-dock__launcher .plan-agent-bar button img {
-  inline-size: 2.1rem;
-  block-size: 2.1rem;
+  inline-size: 3rem;
+  block-size: 3rem;
 }
 
 .conversation-dock__menu {
