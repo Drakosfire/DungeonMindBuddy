@@ -672,21 +672,29 @@ def selected_batch_covering_reads(execution, selection, handle, *, before_sequen
         return ()
     events = execution.events if before_sequence is None else execution.events[:before_sequence]
     searches = [e for e in events if isinstance(e, NativeBodySearchObservedV1)]
-    if not searches:
-        return ()
-    catalog = next((c for c in searches[0].catalogs for s in c.sections
-        if handle == native_body_handle(c.catalog_sha256, s.section_id)), None)
+    from .native_execution import NativePlanActionV2
+
+    plan = type(getattr(getattr(execution, "policy", None), "action", None)) is NativePlanActionV2
+    catalogs = acquired_body_catalogs(execution)
+    candidates = searches[0].catalogs if searches else ()
+    if plan:
+        candidates = tuple(catalogs.values()) + tuple(candidates)
+    catalog = next((c for c in candidates for section in c.sections
+        if handle == native_body_handle(c.catalog_sha256, section.section_id)), None)
     if catalog is None:
         return ()
     section = next(s for s in catalog.sections if handle == native_body_handle(catalog.catalog_sha256, s.section_id))
     def identity(c):
         return (c.source.artifact.source_artifact_id,
             c.source.revision.source_revision_id, c.source.revision.content_sha256)
-    catalogs = acquired_body_catalogs(execution)
     return tuple(e.event_id for e in events if isinstance(e, (NativeBodyReadObservedV1, NativeAuthoredSourceReadV1))
-        and e.excerpt is not None and e.sequence > selection.sequence
+        and e.excerpt is not None
+        and (e.sequence > selection.sequence or (
+            plan and e.excerpt.selector_policy == 'native_full_document_v1'
+            and section.byte_end - section.byte_start < catalog.body_bytes))
         and identity(catalogs[e.excerpt.catalog_sha256]) == identity(catalog)
-        and (not require_passage or _is_writer_passage(e, catalogs[e.excerpt.catalog_sha256]))
+        and (not require_passage or _is_writer_passage(e, catalogs[e.excerpt.catalog_sha256])
+             or (plan and section.byte_end - section.byte_start < catalog.body_bytes))
         and e.excerpt.section.byte_start <= section.byte_start
         and e.excerpt.section.byte_end >= section.byte_end)
 

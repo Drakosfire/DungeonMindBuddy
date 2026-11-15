@@ -540,6 +540,14 @@ def _ordinary_native_case(
                         assert json.dumps(ref.node_id) not in req.content.decode()
             if authored:
                 native=set()  # Explicit human inclusion cannot depend on a model relevance vote.
+            if authored_source == 'full_document' and 'operation' in body['questions']:
+                already_read = any(
+                    row['kind'].startswith('Acquired exact source text') and 'Episode' in row['label']
+                    for row in body['state'].get('examined_subjects', ())
+                )
+                if not already_read:
+                    native.update(i for i, row in enumerate(candidates)
+                        if row['kind'] in {'Exact source section', 'Select passage from inspected source'} and 'Episode' in row['label'])
             if authored_source and 'operation' in body['questions']:
                 examined = body['state']['examined_subjects']
                 assert any(c['kind'].startswith('Acquired user-selected source text; mandatory writer input')
@@ -988,7 +996,10 @@ def _ordinary_native_case(
         assert ('A proposed note.' in reads[0].excerpt.text)==(authored_source=='full_document')
         opened=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-body-excerpts/0')
         assert opened.status_code==200,opened.text
-        assert opened.json()['content']==reads[0].excerpt.text
+        expected_excerpt = reads[0].excerpt.text
+        if authored_source == 'full_document':
+            expected_excerpt = human_text[sections[1].char_start:sections[1].char_end]
+        assert opened.json()['content'] == expected_excerpt
         replay=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
         assert replay.status_code==200 and len(wire.calls)==1
         assert AgentConversationService().inspect_turn(world_id=world,turn_id=turn.turn_id)==retained

@@ -560,6 +560,23 @@ class NativeBodyNavigation:
                 rows.append(RetrievalCandidate(handle=handle,
                     label='Read full document: ' + source_display_name(display, 'Admitted source'),
                     kind='Explicit admitted full-source read; metadata choice, not evidence'))
+        from application_state.agent_conversation.native_execution import NativePlanActionV2
+        from application_state.agent_conversation.native_retrieval import native_selection_types
+        execution = turn.graph_context_execution
+        reviewed = {handle for selection in execution.events if isinstance(selection, native_selection_types())
+                    for handle in selection.selected_handles}
+        if type(getattr(getattr(execution, "policy", None), "action", None)) is NativePlanActionV2:
+            for read, catalog in acquired:
+                if read.excerpt.selector_policy != "native_full_document_v1":
+                    continue
+                for section in catalog.sections:
+                    handle = native_body_handle(catalog.catalog_sha256, section.section_id)
+                    if handle in reviewed or section.byte_end - section.byte_start == catalog.body_bytes:
+                        continue
+                    rows.append(RetrievalCandidate(handle=handle,
+                        label=self._source_name(catalog) + f" · {section.label} · lines {section.line_start}–{section.line_end}",
+                        kind="Select passage from inspected source"))
+                    attempted.add(handle)
         if grant is None:
             rows.append(RetrievalCandidate(handle=native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest()),
                 label="Search admitted native source sections for the current question",
