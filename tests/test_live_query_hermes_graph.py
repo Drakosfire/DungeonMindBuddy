@@ -1992,8 +1992,8 @@ def test_invalid_history_fails_before_graph_resolution(
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(
         live_agent_loop,
-        "load_session",
-        lambda *_a, **_k: ({"campaign_id": "longmont-c2", "session": 22}, {}, [], []),
+        "load_session_packet",
+        lambda *_a, **_k: {"campaign_id": "longmont-c2", "session": 22},
     )
     monkeypatch.setattr(live_agent_loop, "session_dir", lambda: tmp_path)
 
@@ -2735,8 +2735,8 @@ def test_surface_context_resolution_span_and_query_primacy(
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(
         live_agent_loop,
-        "load_session",
-        lambda *_a, **_k: ({"campaign_id": "longmont-c2", "session": 27}, {}, [], []),
+        "load_session_packet",
+        lambda *_a, **_k: {"campaign_id": "longmont-c2", "session": 27},
     )
     monkeypatch.setattr(live_agent_loop, "session_dir", lambda: tmp_path)
     monkeypatch.setattr(
@@ -2896,8 +2896,8 @@ def test_play_surface_context_resolution_span_query_primacy_and_privacy(
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
     monkeypatch.setattr(
         live_agent_loop,
-        "load_session",
-        lambda *_a, **_k: ({"campaign_id": "longmont-c2", "session": 27}, {}, [], []),
+        "load_session_packet",
+        lambda *_a, **_k: {"campaign_id": "longmont-c2", "session": 27},
     )
     monkeypatch.setattr(live_agent_loop, "session_dir", lambda: tmp_path)
 

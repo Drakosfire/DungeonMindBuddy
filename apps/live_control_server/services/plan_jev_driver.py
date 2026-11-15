@@ -59,6 +59,8 @@ class PlanJevDriver:
                 f"saved-statblock:{index}": entry for index, entry in enumerate(entries)
             }
         self.finished = False
+        self.continuation_candidates = None
+        self.continuation_reviewed = False
         self.calls = []
         self.gaps = []
         self.current = None
@@ -297,6 +299,12 @@ class PlanJevDriver:
             turn = self.adapter.fence.turn
             if selected_read_closure(turn.graph_context_receipt, turn.graph_context_execution,
                     admitted.event_id) is not None:
+                if not self.continuation_reviewed:
+                    continuation = self.native_sources.continuation_offers()
+                    if continuation:
+                        self.continuation_reviewed = True
+                        self.continuation_candidates = {candidate.handle for candidate in continuation}
+                        return
                 from uuid import uuid4
                 self.adapter.turn, fresh = self.adapter.fence.commit('conclude_native_read_batch',
                     event_id=uuid4(), selection_event_id=admitted.event_id)
@@ -568,7 +576,12 @@ class PlanJevDriver:
         else:
             examined.extend(self._native_statement_examined())
             examined.extend(self._native_assertion_examined())
-        return dict(candidates=self.offered(), dialogue=self.dialogue,
+        candidates = self.offered()
+        if self.continuation_candidates is not None:
+            candidates = tuple(candidate for candidate in candidates
+                               if candidate.handle in self.continuation_candidates)
+            operations = ('select_candidates', 'finish_retrieval')
+        return dict(candidates=candidates, dialogue=self.dialogue,
             examined_candidates=examined, allowed_operations=operations)
 
     async def run(self, *, transport=None, api_key=None):

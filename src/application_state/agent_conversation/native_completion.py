@@ -94,7 +94,7 @@ class SurfaceNativeCompletionV1(Strict):
             raise ValueError('Native assertions require their exact assertion citation family')
         keys = []
         for c in self.native_body_citations:
-            keys.append(('body',c.segment_index,c.read_event_id))
+            keys.append(('body',c.segment_index,c.read_event_id,c.section_id))
             if (c.text_sha256 != sha256(self.answer_segments[c.segment_index].text.encode()).hexdigest()
                     or c.line_end < c.line_start):
                 raise ValueError('Native body citation changed its segment text or extent')
@@ -338,5 +338,13 @@ def validate_retained_completion(completion, receipt, execution, producer, bindi
     from .build_primary_context import records
     evidence=SimpleNamespace(**read_evidence_records(prefix,frame),
         saved_sections=records(prefix,receipt.work_context.source_basis) if completion.surface_id=='build' else ())
+    if completion.surface_id == 'plan':
+        from .native_corpus import writer_passage_supports
+        from .native_writer import body_handle
+
+        evidence.body_excerpts += tuple(
+            support for support in writer_passage_supports(prefix, body_handle)
+            if support.selected_lines is not None
+        )
     _validate_citations(completion,receipt,execution,auth,evidence)
     validate_authored_owners(completion,receipt)

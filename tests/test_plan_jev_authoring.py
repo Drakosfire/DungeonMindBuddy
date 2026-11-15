@@ -1276,22 +1276,33 @@ def _shared_plan_authoring_case(
     class Proposed(WriterWire):
         async def handle_async_request(self, request):
             rows = json.loads(request.content)["input"]
-            frames = [json.loads(row["content"]) for row in rows
-                      if row["content"] != "Return JSON."]
-            native = next(row for row in frames if set(row) == {
-                "input_status", "user_question", "native_body_evidence",
-                "native_statements", "native_assertions",
-            })
-            from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
-            work = next(row for row in frames if is_semantic_frame(row))
-            assert 'schema' not in work
-            assert 'run_id' not in json.dumps(work)
-            assert len(frames) == 3
-            assert frames[-1 if routing in {"discuss", "clarify"} else 0] == native
-            assert work["current_page_draft"]["markdown"] == capture.draft_markdown
-            assert work["focused_edit_target"]["kind"] == (
-                "insert_at_caret" if placement == "captured" else "insert_at_boundary"
-            )
+            if routing in {"discuss", "clarify"}:
+                [packet] = rows
+                prose = packet["content"]
+                assert prose.startswith("# Plan evidence\n\n")
+                assert capture.draft_markdown in prose
+                assert "## Current page draft" in prose
+                assert "## Focused edit target" in prose
+                expected_placement = "insert_at_caret" if placement == "captured" else "insert_at_boundary"
+                assert expected_placement in prose
+                assert "run_id" not in prose
+            else:
+                frames = [json.loads(row["content"]) for row in rows
+                          if row["content"] != "Return JSON."]
+                native = next(row for row in frames if set(row) == {
+                    "input_status", "user_question", "native_body_evidence",
+                    "native_statements", "native_assertions",
+                })
+                from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
+                work = next(row for row in frames if is_semantic_frame(row))
+                assert 'schema' not in work
+                assert 'run_id' not in json.dumps(work)
+                assert len(frames) == 3
+                assert frames[-1 if routing in {"discuss", "clarify"} else 0] == native
+                assert work["current_page_draft"]["markdown"] == capture.draft_markdown
+                assert work["focused_edit_target"]["kind"] == (
+                    "insert_at_caret" if placement == "captured" else "insert_at_boundary"
+                )
             self.adapter = wire.adapter
             if failure == "writer_timeout":
                 import httpx

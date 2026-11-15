@@ -540,6 +540,14 @@ def _ordinary_native_case(
                         assert json.dumps(ref.node_id) not in req.content.decode()
             if authored:
                 native=set()  # Explicit human inclusion cannot depend on a model relevance vote.
+            if authored_source == 'full_document' and 'operation' in body['questions']:
+                already_read = any(
+                    row['kind'].startswith('Acquired exact source text') and 'Episode' in row['label']
+                    for row in body['state'].get('examined_subjects', ())
+                )
+                if not already_read:
+                    native.update(i for i, row in enumerate(candidates)
+                        if row['kind'] in {'Exact source section', 'Select passage from inspected source'} and 'Episode' in row['label'])
             if authored_source and 'operation' in body['questions']:
                 examined = body['state']['examined_subjects']
                 assert any(c['kind'].startswith('Acquired user-selected source text; mandatory writer input')
@@ -555,12 +563,20 @@ def _ordinary_native_case(
             return httpx2.Response(200,request=req,json={'model':'jev-1.14.0','answers':answers,'usage':{'input_tokens':37,'output_tokens':9}})
     class Writer(WriterWire):
         async def handle_async_request(self, req):
-            frames=[json.loads(item['content']) for item in json.loads(req.content)['input']
-                    if item['content'] != 'Return JSON.']
-            frame=next(item for item in frames if set(item)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
-            assert len(frames)==3
-            assert frames[0 if authoring else -1] == frame
             body = json.loads(req.content)
+            messages = [item['content'] for item in body['input'] if item['content'] != 'Return JSON.']
+            prose = messages[-1] if messages[-1].startswith('# Plan evidence\n\n') else None
+            if prose is None:
+                frames = [json.loads(message) for message in messages]
+                frame = next(item for item in frames if set(item) == {
+                    'input_status', 'user_question', 'native_body_evidence', 'native_statements', 'native_assertions',
+                })
+                assert len(frames) == 3
+                assert frames[0 if authoring else -1] == frame
+            else:
+                assert not authoring
+                assert len(messages) == (2 if mixed else 1)
+                assert all(message.startswith('# Rules evidence\n\n') for message in messages[:-1])
             output_format = body['text']['format']
             assert output_format['type'] == 'json_schema' and output_format['strict'] is True
             output_schema = output_format['schema']
@@ -570,50 +586,85 @@ def _ordinary_native_case(
                 assert NATIVE_ANSWER_POLICY not in body['instructions']
             assert 'dmb_surface_evidence_answer_v6' not in json.loads(req.content)['instructions']
             assert BODY not in req.content.decode() and 'span.text' not in req.content.decode()
-            rows=frame['native_assertions']['assertions'] if frame['native_assertions'] else []
-            if authored:
-                from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
-                work_frame=next(item for item in frames if is_semantic_frame(item))
-                expected=[]
-                for i,ref in enumerate(selected_references.references):
-                    source=hasattr(ref,'selection_kind')
-                    expected.append(dict(reference=f'reference{i}',label=ref.label,
-                        kind='source' if source else 'object',
-                        read_status='partial' if unavailable and not source else 'complete',
-                        **({'extent':ref.selection_kind} if source else {})))
-                assert work_frame['selected_references']==expected
-                assert 'authored_references' not in work_frame
-            if authored_source=='source_only':
-                assert not rows
-                segments=[]
-                limitations=[]
-            elif unavailable:
-                assert not rows and frame['native_assertions']['status']=='partial'
-                segments=[]
-                limitations=['partial_retrieval','missing_requested_details']
+            if prose is not None:
+                import re
+
+                summary = re.search(r'^\[(assertion\d+)\] .+ · summary · .+$', prose, re.MULTILINE)
+                segments = []
+                limitations = []
+                if authored_source == 'source_only' or unavailable:
+                    assert summary is None
+                    if unavailable:
+                        assert 'Some evidence was unavailable.' in prose
+                        limitations = ['partial_retrieval', 'missing_requested_details']
+                else:
+                    assert summary is not None
+                    mode = 'belief' if qualified else 'fact'
+                    assert f'claim mode: dungeonbuddy.claim:{mode}' in prose
+                    segments.append(dict(kind='native_assertion_claim', text='A reports that B fled; uncertain.',
+                        assertion_handles=[summary[1]]))
+                if authored:
+                    assert '## Selected references' in prose
+                    for ref in selected_references.references:
+                        assert ref.label in prose
+                if authored_source:
+                    excerpt = re.search(r'^\[(body\d+)\] [^\n]+$', prose, re.MULTILINE)
+                    assert excerpt is not None
+                    assert 'source-local episode' in prose
+                    assert 'DISPLAY ONLY Plan source' not in excerpt[0]
+                    segments.append(dict(kind='native_body_claim', text='The source describes a source-local episode.',
+                        excerpt_handles=[excerpt[1]]))
+                if related_page:
+                    assert f'## Saved reference · [page0] Saved Edge page\n{related_body}' in prose
+                    assert str(saved.page.work_object_id) not in prose
+                    if not connected_review:
+                        segments.append(dict(kind='related_page_claim',text='The saved Edge page places the bath house by the east gate.',
+                            read_id='page0',supporting_quotes=['The old bath house stands by the east gate. 🌿']))
             else:
-                row=next(r for r in rows if r['assertion']['predicate']=='dnd5e:summary')
-                metadata=frame['native_assertions']['qualifications'][row['assertion']['qualification']]
-                assert metadata['claim_mode']==('dungeonbuddy.claim:belief' if qualified else 'dungeonbuddy.claim:fact')
-                assert all('evidence' not in r and 'supporting_sources' not in r for r in rows)
-                segments=[{'kind':'native_assertion_claim','text':'A reports that B fled; uncertain.',
-                    'assertion_handles':[row['assertion_handle']]}]
-                limitations=[]
-            if authored_source:
-                exposed=frame['native_body_evidence']['excerpts']
-                assert len(exposed)==1 and 'source-local episode' in exposed[0]['text']
-                assert 'DISPLAY ONLY Plan source' not in json.dumps(frame)  # Display selection is not evidence.
-                segments.append({'kind':'native_body_claim','text':'The source describes a source-local episode.',
-                    'excerpt_handles':[exposed[0]['excerpt_handle']]})
-            if related_page:
-                from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
-                work_frame=next(item for item in frames if is_semantic_frame(item))
-                assert work_frame['related_authored_pages']['pages']==[
-                    dict(read_id='page0',title='Saved Edge page',markdown=related_body)]
-                assert str(saved.page.work_object_id) not in json.dumps(work_frame)
-                if not connected_review:
-                    segments.append(dict(kind='related_page_claim',text='The saved Edge page places the bath house by the east gate.',
-                        read_id='page0',supporting_quotes=['The old bath house stands by the east gate. 🌿']))
+                rows=frame['native_assertions']['assertions'] if frame['native_assertions'] else []
+                if authored:
+                    from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
+                    work_frame=next(item for item in frames if is_semantic_frame(item))
+                    expected=[]
+                    for i,ref in enumerate(selected_references.references):
+                        source=hasattr(ref,'selection_kind')
+                        expected.append(dict(reference=f'reference{i}',label=ref.label,
+                            kind='source' if source else 'object',
+                            read_status='partial' if unavailable and not source else 'complete',
+                            **({'extent':ref.selection_kind} if source else {})))
+                    assert work_frame['selected_references']==expected
+                    assert 'authored_references' not in work_frame
+                if authored_source=='source_only':
+                    assert not rows
+                    segments=[]
+                    limitations=[]
+                elif unavailable:
+                    assert not rows and frame['native_assertions']['status']=='partial'
+                    segments=[]
+                    limitations=['partial_retrieval','missing_requested_details']
+                else:
+                    row=next(r for r in rows if r['assertion']['predicate']=='dnd5e:summary')
+                    metadata=frame['native_assertions']['qualifications'][row['assertion']['qualification']]
+                    assert metadata['claim_mode']==('dungeonbuddy.claim:belief' if qualified else 'dungeonbuddy.claim:fact')
+                    assert all('evidence' not in r and 'supporting_sources' not in r for r in rows)
+                    segments=[{'kind':'native_assertion_claim','text':'A reports that B fled; uncertain.',
+                        'assertion_handles':[row['assertion_handle']]}]
+                    limitations=[]
+                if authored_source:
+                    exposed=frame['native_body_evidence']['excerpts']
+                    assert len(exposed)==1 and 'source-local episode' in exposed[0]['text']
+                    assert 'DISPLAY ONLY Plan source' not in json.dumps(frame)  # Display selection is not evidence.
+                    segments.append({'kind':'native_body_claim','text':'The source describes a source-local episode.',
+                        'excerpt_handles':[exposed[0]['excerpt_handle']]})
+                if related_page:
+                    from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
+                    work_frame=next(item for item in frames if is_semantic_frame(item))
+                    assert work_frame['related_authored_pages']['pages']==[
+                        dict(read_id='page0',title='Saved Edge page',markdown=related_body)]
+                    assert str(saved.page.work_object_id) not in json.dumps(work_frame)
+                    if not connected_review:
+                        segments.append(dict(kind='related_page_claim',text='The saved Edge page places the bath house by the east gate.',
+                            read_id='page0',supporting_quotes=['The old bath house stands by the east gate. 🌿']))
             candidate={'schema':NATIVE_ANSWER_POLICY,'answer_segments':segments,
                 'limitations':limitations,'requested_detail_gaps':[]}
             if connected_review:
@@ -945,7 +996,10 @@ def _ordinary_native_case(
         assert ('A proposed note.' in reads[0].excerpt.text)==(authored_source=='full_document')
         opened=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-body-excerpts/0')
         assert opened.status_code==200,opened.text
-        assert opened.json()['content']==reads[0].excerpt.text
+        expected_excerpt = reads[0].excerpt.text
+        if authored_source == 'full_document':
+            expected_excerpt = human_text[sections[1].char_start:sections[1].char_end]
+        assert opened.json()['content'] == expected_excerpt
         replay=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
         assert replay.status_code==200 and len(wire.calls)==1
         assert AgentConversationService().inspect_turn(world_id=world,turn_id=turn.turn_id)==retained

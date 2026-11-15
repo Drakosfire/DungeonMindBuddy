@@ -515,8 +515,8 @@ def normalize_shared_native_output(receipt, graph_execution, rules_execution, pr
         and e.provider_attempt_id == proof.producing_provider_attempt_id)
     base, segments = None, ()
     if frame.lookups:
-        from .rules_authority_output import parse_producing_answer
-        answer = parse_producing_answer(proof.raw_output_json, proof.prepared_request_json, included.support_refs)
+        from .rules_authority_output import parse_answer_against_frame
+        answer = parse_answer_against_frame(proof.raw_output_json, frame, included.support_refs)
         if answer.base_output is not None:
             base = normalize_candidate(answer.base_output,receipt,graph_execution,auth,evidence)
             segments = tuple(segment.text for segment in base.answer_segments)

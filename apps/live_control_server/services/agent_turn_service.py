@@ -1689,7 +1689,8 @@ class _ClaimFence:
                 if (method_name == 'record_plan_requested_work_selection' and fresh
                         and type(self.service) is AgentConversationService and eligible(updated)):
                     session_owned = True
-                    self.renewer._session = NativePlanSession(updated)
+                    self.renewer._session = NativePlanSession(updated,
+                        measure=self.trace.measure_host_work if self.trace is not None else None)
             except BaseException as exc:
                 if session_owned:
                     if self.renewer._session is not None:
