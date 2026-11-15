@@ -389,12 +389,22 @@ export function projectLocalWorldGraph(
       visibleObjects = fullOverview ? eligibleObjects : eligibleObjects.slice(0, maxNodes);
     }
   }
-  const retainedObjects = new Map<LocalObjectId, LocalWorldObject>();
-  for (const id of [options.retainedSelectionId, options.previewObjectId]) {
+  const retainedIds = new Set([options.retainedSelectionId, options.previewObjectId]);
+  const visibleObjectIds = new Set(visibleObjects.map(object => object.id));
+  const missing = [...retainedIds].flatMap(id => {
     const object = id && index.objects.get(id);
-    if (object && !visibleObjects.some(candidate => candidate.id === id)) retainedObjects.set(object.id, object);
+    return object && !visibleObjectIds.has(object.id) ? [object] : [];
+  });
+  if (missing.length) {
+    const limit = fullOverview ? objects.length : compactOverview ? Math.min(64, maxNodes) : maxNodes;
+    const kept = [...visibleObjects, ...missing];
+    // Make room for the explicit preview and selection within the view budget.
+    for (let i = visibleObjects.length - 1; i >= 0 && kept.length > limit; i--) {
+      const { id } = kept[i];
+      if (id !== focusId && !retainedIds.has(id)) kept.splice(i, 1);
+    }
+    visibleObjects = kept.slice(0, limit);
   }
-  if (retainedObjects.size) visibleObjects = [...visibleObjects, ...retainedObjects.values()];
   const visibleIds = new Set(visibleObjects.map((object) => object.id));
   const compactPositions = compactOverview ? createGraphFallbackPositions({
     ...index,
