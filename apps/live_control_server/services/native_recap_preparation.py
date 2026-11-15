@@ -701,6 +701,8 @@ def prepare(request, principal):
                 if (
                     assertion.subject_entity_id != decision["subject_entity_id"]
                     or assertion.predicate != predicate
+                    or [(binding.axis, binding.value) for binding in assertion.metadata.scope]
+                    != [(CAMPAIGN_SCOPE_AXIS, request.campaign_id)]
                     or assertion.value.kind != "entity_ref"
                     or assertion.value.entity_id != decision["target_entity_id"]
                 ):

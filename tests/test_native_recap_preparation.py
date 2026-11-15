@@ -1730,3 +1730,44 @@ def test_cohort_prepare_keeps_relationship_to_new_event(lane):
         and assertion["value"].get("term") == "dungeonbuddy:event"
         for assertion in assertions
     )
+
+
+def test_cohort_prepare_refuses_matching_witness_from_another_campaign(lane, monkeypatch):
+    lane.payload["nodes"][0]["node_type"] = "event"
+    lane.refresh()
+    committed = confirm(lane, confirmation(lane))
+    assert committed.status_code == 200, committed.text
+    parent_id = committed.json()["result"]["child_revision_id"]
+    parent = lane.repo.get_revision(SPACE_ID, parent_id)
+    witness, = [a for a in parent.graph_payload["assertions"]
+                if a["predicate"] == "dungeonbuddy.custom:met_at"]
+    subject = witness["subject_entity_id"]
+    target = witness["value"]["entity_id"]
+    body = copy.deepcopy(lane.body)
+    body["expected_parent_revision_id"] = parent_id
+    body["selections"] = [
+        choice("new", action="use_existing", entity_id=subject, fields=()),
+        choice("existing", action="use_existing", entity_id=target, fields=()),
+    ]
+    body["cohort_edge_review"] = dict(
+        event_ids=["new"],
+        edge_decisions=[dict(
+            edge_id="edge", decision="already_present", assertion_id=witness["assertion_id"],
+            subject_entity_id=subject, target_entity_id=target,
+        )],
+        prepare_pin={key: value for key, value in body.items() if key != "selections"},
+    )
+    assertion_contract = service.native.assertion_contract
+
+    def foreign_campaign(parsed):
+        assertion = assertion_contract(parsed)
+        return assertion.model_copy(update={"metadata": assertion.metadata.model_copy(update={
+            "scope": (SimpleNamespace(axis=service.CAMPAIGN_SCOPE_AXIS, value="another-campaign"),),
+        })})
+
+    monkeypatch.setattr(service.native, "assertion_contract", foreign_campaign)
+    response = lane.post(body)
+
+    assert response.status_code == 409, response.text
+    assert "candidate_cohort_edge_review_invalid" in response.text
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == parent_id
