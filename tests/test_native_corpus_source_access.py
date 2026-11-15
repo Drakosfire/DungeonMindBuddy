@@ -70,7 +70,7 @@ def test_current_acquisition_freezes_one_exact_source_name_snapshot(lane, monkey
     def names(access, world):
         calls.append(world)
         return {(receipt.source_artifact_id, receipt.source_revision_id,
-                 sha256(BODY.encode()).hexdigest()): ('Session 9 recap', 9)}
+                 sha256(BODY.encode()).hexdigest()): ('Session 9 recap', 9, 'longmont')}
     monkeypatch.setattr(display, 'captured_source_presentation', names)
     prepared = prepare_native_source_context(managed_world_id='managed', principal=GM,
         repository=lane.repo, resolve_identity=lambda _: lane.bound)
@@ -79,6 +79,7 @@ def test_current_acquisition_freezes_one_exact_source_name_snapshot(lane, monkey
     again, _ = open_native_corpus_member(prepared, receipt.bindings[0].evidence_ref_id)
     assert member.presentation_name == again.presentation_name == 'Session 9 recap'
     assert member.session_scope == again.session_scope == 9
+    assert member.campaign_scope == again.campaign_scope == 'longmont'
     assert calls == ['managed'] and text == BODY
 
 

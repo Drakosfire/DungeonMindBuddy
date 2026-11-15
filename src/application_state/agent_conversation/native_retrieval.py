@@ -47,7 +47,17 @@ class NativeRetrievalSelectedV2(NativeRetrievalSelectedV1):
     post_read_plan: Literal['review_after_reads', 'finish_if_selected_reads_succeed']
 
 
-NATIVE_RETRIEVAL_SELECTION_TYPES = (NativeRetrievalSelectedV1, NativeRetrievalSelectedV2)
+class NativeRetrievalSelectedV3(NativeRetrievalSelectedV2):
+    kind: Literal["native_retrieval_selected_v3"] = "native_retrieval_selected_v3"
+    selected_lines: tuple[tuple[str, int], ...]
+    ranked_review: bool = False
+    ranked_paragraph_review: bool = False
+    selected_ranked_indexes: tuple[int, ...] | None = None
+    selected_assertion_indexes: tuple[int, ...] | None = None
+    reviewed_assertion_count: int = Field(default=0, ge=0, strict=True)
+
+
+NATIVE_RETRIEVAL_SELECTION_TYPES = (NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, NativeRetrievalSelectedV3)
 
 
 def native_selection_types():
@@ -58,7 +68,7 @@ def native_selection_types():
 
 def prospective_selection_types():
     from .native_execution import NativePlanOpeningSelectedV1
-    return (NativeRetrievalSelectedV2, NativePlanOpeningSelectedV1)
+    return (NativeRetrievalSelectedV2, NativeRetrievalSelectedV3, NativePlanOpeningSelectedV1)
 
 
 class NativeReadBatchConcludedV1(t.StrictModel):
@@ -167,8 +177,8 @@ def verify_input(turn, auth, proof):
         )
     parent = parse_native_retrieval_input(strict_json(proof["parent_request_json"]),
         surface_id=execution.policy.action.surface_id)
-    from .jev_retrieval_contract import NativePlanBatchDecisionInputV3
-    if type(parent) is NativePlanBatchDecisionInputV3:
+    from .jev_retrieval_contract import NativePlanBatchDecisionInputV3, NativePlanPassageDecisionInputV4
+    if isinstance(parent, NativePlanBatchDecisionInputV3):
         from .native_corpus import initial_source_discovery_enabled
         if not initial_source_discovery_enabled(execution):
             raise ValueError("Prospective read plans require current readonly Plan work")
@@ -176,6 +186,16 @@ def verify_input(turn, auth, proof):
     if isinstance(parent,NativePlayRetrievalDecisionInputV1):
         from .native_play_work import producing_authored_records
         producing_authored_records(receipt.work_context,turn.provenance,parent.play_work,turn.idempotency_key)
+    if isinstance(parent, NativePlanPassageDecisionInputV4):
+        from .native_corpus import body_passage_selection_context, next_ranked_review
+        if parent.graph_facts:
+            from .native_plan_assertions import next_graph_review
+            if parent.graph_facts != next_graph_review(receipt.native_query, execution):
+                raise ValueError("Graph review changed its owner-bound fact catalog")
+        if parent.inspected_sources != body_passage_selection_context(execution):
+            raise ValueError("Plan decision changed its inspected source text")
+        if parent.ranked_passages != next_ranked_review(execution, paragraphs=parent.vote_ranked_paragraphs):
+            raise ValueError("Plan decision changed its acquired ranked passages")
     role = execution.policy.provider_roles.controller
     if (
         parent.digest != auth.parent_request_sha256
@@ -247,8 +267,11 @@ def verify_selection(turn, event, proof, trace):
     parent = verify_input(
         turn, auth, {key: proof[key] for key in ("parent_request_json", "request_json")}
     )
-    from .jev_retrieval_contract import NativePlanBatchDecisionInputV3
-    if (type(event) is NativeRetrievalSelectedV2) != (type(parent) is NativePlanBatchDecisionInputV3):
+    from .jev_retrieval_contract import NativePlanBatchDecisionInputV3, NativePlanPassageDecisionInputV4
+    expected_type = (NativeRetrievalSelectedV3 if isinstance(parent, NativePlanPassageDecisionInputV4)
+        else NativeRetrievalSelectedV2 if isinstance(parent, NativePlanBatchDecisionInputV3)
+        else NativeRetrievalSelectedV1)
+    if type(event) is not expected_type:
         raise ValueError('Prospective selection requires its exact versioned producer')
     raw = proof["response_json"]
     digest = sha256(raw.encode()).hexdigest()
@@ -289,6 +312,12 @@ def verify_selection(turn, event, proof, trace):
         )
     result = DecisionResult.model_validate(strict_json(raw))
     selected = decode_selection(parent, result)
+    if isinstance(parent, NativePlanPassageDecisionInputV4) and (parent.ranked_passages or parent.graph_facts):
+        from .native_corpus import next_ranked_review
+        from .native_plan_assertions import next_graph_review
+        staged = execution.model_copy(update={"events": (*execution.events, event)})
+        if (selected.operation != "finish_retrieval" and next_ranked_review(staged, paragraphs=parent.vote_ranked_paragraphs)) or next_graph_review(receipt.native_query, staged):
+            selected = selected.model_copy(update={"operation": "discover_more"})
     pins = source_pins(receipt)
     validate_source_selection(
         parent,
@@ -309,7 +338,15 @@ def verify_selection(turn, event, proof, trace):
         or tuple(event.selected_handles) != selected.selected_handles
         or event.actual_input_tokens != result.observation.input_tokens
         or event.actual_output_tokens != result.observation.output_tokens
-        or type(event) is NativeRetrievalSelectedV2 and event.post_read_plan != selected.post_read_plan
+        or isinstance(event, NativeRetrievalSelectedV2) and event.post_read_plan != selected.post_read_plan
+        or isinstance(event, NativeRetrievalSelectedV3) and (
+            event.selected_lines != selected.selected_lines
+            or event.ranked_review != bool(parent.ranked_passages)
+            or event.ranked_paragraph_review != parent.vote_ranked_paragraphs
+            or event.selected_ranked_indexes != selected.selected_ranked_indexes
+            or event.selected_assertion_indexes != selected.selected_assertion_indexes
+            or event.reviewed_assertion_count != len(parent.graph_facts)
+        )
     ):
         raise ValueError(
             "Native selection differs from its typed result, usage or committed scope"
@@ -578,7 +615,7 @@ def validate_decision_phases(execution):
                     raise ValueError('Opening SDK cannot settle as historical work-only selection')
                 auth, outcome = None, None
         elif isinstance(event, t.PlanJevRetrievalSelectionV1):
-            if type(event) is NativeRetrievalSelectedV2:
+            if isinstance(event, NativeRetrievalSelectedV2):
                 from .native_corpus import initial_source_discovery_enabled
                 if not initial_source_discovery_enabled(execution):
                     raise ValueError("Prospective read plans require current readonly Plan work")

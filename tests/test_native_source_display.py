@@ -66,4 +66,4 @@ def test_captured_session_requires_exact_registered_recap(monkeypatch, change):
                         lambda _: N(sources=[item]))
     name = 'Source name unavailable' if change in {'world', 'revision', 'hash'} else 'Named recap'
     assert display.captured_source_presentation(prepared.access, 'world') == {
-        ('source', 'revision', 'hash'): (name, 9 if change == 'exact' else 'unestablished')}
+        ('source', 'revision', 'hash'): (name, 9 if change == 'exact' else 'unestablished', 'private-campaign-id' if change == 'exact' else 'unestablished')}

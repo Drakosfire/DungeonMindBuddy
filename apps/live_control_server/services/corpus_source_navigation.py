@@ -1,5 +1,6 @@
 """One explicitly selected corpus scan; no prose is added to model context."""
 from hashlib import sha256
+from math import log1p
 from contextlib import nullcontext
 from collections import Counter
 from types import SimpleNamespace
@@ -527,7 +528,18 @@ class NativeBodyNavigation:
                 rows.append(RetrievalCandidate(handle=handle,
                     label="Read full document: " + name + " · matched terms: " + ", ".join(terms),
                     kind="Explicit full-document read"))
-        return self._scoped_offers(rows, search)
+        offers = self._scoped_offers(rows, search)
+        if not request_owned:
+            return offers
+
+        frequencies = Counter(term for terms in hits.values() for term in set(terms))
+        section_count = sum(len(catalog.sections) for catalog in search.catalogs)
+        weights = {term: log1p(section_count / count) for term, count in frequencies.items()}
+        scores = {
+            native_body_handle(catalog, section): sum(weights[term] for term in sorted(set(terms)))
+            for (catalog, section), terms in hits.items()
+        }
+        return tuple(sorted(offers, key=lambda offer: -scores.get(offer.handle, 0)))
 
     def examined(self):
         from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1, native_corpus_search_handle

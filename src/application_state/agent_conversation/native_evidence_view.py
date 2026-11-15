@@ -394,3 +394,32 @@ def expected_semantic_frame(host, actual):
                 if set(entry) == {"world_context"}:
                     entries[index] = {"schema": _WORLD_CONTEXT, "payload": entry["world_context"]}
     return expected
+
+
+PLAN_PROSE_HEADING = "# Plan evidence\n\n"
+
+
+def render_plan_evidence(frame):
+    """Render admitted Plan evidence with stable handles and the question last."""
+    from itertools import groupby
+    from .rules_authority_types import canonical_bytes
+
+    body = frame["native_body_evidence"]
+    graph = {key: value for key, value in frame.items()
+             if key not in {"native_body_evidence", "user_question"}}
+    parts = [PLAN_PROSE_HEADING, canonical_bytes(graph).decode(), "\n\n"]
+    if body["source_access"] != "available":
+        parts.append("Recap source access is unavailable.\n\n")
+    for (campaign, session), rows in groupby(
+        body["excerpts"], key=lambda row: (row["campaign_scope"], row["session_scope"])
+    ):
+        scope = f"Session {session}" if type(session) is int else "Session unknown"
+        parts.append(f"## {campaign} · {scope}\n\n")
+        for row in rows:
+            parts.append(f"[{row['excerpt_handle']}] {row['source_name']}\n")
+            if row.get("planning_line_ranges"):
+                ranges = ", ".join(f"{start}–{end}" for start, end in row["planning_line_ranges"])
+                parts.append(f"Planning material on source lines {ranges}.\n")
+            parts.extend((row["text"], "\n\n"))
+    parts.extend(("# Question\n\n", frame["user_question"]))
+    return "".join(parts)

@@ -95,7 +95,9 @@ def captured_source_presentation(access, world_id):
                  if display.get('kind') == 'recap' and display['origin_matches_current_metadata'] is True
                  and isinstance(session, str) else None)
         name = label.strip() if isinstance(label, str) and label.strip() else 'Source name unavailable'
-        presentation[key] = (name, int(match[1]) if match else 'unestablished')
+        campaign = display['campaign_id'] if match else None
+        presentation[key] = (name, int(match[1]) if match else 'unestablished',
+                             campaign or 'unestablished')
     return presentation
 
 

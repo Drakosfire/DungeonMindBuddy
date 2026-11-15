@@ -281,18 +281,86 @@ def selected_reads(turn):
     return selected_read_records(turn.graph_context_execution)
 
 
-def selected_read_records(execution):
+def selected_read_records(execution, *, admitted_indexes=None):
     from .authored_graph_references import BuildAuthoredReferenceReadV2
-    return tuple((event, read) for event in execution.events
+    records = tuple((event, read) for event in execution.events
         for read in (event.reads if isinstance(event, NativePlanAssertionReadObservedV1)
             else event.assertion_reads if isinstance(event, BuildAuthoredReferenceReadV2) else ()))
+
+    if admitted_indexes is None:
+        return records
+    if (tuple(sorted(set(admitted_indexes))) != admitted_indexes
+            or any(type(index) is not int or not 0 <= index < len(records)
+                   for index in admitted_indexes)):
+        raise ValueError("Graph admission indexes differ from the acquired assertion rows")
+    return tuple(records[index] for index in admitted_indexes)
+
+
+def graph_review_facts(query, execution):
+    """Present acquired facts through the same owner projection as the writer."""
+    if not isinstance(query, NativePlanQueryV2):
+        return ()
+    from .native_evidence_view import _inline_qualifications, semantic_frame
+
+    host = {
+        "schema": "dmb_surface_native_writer_evidence_v2",
+        "input_status": "complete",
+        "user_question": execution.policy.action.intent.message,
+        "native_body_evidence": {"source_authority_status": "unavailable", "excerpts": []},
+        "native_statements": {"status": "complete", "statements": []},
+        "native_assertions": model_frame_records(query, execution, schema="dmb_native_assertion_frame_v2"),
+    }
+    rows = _inline_qualifications(semantic_frame(host))["native_assertions"]["assertions"]
+    return tuple({key: value for key, value in row.items() if key != "assertion_handle"}
+                 for row in rows)
+
+
+def reviewed_graph_fact_count(execution):
+    from .native_retrieval import NativeRetrievalSelectedV3
+
+    return sum(event.reviewed_assertion_count for event in execution.events
+               if isinstance(event, NativeRetrievalSelectedV3))
+
+
+def next_graph_review(query, execution):
+    from .native_corpus import ranked_review_batches
+
+    facts = graph_review_facts(query, execution)
+    remaining = facts[reviewed_graph_fact_count(execution):]
+    # Bound both serialized context and the number of independent Jev questions.
+    batches = ranked_review_batches(remaining[:40], evidence_bytes=30_000)
+    return batches[0] if batches else ()
+
+
+def writer_admission_indexes(execution):
+    """Rebuild the admitted subset from contiguous, verified Graph batches."""
+    from .native_retrieval import NativeRetrievalSelectedV3
+
+    votes = [event for event in execution.events
+             if isinstance(event, NativeRetrievalSelectedV3)
+             and event.selected_assertion_indexes is not None]
+    if not votes:
+        return None
+    admitted = []
+    reviewed = 0
+    for vote in votes:
+        indexes = vote.selected_assertion_indexes
+        if (vote.reviewed_assertion_count <= 0
+                or indexes != tuple(sorted(set(indexes)))
+                or any(not 0 <= index < vote.reviewed_assertion_count for index in indexes)):
+            raise ValueError("Graph vote differs from its reviewed batch")
+        admitted.extend(reviewed + index for index in indexes)
+        reviewed += vote.reviewed_assertion_count
+    if reviewed != len(selected_read_records(execution)):
+        raise ValueError("Writer requires review of all acquired Graph facts")
+    return tuple(admitted)
 
 
 def model_frame(turn):
     return model_frame_records(turn.graph_context_receipt.native_query, turn.graph_context_execution)
 
 
-def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_frame_v1'):
+def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_frame_v1', admitted_indexes=None):
     """Project admitted facts; full source proofs stay in the read/citation owner."""
     if schema not in {'dmb_plan_native_assertion_frame_v1', 'dmb_native_assertion_frame_v2'}:
         raise ValueError('Unknown native assertion presentation')
@@ -306,7 +374,7 @@ def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_f
             **({'evidence': [e.model_dump(mode='json') for e in read.evidence],
                 'supporting_sources': [s.model_dump(exclude={'text'}) for s in read.spans]}
                 if schema == 'dmb_plan_native_assertion_frame_v1' else {})}
-            for event, read in selected_read_records(execution)]}
+            for event, read in selected_read_records(execution, admitted_indexes=admitted_indexes)]}
 
 
 def input_partial(turn):

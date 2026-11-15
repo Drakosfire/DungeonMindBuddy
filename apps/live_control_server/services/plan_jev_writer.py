@@ -298,7 +298,14 @@ class PlanJevWriter:
             from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
             from application_state.agent_conversation.plan_writer_output_schema import native_output_format
             turn=adapter.fence.turn
-            self.frame=model_frame(turn.graph_context_receipt,turn.graph_context_execution)
+            from application_state.agent_conversation.native_corpus import (
+                initial_source_discovery_enabled, retained_plan_body_passages,
+            )
+            execution = turn.graph_context_execution
+            passages = retained_plan_body_passages(
+                execution, require_review=initial_source_discovery_enabled(execution),
+            )
+            self.frame=model_frame(turn.graph_context_receipt,execution,passage_supports=passages)
             self.work_frame=model_work_frame(turn.graph_context_receipt,turn.graph_context_execution,
                 provenance=turn.provenance,idempotency_key=turn.idempotency_key,work_proof=proof,
                 world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
@@ -331,6 +338,11 @@ class PlanJevWriter:
             self.output_format=output_format(self.frame,rule_frame)
             frames=(self.frame,rule_frame)
         self.messages=[{'role':'user','content':canonical_bytes(frame).decode()} for frame in frames]
+        if self.shared and getattr(rules, 'authoring', None) is None and passages is not None:
+            from application_state.agent_conversation.native_execution import NativePlanActionV2
+            if type(execution.policy.action) is NativePlanActionV2:
+                from application_state.agent_conversation.native_evidence_view import render_plan_evidence
+                self.messages[-1]["content"] = render_plan_evidence(self.provider_frame)
         if not self.shared:
             self.messages.append({'role':'user','content':'Return JSON.'})
         self.prompt_components = None

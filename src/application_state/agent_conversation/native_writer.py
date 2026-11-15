@@ -56,7 +56,7 @@ def body_handle(read):
     return bodies.native_body_handle(excerpt.catalog_sha256, excerpt.section.section_id)
 
 
-def model_frame(receipt, execution, *, schema=SCHEMA):
+def model_frame(receipt, execution, *, schema=SCHEMA, passage_supports=None):
     """Current semantic projection; V1 remains an exact historical input codec."""
     if schema not in {LEGACY_SCHEMA, SCHEMA}:
         raise ValueError('Unknown native writer evidence presentation')
@@ -73,10 +73,12 @@ def model_frame(receipt, execution, *, schema=SCHEMA):
         or assertions.input_partial_records(query, execution))
     return dict(schema=schema, answer_policy=assertions.POLICY, input_status='partial' if partial else 'complete',
         user_question=execution.policy.action.intent.message,
-        native_body_evidence=bodies.model_body_frame_records(receipt.source_authority, execution, body_handle),
+        native_body_evidence=bodies.model_body_frame_records(receipt.source_authority, execution, body_handle,
+            passage_supports=passage_supports),
         native_statements=statements.model_frame_records(query, execution),
         native_assertions=assertions.model_frame_records(query, execution,
-            schema='dmb_plan_native_assertion_frame_v1' if schema == LEGACY_SCHEMA else 'dmb_native_assertion_frame_v2')
+            schema='dmb_plan_native_assertion_frame_v1' if schema == LEGACY_SCHEMA else 'dmb_native_assertion_frame_v2',
+            admitted_indexes=assertions.writer_admission_indexes(execution))
             if isinstance(query, assertions.NativePlanQueryV2) else None)
 
 
@@ -183,7 +185,7 @@ def authoring_input(native_context, capability, instruction, operation):
         surface_work=build_work_view(model_work_frame(receipt,execution,**work),execution))
 
 
-def _input_frames(raw,execution,work_schema):
+def _input_frames(raw,execution,work_schema, *, plan_prose=False):
     """One actual producer packet, selected by the stored operation."""
     from .native_execution import NativeBuildActionV1
     from .build_intentional_response import selected_action
@@ -208,7 +210,7 @@ def _input_frames(raw,execution,work_schema):
         else:
             from .native_build_work_view import frame_in_request as build_frame
             work = build_frame(strict_json(raw))
-        return (semantic if semantic is not None else responses_text_frame(raw,schemas={LEGACY_SCHEMA,SCHEMA},label='Native writer'),
+        return (semantic if semantic is not None or plan_prose else responses_text_frame(raw,schemas={LEGACY_SCHEMA,SCHEMA},label='Native writer'),
             work if work is not None else responses_text_frame(raw,schemas={work_schema},label='Native surface work'))
     body=strict_json(raw)
     from .build_proposal_input import proposal_packet_text
@@ -256,9 +258,23 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     expected_work = model_work_frame(receipt,prefix,provenance=provenance,idempotency_key=idempotency_key,
         work_proof=work_proof,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
         play_context_receipt=play_context_receipt)
-    frame,work_frame = _input_frames(raw,prefix,expected_work['schema'])
     from .build_proposal_input import proposal_packet_text
+    from .native_evidence_view import PLAN_PROSE_HEADING, render_plan_evidence, semantic_frame
+    from .native_execution import NativePlanActionV2
     body = strict_json(raw)
+    messages = body.get("input")
+    last = messages[-1] if isinstance(messages, list) and messages else None
+    prose = last.get("content") if isinstance(last, dict) and last.get("role") == "user" else None
+    plan_prose = (type(prefix.policy.action) is NativePlanActionV2
+                  and isinstance(prose, str) and prose.startswith(PLAN_PROSE_HEADING))
+    frame,work_frame = _input_frames(raw,prefix,expected_work['schema'],plan_prose=plan_prose)
+    if plan_prose:
+        passages = bodies.retained_plan_body_passages(prefix)
+        if frame is not None or passages is None:
+            raise ValueError("Plan prose requires one reviewed evidence presentation")
+        frame = semantic_frame(model_frame(receipt, prefix, passage_supports=passages))
+        if prose != render_plan_evidence(frame):
+            raise ValueError("Plan prose differs from its admitted source evidence")
     has_image = isinstance(body.get("input"), list) and proposal_packet_text(body) is not None
     from .native_execution import NativeBuildActionV1
     if isinstance(prefix.policy.action, NativeBuildActionV1):
@@ -279,7 +295,9 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     if not isinstance(frame,dict):
         raise ValueError('Native writer requires its exact evidence presentation')
     from .native_evidence_view import is_semantic_frame,expected_semantic_frame,output_frame
-    host = model_frame(receipt,prefix) if is_semantic_frame(frame) else model_frame(receipt,prefix,schema=frame.get('schema'))
+    passages = bodies.retained_plan_body_passages(prefix)
+    host = model_frame(receipt,prefix,schema=SCHEMA if is_semantic_frame(frame) else frame.get('schema'),
+                       passage_supports=passages)
     expected = expected_semantic_frame(host, frame) if is_semantic_frame(frame) else host
     schema_frame = output_frame(host,expected)
     from .native_plan_work_view import is_semantic_frame as semantic_work, semantic_frame as plan_work_view
@@ -335,17 +353,34 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         authored=authored,idempotency_key=idempotency_key,
         authored_local=authored_local,build_local=build_local,
         saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
-        **read_evidence_records(prefix,expected))
+        **read_evidence_records(prefix,expected,passage_supports=passages))
 
 
-def read_evidence_records(prefix, frame):
+def read_evidence_records(prefix, frame, *, passage_supports=None):
     """Project the exact included read records through their native owners."""
-    catalogs = bodies.acquired_body_catalogs(prefix)
-    body_reads = bodies.selected_body_reads(prefix)
     statement_reads = statements.selected_read_records(prefix)
-    assertion_reads = assertions.selected_read_records(prefix)
-    return dict(body_excerpts=tuple(bodies.NativeBodySupport(row['excerpt_handle'], read,
-            catalogs[read.excerpt.catalog_sha256]) for row,read in zip(frame['native_body_evidence']['excerpts'],body_reads,strict=True)),
+    admitted_indexes = assertions.writer_admission_indexes(prefix)
+    assertion_reads = (assertions.selected_read_records(prefix) if admitted_indexes is None else
+                       assertions.selected_read_records(prefix, admitted_indexes=admitted_indexes))
+    if passage_supports is None:
+        catalogs = bodies.acquired_body_catalogs(prefix)
+        body_reads = bodies.selected_body_reads(prefix)
+        passage_supports = tuple(bodies.NativeBodySupport(row['excerpt_handle'], read,
+            catalogs[read.excerpt.catalog_sha256])
+            for row, read in zip(frame['native_body_evidence']['excerpts'], body_reads, strict=True))
+    else:
+        from dataclasses import replace
+
+        resolved = []
+        for row, support in zip(frame['native_body_evidence']['excerpts'], passage_supports, strict=True):
+            section, text = support.passage()
+            if (row['line_start'], row['line_end'], row['text']) != (
+                section.line_start, section.line_end, text
+            ):
+                raise ValueError('Writer passage differs from its exact source evidence')
+            resolved.append(replace(support, handle=row['excerpt_handle']))
+        passage_supports = tuple(resolved)
+    return dict(body_excerpts=passage_supports,
         native_statements=tuple((row['statement_handle'], event, read) for row, (event, read)
             in zip(frame['native_statements']['statements'], statement_reads, strict=True)),
         native_assertions=tuple((row['assertion_handle'], event, read) for row, (event, read)

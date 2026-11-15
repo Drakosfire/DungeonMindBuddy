@@ -114,6 +114,16 @@ class NativePlanBatchDecisionInputV3(NativeRetrievalDecisionInputV2):
         default="dmb_native_plan_batch_decision_input_v3", alias="schema")
 
 
+class NativePlanPassageDecisionInputV4(NativePlanBatchDecisionInputV3):
+    schema_: Literal["dmb_native_plan_passage_decision_input_v4"] = Field(
+        default="dmb_native_plan_passage_decision_input_v4", alias="schema")
+    ranked_passages: tuple[StrictStr, ...]
+    graph_facts: tuple[dict, ...] = ()
+    vote_ranked_passages: bool = False
+    vote_ranked_paragraphs: bool = False
+    inspected_sources: dict[str, dict] = Field(default_factory=dict)
+
+
 class NativeBuildRetrievalDecisionInputV4(NativeBuildRetrievalDecisionInputV3):
     """Current Build navigation, retaining host-only accounting and phase."""
     schema_: Literal["dmb_native_build_retrieval_decision_input_v4"] = Field(
@@ -139,7 +149,7 @@ _SHARED_RELEVANCE = (
     "include if this option is a relevant next step toward locating or obtaining "
     "a requested detail or necessary relationship; otherwise exclude. "
     "Discovery may return navigation rather than evidence.")
-_SHARED_RELEVANCE_TYPES = {NativeRetrievalDecisionInputV2, NativePlanBatchDecisionInputV3, NativeBuildRetrievalDecisionInputV4, NativePlayRetrievalDecisionInputV1}
+_SHARED_RELEVANCE_TYPES = {NativeRetrievalDecisionInputV2, NativePlanBatchDecisionInputV3, NativePlanPassageDecisionInputV4, NativeBuildRetrievalDecisionInputV4, NativePlayRetrievalDecisionInputV1}
 _NATIVE_TYPES = {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2,
     NativeBuildRetrievalDecisionInputV3, *_SHARED_RELEVANCE_TYPES}
 
@@ -149,6 +159,8 @@ def parse_native_retrieval_input(raw, *, surface_id):
     from .native_plan_opening import NativePlanOpeningInputV1
     codec = (NativePlanOpeningInputV1
         if isinstance(raw, dict) and raw.get('schema') == 'dmb_native_plan_opening_input_v1'
+        else NativePlanPassageDecisionInputV4
+        if isinstance(raw, dict) and raw.get("schema") == "dmb_native_plan_passage_decision_input_v4"
         else NativePlanBatchDecisionInputV3
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_plan_batch_decision_input_v3"
         else NativePlayRetrievalDecisionInputV1
@@ -163,7 +175,7 @@ def parse_native_retrieval_input(raw, *, surface_id):
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v2"
         else NativeRetrievalDecisionInputV1)
     parent = codec.model_validate(raw)
-    if type(parent) in (NativePlanBatchDecisionInputV3, NativePlanOpeningInputV1) and surface_id != 'plan':
+    if type(parent) in (NativePlanBatchDecisionInputV3, NativePlanPassageDecisionInputV4, NativePlanOpeningInputV1) and surface_id != 'plan':
         raise ValueError('Prospective read batches belong only to readonly Plan')
     if isinstance(parent, NativeBuildRetrievalDecisionInputV2) and surface_id != "build":
         raise ValueError("Build authoring relevance belongs only to its actual Build owner")
@@ -201,8 +213,24 @@ class PlannedRetrievalSelection(RetrievalSelection):
     post_read_plan: Literal['review_after_reads', 'finish_if_selected_reads_succeed']
 
 
+class PassageRetrievalSelection(PlannedRetrievalSelection):
+    selected_lines: tuple[tuple[str, int], ...]
+    selected_ranked_indexes: tuple[int, ...] | None = None
+    selected_assertion_indexes: tuple[int, ...] | None = None
+
+
+def passage_questions(request):
+    return [
+        ChoiceDecisionQuestion(name=f"{alias}_line_{number}", options=("include", "exclude"),
+            question=f"Does {alias} line {number} add missing evidence or a material qualification?")
+        for alias, source in request.inspected_sources.items()
+        for number, line in enumerate(source["lines"], source["first_line"])
+        if line.strip()
+    ]
+
+
 def _planned_input(request):
-    if type(request) is NativePlanBatchDecisionInputV3:
+    if type(request) in (NativePlanBatchDecisionInputV3, NativePlanPassageDecisionInputV4):
         return True
     from .native_plan_opening import NativePlanOpeningInputV1
     return type(request) is NativePlanOpeningInputV1
@@ -306,6 +334,28 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
         work=semantic_frame(request.play_work)
         del work['dialogue_reference']  # The parent supplies dialogue exactly once below.
         state['surface_work']=work
+    if isinstance(request, NativePlanPassageDecisionInputV4):
+        questions.extend(passage_questions(request))
+        if request.vote_ranked_passages:
+            questions.extend(ChoiceDecisionQuestion(
+                name=f"ranked_{index}", options=("include", "exclude"),
+                question=(f"Does ranked passage {index + 1} contain any evidence for a requested detail? "
+                    "Include a passage that supplies even one step of a requested sequence, such as an "
+                    "earlier interaction, an unsuccessful attempt, or a later consequence within scope. "
+                    "Consider the relevant part even if the rest of the passage is unrelated. "
+                    "A passage may contribute without establishing the full sequence or its dates."),
+            ) for index in range(len(request.ranked_passages)))
+        if request.graph_facts:
+            state["graph_facts"] = list(request.graph_facts)
+            questions.extend(ChoiceDecisionQuestion(
+                name=f"fact_{index}", options=("include", "exclude"),
+                question=(f"Does Graph fact {index + 1} support the requested events within their time window "
+                          "or identify a person or place needed to understand them? Use the fact's stated "
+                          "episode when available. Exclude similar events outside the requested sequence."),
+            ) for index in range(len(request.graph_facts)))
+        state["inspected_sources"] = request.inspected_sources
+        state["ranked_passages"] = list(request.ranked_passages)
+        state["ranked_passage_guidance"] = "Check these passages against every part of the question. Seek additional evidence only for a remaining gap."
     if request.dialogue:
         state["dialogue_reference"] = [row.model_dump() for row in request.dialogue]
     if controller_accounting is not None:
@@ -350,6 +400,28 @@ def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) ->
     expected = {"operation", *(f"candidate_{i}" for i in range(len(request.candidates)))}
     if _planned_input(request):
         expected.add('post_read_plan')
+    if isinstance(request, NativePlanPassageDecisionInputV4):
+        offered = passage_questions(request)
+        expected.update(item.name for item in offered)
+        ranked = [f"ranked_{i}" for i in range(len(request.ranked_passages))] if request.vote_ranked_passages else []
+        facts = [f"fact_{i}" for i in range(len(request.graph_facts))]
+        expected.update(facts)
+        expected.update(ranked)
+        choices = validated_choice_answers(result, expected)
+        if any(choices[key] not in ("include", "exclude") for key in (*ranked, *facts)):
+            raise ValueError("Unknown ranked passage choice")
+        indexes = tuple(i for i, key in enumerate(ranked) if choices[key] == "include") if request.vote_ranked_passages else None
+        lines = []
+        for item in offered:
+            choice = choices[item.name]
+            if choice not in item.options:
+                raise ValueError("Unknown passage choice")
+            if choice == "include":
+                alias, number = item.name.split("_line_", 1)
+                lines.append((alias, int(number)))
+        selection = _selection_from_choices(request, choices)
+        return PassageRetrievalSelection(**selection.model_dump(), selected_lines=tuple(lines), selected_ranked_indexes=indexes,
+            selected_assertion_indexes=tuple(i for i, key in enumerate(facts) if choices[key] == "include") if facts else None)
     return _selection_from_choices(request, validated_choice_answers(result, expected))
 
 

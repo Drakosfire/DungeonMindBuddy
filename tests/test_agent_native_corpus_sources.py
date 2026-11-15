@@ -232,6 +232,13 @@ class SourceChoices(httpx2.AsyncBaseTransport):
             choice = ('discuss' if name == 'requested_work' else
                       'finish_retrieval' if name == 'operation' else
                       'review_after_reads' if name == 'post_read_plan' else 'exclude')
+            if "_line_" in name:
+                alias, line = name.rsplit("_line_", 1)
+                source = body["state"]["inspected_sources"][alias]
+                if "Éphanna" in source["lines"][int(line) - source["first_line"]]:
+                    choice = "include"
+            if name.startswith("ranked_"):
+                choice = "include"
             if name.startswith('candidate_'):
                 candidate = body['state']['candidates'][int(name.split('_')[-1])]
                 direct_kind = 'Explicit admitted full-source read; metadata choice, not evidence'
@@ -595,7 +602,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     admit(lane, name='head-after-http-answer', body='# Later\n\nAnother event.\n')
     opened = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation/turns/{turn.turn_id}/native-body-excerpts/0')
     assert opened.status_code == 200, opened.text
-    assert opened.json()['content'] == BODY
+    assert opened.json()['content'] == next(line for line in BODY.splitlines(keepends=True) if 'Éphanna' in line)
     replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
     assert replay.status_code == 200, replay.text
     assert replay.json()['plan_context']['completion'] == data['plan_context']['completion']

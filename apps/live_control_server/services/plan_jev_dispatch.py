@@ -105,8 +105,18 @@ class PlanJevDispatch:
                 if receipt.work_context.surface_id == "build" else NativeRetrievalDecisionInputV2)
             from application_state.agent_conversation.native_corpus import initial_source_discovery_enabled
             if initial_source_discovery_enabled(adapter.fence.turn.graph_context_execution):
-                from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
-                codec = NativePlanBatchDecisionInputV3
+                from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3, NativePlanPassageDecisionInputV4
+                from application_state.agent_conversation.native_corpus import body_passage_selection_context, next_ranked_review
+                passages = next_ranked_review(adapter.fence.turn.graph_context_execution)
+                inspected = body_passage_selection_context(adapter.fence.turn.graph_context_execution)
+                from application_state.agent_conversation.native_plan_assertions import next_graph_review
+                graph = next_graph_review(receipt.native_query, adapter.fence.turn.graph_context_execution) if not candidates else ()
+                codec = NativePlanPassageDecisionInputV4 if passages or inspected or graph else NativePlanBatchDecisionInputV3
+                if passages or inspected or graph:
+                    fields["graph_facts"] = graph
+                    fields["inspected_sources"] = inspected
+                    fields["ranked_passages"] = passages
+                    fields["vote_ranked_passages"] = bool(passages)
             self.parent = codec(**fields,**source_pins(receipt))
         elif authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
@@ -285,6 +295,16 @@ class PlanJevDispatch:
                 selected = (decode_requested_work_decision if semantic else decode_selection)(self.parent, result)
             turn = a.fence.turn
             execution = turn.graph_context_execution
+            from application_state.agent_conversation.jev_retrieval_contract import NativePlanPassageDecisionInputV4
+            if isinstance(self.parent, NativePlanPassageDecisionInputV4) and (self.parent.ranked_passages or self.parent.graph_facts):
+                from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV3
+                from application_state.agent_conversation.native_corpus import next_ranked_review
+                marker = NativeRetrievalSelectedV3.model_construct(ranked_review=bool(self.parent.ranked_passages),
+                    reviewed_assertion_count=len(self.parent.graph_facts), selected_handles=())
+                staged = execution.model_copy(update={"events": (*execution.events, marker)})
+                from application_state.agent_conversation.native_plan_assertions import next_graph_review
+                if (selected.operation != "finish_retrieval" and next_ranked_review(staged, paragraphs=self.parent.vote_ranked_paragraphs)) or next_graph_review(turn.graph_context_receipt.native_query, staged):
+                    selected = selected.model_copy(update={"operation": "discover_more"})
             placement = isinstance(self.parent, PlanRequestedWorkInputV2)
             selected_fields = (work_choice(self.parent, selected) | {
                 'original_capture_sha256': self.parent.target_capture_sha256,
@@ -293,8 +313,8 @@ class PlanJevDispatch:
                 'placement_catalog_sha256': self.parent.placement_catalog.sha256 if self.parent.placement_catalog is not None else None,
             }) if placement else {'requested_work': selected, 'target_capture_sha256': self.parent.target_capture_sha256} if semantic else {'operation': selected.operation, 'selected_handles': list(selected.selected_handles)}
             from application_state.agent_conversation.native_execution import NativePlanRequestedWorkSelectedV3, NativePlanOpeningSelectedV1
-            from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
-            planned = type(self.parent) is NativePlanBatchDecisionInputV3
+            from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3, NativePlanPassageDecisionInputV4
+            planned = type(self.parent) in (NativePlanBatchDecisionInputV3, NativePlanPassageDecisionInputV4)
             if planned:
                 selected_fields['post_read_plan'] = selected.post_read_plan
             if opening:
@@ -303,7 +323,16 @@ class PlanJevDispatch:
                     post_read_plan=first_batch.post_read_plan if first_batch is not None else None)
             current_work = isinstance(self.parent, PlanRequestedWorkInputV8)
             event_type = NativePlanOpeningSelectedV1 if opening else NativePlanRequestedWorkSelectedV3 if current_work else t.PlanRequestedWorkSelectedV2 if placement else t.PlanRequestedWorkSelectedV1 if semantic else NativeRetrievalSelectedV2 if planned else NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1
-            event = event_type(kind='native_plan_opening_selected_v1' if opening else 'plan_requested_work_selected_v3' if current_work else 'plan_requested_work_selected_v2' if placement else 'plan_requested_work_selected_v1' if semantic else 'native_retrieval_selected_v2' if planned else 'native_retrieval_selected_v1' if native else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
+            if isinstance(self.parent, NativePlanPassageDecisionInputV4):
+                from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV3
+                event_type = NativeRetrievalSelectedV3
+                selected_fields["selected_lines"] = selected.selected_lines
+                selected_fields["ranked_review"] = bool(self.parent.ranked_passages)
+                selected_fields["ranked_paragraph_review"] = self.parent.vote_ranked_paragraphs
+                selected_fields["selected_ranked_indexes"] = selected.selected_ranked_indexes
+                selected_fields["selected_assertion_indexes"] = selected.selected_assertion_indexes
+                selected_fields["reviewed_assertion_count"] = len(self.parent.graph_facts)
+            event = event_type(kind='native_plan_opening_selected_v1' if opening else 'plan_requested_work_selected_v3' if current_work else 'plan_requested_work_selected_v2' if placement else 'plan_requested_work_selected_v1' if semantic else 'native_retrieval_selected_v3' if isinstance(self.parent, NativePlanPassageDecisionInputV4) else 'native_retrieval_selected_v2' if planned else 'native_retrieval_selected_v1' if native else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
                 sequence=len(execution.events), context_receipt_sha256=execution.context_receipt_sha256,
                 execution_policy_sha256=execution.execution_policy_sha256,
                 controller_attempt_id=self.authorization.provider_attempt_id, decision_request_id=self.parent.request_id,
