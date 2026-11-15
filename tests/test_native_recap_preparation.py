@@ -1658,3 +1658,30 @@ def test_worldbuilding_publishes_explicit_observation_with_exact_support(persist
     })
     assert opened.status_code == 200, opened.text
     assert opened.json()["content"] == x.text.splitlines(keepends=True)[0]
+
+
+@pytest.mark.parametrize("decisions", ["missing", "fabricated_witness"])
+def test_cohort_prepare_refuses_unaccounted_relationships(lane, decisions):
+    lane.payload["nodes"][0]["node_type"] = "event"
+    lane.refresh()
+    body = copy.deepcopy(lane.body)
+    body["selections"] = [
+        choice(record_id, action="use_existing", entity_id="ent:pippa", fields=())
+        for record_id in ("new", "existing")
+    ]
+    edge_decisions = []
+    if decisions == "fabricated_witness":
+        edge_decisions.append(dict(
+            edge_id="edge", decision="already_present", assertion_id="asrt:absent",
+            subject_entity_id="ent:pippa", target_entity_id="ent:pippa",
+        ))
+    body["cohort_edge_review"] = dict(
+        event_ids=["new"], edge_decisions=edge_decisions,
+        prepare_pin={key: value for key, value in body.items() if key != "selections"},
+    )
+
+    response = lane.post(body)
+
+    assert response.status_code == 409, response.text
+    assert "candidate_cohort_edge_review_invalid" in response.text
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == body["expected_parent_revision_id"]

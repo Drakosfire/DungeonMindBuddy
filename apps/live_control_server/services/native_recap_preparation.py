@@ -689,6 +689,22 @@ def prepare(request, principal):
                 request.cohort_edge_review,
                 request.model_dump(mode="json"),
             )
+            edges = {edge.edge_id: edge for edge in preview.edges}
+            for decision in request.cohort_edge_review["edge_decisions"]:
+                if decision["decision"] != "already_present":
+                    continue
+                parsed = access.parsed.get_assertion(decision["assertion_id"])
+                if parsed is None:
+                    raise ValueError("Reviewed assertion is absent from the pinned parent")
+                assertion = native.assertion_contract(parsed)
+                predicate = _predicate(edges[decision["edge_id"]].relationship_type)
+                if (
+                    assertion.subject_entity_id != decision["subject_entity_id"]
+                    or assertion.predicate != predicate
+                    or assertion.value.kind != "entity_ref"
+                    or assertion.value.entity_id != decision["target_entity_id"]
+                ):
+                    raise ValueError("Reviewed assertion differs from the candidate relationship")
         except (KeyError, TypeError, ValueError) as exc:
             raise ReviewRefused("candidate_cohort_edge_review_invalid") from exc
     domain_name = run.source_domain

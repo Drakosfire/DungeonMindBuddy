@@ -31,7 +31,7 @@ def validate(candidate, manifest):
         if state == "publish":
             fields = ("subject_entity_id", "target_entity_id", "evidence_ref_ids")
         elif state == "already_present":
-            fields = ("assertion_id",)
+            fields = ("assertion_id", "subject_entity_id", "target_entity_id")
         elif state in {"held", "rejected"}:
             fields = ("reason",)
         else:
@@ -85,9 +85,9 @@ def validate_prepare(candidate, manifest, request):
         publishing = decision["decision"] == "publish"
         if publishing != (selection.get("action") == "create"):
             raise ValueError(f"{edge_id} prepare action differs from review")
-        if not publishing:
+        if not publishing and decision["decision"] != "already_present":
             continue
-        if sorted(selection["metadata"]["evidence_ref_ids"]) != sorted(decision["evidence_ref_ids"]):
+        if publishing and sorted(selection["metadata"]["evidence_ref_ids"]) != sorted(decision["evidence_ref_ids"]):
             raise ValueError(f"{edge_id} prepare evidence differs from review")
         for endpoint, field in (("from_node_id", "subject_entity_id"),
                                 ("to_node_id", "target_entity_id")):
