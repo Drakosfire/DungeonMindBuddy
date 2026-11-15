@@ -1,3 +1,4 @@
+import { setNativeGraphAccessToken } from "../api/liveApi";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -32,7 +33,12 @@ function record(documentId: string, title: string, campaignId: string): Workspac
 
 describe("BuildDocumentSelector", () => {
   it("finds a saved statblock by title and addresses its exact revision in Build", async () => {
-    const request = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+    setNativeGraphAccessToken("fixture");
+    const request = vi.spyOn(globalThis, "fetch").mockImplementation(async url => new Response(JSON.stringify(
+      String(url).includes("build-pdf-sources") ? {
+        next: null, documents: [{ source_revision_id: "remote", content_sha256: "abcde123",
+          created_at: "2026-11-11T00:00:00Z" }],
+      } : {
       total: 2,
       drafts: [
         { world_id: "elderwyld", draft_id: "creature", name: "Sewer Meat Creature",
@@ -46,6 +52,8 @@ describe("BuildDocumentSelector", () => {
         documents={[record(DOC_A, "Alpha", "longmont-c1")]} listStatus="ready"
         activeDocumentId={null} activeRecord={null} preferredCampaignId={null}
         switching={false} onSelect={vi.fn()} />);
+      expect(await screen.findByRole("option", { name: "PDF · 2026-11-11 · abcde123" }))
+        .toHaveValue("/build?world=elderwyld&pdf=remote");
       const statblock = await screen.findByRole("option", { name: "Sewer Meat Creature" });
       expect(statblock).toHaveValue("/build?world=elderwyld&draft=creature&revision=saved-revision");
       expect(screen.queryByRole("option", { name: "Sewer Giant" })).not.toBeInTheDocument();
@@ -54,10 +62,11 @@ describe("BuildDocumentSelector", () => {
       expect(statblock).toBeInTheDocument();
     } finally {
       request.mockRestore();
+      setNativeGraphAccessToken(null);
     }
   });
 
-  it("lists one Build document for multiple saved regions of a PDF", () => {
+  it("lists one Build document for multiple saved regions of a PDF", async () => {
     const locator = { source_revision_id: "source", content_sha256: "digest",
       page: 1, left: 0, top: 0, right: 1, bottom: 1 };
     const keys = [locator, { ...locator, page: 2 }].map(region => {
@@ -65,15 +74,27 @@ describe("BuildDocumentSelector", () => {
       localStorage.setItem(key, JSON.stringify({ name: "MeatMindNode.pdf", locator: region }));
       return key;
     });
-    const request = vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise(() => {}));
+    setNativeGraphAccessToken("fixture");
+    const staleKey = retainedPdfKey("elderwyld") + pdfRegionKey({ ...locator, source_revision_id: "withdrawn" });
+    localStorage.setItem(staleKey, JSON.stringify({
+      name: "Withdrawn PDF", locator: { ...locator, source_revision_id: "withdrawn" },
+    }));
+    const request = vi.spyOn(globalThis, "fetch").mockImplementation(async url => new Response(JSON.stringify(
+      String(url).includes("build-pdf-sources")
+        ? { next: null, documents: [{ source_revision_id: "source", content_sha256: "digest", created_at: "2026-11-11" }] }
+        : { total: 0, drafts: [] },
+    )));
     try {
       render(<BuildDocumentSelector worldId="elderwyld" documents={[]} listStatus="ready"
         activeDocumentId={null} activeRecord={null} preferredCampaignId={null}
         switching={false} onSelect={vi.fn()} />);
-      expect(screen.getByRole("option", { name: "MeatMindNode.pdf" }))
+      expect(await screen.findByRole("option", { name: "MeatMindNode.pdf" }))
         .toHaveValue("/build?world=elderwyld&pdf=source");
+      expect(screen.queryByRole("option", { name: "Withdrawn PDF" })).not.toBeInTheDocument();
     } finally {
       request.mockRestore();
+      setNativeGraphAccessToken(null);
+      localStorage.removeItem(staleKey);
       keys.forEach(key => localStorage.removeItem(key));
     }
   });

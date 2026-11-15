@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 
-import { readRetainedPdfDocuments, retainedPdfBuildHref } from "../api/retainedPdfRegions";
+import { listRetainedPdfDocuments, retainedPdfBuildHref, type RetainedPdf } from "../api/retainedPdfRegions";
 import { listWorldThreatDrafts, type WorldThreatDraftSummary } from "../api/liveApi";
 import { buildSavedStatblockHref, readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
 import type { WorkspaceDocumentRecord } from "../api/types";
@@ -72,7 +72,19 @@ export function BuildDocumentSelector({
       title: draft.name,
     }];
   });
-  const retainedPdfs = worldId ? readRetainedPdfDocuments(worldId) : [];
+  const [pdfCatalog, setPdfCatalog] = useState<{ worldId: string; documents: RetainedPdf[]; error?: boolean }>();
+  useEffect(() => {
+    if (!worldId) return;
+    const request = new AbortController();
+    listRetainedPdfDocuments(worldId, request.signal).then(documents => {
+      if (!request.signal.aborted) setPdfCatalog({ worldId, documents });
+    }, () => {
+      if (!request.signal.aborted) setPdfCatalog({ worldId, documents: [], error: true });
+    });
+    return () => request.abort();
+  }, [worldId]);
+  const currentPdfCatalog = pdfCatalog?.worldId === worldId ? pdfCatalog : undefined;
+  const retainedPdfs = currentPdfCatalog?.documents ?? [];
   const activePdf = retainedPdfs.find(entry => entry.locator.source_revision_id ===
     new URLSearchParams(window.location.search).get("pdf"));
   const activeStatblock = readSavedStatblockTarget(window.location.href);
@@ -174,6 +186,7 @@ export function BuildDocumentSelector({
     >
       <input type="search" aria-label="Search documents" placeholder="Search documents"
         value={query} onChange={event => setQuery(event.target.value)} />
+      {currentPdfCatalog?.error && <span role="status">PDF documents unavailable</span>}
       {currentCatalog?.error && <span role="status">Saved statblocks unavailable</span>}
       <SurfaceContextSelect {...selectProps}>
         {!activeDocumentId ? (

@@ -2141,6 +2141,33 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
         raise
 
 
+@router.get("/worlds/{world_id}/build-pdf-sources")
+def get_build_pdf_sources(world_id: str, request: Request, after: str = ""):
+    from fastapi.responses import JSONResponse
+
+    from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import (
+        NativeWorldSourceAdmissionError, _repository, _source_world_binding,
+    )
+
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    try:
+        binding = _source_world_binding(None, verified)
+        revisions = _repository().list_public_native_pdf_revisions(
+            binding.native_world_id, after_revision_id=after,
+        )
+    except NativeWorldSourceAdmissionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    return JSONResponse({
+        "documents": [{
+            "source_revision_id": revision.source_revision_id,
+            "content_sha256": revision.content_sha256,
+            "created_at": revision.created_at.isoformat(),
+        } for revision in revisions],
+        "next": revisions[-1].source_revision_id if len(revisions) == 100 else None,
+    }, headers={"Cache-Control": "no-store"})
+
+
 @router.post("/worlds/{world_id}/build-pdf-sources")
 async def post_build_pdf_source(world_id: str, admission_id: UUID, request: Request):
     from datetime import datetime

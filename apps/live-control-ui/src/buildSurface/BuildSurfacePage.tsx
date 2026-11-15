@@ -1,4 +1,4 @@
-import { readRetainedPdfDocuments } from "../api/retainedPdfRegions";
+import { listRetainedPdfDocuments, readRetainedPdfDocuments, type RetainedPdf } from "../api/retainedPdfRegions";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { SavedStatblockFullView } from "../statblocks/StatblockPage";
 import { readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
@@ -44,10 +44,25 @@ export function BuildSurfacePage() {
     return () => window.removeEventListener("popstate", syncHistory);
   }, []);
   const params = new URLSearchParams(entrySearch);
-  const retainedPdf = useMemo(() => {
-    const id = new URLSearchParams(entrySearch).get("pdf");
-    return worldId && id && new URLSearchParams(entrySearch).get("world") === worldId ? readRetainedPdfDocuments(worldId).find(entry => entry.locator.source_revision_id === id) : undefined;
-  }, [entrySearch, worldId]);
+  const pdfId = params.get("world") === worldId ? params.get("pdf") : null;
+  const [authorityPdf, setAuthorityPdf] = useState<{ worldId: string; id: string; entry?: RetainedPdf }>();
+  const localPdf = useMemo(() => worldId && pdfId
+    ? readRetainedPdfDocuments(worldId).find(entry => entry.locator.source_revision_id === pdfId)
+    : undefined, [worldId, pdfId]);
+  useEffect(() => {
+    if (!worldId || !pdfId || localPdf) return;
+    const request = new AbortController();
+    listRetainedPdfDocuments(worldId, request.signal).then(
+      documents => {
+        if (!request.signal.aborted) setAuthorityPdf({ worldId, id: pdfId,
+          entry: documents.find(entry => entry.locator.source_revision_id === pdfId) });
+      },
+      () => { if (!request.signal.aborted) setAuthorityPdf({ worldId, id: pdfId }); },
+    );
+    return () => request.abort();
+  }, [worldId, pdfId, localPdf]);
+  const resolvedPdf = authorityPdf?.worldId === worldId && authorityPdf?.id === pdfId ? authorityPdf : undefined;
+  const retainedPdf = localPdf ?? resolvedPdf?.entry;
   const graphPointer = useMemo(() => parseBuildGraphPointerFromLocation(entrySearch), [entrySearch]);
   const nativeObject = graphPointer?.nativePin;
   const statblock = readSavedStatblockTarget("/build" + entrySearch);
@@ -87,7 +102,7 @@ export function BuildSurfacePage() {
           <BuildSurfaceContext {...controller} />
           <section className="build-pdf-workspace" aria-label="PDF workspace">
             {retainedPdf ? <BuildPdfPreview key={entrySearch} worldId={worldId} initialRetained={retainedPdf} />
-              : <p role="status">This retained PDF could not be found.</p>}
+              : <p role="status">{resolvedPdf ? "This retained PDF could not be found." : "Opening PDF…"}</p>}
           </section>
         </>
       ) : droppedPdf && droppedPdf.worldId === worldId ? (
