@@ -231,6 +231,11 @@ def hosted(monkeypatch, request):
     app.include_router(explorer_router)
     app.include_router(worlds_router)
     app.include_router(inspection_router)
+
+    from apps.live_control_server.routes.agent import get_build_pdf_sources
+
+    app.add_api_route(access.BUILD_PDF_SOURCES_PATH, get_build_pdf_sources, methods=["GET"])
+
     app.include_router(workspace_documents.router)
     install_hosted_request_boundary(
         app,
@@ -243,6 +248,7 @@ def hosted(monkeypatch, request):
                 for operation in OPERATIONS
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
+            ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
             ("GET", access.WORLD_LOOKUP_PATH): access.resolve_hosted_world_lookup,
         },
@@ -1486,6 +1492,28 @@ def test_exact_world_lookup_denies_ownership_transfer_after_admission(hosted, mo
     assert hosted.catalog_reads == ["managed", "managed"]
 
 
+@pytest.mark.parametrize("session, suffix, expected", [
+    ("owner-session", "", 200),
+    ("other-session", "", 403),
+    ("owner-session", "?world_id=foreign", 403),
+    ("owner-session", "/statblock-reviews", 403),
+])
+def test_hosted_pdf_read_is_exact_and_owner_scoped(hosted, monkeypatch, session, suffix, expected):
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as sources
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(sources, "_source_world_binding", lambda *_: SimpleNamespace(native_world_id="managed-native"))
+    monkeypatch.setattr(sources, "_repository", lambda: SimpleNamespace(
+        list_public_native_pdf_revisions=lambda *_a, **_kw: [],
+    ))
+    path = access.BUILD_PDF_SOURCES_PATH.format(world_id="managed") + suffix
+    response = hosted.client.request("GET", path, session=session)
+    assert response.status_code == expected, response.text
+    if expected == 200:
+        assert response.json() == {"documents": [], "next": None}
+
+
 @pytest.mark.parametrize("query, session, expected", [
     ("world_id=managed", "owner-session", 200),
     ("world_id=managed", "other-session", 403),
@@ -1521,3 +1549,19 @@ def test_hosted_build_inventory_denies_ownership_transfer_during_read(hosted, mo
     response = hosted.client.request("GET", f"{access.BUILD_PAGE_INVENTORY_PATH}?world_id=managed")
     assert response.status_code == 403, response.text
     assert "private-tag" not in response.text
+
+def test_hosted_pdf_list_denies_ownership_transfer_during_read(hosted, monkeypatch):
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as sources
+
+    def list_revisions(*_args, **_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(update={"owner_subject": OTHER_OWNER})
+        return []
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(sources, "_source_world_binding", lambda *_: SimpleNamespace(native_world_id="managed-native"))
+    monkeypatch.setattr(sources, "_repository", lambda: SimpleNamespace(list_public_native_pdf_revisions=list_revisions))
+    path = access.BUILD_PDF_SOURCES_PATH.format(world_id="managed")
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 403, response.text
+    assert "documents" not in response.json()

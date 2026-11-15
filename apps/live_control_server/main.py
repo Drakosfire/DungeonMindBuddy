@@ -115,12 +115,14 @@ from apps.live_control_server.services.hosted_auth import (
 )
 from apps.live_control_server.services.trusted_cookie_origin import require_cookie_write_origin
 from apps.live_control_server.services.hosted_native_graph_access import (
+    BUILD_PDF_SOURCES_PATH,
     BUILD_PAGE_INVENTORY_PATH,
     EXPLORER_PREFIX,
     INSPECTION_READ_PATH,
     WORLD_COLLECTION_PATH,
     WORLD_LOOKUP_PATH,
     hosted_owner_collection,
+    resolve_hosted_build_pdf_world,
     resolve_hosted_build_page_inventory,
     resolve_hosted_explorer_world,
     resolve_hosted_world_lookup,
@@ -153,6 +155,9 @@ HOSTED_WORLD_COLLECTION_AUTHORIZERS = {
 }
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("GET", BUILD_PDF_SOURCES_PATH): resolve_hosted_build_pdf_world,
+    ("POST", f"{BUILD_PDF_SOURCES_PATH}/open"): resolve_hosted_build_pdf_world,
+    ("POST", f"{BUILD_PDF_SOURCES_PATH}/region:validate"): resolve_hosted_build_pdf_world,
     ("GET", BUILD_PAGE_INVENTORY_PATH): resolve_hosted_build_page_inventory,
     ("GET", WORLD_LOOKUP_PATH): resolve_hosted_world_lookup,
     ("POST", INSPECTION_READ_PATH): resolve_hosted_explorer_world,
