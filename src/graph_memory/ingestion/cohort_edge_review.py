@@ -29,7 +29,15 @@ def validate(candidate, manifest):
     for edge_id, row in decisions.items():
         state = row["decision"]
         if state == "publish":
-            fields = ("subject_entity_id", "target_entity_id", "evidence_ref_ids")
+            fields = ("evidence_ref_ids",)
+            for role in ("subject", "target"):
+                endpoint_fields = [
+                    field for field in (f"{role}_entity_id", f"{role}_candidate_node_id")
+                    if field in row
+                ]
+                if len(endpoint_fields) != 1:
+                    raise ValueError(f"{edge_id} requires one {role} binding")
+                fields += tuple(endpoint_fields)
         elif state == "already_present":
             fields = ("assertion_id", "subject_entity_id", "target_entity_id")
         elif state in {"held", "rejected"}:
@@ -89,11 +97,17 @@ def validate_prepare(candidate, manifest, request):
             continue
         if publishing and sorted(selection["metadata"]["evidence_ref_ids"]) != sorted(decision["evidence_ref_ids"]):
             raise ValueError(f"{edge_id} prepare evidence differs from review")
-        for endpoint, field in (("from_node_id", "subject_entity_id"),
-                                ("to_node_id", "target_entity_id")):
-            bound = selections.get(("node", edges[edge_id][endpoint]), {})
-            if bound.get("action") != "use_existing" or bound.get("entity_id") != decision[field]:
+        for endpoint, role in (("from_node_id", "subject"), ("to_node_id", "target")):
+            node_id = edges[edge_id][endpoint]
+            bound = selections.get(("node", node_id), {})
+            candidate_field = f"{role}_candidate_node_id"
+            if publishing and candidate_field in decision:
+                matches = bound.get("action") == "create" and decision[candidate_field] == node_id
+            else:
+                matches = (
+                    bound.get("action") == "use_existing"
+                    and bound.get("entity_id") == decision[f"{role}_entity_id"]
+                )
+            if not matches:
                 raise ValueError(f"{edge_id} prepare endpoint differs from review: {endpoint}")
     return count
-
-

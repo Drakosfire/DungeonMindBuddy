@@ -1685,3 +1685,26 @@ def test_cohort_prepare_refuses_unaccounted_relationships(lane, decisions):
     assert response.status_code == 409, response.text
     assert "candidate_cohort_edge_review_invalid" in response.text
     assert lane.repo.get_head(SPACE_ID).head_revision_id == body["expected_parent_revision_id"]
+
+
+def test_cohort_prepare_keeps_relationship_to_new_event(lane):
+    lane.payload["nodes"][0]["node_type"] = "event"
+    lane.refresh()
+    body = copy.deepcopy(lane.body)
+    body["cohort_edge_review"] = dict(
+        event_ids=["new"],
+        edge_decisions=[dict(
+            edge_id="edge", decision="publish", subject_candidate_node_id="new",
+            target_entity_id="ent:pippa", evidence_ref_ids=META["evidence_ref_ids"],
+        )],
+        prepare_pin={key: value for key, value in body.items() if key != "selections"},
+    )
+
+    response = lane.post(body)
+
+    assert response.status_code == 200, response.text
+    prepared = transport.decode_prepared(response.json()["prepared"])
+    edge, = [operation for operation in prepared.prepared_operations
+             if isinstance(operation, CreateRelationship)]
+    assert edge.source == ResultOf("record:0")
+    assert edge.target == DurableObjectRef("ent:pippa")
