@@ -359,7 +359,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/threat-drafts\/[^/]+\/mechanics-(?:revisions(?:\/[^/]+)?|revision-operations\/[^/]+(?::recover)?)$/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/world-session-evidence")) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/prepared-tables(?:\/receipts|\/commands\/[^/]+)?$/.test(pathname)) return true;
-  if (pathname === "/api/live/recap-ingest" || isRecapSelectionContextPath(pathname)) return true;
+  if (pathname === "/api/live/recap-ingest" || pathname === "/api/live/recap-name-review" || isRecapSelectionContextPath(pathname)) return true;
   if (pathname === "/api/live/extract-promote/native-prepare" || pathname === "/api/live/extract-promote/native-confirm"
       || pathname === "/api/live/extract-promote/native-worldbuilding-context") return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/review(?:\/commands\/[^/]+)?$/.test(pathname)) return true;
@@ -677,6 +677,7 @@ function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean 
       && typeof body.turn_id === "string" && Boolean(body.turn_id);
   }
   return isRecapSelectionContextPath(pathname)
+    || pathname === "/api/live/recap-name-review"
     || /^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname)
     || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
