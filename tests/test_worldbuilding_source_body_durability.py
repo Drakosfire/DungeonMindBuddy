@@ -343,3 +343,40 @@ def test_source_metadata_outage_is_not_reported_as_missing(monkeypatch, tmp_path
         _open(tmp_path, artifact, _span_id(artifact, markdown))
     assert error.value.status_code == 503
     assert error.value.code == "source_unavailable"
+
+
+def test_action_checkpoint_replays_edge_row_save_and_reopen(tmp_path, monkeypatch):
+    from apps.live_control_server.services.workspace_document_registry import (
+        get_workspace_document_snapshot,
+    )
+    from evals.buddy_benchmark.artifacts import action_checkpoint
+
+    document, _, _ = _registered_source(tmp_path, monkeypatch)
+    original = (
+        "| Name | Job |\n| --- | --- |\n"
+        "| Ada | Scout |\n| Bea | Cook |\n| Cy | Guard |\n"
+    )
+    document = _save_source(tmp_path, document, original)
+    edited = original.replace("| Bea | Cook |", "| Bea | Baker |")
+    binding = {
+        "document": str(document.document_id),
+        "revision": document.revision,
+        "before": hashlib.sha256(original.encode()).hexdigest(),
+        "after": hashlib.sha256(edited.encode()).hexdigest(),
+    }
+
+    def save():
+        saved = _save_source(tmp_path, document, edited)
+        return {"revision": saved.revision}
+
+    checkpoints = tmp_path / "aw-checkpoints"
+    receipt, reused = action_checkpoint(
+        checkpoints, stage="save", binding=binding, observe=save
+    )
+    assert not reused
+    assert action_checkpoint(
+        checkpoints, stage="save", binding=binding, observe=save
+    ) == (receipt, True)
+    reopened = get_workspace_document_snapshot(tmp_path, document.document_id)
+    assert reopened.loaded_revision == receipt["evidence"]["revision"]
+    assert reopened.markdown == edited
