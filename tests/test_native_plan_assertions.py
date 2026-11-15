@@ -600,9 +600,10 @@ def _ordinary_native_case(
                     for ref in selected_references.references:
                         assert ref.label in prose
                 if authored_source:
-                    excerpt = re.search(r'^\[(body\d+)\] [^\n]+\n[^#]*source-local episode', prose, re.MULTILINE)
+                    excerpt = re.search(r'^\[(body\d+)\] [^\n]+$', prose, re.MULTILINE)
                     assert excerpt is not None
-                    assert 'DISPLAY ONLY Plan source' not in prose
+                    assert 'source-local episode' in prose
+                    assert 'DISPLAY ONLY Plan source' not in excerpt[0]
                     segments.append(dict(kind='native_body_claim', text='The source describes a source-local episode.',
                         excerpt_handles=[excerpt[1]]))
                 if related_page:
