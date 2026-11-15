@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from apps.live_control_server.routes.statblock_storage import statblock_data_root
 from apps.live_control_server.routes.native_threat_creation import router as native_creation_router
@@ -24,6 +24,7 @@ from apps.live_control_server.services.managed_world_graph_projection import res
 from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
 from apps.live_control_server.services.threat_draft_store import (
     ThreatDraftStoreError,
+    archive_saved_threat_draft,
     create_threat_draft,
     get_threat_draft,
     list_threat_drafts,
@@ -106,6 +107,22 @@ def get_threat_drafts(
         offset=offset,
         total=total,
     ).model_dump(mode="json", by_alias=True)
+
+
+@router.delete("/{draft_id}/saved-statblock", status_code=204)
+def delete_saved_statblock(draft_id: str, world_id: str, expected_version: int, request: Request):
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+
+    enforce_native_graph_gm(request)
+    _admit_world_scope(world_id, None)
+    try:
+        archive_saved_threat_draft(
+            statblock_data_root(repo_root()), world_id=world_id,
+            draft_id=draft_id, expected_version=expected_version,
+        )
+    except ThreatDraftStoreError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return Response(status_code=204, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/{draft_id}")
