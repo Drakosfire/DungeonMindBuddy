@@ -24,13 +24,11 @@ import {
   SurfaceContextBadge,
   SurfaceContextModule,
   SurfaceContextStatus,
-  SurfaceContextValue,
   useSurfaceContextContribution,
 } from "../surfaceInteraction/contextHost";
 import { BuildConnectedPageControl } from "./BuildConnectedPageControl";
 import { BuildDocumentCreateControl } from "./BuildDocumentCreateControl";
 import { BuildDocumentRenameControl } from "./BuildDocumentRenameControl";
-import { LoadedWorldGraphExplorer } from "../graphLens/LoadedWorldGraphExplorer";
 import { BuildDocumentSelector } from "./BuildDocumentSelector";
 import { buildSavedAt, buildSaveStateFor } from "./useBuildAutosave";
 import type { BuildWorkspaceDocumentController } from "./useBuildWorkspaceDocumentController";
@@ -157,7 +155,7 @@ export function BuildSurfaceContext({
               <span data-testid="build-canvas-title" hidden>
                 {displayTitle}
               </span>
-              {placePicker(<BuildDocumentSelector
+              {placePrimaryAction(<BuildDocumentSelector
                 worldId={documentWorldId}
                 documents={documents}
                 listStatus={listStatus}
@@ -174,7 +172,6 @@ export function BuildSurfaceContext({
                 }}
                 onSelect={selectDocument}
               />, primaryActionsHost)}
-              <LoadedWorldGraphExplorer entry="recaps" />
               {authoringStatusLabel ? (
                 <>
                   <SurfaceContextStatus
@@ -203,8 +200,7 @@ export function BuildSurfaceContext({
             </>
           ) : (
             <>
-              <SurfaceContextValue>No source loaded</SurfaceContextValue>
-              {placePicker(<BuildDocumentSelector
+              {placePrimaryAction(<BuildDocumentSelector
                 worldId={documentWorldId}
                 documents={documents}
                 listStatus={listStatus}
@@ -221,10 +217,9 @@ export function BuildSurfaceContext({
                 }}
                 onSelect={selectDocument}
               />, primaryActionsHost)}
-              <LoadedWorldGraphExplorer entry="recaps" />
             </>
           )}
-          <details className="build-source-actions">
+          {(session || campaignBadge || documentClass) && <details className="build-source-actions">
             <summary>Source actions</summary>
             <div className="build-source-actions__menu">
               <div ref={setRelationshipsHost}/>
@@ -247,7 +242,7 @@ export function BuildSurfaceContext({
                 />
               ) : null}
             </div>
-          </details>
+          </details>}
           {activeDocumentId ? <>
             <SurfaceContextAction className="build-navbar-tool" aria-label="Link existing node" title="Link an existing graph node" disabled={!linkAvailable || !renameAdmitted || documentMutationBusy}
               onClick={() => { if (linkAvailable) openReferenceTool?.(BUILD_FIND_EXISTING_TOOL_ID); }}>Link node</SurfaceContextAction>
@@ -261,7 +256,7 @@ export function BuildSurfaceContext({
           {activeDocumentId && extractionTargetRef ? (
             <div className="build-extraction-slot" ref={extractionTargetRef} data-testid="build-extraction-slot" />
           ) : null}
-          <BuildDocumentCreateControl
+          {placePrimaryAction(<BuildDocumentCreateControl
             destinationOptions={destinationOptions}
             suggestedDestinationValue={suggestedDestinationValue}
             creating={creating}
@@ -274,7 +269,7 @@ export function BuildSurfaceContext({
             onRetryOpen={activationError ? retryCreatedDocument : undefined}
             onRetryImport={importError ? retryImportSource : undefined}
             disabled={documentMutationBusy}
-          />
+          />, primaryActionsHost)}
         </div>
         {listStatus === "error" ? (
           <SurfaceContextStatus tone="error">
@@ -344,6 +339,6 @@ export function BuildSurfaceContext({
 }
 
 
-function placePicker(picker: React.ReactElement, host: HTMLDivElement | null | undefined) {
+function placePrimaryAction(picker: React.ReactElement, host: HTMLDivElement | null | undefined) {
   return host === undefined ? picker : host ? createPortal(picker, host) : null;
 }

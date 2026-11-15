@@ -4,7 +4,7 @@ import type { NativeSourceMetadata } from "../api/nativeSourceInspection";
 import { useEffect, useId, useMemo, useState, useRef } from "react";
 
 import { listRetainedPdfDocuments, retainedPdfBuildHref, type RetainedPdf } from "../api/retainedPdfRegions";
-import { listWorldThreatDrafts, withdrawBuildSource, type WorldThreatDraftSummary } from "../api/liveApi";
+import { listPdfStatblockReviews, listWorldMechanicsAssociations, listWorldThreatDrafts, withdrawBuildSource, type PdfStatblockReviewSummary, type WorldThreatDraftSummary } from "../api/liveApi";
 import { buildSavedStatblockHref, readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
 import type { WorkspaceDocumentRecord } from "../api/types";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
@@ -61,16 +61,37 @@ export function BuildDocumentSelector({
   onSelect,
 }: BuildDocumentSelectorProps) {
   const [query, setQuery] = useState("");
-  const [catalog, setCatalog] = useState<{ worldId: string; drafts: WorldThreatDraftSummary[]; error: boolean }>();
+  const [catalog, setCatalog] = useState<{ worldId: string; drafts: WorldThreatDraftSummary[]; published: Map<string, Set<string>>; error: boolean }>();
   useEffect(() => {
     if (!worldId) return;
     const request = new AbortController();
-    listWorldThreatDrafts(worldId, request.signal).then(
-      drafts => { if (!request.signal.aborted) setCatalog({ worldId, drafts, error: false }); },
-      () => { if (!request.signal.aborted) setCatalog({ worldId, drafts: [], error: true }); },
+    Promise.all([listWorldThreatDrafts(worldId, request.signal), listWorldMechanicsAssociations(worldId)]).then(
+      ([drafts, associations]) => {
+        const published = new Map<string, Set<string>>();
+        for (const { request: association, proof } of associations) {
+          if (association.target.campaign_scope !== null) continue;
+          const revisions = published.get(association.draft_id) ?? new Set<string>();
+          revisions.add(proof.locator.revision_id);
+          published.set(association.draft_id, revisions);
+        }
+        if (!request.signal.aborted) setCatalog({ worldId, drafts, published, error: false });
+      },
+    ).catch(() => {
+      if (!request.signal.aborted) setCatalog({ worldId, drafts: [], published: new Map(), error: true });
+    });
+    return () => request.abort();
+  }, [worldId]);
+  const [reviewCatalog, setReviewCatalog] = useState<{ worldId: string; reviews: PdfStatblockReviewSummary[]; error?: boolean }>();
+  useEffect(() => {
+    if (!worldId) return;
+    const request = new AbortController();
+    listPdfStatblockReviews(worldId, request.signal).then(
+      reviews => { if (!request.signal.aborted) setReviewCatalog({ worldId, reviews }); },
+      () => { if (!request.signal.aborted) setReviewCatalog({ worldId, reviews: [], error: true }); },
     );
     return () => request.abort();
   }, [worldId]);
+  const currentReviews = reviewCatalog?.worldId === worldId ? reviewCatalog : undefined;
   const currentCatalog = catalog?.worldId === worldId ? catalog : undefined;
   const filter = query.trim().toLowerCase();
   const [category, setCategory] = useState<PickerCategory>("Recent");
@@ -85,12 +106,12 @@ export function BuildDocumentSelector({
   const [withdrawn, setWithdrawn] = useState<string[]>([]);
   const [recent, setRecent] = useState<string[]>([]);
   const statblocks = (currentCatalog?.drafts ?? []).flatMap(draft => {
-    const revisionId = draft.saved_revision_id;
-    if (draft.world_id !== worldId || !revisionId) return [];
-    return [{
+    if (draft.world_id !== worldId) return [];
+    return Array.from(currentCatalog?.published.get(draft.draft_id) ?? [], revisionId => ({
       href: buildSavedStatblockHref({ worldId: draft.world_id, draftId: draft.draft_id, revisionId }),
       title: draft.name,
-    }];
+      draftId: draft.draft_id,
+    }));
   });
   const [pdfCatalog, setPdfCatalog] = useState<{ worldId: string; documents: RetainedPdf[]; error?: boolean }>();
   useEffect(() => {
@@ -205,6 +226,12 @@ export function BuildDocumentSelector({
       ...option, category: "Pages" as const, detail: group.label,
     }))),
     ...statblocks.map(item => ({ id: item.href, label: item.title, category: "Statblocks" as const })),
+    ...(worldId ? (currentReviews?.reviews ?? []).filter(review =>
+      !statblocks.some(item => item.draftId === review.draft_id)
+    ).map(review => ({
+      id: "/build?" + new URLSearchParams({ world: worldId, pdfReview: review.review_id }),
+      label: review.name, category: "Statblock drafts" as const, detail: "PDF extraction draft",
+    })) : []),
     ...(worldId ? retainedPdfs.map(entry => ({
       id: retainedPdfBuildHref(worldId, entry), label: entry.name, category: "PDFs" as const,
       withdrawal: { kind: "pdf" as const, revision_id: entry.locator.source_revision_id },
@@ -231,12 +258,13 @@ export function BuildDocumentSelector({
   if (activeRecord) pageRecords.set(activeRecord.document_id, activeRecord);
   const byId = new Map(entries.map(entry => [entry.id, entry]));
   const visible = filter
-    ? entries.filter(entry => `${entry.label} ${entry.category} ${entry.detail ?? ""}`.toLowerCase().includes(filter))
+    ? entries.filter(entry => entry.category !== "Statblock drafts" && `${entry.label} ${entry.category} ${entry.detail ?? ""}`.toLowerCase().includes(filter))
     : category === "Recent"
-      ? recent.flatMap(id => byId.get(id) ?? [])
-      : entries.filter(entry => category === "All documents" || entry.category === category);
-  const pending = listStatus === "loading" || Boolean(worldId && (!currentCatalog || !currentPdfCatalog || !currentNativeCatalog));
+      ? recent.flatMap(id => byId.get(id) ?? []).filter(entry => entry.category !== "Statblock drafts")
+      : entries.filter(entry => category === "All documents" ? entry.category !== "Statblock drafts" : entry.category === category);
+  const pending = listStatus === "loading" || Boolean(worldId && (!currentCatalog || !currentReviews || !currentPdfCatalog || !currentNativeCatalog));
   const errors = [
+    currentReviews?.error && "PDF extraction drafts unavailable",
     currentCatalog?.error && "Saved statblocks unavailable",
     currentPdfCatalog?.error && "PDF documents unavailable",
     currentNativeCatalog?.error && "Ingested text documents unavailable",
@@ -352,7 +380,7 @@ export function BuildDocumentSelector({
   );
 }
 
-const PICKER_CATEGORIES = ["Recent", "All documents", "Pages", "Statblocks", "PDFs", "Recaps", "Ingested text"] as const;
+const PICKER_CATEGORIES = ["Recent", "All documents", "Pages", "Statblocks", "Statblock drafts", "PDFs", "Recaps", "Ingested text"] as const;
 type PickerCategory = typeof PICKER_CATEGORIES[number];
 type PickerEntry = { id: string; label: string; category: PickerCategory; detail?: string; withdrawal?: { kind: "pdf" | "text"; revision_id: string } };
 

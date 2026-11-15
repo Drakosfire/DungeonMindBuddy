@@ -1,3 +1,4 @@
+import {createPortal} from "react-dom";
 import {useEffect,useState,useSyncExternalStore} from 'react';
 import {getThreatDraft,openSavedMechanicsVersion} from '../api/liveApi';
 import {AppChrome} from '../chrome/AppChrome';
@@ -40,7 +41,7 @@ function SavedCreatureReview({target,packet}:{target:SavedStatblockTarget;packet
 }
 
 /** One exact native read. It never consults the Workbench's selected-version hint. */
-export function SavedStatblockFullView({target}:{target:SavedStatblockTarget}) {
+export function SavedStatblockFullView({target, toolbarHost}:{target:SavedStatblockTarget; toolbarHost?: HTMLElement | null}) {
  const key=JSON.stringify([target.worldId,target.draftId,target.revisionId]);
  const [attempt,setAttempt]=useState(0);
  const [state,setState]=useState<{key:string;packet:OpenSavedMechanicsVersion|null;error:string|null}|null>(null);
@@ -53,9 +54,21 @@ export function SavedStatblockFullView({target}:{target:SavedStatblockTarget}) {
   return()=>{active=false;};
  },[key,attempt]);
  const current=state?.key===key?state:null;
+ const packet=current?.packet;
+ const tools=packet&&<>
+  <SavedCreatureReview key={key} target={target} packet={packet}/>
+  <WorldMechanicsAssociationPanel worldId={target.worldId} draftId={target.draftId} locator={packet.locator}/>
+ </>;
+ const edit=packet&&<SavedStatblockButton {...target} label="Edit this version"/>;
+ const buildToolbar=toolbarHost&&createPortal(
+  <div className="saved-statblock-navbar">
+   {edit}
+   <details><summary>Creature tools</summary><div className="saved-statblock-navbar__tools">{tools}</div></details>
+  </div>,toolbarHost);
  return <main className="saved-statblock-page" aria-label="Full saved statblock">
   {current?.error?<><p role="alert">{current.error}</p><button type="button" onClick={()=>setAttempt(value=>value+1)}>Retry statblock</button></>
-   :current?.packet?<><SavedStatblockButton {...target} label="Edit this version"/><SavedCreatureReview key={key} target={target} packet={current.packet}/><WorldMechanicsAssociationPanel worldId={target.worldId} draftId={target.draftId} locator={current.packet.locator}/><StatblockRenderer revision={current.packet.resource} mode="full" chrome="campaign"/></>
+   :packet?<>{toolbarHost===undefined?<>{edit}{tools}</>:buildToolbar}
+    <StatblockRenderer revision={packet.resource} mode="full" chrome="campaign"/></>
    :<p role="status">Opening saved statblock…</p>}
  </main>;
 }

@@ -332,7 +332,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     "/api/live/native-graph-explorer/operations/read",
   ].includes(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-source-withdrawals$/.test(pathname)) return true;
-  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|ocr|review|statblock:validate))?$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|ocr|review|statblock-reviews|statblock:validate))?$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+(?:\/validate|\/from-regions|\/creature-draft|\/(?:accept|append)\/[^/]+)?$/.test(pathname)) return true;
   if ([
     "/api/live/graph-authoring/document-relationship/request",
@@ -3425,4 +3425,17 @@ export async function withdrawBuildSource(worldId: string, source: { kind: "pdf"
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(source),
   });
   if (!response.ok) throw new Error("Could not delete the document. Refresh and try again.");
+}
+
+export interface PdfStatblockReviewSummary {
+  review_id: string;
+  name: string;
+  draft_id: string;
+}
+
+export async function listPdfStatblockReviews(worldId: string, signal: AbortSignal): Promise<PdfStatblockReviewSummary[]> {
+  const result = await apiFetch<{ reviews: PdfStatblockReviewSummary[] }>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/statblock-reviews`, { signal },
+  );
+  return result.reviews;
 }

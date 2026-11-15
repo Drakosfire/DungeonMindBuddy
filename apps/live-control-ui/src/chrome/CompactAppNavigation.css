@@ -23,7 +23,7 @@
 }
 
 .app-nav-primary-actions:empty { display: none; }
-.app-nav-primary-actions { flex: 0 0 auto; }
+.app-nav-primary-actions { display: flex; align-items: center; flex: 0 1 auto; min-width: 0; flex-wrap: wrap; gap: 6px; }
 .app-site-nav--compact :is(.app-nav-tour, .app-nav-primary-actions [aria-haspopup="dialog"], .app-nav-world-context > button, .app-world-selector > button, .app-world-graph-status__trigger) {
   box-sizing: border-box;
   min-height: 32px;
