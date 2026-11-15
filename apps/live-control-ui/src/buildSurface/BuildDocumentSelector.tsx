@@ -1,6 +1,6 @@
 import { loadNativeDocuments, nativeDocumentHref } from "./buildNativeDocuments";
 import type { NativeSourceMetadata } from "../api/nativeSourceInspection";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useId, useMemo, useState, useRef } from "react";
 
 import { listRetainedPdfDocuments, retainedPdfBuildHref, type RetainedPdf } from "../api/retainedPdfRegions";
 import { listWorldThreatDrafts, type WorldThreatDraftSummary } from "../api/liveApi";
@@ -69,6 +69,7 @@ export function BuildDocumentSelector({
   const currentCatalog = catalog?.worldId === worldId ? catalog : undefined;
   const filter = query.trim().toLowerCase();
   const [category, setCategory] = useState<PickerCategory>("Recent");
+  const rowPrefix = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -273,11 +274,12 @@ export function BuildDocumentSelector({
           </nav>
           <section aria-label={filter ? "Search results" : category} className="build-document-picker__results">
             {errors.map(error => <p key={String(error)} role="status">{error}</p>)}
-            {visible.length ? <ul>{visible.map(entry => <li key={entry.id}>
-              <button type="button" data-document-id={entry.id} aria-label={entry.label} aria-current={entry.id === activeId ? "page" : undefined}
+            {visible.length ? <ul>{visible.map((entry, index) => <li key={entry.id}>
+              <button type="button" data-document-id={entry.id} aria-label={entry.label}
+                aria-describedby={`${rowPrefix}-${index}`} aria-current={entry.id === activeId ? "page" : undefined}
                 onClick={() => openDocument(entry.id)}>
                 <span>{entry.label}</span>
-                <small>{[entry.category, entry.detail].filter(Boolean).join(" · ")}</small>
+                <small id={`${rowPrefix}-${index}`}>{[entry.category, entry.detail].filter(Boolean).join(" · ")}</small>
               </button>
             </li>)}</ul> : <p role="status">{pending ? "Loading documents…" : filter ? (loadMorePages ? "No loaded documents match your search." : "No documents match your search.")
               : category === "Recent" ? "Documents you open will appear here." : "No documents in this category."}</p>}
