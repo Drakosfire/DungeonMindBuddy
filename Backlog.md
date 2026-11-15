@@ -87,7 +87,9 @@ One row per product idea. These rows are pointers, not separate status records. 
 **Last verified:** 2026-10-24 @ `c74b5082ead867cd28fb302935dc05965dc1f4c0`
 **Context:** Edge authoring dogfood began with the need to place artwork intentionally. The subsequent product discussion selected a shared page composer as the design target, not a standalone image-grid feature. It did not authorize implementation.
 
-**Direction:** Keep Tiptap as the editor. Define shared rows and resizable grid columns with stable identities that can hold ordinary editable paragraphs, images, tables and callouts. One block is not one widget system. Keep regular documents working unchanged and keep spatial workspaces and map placement separate.
+**Direction:** Keep Tiptap as the editor. Add opt-in, content-height rows with independent resizable slots for ordinary paragraphs, images, tables and callouts. Tables remain semantic blocks inside slots, not a layout primitive. Keep normal documents and spatial/map work separate.
+
+**Proposal:** [Build page composer](Docs/Backlog/DESIGN-build-page-composer.md) defines row guides, minimum heights, reading order, revision and draft recovery, and the separate sticker-sheet print test.
 
 **First coherent slice to design:** Author a real two-column Build section with editable text and an image, then prove that the same grid can place a table and a callout without special layout primitives. Insert or move an existing block, snap column boundaries, and change block order only through an explicit move. Decide revision ownership and serialization before coding. Reuse existing node editing/resize behavior where applicable without confusing image width with column placement.
 
