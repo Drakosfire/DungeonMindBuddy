@@ -102,3 +102,29 @@ before calling this case executable. Retain the retrieval trace, preview,
 confirmation, save receipts, and independent readbacks. Score the first
 failed boundary and any partial state. Markdown in conversation is sufficient
 for the review step.
+
+## Checkpoint storage
+
+Use the benchmark artifact owner's `action_checkpoint` for serial capture and
+retained observation. Pass a JSON binding containing the exact build and
+isolated environment, fixture and stage inputs, and previous checkpoint digest.
+A matching binding reuses retained evidence. A changed binding selects a new
+record and a changed predecessor digest invalidates downstream reuse. Keep
+failed observations and unknown action outcomes. Use the product owner's
+receipt and idempotency checks before attempting a mutation again. A missing
+checkpoint alone cannot establish that an action was never applied.
+
+Run offline conversation-only scoring with
+`python -m evals.buddy_benchmark.workflow action-report --manifest MANIFEST --output DIR`.
+The manifest schema is `dmb_aw_assessment_v1`. Each case has a unique `id` and
+an `observation` pin with `path` and `sha256`. The pinned JSON supplies
+`events`, `before`, `after`, and `fulfilled`. Use null for unavailable
+observations. An empty event list means capture verified a complete journal
+with no relevant effects. The command scores supplied observations only.
+
+Set case `kind` to `confirmed_action` for a reviewed mutation. Supply
+`before_confirmation` effects, ordered `mutations` and `expected_mutations`,
+and independently assessed `reopened` and `protected_state_changed` flags.
+For `blocked_action`, supply `mutations`, `success_receipts`,
+`missing_prerequisite`, and `candidate_preserved`. Use null when evidence is
+unavailable. The result reports each check separately.

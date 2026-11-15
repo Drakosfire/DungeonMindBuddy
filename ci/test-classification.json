@@ -596,6 +596,7 @@
       "tests/test_application_state_database_fixture.py",
       "tests/test_authored_page_database_cutover.py",
       "tests/test_buddy_benchmark_workflow.py",
+      "tests/test_aw_action_assessment.py",
       "tests/test_build_decision_context.py",
       "tests/test_build_destination_menu.py",
       "tests/test_build_document_proposal.py",

@@ -1036,9 +1036,39 @@ def context_tasting(manifest_path, output, *, transport=None):
     immutable_save(directory, "blind-answers", blind)
 
 
+def action_report(manifest_path):
+    """Score retained action observations without starting an ordinary turn."""
+    from .action_assessment import (
+        assess_blocked_action,
+        assess_confirmed_action,
+        assess_conversation_only,
+    )
+
+    assess = {
+        "conversation_only": assess_conversation_only,
+        "confirmed_action": assess_confirmed_action,
+        "blocked_action": assess_blocked_action,
+    }
+
+    path = Path(manifest_path)
+    manifest = json.loads(path.read_text())
+    if manifest.get("schema") != "dmb_aw_assessment_v1":
+        raise ValueError("Unknown AW assessment manifest")
+    cases = manifest["cases"]
+    ids = [case["id"] for case in cases]
+    if not ids or len(ids) != len(set(ids)):
+        raise ValueError("AW assessment requires unique case IDs")
+    results = []
+    for case in cases:
+        observation = json.loads(read_pin(case["observation"], path.parent))
+        assessment = assess[case.get("kind", "conversation_only")](**observation)
+        results.append({"id": case["id"], "observation": case["observation"], **assessment})
+    return {"schema": "dmb_aw_assessment_report_v1", "cases": results}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("report", "capture", "capture-context", "writer-prepare", "writer-capture", "context-tasting"))
+    parser.add_argument("mode", choices=("report", "action-report", "capture", "capture-context", "writer-prepare", "writer-capture", "context-tasting"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--oracle", help="Private Gold JSON for offline report mode")
@@ -1048,6 +1078,8 @@ def main(argv=None):
         parser.error("Oracle and citation readback are available only in report mode")
     if args.mode == "report":
         immutable_save(Path(args.output), "report", report(args.manifest, oracle=args.oracle, citation_readback=args.citation_readback))
+    elif args.mode == "action-report":
+        immutable_save(Path(args.output), "action-report", action_report(args.manifest))
     elif args.mode == "capture":
         capture(args.manifest, args.output)
     elif args.mode == "capture-context":
