@@ -48,6 +48,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 | --- | --- |
 | [Shared Build page composer](#idea-high-priority--shared-grid-page-constructor) | Compose text, images, tables and callouts in one reusable, saved row/column layout. |
 | [Agent page-formatting benchmarks](#idea-agent-page-formatting-benchmarks) | Compare Buddy on repeatable Build formatting tasks; preserve content and prove the saved rendered result. |
+| [Report a bug from Buddy](#idea-report-a-bug-from-buddy) | One page and agent entry flow, with screenshot drop and a link to the filed issue. |
 | [Layered map editor](Docs/Backlog/IDEA-layered-map-editor.md) | One durable map with editable overlays. Share coordinates where justified, not a single UI with page layout. |
 | [App-wide theming](#idea-app-wide-theme-system) | One shared design system, selectable and customizable themes, with reviewed agent proposals. |
 | [Composable spatial workspace](#deferred-composable-spatial-workspace) | Saved canvas arrangements; not page composition or a separate theme system. |
@@ -108,6 +109,15 @@ One row per product idea. These rows are pointers, not separate status records. 
 **First benchmark:** Freeze representative input Pages, a plain-language layout brief per task, and the current normal Buddy agent/action path as the baseline. Start with existing composer actions: place artwork beside prose, arrange a real table and callout, and revise the layout on a saved page. Evaluate the actual saved revision and a cold browser reopen at desktop and narrow widths, not the chat response or screenshots alone. Add text over art and sticker/print cases only once the corresponding tools exist.
 
 **Scoring and guardrails:** Hard fail on lost or rewritten content, incorrect reading order, broken source citations, lost asset references, or a claimed save that cannot reopen. For passing runs, grade whether the layout follows the brief and is readable, then compare retries, tool calls, and time. Use structural assertions plus a small blind visual rubric; don't require pixel-perfect matches. Tune on a development set, keep a sealed holdout, and repeat baseline/candidate runs to separate improvements from variance. No benchmark run or tooling activation is implied by this entry.
+
+## [IDEA] Report a bug from Buddy
+**Owner:** Shared Surface authoring + Buddy agent
+**Captured:** 2026-11-15
+**Goal:** Let someone report a problem where it happens, either through a **Report a bug** page action or by asking Buddy in conversation. Both open the same reviewable draft, not separate intake systems.
+
+**First slice:** Reuse the PDF extractor's screenshot drop/file-picker behavior (and paste where supported). Preview and allow removal of the image, capture a short title and what happened, and optionally show a reviewed page/build label. Buddy can draft the same fields, but the user sees the exact issue body, attachment, tracker, and visibility before pressing Submit. File one issue in the configured GitHub repository (or the configured equivalent ticket tracker) from the service, and return its link in the originating page or conversation.
+
+**Acceptance:** Prove both entry points create the same kind of linked ticket. Cancel sends nothing. A retry does not file duplicates, and a failed submit keeps the report editable. Keep screenshots private by default; if the tracker or attachment would be public, make that visible and require explicit approval of the exact content or use a private intake. Don't auto-attach World content, conversation, logs, cookies, or secrets. Reuse the upload interaction, not the PDF-extraction pipeline. This entry does not authorize implementation or ticket submission.
 
 ## [DEFERRED] Define independent source-artifact archive and restore
 **Owner:** APP-STATE / source lifecycle
