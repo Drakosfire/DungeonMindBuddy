@@ -135,5 +135,6 @@ To include runtime measurements, pin an ordinary HTTP capture as
 `turn_capture` (path and SHA-256) and supply the expected `turn_id` on the same
 case. The harness verifies the response and trace turn IDs and reports duration,
 phase timings, tokens, call count and reported cost independently of the action
-verdict. A null cost means the provider price is unavailable. Operator
+verdict. A partial usage status marks the token count as a subtotal and gives
+the number of calls that reported usage. A null cost means the provider price is unavailable. Operator
 interventions remain unknown until observed separately.

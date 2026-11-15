@@ -139,7 +139,8 @@ def test_action_report_pins_trace_metrics_to_expected_turn(tmp_path):
     })
     trace = {
         "schema": "dmb_agent_turn_trace_v1", "turn_id": "turn-1", "elapsed_ms": 23,
-        "usage": {"total_tokens": 42, "model_call_count": 1},
+        "usage": {"total_tokens": 42, "model_call_count": 2, "status": "partial",
+                  "usage_reported_call_count": 1},
         "cost": {"usd": None, "status": "unavailable"},
         "spans": [{"kind": "phase", "name": "route", "duration_ms": 3, "status": "ok"}],
     }
@@ -157,7 +158,8 @@ def test_action_report_pins_trace_metrics_to_expected_turn(tmp_path):
     assert result["status"] == "pass"
     assert result["turn_capture"] == case["turn_capture"]
     assert result["operation"] == {
-        "elapsed_ms": 23, "model_tokens": 42, "model_calls": 1, "reported_cost_usd": None,
+        "elapsed_ms": 23, "model_tokens": 42, "model_calls": 2, "reported_cost_usd": None,
+        "usage_status": "partial", "usage_reported_call_count": 1,
         "cost_status": "unavailable", "operator_interventions": None,
         "stages": [{"name": "route", "duration_ms": 3, "status": "ok"}],
     }

@@ -1051,6 +1051,8 @@ def _action_operation_metrics(capture, expected_turn_id):
         "elapsed_ms": trace["elapsed_ms"],
         "model_tokens": trace["usage"]["total_tokens"],
         "model_calls": trace["usage"]["model_call_count"],
+        "usage_status": trace["usage"]["status"],
+        "usage_reported_call_count": trace["usage"]["usage_reported_call_count"],
         "reported_cost_usd": trace["cost"]["usd"],
         "cost_status": trace["cost"]["status"],
         "operator_interventions": None,
