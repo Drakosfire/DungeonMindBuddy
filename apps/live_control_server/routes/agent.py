@@ -2672,7 +2672,8 @@ def post_pdf_statblock_publication(
         if len(prior) != 1 or prior[0].request.draft_id != draft_id or prior[0].proof.locator != locator:
             raise HTTPException(status_code=409, detail="This creature already has different saved mechanics")
     else:
-        target = next((item for item in world_creature_selection.catalog(world_id).targets
+        catalog = call(lambda _root: world_creature_selection.catalog(world_id))
+        target = next((item for item in catalog.targets
                        if item.node_id == result["node_id"] and item.campaign_scope is None
                        and item.native_world_id == result["native_world_id"]
                        and item.binding_version == result["binding_version"]), None)

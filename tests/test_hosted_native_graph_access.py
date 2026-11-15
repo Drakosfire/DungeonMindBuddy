@@ -1732,6 +1732,7 @@ def test_hosted_publication_status_only_reads_the_owners_review(hosted, monkeypa
 
 @pytest.mark.parametrize("session, exact_review, expected", [
     ("owner-session", True, 200),
+    ("owner-session", True, 503),
     ("owner-session", False, 409),
     ("other-session", True, 403),
 ])
@@ -1768,9 +1769,18 @@ def test_hosted_pdf_publish_recovers_only_exact_review(hosted, monkeypatch, sess
             draft_id=draft_id, target=SimpleNamespace(node_id="published-creature", campaign_scope=None),
         ), proof=SimpleNamespace(locator=locator)),
     ])
+    if expected == 503:
+        from apps.live_control_server.services import world_creature_selection
+
+        monkeypatch.setattr(world_mechanics_associations, "list_associations", lambda *_: [])
+
+        def unavailable(_world):
+            raise ApplicationStateUnavailableError("Creature catalog unavailable")
+
+        monkeypatch.setattr(world_creature_selection, "catalog", unavailable)
     path = PDF_REVIEW.format(world_id="managed", review_id=review_id)
     response = hosted.client.request("POST", f"{path}/publication?expected_revision=1", session=session)
     assert response.status_code == expected, response.text
-    assert calls == ([(draft_id, "managed", HOSTED_OWNER)] if expected == 200 else [])
+    assert calls == ([(draft_id, "managed", HOSTED_OWNER)] if expected in {200, 503} else [])
     if expected == 200:
         assert response.json() == {"draft_id": str(draft_id), "revision_id": locator.revision_id}
