@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 
-import { listWorldThreatDrafts } from "../api/liveApi";
+import { listWorldThreatDrafts, type WorldThreatDraftSummary } from "../api/liveApi";
 import { buildSavedStatblockHref, readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
-import type { ThreatDraft, WorkspaceDocumentRecord } from "../api/types";
+import type { WorkspaceDocumentRecord } from "../api/types";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
 import { SurfaceContextSelect } from "../surfaceInteraction/contextHost";
 import {
@@ -51,7 +51,7 @@ export function BuildDocumentSelector({
   onSelect,
 }: BuildDocumentSelectorProps) {
   const [query, setQuery] = useState("");
-  const [catalog, setCatalog] = useState<{ worldId: string; drafts: ThreatDraft[]; error: boolean }>();
+  const [catalog, setCatalog] = useState<{ worldId: string; drafts: WorldThreatDraftSummary[]; error: boolean }>();
   useEffect(() => {
     if (!worldId) return;
     const request = new AbortController();
@@ -64,7 +64,7 @@ export function BuildDocumentSelector({
   const currentCatalog = catalog?.worldId === worldId ? catalog : undefined;
   const filter = query.trim().toLowerCase();
   const statblocks = (currentCatalog?.drafts ?? []).flatMap(draft => {
-    const revisionId = draft.accepted_mechanics_ref?.revision_id;
+    const revisionId = draft.saved_revision_id;
     if (draft.world_id !== worldId || !revisionId || !draft.name.toLowerCase().includes(filter)) return [];
     return [{
       href: buildSavedStatblockHref({ worldId: draft.world_id, draftId: draft.draft_id, revisionId }),
@@ -159,7 +159,7 @@ export function BuildDocumentSelector({
         window.location.assign("/build?" + new URLSearchParams({ world: activeStatblock.worldId, documentId: next }));
       } else if (next) onSelect(next);
     },
-    disabled: listStatus !== "ready" || switching,
+    disabled: switching || (listStatus !== "ready" && statblocks.length === 0),
   };
 
   return (

@@ -2155,12 +2155,19 @@ export async function generateThreatDraftCandidate(
   );
 }
 
-export async function listWorldThreatDrafts(worldId: string, signal: AbortSignal): Promise<ThreatDraft[]> {
-  const drafts: ThreatDraft[] = [];
+export interface WorldThreatDraftSummary {
+  world_id: string;
+  draft_id: string;
+  name: string;
+  saved_revision_id: string | null;
+}
+
+export async function listWorldThreatDrafts(worldId: string, signal: AbortSignal): Promise<WorldThreatDraftSummary[]> {
+  const drafts: WorldThreatDraftSummary[] = [];
   const limit = 100;
   for (let offset = 0; ; offset += limit) {
     const query = new URLSearchParams({ world_id: worldId, limit: String(limit), offset: String(offset) });
-    const page = await apiFetch<{ drafts: ThreatDraft[]; total: number }>(
+    const page = await apiFetch<{ drafts: WorldThreatDraftSummary[]; total: number }>(
       `/api/live/threat-drafts?${query}`, { signal },
     );
     drafts.push(...page.drafts);

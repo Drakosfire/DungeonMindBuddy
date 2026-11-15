@@ -396,6 +396,7 @@ class ThreatDraftSummaryV1(StrictModel):
     name: str
     threat_kind: str
     workflow_state: str
+    saved_revision_id: str | None = None
     updated_at: str
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
@@ -413,6 +414,7 @@ class ThreatDraftSummaryV2(StrictModel):
     name: str
     threat_kind: str
     workflow_state: str
+    saved_revision_id: str | None = None
     updated_at: str
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
