@@ -435,7 +435,7 @@ class NativeBodyNavigation:
                     section_handles.update(handle for score, handles in pair_matches
                                            if score == best_score for handle in handles)
                 from .native_source_candidate_scope import (
-                    chronological_passage_handles, rare_named_section_handles,
+                    chronological_passage_handles, preceding_recap_passage_handles, rare_named_section_handles,
                 )
                 chronology = chronological_passage_handles(
                     turn.user_text, {row.handle: hits[row.handle] for row in sections},
@@ -451,6 +451,9 @@ class NativeBodyNavigation:
                 if not chronology:
                     section_handles.update(rare_named_section_handles(
                         turn.user_text, {row.handle: hits[row.handle] for row in sections}))
+                section_handles.update(preceding_recap_passage_handles(
+                    turn.user_text, section_handles,
+                    {row.handle: hits[row.handle] for row in sections}, addresses, self._source_display))
                 # The existing expansion action still exposes full-document navigation.
                 narrowed = [row for row in narrowed
                             if row.handle in section_handles or row.handle not in addresses]

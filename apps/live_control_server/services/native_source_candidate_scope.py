@@ -217,3 +217,35 @@ def chronological_passage_handles(question, hits, addresses, displays):
             strongest = max(score for score, _ in passages)
             included.update(handle for score, handle in passages if score == strongest)
     return included
+
+
+def preceding_recap_passage_handles(question, anchors, hits, addresses, displays):
+    """Offer nearby matching recap sections for questions spanning several days."""
+    if not re.search(
+        r"\b(?:over|across|during)\s+(?:the\s+)?"
+        r"(?:several|multiple|two|three|four|five|six|seven|[2-9]|[1-9]\d+)\s+days\b",
+        question, re.I,
+    ):
+        return set()
+    positions = {}
+    for handle in hits:
+        display = displays.get(addresses.get(handle), {})
+        if (display.get("kind") != "recap" or display.get("status") != "available"
+                or display.get("origin_matches_current_metadata") is not True):
+            continue
+        campaign = display.get("campaign_id")
+        session = re.fullmatch(r"session-(\d+)", display.get("session_id") or "")
+        if campaign and session:
+            positions[handle] = (campaign, int(session[1]))
+    selected = {positions[handle] for handle in anchors if handle in positions}
+    wanted = {(campaign, session - offset) for campaign, session in selected for offset in (1, 2)}
+    best = {}
+    for handle, position in positions.items():
+        if position not in wanted or position in selected:
+            continue
+        score = len(hits[handle])
+        if position not in best or score > best[position][0]:
+            best[position] = (score, {handle})
+        elif score == best[position][0]:
+            best[position][1].add(handle)
+    return {next(iter(handles)) for _, handles in best.values() if len(handles) == 1}
