@@ -592,7 +592,7 @@ def _ordinary_native_case(
                 segments=[]
                 limitations=['partial_retrieval','missing_requested_details']
             else:
-                row=next(r for r in rows if r['assertion']['predicate']=='dnd5e:summary')
+                row=next(r for r in rows if r.get('assertion', {}).get('predicate')=='dnd5e:summary')
                 metadata=frame['native_assertions']['qualifications'][row['assertion']['qualification']]
                 assert metadata['claim_mode']==('dungeonbuddy.claim:belief' if qualified else 'dungeonbuddy.claim:fact')
                 assert all('evidence' not in r and 'supporting_sources' not in r for r in rows)
