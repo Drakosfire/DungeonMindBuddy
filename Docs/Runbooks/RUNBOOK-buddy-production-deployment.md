@@ -19,7 +19,23 @@ docker info --format '{{.DockerRootDir}}'
 
 Require both Compose and Buildx to report versions before proceeding.
 
-Check free space on the Docker filesystem and the persistent data filesystem. Confirm the selected loopback port is available for a first deploy or is owned by the Buddy service for an upgrade. The checked-in defaults are host loopback port 8080 and container port 8000.
+Record disk and RAM minimums in MiB for the release, based on the build and
+upgrade rehearsal. Include room for the serving and rollback images in the Docker
+minimum and backup and migration headroom in the persistent minimum. Run on the
+Linux deployment host with the same default local Docker context used for deployment.
+
+```bash
+read -r -p 'Approved absolute persistent root: ' buddy_persistent_root
+read -r -p 'Minimum available Docker disk MiB: ' buddy_docker_mib
+read -r -p 'Minimum available persistent disk MiB: ' buddy_persistent_mib
+read -r -p 'Minimum available RAM MiB: ' buddy_ram_mib
+python3 scripts/check_buddy_release_capacity.py --persistent-root "$buddy_persistent_root" \
+  --min-docker-mib "$buddy_docker_mib" --min-persistent-mib "$buddy_persistent_mib" \
+  --min-ram-mib "$buddy_ram_mib"
+```
+
+Continue only on a successful result. If both directories share a filesystem,
+the check requires their combined headroom. Confirm the selected loopback port is available for a first deploy or is owned by the Buddy service for an upgrade. The checked-in defaults are host loopback port 8080 and container port 8000.
 
 ## 2. Verify both databases and restore evidence
 
