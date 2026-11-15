@@ -47,6 +47,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 | Idea | Next useful slice or decision |
 | --- | --- |
 | [Shared Build page composer](#idea-high-priority--shared-grid-page-constructor) | Compose text, images, tables and callouts in one reusable, saved row/column layout. |
+| [Shared agent actions across surfaces](#idea-shared-agent-actions-across-surfaces) | Prove one inline text edit in Build and Plan through their native saves; then test a sourced Graph relationship. |
 | [Agent page-formatting benchmarks](#idea-agent-page-formatting-benchmarks) | Compare Buddy on repeatable Build formatting tasks; preserve content and prove the saved rendered result. |
 | [Report a bug from Buddy](#idea-report-a-bug-from-buddy) | One page and agent entry flow, with screenshot drop and a link to the filed issue. |
 | [Layered map editor](Docs/Backlog/IDEA-layered-map-editor.md) | One durable map with editable overlays. Share coordinates where justified, not a single UI with page layout. |
@@ -100,6 +101,18 @@ One row per product idea. These rows are pointers, not separate status records. 
 **Surfaces when:** Planning Build authoring or shared page layout. Product sequencing remains with `Docs/Roadmaps/ROADMAP-demo.md`; high priority does not create a dispatch or authorize a schema or storage change.
 
 **Refs:** Edge source `bba72416-9dfe-49bb-add0-21a346e9a421`; `apps/live-control-ui/src/tiptap/extensions/MediaImageNode.tsx`; `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
+
+## [IDEA] Shared agent actions across surfaces
+
+**Goal:** Enable Buddy to act wherever it makes sense in the product, without duplicating each surface's editor or giving the agent a generic write path.
+
+**Current boundary:** Build and Plan already share the inline proposal and review UI. Build saves authored Pages and their revision-bound presentation; Plan saves native prep with playable structure. Ordinary Markdown proposals do not carry layout operations. See `apps/live-control-ui/src/surface/SurfacePageProposal.tsx` and `apps/live-control-ui/src/planSurface/agentEdit/planAgentEditProposal.ts`.
+
+**Shared contract to test:** The surface exposes authorized operations for the current object. Buddy proposes a typed change against an exact target and revision. The user reviews the actual effect; the domain owner validates and commits it through its existing write path, then returns a durable receipt. Keep chat answers, proposed changes, and saved effects distinct. Retry must reconcile the receipt, not apply twice.
+
+**First proof:** Run “Rewrite this paragraph without changing the facts or citations” in Build and Plan. Use the shared inline review and each native save path. Reopen and verify the edit and citations, unchanged Plan scene/table boundaries, cancellation with no durable write, and stale-proposal rejection when the user types while Buddy works. Then test one source-backed Graph relationship through its native review and write path to see whether the contract travels beyond text. Layout capabilities remain separate until the target supports them safely.
+
+---
 
 ## [IDEA] Agent page-formatting benchmarks
 **Owner:** Build authoring + Buddy benchmark harness
