@@ -81,6 +81,7 @@ class PagePresentation(_Closed):
         # Do not accept raw HTML, fenced widgets, or source definitions that
         # the editor cannot reconstruct from one movable block.
         body = markdown[len(prefix) :]
+        parser_environment: dict = {}
         tokens = (
             MarkdownIt("commonmark", {"html": True})
             .enable("table")
