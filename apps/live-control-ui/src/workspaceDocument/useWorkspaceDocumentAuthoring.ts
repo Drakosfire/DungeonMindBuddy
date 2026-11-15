@@ -1,5 +1,5 @@
 import "../tiptap/pageComposer/apiPresentation";
-import { flattenPresentation, hasPresentation, projectPresentation, presentationFingerprint, composerDisabledReason, type PagePresentation } from "../tiptap/pageComposer/presentation";
+import { hydratePresentation, flattenPresentation, hasPresentation, projectPresentation, presentationFingerprint, composerDisabledReason, type PagePresentation } from "../tiptap/pageComposer/presentation";
 import {useTourNavigationGuard} from '../guidedTour/Navigation';
 import {WorkspaceDraftCoordinator, type DraftPersistenceStatus} from "./workspaceDraftCoordinator";
 import { conflictCopiesKey, preserveConflictCopies, type WorkspaceConflictRecovery, type WorkspaceConflictReview } from "./workspaceConflictRecovery";
@@ -422,6 +422,10 @@ export function useWorkspaceDocumentAuthoring(
   const reimportFromAuthoritativeMarkdown = useCallback(() => {
     const current = localStateRef.current;
     if (!current?.exported_markdown_authoritative) return;
+    if (current.page_presentation != null) {
+      dispatch({type:"SAVE_FAILED",message:"Use protected source recovery to restore this page together with its layout."});
+      return;
+    }
     if (hasBlockingMarkdownImportDiagnostics(current.exported_markdown)) {
       dispatch({
         type: "SAVE_FAILED",
@@ -587,12 +591,22 @@ export function useWorkspaceDocumentAuthoring(
     const imported = markdownToTiptapDoc(current.exported_markdown);
     if (semanticMarkdownSerializationDiagnostics(imported.doc).length) throw new Error("The preserved source is still unsupported.");
     const kept = mode === "source" ? null : currentPageRecovery(mode === "normalize");
-    const normalizedDoc = kept?.doc ?? (editor?.schema ? editor.schema.nodeFromJSON(imported.doc).toJSON() : imported.doc);
-    const markdown = kept?.markdown ?? preserveLeadingYamlFrontmatter(current.exported_markdown, tiptapJsonToSemanticMarkdown(normalizedDoc));
+    let normalizedDoc = kept?.doc ?? (editor?.schema ? editor.schema.nodeFromJSON(imported.doc).toJSON() : imported.doc);
+    let markdown = kept?.markdown ?? preserveLeadingYamlFrontmatter(current.exported_markdown, tiptapJsonToSemanticMarkdown(normalizedDoc));
+    // Source recovery is explicit: restore the last valid source AND its layout,
+    // never spread stale presentation onto an unrelated plain editor document.
+    let recoveredPresentation = current.page_presentation;
+    if (current.page_presentation !== undefined) {
+      if (mode !== "source") throw new Error("Composed drafts must recover from their preserved source and layout. The protected copy is kept.");
+      markdown = current.exported_markdown;
+      normalizedDoc = current.page_presentation ? hydratePresentation(markdown, current.page_presentation) : imported.doc;
+      recoveredPresentation = current.page_presentation;
+    }
     const original = JSON.parse(JSON.stringify({ ...current, tiptap_json: editor!.getJSON() })) as WorkspaceDocumentLocalState;
     const next: WorkspaceDocumentLocalState = { ...current, tiptap_json: normalizedDoc,
+      ...(recoveredPresentation !== undefined ? {page_presentation: recoveredPresentation} : {}),
       exported_markdown: markdown, exported_markdown_authoritative: false,
-      dirty: markdown !== snapshotRef.current!.markdown,
+      dirty: markdown !== snapshotRef.current!.markdown || presentationFingerprint(recoveredPresentation ?? null) !== presentationFingerprint(snapshotRef.current!.page_presentation ?? null),
       updated_at: new Date().toISOString(), last_local_save_at: new Date().toISOString() };
     return draftWriter.run(()=>{
       if(review.fence!==recoveryFence())throw new Error("The draft changed after review. Review it again before replacing it.");

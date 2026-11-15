@@ -15,3 +15,6 @@
   .page-composer-slot + .page-composer-slot { border-top: 1px dotted var(--border-color, #999); }
 }
 @media print { .page-composer-tools, .page-composer-row__divider { display: none; } .page-composer-row { outline: none; } }
+.page-composer-tools button { color: var(--fg, #e8eaef); background: var(--panel, #202735); border: 1px solid var(--border, #444b59); }
+.page-composer-tools button:disabled { opacity: .5; }
+.page-composer-tools button:focus-visible { outline: 2px solid var(--accent, #b59a58); outline-offset: 2px; }

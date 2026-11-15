@@ -152,7 +152,7 @@ export function openWorkspaceDocumentAuthoringState(
   const presentation = reconciliation.kind === "dirty-match"
     ? reconciliation.localState?.page_presentation
     : args.snapshot.page_presentation;
-  if (presentation != null) {
+  if (presentation != null && !chosen.exportedMarkdownAuthoritative) {
     // Invalid composed state is a load error, never silently flattened. Caller
     // retains original local bytes and the immutable server revision.
     chosen.tiptapJson = hydratePresentation(chosen.exportedMarkdown, presentation);

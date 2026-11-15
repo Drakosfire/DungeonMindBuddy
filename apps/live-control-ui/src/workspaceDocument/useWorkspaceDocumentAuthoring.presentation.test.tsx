@@ -80,4 +80,28 @@ describe('Page layout authoring boundary',()=>{
   expect(prepareTiptapMarkdownWrite).toHaveBeenCalledWith(expect.objectContaining({markdown:source,page_presentation:null}));
  });
 
+ it('preserves unsupported dirty composed editor JSON on cold reopen instead of hydrating stale layout over it',async()=>{
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snap());const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const broken=composed(4);broken.content![0].content![0].content!.push({type:'unknownUnsupported',attrs:{precious:'unsaved'}});
+  act(()=>h.result.current.handleEditorUpdate(broken,{} as Editor,{programmatic:false}));
+  await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.exported_markdown_authoritative).toBe(true));h.unmount();
+  const r=mount();await waitFor(()=>expect(r.result.current.dirty).toBe(true));
+  expect(r.result.current.editorContent).toEqual(broken);expect(r.result.current.saveDisabled).toBe(true);
+  expect(readWorkspaceDocumentLocalState(localStorage,id)?.tiptap_json).toEqual(broken);
+ });
+
+ it('protected source recovery restores the preserved composition and keeps the unsupported original copy',async()=>{
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snap());const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const broken=composed(4);broken.content![0].content![0].content!.push({type:'unknownUnsupported',attrs:{precious:'unsaved'}});
+  const editor={getJSON:()=>broken,getText:()=>"Protected unsaved content"} as Editor;
+  act(()=>{h.result.current.setEditor(editor);h.result.current.handleEditorUpdate(broken,editor,{programmatic:false});});
+  await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.exported_markdown_authoritative).toBe(true));
+  await waitFor(()=>expect(h.result.current.statusLabel).not.toBe('Saving local copy…'));
+  const review=h.result.current.prepareDraftRecovery();await act(()=>h.result.current.confirmDraftRecovery(review,'source'));
+  const restored=readWorkspaceDocumentLocalState(localStorage,id)!;
+  expect(restored.exported_markdown).toBe(source);expect(restored.page_presentation).toEqual(snap().page_presentation);
+  expect((restored.tiptap_json as JSONContent).content![0].type).toBe('pageRow');expect(restored.dirty).toBe(false);
+  expect(localStorage.getItem(`dmb.workspaceDocument.${id}.recovery.v2`)).toContain('precious');
+ });
+
 });
