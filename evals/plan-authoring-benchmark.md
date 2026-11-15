@@ -102,3 +102,14 @@ before calling this case executable. Retain the retrieval trace, preview,
 confirmation, save receipts, and independent readbacks. Score the first
 failed boundary and any partial state. Markdown in conversation is sufficient
 for the review step.
+
+## Checkpoint storage
+
+Use the benchmark artifact owner's `action_checkpoint` for serial capture and
+retained observation. Pass a JSON binding containing the exact build and
+isolated environment, fixture and stage inputs, and previous checkpoint digest.
+A matching binding reuses retained evidence. A changed binding selects a new
+record and a changed predecessor digest invalidates downstream reuse. Keep
+failed observations and unknown action outcomes. Use the product owner's
+receipt and idempotency checks before attempting a mutation again. A missing
+checkpoint alone cannot establish that an action was never applied.
