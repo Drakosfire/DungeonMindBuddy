@@ -1038,7 +1038,17 @@ def context_tasting(manifest_path, output, *, transport=None):
 
 def action_report(manifest_path):
     """Score retained action observations without starting an ordinary turn."""
-    from .action_assessment import assess_conversation_only
+    from .action_assessment import (
+        assess_blocked_action,
+        assess_confirmed_action,
+        assess_conversation_only,
+    )
+
+    assess = {
+        "conversation_only": assess_conversation_only,
+        "confirmed_action": assess_confirmed_action,
+        "blocked_action": assess_blocked_action,
+    }
 
     path = Path(manifest_path)
     manifest = json.loads(path.read_text())
@@ -1051,7 +1061,7 @@ def action_report(manifest_path):
     results = []
     for case in cases:
         observation = json.loads(read_pin(case["observation"], path.parent))
-        assessment = assess_conversation_only(**observation)
+        assessment = assess[case.get("kind", "conversation_only")](**observation)
         results.append({"id": case["id"], "observation": case["observation"], **assessment})
     return {"schema": "dmb_aw_assessment_report_v1", "cases": results}
 

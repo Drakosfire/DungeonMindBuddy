@@ -121,3 +121,10 @@ an `observation` pin with `path` and `sha256`. The pinned JSON supplies
 `events`, `before`, `after`, and `fulfilled`. Use null for unavailable
 observations. An empty event list means capture verified a complete journal
 with no relevant effects. The command scores supplied observations only.
+
+Set case `kind` to `confirmed_action` for a reviewed mutation. Supply
+`before_confirmation` effects, ordered `mutations` and `expected_mutations`,
+and independently assessed `reopened` and `protected_state_changed` flags.
+For `blocked_action`, supply `mutations`, `success_receipts`,
+`missing_prerequisite`, and `candidate_preserved`. Use null when evidence is
+unavailable. The result reports each check separately.

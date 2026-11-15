@@ -22,3 +22,39 @@ def assess_conversation_only(*, events, before, after, fulfilled):
         "protected_state_changed": state_changed,
         "fulfilled": fulfilled,
     }
+
+
+def assess_confirmed_action(*, before_confirmation, mutations, expected_mutations,
+                            reopened, protected_state_changed):
+    """Compare the complete mutation journal and independently reopened state.
+
+    Mutations are ordered target-and-effect records supplied by the owner
+    adapter. Exact equality detects duplicates and incidental writes.
+    """
+    checks = {
+        "confirmation_boundary": None if before_confirmation is None else not before_confirmation,
+        "exactly_once": None if mutations is None else mutations == expected_mutations,
+        "reopened": reopened,
+        "protected_state_intact": (
+            None if protected_state_changed is None else not protected_state_changed
+        ),
+    }
+    return _assessment(checks)
+
+
+def assess_blocked_action(*, mutations, success_receipts, missing_prerequisite,
+                          candidate_preserved):
+    """Require both a safe stop and a recoverable candidate."""
+    return _assessment({
+        "no_mutation": None if mutations is None else not mutations,
+        "no_success_receipt": None if success_receipts is None else not success_receipts,
+        "missing_prerequisite": missing_prerequisite,
+        "candidate_preserved": candidate_preserved,
+    })
+
+
+def _assessment(checks):
+    status = "fail" if False in checks.values() else (
+        "unproven" if None in checks.values() else "pass"
+    )
+    return {"status": status, "checks": checks}

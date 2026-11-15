@@ -54,3 +54,24 @@ def test_action_report_requires_pinned_observation(tmp_path):
     observation.write_text("{}")
     with pytest.raises(ValueError, match="Evidence pin mismatch"):
         action_report(manifest)
+
+
+def test_confirmed_action_detects_duplicate_and_preconfirmation_writes():
+    from evals.buddy_benchmark.action_assessment import assess_confirmed_action
+
+    edit = {"target": "edge/row-2", "effect": "replace"}
+    evidence = dict(before_confirmation=[], mutations=[edit], expected_mutations=[edit],
+                    reopened=True, protected_state_changed=False)
+    assert assess_confirmed_action(**evidence)["status"] == "pass"
+    assert assess_confirmed_action(**{**evidence, "mutations": [edit, edit]})["status"] == "fail"
+    assert assess_confirmed_action(**{**evidence, "before_confirmation": [edit]})["status"] == "fail"
+
+
+def test_blocked_action_requires_evidence_of_no_mutation_or_success():
+    from evals.buddy_benchmark.action_assessment import assess_blocked_action
+
+    evidence = dict(mutations=[], success_receipts=[], missing_prerequisite=True,
+                    candidate_preserved=True)
+    assert assess_blocked_action(**evidence)["status"] == "pass"
+    assert assess_blocked_action(**{**evidence, "success_receipts": ["receipt"]})["status"] == "fail"
+    assert assess_blocked_action(**{**evidence, "mutations": None})["status"] == "unproven"
