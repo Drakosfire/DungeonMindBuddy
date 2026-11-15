@@ -4,7 +4,7 @@ import type { NativeSourceMetadata } from "../api/nativeSourceInspection";
 import { useEffect, useId, useMemo, useState, useRef } from "react";
 
 import { listRetainedPdfDocuments, retainedPdfBuildHref, type RetainedPdf } from "../api/retainedPdfRegions";
-import { listPdfStatblockReviews, listWorldMechanicsAssociations, listWorldThreatDrafts, type PdfStatblockReviewSummary, type WorldThreatDraftSummary } from "../api/liveApi";
+import { listPdfStatblockReviews, listWorldMechanicsAssociations, listWorldThreatDrafts, withdrawBuildSource, type PdfStatblockReviewSummary, type WorldThreatDraftSummary } from "../api/liveApi";
 import { buildSavedStatblockHref, readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
 import type { WorkspaceDocumentRecord } from "../api/types";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
@@ -100,6 +100,10 @@ export function BuildDocumentSelector({
   const search = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const recentKey = `buddy:build:recent:${worldId ?? preferredCampaignId ?? ""}`;
+  const [deleteTarget, setDeleteTarget] = useState<PickerEntry | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [withdrawn, setWithdrawn] = useState<string[]>([]);
   const [recent, setRecent] = useState<string[]>([]);
   const statblocks = (currentCatalog?.drafts ?? []).flatMap(draft => {
     if (draft.world_id !== worldId) return [];
@@ -230,14 +234,16 @@ export function BuildDocumentSelector({
     })) : []),
     ...(worldId ? retainedPdfs.map(entry => ({
       id: retainedPdfBuildHref(worldId, entry), label: entry.name, category: "PDFs" as const,
+      withdrawal: { kind: "pdf" as const, revision_id: entry.locator.source_revision_id },
     })) : []),
     ...(worldId ? nativeSources.map(source => ({
       id: nativeDocumentHref(worldId, source), label: source.navigation.label ?? "Unnamed document",
+      withdrawal: { kind: "text" as const, revision_id: source.source_revision.source_revision_id },
       category: source.navigation.kind === "recap" ? "Recaps" as const : "Ingested text" as const,
       detail: [source.navigation.campaign_id, source.navigation.session_id && `Session ${source.navigation.session_id}`]
         .filter(Boolean).join(" · "),
     })) : []),
-  ];
+  ].filter(entry => !withdrawn.includes(entry.id));
   useEffect(() => {
     if (!activeId) return;
     try {
@@ -265,6 +271,9 @@ export function BuildDocumentSelector({
   ].filter(Boolean);
 
   function closePicker() {
+    if (deleting) return;
+    setDeleteTarget(null);
+    setDeleteError("");
     if (dialog.current?.close) dialog.current.close();
     else dialog.current?.removeAttribute("open");
     trigger.current?.focus();
@@ -277,6 +286,24 @@ export function BuildDocumentSelector({
     if (dialog.current?.showModal) dialog.current.showModal();
     else dialog.current?.setAttribute("open", "");
     search.current?.focus();
+  }
+
+  async function deleteSource() {
+    if (!worldId || !deleteTarget?.withdrawal || deleting) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await withdrawBuildSource(worldId, deleteTarget.withdrawal);
+      setWithdrawn(ids => [...ids, deleteTarget.id]);
+      setDeleteTarget(null);
+      if (deleteTarget.id === activeId) {
+        window.location.assign("/build?" + new URLSearchParams({ world: worldId }));
+      }
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Could not delete the document.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function openDocument(id: string) {
@@ -299,6 +326,7 @@ export function BuildDocumentSelector({
       <dialog ref={dialog} className="build-document-picker" aria-label="Open document" data-native-escape-owner
         onCancel={event => {
           if (event.target !== event.currentTarget) return;
+          if (deleteTarget && !deleting) { event.preventDefault(); setDeleteTarget(null); setDeleteError(""); return; }
           event.preventDefault();
           closePicker();
         }}>
@@ -307,7 +335,12 @@ export function BuildDocumentSelector({
             value={query} onChange={event => setQuery(event.target.value)} />
           <button type="button" aria-label="Close document picker" onClick={closePicker}>×</button>
         </header>
-        <div className="build-document-picker__body">
+        {deleteTarget ? <section className="build-document-picker__confirmation" aria-label="Confirm document deletion">
+          <p>Delete “{deleteTarget.label}” from this World? Existing links to this source will stop opening it.</p>
+          {deleteError && <p role="alert">{deleteError}</p>}
+          <button type="button" disabled={deleting} onClick={() => { setDeleteTarget(null); setDeleteError(""); }}>Cancel</button>
+          <button type="button" disabled={deleting} onClick={() => void deleteSource()}>{deleting ? "Deleting…" : "Delete document"}</button>
+        </section> : <div className="build-document-picker__body">
           <nav aria-label="Document categories">
             {PICKER_CATEGORIES.map(item => <button key={item} type="button"
               aria-pressed={!filter && category === item} onClick={() => { setCategory(item); setQuery(""); }}>
@@ -329,6 +362,10 @@ export function BuildDocumentSelector({
                 worldId={worldId} current={{ kind: "document", id: entry.id, title: page.title, surface: "build", revision: page.revision }}
                 blocked={switching || (entry.id === activeDocumentId && activePageTrashBlocked)}
                 onTrashed={() => onPageTrashed(entry.id)} />}
+              {entry.withdrawal && <button type="button" className="workspace-trash-delete"
+                aria-label={`Delete ${entry.label}`} title="Delete document" onClick={() => setDeleteTarget(entry)}>
+                <span aria-hidden="true">×</span>
+              </button>}
             </li>;
             })}</ul> : <p role="status">{pending ? "Loading documents…" : filter ? (loadMorePages ? "No loaded documents match your search." : "No documents match your search.")
               : category === "Recent" ? "Documents you open will appear here." : "No documents in this category."}</p>}
@@ -337,7 +374,7 @@ export function BuildDocumentSelector({
                 Load more pages
               </button>}
           </section>
-        </div>
+        </div>}
       </dialog>
     </div>
   );
@@ -345,7 +382,7 @@ export function BuildDocumentSelector({
 
 const PICKER_CATEGORIES = ["Recent", "All documents", "Pages", "Statblocks", "Statblock drafts", "PDFs", "Recaps", "Ingested text"] as const;
 type PickerCategory = typeof PICKER_CATEGORIES[number];
-type PickerEntry = { id: string; label: string; category: PickerCategory; detail?: string };
+type PickerEntry = { id: string; label: string; category: PickerCategory; detail?: string; withdrawal?: { kind: "pdf" | "text"; revision_id: string } };
 
 function readRecent(key: string): string[] {
   try {

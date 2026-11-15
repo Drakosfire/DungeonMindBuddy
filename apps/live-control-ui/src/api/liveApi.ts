@@ -331,6 +331,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     "/api/live/native-graph-explorer/confirm",
     "/api/live/native-graph-explorer/operations/read",
   ].includes(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-source-withdrawals$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|ocr|review|statblock-reviews|statblock:validate))?$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+(?:\/validate|\/from-regions|\/creature-draft|\/(?:accept|append)\/[^/]+)?$/.test(pathname)) return true;
   if ([
@@ -3417,6 +3418,14 @@ export async function readPublishedNativeRecap(
   return packet;
 }
 
+
+export async function withdrawBuildSource(worldId: string, source: { kind: "pdf" | "text"; revision_id: string }) {
+  const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-source-withdrawals`;
+  const { response } = await authenticatedApiFetch(path, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(source),
+  });
+  if (!response.ok) throw new Error("Could not delete the document. Refresh and try again.");
+}
 
 export interface PdfStatblockReviewSummary {
   review_id: string;
