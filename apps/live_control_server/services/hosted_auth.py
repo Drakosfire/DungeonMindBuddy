@@ -485,6 +485,13 @@ def install_hosted_request_boundary(
     ):
         raise ValueError("world_scope_resolvers_invalid")
     route_resolvers = dict(world_scope_resolvers or {})
+    from starlette.routing import compile_path
+
+    world_path_resolvers = [
+        (method, compile_path(path)[0], resolver)
+        for (method, path), resolver in route_resolvers.items()
+        if "{world_id}" in path
+    ]
     collections = dict(collection_authorizers or {})
     # Collection authorization is an explicit, code-owned read capability. It
     # is never a prefix exemption or permission for a mutation/list of all data.
@@ -579,6 +586,16 @@ def install_hosted_request_boundary(
             return response
 
         resolver = route_resolvers.get((request.method.upper(), request.url.path))
+        if resolver is None:
+            matches = [
+                (match, candidate)
+                for method, pattern, candidate in world_path_resolvers
+                if method == request.method.upper()
+                and (match := pattern.fullmatch(request.url.path))
+            ]
+            if len(matches) == 1:
+                match, resolver = matches[0]
+                request.state.hosted_route_world_id = match.group("world_id")
         if resolver is None:
             return JSONResponse(
                 status_code=403,

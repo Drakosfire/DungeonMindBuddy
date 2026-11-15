@@ -16,7 +16,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from application_state.errors import ApplicationStateUnavailableError
 from application_state.world_catalog import service as catalog
@@ -230,6 +230,12 @@ def hosted(monkeypatch, request):
     app.include_router(explorer_router)
     app.include_router(worlds_router)
     app.include_router(inspection_router)
+
+    @app.get(access.BUILD_PDF_SOURCES_PATH)
+    def pdf_inventory(world_id: str, request: Request):
+        access.require_build_pdf_read_access(request, world_id)
+        return {"world": world_id}
+
     install_hosted_request_boundary(
         app,
         world_scope_resolvers={
@@ -241,6 +247,7 @@ def hosted(monkeypatch, request):
                 for operation in OPERATIONS
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
+            ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("GET", access.WORLD_LOOKUP_PATH): access.resolve_hosted_world_lookup,
         },
         collection_authorizers={("GET", COLLECTION): access.hosted_owner_collection},
@@ -1481,3 +1488,17 @@ def test_exact_world_lookup_denies_ownership_transfer_after_admission(hosted, mo
     response = hosted.client.request("GET", f"{COLLECTION}/lookup?managed_world_id=managed")
     assert response.status_code == 403, response.text
     assert hosted.catalog_reads == ["managed", "managed"]
+
+
+@pytest.mark.parametrize("session, suffix, expected", [
+    ("owner-session", "", 200),
+    ("other-session", "", 403),
+    ("owner-session", "?world_id=foreign", 403),
+    ("owner-session", "/statblock-reviews", 403),
+])
+def test_hosted_pdf_read_is_exact_and_owner_scoped(hosted, session, suffix, expected):
+    path = access.BUILD_PDF_SOURCES_PATH.format(world_id="managed") + suffix
+    response = hosted.client.request("GET", path, session=session)
+    assert response.status_code == expected, response.text
+    if expected == 200:
+        assert response.json() == {"world": "managed"}

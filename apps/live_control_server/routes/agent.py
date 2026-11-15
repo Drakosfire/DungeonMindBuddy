@@ -2200,7 +2200,9 @@ def get_build_pdf_sources(world_id: str, request: Request, after: str = ""):
         NativeWorldSourceAdmissionError, _repository, _source_world_binding,
     )
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_read_access
+
+    require_build_pdf_read_access(request, world_id)
     verified = _verified_world_id(world_id)
     try:
         binding = _source_world_binding(None, verified)
@@ -2261,14 +2263,19 @@ async def post_build_pdf_source(world_id: str, admission_id: UUID, request: Requ
             "content_sha256": revision.content_sha256}
 
 
-def _authorized_build_pdf_region(world_id: str, body: dict, request: Request):
+def _authorized_build_pdf_region(world_id: str, body: dict, request: Request, *, hosted_read: bool = False):
     from dungeonmind.application.vnext.native_pdf_access import open_native_pdf_region
     from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
     from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import (
         NativeWorldSourceAdmissionError, _repository, _source_world_binding,
     )
 
-    enforce_native_graph_gm(request)
+    if hosted_read:
+        from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_read_access
+
+        require_build_pdf_read_access(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     verified = _verified_world_id(world_id)
     try:
         binding = _source_world_binding(None, verified)
@@ -2734,7 +2741,7 @@ def post_append_pdf_statblock_review(
 def post_validate_build_pdf_region(world_id: str, body: dict, request: Request):
     from fastapi.responses import Response
 
-    _authorized_build_pdf_region(world_id, body, request)
+    _authorized_build_pdf_region(world_id, body, request, hosted_read=True)
     return Response(status_code=204, headers={"Cache-Control": "no-store"})
 
 
@@ -2742,7 +2749,7 @@ def post_validate_build_pdf_region(world_id: str, body: dict, request: Request):
 def post_open_build_pdf_source(world_id: str, body: dict, request: Request, render: bool = False):
     from fastapi.responses import Response
 
-    pdf, region = _authorized_build_pdf_region(world_id, body, request)
+    pdf, region = _authorized_build_pdf_region(world_id, body, request, hosted_read=True)
     if render:
         pdf = _render_build_pdf_region(pdf, region)
     return Response(

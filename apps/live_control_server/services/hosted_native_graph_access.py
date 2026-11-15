@@ -37,6 +37,7 @@ from apps.live_control_server.services.world_container_registry import (
 EXPLORER_PREFIX = "/api/live/native-graph-explorer"
 WORLD_COLLECTION_PATH = "/api/live/world-containers"
 WORLD_LOOKUP_PATH = f"{WORLD_COLLECTION_PATH}/lookup"
+BUILD_PDF_SOURCES_PATH = "/api/live/agent/worlds/{world_id}/build-pdf-sources"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
 _REQUESTS = {
     INSPECTION_READ_PATH: TypeAdapter(InspectionRead),
@@ -164,6 +165,25 @@ def require_explorer_access(
     elif principal.auth_method == "hosted_owner":
         # The global principal type alone carries no scoped ownership proof.
         raise _denied()
+
+
+async def resolve_hosted_build_pdf_world(request: Request) -> str:
+    subject = _hosted_subject(request)
+    world_id = getattr(request.state, "hosted_route_world_id", None)
+    if not world_id:
+        raise _denied()
+    world = _owned_world(subject, world_id)
+    request.state.hosted_build_pdf_world = world.world_id
+    return world.world_id
+
+
+def require_build_pdf_read_access(request: Request, world_id: str) -> None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+        return
+    if getattr(request.state, "hosted_build_pdf_world", None) != world_id:
+        raise _denied()
+    _owned_world(_hosted_subject(request), world_id)
 
 
 async def resolve_hosted_world_lookup(request: Request) -> str:
