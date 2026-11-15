@@ -69,6 +69,13 @@ def validate_prepare(candidate, manifest, request):
             raise ValueError(f"Duplicate prepare selection: {key}")
         selections[key] = selection
     event_ids = set(manifest["event_ids"])
+    created_events = {
+        node["node_id"] for node in candidate["nodes"]
+        if node["node_type"] == "event"
+        and selections.get(("node", node["node_id"]), {}).get("action") == "create"
+    }
+    if not created_events <= event_ids:
+        raise ValueError("Prepare creates Events outside the reviewed cohort")
     placements = {
         record_id for (kind, record_id), selection in selections.items()
         if kind == "placement" and selection["action"] == "create"
@@ -111,3 +118,28 @@ def validate_prepare(candidate, manifest, request):
             if not matches:
                 raise ValueError(f"{edge_id} prepare endpoint differs from review: {endpoint}")
     return count
+
+
+def build_prepare_request(candidate, manifest, request):
+    """Build the governed prepare payload from reviewed objects and edge decisions."""
+    if "cohort_edge_review" in request or any(
+        selection["kind"] == "edge" for selection in request["selections"]
+    ):
+        raise ValueError("Base request must omit cohort review and edge selections")
+    validate(candidate, manifest)
+    edges = [
+        {
+            "kind": "edge",
+            "record_id": row["edge_id"],
+            "action": "create",
+            "metadata": row["metadata"] | {"evidence_ref_ids": row["evidence_ref_ids"]},
+        }
+        for row in manifest["edge_decisions"]
+        if row["decision"] == "publish"
+    ]
+    prepared = request | {
+        "selections": [*request["selections"], *edges],
+        "cohort_edge_review": manifest,
+    }
+    validate_prepare(candidate, manifest, prepared)
+    return prepared

@@ -1688,19 +1688,23 @@ def test_cohort_prepare_refuses_unaccounted_relationships(lane, decisions):
 
 
 def test_cohort_prepare_keeps_relationship_to_new_event(lane):
+    from graph_memory.ingestion.cohort_edge_review import build_prepare_request
+
     lane.payload["nodes"][0]["node_type"] = "event"
     lane.refresh()
     body = copy.deepcopy(lane.body)
-    body["cohort_edge_review"] = dict(
+    body["selections"].pop()
+    manifest = dict(
         event_ids=["new"],
         edge_decisions=[dict(
             edge_id="edge", decision="publish", subject_candidate_node_id="new",
             target_entity_id="ent:pippa", evidence_ref_ids=META["evidence_ref_ids"],
+            metadata=META,
         )],
         prepare_pin={key: value for key, value in body.items() if key != "selections"},
     )
 
-    response = lane.post(body)
+    response = lane.post(build_prepare_request(lane.payload, manifest, body))
 
     assert response.status_code == 200, response.text
     prepared = transport.decode_prepared(response.json()["prepared"])
