@@ -85,7 +85,9 @@ def catalog(scope, principal):
 
 
 def catalog_with_profile(scope, principal):
-    bound, read, access, pin, profile = _pinned(scope, principal)
+    bound, read, access, pin, profile = _pinned(
+        scope, principal, parsed_cache=_shared_parsed_cache
+    )
     listing = EntityReadService().list_entities(read)
     # Only Core's admitted IDs from this same immutable context are serialized.
     assertions = [

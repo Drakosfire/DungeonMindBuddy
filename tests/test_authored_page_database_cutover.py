@@ -748,3 +748,156 @@ def test_presentation_rejects_reference_definition_that_parser_hides():
     text = "![Bird][bird]\n\nOther text.\n\n[bird]: dmb-media:11111111-1111-4111-8111-111111111111\n"
     with pytest.raises(ApplicationStateValidationError, match="reference definitions"):
         PagePresentation.model_validate(presentation_for(text)).checked(text)
+
+
+# Slice C: an image/text stack is only presentation over two ordinary blocks.
+def staged_image_text(title="Title"):
+    from io import BytesIO
+    from PIL import Image
+    from application_state import media
+
+    data = BytesIO()
+    Image.new("RGB", (32, 32), (150, 170, 100)).save(data, format="PNG")
+    asset = media.stage_image(
+        data.getvalue(), "local_operator", {"kind": "synthetic_stack_test"}
+    )
+    return f"![Artwork](dmb-media:{asset['asset_id']})\n\n{title}\n"
+
+
+def image_text_presentation(text, *, nested=False, anchor="middle-center"):
+    layout = presentation_for(text)
+    row = layout["items"][0]
+    blocks = [block for slot in row["slots"] for block in slot["blocks"]]
+    stack = dict(
+        kind="image_text",
+        id="stack-1",
+        image=blocks[0],
+        text=blocks[1],
+        anchor=anchor,
+        inset="small",
+        backing="contrast",
+    )
+    if nested:
+        row["slots"] = [dict(id="only", width=12, blocks=[stack])]
+    else:
+        layout["items"] = [stack]
+    return layout
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_image_text_revision_retry_cas_and_historical_source(tmp_path, page, nested):
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteError,
+    )
+
+    text = staged_image_text("# Café 🌲")
+    plain, _ = save(tmp_path, page, text)
+    source = sources.create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=page.document_id,
+        expected_revision=plain.committed_revision,
+        expected_content_sha256=plain.normalized_content_sha256,
+    )
+    first, request = save_composed(
+        tmp_path,
+        plain.committed_record,
+        text,
+        image_text_presentation(text, nested=nested),
+    )
+    assert commit_tiptap_markdown_write(root=tmp_path, request=request) == first
+    same, _ = save_composed(
+        tmp_path,
+        first.committed_record,
+        text,
+        image_text_presentation(text, nested=nested),
+    )
+    assert same.committed_revision == first.committed_revision
+    second, _ = save_composed(
+        tmp_path,
+        same.committed_record,
+        text,
+        image_text_presentation(text, nested=nested, anchor="bottom-right"),
+    )
+    assert second.committed_revision == first.committed_revision + 1
+    assert second.normalized_content_sha256 == plain.normalized_content_sha256
+    snap = workspace.get_workspace_document_snapshot(tmp_path, page.document_id)
+    assert snap.markdown == text
+    assert snap.page_presentation_sha256 == second.page_presentation_sha256
+    assert snap.page_presentation.model_dump() == image_text_presentation(
+        text, nested=nested, anchor="bottom-right"
+    )
+    with pytest.raises(TiptapMarkdownWriteConflictError):
+        commit_tiptap_markdown_write(root=tmp_path, request=request)
+    with pytest.raises(TiptapMarkdownWriteError, match="explicit presentation"):
+        prepare(tmp_path, second.committed_record, text)
+    assert (
+        sources.load_registered_source_artifact_text(
+            tmp_path, source.source_artifact_id
+        )[1]
+        == text
+    )
+    assert workspace.get_workspace_document_snapshot(tmp_path, page.document_id) == snap
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "ordinary paragraph\n\nTitle\n",
+        "![External](https://example.com/art.png)\n\nTitle\n",
+        "before ![Art](dmb-media:11111111-1111-4111-8111-111111111111)\n\nTitle\n",
+        "![Art](dmb-media:11111111-1111-4111-8111-111111111111)\n\n![Second](dmb-media:22222222-2222-4222-8222-222222222222)\n",
+        "![Art](dmb-media:11111111-1111-4111-8111-111111111111)\n\n> quote\n",
+        "![Art](dmb-media:not-a-uuid)\n\nTitle\n",
+    ],
+)
+def test_image_text_requires_actual_source_types(source):
+    from application_state.content.page_presentation import PagePresentation
+
+    with pytest.raises(ApplicationStateValidationError):
+        PagePresentation.model_validate(image_text_presentation(source)).checked(source)
+
+
+@pytest.mark.parametrize(
+    "damage", ["anchor", "inset", "backing", "nested", "duplicate", "reorder", "hash"]
+)
+def test_image_text_invalid_layout_preserves_revision(tmp_path, page, damage):
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteError,
+    )
+
+    text = staged_image_text()
+    layout = image_text_presentation(text)
+    stack = layout["items"][0]
+    if damage in {"anchor", "inset", "backing"}:
+        stack[damage] = "not-allowed"
+    if damage == "nested":
+        stack["text"] = dict(stack)
+    if damage == "duplicate":
+        stack["text"]["id"] = stack["image"]["id"]
+    if damage == "reorder":
+        stack["image"], stack["text"] = stack["text"], stack["image"]
+    if damage == "hash":
+        stack["text"]["sha256"] = "0" * 64
+    before = pages.snapshot_page(page.document_id, world_id=page.world_id)
+    with pytest.raises((TiptapMarkdownWriteError, ValueError)):
+        save_composed(tmp_path, page, text, layout)
+    assert pages.snapshot_page(page.document_id, world_id=page.world_id) == before
+
+
+def test_unlayered_v1_fingerprint_is_unchanged():
+    import hashlib
+    import json
+    from application_state.content.page_presentation import PagePresentation
+
+    text = "One\n\nTwo\n"
+    payload = presentation_for(text)
+    value = PagePresentation.model_validate(payload).checked(text)
+    assert value.model_dump() == payload
+    assert (
+        value.fingerprint()
+        == hashlib.sha256(
+            json.dumps(
+                payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+        ).hexdigest()
+    )
