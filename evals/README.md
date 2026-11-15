@@ -129,3 +129,6 @@ distractors separately. Shared source support can back distinct claims.
 Adopt a traversal change only when it recovers required evidence within the
 shared budget while preserving previously supported witnesses and exact
 citation reopening.
+
+For Plan authoring and conversation-only boundaries, see the
+[Plan authoring benchmark](plan-authoring-benchmark.md).
