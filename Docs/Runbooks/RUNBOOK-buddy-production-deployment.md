@@ -412,6 +412,14 @@ to recent startup logs on a disposable stack before exposing Buddy publicly.
 
 Record the existing Nginx configuration. Install the [hosted read-only proxy fragment](../../deploy/production/nginx-buddy.conf) in the selected Buddy TLS virtual host and match all upstream directives to the verified URL printed in step 3. Use the edge owner's DNS and certificate procedures for records, issuance, and renewal.
 
+After the canonical Buddy host passes sign-in and Build verification, configure DNS and TLS for `dungeonbuddy.net` using the edge owner's procedures. In its dedicated TLS server block, include [the vanity redirect fragment](../../deploy/production/nginx-buddy-vanity.conf). Run `nginx -t` before reloading. Verify the first response without following the redirect.
+
+```bash
+curl -sSI 'https://dungeonbuddy.net/build?world=pilot'
+```
+
+Expect HTTP 302 and `Location: https://buddy.dungeonmind.net/build?world=pilot`. Open the vanity URL in a signed-out browser and verify that DungeonMind Auth returns the pilot to the same Build deep link. To roll back the entry point, restore the previous vanity virtual host configuration, run `nginx -t`, and reload.
+
 The hosted profile serves authentication, the SPA, and read-only World and
 Graph requests. It buffers requests and responses, leaves proxy caching
 disabled, and uses 60-second upstream read and send timeouts. Before replacing
