@@ -1307,3 +1307,25 @@ def test_validate_sends_required_unknown_fields():
 
     client = _client(httpx.MockTransport(handler))
     client.validate_definition(ValidateDefinitionRequestV1(definition=definition))
+
+
+def test_exact_revision_verifies_sealed_historical_omission() -> None:
+    from hashlib import sha256
+
+    payload = _fixture("exact-revision-response.json")
+    for element in payload["definition"]["rule_elements"]:
+        element.pop("explains", None)
+    payload = _reseal_exact_revision_payload(payload)
+    sealed = json.loads(payload["canonical_definition"])
+    for element in sealed["rule_elements"]:
+        assert element.pop("explains") is None
+    payload["canonical_definition"] = json.dumps(
+        sealed, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    )
+    digest = "sha256:" + sha256(payload["canonical_definition"].encode()).hexdigest()
+    payload["definition_digest"] = payload["validation_receipt"]["definition_digest"] = digest
+    verify_exact_revision_mechanics_integrity(ExactRevisionResourceV1.model_validate(payload))
+
+    payload["definition"]["abilities"]["strength"] = 19
+    with pytest.raises(StatblockIntegrationError, match="canonical_definition"):
+        verify_exact_revision_mechanics_integrity(ExactRevisionResourceV1.model_validate(payload))
