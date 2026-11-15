@@ -1,3 +1,5 @@
+import { loadNativeDocuments, nativeDocumentHref } from "./buildNativeDocuments";
+import type { NativeSourceMetadata } from "../api/nativeSourceInspection";
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 
 import { listRetainedPdfDocuments, retainedPdfBuildHref, type RetainedPdf } from "../api/retainedPdfRegions";
@@ -87,6 +89,21 @@ export function BuildDocumentSelector({
   const retainedPdfs = currentPdfCatalog?.documents ?? [];
   const activePdf = retainedPdfs.find(entry => entry.locator.source_revision_id ===
     new URLSearchParams(window.location.search).get("pdf"));
+  const [nativeCatalog, setNativeCatalog] = useState<{ worldId: string; sources: NativeSourceMetadata[]; error?: boolean }>();
+  useEffect(() => {
+    if (!worldId) return;
+    const request = new AbortController();
+    void loadNativeDocuments(worldId, request.signal).then(({ sources }) => {
+      if (!request.signal.aborted) setNativeCatalog({ worldId, sources });
+    }, () => {
+      if (!request.signal.aborted) setNativeCatalog({ worldId, sources: [], error: true });
+    });
+    return () => request.abort();
+  }, [worldId]);
+  const currentNativeCatalog = nativeCatalog?.worldId === worldId ? nativeCatalog : undefined;
+  const nativeSources = currentNativeCatalog?.sources ?? [];
+  const activeNativeId = new URLSearchParams(window.location.search).get("nativeDocument");
+  const activeNative = nativeSources.find(source => source.source_revision.source_revision_id === activeNativeId);
   const activeStatblock = readSavedStatblockTarget(window.location.href);
 
   const groupedOptions = useMemo(() => {
@@ -167,15 +184,15 @@ export function BuildDocumentSelector({
     "data-testid": "build-document-select",
     "data-guided-control": "source",
     "aria-label": "Open document",
-    value: activePdf && worldId ? retainedPdfBuildHref(worldId, activePdf) : activeStatblock ? buildSavedStatblockHref(activeStatblock) : activeDocumentId ?? "",
+    value: activeNative && worldId ? nativeDocumentHref(worldId, activeNative) : activePdf && worldId ? retainedPdfBuildHref(worldId, activePdf) : activeStatblock ? buildSavedStatblockHref(activeStatblock) : activeDocumentId ?? "",
     onChange: (event: ChangeEvent<HTMLSelectElement>) => {
       const next = event.target.value.trim();
       if (next.startsWith("/build?")) window.location.assign(next);
-      else if (next && worldId && (activeStatblock || new URLSearchParams(window.location.search).has("pdf"))) {
+      else if (next && worldId && (activeStatblock || activeNativeId || new URLSearchParams(window.location.search).has("pdf"))) {
         window.location.assign("/build?" + new URLSearchParams({ world: worldId, documentId: next }));
       } else if (next) onSelect(next);
     },
-    disabled: switching || (listStatus !== "ready" && statblocks.length === 0 && retainedPdfs.length === 0),
+    disabled: switching || (listStatus !== "ready" && statblocks.length === 0 && retainedPdfs.length === 0 && nativeSources.length === 0),
   };
 
   return (
@@ -186,6 +203,7 @@ export function BuildDocumentSelector({
     >
       <input type="search" aria-label="Search documents" placeholder="Search documents"
         value={query} onChange={event => setQuery(event.target.value)} />
+      {currentNativeCatalog?.error && <span role="status">Ingested text documents unavailable</span>}
       {currentPdfCatalog?.error && <span role="status">PDF documents unavailable</span>}
       {currentCatalog?.error && <span role="status">Saved statblocks unavailable</span>}
       <SurfaceContextSelect {...selectProps}>
@@ -210,6 +228,13 @@ export function BuildDocumentSelector({
           {retainedPdfs.filter(entry => entry === activePdf || entry.name.toLowerCase().includes(filter)).map(entry => {
             const href = retainedPdfBuildHref(worldId, entry);
             return <option key={href} value={href}>{entry.name}</option>;
+          })}
+        </optgroup>}
+        {worldId && nativeSources.length > 0 && <optgroup label="Ingested text documents">
+          {nativeSources.filter(source => source === activeNative ||
+            (source.navigation.label ?? "Unnamed document").toLowerCase().includes(filter)).map(source => {
+            const href = nativeDocumentHref(worldId, source);
+            return <option key={href} value={href}>{source.navigation.label ?? "Unnamed document"}</option>;
           })}
         </optgroup>}
       </SurfaceContextSelect>

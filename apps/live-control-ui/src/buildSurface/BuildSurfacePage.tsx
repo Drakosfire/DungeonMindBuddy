@@ -1,3 +1,4 @@
+import { BuildNativeDocument } from "./BuildNativeDocument";
 import { listRetainedPdfDocuments, readRetainedPdfDocuments, type RetainedPdf } from "../api/retainedPdfRegions";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { SavedStatblockFullView } from "../statblocks/StatblockPage";
@@ -44,6 +45,7 @@ export function BuildSurfacePage() {
     return () => window.removeEventListener("popstate", syncHistory);
   }, []);
   const params = new URLSearchParams(entrySearch);
+  const nativeDocumentId = params.get("world") === worldId ? params.get("nativeDocument") : null;
   const pdfId = params.get("world") === worldId ? params.get("pdf") : null;
   const [authorityPdf, setAuthorityPdf] = useState<{ worldId: string; id: string; entry?: RetainedPdf }>();
   const localPdf = useMemo(() => worldId && pdfId
@@ -97,12 +99,17 @@ export function BuildSurfacePage() {
         </>
       ) : graphPointer && nativeObject && nativeObject.managed_world_id === worldId ? (
         <BuildGraphObjectContext key={entrySearch} pointer={graphPointer} />
+      ) : nativeDocumentId && worldId ? (
+        <>
+          <BuildSurfaceContext {...controller} />
+          <BuildNativeDocument key={`${worldId}:${nativeDocumentId}`} worldId={worldId} revisionId={nativeDocumentId} />
+        </>
       ) : params.has("pdf") && worldId ? (
         <>
           <BuildSurfaceContext {...controller} />
           <section className="build-pdf-workspace" aria-label="PDF workspace">
             {retainedPdf ? <BuildPdfPreview key={entrySearch} worldId={worldId} initialRetained={retainedPdf} />
-              : <p role="status">{resolvedPdf ? "This retained PDF could not be found." : "Opening PDF…"}</p>}
+              : <p role="status">{(!pdfId || resolvedPdf) ? "This retained PDF could not be found." : "Opening PDF…"}</p>}
           </section>
         </>
       ) : droppedPdf && droppedPdf.worldId === worldId ? (
