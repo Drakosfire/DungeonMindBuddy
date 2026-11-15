@@ -3,25 +3,16 @@ import { nativeGraphPresentation } from "./nativeGraphPresentation";
 import { buildGraphChronology } from "./graphChronologyModel";
 import type { NativeGraph, NativeGraphDemoApi } from "./nativeGraphDemoApi";
 
-export function GraphChronology({ graph, read, relatedTo, onExplore, strip = false, selectedEvent, connectedIds }: {
-  graph: NativeGraph;
-  read: NonNullable<NativeGraphDemoApi["readChronology"]>;
-  relatedTo?: string;
-  strip?: boolean;
-  selectedEvent?: string;
-  connectedIds?: ReadonlySet<string>;
-  onExplore: (nodeId: string) => void;
-}) {
+export function useGraphChronology(graph: NativeGraph | null, read: NativeGraphDemoApi["readChronology"]) {
   const [result, setResult] = useState<{
     graph: NativeGraph;
     events: ReturnType<typeof buildGraphChronology> | null;
     partial?: boolean;
   }>();
-  const eventButtons = useRef(new Map<string, HTMLButtonElement>());
-  const [requestedCampaign, setCampaign] = useState("");
   useEffect(() => {
+    if (!graph || !read) return;
     const abort = new AbortController();
-    void read(graph, abort.signal).then(catalogue => {
+    void Promise.resolve().then(() => read(graph, abort.signal)).then(catalogue => {
       if (!abort.signal.aborted) setResult({
         graph, events: buildGraphChronology(graph, catalogue),
         partial: catalogue.completeness.status === "partial",
@@ -32,6 +23,23 @@ export function GraphChronology({ graph, read, relatedTo, onExplore, strip = fal
     return () => abort.abort();
   }, [graph, read]);
 
+  return result?.graph === graph ? result : undefined;
+}
+
+export function GraphChronology({ graph, read, relatedTo, onExplore, strip = false, selectedEvent, connectedIds, shared }: {
+  graph: NativeGraph;
+  read: NonNullable<NativeGraphDemoApi["readChronology"]>;
+  relatedTo?: string;
+  shared?: { result: ReturnType<typeof useGraphChronology> };
+  strip?: boolean;
+  selectedEvent?: string;
+  connectedIds?: ReadonlySet<string>;
+  onExplore: (nodeId: string) => void;
+}) {
+  const localResult = useGraphChronology(shared ? null : graph, read);
+  const result = shared ? shared.result : localResult;
+  const eventButtons = useRef(new Map<string, HTMLButtonElement>());
+  const [requestedCampaign, setCampaign] = useState("");
   const labels = new Map(graph.nodes.map(node => [node.id, node.name]));
   const relatedIds = new Set([relatedTo]);
   if (relatedTo) {

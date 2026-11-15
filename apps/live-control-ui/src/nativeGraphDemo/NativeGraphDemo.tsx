@@ -22,7 +22,8 @@ import {
 } from "./nativeGraphDemoApi";
 import type { NativeGraphEntity } from "../api/nativeGraphInspection";
 import { nativeGraphPresentation } from "./nativeGraphPresentation";
-import { GraphChronology } from "./GraphChronology";
+import { layoutGraphChronology, type ChronologyLayout } from "./graphChronologyLayout";
+import { GraphChronology, useGraphChronology } from "./GraphChronology";
 import { NativeGraphNodeExplorer } from "./GraphNodeExplorer";
 import { compactNodeLabel } from "./graphNodeExplorerModel";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
@@ -467,6 +468,12 @@ export interface NativeGraphDemoProps {
 export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, entityOnlyDetails = false, readOnly = false }: NativeGraphDemoProps) {
   const api = useMemo(() => providedApi ?? (mode === "managed" ? MISSING_MANAGED_API : createNativeGraphDemoApi()), [mode, providedApi]);
   const [graph, setGraph] = useState<NativeGraph | null>(null);
+  const [canvasLayout, setCanvasLayout] = useState<"graph" | ChronologyLayout>("graph");
+  const readChronology = api.readChronology;
+  const chronologyData = useGraphChronology(embedded ? graph : null, readChronology);
+  const chronologyLayout = useMemo(() => canvasLayout !== "graph" && chronologyData?.events
+    ? layoutGraphChronology(chronologyData.events, canvasLayout, chronologyData.graph)
+    : undefined, [canvasLayout, chronologyData]);
   const graphNodes = graph?.nodes;
   const nodesById = useMemo(() => new Map(graphNodes?.map((node) => [node.id, node])), [graphNodes]);
   const graphRef = useRef<NativeGraph | null>(null);
@@ -1777,7 +1784,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const chronologyPanel = chronologyOpen && api.readChronology ? (
     <div className="native-demo-inspector-timeline">
       <h2>{embedded && selectedNode ? `Chronology · ${compactNodeLabel(selectedNode)}` : `World chronology · ${worldTitle?.trim() || "Selected World"}`}</h2>
-      <GraphChronology relatedTo={embedded ? selectedNode?.id : undefined} graph={graph} read={api.readChronology} strip
+      <GraphChronology relatedTo={embedded ? selectedNode?.id : undefined} graph={graph} read={api.readChronology} shared={embedded ? { result: chronologyData } : undefined} strip
         onExplore={nodeId => {
           if (pendingRef.current) return;
           setChronology(null);
@@ -1903,11 +1910,34 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                   nodeShape: "circle" as const,
                   externalControls: true,
                   controlsHost: canvasControlsHost,
+                  alternatePositions: chronologyLayout?.positions,
+                  layoutControls: readChronology ? (
+                    <div role="group" aria-label="Graph layout">
+                      {(["graph", "line", "spiral"] as const).map(mode =>
+                        <SurfaceContextAction key={mode} aria-pressed={canvasLayout === mode}
+                          disabled={mode !== "graph" && !chronologyData?.events}
+                          onClick={() => setCanvasLayout(mode)}>
+                          {mode === "graph" ? "Graph" : mode === "line" ? "Line" : "Spiral"}
+                        </SurfaceContextAction>)}
+                    </div>
+                  ) : undefined,
+                  layoutMarkers: chronologyLayout ? <g pointerEvents="none">
+                    {[...new Set(chronologyLayout.markers.map(marker => marker.campaign))].map(campaign =>
+                      <polyline key={campaign} fill="none" stroke="#8a734b" strokeWidth={5}
+                        points={chronologyLayout.markers.filter(marker => marker.campaign === campaign)
+                          .map(({ point }) => `${point.x},${point.y}`).join(" ")} />)}
+                    {chronologyLayout.markers.map(({ campaign, session, point }) =>
+                      <text key={`${campaign}:${session}`} x={point.x} y={point.y} fontSize={28}>
+                        {nodesById.get(campaign)?.name ?? campaign} · Session {session}
+                      </text>)}
+                    {chronologyLayout.unplacedMarker && <text x={chronologyLayout.unplacedMarker.x}
+                      y={chronologyLayout.unplacedMarker.y} fontSize={28}>Unplaced</text>}
+                  </g> : undefined,
                   toolActions: !readOnly ? <>
                     <SurfaceContextAction disabled={!graph.capabilities.create || !graph.capabilities.object_kinds.length || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>
                     <SurfaceContextAction disabled={!canConnectGraph(graph) || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "connect" ? null : "connect")}>Connect</SurfaceContextAction>
                   </> : undefined,
-                  projectionOptions: { fullCorpus: true, compactOverview, maxNodes: 512, maxEdges: 1024, focusObjectId: viewFocusId, neighborhoodDepth },
+                  projectionOptions: { fullCorpus: true, compactOverview: !chronologyLayout && compactOverview, maxNodes: 512, maxEdges: 1024, focusObjectId: chronologyLayout ? null : viewFocusId, neighborhoodDepth },
                   creationKinds,
                   onCanvasCreateRequest: !readOnly && graph.capabilities.create ? handleCanvasCreateRequest : undefined,
                   onConnectRequest: !readOnly && canConnectGraph(graph) ? handleConnectRequest : undefined,
