@@ -104,4 +104,17 @@ describe('Page layout authoring boundary',()=>{
   expect(localStorage.getItem(`dmb.workspaceDocument.${id}.recovery.v2`)).toContain('precious');
  });
 
+ it('retains an unfinished new paragraph through reload and resumes saving when typed',async()=>{
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snap());const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const unfinished=composed(6);unfinished.content![0].content![0].content!.push({type:'paragraph'});
+  act(()=>h.result.current.handleEditorUpdate(unfinished,{} as Editor,{programmatic:false}));
+  await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation_pending).toBe(true));
+  expect(h.result.current.exportedMarkdownAuthoritative).toBe(false);h.unmount();
+  const r=mount();await waitFor(()=>expect(r.result.current.dirty).toBe(true));expect(r.result.current.editorContent).toEqual(unfinished);
+  const finished=structuredClone(unfinished);finished.content![0].content![0].content![1].content=[{type:'text',text:'New text'}];
+  act(()=>r.result.current.handleEditorUpdate(finished,{} as Editor,{programmatic:false}));
+  await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation_pending).toBe(false));
+  expect(r.result.current.exportedMarkdownAuthoritative).toBe(false);expect(readWorkspaceDocumentLocalState(localStorage,id)?.exported_markdown).toContain('New text');
+ });
+
 });

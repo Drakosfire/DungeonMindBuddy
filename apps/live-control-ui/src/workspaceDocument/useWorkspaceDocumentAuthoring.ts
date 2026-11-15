@@ -355,7 +355,8 @@ export function useWorkspaceDocumentAuthoring(
     let projectionError: unknown;
     try { if (composing) projected = projectPresentation(tiptapJson, current.exported_markdown, current.tiptap_json as JSONContent); }
     catch (error) { projectionError = error; }
-    const serializationUnsafe = Boolean(projectionError) || semanticMarkdownSerializationDiagnostics(flattenPresentation(tiptapJson)).length > 0;
+    const serializationUnsafe = semanticMarkdownSerializationDiagnostics(flattenPresentation(tiptapJson)).length > 0;
+    const projectionPending = Boolean(projectionError) && !serializationUnsafe;
     const snap = snapshotRef.current;
     const sourceHasBlockingImport = snap != null && hasBlockingMarkdownImportDiagnostics(snap.markdown);
     // When editor JSON is outside the supported Markdown grammar, or the loaded
@@ -363,7 +364,7 @@ export function useWorkspaceDocumentAuthoring(
     // snapshot markdown instead of a lossy TipTap serialization. Do not call the
     // serializer in that case: playable-identity failure is a throw, not a strip.
     const preservingAuthoritativeExport = serializationUnsafe || sourceHasBlockingImport;
-    const exportedMarkdown = preservingAuthoritativeExport
+    const exportedMarkdown = preservingAuthoritativeExport || projectionPending
       ? (sourceHasBlockingImport && snap ? snap.markdown : current.exported_markdown)
       : projected?.markdown ?? preserveLeadingYamlFrontmatter(
         snap?.markdown ?? current.exported_markdown,
@@ -378,11 +379,12 @@ export function useWorkspaceDocumentAuthoring(
       && presentationFingerprint(projected ? projected.presentation : current.page_presentation ?? null) === presentationFingerprint(snap.page_presentation ?? null);
     // Unsafe sources keep authoritative exported_markdown; TipTap may still hold
     // unsaved projection edits, so do not clear dirty just because export matches.
-    const nextDirty = serializationUnsafe || sourceHasBlockingImport || !matchesSnapshot;
+    const nextDirty = serializationUnsafe || sourceHasBlockingImport || projectionPending || !matchesSnapshot;
     const wasDirty = current.dirty;
     const now = new Date().toISOString();
     const next: WorkspaceDocumentLocalState = {
       ...current,
+      page_presentation_pending: projectionPending,
       ...(projected ? {page_presentation: projected.presentation} : {}),
       tiptap_json: tiptapJson,
       exported_markdown: exportedMarkdown,
@@ -605,7 +607,7 @@ export function useWorkspaceDocumentAuthoring(
     const original = JSON.parse(JSON.stringify({ ...current, tiptap_json: editor!.getJSON() })) as WorkspaceDocumentLocalState;
     const next: WorkspaceDocumentLocalState = { ...current, tiptap_json: normalizedDoc,
       ...(recoveredPresentation !== undefined ? {page_presentation: recoveredPresentation} : {}),
-      exported_markdown: markdown, exported_markdown_authoritative: false,
+      exported_markdown: markdown, exported_markdown_authoritative: false, page_presentation_pending: false,
       dirty: markdown !== snapshotRef.current!.markdown || presentationFingerprint(recoveredPresentation ?? null) !== presentationFingerprint(snapshotRef.current!.page_presentation ?? null),
       updated_at: new Date().toISOString(), last_local_save_at: new Date().toISOString() };
     return draftWriter.run(()=>{
@@ -974,6 +976,7 @@ export function useWorkspaceDocumentAuthoring(
       ? (hasBlockingMarkdownImportDiagnostics(localState.exported_markdown)
         ? "The preserved source uses Markdown this editor cannot save yet. Review the protected copies for details."
         : "This local copy was protected after an earlier editing problem. Review it once to resume saving.")
+    : localState?.page_presentation_pending ? "Finish or remove the incomplete layout block before saving. Your draft is kept."
     : (requireDirtyToSave && !dirty) ? "No unsaved changes."
     : canSave && !canSave() ? "This document is read-only or cannot be saved here."
     : null;
@@ -1003,7 +1006,7 @@ export function useWorkspaceDocumentAuthoring(
       || isSaveDisabled(phase)
       || (requireDirtyToSave && !dirty)
       || persistenceStatus.pending || Boolean(persistenceStatus.error)
-      || Boolean(localState?.exported_markdown_authoritative)
+      || Boolean(localState?.exported_markdown_authoritative) || Boolean(localState?.page_presentation_pending)
       || (canSave ? !canSave() : false),
     conflictRecovery: { prepare: prepareConflictRecovery, resolve: resolveConflictRecovery, protectedCopies: protectedConflictCopies },
     saveDisabledReason, draftRecoveryAvailable, prepareDraftRecovery, confirmDraftRecovery, prepareDraftRestore, restoreDraftRecovery,

@@ -72,6 +72,7 @@ export function reconcileLocalDraft(
       if (
         localState.exported_markdown === snapshot.markdown
         && !localState.exported_markdown_authoritative
+        && !localState.page_presentation_pending
         && presentationFingerprint(localState.page_presentation ?? null) === presentationFingerprint(snapshot.page_presentation ?? null)
       ) {
         return {

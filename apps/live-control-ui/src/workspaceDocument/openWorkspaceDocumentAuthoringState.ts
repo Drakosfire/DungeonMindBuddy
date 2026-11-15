@@ -44,6 +44,9 @@ function chooseEditorContent(args: {
 
   if (reconciliation.kind === "dirty-match" && reconciliation.localState) {
     const localState = reconciliation.localState;
+    if (localState.page_presentation_pending) {
+      return {tiptapJson: localState.tiptap_json, exportedMarkdown: localState.exported_markdown, dirty: true, exportedMarkdownAuthoritative: localState.exported_markdown_authoritative};
+    }
     if (
       localState.exported_markdown_authoritative
       || hasBlockingMarkdownImportDiagnostics(snapshotMarkdown)
@@ -152,7 +155,7 @@ export function openWorkspaceDocumentAuthoringState(
   const presentation = reconciliation.kind === "dirty-match"
     ? reconciliation.localState?.page_presentation
     : args.snapshot.page_presentation;
-  if (presentation != null && !chosen.exportedMarkdownAuthoritative) {
+  if (presentation != null && !chosen.exportedMarkdownAuthoritative && !reconciliation.localState?.page_presentation_pending) {
     // Invalid composed state is a load error, never silently flattened. Caller
     // retains original local bytes and the immutable server revision.
     chosen.tiptapJson = hydratePresentation(chosen.exportedMarkdown, presentation);
@@ -172,6 +175,7 @@ export function openWorkspaceDocumentAuthoringState(
       now,
     }),
     base_page_presentation_sha256: args.snapshot.page_presentation_sha256 ?? null,
+    page_presentation_pending: reconciliation.kind === "dirty-match" && reconciliation.localState?.page_presentation_pending === true,
     ...(presentation !== undefined ? { page_presentation: presentation } : {}),
     tiptap_json: chosen.tiptapJson,
     exported_markdown: chosen.exportedMarkdown,

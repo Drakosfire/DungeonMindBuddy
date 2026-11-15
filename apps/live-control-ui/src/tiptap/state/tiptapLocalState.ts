@@ -25,6 +25,8 @@ export interface WorkspaceDocumentLocalState {
   /** Separate layout CAS/recovery identity; absent means a legacy, uncomposed draft. */
   base_page_presentation_sha256?: string | null;
   page_presentation?: PagePresentation | null;
+  /** Intermediate editor blocks have no complete source binding yet; retain JSON. */
+  page_presentation_pending?: boolean;
   tiptap_json: unknown;
   exported_markdown: string;
   /**
