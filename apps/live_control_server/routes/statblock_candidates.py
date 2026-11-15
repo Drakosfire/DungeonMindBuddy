@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any,Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from apps.live_control_server.routes.statblock_storage import statblock_data_root
 from apps.live_control_server.config import repo_root
@@ -175,8 +175,29 @@ def list_saved_revisions(draft_id:str,world_id:str,limit:int=Query(50,ge=1,le=10
 
 
 @router.get('/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}',dependencies=[Depends(native_graph_gm_dependency)])
-def open_saved_revision(draft_id:str,revision_id:str,world_id:str):
-    return _revision_call(saved_versions.open_version,world_id=world_id,draft_id=draft_id,revision_id=revision_id)
+def open_saved_revision(draft_id: str, revision_id: str, world_id: str, request: Request):
+    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+    from apps.live_control_server.routes.agent import get_pdf_statblock_review
+
+    packet = _revision_call(saved_versions.open_version, world_id=world_id, draft_id=draft_id, revision_id=revision_id)
+    resource = packet["resource"]
+    accepted_through = (resource.get("provenance") or {}).get("accepted_through") or {}
+    source = accepted_through.get(PDF_REVIEW_PROVENANCE)
+    if not isinstance(source, dict) or source.get("world_id") != world_id:
+        return packet
+    try:
+        review_id = UUID(source["review_id"])
+    except (KeyError, TypeError, ValueError):
+        return packet
+    try:
+        review = get_pdf_statblock_review(world_id, review_id, request)
+    except HTTPException as exc:
+        if exc.status_code not in {403, 404, 410, 503}:
+            raise
+        return packet
+    if review["regions"] == source.get("regions") and review.get("artwork"):
+        packet["pdf_portrait"] = review["artwork"]["jpeg_base64"]
+    return packet
 
 
 @router.post('/threat-drafts/{draft_id}/mechanics-revisions')
