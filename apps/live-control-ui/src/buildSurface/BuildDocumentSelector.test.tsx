@@ -65,8 +65,7 @@ describe("BuildDocumentSelector", () => {
       openCategory("All documents");
       expect(await screen.findByRole("button", { name: "PDF · 2026-11-11 · abcde123" }))
         .toHaveAttribute("data-document-id", "/build?world=elderwyld&pdf=remote");
-      expect(await screen.findByRole("button", { name: "Sewer Meat Extraction" }))
-        .toHaveAttribute("data-document-id", "/build?world=elderwyld&pdfReview=sewer-review");
+      expect(screen.queryByRole("button", { name: "Sewer Meat Extraction" })).not.toBeInTheDocument();
       const statblock = await screen.findByRole("button", { name: "Sewer Meat Creature" });
       expect(screen.queryByRole("button", { name: "Already saved extraction" })).not.toBeInTheDocument();
       expect(statblock).toHaveAttribute("data-document-id", "/build?world=elderwyld&draft=creature&revision=saved-revision");
@@ -74,6 +73,11 @@ describe("BuildDocumentSelector", () => {
       await userEvent.type(screen.getByRole("searchbox"), "sewer");
       expect(screen.queryByRole("button", { name: "Alpha" })).not.toBeInTheDocument();
       expect(statblock).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Sewer Meat Extraction" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Statblock drafts", exact: true }));
+      expect(await screen.findByRole("button", { name: "Sewer Meat Extraction" }))
+        .toHaveAttribute("data-document-id", "/build?world=elderwyld&pdfReview=sewer-review");
+
     } finally {
       request.mockRestore();
       setNativeGraphAccessToken(null);

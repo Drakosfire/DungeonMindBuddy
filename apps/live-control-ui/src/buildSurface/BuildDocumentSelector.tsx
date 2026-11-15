@@ -216,7 +216,7 @@ export function BuildDocumentSelector({
       !currentCatalog?.drafts.some(draft => draft.draft_id === review.draft_id && draft.saved_revision_id)
     ).map(review => ({
       id: "/build?" + new URLSearchParams({ world: worldId, pdfReview: review.review_id }),
-      label: review.name, category: "Statblocks" as const, detail: "PDF extraction draft",
+      label: review.name, category: "Statblock drafts" as const, detail: "PDF extraction draft",
     })) : []),
     ...(worldId ? retainedPdfs.map(entry => ({
       id: retainedPdfBuildHref(worldId, entry), label: entry.name, category: "PDFs" as const,
@@ -242,10 +242,10 @@ export function BuildDocumentSelector({
   if (activeRecord) pageRecords.set(activeRecord.document_id, activeRecord);
   const byId = new Map(entries.map(entry => [entry.id, entry]));
   const visible = filter
-    ? entries.filter(entry => `${entry.label} ${entry.category} ${entry.detail ?? ""}`.toLowerCase().includes(filter))
+    ? entries.filter(entry => entry.category !== "Statblock drafts" && `${entry.label} ${entry.category} ${entry.detail ?? ""}`.toLowerCase().includes(filter))
     : category === "Recent"
-      ? recent.flatMap(id => byId.get(id) ?? [])
-      : entries.filter(entry => category === "All documents" || entry.category === category);
+      ? recent.flatMap(id => byId.get(id) ?? []).filter(entry => entry.category !== "Statblock drafts")
+      : entries.filter(entry => category === "All documents" ? entry.category !== "Statblock drafts" : entry.category === category);
   const pending = listStatus === "loading" || Boolean(worldId && (!currentCatalog || !currentReviews || !currentPdfCatalog || !currentNativeCatalog));
   const errors = [
     currentReviews?.error && "PDF extraction drafts unavailable",
@@ -333,7 +333,7 @@ export function BuildDocumentSelector({
   );
 }
 
-const PICKER_CATEGORIES = ["Recent", "All documents", "Pages", "Statblocks", "PDFs", "Recaps", "Ingested text"] as const;
+const PICKER_CATEGORIES = ["Recent", "All documents", "Pages", "Statblocks", "Statblock drafts", "PDFs", "Recaps", "Ingested text"] as const;
 type PickerCategory = typeof PICKER_CATEGORIES[number];
 type PickerEntry = { id: string; label: string; category: PickerCategory; detail?: string };
 
