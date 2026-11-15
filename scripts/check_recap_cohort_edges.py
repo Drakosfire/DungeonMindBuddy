@@ -70,8 +70,18 @@ def validate_prepare(candidate, manifest, request):
         record_id for (kind, record_id), selection in selections.items()
         if kind == "placement" and selection["action"] == "create"
     }
-    if placements != event_ids:
-        raise ValueError("Prepare placements differ from reviewed Events")
+    reviewed_placements = set(manifest.get("placement_ids", []))
+    if not reviewed_placements <= event_ids or placements != reviewed_placements:
+        raise ValueError("Prepare placements differ from reviewed placements")
+    published_edges = {
+        row["edge_id"] for row in manifest["edge_decisions"] if row["decision"] == "publish"
+    }
+    requested_edges = {
+        record_id for (kind, record_id), selection in selections.items()
+        if kind == "edge" and selection["action"] == "create"
+    }
+    if requested_edges != published_edges:
+        raise ValueError("Prepare relationship writes differ from reviewed decisions")
 
     edges = {edge["edge_id"]: edge for edge in candidate["edges"]}
     for decision in manifest["edge_decisions"]:
