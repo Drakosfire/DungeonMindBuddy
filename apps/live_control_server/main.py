@@ -156,6 +156,7 @@ HOSTED_WORLD_COLLECTION_AUTHORIZERS = {
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", BUILD_PDF_SOURCES_PATH): resolve_hosted_build_pdf_world,
+    ("POST", BUILD_PDF_SOURCES_PATH): resolve_hosted_build_pdf_world,
     ("POST", f"{BUILD_PDF_SOURCES_PATH}/open"): resolve_hosted_build_pdf_world,
     ("POST", f"{BUILD_PDF_SOURCES_PATH}/region:validate"): resolve_hosted_build_pdf_world,
     ("GET", BUILD_PAGE_INVENTORY_PATH): resolve_hosted_build_page_inventory,

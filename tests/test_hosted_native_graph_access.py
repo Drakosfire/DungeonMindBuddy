@@ -232,9 +232,10 @@ def hosted(monkeypatch, request):
     app.include_router(worlds_router)
     app.include_router(inspection_router)
 
-    from apps.live_control_server.routes.agent import get_build_pdf_sources
+    from apps.live_control_server.routes.agent import get_build_pdf_sources, post_build_pdf_source
 
     app.add_api_route(access.BUILD_PDF_SOURCES_PATH, get_build_pdf_sources, methods=["GET"])
+    app.add_api_route(access.BUILD_PDF_SOURCES_PATH, post_build_pdf_source, methods=["POST"])
 
     app.include_router(workspace_documents.router)
     install_hosted_request_boundary(
@@ -249,6 +250,7 @@ def hosted(monkeypatch, request):
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
             ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
+            ("POST", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
             ("GET", access.WORLD_LOOKUP_PATH): access.resolve_hosted_world_lookup,
         },
@@ -1565,3 +1567,37 @@ def test_hosted_pdf_list_denies_ownership_transfer_during_read(hosted, monkeypat
     response = hosted.client.request("GET", path)
     assert response.status_code == 403, response.text
     assert "documents" not in response.json()
+
+
+@pytest.mark.parametrize("session, origin, suffix, expected", [
+    ("owner-session", FRONTEND_ORIGIN, "", 200),
+    ("other-session", FRONTEND_ORIGIN, "", 403),
+    ("owner-session", "https://outside.example", "", 403),
+    ("owner-session", FRONTEND_ORIGIN, "?world_id=foreign", 403),
+    ("owner-session", FRONTEND_ORIGIN, "/open", 403),
+])
+def test_binary_pdf_body_only_reaches_authorized_upload(hosted, monkeypatch, session, origin, suffix, expected):
+    from hashlib import sha256
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as sources
+
+    calls = []
+
+    def retain(command, raw):
+        calls.append(raw)
+        return SimpleNamespace(source_revision_id="retained", content_sha256=sha256(raw).hexdigest())
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(sources, "_source_world_binding", lambda *_: SimpleNamespace(native_world_id="managed-native"))
+    monkeypatch.setattr(sources, "_repository", lambda: SimpleNamespace(retain_native_pdf_source=retain))
+    path = access.BUILD_PDF_SOURCES_PATH.format(world_id="managed") + suffix
+    path += ("&" if "?" in path else "?") + f"admission_id={uuid4()}"
+    payload = b"%PDF-1.7\n"
+    response = hosted.client.request(
+        "POST", path, session=session, origin=origin,
+        headers={"Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-15T00:00:00Z"}, content=payload,
+    )
+    assert response.status_code == expected, response.text
+    assert calls == ([payload] if expected == 200 else [])
+    if expected == 200:
+        assert response.json()["source_revision_id"] == "retained"

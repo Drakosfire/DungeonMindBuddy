@@ -2200,9 +2200,9 @@ def get_build_pdf_sources(world_id: str, request: Request, after: str = ""):
         NativeWorldSourceAdmissionError, _repository, _source_world_binding,
     )
 
-    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_read_access
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
-    require_build_pdf_read_access(request, world_id)
+    require_build_pdf_access(request, world_id)
     verified = _verified_world_id(world_id)
     try:
         binding = _source_world_binding(None, verified)
@@ -2211,7 +2211,7 @@ def get_build_pdf_sources(world_id: str, request: Request, after: str = ""):
         )
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
-    require_build_pdf_read_access(request, world_id)
+    require_build_pdf_access(request, world_id)
     return JSONResponse({
         "documents": [{
             "source_revision_id": revision.source_revision_id,
@@ -2234,9 +2234,14 @@ async def post_build_pdf_source(world_id: str, admission_id: UUID, request: Requ
         NativeWorldSourceAdmissionError, _repository, _source_world_binding,
     )
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
+    encodings = request.headers.getlist("content-encoding")
+    if encodings and encodings != ["identity"]:
+        raise HTTPException(status_code=415, detail={"code": "pdf_content_encoding_unsupported"})
     verified = _verified_world_id(world_id)
-    if request.headers.get("content-type") != "application/pdf":
+    if request.headers.getlist("content-type") != ["application/pdf"]:
         raise HTTPException(status_code=415, detail={"code": "pdf_required"})
     body = bytearray()
     async for chunk in request.stream():
@@ -2255,6 +2260,7 @@ async def post_build_pdf_source(world_id: str, admission_id: UUID, request: Requ
             "authority": "primary",
             "visibility": {"kind": "public"},
         })
+        require_build_pdf_access(request, world_id)
         revision = await run_in_threadpool(_repository().retain_native_pdf_source, command, raw)
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
@@ -2272,9 +2278,9 @@ def _authorized_build_pdf_region(world_id: str, body: dict, request: Request, *,
     )
 
     if hosted_read:
-        from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_read_access
+        from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
-        require_build_pdf_read_access(request, world_id)
+        require_build_pdf_access(request, world_id)
     else:
         enforce_native_graph_gm(request)
     verified = _verified_world_id(world_id)
@@ -2741,22 +2747,22 @@ def post_append_pdf_statblock_review(
 @router.post("/worlds/{world_id}/build-pdf-sources/region:validate", status_code=204)
 def post_validate_build_pdf_region(world_id: str, body: dict, request: Request):
     from fastapi.responses import Response
-    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_read_access
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
     _authorized_build_pdf_region(world_id, body, request, hosted_read=True)
-    require_build_pdf_read_access(request, world_id)
+    require_build_pdf_access(request, world_id)
     return Response(status_code=204, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/open")
 def post_open_build_pdf_source(world_id: str, body: dict, request: Request, render: bool = False):
     from fastapi.responses import Response
-    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_read_access
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
     pdf, region = _authorized_build_pdf_region(world_id, body, request, hosted_read=True)
     if render:
         pdf = _render_build_pdf_region(pdf, region)
-    require_build_pdf_read_access(request, world_id)
+    require_build_pdf_access(request, world_id)
     return Response(
         pdf,
         media_type="image/png" if render else "application/pdf",

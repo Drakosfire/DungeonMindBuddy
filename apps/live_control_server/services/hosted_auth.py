@@ -369,12 +369,19 @@ async def _read_bounded_request_body(request: Request) -> bytes:
     return result
 
 
-async def request_world_ids(request: Request) -> frozenset[str]:
-    found = {
+BUILD_PDF_SOURCES_PATH = "/api/live/agent/worlds/{world_id}/build-pdf-sources"
+
+
+def _query_world_ids(request: Request) -> frozenset[str]:
+    return frozenset(
         _validated_world_selector(value)
         for key in ("world_id", "worldId", "managed_world_id", "managedWorldId")
         for value in request.query_params.getlist(key)
-    }
+    )
+
+
+async def request_world_ids(request: Request) -> frozenset[str]:
+    found = set(_query_world_ids(request))
     body = await _read_bounded_request_body(request)
     if not body:
         return frozenset(found)
@@ -488,7 +495,7 @@ def install_hosted_request_boundary(
     from starlette.routing import compile_path
 
     world_path_resolvers = [
-        (method, compile_path(path)[0], resolver)
+        (method, path, compile_path(path)[0], resolver)
         for (method, path), resolver in route_resolvers.items()
         if "{world_id}" in path
     ]
@@ -585,16 +592,18 @@ def install_hosted_request_boundary(
             response.headers["Cache-Control"] = "no-store"
             return response
 
-        resolver = route_resolvers.get((request.method.upper(), request.url.path))
+        method = request.method.upper()
+        route_path = request.url.path
+        resolver = route_resolvers.get((method, route_path))
         if resolver is None:
             matches = [
-                (match, candidate)
-                for method, pattern, candidate in world_path_resolvers
-                if method == request.method.upper()
+                (path, match, candidate)
+                for verb, path, pattern, candidate in world_path_resolvers
+                if verb == method
                 and (match := pattern.fullmatch(request.url.path))
             ]
             if len(matches) == 1:
-                match, resolver = matches[0]
+                route_path, match, resolver = matches[0]
                 request.state.hosted_route_world_id = match.group("world_id")
         if resolver is None:
             return JSONResponse(
@@ -603,7 +612,12 @@ def install_hosted_request_boundary(
             )
 
         try:
-            requested_world_ids = await request_world_ids(request)
+            # The PDF upload handler streams and bounds opaque bytes. The
+            # gateway authorizes the World and Origin before reading any bytes.
+            if (method, route_path) == ("POST", BUILD_PDF_SOURCES_PATH):
+                requested_world_ids = _query_world_ids(request)
+            else:
+                requested_world_ids = await request_world_ids(request)
             resolved_world_id = await _resolve_authoritative_world_id(request, resolver)
             if requested_world_ids and requested_world_ids != frozenset({resolved_world_id}):
                 raise HTTPException(
