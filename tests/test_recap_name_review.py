@@ -57,7 +57,7 @@ def test_corrections_and_original_are_database_retained_before_owned_extraction(
         assert bool(record['applied_edits']) == bool(replacement)
         return type('Result',(),{'run':object()})()
     monkeypatch.setattr(host,'run_recap_production_extraction',run)
-    monkeypatch.setattr(host,'reusable_recap_extraction',lambda **kw:pytest.fail('Explicit decisions must not disappear through historical reuse'))
+    monkeypatch.setattr(host, 'reusable_recap_extraction', lambda **kw: None)
     monkeypatch.setattr(host,'project_recap_extraction_run',lambda **kw:{'status':'candidate_validation_ready'})
     args=dict(repo_root=tmp_path,campaign_id='c',session=1,recap_text=text,force_graph_run=False,ingest_context=scope)
     with pytest.raises(ValueError,match='Review possible'):host.extract_recap(**args)
@@ -94,3 +94,37 @@ def test_possessive_choice_preserves_ownership_and_exact_context():
     corrected,record=apply_review(text,review,{'review_id':review['review_id'],'decisions':[{'id':s['id'],'replacement':"Marlen's"}]})
     assert corrected=="First line.\nMarlen's intentions were unclear."
     assert review_names("Marlen's intentions",catalog,SCOPE)['suggestions']==[]
+
+
+def test_review_never_issues_more_decisions_than_process_accepts():
+    from graph_memory.extraction.name_review import MAX_NAME_DECISIONS
+
+    with pytest.raises(ValueError, match="Too many possible name corrections"):
+        review_names("Marlaine " * (MAX_NAME_DECISIONS + 1), CAT, SCOPE)
+
+
+def test_extraction_reuse_matches_name_review_lineage(monkeypatch):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from apps.live_control_server.services import ingest_run_catalog as catalog
+
+    review = {"source_sha256": "original-text-hash"}
+    decisions = [{"id": "first", "replacement": "Mara"}, {"id": "second", "replacement": None}]
+    record = {"review": review, "decisions": decisions}
+    plain = SimpleNamespace(profile_id="profile", lineage={"model_id": "model"})
+    reviewed = SimpleNamespace(
+        profile_id="profile",
+        lineage={"model_id": "model", "name_review": {**record, "original_source_artifact_id": "source"}},
+    )
+    monkeypatch.setattr(catalog, "_scoped_recap_runs", lambda *_: [reviewed, plain])
+    monkeypatch.setattr(catalog, "project_recap_extraction_run", lambda *, run, **_: {"run": run})
+    monkeypatch.setattr(catalog, "_same_session_evidence", lambda *_: True)
+    request = dict(root=Path("."), campaign_id="c", session_id="session-1",
+                   context={}, source_content_sha256="effective-text-hash",
+                   profile_id="profile", model_id="model", supplemental_evidence=None)
+
+    assert catalog.reusable_recap_extraction(**request)["run"] is plain
+    reversed_record = {**record, "decisions": list(reversed(decisions))}
+    assert catalog.reusable_recap_extraction(**request, name_review_record=reversed_record)["run"] is reviewed
+    different_source = {**record, "review": {"source_sha256": "different-source"}}
+    assert catalog.reusable_recap_extraction(**request, name_review_record=different_source) is None

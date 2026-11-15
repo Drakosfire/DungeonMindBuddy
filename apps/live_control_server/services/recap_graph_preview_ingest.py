@@ -46,7 +46,8 @@ def extract_recap(
     )
     digest = "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
     context = SourceScope.model_validate(ingest_context.model_dump()).model_dump()
-    if not force_graph_run and not review_record["decisions"]:
+    review_lineage = review_record if review_record["decisions"] else None
+    if not force_graph_run:
         profile_id, version = resolve_legacy_graph_extraction_profile(None)
         reused = reusable_recap_extraction(
             root=root,
@@ -57,6 +58,7 @@ def extract_recap(
             profile_id=f"{profile_id}@{version}",
             model_id=graph_model_id or DEEPSEEK_MODEL,
             supplemental_evidence=supplemental_evidence,
+            name_review_record=review_lineage,
         )
         if reused is not None:
             return reused
@@ -87,7 +89,7 @@ def extract_recap(
         allow_llm=True,
         ingest_context=ingest_context,
         supplemental_evidence=supplemental_evidence,
-        name_review_record=review_record if review_record["decisions"] else None,
+        name_review_record=review_lineage,
     )
     status = project_recap_extraction_run(
         root=root,

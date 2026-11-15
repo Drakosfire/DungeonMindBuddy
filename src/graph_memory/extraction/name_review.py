@@ -5,6 +5,9 @@ import re
 from src.graph_memory.extraction.known_entity_registry import normalize_match_surface, is_unsafe_match_alias
 
 
+MAX_NAME_DECISIONS = 1000
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',', ':'),ensure_ascii=False).encode()).hexdigest()
 
@@ -52,6 +55,8 @@ def review_names(text, catalog, scope):
                 if surface.casefold()==name.casefold()+'s':
                     options.add(name+"'s")
 
+    if len(windows) > MAX_NAME_DECISIONS:
+        raise ValueError("Too many possible name corrections. Correct repeated typos in the recap and check again.")
     suggestions=[]
     for (start,end,surface),options in sorted(windows.items()):
         # Exact, bounded source context; no model interpretation or source rewrite.
@@ -75,7 +80,7 @@ def apply_review(text, review, receipt):
         if review['suggestions']:raise ValueError('Review possible name typos before extraction.')
         receipt={'review_id':review['review_id'],'decisions':[]}
     if receipt['review_id']!=review['review_id']:raise ValueError('Name review is stale. Check names again.')
-    decisions=receipt['decisions']
+    decisions=sorted(receipt['decisions'], key=lambda decision: decision['id'])
     if len({d['id'] for d in decisions})!=len(decisions) or {d['id'] for d in decisions}!={s['id'] for s in review['suggestions']}:
         raise ValueError('Decide every suggested name correction before extraction.')
     by_id={d['id']:d['replacement'] for d in decisions}

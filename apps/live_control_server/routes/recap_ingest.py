@@ -24,6 +24,8 @@ from graph_memory.ingestion.native_recap_source import (
     Status as NativeRecapSourceStatus,
 )
 
+from graph_memory.extraction.name_review import MAX_NAME_DECISIONS
+
 router = APIRouter(prefix="/api/live", tags=["live"])
 
 RecapIngestOperation = Literal[
@@ -40,7 +42,7 @@ class NameDecision(BaseModel):
 class NameReviewReceipt(BaseModel):
     model_config = ConfigDict(extra="forbid")
     review_id: str = Field(pattern=r"^[a-f0-9]{64}$")
-    decisions: list[NameDecision] = Field(max_length=1000)
+    decisions: list[NameDecision] = Field(max_length=MAX_NAME_DECISIONS)
 
 
 class RecapIngestRequest(BaseModel):
