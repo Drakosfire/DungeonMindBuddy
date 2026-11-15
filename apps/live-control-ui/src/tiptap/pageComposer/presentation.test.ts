@@ -58,12 +58,55 @@ describe('Page presentation exact-source mapper',()=>{
     if(damage==='omitted') r.slots[1].blocks.pop();
     expect(()=>hydratePresentation(text,p)).toThrow();
   });
-  it('keeps generated identities stable across projection and rejects non-two-slot stored rows',()=>{
+  it('keeps generated identities stable across projection',()=>{
     const original=markdownToTiptapDoc(text).doc,doc=row();
     expect(projectPresentation(doc,text,original)).toEqual(projectPresentation(structuredClone(doc),text,original));
-    const p=payload(),r=p.items[0];if(r.kind!=='row')throw new Error('fixture');
-    r.slots=[{...r.slots[0],width:12,blocks:[...r.slots[0].blocks,...r.slots[1].blocks]}];
-    expect(()=>hydratePresentation(text,p)).toThrow('two-slot');
+  });
+  const tableArtTable='---\ntitle: Café 🌲\n---\n\n| Left | Value |\n| --- | --- |\n| One | 1 |\n\n![Art](dmb-media:11111111-1111-4111-8111-111111111111)\n\n| Right | Value |\n| --- | --- |\n| Two | 2 |\n';
+  function wideRow(slots:number,source=tableArtTable):JSONContent {
+    const content=markdownToTiptapDoc(source).doc.content!;
+    return {type:'doc',content:[{type:'pageRow',attrs:{id:'mixed-row',min_height:0,line_mode:'guide'},content:Array.from({length:slots},(_,i)=>({type:'pageSlot',attrs:{id:`mixed-slot-${i}`,width:12/slots},content:slots===1?content:[content[i]]}))}]};
+  }
+  it.each([1,3])('roundtrips %i-slot table/art/table with exact UTF8/YAML/source order',slots=>{
+    const doc=wideRow(slots),original=markdownToTiptapDoc(tableArtTable).doc;
+    const projected=projectPresentation(doc,tableArtTable,original);
+    expect(projected.markdown).toBe(tableArtTable);
+    const hydrated=hydratePresentation(projected.markdown,projected.presentation);
+    expect(flattenPresentation(hydrated)).toEqual(original);
+    expect(hydrated.content![0].content).toHaveLength(slots);
+    expect(projectPresentation(hydrated,tableArtTable,hydrated)).toEqual(projected);
+    expect(admittedPresentationBlocks(tableArtTable).map(block=>block.node.type)).toEqual(['table','paragraph','table']);
+  });
+  it.each(['guide','border','clean'])('keeps source bytes and binding identities through %s controls-only edits',line_mode=>{
+    const initial=projectPresentation(wideRow(3),tableArtTable,markdownToTiptapDoc(tableArtTable).doc);
+    const original=hydratePresentation(tableArtTable,initial.presentation),next=structuredClone(original);
+    next.content![0].attrs!.min_height=640;next.content![0].attrs!.line_mode=line_mode;
+    [2,4,6].forEach((width,i)=>{next.content![0].content![i].attrs!.width=width;});
+    const result=projectPresentation(next,tableArtTable,original);
+    expect(result.markdown).toBe(tableArtTable);
+    expect(flattenPresentation(hydratePresentation(result.markdown,result.presentation))).toEqual(markdownToTiptapDoc(tableArtTable).doc);
+    const before=initial.presentation!.items[0],after=result.presentation!.items[0];
+    if(before.kind!=='row'||after.kind!=='row')throw new Error('fixture');
+    expect(after.slots.flatMap(slot=>slot.blocks)).toEqual(before.slots.flatMap(slot=>slot.blocks));
+    expect(presentationFingerprint(result.presentation)).not.toBe(presentationFingerprint(initial.presentation));
+    next.content![0].attrs!.min_height=0;
+    expect(projectPresentation(next,tableArtTable,original).markdown).toBe(tableArtTable);
+  });
+  it.each(['zero','four','empty','tooNarrow','fractionalWidth','badSum','negativeHeight','largeHeight','fractionalHeight','unsnappedHeight','unknownMode'])('rejects malformed row control %s',damage=>{
+    const p=projectPresentation(wideRow(3),tableArtTable,markdownToTiptapDoc(tableArtTable).doc).presentation!;
+    const r=p.items[0];if(r.kind!=='row')throw new Error('fixture');
+    if(damage==='zero')r.slots=[];
+    if(damage==='four')r.slots.push({id:'extra-slot',width:2,blocks:[]});
+    if(damage==='empty')r.slots.forEach(slot=>{slot.blocks=[];});
+    if(damage==='tooNarrow'){r.slots[0].width=1;r.slots[1].width=7;}
+    if(damage==='fractionalWidth'){r.slots[0].width=3.5;r.slots[1].width=4.5;}
+    if(damage==='badSum')r.slots[0].width=3;
+    if(damage==='negativeHeight')r.min_height=-8;
+    if(damage==='largeHeight')r.min_height=648;
+    if(damage==='fractionalHeight')r.min_height=8.5;
+    if(damage==='unsnappedHeight')r.min_height=7;
+    if(damage==='unknownMode')Object.assign(r,{line_mode:'dotted'});
+    expect(()=>hydratePresentation(tableArtTable,p)).toThrow();
   });
   it('never strips unknown nodes or permits nested composer containers',()=>{
     const unknown={type:'doc',content:[{type:'unrecognizedWidget'}]};

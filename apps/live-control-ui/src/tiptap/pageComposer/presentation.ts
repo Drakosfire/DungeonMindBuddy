@@ -110,7 +110,7 @@ export function hydratePresentation(markdown: string, presentation: PagePresenta
     if(item.kind !== "row") return fail("unknown presentation item");
     const id=identity(item.id); const min_height=integer(item.min_height,0,640);
     if(min_height%8 || !["guide","border","clean"].includes(String(item.line_mode))) return fail("invalid row style");
-    const slots=array(item.slots,3); if(slots.length !== 2) return fail("this editor supports only two-slot rows");
+    const slots=array(item.slots,3); if(slots.length < 1) return fail("row must contain one to three slots");
     let sum=0,count=0;
     const content=slots.map(value => {const slot=object(value,["id","width","blocks"]);const slotId=identity(slot.id),width=integer(slot.width,2,12);sum+=width;const content=array(slot.blocks,2048).map(bind);count+=content.length;return {type:"pageSlot",attrs:{id:slotId,width},content};});
     if(sum!==12 || !count) return fail("invalid row widths or empty row");

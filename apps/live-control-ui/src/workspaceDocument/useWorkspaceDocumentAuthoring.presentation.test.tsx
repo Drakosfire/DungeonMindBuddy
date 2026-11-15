@@ -129,4 +129,28 @@ describe('Page layout authoring boundary',()=>{
   const r=mount();await waitFor(()=>expect(r.result.current.dirty).toBe(true));expect(JSON.stringify(r.result.current.editorContent)).toContain('NEW WORDS');
  });
 
+ it.each(['guide','border','clean'])('recovers three-slot %s height-only edits and saves unchanged source',async(lineMode)=>{
+  const threeSource='Left table context.\n\nMiddle artwork context.\n\nRight table context.\n';
+  const threePlain=markdownToTiptapDoc(threeSource).doc;
+  const doc:JSONContent={type:'doc',content:[{type:'pageRow',attrs:{id:'three',min_height:0,line_mode:'guide'},content:threePlain.content!.map((block,i)=>({type:'pageSlot',attrs:{id:`slot-${i}`,width:4},content:[block]}))}]};
+  const layout=projectPresentation(doc,threeSource,threePlain).presentation;
+  const initial={...snap(),markdown:threeSource,page_presentation:layout,page_presentation_sha256:presentationFingerprint(layout)};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(initial);
+  const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const edited=structuredClone(doc);edited.content![0].attrs={...edited.content![0].attrs,min_height:256,line_mode:lineMode};
+  act(()=>h.result.current.handleEditorUpdate(edited,{} as Editor,{programmatic:false}));
+  await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.dirty).toBe(true));h.unmount();
+  const r=mount();await waitFor(()=>expect(r.result.current.dirty).toBe(true));
+  expect((r.result.current.editorContent as JSONContent).content![0].attrs).toEqual(expect.objectContaining({min_height:256,line_mode:lineMode}));
+  expect(readWorkspaceDocumentLocalState(localStorage,id)?.exported_markdown).toBe(threeSource);
+  const updatedLayout=projectPresentation(edited,threeSource,threePlain).presentation;
+  const saved={...initial,loaded_revision:2,record:{...initial.record,revision:2},page_presentation:updatedLayout,page_presentation_sha256:presentationFingerprint(updatedLayout)};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(saved);
+  vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:true,writer_confirm_token:'token'} as never);
+  vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({document_id:id,committed_revision:2,committed_record:saved.record,normalized_content_sha256:'same-source',file_fingerprint:'postgres',writer_ok:true,page_presentation_sha256:saved.page_presentation_sha256} as never);
+  act(()=>r.result.current.setEditor({getJSON:()=>edited} as Editor));await waitFor(()=>expect(r.result.current.saveDisabled).toBe(false));await act(()=>r.result.current.saveMarkdown());
+  expect(commitTiptapMarkdownWrite).toHaveBeenCalledWith(expect.objectContaining({markdown:threeSource,page_presentation:updatedLayout}));
+  await waitFor(()=>expect(r.result.current.dirty).toBe(false));
+ });
+
 });
