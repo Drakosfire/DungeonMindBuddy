@@ -291,7 +291,8 @@ Graph requests. It buffers requests and responses, leaves proxy caching
 disabled, and uses 60-second upstream read and send timeouts. Before replacing
 an existing location, have the edge owner inspect the effective configuration
 and confirm which callers it serves. The exact PDF admission route permits
-32 MiB at the edge, matching the application limit. Verify upload through the
+32 MiB at the edge, matching the application limit. It streams the request to
+Buddy so the application can check access before consuming the body. Verify upload through the
 TLS virtual host with a PDF larger than 1 MiB. A deployment that enables streamed Agent
 turns needs a separately scoped location for the streaming endpoint and a smoke
 test that confirms incremental events arrive through the proxy.
