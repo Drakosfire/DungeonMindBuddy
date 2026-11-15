@@ -91,6 +91,7 @@ export function BuildSurfaceContext({
   const openReferenceTool = agentInteraction?.openTool;
   const linkAvailable = agentInteraction?.surfaceInteractionPublication?.tools.some(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID && tool.availability.status === "enabled") ?? false;
   const selectedWorld = useSelectedWorld();
+  const documentWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const trashWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const tourSelection=useRef<symbol|null>(null);
   useTourNavigationGuard(trashWorldId?{worldId:trashWorldId,reason:(_impact,reservation)=>creating?'Finish creating or importing the current source first.':switching&&reservation!==tourSelection.current?'Wait for source selection to finish.':null}:null);
@@ -155,6 +156,7 @@ export function BuildSurfaceContext({
                 {displayTitle}
               </span>
               <BuildDocumentSelector
+                worldId={documentWorldId}
                 documents={documents}
                 listStatus={listStatus}
                 activeDocumentId={activeDocumentId}
@@ -194,6 +196,7 @@ export function BuildSurfaceContext({
             <>
               <SurfaceContextValue>No source loaded</SurfaceContextValue>
               <BuildDocumentSelector
+                worldId={documentWorldId}
                 documents={documents}
                 listStatus={listStatus}
                 activeDocumentId={null}
@@ -284,6 +287,7 @@ export function BuildSurfaceContext({
       authoringStatusLabel,
       campaignBadge,
       campaignId,
+      documentWorldId,
       createDocument,
       createError,
       creating,

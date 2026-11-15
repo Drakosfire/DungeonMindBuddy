@@ -260,7 +260,7 @@ describe("BuildSurfaceContext", () => {
 
     const host = screen.getByTestId("surface-context-host");
     expect(within(host).getByText("No source loaded")).toBeInTheDocument();
-    expect(within(host).getByRole("option", { name: "Choose source" })).toBeInTheDocument();
+    expect(within(host).getByRole("option", { name: "Open document" })).toBeInTheDocument();
     expect(within(host).queryByTestId("build-document-rename-open")).not.toBeInTheDocument();
   });
 

@@ -408,6 +408,7 @@ def list_threat_drafts(
                     name=draft.name,
                     threat_kind=draft.threat_kind,
                     workflow_state=draft.workflow_state,
+                    saved_revision_id=(draft.accepted_mechanics_ref.revision_id if draft.accepted_mechanics_ref else None),
                     updated_at=draft.updated_at,
                 )
             )
