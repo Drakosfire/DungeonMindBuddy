@@ -1744,14 +1744,11 @@ def test_cohort_prepare_refuses_matching_witness_from_another_campaign(lane, mon
                 if a["predicate"] == "dungeonbuddy.custom:met_at"]
     subject = witness["subject_entity_id"]
     target = witness["value"]["entity_id"]
-    lane.payload["nodes"].append(dict(lane.payload["nodes"][1], node_id="another", label="Another"))
-    lane.refresh()
     body = copy.deepcopy(lane.body)
     body["expected_parent_revision_id"] = parent_id
     body["selections"] = [
         choice("new", action="use_existing", entity_id=subject, fields=()),
         choice("existing", action="use_existing", entity_id=target, fields=()),
-        choice("another"),
     ]
     body["cohort_edge_review"] = dict(
         event_ids=["new"],
@@ -1764,6 +1761,8 @@ def test_cohort_prepare_refuses_matching_witness_from_another_campaign(lane, mon
     )
     accepted = lane.post(body)
     assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["prepared"] is None
+    assert accepted.json()["publication"] == "not_performed"
     body["cohort_edge_review"]["edge_decisions"][0]["evidence_ref_ids"] = [lane.support_ids["second"]]
     wrong_evidence = lane.post(body)
     assert wrong_evidence.status_code == 409, wrong_evidence.text

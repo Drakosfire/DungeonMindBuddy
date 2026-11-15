@@ -732,7 +732,20 @@ def prepare(request, principal):
                                 admitted, data, access, candidate_sha256=candidate_sha256,
                                 operation_id=operation_id, producer=producer)
     prepared = None
-    if intent.operations:
+    cohort_review = getattr(request, "cohort_edge_review", None)
+    verified_endpoints = {
+        decision[field]
+        for decision in cohort_review["edge_decisions"]
+        if decision["decision"] == "already_present"
+        for field in ("subject_entity_id", "target_entity_id")
+    } if cohort_review is not None else set()
+    verified_replay = bool(verified_endpoints) and all(
+        isinstance(operation, wk.UseExisting)
+        and not operation.facts
+        and operation.durable_object_id in verified_endpoints
+        for operation in intent.operations
+    )
+    if intent.operations and not verified_replay:
         domain, profile = native.descriptors(repo, space, context["revision_id"])
         prepared = transport.runtime(repo, domain, profile, now=datetime.now(UTC),
                                      operation_id=operation_id).prepare_change(intent)
