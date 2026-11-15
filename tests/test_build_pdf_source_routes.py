@@ -24,6 +24,11 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
         def get_native_pdf_source(self, space, revision):
             return records.get((space, revision))
 
+        def withdraw_native_source(self, *, space_id, source_artifact_id, source_revision_id):
+            record = records[space_id, source_revision_id]
+            assert record[0].source_artifact_id == source_artifact_id
+            del records[space_id, source_revision_id]
+
     def authorize(request):
         if request.headers.get("authorization") != "Bearer fixture":
             raise HTTPException(status_code=401)
@@ -212,7 +217,14 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
         assert receipt.json()["revision"] == 1
         assert receipt.json()["regions"] == saved.json()["regions"]
         assert validated[0].model_dump(mode="json", by_alias=True) == saved.json()["definition"]
-        records.clear()
+
+        withdraw_path = path.replace("build-pdf-sources", "build-source-withdrawals")
+        target = {"kind": "pdf", "revision_id": locator["source_revision_id"]}
+        assert client.post(withdraw_path, json=target).status_code == 401
+        assert client.post(withdraw_path.replace("world-a", "world-b"), json=target, headers=auth).status_code == 404
+        assert client.post(withdraw_path, json=target, headers=auth).status_code == 204
+        assert client.post(path + "/open", json=locator, headers=auth).status_code == 404
+        assert client.get(path, headers=auth).json()["documents"] == []
         assert client.get(review_route, headers=auth).status_code == 404
 
 

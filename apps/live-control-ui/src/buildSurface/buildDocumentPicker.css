@@ -59,3 +59,6 @@
 .build-document-picker__results li > button:first-child { flex: 1; min-width: 0; }
 .build-document-picker__results li > .workspace-trash-delete { width: auto; flex: 0 0 auto; }
 .build-document-selector > button { display: inline-flex; align-items: center; justify-content: center; }
+
+.build-document-picker__confirmation { padding: 1rem; }
+.build-document-picker__confirmation button { border-color: #51617b; padding: .45rem .7rem; margin-right: .5rem; }

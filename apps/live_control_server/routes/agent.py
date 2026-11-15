@@ -2141,6 +2141,57 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
         raise
 
 
+class BuildSourceWithdrawal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["pdf", "text"]
+    revision_id: str = Field(min_length=1, max_length=256)
+
+
+@router.post("/worlds/{world_id}/build-source-withdrawals", status_code=204)
+def withdraw_build_source(world_id: str, body: BuildSourceWithdrawal, request: Request):
+    from fastapi.responses import Response
+    from dungeonmind.domain.errors import DungeonMindError
+
+    from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import (
+        NativeWorldSourceAdmissionError, _repository, _source_world_binding,
+    )
+    from apps.live_control_server.models.native_graph_inspection import InspectionScope
+    from apps.live_control_server.services.native_source_inspection import catalog
+
+    principal = enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    try:
+        binding = _source_world_binding(None, verified)
+        repository = _repository()
+        if body.kind == "pdf":
+            record = repository.get_native_pdf_source(binding.native_world_id, body.revision_id)
+            artifact_id = record[0].source_artifact_id if (
+                record and record[0].status == "active" and record[0].visibility.kind == "public"
+            ) else None
+        else:
+            result = catalog(InspectionScope(managed_world_id=verified, scope_mode="world", campaign_id=None), principal)
+            if result["scope"]["native_world_id"] != binding.native_world_id:
+                raise ValueError("World binding changed")
+            artifact_id = next((
+                item["source_artifact"]["source_artifact_id"]
+                for item in result["catalogue"]["sources"]
+                if item["source_revision"]["source_revision_id"] == body.revision_id
+            ), None)
+        if not artifact_id:
+            raise HTTPException(status_code=404, detail="The document is unavailable.")
+        if _source_world_binding(None, verified) != binding:
+            raise ValueError("World binding changed")
+        repository.withdraw_native_source(
+            space_id=binding.native_world_id, source_artifact_id=artifact_id,
+            source_revision_id=body.revision_id,
+        )
+    except NativeWorldSourceAdmissionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail="Document storage is unavailable.") from exc
+    except (ValueError, DungeonMindError) as exc:
+        raise HTTPException(status_code=409, detail="The document could not be deleted. Refresh and retry.") from exc
+    return Response(status_code=204, headers={"Cache-Control": "no-store"})
+
+
 @router.get("/worlds/{world_id}/build-pdf-sources")
 def get_build_pdf_sources(world_id: str, request: Request, after: str = ""):
     from fastapi.responses import JSONResponse
