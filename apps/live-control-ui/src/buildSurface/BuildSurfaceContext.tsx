@@ -166,6 +166,12 @@ export function BuildSurfaceContext({
                 preferredCampaignId={campaignId}
                 switching={documentMutationBusy}
                 loadMorePages={hasMoreDocuments ? loadMoreDocuments : undefined}
+                activePageTrashBlocked={!session || session.dirty || buildSaveStateFor(session) !== "saved"}
+                onPageTrashed={id => {
+                  if (id === activeDocumentId && documentWorldId) {
+                    window.location.assign(`/build?world=${encodeURIComponent(documentWorldId)}`);
+                  } else void refreshDocuments();
+                }}
                 onSelect={selectDocument}
               />, primaryActionsHost)}
               <LoadedWorldGraphExplorer entry="recaps" />
@@ -207,6 +213,12 @@ export function BuildSurfaceContext({
                 preferredCampaignId={suggestedCreateCampaignId}
                 switching={switching || creating}
                 loadMorePages={hasMoreDocuments ? loadMoreDocuments : undefined}
+                activePageTrashBlocked={!session || session.dirty || buildSaveStateFor(session) !== "saved"}
+                onPageTrashed={id => {
+                  if (id === activeDocumentId && documentWorldId) {
+                    window.location.assign(`/build?world=${encodeURIComponent(documentWorldId)}`);
+                  } else void refreshDocuments();
+                }}
                 onSelect={selectDocument}
               />, primaryActionsHost)}
               <LoadedWorldGraphExplorer entry="recaps" />
@@ -293,7 +305,7 @@ export function BuildSurfaceContext({
       destinationOptions,
       displayTitle,
       primaryActionsHost,
-  extractionTargetRef,
+      extractionTargetRef,
       documentClass,
       documentMutationBusy,
       documents,

@@ -1,3 +1,4 @@
+import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { loadNativeDocuments, nativeDocumentHref } from "./buildNativeDocuments";
 import type { NativeSourceMetadata } from "../api/nativeSourceInspection";
 import { useEffect, useId, useMemo, useState, useRef } from "react";
@@ -40,6 +41,8 @@ interface BuildDocumentSelectorProps {
   activeRecord: WorkspaceDocumentRecord | null;
   preferredCampaignId: string | null;
   switching: boolean;
+  onPageTrashed?: (documentId: string) => void;
+  activePageTrashBlocked?: boolean;
   loadMorePages?: () => void;
   onSelect: (documentId: string) => void;
 }
@@ -52,6 +55,8 @@ export function BuildDocumentSelector({
   activeRecord,
   preferredCampaignId,
   switching,
+  onPageTrashed,
+  activePageTrashBlocked,
   loadMorePages,
   onSelect,
 }: BuildDocumentSelectorProps) {
@@ -216,6 +221,8 @@ export function BuildDocumentSelector({
     }
   }, [activeId, recentKey]);
 
+  const pageRecords = new Map((documents ?? []).map(record => [record.document_id, record]));
+  if (activeRecord) pageRecords.set(activeRecord.document_id, activeRecord);
   const byId = new Map(entries.map(entry => [entry.id, entry]));
   const visible = filter
     ? entries.filter(entry => `${entry.label} ${entry.category} ${entry.detail ?? ""}`.toLowerCase().includes(filter))
@@ -255,8 +262,11 @@ export function BuildDocumentSelector({
   return (
     <div className="build-document-selector build-document-selector--context" data-testid="build-document-selector">
       <button ref={trigger} type="button" className="surface-context-action" data-testid="build-document-select"
-        data-guided-control="source" aria-haspopup="dialog" disabled={switching} onClick={openPicker}>
-        Open document
+        data-guided-control="source" aria-label="Open document" title="Open document" aria-haspopup="dialog" disabled={switching} onClick={openPicker}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 18V6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2M3 18l2-7h17l-2 7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+        </svg>
       </button>
       <dialog ref={dialog} className="build-document-picker" aria-label="Open document" data-native-escape-owner
         onCancel={event => { event.preventDefault(); closePicker(); }}>
@@ -274,14 +284,21 @@ export function BuildDocumentSelector({
           </nav>
           <section aria-label={filter ? "Search results" : category} className="build-document-picker__results">
             {errors.map(error => <p key={String(error)} role="status">{error}</p>)}
-            {visible.length ? <ul>{visible.map((entry, index) => <li key={entry.id}>
+            {visible.length ? <ul>{visible.map((entry, index) => {
+              const page = pageRecords.get(entry.id);
+              return <li key={entry.id}>
               <button type="button" data-document-id={entry.id} aria-label={entry.label}
                 aria-describedby={`${rowPrefix}-${index}`} aria-current={entry.id === activeId ? "page" : undefined}
                 onClick={() => openDocument(entry.id)}>
                 <span>{entry.label}</span>
                 <small id={`${rowPrefix}-${index}`}>{[entry.category, entry.detail].filter(Boolean).join(" · ")}</small>
               </button>
-            </li>)}</ul> : <p role="status">{pending ? "Loading documents…" : filter ? (loadMorePages ? "No loaded documents match your search." : "No documents match your search.")
+              {worldId && page && onPageTrashed && <WorkspaceTrashControl showTrash={false} deleteLabel={`Move ${page.title} to Trash`}
+                worldId={worldId} current={{ kind: "document", id: entry.id, title: page.title, surface: "build", revision: page.revision }}
+                blocked={switching || (entry.id === activeDocumentId && activePageTrashBlocked)}
+                onTrashed={() => onPageTrashed(entry.id)} />}
+            </li>;
+            })}</ul> : <p role="status">{pending ? "Loading documents…" : filter ? (loadMorePages ? "No loaded documents match your search." : "No documents match your search.")
               : category === "Recent" ? "Documents you open will appear here." : "No documents in this category."}</p>}
             {loadMorePages && (filter || category === "Pages" || category === "All documents") &&
               <button type="button" disabled={listStatus !== "ready" || switching} onClick={loadMorePages}>
