@@ -1691,13 +1691,27 @@ def test_cohort_prepare_refuses_unaccounted_relationships(lane, decisions):
 
 def test_cohort_prepare_keeps_relationship_to_new_event(lane):
     from graph_memory.ingestion.cohort_edge_review import build_prepare_request
+    from tests.test_native_recap_event_placement import _declare_campaign
 
     lane.payload["nodes"][0]["node_type"] = "event"
     lane.refresh()
+    _declare_campaign(lane, 1)
     body = copy.deepcopy(lane.body)
     body["selections"].pop()
+    body["selections"].append({
+        "kind": "placement", "record_id": "new", "action": "create",
+        "metadata": copy.deepcopy(META) | {
+            "claim_mode": "dungeonbuddy.claim:observed_event",
+            "temporal_scope": {
+                "kind": "domain_ref",
+                "schema_term": "dungeonbuddy.time:fictional_anchor_v1",
+                "payload": {"start": {"session": 8}},
+            },
+        },
+    })
     manifest = dict(
         event_ids=["new"],
+        placement_ids=["new"],
         edge_decisions=[dict(
             edge_id="edge", decision="publish", subject_candidate_node_id="new",
             target_entity_id="ent:pippa", evidence_ref_ids=META["evidence_ref_ids"],
@@ -1710,10 +1724,13 @@ def test_cohort_prepare_keeps_relationship_to_new_event(lane):
 
     assert response.status_code == 200, response.text
     prepared = transport.decode_prepared(response.json()["prepared"])
-    edge, = [operation for operation in prepared.prepared_operations
-             if isinstance(operation, CreateRelationship)]
-    assert edge.source == ResultOf("record:0")
-    assert edge.target == DurableObjectRef("ent:pippa")
+    relationships = [
+        operation for operation in prepared.prepared_operations
+        if isinstance(operation, CreateRelationship)
+    ]
+    assert len(relationships) == 2
+    assert all(operation.source == ResultOf("record:0") for operation in relationships)
+    assert all(operation.target == DurableObjectRef("ent:pippa") for operation in relationships)
 
     packet = {key: response.json()[key] for key in ("envelope", "prepared", "token")}
     committed = confirm(lane, packet)
@@ -1727,6 +1744,13 @@ def test_cohort_prepare_keeps_relationship_to_new_event(lane):
     ]
     assert relationship["value"] == {"kind": "entity_ref", "entity_id": "ent:pippa"}
     assert relationship["metadata"]["evidence_ref_ids"] == [lane.support_ids["first"]]
+    placement, = [
+        assertion for assertion in assertions
+        if assertion["predicate"] == "dungeonbuddy.custom:on_timeline"
+    ]
+    assert placement["subject_entity_id"] == relationship["subject_entity_id"]
+    assert placement["value"] == {"kind": "entity_ref", "entity_id": "ent:pippa"}
+    assert placement["metadata"]["temporal_scope"]["payload"] == {"start": {"session": 8}}
     assert any(
         assertion["subject_entity_id"] == relationship["subject_entity_id"]
         and assertion["value"].get("term") == "dungeonbuddy:event"
