@@ -113,3 +113,11 @@ record and a changed predecessor digest invalidates downstream reuse. Keep
 failed observations and unknown action outcomes. Use the product owner's
 receipt and idempotency checks before attempting a mutation again. A missing
 checkpoint alone cannot establish that an action was never applied.
+
+Run offline conversation-only scoring with
+`python -m evals.buddy_benchmark.workflow action-report --manifest MANIFEST --output DIR`.
+The manifest schema is `dmb_aw_assessment_v1`. Each case has a unique `id` and
+an `observation` pin with `path` and `sha256`. The pinned JSON supplies
+`events`, `before`, `after`, and `fulfilled`. Use null for unavailable
+observations. An empty event list means capture verified a complete journal
+with no relevant effects. The command scores supplied observations only.
