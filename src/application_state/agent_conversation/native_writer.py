@@ -61,9 +61,8 @@ def _writer_assertion_reads(execution, *, passages_only):
     records = assertions.selected_read_records(execution)
     if not passages_only or not records:
         return records
-    catalogs = bodies.acquired_body_catalogs(execution)
-    campaigns = {catalogs[read.excerpt.catalog_sha256].source.registered_campaign_id
-                 for read in bodies.writer_passage_reads(execution)}
+    campaigns = {support.catalog.source.registered_campaign_id
+                 for support in bodies.writer_passage_supports(execution, body_handle)}
     if len(campaigns) != 1 or None in campaigns:
         return records
     campaign, = campaigns
@@ -396,11 +395,14 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
 def read_evidence_records(prefix, frame, *, passages_only=False):
     """Project the exact included read records through their native owners."""
     catalogs = bodies.acquired_body_catalogs(prefix)
-    body_reads = bodies.writer_passage_reads(prefix) if passages_only else bodies.selected_body_reads(prefix)
+    from dataclasses import replace
+    supports = (bodies.writer_passage_supports(prefix, body_handle) if passages_only else tuple(
+        bodies.NativeBodySupport(body_handle(read), read, catalogs[read.excerpt.catalog_sha256])
+        for read in bodies.selected_body_reads(prefix)))
     statement_reads = statements.selected_read_records(prefix)
     assertion_reads = _writer_assertion_reads(prefix, passages_only=passages_only)
-    return dict(body_excerpts=tuple(bodies.NativeBodySupport(row['excerpt_handle'], read,
-            catalogs[read.excerpt.catalog_sha256]) for row,read in zip(frame['native_body_evidence']['excerpts'],body_reads,strict=True)),
+    return dict(body_excerpts=tuple(replace(support, handle=row['excerpt_handle']) for row, support in
+            zip(frame['native_body_evidence']['excerpts'], supports, strict=True)),
         native_statements=tuple((row['statement_handle'], event, read) for row, (event, read)
             in zip(frame['native_statements']['statements'], statement_reads, strict=True)),
         native_assertions=tuple((row['assertion_handle'], event, read) for row, (event, read)

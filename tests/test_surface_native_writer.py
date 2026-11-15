@@ -2,6 +2,7 @@
 import asyncio
 from copy import deepcopy
 from hashlib import sha256
+from types import SimpleNamespace
 import json
 from uuid import uuid4
 
@@ -887,3 +888,137 @@ def test_plan_prose_renders_dated_recaps_before_undated_material():
     prose = render_plan_evidence(frame, work)
     assert prose.index("[session7]") < prose.index("[session8]") < prose.index("[undated]")
     assert "Undated material" in prose
+
+
+def test_bounded_body_section_preserves_source_coordinates():
+    source = "é\r\n😀\nend"
+    catalog = SimpleNamespace(catalog_sha256="a" * 64, body_bytes=len(source.encode()))
+    excerpt = SimpleNamespace(
+        catalog_sha256=catalog.catalog_sha256,
+        section=SimpleNamespace(
+            line_start=1, line_end=3, char_start=0, byte_start=0, label="Recap",
+        ),
+        text=source,
+    )
+
+    section, passage = corpus.bounded_body_section(catalog, excerpt, line_start=2, line_end=2)
+    assert passage == "😀\n"
+    assert source[section.char_start:section.char_end] == passage
+    assert source.encode()[section.byte_start:section.byte_end] == passage.encode()
+
+    with pytest.raises(ValueError, match="shorter than the full source"):
+        corpus.bounded_body_section(catalog, excerpt, line_start=1, line_end=3)
+    with pytest.raises(ValueError, match="outside"):
+        corpus.bounded_body_section(catalog, excerpt, line_start=2, line_end=4)
+
+
+def test_citations_distinguish_passages_from_same_read(monkeypatch):
+    from application_state.agent_conversation import native_corpus
+
+    from application_state.agent_conversation.native_corpus import (
+        body_citation,
+        model_body_frame_rows,
+        validate_body_support_citations,
+    )
+
+    read_id = uuid4()
+    producer = uuid4()
+    envelope = "a" * 64
+    catalog = SimpleNamespace(
+        catalog_sha256="b" * 64,
+        source=SimpleNamespace(
+            artifact=SimpleNamespace(source_artifact_id="source"),
+            presentation_name="Recap", campaign_scope="Campaign", session_scope="Session",
+            revision=SimpleNamespace(source_artifact_id="source", source_revision_id="revision", content_sha256="c" * 64),
+        ),
+    )
+    text = "alpha\nbeta\n"
+    catalog.body_bytes = len(text.encode())
+    read = SimpleNamespace(
+        event_id=read_id, sequence=1,
+        excerpt=SimpleNamespace(
+            catalog_sha256=catalog.catalog_sha256, text=text,
+            selector_policy="native_full_document_v1",
+            planning_ranges=SimpleNamespace(lines=((1, 2),)),
+            section=SimpleNamespace(label="Recap", line_start=1, line_end=2,
+                                    char_start=0, byte_start=0, byte_end=len(text.encode())),
+        ),
+    )
+    execution = SimpleNamespace(events=())
+    monkeypatch.setattr(native_corpus, "acquired_body_reads", lambda _: (read,))
+    monkeypatch.setattr(native_corpus, "acquired_body_catalogs", lambda _: {catalog.catalog_sha256: catalog})
+    with pytest.raises(ValueError, match="must omit material"):
+        native_corpus.resolve_body_passages(execution, [("r0", 1, 1), ("r0", 2, 2)])
+    read.excerpt.text += "gamma\n"
+    read.excerpt.section.line_end = 3
+    read.excerpt.section.byte_end = len(read.excerpt.text.encode())
+    catalog.body_bytes = read.excerpt.section.byte_end
+    supports = native_corpus.resolve_body_passages(execution, [("r0", 1, 1), ("r0", 2, 2), ("r0", 1, 1)])
+    assert [support.passage()[1] for support in supports] == ["alpha\n", "beta\n"]
+    with pytest.raises(ValueError, match="unavailable source read"):
+        native_corpus.resolve_body_passages(execution, [("r1", 1, 1)])
+    frame = model_body_frame_rows(None, (), None, passage_supports=supports[1:])
+    [row] = frame["excerpts"]
+    assert row["text"] == "beta\n"
+    assert (row["line_start"], row["line_end"]) == (2, 2)
+    assert row["extent_kind"] == "section"
+    assert row["planning_line_ranges"] == [[2, 2]]
+    answer = "Both moments matter."
+    citations = [
+        body_citation(support, index=0, text=answer, producer=producer, envelope_sha256=envelope)
+        for support in supports
+    ]
+    completion = SimpleNamespace(
+        native_body_citations=citations, answer_segments=[SimpleNamespace(text=answer)],
+    )
+    validate_body_support_citations(
+        completion, reversed(supports), producer=producer, envelope_sha256=envelope, before_sequence=2,
+    )
+    citations[0] = citations[0].model_copy(update={"section_id": citations[1].section_id})
+    with pytest.raises(ValueError, match="changed its exact source"):
+        validate_body_support_citations(
+            completion, supports, producer=producer, envelope_sha256=envelope, before_sequence=2,
+        )
+
+
+def test_writer_section_vote_recovers_bounded_passage_from_covering_read():
+
+    from application_state.agent_conversation import native_corpus as bodies
+    from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV1
+
+    text = "outside\nranked evidence\noutside again\n"
+    section = SimpleNamespace(
+        section_id="ranked", line_start=2, line_end=2, byte_start=8, byte_end=24,
+    )
+    artifact = SimpleNamespace(source_artifact_id="source")
+    revision = SimpleNamespace(
+        source_artifact_id="source", source_revision_id="revision", content_sha256="b" * 64,
+    )
+    catalog = SimpleNamespace(
+        catalog_sha256="a" * 64, body_bytes=len(text.encode()), sections=(section,),
+        source=SimpleNamespace(artifact=artifact, revision=revision),
+    )
+    search = bodies.NativeBodySearchObservedV1.model_construct(catalogs=(catalog,))
+    opening = NativePlanOpeningSelectedV1.model_construct(
+        sequence=1, operation="select_candidates",
+        selected_handles=(bodies.native_body_handle(catalog.catalog_sha256, section.section_id),),
+    )
+    full_read = bodies.NativeBodyReadObservedV1.model_construct(
+        event_id=uuid4(), sequence=2,
+        excerpt=SimpleNamespace(
+            catalog_sha256=catalog.catalog_sha256, text=text,
+            selector_policy="native_full_document_v1",
+            section=SimpleNamespace(
+                label="Recap", line_start=1, line_end=3, char_start=0,
+                byte_start=0, byte_end=len(text.encode()),
+            ),
+        ),
+    )
+    execution = SimpleNamespace(events=(search, opening, full_read))
+    [support] = bodies.writer_passage_supports(execution, lambda _: "unused")
+    assert support.read is full_read
+    extent, passage = support.passage()
+    assert passage == "ranked evidence\n"
+    assert (extent.byte_start, extent.byte_end) == (section.byte_start, section.byte_end)
+
+    assert bodies.writer_passage_supports(SimpleNamespace(events=(search, full_read)), lambda _: "unused") == ()

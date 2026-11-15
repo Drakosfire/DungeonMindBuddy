@@ -566,12 +566,14 @@ class NativeBodyNavigation:
                 kind="Source lexical navigation; not evidence or semantic completeness"))
             rows.extend(self._keyword_offers())
             return self._scoped_offers(rows, search)
+        plan = getattr(getattr(turn.graph_context_receipt, "work_context", None), "surface_id", None) == "plan"
+
         def opened(catalog, start, end, *, section_vote=False):
             return any((known.source.artifact.source_artifact_id, known.source.revision.source_revision_id,
                             known.source.revision.content_sha256) == (catalog.source.artifact.source_artifact_id,
                             catalog.source.revision.source_revision_id, catalog.source.revision.content_sha256)
                 and read.excerpt.section.byte_start <= start and read.excerpt.section.byte_end >= end
-                and not (section_vote and turn.provenance.surface_id == 'plan'
+                and not (section_vote and plan
                          and read.excerpt.selector_policy == 'native_full_document_v1')
                 for read, known in acquired)
         hits = {(row.catalog_sha256, row.section_id): row.matched_terms for row in search.matches}
@@ -587,7 +589,7 @@ class NativeBodyNavigation:
                 handle = native_body_handle(catalog.catalog_sha256, section.section_id)
                 if handle not in attempted and not opened(catalog, section.byte_start, section.byte_end, section_vote=True):
                     label = section.label
-                    if turn.provenance.surface_id == 'plan':
+                    if plan:
                         label += f" · lines {section.line_start}–{section.line_end}"
                     rows.append(RetrievalCandidate(handle=handle,
                         label=name + " · " + label + " · matched terms: " + ", ".join(hits[(catalog.catalog_sha256, section.section_id)]),
