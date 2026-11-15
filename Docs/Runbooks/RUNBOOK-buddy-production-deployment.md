@@ -70,7 +70,7 @@ Test required migrations against the restored copies. Before applying them to pr
 
 ## 3. Build and start on loopback
 
-Provision a protected Compose environment file outside the checkout with the variables required by the [production Compose example](../../deploy/production/compose.production.yaml). Use the approved DMS HTTPS origin, trust `https://buddy.dungeonmind.net`, and configure the approved World assignments and both database URLs. Set `BUDDY_PERSISTENT_ROOT` to the absolute path of the approved durable host directory. Create its `managed`, `artifacts`, `sessions`, and `worldgraph` directories with access for container UID/GID 10001.
+Provision a protected Compose environment file outside the checkout with the variables required by the [production Compose example](../../deploy/production/compose.production.yaml). Use the approved DMS HTTPS origin, trust `https://buddy.dungeonmind.net`, and configure the approved World assignments and both database URLs. Set the private statblock API origin as reachable from the Buddy container and put its internal API key in this same protected file. Host loopback inside the container is the container itself. Set `BUDDY_PERSISTENT_ROOT` to the absolute path of the approved durable host directory. Create its `managed`, `artifacts`, `sessions`, and `worldgraph` directories with access for container UID/GID 10001.
 
 ```bash
 read -r -p 'Approved release commit: ' buddy_release
@@ -101,6 +101,8 @@ prepare_buddy_release() {
     -u DMB_HOSTED_WORLD_ACCESS_JSON
     -u DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL
     -u DUNGEONMIND_SERVER_API_ORIGIN
+    -u DUNGEONMIND_STATBLOCKS_BASE_URL
+    -u DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY
     -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL
     docker compose --project-name "$buddy_project" --env-file "$buddy_env"
     -f deploy/production/compose.production.yaml -f "$buddy_override")
@@ -227,6 +229,30 @@ inspect the existing `artifacts/out/agent_request_evidence` path under
 subdirectories without following symlinks. The final directory must be
 owned by UID 10001 and have mode `0700`. On a fresh mount Buddy creates
 the missing subdirectories when it first stores prompt evidence.
+
+Probe the private statblock provider from a one-off candidate container before
+migrating or replacing the serving container. The client uses the protected
+settings and emits only the probe outcome.
+
+```bash
+"${buddy_compose[@]}" run --rm --no-deps --no-build -T buddy python - <<'PYTHON'
+from apps.live_control_server.integrations.dungeonmind_statblocks.client import build_statblock_v1_client
+
+try:
+    client = build_statblock_v1_client()
+    try:
+        report = client.get_readiness()
+    finally:
+        client.close()
+except Exception:
+    raise SystemExit("Private statblock provider probe failed")
+if report.status != "ready" or not report.read_routes_enabled:
+    raise SystemExit("Private statblock provider is not ready for saved revisions")
+print("Private statblock provider ready")
+PYTHON
+```
+
+Continue only when the candidate-container probe succeeds.
 
 Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
 
@@ -420,6 +446,8 @@ override, image tag, and image ID from the release record. Use the same Docker c
     -u DMB_HOSTED_WORLD_ACCESS_JSON
     -u DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL
     -u DUNGEONMIND_SERVER_API_ORIGIN
+    -u DUNGEONMIND_STATBLOCKS_BASE_URL
+    -u DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY
     -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL
     docker compose --project-name "$prior_project" --env-file "$prior_env"
     -f deploy/production/compose.production.yaml -f "$prior_override")
