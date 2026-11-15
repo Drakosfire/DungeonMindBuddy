@@ -56,7 +56,7 @@ describe("BuildDocumentSelector", () => {
       drafts: [
         { world_id: "elderwyld", draft_id: "unpublished", name: "Sewer Meat Extraction", saved_revision_id: "unpublished-mechanics" },
         { world_id: "elderwyld", draft_id: "creature", name: "Sewer Meat Creature",
-          saved_revision_id: "saved-revision" },
+          saved_revision_id: "newer-unpublished-revision" },
         { world_id: "elsewhere", draft_id: "foreign", name: "Sewer Giant",
           saved_revision_id: "other-revision" },
       ],

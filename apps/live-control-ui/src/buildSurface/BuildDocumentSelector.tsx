@@ -61,18 +61,23 @@ export function BuildDocumentSelector({
   onSelect,
 }: BuildDocumentSelectorProps) {
   const [query, setQuery] = useState("");
-  const [catalog, setCatalog] = useState<{ worldId: string; drafts: WorldThreatDraftSummary[]; published: Set<string>; error: boolean }>();
+  const [catalog, setCatalog] = useState<{ worldId: string; drafts: WorldThreatDraftSummary[]; published: Map<string, Set<string>>; error: boolean }>();
   useEffect(() => {
     if (!worldId) return;
     const request = new AbortController();
     Promise.all([listWorldThreatDrafts(worldId, request.signal), listWorldMechanicsAssociations(worldId)]).then(
       ([drafts, associations]) => {
-        const published = new Set(associations.filter(association => association.request.target.campaign_scope === null)
-          .map(association => `${association.request.draft_id}:${association.proof.locator.revision_id}`));
+        const published = new Map<string, Set<string>>();
+        for (const { request: association, proof } of associations) {
+          if (association.target.campaign_scope !== null) continue;
+          const revisions = published.get(association.draft_id) ?? new Set<string>();
+          revisions.add(proof.locator.revision_id);
+          published.set(association.draft_id, revisions);
+        }
         if (!request.signal.aborted) setCatalog({ worldId, drafts, published, error: false });
       },
     ).catch(() => {
-      if (!request.signal.aborted) setCatalog({ worldId, drafts: [], published: new Set(), error: true });
+      if (!request.signal.aborted) setCatalog({ worldId, drafts: [], published: new Map(), error: true });
     });
     return () => request.abort();
   }, [worldId]);
@@ -97,13 +102,12 @@ export function BuildDocumentSelector({
   const recentKey = `buddy:build:recent:${worldId ?? preferredCampaignId ?? ""}`;
   const [recent, setRecent] = useState<string[]>([]);
   const statblocks = (currentCatalog?.drafts ?? []).flatMap(draft => {
-    const revisionId = draft.saved_revision_id;
-    if (draft.world_id !== worldId || !revisionId || !currentCatalog?.published.has(`${draft.draft_id}:${revisionId}`)) return [];
-    return [{
+    if (draft.world_id !== worldId) return [];
+    return Array.from(currentCatalog?.published.get(draft.draft_id) ?? [], revisionId => ({
       href: buildSavedStatblockHref({ worldId: draft.world_id, draftId: draft.draft_id, revisionId }),
       title: draft.name,
       draftId: draft.draft_id,
-    }];
+    }));
   });
   const [pdfCatalog, setPdfCatalog] = useState<{ worldId: string; documents: RetainedPdf[]; error?: boolean }>();
   useEffect(() => {
