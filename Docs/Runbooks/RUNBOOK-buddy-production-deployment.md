@@ -118,6 +118,7 @@ prepare_buddy_release() {
   printf 'services:\n  buddy:\n    image: %s\n' "$buddy_tag" > "$buddy_override" || return
   local -a candidate_compose=(env
     -u AUTH_TRUSTED_FRONTEND_ORIGINS
+    -u OPENAI_API_KEY
     -u BUDDY_HTTP_BIND_PORT
     -u BUDDY_OCR_RUNTIME_ROOT
     -u BUDDY_OCR_GPU_ID
@@ -316,6 +317,27 @@ PYTHON
 Continue only after the probe recognizes the text. Keep the runtime root and GPU
 assignment in the release record so the prior release can be restored.
 
+Set `OPENAI_API_KEY` in the protected Compose file. Verify the extraction model
+from the candidate using only this synthetic text. A structured incomplete
+result is expected for a source with no statistics.
+
+```bash
+"${buddy_compose[@]}" run --rm --no-deps --no-build -T buddy python - <<'PYTHON'
+import asyncio
+from apps.live_control_server.services.build_pdf_statblock_extraction import extract_statblock
+
+try:
+    result = asyncio.run(extract_statblock(["Synthetic release probe. No creature statistics are present."]))
+except Exception:
+    raise SystemExit("Structured statblock extraction provider probe failed")
+if result.status != "incomplete":
+    raise SystemExit("Structured extraction did not report missing source evidence")
+print("Structured extraction provider ready")
+PYTHON
+```
+
+Continue only after the provider returns the expected structured result.
+
 Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
 
 
@@ -503,6 +525,7 @@ override, image tag, and image ID from the release record. Use the same Docker c
   test -n "$prior_id"
   prior_compose=(env
     -u AUTH_TRUSTED_FRONTEND_ORIGINS
+    -u OPENAI_API_KEY
     -u BUDDY_HTTP_BIND_PORT
     -u BUDDY_OCR_RUNTIME_ROOT
     -u BUDDY_OCR_GPU_ID
