@@ -42,12 +42,15 @@ function SavedCreatureReview({target,packet}:{target:SavedStatblockTarget;packet
 
 /** One exact native read. It never consults the Workbench's selected-version hint. */
 export function SavedStatblockFullView({target, toolbarHost}:{target:SavedStatblockTarget; toolbarHost?: HTMLElement | null}) {
- const key=JSON.stringify([target.worldId,target.draftId,target.revisionId]);
+ const key=JSON.stringify([target.worldId,target.draftId,target.revisionId,target.sourceReviewId]);
  const [attempt,setAttempt]=useState(0);
  const [state,setState]=useState<{key:string;packet:OpenSavedMechanicsVersion|null;error:string|null}|null>(null);
  useEffect(()=>{
   let active=true;setState({key,packet:null,error:null});
-  void openSavedMechanicsVersion(target.draftId,target.worldId,target.revisionId).then(packet=>{
+  const read = target.sourceReviewId
+   ? openSavedMechanicsVersion(target.draftId,target.worldId,target.revisionId,target.sourceReviewId)
+   : openSavedMechanicsVersion(target.draftId,target.worldId,target.revisionId);
+  void read.then(packet=>{
    if(!active)return;
    setState({key,packet,error:null});
   }).catch(error=>{if(active)setState({key,packet:null,error:error instanceof Error?error.message:'The saved statblock is unavailable.'});});
