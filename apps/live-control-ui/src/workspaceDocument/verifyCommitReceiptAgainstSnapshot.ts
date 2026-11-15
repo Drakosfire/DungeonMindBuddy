@@ -1,3 +1,4 @@
+import "../tiptap/pageComposer/apiPresentation";
 import type {
   TiptapMarkdownWriteCommitResponse,
   WorkspaceDocumentSnapshot,
@@ -30,6 +31,9 @@ export function verifyCommitReceiptAgainstSnapshot(
     };
   }
 
+  if ((receipt.page_presentation_sha256 ?? null) !== (snapshot.page_presentation_sha256 ?? null)) {
+    return { ok: false, reason: "Saved presentation fingerprint does not match the commit receipt." };
+  }
   const receiptFingerprint = receipt.file_fingerprint;
   if (receipt.writer_ok && (receiptFingerprint == null || receiptFingerprint === "")) {
     return {
