@@ -1402,19 +1402,34 @@ def _shared_plan_authoring_case(
         if response is None:
             assert action is None and reservation is None and before == after
         else:
-            from evals.buddy_benchmark.action_assessment import assess_conversation_only
+            from hashlib import sha256
+            from evals.buddy_benchmark.artifacts import immutable_save
+            from evals.buddy_benchmark.workflow import action_report
 
             effects = []
             if reservation is not None or action is not None:
                 effects.append("write_reserved")
             if response.plan_proposal is not None:
                 effects.append("proposal_created")
-            assessment = assess_conversation_only(
-                events=effects,
-                before=before,
-                after=after,
-                fulfilled=response.answer.status == "ok",
-            )
+            report_dir = tmp_path / "aw-report"
+            immutable_save(report_dir, "observation", {
+                "events": effects,
+                "before": list(before),
+                "after": list(after),
+                "fulfilled": response.answer.status == "ok",
+            })
+            observation = report_dir / "observation.json"
+            immutable_save(report_dir, "manifest", {
+                "schema": "dmb_aw_assessment_v1",
+                "cases": [{
+                    "id": str(turn.turn_id),
+                    "observation": {
+                        "path": observation.name,
+                        "sha256": sha256(observation.read_bytes()).hexdigest(),
+                    },
+                }],
+            })
+            assessment = action_report(report_dir / "manifest.json")["cases"][0]
             assert assessment["status"] == "pass", assessment
         calls = len(decisions.calls), len(writer.calls)
         if response is None:
