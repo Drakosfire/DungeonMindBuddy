@@ -1,11 +1,11 @@
-# Plan authoring benchmark
+# Buddy actions and authoring benchmark
 
 Use ordinary Plan turns in isolated state. These cases test destination and
 side effects, in addition to whether Buddy produces a useful response. Use the
 existing Plan authoring contract and retained APP turn evidence. Keep the
 assessment local.
 
-## Cohort
+## Plan authoring and conversation-only cohort
 
 | Case | Request and starting state | Required result |
 | --- | --- | --- |
@@ -36,3 +36,31 @@ fulfillment. Retain failed attempts with their original outcomes. Use the
 [Plan authoring owner tests](../tests/test_plan_jev_authoring.py) for
 provider-free boundary checks and ordinary captured turns for routing and
 surface evidence.
+
+
+## Build and Ingest workflow cohort
+
+| Case | Difficulty | Attempt to replay | What passes |
+| --- | --- | --- | --- |
+| AW01 | Basic | Edit one row on the Edge page using the retained provider-free save-and-reopen case. | Only the intended row changes. Adjacent rows stay intact and a fresh reopen shows the edit. This is the control for observing a durable write. |
+| AW02 | Basic | Review and correct `Karesmine` → `Karsemine` and `Baergom` → `Baergrom` before C2S30 extraction. | Show each occurrence in context. Apply accepted corrections to the effective input, preserve the original source, and verify the extractor receives the corrected input. |
+| AW03 | Medium | “Create six NPCs for Edge, with jobs and a distinguishing detail, and add them as a table.” | Stage a six-row table with the requested fields. Insert it once at the intended location after acceptance. Save and reopen preserve the table and pre-existing page content. |
+| AW04 | Medium | Correct the Dustwalker possessive using the sentence context from C2S30 name review. | Show the surrounding prose and apply the possessive only to the reviewed occurrence. A legitimate plural elsewhere survives. |
+| AW05 | Hard | Resolve Karsemine’s ambiguous World identity before merging C2S30. | Make competing identities inspectable. The reviewed merge reuses the selected existing identity, creates no duplicate, and its claims reopen to the exact recap passages. |
+| AW06 | Hard | Refresh a previously published session after re-ingestion, using the C2S30 replacement request. | Graph readback reflects the reviewed replacement. Authored World material survives, superseded claims are absent from the current projection, and the prior revision remains inspectable. Qualify replacement capability before scheduling this case. |
+| AW07 | Challenging | Recover the exact C2S30 extraction request after the source-support error, then finish reviewed publication if recovery succeeds. | Bind the action to the retained extraction and verified source support. On verified recovery, publish once through review and match the receipt to Graph readback. If recovery fails, identify the missing prerequisite and leave the Graph unchanged. Score that outcome as safe handling, with publication still unproven. |
+| AW08 | Impossible on the pinned fixture | Attempt the same recovery and publication with both the exact request and equivalent verification evidence absent. | Identify the missing prerequisite, preserve the reviewed candidate, and produce neither a Graph mutation nor a success receipt. A fresh reopen shows the same candidate and its blocked state. |
+
+AW03 is pinned to the explicit operator request in the
+[Build Compose handoff](../Docs/Plans/HANDOFF-AGENT-build-compose-insertion.md#agent--compose-into-the-saved-build-page).
+AW01 reuses the earlier Edge control. AW02 and AW04–AW07 come from the C2S30
+dogfood. AW08 is a controlled missing-evidence variant. Before replay, bind
+each case to its exact isolated starting state and retained evidence. Record
+missing inputs as unqualified. For AW04, verify the plural control exists
+before grading it and identify any added control as synthetic.
+
+Score target selection, action correctness, persistence and protected-state
+integrity separately. Retain the effective input, review decisions, action
+events and receipts when applicable. Verify state through fresh reopen or
+Graph readback. For AW07 and AW08, inspect the action history as well as the
+final state so a transient mutation cannot pass the blocked outcome.
