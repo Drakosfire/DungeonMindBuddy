@@ -476,6 +476,28 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     : undefined, [canvasLayout, chronologyData]);
   const graphNodes = graph?.nodes;
   const nodesById = useMemo(() => new Map(graphNodes?.map((node) => [node.id, node])), [graphNodes]);
+  const chronologyLabels = useMemo(() => {
+    if (!chronologyLayout) return [];
+    const labels = chronologyLayout.markers.map(({ campaign, session, point }) => ({
+      key: `${campaign}:${session}`,
+      point,
+      text: `${nodesById.get(campaign)?.name ?? campaign} · Session ${session}`,
+    }));
+    if (chronologyLayout.unplacedMarker) {
+      labels.push({ key: "unplaced", point: chronologyLayout.unplacedMarker, text: "Unplaced" });
+    }
+    return labels;
+  }, [chronologyLayout, nodesById]);
+  const chronologyLabelBounds = useMemo(() => {
+    if (!chronologyLabels.length) return undefined;
+    return chronologyLabels.reduce((bounds, { point: { x, y }, text }) => ({
+      left: Math.min(bounds.left, x - 4),
+      top: Math.min(bounds.top, y - 32),
+      // Allow one em per character so fit also leaves room for wider glyphs.
+      right: Math.max(bounds.right, x + text.length * 28),
+      bottom: Math.max(bounds.bottom, y + 8),
+    }), { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity });
+  }, [chronologyLabels]);
   const graphRef = useRef<NativeGraph | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -1921,17 +1943,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                         </SurfaceContextAction>)}
                     </div>
                   ) : undefined,
+                  layoutMarkerBounds: chronologyLabelBounds,
                   layoutMarkers: chronologyLayout ? <g pointerEvents="none">
                     {[...new Set(chronologyLayout.markers.map(marker => marker.campaign))].map(campaign =>
                       <polyline key={campaign} fill="none" stroke="#8a734b" strokeWidth={5}
                         points={chronologyLayout.markers.filter(marker => marker.campaign === campaign)
                           .map(({ point }) => `${point.x},${point.y}`).join(" ")} />)}
-                    {chronologyLayout.markers.map(({ campaign, session, point }) =>
-                      <text key={`${campaign}:${session}`} x={point.x} y={point.y} fontSize={28}>
-                        {nodesById.get(campaign)?.name ?? campaign} · Session {session}
-                      </text>)}
-                    {chronologyLayout.unplacedMarker && <text x={chronologyLayout.unplacedMarker.x}
-                      y={chronologyLayout.unplacedMarker.y} fontSize={28}>Unplaced</text>}
+                    {chronologyLabels.map(({ key, point, text }) =>
+                      <text key={key} x={point.x} y={point.y} fontSize={28}>{text}</text>)}
                   </g> : undefined,
                   toolActions: !readOnly ? <>
                     <SurfaceContextAction disabled={!graph.capabilities.create || !graph.capabilities.object_kinds.length || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>

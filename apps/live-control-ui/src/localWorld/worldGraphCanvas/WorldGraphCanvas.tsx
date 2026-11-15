@@ -157,6 +157,7 @@ export interface WorldGraphCanvasProps {
   readonly projectionOptions?: GraphProjectionOptions;
   readonly alternatePositions?: ReadonlyMap<string, { x: number; y: number }>;
   readonly layoutMarkers?: ReactNode;
+  readonly layoutMarkerBounds?: { left: number; top: number; right: number; bottom: number };
   readonly layoutControls?: ReactNode;
   readonly onRenameObject?: (record: LocalWorldRecord, objectId: LocalObjectId, name: string) => Promise<CommitSemanticResult>;
   readonly onCreateObject?: (record: LocalWorldRecord, input: NewLocalGraphObject) => Promise<CommitSemanticResult>;
@@ -444,6 +445,7 @@ export function WorldGraphCanvas({
   projectionOptions,
   alternatePositions,
   layoutMarkers,
+  layoutMarkerBounds,
   layoutControls,
   onRenameObject,
   onCreateObject,
@@ -648,7 +650,7 @@ export function WorldGraphCanvas({
   const focusLayoutKey = focusedLayoutId ? `${record.snapshot.worldId}:${record.localRevision}:${record.publishedRevisionId}:${record.layoutRevision}:${focusedLayoutId}` : null;
   const [temporaryFocusMoves, setTemporaryFocusMoves] = useState<{ key: string; points: Record<string, { x: number; y: number }> } | null>(null);
   const persistedPositions = useMemo(() => {
-    const overview = new Map(projection.nodes.map(node => [node.id, { ...node, ...alternatePositions?.get(node.id), radius: fullCorpus ? graphBubbleRadius(node.relationshipCount) : CIRCLE_RADIUS }]));
+    const overview = new Map(projection.nodes.map(node => [node.id, { ...node, ...alternatePositions?.get(node.id), radius: fullCorpus ? Math.min(graphBubbleRadius(node.relationshipCount), alternatePositions ? 32 : Infinity) : CIRCLE_RADIUS }]));
     if (alternatePositions || !focusedLayoutId) return overview as ReadonlyMap<string, NodePosition>;
     const focused = focusedGraphLayout(overview, focusedLayoutId);
     if (temporaryFocusMoves?.key === focusLayoutKey) for (const [id, point] of Object.entries(temporaryFocusMoves.points)) {
@@ -712,6 +714,12 @@ export function WorldGraphCanvas({
       left = Math.min(left, point.x + inset); top = Math.min(top, point.y + inset);
       right = Math.max(right, point.x + dimensions.width - inset); bottom = Math.max(bottom, point.y + dimensions.height - inset);
     }
+    if (layoutMarkerBounds) {
+      left = Math.min(left, layoutMarkerBounds.left);
+      top = Math.min(top, layoutMarkerBounds.top);
+      right = Math.max(right, layoutMarkerBounds.right);
+      bottom = Math.max(bottom, layoutMarkerBounds.bottom);
+    }
     const geometryBounds = { left, top, right, bottom };
     for (const { geometry, box } of persistedEdges) {
       geometryBounds.left = Math.min(geometryBounds.left, geometry.bounds.left);
@@ -728,10 +736,10 @@ export function WorldGraphCanvas({
       overview: { left: geometryBounds.left - 24, top: geometryBounds.top - 24,
         width: geometryBounds.right - geometryBounds.left + 48, height: geometryBounds.bottom - geometryBounds.top + 48 },
     };
-  }, [projection.nodes, persistedPositions, persistedEdges, nodeShape, dimensions.width, dimensions.height]);
+  }, [projection.nodes, persistedPositions, persistedEdges, nodeShape, dimensions.width, dimensions.height, layoutMarkerBounds]);
 
   function fittedCamera(): Camera {
-    if (!projection.nodes.length) return { x: 0, y: 0, zoom: 1 };
+    if (!projection.nodes.length && !layoutMarkerBounds) return { x: 0, y: 0, zoom: 1 };
     // Predicate plates are hidden below relationship-detail zoom. Do not let
     // their unrendered dimensions shrink the packed overview.
     const detailZoom = Math.min(1, viewport.width / graphBounds.detail.width, viewport.height / graphBounds.detail.height);

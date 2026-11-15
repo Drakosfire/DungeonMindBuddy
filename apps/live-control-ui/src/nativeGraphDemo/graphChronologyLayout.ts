@@ -30,12 +30,13 @@ export function layoutGraphChronology(events: readonly EventRow[], mode: Chronol
   for (const [campaign, sessions] of [...campaigns].sort(([a], [b]) => a.localeCompare(b))) {
     const ordered = [...sessions].sort(([a], [b]) => a - b);
     const spread = Math.max(...ordered.map(([, ids]) => Math.ceil(ids.length / 8))) * 80;
-    const pitch = Math.max(760, spread * 2 + 180);
-    const outerRadius = pitch * ordered.length / (2 * Math.PI);
-    const center = { x: outerRadius + pitch, y: laneTop + outerRadius + pitch };
+    // Radial separation alone clears the diagonal of a session cluster.
+    const pitch = Math.ceil(Math.hypot(760, spread + 180));
+    const outerRadius = pitch * (ordered.length - 1);
+    const center = { x: outerRadius + 80, y: laneTop + outerRadius + 80 };
     ordered.forEach(([session, ids], index) => {
       const angle = index * 0.8;
-      const radius = pitch * angle / (2 * Math.PI);
+      const radius = pitch * index;
       const point = mode === "line"
         ? { x: pitch * index + 80, y: laneTop + 80 }
         : { x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius };
@@ -47,7 +48,7 @@ export function layoutGraphChronology(events: readonly EventRow[], mode: Chronol
         });
       });
     });
-    laneTop += mode === "line" ? spread + 240 : 2 * (outerRadius + pitch) + spread;
+    laneTop += mode === "line" ? spread + 240 : 2 * (outerRadius + 80) + spread;
   }
   const unplacedMarker = unplaced.length ? { x: 80, y: laneTop + 80 } : null;
   unplaced.sort().forEach((id, slot) => {
