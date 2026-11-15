@@ -68,7 +68,7 @@ export function SavedStatblockFullView({target, toolbarHost}:{target:SavedStatbl
  return <main className="saved-statblock-page" aria-label="Full saved statblock">
   {current?.error?<><p role="alert">{current.error}</p><button type="button" onClick={()=>setAttempt(value=>value+1)}>Retry statblock</button></>
    :packet?<>{toolbarHost===undefined?<>{edit}{tools}</>:buildToolbar}
-    <StatblockRenderer revision={packet.resource} mode="full" chrome="campaign"/></>
+    <StatblockRenderer revision={packet.resource} pdfPortrait={packet.pdf_portrait} mode="full" chrome="campaign"/></>
    :<p role="status">Opening saved statblock…</p>}
  </main>;
 }
