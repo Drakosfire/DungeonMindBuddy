@@ -112,7 +112,7 @@ export function BuildSurfaceContext({
   useEffect(() => {
     const open = (event: Event) => {
       if ((event as CustomEvent<BuildStudioAction>).detail === "open") {
-        document.querySelector<HTMLSelectElement>(".build-document-selector--context select")?.focus();
+        document.querySelector<HTMLButtonElement>("[data-testid=build-document-select]")?.focus();
       }
     };
     window.addEventListener(BUILD_STUDIO_ACTION, open);

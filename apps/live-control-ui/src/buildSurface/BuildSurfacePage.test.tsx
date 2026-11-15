@@ -246,7 +246,7 @@ describe("BuildSurfacePage", () => {
       renderBuildPage({ managedWorld: true });
       expect(await screen.findByRole("region", { name: "PDF workspace" }))
         .toHaveTextContent("MeatMindNode.pdf");
-      expect(screen.getByRole("combobox", { name: "Open document" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Open document" })).toBeInTheDocument();
     } finally {
       localStorage.removeItem(key);
     }
@@ -627,12 +627,16 @@ describe("BuildSurfacePage", () => {
       expect(screen.getByTestId("build-document-status")).toHaveTextContent(/Unsaved|dirty|local/i);
     });
 
-    await user.selectOptions(screen.getByTestId("build-document-select"), DOC_B);
+    await user.click(screen.getByTestId("build-document-select"));
+    await user.click(screen.getByRole("button", { name: "Pages", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Source B", exact: true }));
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Source B");
     });
 
-    await user.selectOptions(screen.getByTestId("build-document-select"), DOC_ID);
+    await user.click(screen.getByTestId("build-document-select"));
+    await user.click(screen.getByRole("button", { name: "Pages", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Source A", exact: true }));
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Source A");
     });
@@ -1338,8 +1342,9 @@ describe("BuildSurfacePage", () => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
     });
     // Stale list still held — selector must already show Canvas title.
+    fireEvent.click(screen.getByTestId("build-document-select"));
     expect(
-      within(screen.getByTestId("build-document-select")).getByRole("option", {
+      within(screen.getByRole("dialog", { name: "Open document" })).getByRole("button", {
         name: "Ironveil Manufactory Grounds",
       }),
     ).toBeInTheDocument();

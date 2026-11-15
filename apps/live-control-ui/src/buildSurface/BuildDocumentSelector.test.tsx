@@ -1,5 +1,5 @@
 import { setNativeGraphAccessToken } from "../api/liveApi";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -31,6 +31,13 @@ function record(documentId: string, title: string, campaignId: string): Workspac
   };
 }
 
+function openCategory(name: string) {
+  fireEvent.click(screen.getByTestId("build-document-select"));
+  const dialog = screen.getByRole("dialog", { name: "Open document" });
+  if (name !== "Recent") fireEvent.click(within(dialog).getByRole("button", { name, exact: true }));
+  return dialog;
+}
+
 describe("BuildDocumentSelector", () => {
   it("finds a saved statblock by title and addresses its exact revision in Build", async () => {
     setNativeGraphAccessToken("fixture");
@@ -52,13 +59,14 @@ describe("BuildDocumentSelector", () => {
         documents={[record(DOC_A, "Alpha", "longmont-c1")]} listStatus="ready"
         activeDocumentId={null} activeRecord={null} preferredCampaignId={null}
         switching={false} onSelect={vi.fn()} />);
-      expect(await screen.findByRole("option", { name: "PDF · 2026-11-11 · abcde123" }))
-        .toHaveValue("/build?world=elderwyld&pdf=remote");
-      const statblock = await screen.findByRole("option", { name: "Sewer Meat Creature" });
-      expect(statblock).toHaveValue("/build?world=elderwyld&draft=creature&revision=saved-revision");
-      expect(screen.queryByRole("option", { name: "Sewer Giant" })).not.toBeInTheDocument();
+      openCategory("All documents");
+      expect(await screen.findByRole("button", { name: "PDF · 2026-11-11 · abcde123" }))
+        .toHaveAttribute("data-document-id", "/build?world=elderwyld&pdf=remote");
+      const statblock = await screen.findByRole("button", { name: "Sewer Meat Creature" });
+      expect(statblock).toHaveAttribute("data-document-id", "/build?world=elderwyld&draft=creature&revision=saved-revision");
+      expect(screen.queryByRole("button", { name: "Sewer Giant" })).not.toBeInTheDocument();
       await userEvent.type(screen.getByRole("searchbox"), "sewer");
-      expect(screen.queryByRole("option", { name: "Alpha" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Alpha" })).not.toBeInTheDocument();
       expect(statblock).toBeInTheDocument();
     } finally {
       request.mockRestore();
@@ -88,9 +96,10 @@ describe("BuildDocumentSelector", () => {
       render(<BuildDocumentSelector worldId="elderwyld" documents={[]} listStatus="ready"
         activeDocumentId={null} activeRecord={null} preferredCampaignId={null}
         switching={false} onSelect={vi.fn()} />);
-      expect(await screen.findByRole("option", { name: "MeatMindNode.pdf" }))
-        .toHaveValue("/build?world=elderwyld&pdf=source");
-      expect(screen.queryByRole("option", { name: "Withdrawn PDF" })).not.toBeInTheDocument();
+      openCategory("PDFs");
+      expect(await screen.findByRole("button", { name: "MeatMindNode.pdf" }))
+        .toHaveAttribute("data-document-id", "/build?world=elderwyld&pdf=source");
+      expect(screen.queryByRole("button", { name: "Withdrawn PDF" })).not.toBeInTheDocument();
     } finally {
       request.mockRestore();
       setNativeGraphAccessToken(null);
@@ -112,7 +121,9 @@ describe("BuildDocumentSelector", () => {
       />,
     );
 
-    expect(screen.getByRole("option", { name: "Open document" })).toBeInTheDocument();
+    const dialog = openCategory("Recent");
+    expect(within(dialog).getByRole("button", { name: "Recent" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(dialog).getByText("Documents you open will appear here.")).toBeInTheDocument();
   });
 
   it("groups options by campaign with preferred campaign first", () => {
@@ -131,10 +142,10 @@ describe("BuildDocumentSelector", () => {
       />,
     );
 
-    const select = screen.getByTestId("build-document-select");
-    const optgroups = select.querySelectorAll("optgroup");
-    expect(optgroups[0]).toHaveAttribute("label", "C2");
-    expect(optgroups[1]).toHaveAttribute("label", "C1");
+    const dialog = openCategory("Pages");
+    expect(within(dialog).getAllByRole("listitem").map(row => row.textContent)).toEqual([
+      "BetaPages · C2", "AlphaPages · C1",
+    ]);
   });
 
   it("disambiguates duplicate titles in the same campaign", () => {
@@ -157,8 +168,9 @@ describe("BuildDocumentSelector", () => {
       />,
     );
 
-    expect(screen.getByRole("option", { name: /Ironveil · lore · updated/i })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /Ironveil · faction · updated/i })).toBeInTheDocument();
+    const dialog = openCategory("Pages");
+    expect(within(dialog).getByRole("button", { name: /Ironveil · lore · updated/i })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /Ironveil · faction · updated/i })).toBeInTheDocument();
   });
 
   it("calls onSelect with exact document id", async () => {
@@ -179,7 +191,8 @@ describe("BuildDocumentSelector", () => {
       />,
     );
 
-    await user.selectOptions(screen.getByTestId("build-document-select"), DOC_B);
+    const dialog = openCategory("Pages");
+    await user.click(within(dialog).getByRole("button", { name: "Beta" }));
     expect(onSelect).toHaveBeenCalledWith(DOC_B);
   });
 
@@ -202,9 +215,9 @@ describe("BuildDocumentSelector", () => {
       />,
     );
 
-    const select = screen.getByTestId("build-document-select");
-    expect(within(select).getByRole("option", { name: "Ironveil Manufactory Grounds" })).toBeInTheDocument();
-    expect(within(select).queryByRole("option", { name: "Ironveil Property" })).not.toBeInTheDocument();
-    expect(select).toHaveValue(DOC_A);
+    const dialog = openCategory("Recent");
+    expect(within(dialog).getByRole("button", { name: "Ironveil Manufactory Grounds" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Ironveil Property" })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Ironveil Manufactory Grounds" })).toHaveAttribute("aria-current", "page");
   });
 });

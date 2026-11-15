@@ -1,13 +1,13 @@
 import { loadNativeDocuments, nativeDocumentHref } from "./buildNativeDocuments";
 import type { NativeSourceMetadata } from "../api/nativeSourceInspection";
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 
 import { listRetainedPdfDocuments, retainedPdfBuildHref, type RetainedPdf } from "../api/retainedPdfRegions";
 import { listWorldThreatDrafts, type WorldThreatDraftSummary } from "../api/liveApi";
 import { buildSavedStatblockHref, readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
 import type { WorkspaceDocumentRecord } from "../api/types";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
-import { SurfaceContextSelect } from "../surfaceInteraction/contextHost";
+import "./buildDocumentPicker.css";
 import {
   BUILD_KNOWN_CAMPAIGN_IDS,
   type BuildKnownCampaignId,
@@ -66,9 +66,15 @@ export function BuildDocumentSelector({
   }, [worldId]);
   const currentCatalog = catalog?.worldId === worldId ? catalog : undefined;
   const filter = query.trim().toLowerCase();
+  const [category, setCategory] = useState<PickerCategory>("Recent");
+  const dialog = useRef<HTMLDialogElement>(null);
+  const search = useRef<HTMLInputElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const recentKey = `buddy:build:recent:${worldId ?? preferredCampaignId ?? ""}`;
+  const [recent, setRecent] = useState<string[]>([]);
   const statblocks = (currentCatalog?.drafts ?? []).flatMap(draft => {
     const revisionId = draft.saved_revision_id;
-    if (draft.world_id !== worldId || !revisionId || !draft.name.toLowerCase().includes(filter)) return [];
+    if (draft.world_id !== worldId || !revisionId) return [];
     return [{
       href: buildSavedStatblockHref({ worldId: draft.world_id, draftId: draft.draft_id, revisionId }),
       title: draft.name,
@@ -179,67 +185,118 @@ export function BuildDocumentSelector({
     return groups;
   }, [activeRecord, documents, preferredCampaignId]);
 
-  const selectProps = {
-    id: "build-document-select",
-    "data-testid": "build-document-select",
-    "data-guided-control": "source",
-    "aria-label": "Open document",
-    value: activeNative && worldId ? nativeDocumentHref(worldId, activeNative) : activePdf && worldId ? retainedPdfBuildHref(worldId, activePdf) : activeStatblock ? buildSavedStatblockHref(activeStatblock) : activeDocumentId ?? "",
-    onChange: (event: ChangeEvent<HTMLSelectElement>) => {
-      const next = event.target.value.trim();
-      if (next.startsWith("/build?")) window.location.assign(next);
-      else if (next && worldId && (activeStatblock || activeNativeId || new URLSearchParams(window.location.search).has("pdf"))) {
-        window.location.assign("/build?" + new URLSearchParams({ world: worldId, documentId: next }));
-      } else if (next) onSelect(next);
-    },
-    disabled: switching || (listStatus !== "ready" && statblocks.length === 0 && retainedPdfs.length === 0 && nativeSources.length === 0),
-  };
+  const activeId = activeNative && worldId ? nativeDocumentHref(worldId, activeNative)
+    : activePdf && worldId ? retainedPdfBuildHref(worldId, activePdf)
+    : activeStatblock ? buildSavedStatblockHref(activeStatblock) : activeDocumentId;
+  const entries: PickerEntry[] = [
+    ...groupedOptions.flatMap(group => group.options.map(option => ({
+      ...option, category: "Pages" as const, detail: group.label,
+    }))),
+    ...statblocks.map(item => ({ id: item.href, label: item.title, category: "Statblocks" as const })),
+    ...(worldId ? retainedPdfs.map(entry => ({
+      id: retainedPdfBuildHref(worldId, entry), label: entry.name, category: "PDFs" as const,
+    })) : []),
+    ...(worldId ? nativeSources.map(source => ({
+      id: nativeDocumentHref(worldId, source), label: source.navigation.label ?? "Unnamed document",
+      category: source.navigation.kind === "recap" ? "Recaps" as const : "Ingested text" as const,
+      detail: [source.navigation.campaign_id, source.navigation.session_id && `Session ${source.navigation.session_id}`]
+        .filter(Boolean).join(" · "),
+    })) : []),
+  ];
+  useEffect(() => {
+    if (!activeId) return;
+    try {
+      const ids = readRecent(recentKey);
+      localStorage.setItem(recentKey, JSON.stringify([activeId, ...ids.filter(id => id !== activeId)].slice(0, 20)));
+    } catch {
+      // The picker remains available when browser storage is disabled.
+    }
+  }, [activeId, recentKey]);
+
+  const byId = new Map(entries.map(entry => [entry.id, entry]));
+  const visible = filter
+    ? entries.filter(entry => `${entry.label} ${entry.category} ${entry.detail ?? ""}`.toLowerCase().includes(filter))
+    : category === "Recent"
+      ? recent.flatMap(id => byId.get(id) ?? [])
+      : entries.filter(entry => category === "All documents" || entry.category === category);
+  const pending = listStatus === "loading" || Boolean(worldId && (!currentCatalog || !currentPdfCatalog || !currentNativeCatalog));
+  const errors = [
+    currentCatalog?.error && "Saved statblocks unavailable",
+    currentPdfCatalog?.error && "PDF documents unavailable",
+    currentNativeCatalog?.error && "Ingested text documents unavailable",
+  ].filter(Boolean);
+
+  function closePicker() {
+    if (dialog.current?.close) dialog.current.close();
+    else dialog.current?.removeAttribute("open");
+    trigger.current?.focus();
+  }
+
+  function openPicker() {
+    setCategory("Recent");
+    setQuery("");
+    setRecent(readRecent(recentKey));
+    if (dialog.current?.showModal) dialog.current.showModal();
+    else dialog.current?.setAttribute("open", "");
+    search.current?.focus();
+  }
+
+  function openDocument(id: string) {
+    closePicker();
+    if (id.startsWith("/build?")) window.location.assign(id);
+    else if (worldId && (activeStatblock || activeNativeId || new URLSearchParams(window.location.search).has("pdf"))) {
+      window.location.assign("/build?" + new URLSearchParams({ world: worldId, documentId: id }));
+    } else onSelect(id);
+  }
 
   return (
-    <div
-      className="build-document-selector build-document-selector--context"
-      data-testid="build-document-selector"
-      aria-busy={switching}
-    >
-      <input type="search" aria-label="Search documents" placeholder="Search documents"
-        value={query} onChange={event => setQuery(event.target.value)} />
-      {currentNativeCatalog?.error && <span role="status">Ingested text documents unavailable</span>}
-      {currentPdfCatalog?.error && <span role="status">PDF documents unavailable</span>}
-      {currentCatalog?.error && <span role="status">Saved statblocks unavailable</span>}
-      <SurfaceContextSelect {...selectProps}>
-        {!activeDocumentId ? (
-          <option value="" disabled>
-            Open document
-          </option>
-        ) : null}
-        {groupedOptions.map((group) => (
-          <optgroup key={group.campaignId} label={group.label}>
-            {group.options.filter(option => option.id === activeDocumentId || option.label.toLowerCase().includes(filter)).map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-        {statblocks.length > 0 && <optgroup label="Saved statblocks">
-          {statblocks.map(item => <option key={item.href} value={item.href}>{item.title}</option>)}
-        </optgroup>}
-        {worldId && retainedPdfs.length > 0 && <optgroup label="PDF documents">
-          {retainedPdfs.filter(entry => entry === activePdf || entry.name.toLowerCase().includes(filter)).map(entry => {
-            const href = retainedPdfBuildHref(worldId, entry);
-            return <option key={href} value={href}>{entry.name}</option>;
-          })}
-        </optgroup>}
-        {worldId && nativeSources.length > 0 && <optgroup label="Ingested text documents">
-          {nativeSources.filter(source => source === activeNative ||
-            (source.navigation.label ?? "Unnamed document").toLowerCase().includes(filter)).map(source => {
-            const href = nativeDocumentHref(worldId, source);
-            return <option key={href} value={href}>{source.navigation.label ?? "Unnamed document"}</option>;
-          })}
-        </optgroup>}
-      </SurfaceContextSelect>
+    <div className="build-document-selector build-document-selector--context" data-testid="build-document-selector">
+      <button ref={trigger} type="button" className="surface-context-action" data-testid="build-document-select"
+        data-guided-control="source" aria-haspopup="dialog" disabled={switching} onClick={openPicker}>
+        Open document
+      </button>
+      <dialog ref={dialog} className="build-document-picker" aria-label="Open document" data-native-escape-owner
+        onCancel={event => { event.preventDefault(); closePicker(); }}>
+        <header className="build-document-picker__toolbar">
+          <input ref={search} type="search" aria-label="Search documents" placeholder="Search documents"
+            value={query} onChange={event => setQuery(event.target.value)} />
+          <button type="button" aria-label="Close document picker" onClick={closePicker}>×</button>
+        </header>
+        <div className="build-document-picker__body">
+          <nav aria-label="Document categories">
+            {PICKER_CATEGORIES.map(item => <button key={item} type="button"
+              aria-pressed={!filter && category === item} onClick={() => { setCategory(item); setQuery(""); }}>
+              {item}
+            </button>)}
+          </nav>
+          <section aria-label={filter ? "Search results" : category} className="build-document-picker__results">
+            {errors.map(error => <p key={String(error)} role="status">{error}</p>)}
+            {visible.length ? <ul>{visible.map(entry => <li key={entry.id}>
+              <button type="button" data-document-id={entry.id} aria-label={entry.label} aria-current={entry.id === activeId ? "page" : undefined}
+                onClick={() => openDocument(entry.id)}>
+                <span>{entry.label}</span>
+                <small>{[entry.category, entry.detail].filter(Boolean).join(" · ")}</small>
+              </button>
+            </li>)}</ul> : <p role="status">{pending ? "Loading documents…" : filter ? "No documents match your search."
+              : category === "Recent" ? "Documents you open will appear here." : "No documents in this category."}</p>}
+          </section>
+        </div>
+      </dialog>
     </div>
   );
+}
+
+const PICKER_CATEGORIES = ["Recent", "All documents", "Pages", "Statblocks", "PDFs", "Recaps", "Ingested text"] as const;
+type PickerCategory = typeof PICKER_CATEGORIES[number];
+type PickerEntry = { id: string; label: string; category: PickerCategory; detail?: string };
+
+function readRecent(key: string): string[] {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
+    return Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 function isBuildKnownCampaignId(value: string): value is BuildKnownCampaignId {
