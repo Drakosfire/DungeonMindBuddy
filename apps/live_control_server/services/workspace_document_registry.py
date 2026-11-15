@@ -6,6 +6,8 @@ continuity tools. Live Page/Plan/Runbook reads and writes use Content only.
 
 from __future__ import annotations
 
+from application_state.content.page_presentation import PagePresentation
+
 import re
 import uuid
 from datetime import UTC, datetime
@@ -253,6 +255,7 @@ class WorkspaceDocumentSnapshot(BaseModel):
         "dmb_workspace_document_snapshot_v1"
     )
     record: WorkspaceDocumentRecord
+    page_presentation: PagePresentation | None = None
     committed_markdown: str | None = None
     committed_content_sha256: str | None = None
     markdown: str
@@ -861,6 +864,7 @@ def get_workspace_document_snapshot(
         return WorkspaceDocumentSnapshot(
             record=_record_from_page(snap, from_working_copy=snap.from_working_copy),
             markdown=snap.markdown,
+            page_presentation=snap.presentation,
             content_sha256=snap.content_sha256,
             committed_markdown=snap.committed_revision.markdown
             if snap.committed_revision
@@ -1305,6 +1309,7 @@ def get_committed_page_snapshot(
         revision = snap.revision
         return WorkspaceDocumentSnapshot(
             record=_record_from_page(snap),
+            page_presentation=snap.presentation,
             markdown=revision.markdown if revision else "",
             content_sha256=revision.content_sha256 if revision else sha256_utf8(""),
             committed_markdown=revision.markdown if revision else None,
