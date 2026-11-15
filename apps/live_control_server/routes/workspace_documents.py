@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.live_control_server.config import (
@@ -132,6 +132,7 @@ class WorkspacePageInventoryResponse(WorkspaceDocumentsListResponse):
 @router.get("/workspace-documents/pages/inventory", response_model=WorkspacePageInventoryResponse)
 def get_workspace_page_inventory(
     request: Request,
+    response: Response,
     world_id: Annotated[str | None, Query()] = None,
     campaign_id: Annotated[str | None, Query()] = None,
     status: Annotated[Literal["active", "discarded"] | None, Query()] = "active",
@@ -158,6 +159,7 @@ def get_workspace_page_inventory(
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     require_hosted_build_page_inventory(request, world_id)
+    response.headers["Cache-Control"] = "no-store"
     records = inventory[:limit]
     boundary = records[-1] if len(inventory) > limit else None
     return WorkspacePageInventoryResponse(

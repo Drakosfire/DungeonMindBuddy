@@ -1505,6 +1505,8 @@ def test_build_page_inventory_is_scoped_to_owned_world(hosted, monkeypatch, quer
     response = hosted.client.request("GET", f"{access.BUILD_PAGE_INVENTORY_PATH}?{query}", session=session)
     assert response.status_code == expected, response.text
     assert calls == (["managed"] if expected == 200 else [])
+    if expected == 200:
+        assert response.headers["cache-control"] == "no-store"
 
 
 def test_hosted_build_inventory_denies_ownership_transfer_during_read(hosted, monkeypatch):
