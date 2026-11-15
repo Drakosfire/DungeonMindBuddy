@@ -11,7 +11,7 @@ import type { NewLocalGraphObject, NewLocalGraphRelationship } from "./localWorl
 import { SurfaceContextAction, SurfaceContextPopover } from "../../surfaceInteraction/contextHost";
 import { DEFAULT_GRAPH_TYPE_STYLES, graphTypeColor, type GraphTypeStyleRegistry } from "./graphTypeStyles";
 import { focusedGraphLayout } from "./focusedGraphLayout";
-import { captionTouchesCircle, edgeCaption, overlaps, predicatePhrase, type CaptionBounds } from "./edgeCaption";
+import { edgeCaption, intersectsCaption, overlaps, predicatePhrase, type CaptionBounds } from "./edgeCaption";
 import "./worldGraphCanvas.css";
 
 const WIDTH = 960;
@@ -1373,6 +1373,9 @@ export function WorldGraphCanvas({
     const selected = (edge: ProjectedGraphEdge) => selectedIds.includes(edge.fromObjectId) || selectedIds.includes(edge.toObjectId);
     const captionEdges = edgeLabelDetail === "none" ? [] : renderedEdges.filter(({ edge }) =>
       selected(edge) || (edgeLabelDetail === "all" && (!fullCorpus || allRelationships)));
+    const nodeCircles = captionEdges.length && nodeShape === "circle" ? Array.from(positions.values(), point => ({
+      x: point.x + CIRCLE_RADIUS, y: point.y + CIRCLE_RADIUS, radius: point.radius ?? CIRCLE_RADIUS,
+    })) : [];
     const nodeBounds = captionEdges.length && nodeShape !== "circle" ? [...positions.values()].map(point => ({
       left: point.x, top: point.y, right: point.x + dimensions.width, bottom: point.y + dimensions.height,
     })) : [];
@@ -1385,7 +1388,7 @@ export function WorldGraphCanvas({
         const caption = edgeCaption(geometry.path, edge.kind, fraction, edgeLabelScale);
         if (!caption || occupied.some(box => overlaps(box, caption.bounds))) continue;
         const hitsNode = nodeShape === "circle"
-          ? [...positions.values()].some(point => captionTouchesCircle(caption, { x: point.x + CIRCLE_RADIUS, y: point.y + CIRCLE_RADIUS, radius: point.radius ?? CIRCLE_RADIUS }))
+          ? nodeCircles.some(intersectsCaption(caption))
           : nodeBounds.some(box => overlaps(box, caption.bounds));
         if (hitsNode) continue;
         occupied.push(caption.bounds);
