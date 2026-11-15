@@ -183,10 +183,9 @@ export function createGraphFallbackPositions(
   groups.sort((a, b) => b.length - a.length || rank(a[0], b[0]));
   const result = new Map<Id, Point>();
   const buckets = new Map<number, Bubble[]>();
-  // One neighboring cell covers two maximum radii (~304) plus the 4-unit gap.
-  const cell = 320;
-  // Include the one-cell halo on both sides of the coordinate domain.
-  const bucketStride = Math.floor(MAX_GRAPH_COORDINATE / cell) + 3;
+  const cell = 128;
+  const maximumRadius = graphBubbleRadius(Infinity);
+  const bucketStride = Math.floor(MAX_GRAPH_COORDINATE / cell) + 1;
   const key = (x: number, y: number) => x * bucketStride + y;
   function occupy(id: Id, point: Point) {
     result.set(id, point);
@@ -197,9 +196,14 @@ export function createGraphFallbackPositions(
   }
   function available(point: Point, r: number): boolean {
     if (point.x < 0 || point.y < 0 || point.x > MAX_GRAPH_COORDINATE || point.y > MAX_GRAPH_COORDINATE) return false;
-    const bx = Math.floor(point.x / cell), by = Math.floor(point.y / cell);
-    for (let x = bx - 1; x <= bx + 1; x += 1) {
-      for (let y = by - 1; y <= by + 1; y += 1) {
+    // Only buckets reachable by the two radii and their separation gap can collide.
+    const reach = r + maximumRadius + 4;
+    const minX = Math.floor(Math.max(0, point.x - reach) / cell);
+    const maxX = Math.floor(Math.min(MAX_GRAPH_COORDINATE, point.x + reach) / cell);
+    const minY = Math.floor(Math.max(0, point.y - reach) / cell);
+    const maxY = Math.floor(Math.min(MAX_GRAPH_COORDINATE, point.y + reach) / cell);
+    for (let x = minX; x <= maxX; x += 1) {
+      for (let y = minY; y <= maxY; y += 1) {
         const nearby = buckets.get(key(x, y));
         if (!nearby) continue;
         for (const other of nearby) {
