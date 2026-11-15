@@ -2,6 +2,8 @@
 
 Run from the root of the reviewed Buddy checkout on the selected deployment host. Use one Bash session for the command blocks. Run the public checks from a separate client using the helper from the same reviewed Buddy checkout or a copy of that helper from the release commit. Advance only when the expected result for the current step is recorded.
 
+Record release-host and public validation outcomes using the [release rehearsal checklist](RELEASE-REHEARSAL-buddy-checklist.md). It summarizes pending evidence and does not replace the steps below.
+
 ## 1. Prepare the release record
 
 Record the host and SSH alias, release commit, image ID or registry digest, Compose project, host bind port, approved absolute persistent root, Nginx virtual host, DNS records, certificate owner, and rollback owner. Record the approved DMS test account and expected World, both database owners and migration heads, and the backup and restore evidence. Keep credentials and session cookies in their designated stores.
