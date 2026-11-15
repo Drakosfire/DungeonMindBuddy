@@ -154,7 +154,16 @@ HOSTED_WORLD_COLLECTION_AUTHORIZERS = {
     ("GET", WORLD_COLLECTION_PATH): hosted_owner_collection,
 }
 
+PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
+PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
+
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("GET", PDF_STATBLOCK_REVIEWS_PATH): resolve_hosted_build_pdf_world,
+    ("GET", PDF_STATBLOCK_REVIEW_PATH): resolve_hosted_build_pdf_world,
+    ("PUT", PDF_STATBLOCK_REVIEW_PATH): resolve_hosted_build_pdf_world,
+    ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/from-regions"): resolve_hosted_build_pdf_world,
+    ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/validate"): resolve_hosted_build_pdf_world,
+    ("POST", f"{BUILD_PDF_SOURCES_PATH}/statblock:validate"): resolve_hosted_build_pdf_world,
     ("GET", BUILD_PDF_SOURCES_PATH): resolve_hosted_build_pdf_world,
     ("POST", BUILD_PDF_SOURCES_PATH): resolve_hosted_build_pdf_world,
     ("POST", f"{BUILD_PDF_SOURCES_PATH}/open"): resolve_hosted_build_pdf_world,

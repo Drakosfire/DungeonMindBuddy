@@ -633,7 +633,7 @@ def install_hosted_request_boundary(
         except HTTPException as exc:
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
         response = await call_next(request)
-        if hasattr(request.state, "hosted_native_graph_world"):
+        if hasattr(request.state, "hosted_native_graph_world") or hasattr(request.state, "hosted_build_pdf_world"):
             response.headers["Cache-Control"] = "no-store"
         return response
 

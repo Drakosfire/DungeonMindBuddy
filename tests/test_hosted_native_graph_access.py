@@ -18,6 +18,8 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
+from application_state import pdf_statblock_review
+from apps.live_control_server.routes.agent import get_pdf_statblock_review
 from application_state.errors import ApplicationStateUnavailableError
 from application_state.world_catalog import service as catalog
 from application_state.world_catalog.service import StoredWorld
@@ -65,6 +67,7 @@ OUTSIDER = "synthetic-outsider"
 EXPLORER = "/api/live/native-graph-explorer"
 COLLECTION = "/api/live/world-containers"
 INSPECTION = "/api/live/native-graph-inspection/read"
+PDF_REVIEW = access.BUILD_PDF_SOURCES_PATH + "/statblock-reviews/{review_id}"
 OPERATIONS = ("graph", "prepare", "confirm", "operations/read")
 # recap_lane substitutes binding for its own test scope; restore the actual
 # function here so the real catalog-to-native binding validator is exercised.
@@ -238,6 +241,7 @@ def hosted(monkeypatch, request):
     app.add_api_route(access.BUILD_PDF_SOURCES_PATH, post_build_pdf_source, methods=["POST"])
 
     app.include_router(workspace_documents.router)
+    app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
     install_hosted_request_boundary(
         app,
         world_scope_resolvers={
@@ -252,6 +256,7 @@ def hosted(monkeypatch, request):
             ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("POST", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
+            ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("GET", access.WORLD_LOOKUP_PATH): access.resolve_hosted_world_lookup,
         },
         collection_authorizers={("GET", COLLECTION): access.hosted_owner_collection},
@@ -1601,3 +1606,42 @@ def test_binary_pdf_body_only_reaches_authorized_upload(hosted, monkeypatch, ses
     assert calls == ([payload] if expected == 200 else [])
     if expected == 200:
         assert response.json()["source_revision_id"] == "retained"
+
+
+@pytest.mark.parametrize("session, suffix, expected", [
+    ("owner-session", "", 200),
+    ("other-session", "", 403),
+    ("owner-session", "/publication", 403),
+])
+def test_hosted_pdf_review_checks_owner_before_read(hosted, monkeypatch, session, suffix, expected):
+    review_id = uuid4()
+    reads = []
+
+    def read_review(*, world_id, review_id):
+        reads.append((world_id, review_id))
+        return {"regions": [], "revision": 1}
+
+    monkeypatch.setattr(pdf_statblock_review, "read_review", read_review)
+    monkeypatch.setattr("apps.live_control_server.routes.agent._verified_world_id", lambda world: world)
+    response = hosted.client.request(
+        "GET", PDF_REVIEW.format(world_id="managed", review_id=review_id) + suffix, session=session,
+    )
+    assert response.status_code == expected, response.text
+    assert reads == ([("managed", review_id)] if expected == 200 else [])
+    if expected == 200:
+        assert response.headers["cache-control"] == "no-store"
+
+
+def test_hosted_pdf_review_denies_ownership_transfer_during_read(hosted, monkeypatch):
+    def read_review(**_scope):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"regions": [], "revision": 1, "definition": {"secret": "private-draft"}}
+
+    monkeypatch.setattr(pdf_statblock_review, "read_review", read_review)
+    monkeypatch.setattr("apps.live_control_server.routes.agent._verified_world_id", lambda world: world)
+    path = PDF_REVIEW.format(world_id="managed", review_id=uuid4())
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 403, response.text
+    assert "private-draft" not in response.text
