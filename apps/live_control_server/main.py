@@ -161,6 +161,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", PDF_STATBLOCK_REVIEWS_PATH): resolve_hosted_build_pdf_world,
     ("GET", PDF_STATBLOCK_REVIEW_PATH): resolve_hosted_build_pdf_world,
     ("GET", f"{PDF_STATBLOCK_REVIEW_PATH}/publication"): resolve_hosted_build_pdf_world,
+    ("GET", f"{PDF_STATBLOCK_REVIEW_PATH}/publication/statblock"): resolve_hosted_build_pdf_world,
     ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/publication"): resolve_hosted_build_pdf_world,
     ("PUT", PDF_STATBLOCK_REVIEW_PATH): resolve_hosted_build_pdf_world,
     ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/from-regions"): resolve_hosted_build_pdf_world,

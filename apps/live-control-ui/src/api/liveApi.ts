@@ -3254,8 +3254,11 @@ export async function associateWorldMechanics(worldId: string, request: import("
 export async function listSavedMechanicsVersions(draftId:string,worldId:string,offset=0):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').SavedMechanicsVersionList>{
   return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions?world_id=${encodeURIComponent(worldId)}&offset=${offset}`);
 }
-export async function openSavedMechanicsVersion(draftId:string,worldId:string,revisionId:string):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>{
-  const packet=await apiFetch<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions/${encodeURIComponent(revisionId)}?world_id=${encodeURIComponent(worldId)}`);
+export async function openSavedMechanicsVersion(draftId:string,worldId:string,revisionId:string,sourceReviewId?:string):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>{
+  const path = sourceReviewId
+    ? `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/statblock-reviews/${encodeURIComponent(sourceReviewId)}/publication/statblock?${new URLSearchParams({draft_id:draftId,revision_id:revisionId})}`
+    : `/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions/${encodeURIComponent(revisionId)}?world_id=${encodeURIComponent(worldId)}`;
+  const packet=await apiFetch<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>(path);
   if(!packet||packet.world_id!==worldId||packet.draft_id!==draftId||!packet.locator||!packet.resource
     ||packet.locator.provider!=='dungeonmind'||packet.locator.contract!=='dungeonmind.dungeonbuddy-statblocks'||packet.locator.contract_version!=='1.0.0'
     ||packet.locator.revision_id!==revisionId||packet.resource.revision_id!==revisionId

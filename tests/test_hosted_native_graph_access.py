@@ -21,7 +21,8 @@ from fastapi import FastAPI
 
 from application_state import pdf_statblock_review
 from apps.live_control_server.routes.agent import (
-    _pdf_review_creature_draft_id, get_pdf_statblock_publication, get_pdf_statblock_review, post_accept_pdf_statblock_review,
+    _pdf_review_creature_draft_id, get_pdf_statblock_publication, get_pdf_statblock_review,
+    get_published_pdf_statblock, post_accept_pdf_statblock_review,
     post_pdf_statblock_creature_draft, post_pdf_statblock_publication,
 )
 from application_state.errors import ApplicationStateUnavailableError
@@ -248,6 +249,7 @@ def hosted(monkeypatch, request):
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", get_pdf_statblock_publication, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", post_pdf_statblock_publication, methods=["POST"])
+    app.add_api_route(f"{PDF_REVIEW}/publication/statblock", get_published_pdf_statblock, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/creature-draft", post_pdf_statblock_creature_draft, methods=["POST"])
     app.add_api_route(f"{PDF_REVIEW}/accept/{{draft_id}}", post_accept_pdf_statblock_review, methods=["POST"])
     install_hosted_request_boundary(
@@ -268,6 +270,7 @@ def hosted(monkeypatch, request):
             ("POST", f"{PDF_REVIEW}/accept/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
             ("GET", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
+            ("GET", f"{PDF_REVIEW}/publication/statblock"): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/creature-draft"): access.resolve_hosted_build_pdf_world,
             ("GET", access.WORLD_LOOKUP_PATH): access.resolve_hosted_world_lookup,
         },
@@ -1793,3 +1796,39 @@ def test_hosted_pdf_publish_recovers_only_exact_review(hosted, monkeypatch, sess
     assert calls == ([(draft_id, "managed", HOSTED_OWNER)] if expected in {200, 503} else [])
     if expected == 200:
         assert response.json() == {"draft_id": str(draft_id), "revision_id": locator.revision_id}
+
+@pytest.mark.parametrize("session, match, transfer, expected", [
+    ("owner-session", True, False, 200),
+    ("owner-session", False, False, 404),
+    ("other-session", True, False, 403),
+    ("owner-session", True, True, 403),
+])
+def test_hosted_build_reads_only_exact_published_statblock(hosted, monkeypatch, session, match, transfer, expected):
+    from apps.live_control_server.routes import agent, statblock_candidates
+
+    review_id = uuid4()
+    draft_id = _pdf_review_creature_draft_id("managed", review_id)
+    monkeypatch.setattr(agent, "get_pdf_statblock_publication",
+                        lambda *_: {"draft_id": draft_id, "revision_id": "rev_exact"})
+    reads = []
+
+    def open_saved(draft, revision, world, request):
+        reads.append((draft, revision, world))
+        if transfer:
+            hosted.records["managed"] = hosted.records["managed"].model_copy(
+                update={"owner_subject": OTHER_OWNER},
+            )
+        return {"pdf_portrait": "retained-artwork"}
+
+    monkeypatch.setattr(statblock_candidates, "open_saved_revision", open_saved)
+    path = PDF_REVIEW.format(world_id="managed", review_id=review_id)
+    revision = "rev_exact" if match else "rev_other"
+    response = hosted.client.request(
+        "GET", f"{path}/publication/statblock?draft_id={draft_id}&revision_id={revision}", session=session,
+    )
+    assert response.status_code == expected, response.text
+    assert reads == ([(str(draft_id), revision, "managed")] if expected == 200 or transfer else [])
+    if expected == 200:
+        assert response.json() == {"pdf_portrait": "retained-artwork"}
+    else:
+        assert "retained-artwork" not in response.text

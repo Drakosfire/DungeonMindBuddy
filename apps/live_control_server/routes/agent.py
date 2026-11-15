@@ -2606,6 +2606,24 @@ def get_pdf_statblock_publication(world_id: str, review_id: UUID, request: Reque
     return {"draft_id": draft_id, "revision_id": associations[0].proof.locator.revision_id}
 
 
+@router.get("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/publication/statblock")
+def get_published_pdf_statblock(
+    world_id: str, review_id: UUID, draft_id: UUID, revision_id: str, request: Request,
+):
+    from apps.live_control_server.routes.statblock_candidates import open_saved_revision
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
+    if draft_id != _pdf_review_creature_draft_id(world_id, review_id):
+        raise HTTPException(status_code=404, detail="Published statblock not found")
+    publication = get_pdf_statblock_publication(world_id, review_id, request)
+    if publication != {"draft_id": draft_id, "revision_id": revision_id}:
+        raise HTTPException(status_code=404, detail="Published statblock not found")
+    packet = open_saved_revision(str(draft_id), revision_id, world_id, request)
+    require_build_pdf_access(request, world_id)
+    return packet
+
+
 @router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/publication")
 def post_pdf_statblock_publication(
     world_id: str, review_id: UUID, request: Request, expected_revision: int = Query(ge=1),

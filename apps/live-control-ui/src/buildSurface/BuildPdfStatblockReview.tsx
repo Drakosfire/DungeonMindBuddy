@@ -1,3 +1,4 @@
+import { buildSavedStatblockHref } from "../statblocks/savedStatblockLocation";
 import { useHostedAuthStatus } from "../auth/HostedAuthGate";
 import { createPortal } from "react-dom";
 import { PdfPages } from "./BuildPdfPreview";
@@ -278,7 +279,9 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
           if (current.draft_id !== draft.draft_id) throw new Error("The review draft changed during publication.");
           await publishPdfStatblock(worldId, draft.draft_id, current.version, result.locator);
         }
-        setPublishedLink(link);
+        setPublishedLink(auth.status === "authenticated" ? buildSavedStatblockHref({
+          worldId, draftId: draft.draft_id, revisionId: result.locator.revision_id, sourceReviewId: reviewId,
+        }) : link);
       } else {
         setAcceptedLink(link);
       }
@@ -320,14 +323,16 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
           const link = `/statblock?${new URLSearchParams({
             world: worldId, draft: result.draft_id, revision: result.revision_id,
           })}`;
-          setPublishedLink(current => current || link);
+          setPublishedLink(current => current || (auth.status === "authenticated" ? buildSavedStatblockHref({
+            worldId, draftId: result.draft_id, revisionId: result.revision_id, sourceReviewId: reviewId,
+          }) : link));
         }
       } catch {
         // Publication can still be resumed when status lookup is unavailable.
       }
     })();
     return () => abort.abort();
-  }, [reviewPath, worldId]);
+  }, [reviewPath, worldId, reviewId, auth.status]);
 
   useEffect(() => {
     if (!region || !sourceKey || source?.key === sourceKey) return;
