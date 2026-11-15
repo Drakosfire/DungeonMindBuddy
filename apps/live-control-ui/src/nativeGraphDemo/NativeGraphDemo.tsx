@@ -1811,7 +1811,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       <GraphChronology relatedTo={embedded ? selectedNode?.id : undefined} graph={graph} read={api.readChronology} shared={embedded && (!readOnly || canvasLayout !== "graph") ? { result: chronologyData } : undefined} strip
         onExplore={nodeId => {
           if (pendingRef.current) return;
-          requestCameraFocus(nodeId, false);
+          if (embedded) {
+            requestCameraFocus(nodeId, false);
+          } else {
+            setChronology(null);
+            focusInspectorRef.current = true;
+            handleCanvasSelectionChange(nodeId as LocalObjectId);
+            requestCameraFocus(nodeId);
+          }
         }} />
     </div>
   ) : null;
