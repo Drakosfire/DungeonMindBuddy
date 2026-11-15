@@ -1182,7 +1182,6 @@ def test_repeat_graph_read_reuses_parsing_but_refetches_the_revision(explorer, m
     x = explorer
     _seed_objects(x)
     repo = x.lane.repo
-    before = _snapshot(repo)
     cache = native_source_access.NativeParsedRevisionCache()
     monkeypatch.setattr(service.native_graph_inspection, "_shared_parsed_cache", cache)
     parse_revision = native_source_access._parse_revision
@@ -1200,6 +1199,7 @@ def test_repeat_graph_read_reuses_parsing_but_refetches_the_revision(explorer, m
 
     monkeypatch.setattr(native_source_access, "_parse_revision", count_parse)
     monkeypatch.setattr(repo, "get_revision", count_revision_load)
+    before = _snapshot(repo)
     first = _read(x)
     second = _read(x)
 
