@@ -1376,7 +1376,11 @@ def _shared_plan_authoring_case(
             assert not writer.calls and len(decisions.calls) == 1
             response = None
         else:
+            from time import perf_counter
+
+            started = perf_counter()
             response = execute_agent_turn(plan_adapter.request, **kwargs)
+            capture_ms = (perf_counter() - started) * 1000
             assert response.answer.status == "ok" and response.plan_proposal is None
             assert "plan_proposal" not in response.model_dump(mode="json")
             assert len(writer.calls) == 1 and len(decisions.calls) == 1
@@ -1429,7 +1433,14 @@ def _shared_plan_authoring_case(
                     },
                 }],
             })
+            started = perf_counter()
             assessment = action_report(report_dir / "manifest.json")["cases"][0]
+            report_ms = (perf_counter() - started) * 1000
+            immutable_save(report_dir, "timing", {
+                "ordinary_dispatch_ms": capture_ms,
+                "offline_assessment_ms": report_ms,
+                "provider_mode": "mock_transport",
+            })
             assert assessment["status"] == "pass", assessment
         calls = len(decisions.calls), len(writer.calls)
         if response is None:
