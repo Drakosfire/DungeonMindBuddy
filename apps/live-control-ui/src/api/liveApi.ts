@@ -331,6 +331,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     "/api/live/native-graph-explorer/confirm",
     "/api/live/native-graph-explorer/operations/read",
   ].includes(pathname)) return true;
+  if (/^\/api\/live\/threat-drafts\/[^/]+\/saved-statblock$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-source-withdrawals$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|ocr|review|statblock-reviews|statblock:validate))?$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+(?:\/validate|\/from-regions|\/creature-draft|\/(?:accept|append)\/[^/]+)?$/.test(pathname)) return true;
@@ -2157,6 +2158,7 @@ export async function generateThreatDraftCandidate(
 }
 
 export interface WorldThreatDraftSummary {
+  version: number;
   world_id: string;
   draft_id: string;
   name: string;
@@ -3425,6 +3427,14 @@ export async function withdrawBuildSource(worldId: string, source: { kind: "pdf"
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(source),
   });
   if (!response.ok) throw new Error("Could not delete the document. Refresh and try again.");
+}
+
+export async function archiveBuildStatblock(worldId: string, draftId: string, version: number) {
+  const query = new URLSearchParams({ world_id: worldId, expected_version: String(version) });
+  const { response } = await authenticatedApiFetch(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/saved-statblock?${query}`, { method: "DELETE" },
+  );
+  if (!response.ok) throw new Error("Could not remove the statblock. Refresh and try again.");
 }
 
 export interface PdfStatblockReviewSummary {

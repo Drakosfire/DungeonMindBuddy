@@ -427,11 +427,12 @@ class ThreatDraftIndexV1(StrictModel):
     schema_name: Literal["dmb_threat_draft_index_v1"] = Field(
         default=INDEX_SCHEMA, alias="schema"
     )
+    archived_draft_ids: list[str] = Field(default_factory=list)
     draft_ids: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    @field_validator("draft_ids")
+    @field_validator("draft_ids", "archived_draft_ids")
     @classmethod
     def _draft_ids(cls, values: list[str]) -> list[str]:
         cleaned = [require_draft_id(item) for item in values]
