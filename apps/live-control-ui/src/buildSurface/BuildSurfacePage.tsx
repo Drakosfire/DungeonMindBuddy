@@ -109,7 +109,7 @@ export function BuildSurfacePage() {
           <BuildSurfaceContext {...controller} />
           <section className="build-pdf-workspace" aria-label="PDF workspace">
             {retainedPdf ? <BuildPdfPreview key={entrySearch} worldId={worldId} initialRetained={retainedPdf} />
-              : <p role="status">{resolvedPdf ? "This retained PDF could not be found." : "Opening PDF…"}</p>}
+              : <p role="status">{(!pdfId || resolvedPdf) ? "This retained PDF could not be found." : "Opening PDF…"}</p>}
           </section>
         </>
       ) : droppedPdf && droppedPdf.worldId === worldId ? (
