@@ -73,7 +73,7 @@ Test required migrations against the restored copies. Before applying them to pr
 Provision a protected Compose environment file outside the checkout with the variables required by the [production Compose example](../../deploy/production/compose.production.yaml). Use the approved DMS HTTPS origin, trust `https://buddy.dungeonmind.net`, and configure the approved World assignments and both database URLs. Set the private statblock API origin as reachable from the Buddy container and put its internal API key in this same protected file. Host loopback inside the container is the container itself. Set `BUDDY_PERSISTENT_ROOT` to the absolute path of the approved durable host directory. Create its `managed`, `artifacts`, `sessions`, and `worldgraph` directories with access for container UID/GID 10001.
 
 For PDF extraction, run the GenerationEngine private OCR worker at
-`555d5e9c8dbec16d6e1e277858d3dff6f1a16afd` on the approved GPU host. Record
+`3e4f34ee5e6c99517c0cb7163d782a7695199071` on the approved GPU host. Record
 the CUDA environment, GPU UUID, checkpoint revision and checksums, and private
 route owner. Verify the pinned checkpoint before loading its executable model
 code. Keep the OCR listener on loopback and use a private authenticated tunnel
@@ -82,6 +82,31 @@ or TLS termination on a private network. In the protected Compose file, set
 `BUDDY_OCR_REMOTE_TOKEN` to the token provisioned on the worker. For an
 `http://` endpoint use an encrypted tunnel for off-host traffic. The Buddy host
 can run without CUDA.
+
+For the workstation pilot, have the tailnet owner grant only the cloud
+Buddy host access to TCP port 18798 on the GPU workstation. Check effective
+policy for broader grants before publishing the listener. Start the worker
+under the workstation service account using the pinned CUDA Python environment
+and checkpoint. Supply `GENERATIONENGINE_OCR_TOKEN` from its protected service
+environment. Verify the worker listens on `127.0.0.1:8798`.
+
+On the GPU workstation, the administrator configures [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve).
+
+```bash
+sudo tailscale serve --bg --tcp=18798 tcp://127.0.0.1:8798
+tailscale serve status
+```
+
+Use `http://<gpu-workstation-tailnet-address>:18798/ocr` in Buddy's
+protected environment. Verify that the candidate container can complete the
+OCR probe below and that an unauthorized tailnet node cannot reach port 18798.
+Use the worker's JSON HTTP status, elapsed milliseconds, and bytes read to
+monitor volume, failures, and latency in the restricted service journal.
+Record the worker revision, route owner, and credential reference without
+copying the token into the release record. To withdraw the route without
+touching other Serve listeners, run `sudo tailscale serve --tcp=18798 off`
+on the workstation and verify that the candidate can no longer reach it.
+
 
 ```bash
 read -r -p 'Approved release commit: ' buddy_release
