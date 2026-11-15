@@ -445,28 +445,22 @@ docker system df -v
 
 Compare the inventory with the serving and rollback image IDs in the release
 records. Retain both images and their release-scoped configuration. For each
-retired tag, run the following in the deployment Docker context during a window
-with no concurrent release changes. Enter the full image IDs from the verified
-records.
+approved retired tag, run the retirement command in the deployment Docker
+context with no concurrent release changes. Use the verified image IDs and run
+it first without `--apply` to see the candidate and its stopped containers.
 
 ```bash
-(
-  set -e
-  read -r -p 'Retired Buddy image tag: ' retired_tag
-  read -r -p 'Serving image ID: ' serving_id
-  read -r -p 'Rollback image ID: ' rollback_id
-  [[ "$retired_tag" =~ ^dungeonmindbuddy:[0-9a-f]{40}$ ]]
-  [[ "$serving_id" =~ ^sha256:[0-9a-f]{64}$ ]]
-  [[ "$rollback_id" =~ ^sha256:[0-9a-f]{64}$ ]]
-  retired_id=$(docker image inspect --format '{{.Id}}' "$retired_tag")
-  test "$retired_id" != "$serving_id"
-  test "$retired_id" != "$rollback_id"
-  containers=$(docker ps -aq --filter "ancestor=$retired_id")
-  test -z "$containers"
-  docker image rm "$retired_tag"
-)
+read -r -p 'Retired Buddy image tag: ' retired_tag
+read -r -p 'Serving image ID: ' serving_id
+read -r -p 'Rollback image ID: ' rollback_id
+python3 scripts/retire_buddy_release.py --project "$buddy_project" \
+  --retired-tag "$retired_tag" --serving-image "$serving_id" \
+  --rollback-image "$rollback_id"
 ```
 
-Repeat the inventory afterward and record the removed tag and measured change.
+After verifying the candidate, repeat with `--apply`. The command removes only
+the named release tag and stopped containers from the matching Buddy service.
+Repeat it to verify that the retired tag is gone. Record the before and after
+Docker disk use and available RAM. Shared image layers may remain in use.
 Build cache retention belongs to the operator of the builder. Use a dedicated
 Buddy builder or coordinate retention with the owners of a shared builder.
