@@ -11,6 +11,9 @@ MIB = 1024 * 1024
 def docker_root():
     if os.environ.get("DOCKER_HOST") or os.environ.get("DOCKER_CONTEXT"):
         raise ValueError("Run on the deployment host with the default local Docker context")
+    selected = subprocess.check_output(["docker", "context", "show"], text=True).strip()
+    if selected != "default":
+        raise ValueError("Select the default local Docker context before deploying")
     endpoint = subprocess.check_output(
         ["docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}", "default"],
         text=True,
