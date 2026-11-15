@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Editor, type JSONContent } from '@tiptap/core';
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../MarkdownEditorCore';
-import { PAGE_COMPOSER_EXTENSIONS, movePageBlock, resizePageRow, unwrapPageRow, wrapPageRow } from './PageRow';
+import { PAGE_COMPOSER_EXTENSIONS, movePageBlock, resizePageRow, unwrapPageRow, wrapPageRow, updatePageRowPresentation } from './PageRow';
 
 const paragraph = (text: string, id = text): JSONContent => ({ type: 'paragraph', attrs: { pageBlockId: id }, content: [{ type: 'text', text }] });
 let editor: Editor;
@@ -126,6 +126,76 @@ describe('Page row editor transactions', () => {
     expect(editor.state.doc.textContent).toBe('Only');
     expect(movePageBlock(editor, -1)).toBe(true);
     expect(editor.state.doc.child(0).child(1).childCount).toBe(0);
+  });
+
+  it('wraps three slots and resizes adjacent pairs without changing the third', () => {
+    create(); expect(wrapPageRow(editor, false, 3)).toBe(true);
+    expect(editor.state.doc.child(0).childCount).toBe(3);
+    expect(editor.state.doc.textContent).toBe('FirstSecondThird');
+    expect(resizePageRow(editor, 0, 6, 0)).toBe(true);
+    expect([0, 1, 2].map(i => editor.state.doc.child(0).child(i).attrs.width)).toEqual([6, 2, 4]);
+    expect(resizePageRow(editor, 0, 3, 1)).toBe(true);
+    expect([0, 1, 2].map(i => editor.state.doc.child(0).child(i).attrs.width)).toEqual([6, 3, 3]);
+    editor.commands.undo();
+    expect([0, 1, 2].map(i => editor.state.doc.child(0).child(i).attrs.width)).toEqual([6, 2, 4]);
+    expect(editor.state.doc.textContent).toBe('FirstSecondThird');
+  });
+
+  it('supports a single full-width row and independent row presentation', () => {
+    create(); expect(wrapPageRow(editor, false, 1)).toBe(true);
+    expect(editor.state.doc.child(0).child(0).attrs.width).toBe(12);
+    expect(resizePageRow(editor, 0, 4)).toBe(false);
+    expect(updatePageRowPresentation(editor, 0, { min_height: 160, line_mode: 'border' })).toBe(true);
+    expect(editor.state.doc.child(0).attrs).toMatchObject({ min_height: 160, line_mode: 'border' });
+    expect(editor.view.dom.querySelector('[data-page-row]')?.getAttribute('data-line-mode')).toBe('border');
+    expect((editor.view.dom.querySelector('.page-composer-row__slots') as HTMLElement).style.getPropertyValue('--page-min-height')).toBe('160px');
+    editor.commands.undo();
+    expect(editor.state.doc.child(0).attrs).toMatchObject({ min_height: 0, line_mode: 'guide' });
+    editor.commands.redo();
+    updatePageRowPresentation(editor, 0, { min_height: 0, line_mode: 'clean' });
+    expect(editor.state.doc.child(0).attrs).toMatchObject({ min_height: 0, line_mode: 'clean' });
+  });
+
+  it('rejects invalid row presentation and nonfinite widths without a transaction', () => {
+    create(); wrapPageRow(editor);
+    const before = editor.state.doc;
+    for (const min_height of [-8, 7, 648, NaN, Infinity]) expect(updatePageRowPresentation(editor, 0, { min_height })).toBe(false);
+    expect(updatePageRowPresentation(editor, 0, { line_mode: 'invalid' as 'clean' })).toBe(false);
+    expect(resizePageRow(editor, 0, NaN)).toBe(false);
+    expect(resizePageRow(editor, 0, 4, 4)).toBe(false);
+    expect(editor.state.doc).toBe(before);
+  });
+
+  it('exposes keyboard height resizing with auto reset, retaining editor selection', () => {
+    create(); wrapPageRow(editor);
+    const from = editor.state.selection.from;
+    const height = editor.view.dom.querySelector('[aria-label="Resize minimum row height"]') as HTMLButtonElement;
+    height.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(editor.state.doc.child(0).attrs.min_height).toBe(8);
+    expect(editor.state.selection.from).toBe(from);
+    height.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    expect(editor.state.doc.child(0).attrs.min_height).toBe(0);
+    expect(height.getAttribute('aria-valuetext')).toBe('Automatic height');
+  });
+
+  it('starts height drag at the visible content bottom when height is automatic', () => {
+    create(); wrapPageRow(editor);
+    const height = editor.view.dom.querySelector('[aria-label="Resize minimum row height"]') as HTMLButtonElement;
+    const slots = editor.view.dom.querySelector('.page-composer-row__slots') as HTMLElement;
+    vi.spyOn(slots, 'getBoundingClientRect').mockReturnValue({ left: 0, width: 120, height: 300 } as DOMRect);
+    height.setPointerCapture = vi.fn();
+    function pointer(type: string, y: number) {
+      const event = new Event(type, { bubbles: true });
+      Object.defineProperties(event, { clientY: { value: y }, pointerId: { value: 1 }, button: { value: 0 } });
+      height.dispatchEvent(event);
+    }
+    pointer('pointerdown', 300); pointer('pointermove', 400);
+    expect(editor.state.doc.child(0).attrs.min_height).toBe(0);
+    expect(height.getAttribute('aria-valuenow')).toBe('400');
+    pointer('pointerup', 400);
+    expect(editor.state.doc.child(0).attrs.min_height).toBe(400);
+    editor.commands.undo();
+    expect(editor.state.doc.child(0).attrs.min_height).toBe(0);
   });
 
   it('does not allow commands on a read-only editor', () => {
