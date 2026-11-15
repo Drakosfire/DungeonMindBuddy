@@ -1036,6 +1036,33 @@ def context_tasting(manifest_path, output, *, transport=None):
     immutable_save(directory, "blind-answers", blind)
 
 
+def _action_operation_metrics(capture, expected_turn_id):
+    body = capture["body"]
+    trace = body["answer"]["trace"]
+    if (
+        not isinstance(expected_turn_id, str)
+        or not expected_turn_id
+        or trace["schema"] != "dmb_agent_turn_trace_v1"
+        or body["turn_id"] != expected_turn_id
+        or trace["turn_id"] != expected_turn_id
+    ):
+        raise ValueError("AW trace does not match the expected turn")
+    return {
+        "elapsed_ms": trace["elapsed_ms"],
+        "model_tokens": trace["usage"]["total_tokens"],
+        "model_calls": trace["usage"]["model_call_count"],
+        "usage_status": trace["usage"]["status"],
+        "usage_reported_call_count": trace["usage"]["usage_reported_call_count"],
+        "reported_cost_usd": trace["cost"]["usd"],
+        "cost_status": trace["cost"]["status"],
+        "operator_interventions": None,
+        "stages": [
+            {"name": span["name"], "duration_ms": span["duration_ms"], "status": span["status"]}
+            for span in trace["spans"] if span["kind"] == "phase"
+        ],
+    }
+
+
 def action_report(manifest_path):
     """Score retained action observations without starting an ordinary turn."""
     from .action_assessment import (
@@ -1062,7 +1089,13 @@ def action_report(manifest_path):
     for case in cases:
         observation = json.loads(read_pin(case["observation"], path.parent))
         assessment = assess[case.get("kind", "conversation_only")](**observation)
-        results.append({"id": case["id"], "observation": case["observation"], **assessment})
+        row = {"id": case["id"], "observation": case["observation"], **assessment}
+        if "turn_capture" in case:
+            pin = case["turn_capture"]
+            capture = json.loads(read_pin(pin, path.parent))
+            row["turn_capture"] = pin
+            row["operation"] = _action_operation_metrics(capture, case.get("turn_id"))
+        results.append(row)
     return {"schema": "dmb_aw_assessment_report_v1", "cases": results}
 
 
