@@ -21,7 +21,7 @@ from fastapi import FastAPI
 
 from application_state import pdf_statblock_review
 from apps.live_control_server.routes.agent import (
-    _pdf_review_creature_draft_id, get_pdf_statblock_review, post_accept_pdf_statblock_review,
+    _pdf_review_creature_draft_id, get_pdf_statblock_publication, get_pdf_statblock_review, post_accept_pdf_statblock_review,
     post_pdf_statblock_creature_draft,
 )
 from application_state.errors import ApplicationStateUnavailableError
@@ -246,6 +246,7 @@ def hosted(monkeypatch, request):
 
     app.include_router(workspace_documents.router)
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
+    app.add_api_route(f"{PDF_REVIEW}/publication", get_pdf_statblock_publication, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/creature-draft", post_pdf_statblock_creature_draft, methods=["POST"])
     app.add_api_route(f"{PDF_REVIEW}/accept/{{draft_id}}", post_accept_pdf_statblock_review, methods=["POST"])
     install_hosted_request_boundary(
@@ -264,6 +265,7 @@ def hosted(monkeypatch, request):
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/accept/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
+            ("GET", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/creature-draft"): access.resolve_hosted_build_pdf_world,
             ("GET", access.WORLD_LOOKUP_PATH): access.resolve_hosted_world_lookup,
         },
@@ -1619,7 +1621,7 @@ def test_binary_pdf_body_only_reaches_authorized_upload(hosted, monkeypatch, ses
 @pytest.mark.parametrize("session, suffix, expected", [
     ("owner-session", "", 200),
     ("other-session", "", 403),
-    ("owner-session", "/publication", 403),
+    ("owner-session", "/unregistered", 403),
 ])
 def test_hosted_pdf_review_checks_owner_before_read(hosted, monkeypatch, session, suffix, expected):
     review_id = uuid4()
@@ -1702,3 +1704,26 @@ def test_hosted_pdf_accept_refuses_unrelated_draft_before_storage(hosted, monkey
         "validation_definition_digest": validation["definition_digest"],
     })
     assert response.status_code == expected, response.text
+
+
+@pytest.mark.parametrize("session, expected", [("owner-session", 200), ("other-session", 403)])
+def test_hosted_publication_status_only_reads_the_owners_review(hosted, monkeypatch, session, expected):
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import native_threat_creation as creature
+
+    review_id = uuid4()
+    reads = []
+
+    def read_review(*, world_id, review_id):
+        reads.append((world_id, review_id))
+        return {"regions": [], "revision": 1}
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(pdf_statblock_review, "read_review", read_review)
+    monkeypatch.setattr(creature.native, "binding", lambda world: world)
+    monkeypatch.setattr(creature.native, "read_repository", lambda: None)
+    monkeypatch.setattr(creature, "existing", lambda *_: None)
+    path = PDF_REVIEW.format(world_id="managed", review_id=review_id)
+    response = hosted.client.request("GET", f"{path}/publication", session=session)
+    assert response.status_code == expected, response.text
+    assert reads == ([("managed", review_id)] if expected == 200 else [])
