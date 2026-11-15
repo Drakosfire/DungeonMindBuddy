@@ -680,7 +680,7 @@ def prepare(request, principal):
              "candidate_source_authority_stale")
     if isinstance(request, NativeRecapPrepareRequest) and request.cohort_edge_review is not None:
         from dataclasses import asdict
-        from src.graph_memory.ingestion.cohort_edge_review import validate_prepare
+        from graph_memory.ingestion.cohort_edge_review import validate_prepare
 
         try:
             validate_prepare(

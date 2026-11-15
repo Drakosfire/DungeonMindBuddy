@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 
-from src.graph_memory.ingestion.cohort_edge_review import validate, validate_prepare
+from graph_memory.ingestion.cohort_edge_review import validate, validate_prepare
 
 
 def main():
