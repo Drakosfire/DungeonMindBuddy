@@ -173,9 +173,10 @@ describe("BuildDocumentSelector", () => {
     expect(within(dialog).getByRole("button", { name: /Ironveil · faction · updated/i })).toBeInTheDocument();
   });
 
-  it("calls onSelect with exact document id", async () => {
+  it("opens the exact page and preserves search while loading more pages", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
+    const loadMorePages = vi.fn();
     render(
       <BuildDocumentSelector
         documents={[
@@ -187,11 +188,16 @@ describe("BuildDocumentSelector", () => {
         activeRecord={record(DOC_A, "Alpha", "longmont-c1")}
         preferredCampaignId="longmont-c1"
         switching={false}
+        loadMorePages={loadMorePages}
         onSelect={onSelect}
       />,
     );
 
     const dialog = openCategory("Pages");
+    await user.type(within(dialog).getByRole("searchbox"), "Beta");
+    await user.click(within(dialog).getByRole("button", { name: "Load more pages" }));
+    expect(loadMorePages).toHaveBeenCalledOnce();
+    expect(within(dialog).getByRole("searchbox")).toHaveValue("Beta");
     await user.click(within(dialog).getByRole("button", { name: "Beta" }));
     expect(onSelect).toHaveBeenCalledWith(DOC_B);
   });

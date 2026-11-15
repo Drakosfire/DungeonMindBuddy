@@ -163,6 +163,7 @@ export function BuildSurfaceContext({
                 activeRecord={liveRecord}
                 preferredCampaignId={campaignId}
                 switching={documentMutationBusy}
+                loadMorePages={hasMoreDocuments ? loadMoreDocuments : undefined}
                 onSelect={selectDocument}
               />
               <LoadedWorldGraphExplorer entry="recaps" />
@@ -203,16 +204,12 @@ export function BuildSurfaceContext({
                 activeRecord={null}
                 preferredCampaignId={suggestedCreateCampaignId}
                 switching={switching || creating}
+                loadMorePages={hasMoreDocuments ? loadMoreDocuments : undefined}
                 onSelect={selectDocument}
               />
               <LoadedWorldGraphExplorer entry="recaps" />
             </>
           )}
-          {hasMoreDocuments ? (
-            <button type="button" onClick={loadMoreDocuments} disabled={listStatus !== "ready" || documentMutationBusy}>
-              Load more sources
-            </button>
-          ) : null}
           <details className="build-source-actions">
             <summary>Source actions</summary>
             <div className="build-source-actions__menu">

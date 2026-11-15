@@ -40,6 +40,7 @@ interface BuildDocumentSelectorProps {
   activeRecord: WorkspaceDocumentRecord | null;
   preferredCampaignId: string | null;
   switching: boolean;
+  loadMorePages?: () => void;
   onSelect: (documentId: string) => void;
 }
 
@@ -51,6 +52,7 @@ export function BuildDocumentSelector({
   activeRecord,
   preferredCampaignId,
   switching,
+  loadMorePages,
   onSelect,
 }: BuildDocumentSelectorProps) {
   const [query, setQuery] = useState("");
@@ -277,8 +279,12 @@ export function BuildDocumentSelector({
                 <span>{entry.label}</span>
                 <small>{[entry.category, entry.detail].filter(Boolean).join(" · ")}</small>
               </button>
-            </li>)}</ul> : <p role="status">{pending ? "Loading documents…" : filter ? "No documents match your search."
+            </li>)}</ul> : <p role="status">{pending ? "Loading documents…" : filter ? (loadMorePages ? "No loaded documents match your search." : "No documents match your search.")
               : category === "Recent" ? "Documents you open will appear here." : "No documents in this category."}</p>}
+            {loadMorePages && (filter || category === "Pages" || category === "All documents") &&
+              <button type="button" disabled={listStatus !== "ready" || switching} onClick={loadMorePages}>
+                Load more pages
+              </button>}
           </section>
         </div>
       </dialog>
