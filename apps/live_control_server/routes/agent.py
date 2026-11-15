@@ -2211,6 +2211,7 @@ def get_build_pdf_sources(world_id: str, request: Request, after: str = ""):
         )
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    require_build_pdf_read_access(request, world_id)
     return JSONResponse({
         "documents": [{
             "source_revision_id": revision.source_revision_id,
@@ -2740,18 +2741,22 @@ def post_append_pdf_statblock_review(
 @router.post("/worlds/{world_id}/build-pdf-sources/region:validate", status_code=204)
 def post_validate_build_pdf_region(world_id: str, body: dict, request: Request):
     from fastapi.responses import Response
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_read_access
 
     _authorized_build_pdf_region(world_id, body, request, hosted_read=True)
+    require_build_pdf_read_access(request, world_id)
     return Response(status_code=204, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/open")
 def post_open_build_pdf_source(world_id: str, body: dict, request: Request, render: bool = False):
     from fastapi.responses import Response
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_read_access
 
     pdf, region = _authorized_build_pdf_region(world_id, body, request, hosted_read=True)
     if render:
         pdf = _render_build_pdf_region(pdf, region)
+    require_build_pdf_read_access(request, world_id)
     return Response(
         pdf,
         media_type="image/png" if render else "application/pdf",
