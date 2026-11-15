@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from application_state import pdf_statblock_review
 from apps.live_control_server.routes.agent import (
     _pdf_review_creature_draft_id, get_pdf_statblock_publication, get_pdf_statblock_review, post_accept_pdf_statblock_review,
-    post_pdf_statblock_creature_draft,
+    post_pdf_statblock_creature_draft, post_pdf_statblock_publication,
 )
 from application_state.errors import ApplicationStateUnavailableError
 from application_state.world_catalog import service as catalog
@@ -247,6 +247,7 @@ def hosted(monkeypatch, request):
     app.include_router(workspace_documents.router)
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", get_pdf_statblock_publication, methods=["GET"])
+    app.add_api_route(f"{PDF_REVIEW}/publication", post_pdf_statblock_publication, methods=["POST"])
     app.add_api_route(f"{PDF_REVIEW}/creature-draft", post_pdf_statblock_creature_draft, methods=["POST"])
     app.add_api_route(f"{PDF_REVIEW}/accept/{{draft_id}}", post_accept_pdf_statblock_review, methods=["POST"])
     install_hosted_request_boundary(
@@ -266,6 +267,7 @@ def hosted(monkeypatch, request):
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/accept/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
             ("GET", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
+            ("POST", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/creature-draft"): access.resolve_hosted_build_pdf_world,
             ("GET", access.WORLD_LOOKUP_PATH): access.resolve_hosted_world_lookup,
         },
@@ -1727,3 +1729,48 @@ def test_hosted_publication_status_only_reads_the_owners_review(hosted, monkeypa
     response = hosted.client.request("GET", f"{path}/publication", session=session)
     assert response.status_code == expected, response.text
     assert reads == ([("managed", review_id)] if expected == 200 else [])
+
+@pytest.mark.parametrize("session, exact_review, expected", [
+    ("owner-session", True, 200),
+    ("owner-session", False, 409),
+    ("other-session", True, 403),
+])
+def test_hosted_pdf_publish_recovers_only_exact_review(hosted, monkeypatch, session, exact_review, expected):
+    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+    from apps.live_control_server.routes import agent, native_threat_creation, world_mechanics_associations
+    from apps.live_control_server.services import native_threat_creation as creature
+
+    review_id = uuid4()
+    draft_id = _pdf_review_creature_draft_id("managed", review_id)
+    provenance = {"world_id": "managed", "review_id": str(review_id), "revision": 1 if exact_review else 2, "regions": []}
+    through = {PDF_REVIEW_PROVENANCE: provenance}
+    locator = SimpleNamespace(revision_id="rev_published")
+    draft = SimpleNamespace(accepted_mechanics_ref=SimpleNamespace(to_mechanics_locator=lambda: locator))
+    calls = []
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(pdf_statblock_review, "read_review", lambda **_: {"revision": 1, "regions": []})
+    monkeypatch.setattr(native_threat_creation, "statblock_data_root", lambda _: None)
+    monkeypatch.setattr(creature, "owned_draft", lambda *_: draft)
+    monkeypatch.setattr(creature, "resolve_saved_source", lambda *_, **__: (
+        draft, locator, "acceptance", None, SimpleNamespace(provenance={"accepted_through": through}),
+    ))
+    monkeypatch.setattr(creature, "get_acceptance_operation", lambda *_, **__: SimpleNamespace(
+        request_body={"accepted_through": through},
+    ))
+
+    def status(_root, actual_draft_id, world_id, principal):
+        calls.append((actual_draft_id, world_id, principal.subject))
+        return {"state": "published", "node_id": "published-creature"}
+
+    monkeypatch.setattr(creature, "status", status)
+    monkeypatch.setattr(world_mechanics_associations, "list_associations", lambda *_: [
+        SimpleNamespace(request=SimpleNamespace(
+            draft_id=draft_id, target=SimpleNamespace(node_id="published-creature", campaign_scope=None),
+        ), proof=SimpleNamespace(locator=locator)),
+    ])
+    path = PDF_REVIEW.format(world_id="managed", review_id=review_id)
+    response = hosted.client.request("POST", f"{path}/publication?expected_revision=1", session=session)
+    assert response.status_code == expected, response.text
+    assert calls == ([(draft_id, "managed", HOSTED_OWNER)] if expected == 200 else [])
+    if expected == 200:
+        assert response.json() == {"draft_id": str(draft_id), "revision_id": locator.revision_id}
