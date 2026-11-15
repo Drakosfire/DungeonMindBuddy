@@ -24,7 +24,8 @@ def test_conversation_requires_both_fulfillment_and_observed_non_action():
         ([], None, "unproven"),
     ]:
         result = assess_conversation_only(
-            events=events, before="original", after="original", fulfilled=fulfilled
+            events=events, before="original", after="original", fulfilled=fulfilled,
+            journal_complete=True
         )
         assert result["status"] == status
 
@@ -88,6 +89,7 @@ def test_malformed_and_partial_evidence_cannot_pass():
     with pytest.raises(ValueError, match="reopened"):
         assess_confirmed_action(before_confirmation=[], mutations=[], expected_mutations=[{"target": "edge", "effect": "replace"}],
                                 reopened="false", protected_state_changed=False)
+    assert assess_conversation_only(**observation)["status"] == "unproven"
     assert assess_conversation_only(**observation, journal_complete=False)["status"] == "unproven"
     assert assess_conversation_only(
         **(observation | {"events": ["proposal_created"]}), journal_complete=False
