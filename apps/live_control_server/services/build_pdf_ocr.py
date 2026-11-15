@@ -1,4 +1,4 @@
-"""Submit a validated Build crop to the configured local GenerationEngine worker."""
+"""Submit a validated Build crop to the configured GenerationEngine worker."""
 import base64
 import binascii
 import io
@@ -10,6 +10,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Lock
 
+import httpx
 from fastapi import HTTPException
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -33,6 +34,37 @@ def read_crop(body: PdfCropRequest) -> dict[str, str]:
     return read_crop_png(raw)
 
 
+def read_remote_text(raw: bytes, url: str, token: str) -> str:
+    endpoint = httpx.URL(url)
+    if (
+        endpoint.scheme not in {"http", "https"}
+        or not endpoint.host
+        or endpoint.userinfo
+        or endpoint.path != "/ocr"
+        or endpoint.query
+        or endpoint.fragment
+    ):
+        raise ValueError("Invalid private OCR endpoint")
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "image/png",
+        "Accept-Encoding": "identity",
+    }
+    with httpx.stream(
+        "POST", endpoint, content=raw, headers=headers,
+        timeout=httpx.Timeout(135, connect=5), trust_env=False, follow_redirects=False,
+    ) as response:
+        response.raise_for_status()
+        if response.headers.get("Content-Encoding", "identity") != "identity":
+            raise ValueError("Unexpected OCR response encoding")
+        output = bytearray()
+        for chunk in response.iter_raw(chunk_size=65536):
+            if len(output) + len(chunk) > 1_000_000:
+                raise ValueError("OCR response too large")
+            output.extend(chunk)
+    return json.loads(output)["text"]
+
+
 def read_crop_png(raw: bytes, *, allow_empty: bool = False) -> dict[str, str]:
     try:
         if len(raw) > _MAX_PNG_BYTES:
@@ -47,25 +79,34 @@ def read_crop_png(raw: bytes, *, allow_empty: bool = False) -> dict[str, str]:
     command = [os.getenv(name) for name in (
         "BUDDY_OCR_PYTHON", "BUDDY_OCR_COMMAND", "BUDDY_OCR_CHECKPOINT",
     )]
-    if not all(command):
+    remote_url = os.getenv("BUDDY_OCR_REMOTE_URL")
+    remote_token = os.getenv("BUDDY_OCR_REMOTE_TOKEN")
+    remote_configured = remote_url is not None or remote_token is not None
+    if remote_configured and not (remote_url and remote_token):
+        raise HTTPException(503, "Private OCR is not configured.")
+    if not remote_configured and not all(command):
         raise HTTPException(503, "Local OCR is not configured.")
     python, script, checkpoint = command
     if not _worker.acquire(blocking=False):
         raise HTTPException(503, "Local OCR is busy. Try again when the current capture finishes.")
     try:
-        with TemporaryDirectory(prefix="buddy-ocr-") as scratch:
-            path = Path(scratch) / "capture.png"
-            path.write_bytes(raw)
-            result = subprocess.run(
-                [python, script, "--checkpoint", checkpoint, "--image", str(path)],
-                capture_output=True, check=True, timeout=120,
-            )
-        text = json.loads(result.stdout)["text"]
+        if remote_url and remote_token:
+            text = read_remote_text(raw, remote_url, remote_token)
+        else:
+            with TemporaryDirectory(prefix="buddy-ocr-") as scratch:
+                path = Path(scratch) / "capture.png"
+                path.write_bytes(raw)
+                result = subprocess.run(
+                    [python, script, "--checkpoint", checkpoint, "--image", str(path)],
+                    capture_output=True, check=True, timeout=120,
+                )
+            text = json.loads(result.stdout)["text"]
         if not isinstance(text, str) or (not allow_empty and not text.strip()):
             raise ValueError("Empty OCR transcription")
         return {"text": text}
-    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError) as exc:
-        raise HTTPException(503, "Local OCR could not read this capture.") from exc
+    except (OSError, httpx.HTTPError, httpx.InvalidURL, subprocess.SubprocessError, ValueError, KeyError, TypeError) as exc:
+        message = "Private OCR could not read this capture." if remote_configured else "Local OCR could not read this capture."
+        raise HTTPException(503, message) from exc
     finally:
         _worker.release()
 

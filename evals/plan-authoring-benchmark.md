@@ -118,9 +118,10 @@ Run offline conversation-only scoring with
 `python -m evals.buddy_benchmark.workflow action-report --manifest MANIFEST --output DIR`.
 The manifest schema is `dmb_aw_assessment_v1`. Each case has a unique `id` and
 an `observation` pin with `path` and `sha256`. The pinned JSON supplies
-`events`, `before`, `after`, and `fulfilled`. Use null for unavailable
-observations. An empty event list means capture verified a complete journal
-with no relevant effects. The command scores supplied observations only.
+`events`, `before`, `after`, `fulfilled`, and `journal_complete`. Use null for
+unavailable observations. A no-action pass requires `journal_complete: true`.
+An observed forbidden effect fails even in a partial journal. The command scores
+supplied observations only.
 
 Set case `kind` to `confirmed_action` for a reviewed mutation. Supply
 `before_confirmation` effects, ordered `mutations` and `expected_mutations`,
@@ -128,3 +129,12 @@ and independently assessed `reopened` and `protected_state_changed` flags.
 For `blocked_action`, supply `mutations`, `success_receipts`,
 `missing_prerequisite`, and `candidate_preserved`. Use null when evidence is
 unavailable. The result reports each check separately.
+
+
+To include runtime measurements, pin an ordinary HTTP capture as
+`turn_capture` (path and SHA-256) and supply the expected `turn_id` on the same
+case. The harness verifies the response and trace turn IDs and reports duration,
+phase timings, tokens, call count and reported cost independently of the action
+verdict. A partial usage status marks the token count as a subtotal and gives
+the number of calls that reported usage. A null cost means the provider price is unavailable. Operator
+interventions remain unknown until observed separately.

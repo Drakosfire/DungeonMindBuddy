@@ -244,6 +244,8 @@ export function createGraphFallbackPositions(
     }
     return emergency();
   }
+  const cosine = new Float64Array(48);
+  const sine = new Float64Array(48);
   for (const group of groups) {
     const rootId = group[0];
     if (!result.has(rootId)) occupy(rootId, placeRoot(radius(rootId)));
@@ -262,8 +264,12 @@ export function createGraphFallbackPositions(
         const distance = r + anchorRadius + 4.1 + shell * 12;
         let best = Infinity;
         for (let step = 0; step < 48; step += 1) {
-          const angle = outward + step * 2 * Math.PI / 48;
-          const point = { x: anchor.x + distance * Math.cos(angle), y: anchor.y + distance * Math.sin(angle) };
+          if (shell === 0) {
+            const angle = outward + step * 2 * Math.PI / 48;
+            cosine[step] = Math.cos(angle);
+            sine[step] = Math.sin(angle);
+          }
+          const point = { x: anchor.x + distance * cosine[step], y: anchor.y + distance * sine[step] };
           if (!available(point, r)) continue;
           // All admitted neighbors contribute, with bounded work for dense hubs.
           let score = 0;
