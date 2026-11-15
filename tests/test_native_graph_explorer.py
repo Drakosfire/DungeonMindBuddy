@@ -1146,7 +1146,7 @@ def test_presentation_read_uses_one_catalogue_and_never_writes(explorer, monkeyp
     x = explorer
     ids = _seed_objects(x)
     before = _snapshot(x.lane.repo)
-    original = service.native_graph_inspection.catalog_with_profile
+    original = service.native_graph_inspection.presentation_catalog
     calls = []
 
     def catalog(scope, principal):
@@ -1160,7 +1160,7 @@ def test_presentation_read_uses_one_catalogue_and_never_writes(explorer, monkeyp
         return x.lane.repo
 
     monkeypatch.setattr(service.native, "read_repository", read_repository)
-    monkeypatch.setattr(service.native_graph_inspection, "catalog_with_profile", catalog)
+    monkeypatch.setattr(service.native_graph_inspection, "presentation_catalog", catalog)
     response = _read(x)
     assert response.status_code == 200, response.text
     graph = response.json()["graph"]
@@ -1174,6 +1174,17 @@ def test_presentation_read_uses_one_catalogue_and_never_writes(explorer, monkeyp
     assert len(calls) == 1
     assert len(repository_reads) == 1
     assert _snapshot(x.lane.repo) == before
+
+
+def test_presentation_read_matches_full_assertion_projection(explorer, monkeypatch):
+    _seed_objects(explorer)
+    projected = _read(explorer)
+    assert projected.status_code == 200, projected.text
+    inspection = service.native_graph_inspection
+    monkeypatch.setattr(inspection, "presentation_catalog", inspection.catalog_with_profile)
+    full = _read(explorer)
+    assert full.status_code == 200, full.text
+    assert projected.content == full.content
 
 
 def test_repeat_graph_read_reuses_parsing_but_refetches_the_revision(explorer, monkeypatch):

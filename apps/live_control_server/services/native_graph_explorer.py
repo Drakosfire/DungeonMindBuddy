@@ -493,7 +493,7 @@ def _graph_envelope(
                 revision_id=revision_id,
             )
         )
-        catalogue, profile = native_graph_inspection.catalog_with_profile(scope, principal)
+        catalogue, profile = native_graph_inspection.presentation_catalog(scope, principal)
         graph = _safe_graph_from_catalogue(bound, catalogue, profile)
     except NativeGraphExplorerError:
         raise
