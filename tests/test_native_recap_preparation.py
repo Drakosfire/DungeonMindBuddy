@@ -1712,3 +1712,21 @@ def test_cohort_prepare_keeps_relationship_to_new_event(lane):
              if isinstance(operation, CreateRelationship)]
     assert edge.source == ResultOf("record:0")
     assert edge.target == DurableObjectRef("ent:pippa")
+
+    packet = {key: response.json()[key] for key in ("envelope", "prepared", "token")}
+    committed = confirm(lane, packet)
+    assert committed.status_code == 200, committed.text
+    result = committed.json()
+    child = lane.repo.get_revision(SPACE_ID, result["result"]["child_revision_id"])
+    assertions = child.graph_payload["assertions"]
+    relationship, = [
+        assertion for assertion in assertions
+        if assertion["predicate"] == "dungeonbuddy.custom:met_at"
+    ]
+    assert relationship["value"] == {"kind": "entity_ref", "entity_id": "ent:pippa"}
+    assert relationship["metadata"]["evidence_ref_ids"] == [lane.support_ids["first"]]
+    assert any(
+        assertion["subject_entity_id"] == relationship["subject_entity_id"]
+        and assertion["value"].get("term") == "dungeonbuddy:event"
+        for assertion in assertions
+    )
