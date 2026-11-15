@@ -64,3 +64,41 @@ integrity separately. Retain the effective input, review decisions, action
 events and receipts when applicable. Verify state through fresh reopen or
 Graph readback. For AW07 and AW08, inspect the action history as well as the
 final state so a transient mutation cannot pass the blocked outcome.
+
+## AW09 — Corrupted Edge Meat Mind variant (challenging)
+
+Operator request: “Use the existing Meat Mind statblock and the Corrupted Edge
+material to make a distinct Meat Mind variant for Edge. It is neutral and
+willing to negotiate. Show me the statblock for review before creating its
+page. Then reference it from Corrupted Edge and make it available for combat
+and agent lookup.”
+
+1. **Retrieve.** Pin the base statblock identity and revision and the Corrupted
+   Edge page revision. Reopen the passages that support the variant's demeanor
+   and any other claimed traits. If the base or local context cannot be
+   verified, surface the missing input and hold creation. Session 29 prep is a
+   lead for qualification. It explicitly lacks a bound authoritative Meat
+   Mind statblock and cannot establish which mechanics to inherit.
+2. **Propose in conversation.** Render a complete Markdown statblock for review.
+   A future Markdown preview object may present the same proposal. Show which
+   mechanics were inherited, what changes are proposed, and which traits are
+   grounded in Edge. Neutral and willing to negotiate must be explicit. Any
+   invented mechanics or behavior must be identifiable as proposed.
+3. **Confirm and save.** Verify that the preview creates no page, link, or
+   combat entry before confirmation. After approval, save the reviewed
+   variant under its own identity and page. Add a resolved reference from
+   Corrupted Edge to that page. Reopen both and compare the saved variant with
+   the confirmed proposal. A repeat of the same confirmed action must leave
+   one variant page and one reference. Preserve the base statblock and
+   unrelated Edge content.
+4. **Reuse.** In an isolated encounter, load the variant through ordinary combat
+   admission and verify that its mechanical fields match the saved variant.
+   In a fresh agent turn, resolve the variant from Corrupted Edge and verify
+   that the agent can cite its page and distinguish it from the base Meat
+   Mind. Score combat load and agent lookup independently.
+
+Qualify the source pair, the governed authoring path, and both reuse paths
+before calling this case executable. Retain the retrieval trace, preview,
+confirmation, save receipts, and independent readbacks. Score the first
+failed boundary and any partial state. Markdown in conversation is sufficient
+for the review step.
