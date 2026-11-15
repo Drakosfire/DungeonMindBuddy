@@ -17,6 +17,10 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
             records[command.space_id, revision.source_revision_id] = (artifact, revision, 1, body)
             return revision
 
+        def list_public_native_pdf_revisions(self, space, *, after_revision_id):
+            return [record[1] for (owning_space, revision), record in records.items()
+                    if owning_space == space and revision > after_revision_id]
+
         def get_native_pdf_source(self, space, revision):
             return records.get((space, revision))
 
@@ -43,6 +47,11 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
             **auth, "Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-11T00:00:00Z",
         })
         assert admitted.status_code == 200, admitted.text
+        assert client.get(path).status_code == 401
+        listed = client.get(path, headers=auth).json()
+        assert listed["next"] is None
+        assert listed["documents"] == [admitted.json() | {"created_at": "2026-11-11T00:00:00+00:00"}]
+        assert client.get(path.replace("world-a", "world-b"), headers=auth).json()["documents"] == []
         locator = admitted.json() | {"page": 1, "left": 0, "top": 0, "right": 1, "bottom": 1}
         assert client.post(path + "/open", json=locator).status_code == 401
         assert client.post(path.replace("world-a", "world-b") + "/open", json=locator,
