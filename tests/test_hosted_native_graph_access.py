@@ -282,12 +282,15 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
+            ("GET", "/api/live/workspace-documents/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_committed_plan,
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/reference-manifest"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/content"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
@@ -2170,3 +2173,18 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert [record["run_id"] for record in listed["records"]] == [run_id]
     active = hosted.client.request("GET", f"{runs}/active?world_id=managed").json()
     assert active["world_id"] == "managed"
+
+    commit_plan(plan.document_id, V2_SOURCE_MARKDOWN + "\nA newer Plan revision.\n", expected_world_id="managed", expected_revision=record["object_revision"])
+    manifest_path = f"{base}/reference-manifest?world_id=managed"
+    content_path = f"{base}/content?world_id=managed"
+    pinned_path = f"/api/live/workspace-documents/{plan.document_id}/committed-revision/{record['revision_n']}"
+    for path in (manifest_path, content_path, pinned_path):
+        response = hosted.client.request("GET", path)
+        assert response.status_code == 200, response.text
+        assert response.headers["cache-control"] == "no-store"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    manifest = hosted.client.request("GET", manifest_path).json()
+    assert manifest["playable_content_sha256"] == body["expected_playable_content_sha256"]
+    pinned = hosted.client.request("GET", pinned_path).json()
+    assert pinned["markdown"] == record["markdown"]
+    assert pinned["work_revision_id"] == body["expected_playable_work_revision_id"]

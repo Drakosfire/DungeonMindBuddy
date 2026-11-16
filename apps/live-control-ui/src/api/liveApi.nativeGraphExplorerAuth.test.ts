@@ -336,3 +336,16 @@ it("sends exact hosted run creation and recovery through the session cookie tran
   await expect(api.authenticatedApiFetch(base + "/creation?world_id=managed&scope=extra")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(3);
 });
+
+it("reads effective hosted run content with the session cookie and one World selector", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const path = "/api/live/world-play-runs/v2/12345678-1234-1234-1234-123456789abc/content?world_id=managed";
+  await api.authenticatedApiFetch(path);
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
