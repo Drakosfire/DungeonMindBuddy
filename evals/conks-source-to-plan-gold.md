@@ -84,6 +84,9 @@ statblock regions with the associated source block.
 | C24 | Reference | 17, Appendix A | Open exact Grotesque Tree and Guardian statblock regions from their encounters. |
 | C25 | Reference | 11, Fig. 1 | Open the exact Shacks illustration. Keep it distinct from a playable map and from any generated map geometry. |
 
+See the [GM card Gold](conks-gm-card-gold.md) for a playable grouping and
+out-of-order rehearsal.
+
 ## Scoring the fresh run
 
 For each ID, record the OCR block or region locator, its page, the saved Plan
