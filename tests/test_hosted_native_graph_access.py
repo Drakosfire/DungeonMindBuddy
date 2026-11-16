@@ -278,6 +278,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
+            ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
@@ -2062,3 +2063,29 @@ def test_hosted_owner_saves_exact_world_plan(hosted, application_state_dsn, tmp_
     assert snapshot.status_code == 200, snapshot.text
     assert snapshot.json()["record"]["title"] == "After"
     assert snapshot.json()["markdown"] == body["markdown"]
+
+
+def test_hosted_owner_creates_lists_and_reopens_plan(hosted, application_state_dsn):
+    base = "/api/live/workspace-documents"
+    create = f"{base}/world-plans"
+    body = {
+        "schema_version": "dmb_workspace_document_create_v2",
+        "scope_mode": "world",
+        "world_id": "managed",
+        "title": "New hosted Plan",
+    }
+    assert hosted.client.request("POST", create, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", create, json={**body, "world_id": "foreign"}).status_code == 403
+    assert hosted.client.request("POST", create + "?world_id=managed", json=body).status_code == 403
+    created = hosted.client.request("POST", create, json=body)
+    assert created.status_code == 200, created.text
+    record = created.json()
+    assert record["world_id"] == "managed"
+    assert record["campaign_id"] is None
+    assert created.headers["cache-control"] == "no-store"
+    listed = hosted.client.request("GET", create + "?world_id=managed")
+    assert listed.status_code == 200, listed.text
+    assert [row["document_id"] for row in listed.json()["records"]] == [record["document_id"]]
+    snapshot = hosted.client.request("GET", f"{base}/{record['document_id']}/snapshot")
+    assert snapshot.status_code == 200, snapshot.text
+    assert snapshot.json()["record"]["title"] == body["title"]

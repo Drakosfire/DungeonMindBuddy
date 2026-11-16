@@ -388,6 +388,17 @@ def require_hosted_saved_artwork(request: Request, asset_id: UUID) -> str:
     return hosted_world_media_owner(world_id)
 
 
+async def resolve_hosted_plan_create(request: Request) -> str:
+    from apps.live_control_server.services.workspace_document_registry import CreateWorldOwnedPlanRequestV2
+
+    if request.query_params:
+        raise _denied()
+    body = CreateWorldOwnedPlanRequestV2.model_validate(await request.json())
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_plan_world_context(request: Request) -> str:
     selectors = request.query_params.multi_items()
     world_id = request.query_params.get("world_id")
