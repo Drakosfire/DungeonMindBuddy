@@ -1,6 +1,8 @@
 # Build Page composer Slice B
 
-Status: ACTIVE. Owner said Continue after the proposed three-column rows, automatic/adjustable minimum height and guide/border/clean modes. Root assigned this bounded serial successor on 2026-11-15. Local only; no server deployment, existing API8000 or live World writes.
+Status: COMPLETE. Implementation merged in #3697 at 02698e80c87667fe5f3ccdc743ba44d2cb1ff176. Its UI lease is superseded by [contextual layout controls](HANDOFF-BUILD-contextual-layout-controls.md); original scope and evidence below are historical.
+
+Original authorization: Owner said Continue after the proposed three-column rows, automatic/adjustable minimum height and guide/border/clean modes. Root assigned this bounded serial successor on 2026-11-15. Local only; no server deployment, existing API8000 or live World writes.
 
 Authority: design56507b4cc47241be61a1d27fbd53a87e5d3a7421:Docs/Backlog/DESIGN-build-page-composer.md; persistence #3689 and Slice A #3690 are merged. Fresh base476f038a82518f229dc814e76bad9a93ffb6e7ac; branch codex/build-composer-row-controls-20261115; Projects/build-composer-b-20261115/source. Open-file scan56 PRs found no overlap with the owned paths. No repo .agents skills present; root AGENTS applies.
 

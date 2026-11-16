@@ -1,6 +1,8 @@
 # Build Page image/text layer Slice C
 
-Status: ACTIVE. Owner authorized Build it for editable text over artwork; root approved the bounded typed presentation extension and local-only tests. Serial after #3689/#3690/#3697. Spec56507b4cc47241be61a1d27fbd53a87e5d3a7421:Docs/Backlog/DESIGN-build-page-composer.md. Fresh base412c1f7e30babf9d322eb480c77612d0eb55add0, branch codex/build-composer-image-text-20261115, isolated Projects/build-composer-c-20261115/source.
+Status: COMPLETE. Implementation merged in #3711 at 869a2dd20f557a40bc2eda67f5b8fd4ffe1a0ae6. Its UI lease is superseded by [contextual layout controls](HANDOFF-BUILD-contextual-layout-controls.md); original scope and evidence below are historical.
+
+Original authorization: Owner authorized Build it for editable text over artwork; root approved the bounded typed presentation extension and local-only tests. Serial after #3689/#3690/#3697. Spec56507b4cc47241be61a1d27fbd53a87e5d3a7421:Docs/Backlog/DESIGN-build-page-composer.md. Fresh base412c1f7e30babf9d322eb480c77612d0eb55add0, branch codex/build-composer-image-text-20261115, isolated Projects/build-composer-c-20261115/source.
 
 Write set: this handoff; src/application_state/content/page_presentation.py; tests/test_authored_page_database_cutover.py; apps/live-control-ui/src/tiptap/pageComposer/{presentation.ts,presentation.test.ts,PageRow.tsx,PageRow.test.tsx,PageImageText.tsx,PageImageText.css}; apps/live-control-ui/src/workspaceDocument/useWorkspaceDocumentAuthoring.presentation.test.tsx. New UI tests stay in existing PageRow.test.tsx, avoiding shared classification ownership.57 open PR filename sets scanned; no overlap with these paths. Root AGENTS read; no repo .agents skills present.
 
