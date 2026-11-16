@@ -223,3 +223,14 @@ it('reveals recorded seeds, draws directed hops in order, and explains object-li
   expect(within(trail).getByRole('button', { name: 'Unnamed object' })).toHaveAttribute('data-visit', 'pruned')
   expect(screen.getByText('Dropped by the neighborhood object limit.')).toBeInTheDocument()
 })
+
+it('opens and closes contextual details for the selected replay node', () => {
+  render(<BuddyRetrievalReplay steps={[lookup(4, 'Caelynn')]} />)
+  expect(screen.queryByRole('region', { name: 'Replay node details' })).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Caelynn' }))
+  const detail = screen.getByRole('region', { name: 'Replay node details' })
+  expect(within(detail).getByRole('heading', { name: 'Caelynn' })).toBeInTheDocument()
+  expect(within(detail).getByRole('button', { name: 'Step 1 · Look up an object' })).toBeInTheDocument()
+  fireEvent.click(within(detail).getByRole('button', { name: 'Close node details' }))
+  expect(detail).not.toBeInTheDocument()
+})

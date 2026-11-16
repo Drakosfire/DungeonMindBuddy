@@ -5429,9 +5429,7 @@ export function WorldPlanAgentConversation({
       ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
           sourceName={planContext.saved_source_name}
           segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
-    if(planContext?.completion?.schema==='dmb_surface_native_completion_v1') return <section className="world-plan-agent-conversation__evidence-trail">
-      <h4>Sources</h4><p>{planContext.completion.native_body_citations.length+planContext.completion.native_clause_citations.length+planContext.completion.native_assertion_citations.length} inline citations.{(planContext.completion.native_body_citations.length || planContext.completion.native_clause_citations.length || planContext.completion.native_assertion_citations.length) ? " Open the numbered citations beside the statements in this reply." : ""}{planContext.completion.answer_segments.some(segment => segment.kind === "statblock_pdf_claim") ? " Open Reviewed statblock PDF sources in the reply to inspect the cited crop." : ""}</p>
-    </section>;
+    if (planContext?.completion?.schema === 'dmb_surface_native_completion_v1') return null;
     if ((planContext?.completion?.schema === "dmb_build_intentional_response_completion_v1" || (planContext?.completion?.schema==="dmb_build_intentional_response_completion_v2"||planContext?.completion?.schema==="dmb_build_intentional_response_completion_v3")) || (planContext?.completion?.schema === "dmb_build_relationship_review_completion_v1" || (planContext?.completion?.schema==="dmb_build_relationship_review_completion_v2"||planContext?.completion?.schema==="dmb_build_relationship_review_completion_v3")) || planContext?.completion?.schema === "dmb_build_connected_page_review_completion_v1" || planContext?.completion?.schema === "dmb_build_collaboration_completion_v1" || planContext?.completion?.schema === "dmb_build_related_page_completion_v1" || planContext?.completion?.schema === "dmb_build_draft_context_completion_v1" || planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_build_graph_completion_v3" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v3" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v4" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v5" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v6"||planContext?.completion?.schema === "dmb_surface_evidence_completion_v7"))))) {
       return <section className="world-plan-agent-conversation__evidence-trail">
         <h4>Source information</h4>
@@ -5568,7 +5566,7 @@ export function WorldPlanAgentConversation({
     const terminalFailureConfirmed = isHistoryTurnFailureConfirmed(turn.turn_id);
     const terminalFailureRecorded = isWorldHistoryTurnFailed(turn.turn_id);
     const claims = completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
-    const nativeClaims = completion?.answer_segments.filter((segment) => segment.kind === "native_assertion_claim") ?? [];
+    if (completion?.schema === 'dmb_surface_native_completion_v1' && turn.lifecycle_status === 'completed') return null;
     const citations = completion && "citation_map" in completion ? completion.citation_map?.entries ?? [] : [];
     const citationByClaim = new Map(citations.map((entry) => [entry.claim_id, entry]));
     return (
@@ -5578,13 +5576,6 @@ export function WorldPlanAgentConversation({
           : terminalFailureRecorded
             ? "This World history turn failed; no final Graph-context completion was recorded."
             : "No final Graph-context completion has been recorded for this turn yet."}</p>
-        {nativeClaims.length > 0 && <section aria-label="Graph record details">
-          <h4>Graph record details</h4>
-          {nativeClaims.map((claim, index) => <div key={`${turn.turn_id}-native-claim-${index}`}>
-            <p>Graph statement {index + 1}</p>
-            <pre>{JSON.stringify(claim.qualifications, null, 2)}</pre>
-          </div>)}
-        </section>}
         {claims.map((claim, index) => {
           const citation = citationByClaim.get(claim.claim_id);
           if (!citation) return null;

@@ -84,3 +84,14 @@
 .buddy-retrieval-replay__canvas [data-visit='pruned'] {
   opacity: 0.42;
 }
+
+.buddy-retrieval-replay__canvas [data-inspected] circle {
+  stroke: #a76a23;
+  stroke-width: 4;
+}
+
+.buddy-retrieval-replay__node-details {
+  padding: 0.75rem;
+  border: 1px solid currentColor;
+  border-radius: 0.5rem;
+}

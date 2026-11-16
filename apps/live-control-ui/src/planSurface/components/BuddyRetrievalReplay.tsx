@@ -205,7 +205,7 @@ function keepStepVisible(pane: HTMLElement | null) {
 type ReplayIdentity = RetrievalStep['result']['nodes'][number]
 const emptyIdentities: ReadonlyMap<string, ReplayIdentity> = new Map()
 
-const Trail = memo(function Trail({ layout, active, wide, select, resolve, pruned, reveal }: {
+const Trail = memo(function Trail({ layout, active, wide, select, resolve, pruned, reveal, inspect, inspectedId }: {
   layout: ReturnType<typeof layoutTrail>
   active: number
   wide: boolean
@@ -213,6 +213,8 @@ const Trail = memo(function Trail({ layout, active, wide, select, resolve, prune
   resolve: (node: ReplayIdentity, position: number) => ReplayIdentity
   pruned?: readonly string[]
   reveal: boolean
+  inspect: (id: string) => void
+  inspectedId: string | null
 }) {
   const arrow = useId()
   return <div className="buddy-retrieval-replay__canvas">
@@ -238,10 +240,11 @@ const Trail = memo(function Trail({ layout, active, wide, select, resolve, prune
         if (reveal && position > active) return null
         const state = pruned?.includes(node.node_id) ? 'pruned' : current ? 'current' : position < active ? 'visited' : 'upcoming'
         const selectVisit = () => {
+          inspect(node.node_id)
           if (!current) select(visits.find(visit => visit > active) ?? visits.at(-1)!)
         }
         return <g key={node.node_id} transform={`translate(${x} ${y})`}
-          data-visit={state} role="button" tabIndex={wide || current ? 0 : -1}
+          data-visit={state} data-inspected={inspectedId === node.node_id || undefined} role="button" tabIndex={wide || current ? 0 : -1}
           aria-label={name} aria-pressed={current}
           onClick={selectVisit} onKeyDown={event => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -279,6 +282,7 @@ function indexPassages(trace: BuddyTurnContextTrace | undefined) {
 export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly RetrievalStep[]; trace?: BuddyTurnContextTrace }) {
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
+  const [inspectedId, setInspectedId] = useState<string | null>(null)
   const [identityResult, setIdentityResult] = useState<{
     trace: BuddyTurnContextTrace
     identities: ReadonlyMap<string, ReplayIdentity>
@@ -343,8 +347,12 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
     setIndex(next)
   }, [])
 
+  const inspected = inspectedId === null ? undefined : rows.objects.get(inspectedId)
   if (!step) return <p>No graph lookup steps were retained for this attempt.</p>
 
+  const inspectedNode = inspected ? resolve(inspected.node, inspected.visits.includes(index) ? index : inspected.visits[0]) : undefined
+  const inspectedHops = inspectedId === null ? [] : steps.slice(0, index + 1)
+    .flatMap(item => item.hop && [item.hop.from_node_id, item.hop.to_node_id].includes(inspectedId) ? [item.hop] : [])
   const { nodes: recordedNodes, relationship_ids, relationships = [], total_counts, projection_status, evidence_ref_ids } = step.result
   const nodes = recordedNodes.map(node => resolve(node, index))
   const passages = evidence_ref_ids.flatMap(id => passagesByEvidence.get(JSON.stringify([step.revision_pin, id])) ?? [])
@@ -366,8 +374,24 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         {nodes.length === 1 ? displayNodeName(nodes[0]) : nodes.length ? `${nodes.length} objects` : stepLabel(step)}
       </p>
       <div data-wide={wide}>
-        <Trail layout={rows} active={index} wide={wide} select={select} resolve={resolve} pruned={step.pruning?.ids} reveal={steps.some(item => item.hop || item.pruning)} />
+        <Trail layout={rows} active={index} wide={wide} select={select} resolve={resolve} pruned={step.pruning?.ids} inspect={setInspectedId} inspectedId={inspectedId} reveal={steps.some(item => item.hop || item.pruning)} />
       </div>
+      {inspected && inspectedNode && inspected.visits[0] <= index && <section className="buddy-retrieval-replay__node-details" aria-label="Replay node details">
+        <button type="button" onClick={() => setInspectedId(null)}>Close node details</button>
+        <h5>{displayNodeName(inspectedNode)}</h5>
+        <p>{inspectedNode.kind}</p>
+        {inspectedId !== null && step.pruning?.ids.includes(inspectedId) && <p>{step.pruning.reason}.</p>}
+        {inspectedHops.length > 0 && <ul aria-label="Recorded hops for this node">
+          {inspectedHops.map((hop, position) => <li key={`${hop.relationship_id}:${position}`}>
+            {rows.objects.get(hop.from_node_id)?.node.label} → {rows.objects.get(hop.to_node_id)?.node.label}
+          </li>)}
+        </ul>}
+        <ul>{inspected.visits.filter(position => position <= index).map(position => (
+          <li key={position}><button type="button" onClick={() => select(position)}>
+            Step {position + 1} · {stepLabel(steps[position])}
+          </button></li>
+        ))}</ul>
+      </section>}
       {step.pruning && <details>
         <summary>Pruned {step.pruning.total} {step.pruning.total === 1 ? 'candidate' : 'candidates'}</summary>
         <p>{step.pruning.reason}.</p>
