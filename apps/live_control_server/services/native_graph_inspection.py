@@ -207,6 +207,19 @@ def related_recaps(scope, principal, assertion_id):
     return _response(bound, pin, schema="dmb_native_related_recaps_v1", targets=targets)
 
 
+def read_assertion(pin: InspectionPin, principal, assertion_id: str):
+    bound, read, _, checked_pin, _ = _pinned(pin, principal)
+    result = EvidenceReadService().get_assertion_evidence(read, assertion_id)
+    if (
+        not result.available or result.completeness.status != "complete"
+        or result.assertion is None or result.assertion.assertion_id != assertion_id
+        or (result.identity.space_id, result.identity.revision_id)
+        != (pin.native_world_id, pin.revision_id)
+    ):
+        raise InspectionUnavailable("native_inspection_assertion_unavailable")
+    return _response(bound, checked_pin, assertion=_wire_assertion(result.assertion))
+
+
 def inspect(request, principal, *, include_source_span=False, source_classification=None):
     bound, read, access, pin, _ = _pinned(request.scope, principal)
     selection = request.selection

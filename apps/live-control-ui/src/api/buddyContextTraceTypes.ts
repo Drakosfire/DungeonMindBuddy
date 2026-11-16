@@ -88,3 +88,14 @@ export interface BuddyPromptEvidence {
   turn_id: string; trace_id: string; attempt: number
   reference: BuddyTracePromptReference; payload_json: string
 }
+
+
+export interface BuddyReplayAssertionResponse {
+  schema: 'dmb_replay_assertion_v1'
+  world_id: string
+  turn_id: string
+  trace_id: string
+  sequence: number
+  scope: { managed_world_id: string; revision_id: string; scope_mode: 'campaign' | 'world'; campaign_id: string | null }
+  assertion: { assertion_id: string; subject_entity_id: string; predicate: string; value: unknown }
+}
