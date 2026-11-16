@@ -68,6 +68,10 @@ function HostedBuddy({ locationSnapshot }: { readonly locationSnapshot: string }
     }
   }
 
+  if (path === "/build" && signedIn && world.kind === "managed") {
+    return <HostedBuildPage key={JSON.stringify([auth.subject, world.worldId])} />;
+  }
+
   return (
     <>
       <header className="app-status">
@@ -99,9 +103,6 @@ function HostedBuddy({ locationSnapshot }: { readonly locationSnapshot: string }
           <h1>This page is unavailable on hosted Buddy</h1>
           <a href={graphHref} onClick={interceptPrimaryNavigationClick}>Open Graph</a>
         </main>
-      ) : path === "/build" && signedIn && world.kind === "managed" ? (
-        <HostedBuildPage key={JSON.stringify([auth.subject, world.worldId])}
-          worldId={world.worldId} locationSnapshot={locationSnapshot} />
       ) : path === "/graph" && signedIn && world.kind === "managed" ? (
         <ManagedWorldGraph key={JSON.stringify([auth.subject, world.worldId])} worldId={world.worldId}
           worldTitle={world.name} stateScopeId={JSON.stringify(["hosted", auth.subject, world.worldId])} />

@@ -768,14 +768,14 @@ describe("canonical local guest entry", () => {
     }));
   });
 
-  it("opens PDF Build for an authenticated, admitted World", async () => {
+  it("opens the Build workspace for an authenticated, admitted World", async () => {
     vi.stubEnv("PROD", true);
     window.history.replaceState({}, "", "/build?world=world-a");
     vi.stubGlobal("fetch", managedServerFetch({ authStatus: "authenticated" }));
     render(<App />);
 
-    expect(await screen.findByLabelText("Choose or drop a PDF")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Build" })).toHaveAttribute("href", "/build?world=world-a");
+    expect(await screen.findByRole("heading", { name: /Start with a spark/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Open document/i })).toBeInTheDocument();
   });
 
   it("keeps hosted PDF Build closed when the World lookup is denied", async () => {
