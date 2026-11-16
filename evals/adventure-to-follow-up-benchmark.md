@@ -97,3 +97,42 @@ a continuous pass. Primary data stays unchanged.
 **Done** means both adventures pass the same ordinary workflow, the GM can
 resume from the saved checkpoints, and the follow-up cites newly played
 history when it differs from the Plan.
+
+
+## First hill-climb slice: save one reviewed PDF passage as prep
+
+The Conks rehearsal has verified authenticated upload and byte-for-byte reopen
+through Buddy HTTP using real managed World resolution and disposable Buddy
+and Core databases. Exact region render and wrong-hash and cross-World refusal
+also passed. The PDF evidence owner registered the firefighting region once
+and reused the citation on retry. A provider-free manual control committed a
+provisional Event with a Plan claim and that citation through WorldKeeper.
+These controls did not exercise the browser review-to-publication workflow.
+
+**Hypothesis.** A GM can take one retained PDF region and its OCR result,
+correct the editable prep text, and confirm a cited adventure Event without
+repeating OCR or changing the source. Use the existing retained PDF locator,
+native PDF evidence registration, and WorldKeeper prepare/confirm owners.
+Keep the provisional Plan claim and source text distinct from played history.
+
+**First product acceptance.** Open a saved PDF in Build, select a region,
+inspect the OCR, edit the proposed Event, preview the exact target and
+citation, explicitly confirm, then reopen the Event and its original PDF
+region from Graph. Verify zero prep objects before confirmation, one object
+after confirmation, and stable identity and receipt on retry. A stale Graph
+head or changed reviewed text must trigger fresh review. A changed PDF digest
+or cross-World locator must fail with no object publication.
+
+**Scope and delivery.** Deliver this as one serial product PR after checking
+the current write set. Start with one reviewed passage and one generic Event
+path. Whole-PDF candidate review, Item and Table records, art, and Plan
+assembly remain later benchmark work. Keep #3737 as benchmark documentation.
+PDF upload validation #3196 touches the upload handler and tests. PDF navigation
+#3664 touches the Build shell. Reuse both boundaries and check overlap before
+editing shared files. No new source authority or alternate publisher.
+
+**Validation.** Run the source-binding and publication controls with disposable
+databases, then exercise the ordinary browser path with retained OCR and exact
+citation reopen. Repeat with a fresh ordinary local OCR capture only when
+necessary to qualify the complete UI path. Preserve any failed attempts and
+record which stages reused evidence.
