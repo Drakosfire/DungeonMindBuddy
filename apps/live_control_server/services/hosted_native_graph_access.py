@@ -306,8 +306,18 @@ async def resolve_hosted_play_preparation(request: Request) -> str:
 
 
 async def resolve_hosted_play_read(request: Request) -> str:
+    if await request.body():
+        raise _denied()
+    return await _resolve_hosted_play_world(request)
+
+
+async def resolve_hosted_play_table_roll(request: Request) -> str:
+    return await _resolve_hosted_play_world(request)
+
+
+async def _resolve_hosted_play_world(request: Request) -> str:
     world_id = request.query_params.get("world_id")
-    if not world_id or request.query_params.multi_items() != [("world_id", world_id)] or await request.body():
+    if not world_id or request.query_params.multi_items() != [("world_id", world_id)]:
         raise _denied()
     run_id = getattr(request.state, "hosted_route_run_id", None)
     if run_id is not None:

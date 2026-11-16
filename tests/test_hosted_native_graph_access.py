@@ -248,9 +248,10 @@ def hosted(monkeypatch, request):
     app.add_api_route(access.BUILD_PDF_SOURCES_PATH, get_build_pdf_sources, methods=["GET"])
     app.add_api_route(access.BUILD_PDF_SOURCES_PATH, post_build_pdf_source, methods=["POST"])
 
-    from apps.live_control_server.routes import play_runs
+    from apps.live_control_server.routes import play_prepared_tables, play_runs
 
     app.include_router(play_runs.router)
+    app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
     app.include_router(live.router)
@@ -291,6 +292,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/reference-manifest"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables"): access.resolve_hosted_play_read,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): access.resolve_hosted_play_table_roll,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
@@ -2120,8 +2123,10 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     from apps.live_control_server.services.workspace_document_registry import create_world_owned_plan_v2
     from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
 
+    from tests.test_prepared_tables import source
+
     plan = create_world_owned_plan_v2(tmp_path, world_id="managed", title="Play source")
-    commit_plan(plan.document_id, V2_SOURCE_MARKDOWN, expected_world_id="managed", expected_revision=plan.revision)
+    commit_plan(plan.document_id, V2_SOURCE_MARKDOWN + "\n\n" + source(), expected_world_id="managed", expected_revision=plan.revision)
     saved = hosted.client.request("GET", f"/api/live/workspace-documents/{plan.document_id}/committed-revision")
     assert saved.status_code == 200, saved.text
     record = saved.json()
@@ -2188,3 +2193,24 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     pinned = hosted.client.request("GET", pinned_path).json()
     assert pinned["markdown"] == record["markdown"]
     assert pinned["work_revision_id"] == body["expected_playable_work_revision_id"]
+
+    tables_path = f"{base}/prepared-tables?world_id=managed"
+    table_response = hosted.client.request("GET", tables_path)
+    assert table_response.status_code == 200, table_response.text
+    inventory = table_response.json()
+    table = inventory["tables"][0]
+    assert table["title"] == "Weather"
+    assert hosted.client.request("GET", tables_path, session="other-session").status_code == 403
+    roll_path = f"{base}/prepared-tables/commands/{uuid4()}?world_id=managed"
+    roll = {
+        "expected_run_revision": inventory["run"]["run_revision"],
+        **inventory["source"],
+        "table_id": table["table_id"],
+        "table_sha256": table["table_sha256"],
+        "physical_value": 2,
+    }
+    assert hosted.client.request("PUT", roll_path, json=roll, session="other-session").status_code == 403
+    recorded = hosted.client.request("PUT", roll_path, json=roll)
+    assert recorded.status_code == 200, recorded.text
+    assert recorded.json()["receipt"]["outcome"] == "Dry"
+    assert hosted.client.request("PUT", roll_path, json=roll).json()["receipt"] == recorded.json()["receipt"]
