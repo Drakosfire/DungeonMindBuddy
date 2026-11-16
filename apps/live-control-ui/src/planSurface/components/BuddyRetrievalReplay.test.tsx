@@ -49,6 +49,14 @@ it('synchronizes the trail and step list, and cancels playback when paused', () 
   }
 })
 
+it('keeps the current step when activating a node visited more than once', () => {
+  render(<BuddyRetrievalReplay steps={[lookup(1, 'Caelynn'), lookup(2, 'Caelynn')]} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
+  const node = screen.getByRole('button', { name: 'Caelynn' })
+  fireEvent.keyDown(node, { key: 'Enter' })
+  expect(screen.getByRole('status')).toHaveTextContent('Step 2 of 2')
+})
+
 it('interleaves native and legacy reads using ledger order', () => {
   const trace = {
     observations: [

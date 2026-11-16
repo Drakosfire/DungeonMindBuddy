@@ -118,13 +118,16 @@ const Trail = memo(function Trail({ layout, active, wide, select }: {
         const position = visits[0]
         const name = displayNodeName(node)
         const state = current ? 'current' : position < active ? 'visited' : 'upcoming'
+        const selectVisit = () => {
+          if (!current) select(visits.find(visit => visit > active) ?? visits.at(-1)!)
+        }
         return <g key={node.node_id} transform={`translate(${x} ${y})`}
           data-visit={state} role="button" tabIndex={wide || current ? 0 : -1}
           aria-label={name} aria-pressed={current}
-          onClick={() => select(position)} onKeyDown={event => {
+          onClick={selectVisit} onKeyDown={event => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault()
-              select(position)
+              selectVisit()
             }
           }}>
           <title>{name}</title>
