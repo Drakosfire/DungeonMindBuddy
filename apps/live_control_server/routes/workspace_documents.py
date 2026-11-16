@@ -252,7 +252,8 @@ def get_world_plan_inventory_page(
 
 
 @router.post("/workspace-documents/world-plans", response_model=WorldOwnedPlanRecordV2)
-def post_world_owned_plan(body: CreateWorldOwnedPlanRequestV2) -> dict[str, Any]:
+def post_world_owned_plan(body: CreateWorldOwnedPlanRequestV2, request: Request) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, body.world_id)
     try:
         record = create_world_owned_plan_v2(
             _managed_world_root(), world_id=body.world_id, title=body.title
