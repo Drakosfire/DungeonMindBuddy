@@ -252,3 +252,51 @@ it('opens and closes contextual details for the selected replay node', () => {
   fireEvent(screen.getByRole('dialog', { name: 'Replay node details' }), new Event('cancel', { cancelable: true }))
   expect(screen.queryByRole('dialog', { name: 'Replay node details' })).not.toBeInTheDocument()
 })
+
+it.each([
+  ['Caelynn', 'original', true],
+  ['Mossglade', 'original', false],
+  ['Caelynn', 'later', false],
+] as const)('grounds the node overview in the retained subject %s and revision %s', async (subject, revision, visible) => {
+  setNativeGraphAccessToken('synthetic-replay-reader')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+    if (!String(input).includes('assertion_id=')) return new Response(null, { status: 404 })
+    return Response.json({
+      schema: 'dmb_replay_native_assertion_v1', world_id: 'elderwyld', turn_id: 'turn', trace_id: 'trace',
+      sequence: 1, revision_id: revision,
+      assertion: {
+        assertion_id: 'claim:1', subject_entity_id: subject, predicate: 'dungeonbuddy:summary',
+        value: { kind: 'literal', value: 'The recorded qualifier took place at the arena.' },
+      },
+      excerpts: [{ evidence_ref_id: 'source:1', text: 'Exact historical excerpt.' }],
+    })
+  })
+  try {
+    const trace = {
+      trace_id: 'trace', world_id: 'elderwyld', turn_id: 'turn', observations: [],
+      native_assertion_steps: [{
+        sequence: 1, revision_id: 'original', assertion_ids: ['claim:1', 'claim:other'],
+        assertion_ids_by_subject: { Caelynn: ['claim:1'], Mossglade: ['claim:other'] },
+        subject_ids: ['Caelynn', 'Mossglade'], subject_labels: { Caelynn: 'Caelynn', Mossglade: 'Mossglade' },
+        unavailable_count: 0, writer_evidence: true,
+      }],
+    } as BuddyTurnContextTrace
+    render(<BuddyRetrievalReplay steps={replaySteps(trace)} trace={trace} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Caelynn' }))
+    const overview = within(screen.getByRole('region', { name: 'What Buddy learned' }))
+    if (visible) {
+      expect(await overview.findByText('The recorded qualifier took place at the arena.')).toBeVisible()
+      fireEvent.click(overview.getByText('Open exact evidence'))
+      expect(overview.getByText('Exact historical excerpt.')).toBeVisible()
+    } else {
+      expect(await overview.findByText('Recorded evidence is unavailable.')).toBeVisible()
+      expect(overview.queryByText('The recorded qualifier took place at the arena.')).not.toBeInTheDocument()
+    }
+    expect(fetch.mock.calls.filter(([input]) => String(input).includes('assertion_id='))).toHaveLength(1)
+    expect(fetch.mock.calls.some(([input]) => String(input).includes('claim%3Aother'))).toBe(false)
+  } finally {
+    cleanup()
+    fetch.mockRestore()
+    setNativeGraphAccessToken(null)
+  }
+})

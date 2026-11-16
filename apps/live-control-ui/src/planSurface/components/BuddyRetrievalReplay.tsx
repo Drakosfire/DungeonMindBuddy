@@ -1,3 +1,4 @@
+import { displayClassification } from "../../nativeGraphDemo/nativeGraphPresentation"
 import { ReplayNodeFinding } from "./ReplayNodeFinding"
 import { NodeOverview } from "../../graphLens/NodeOverview"
 import { GraphNodeViewer } from "../../graphLens/GraphNodeViewer"
@@ -158,6 +159,18 @@ function RecordedAssertions({ trace, step }: { trace: BuddyTurnContextTrace; ste
 }
 
 function displayNodeName(node: RetrievalStep['result']['nodes'][number]) {
+  const recordedNames = /^Multiple recorded names \(object \d+\): (.+)$/.exec(node.label)
+  if (recordedNames) {
+    try {
+      const names: unknown = JSON.parse(recordedNames[1])
+      if (Array.isArray(names) && names.every(name => typeof name === 'string' && name.trim())) {
+        return names.slice(0, 2).join(' / ') + (names.length > 2 ? ` (+${names.length - 2} more)` : '')
+      }
+    } catch {
+      return 'Object with multiple recorded names'
+    }
+    return 'Object with multiple recorded names'
+  }
   return /^(ent|entity|asrt):/i.test(node.label) ? 'Unnamed object' : node.label
 }
 
@@ -433,7 +446,9 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         className="buddy-retrieval-replay__node-details" aria-label="Replay node details"
         onCancel={event => { event.preventDefault(); dismissNode() }}
         onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation() }}>
-        <GraphNodeViewer dialog label={displayNodeName(inspectedNode)} kind={inspectedNode.kind}
+        <GraphNodeViewer dialog label={displayNodeName(inspectedNode)} kind={inspectedNode.kind.includes(':')
+          ? displayClassification([inspectedNode.kind]).replace(' (role unspecified)', '')
+          : inspectedNode.kind}
           controls={<button type="button" autoFocus aria-label="Close node details" onClick={dismissNode}>×</button>}>
         <NodeOverview replay>
           {inspectedReads.length > 0 || inspectedHops.length > 0 || inspectedPruning.length > 0 ? <>
