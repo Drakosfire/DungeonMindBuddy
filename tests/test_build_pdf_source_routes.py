@@ -9,7 +9,7 @@ from dungeonmind.application.vnext.native_source_admission import build_native_p
 
 
 def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
-    from apps.live_control_server.services import build_pdf_admission
+    from dungeonmind.application.vnext import native_source_admission
 
     records = {}
 
@@ -17,7 +17,7 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
         if body != b"%PDF-1.7\n":
             raise ValueError("Invalid structure")
 
-    monkeypatch.setattr(build_pdf_admission, "validate_pdf_structure", validate)
+    monkeypatch.setattr(native_source_admission, "validate_native_pdf_body", validate)
 
     class Repository:
         def get_head(self, space):
