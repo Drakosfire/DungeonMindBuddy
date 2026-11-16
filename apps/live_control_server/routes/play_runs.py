@@ -193,7 +193,11 @@ def get_play_run_route(
 def get_world_play_runs_v2(
     world_id: Annotated[str, Query(min_length=1)],
     playable_artifact_id: Annotated[str | None, Query()] = None,
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     try:
         response = list_world_play_runs(
             world_id=world_id,
@@ -209,7 +213,11 @@ def get_world_play_runs_v2(
 )
 def get_world_play_active_run_v2(
     world_id: Annotated[str, Query(min_length=1)],
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     try:
         state = get_world_play_active_run(world_id=world_id)
     except PlayActiveRunError as exc:
@@ -291,7 +299,11 @@ def cancel_world_session(run_id: UUID, body: WorldSessionCreateRequest, request:
 def get_world_play_run_v2(
     run_id: str,
     world_id: Annotated[str, Query(min_length=1)],
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     try:
         record = get_world_play_run(world_id=world_id, run_id=run_id)
     except PlayRunRegistryError as exc:
