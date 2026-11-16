@@ -29,7 +29,7 @@ export function NativeGraphObjectPreview({reference:ref,onClose,inlineHost}:{ref
  const kind = dossier && displayClassification(dossier.identityAssertions.flatMap(assertion =>
   assertion.predicate.endsWith(':classification') && assertion.value.kind === 'term_ref' ? [assertion.value.term] : []
  ));
- return createPortal(<dialog ref={dialog} className="saved-statblock-dialog native-graph-object-preview" aria-label={`Object · ${ref.label}`} onClose={onClose} onKeyDown={event=>{if(event.key==='Escape')event.stopPropagation();}}>
+ return createPortal(<dialog ref={dialog} className="saved-statblock-dialog native-graph-object-preview" aria-label={`Object · ${ref.label}`} onClose={event=>{if(!event.currentTarget.open)onClose();}} onKeyDown={event=>{if(event.key==='Escape')event.stopPropagation();}}>
   <div className="saved-statblock-dialog__body">
   <GraphNodeViewer dialog label={ref.label} kind={kind || undefined} partial={detail?.entity.completeness.status === "partial"} controls={<button type="button" autoFocus aria-label="Close object preview" onClick={onClose}>×</button>}>
    {failure?<><p role="alert">{failure}</p><button type="button" onClick={()=>setRetry(v=>v+1)}>Retry object preview</button></>:!detail?<p role="status">Loading selected object…</p>:dossier ? <>

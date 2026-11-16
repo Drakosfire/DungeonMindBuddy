@@ -50,7 +50,7 @@ export function NativeGraphNodeExplorer({ node, revision, detail, labels, entity
       </nav>}>
     {mode === "managed" ? status === "loading" ? <p role="status">Loading this object from the loaded World revision…</p>
       : status === "ready" && detail && !detail.entity.found ? <p>This object is unavailable in the selected revision.</p>
-      : status === "ready" && detail && model ? <NodeDossier model={model} detail={detail} entityId={node.id} showStatblocks={!entityOnly && presentation.displayKind !== "event"} labels={labels} entityOnly={entityOnly} sourceReads={sourceReads} navigationDisabled={navigationDisabled} onExplore={onExplore} />
+      : status === "ready" && detail && model ? <NodeDossier nodeLabel={compactNodeLabel(node)} model={model} detail={detail} entityId={node.id} showStatblocks={!entityOnly && presentation.displayKind !== "event"} labels={labels} entityOnly={entityOnly} sourceReads={sourceReads} navigationDisabled={navigationDisabled} onExplore={onExplore} />
         : <p role={status === "error" ? "alert" : "status"}>{error ?? "Select this object to inspect its loaded World revision."}</p>
       : <section className="native-demo-object-details__connections" aria-labelledby="native-demo-selected-connections-title">
         <h3 id="native-demo-selected-connections-title">Connections in this loaded snapshot</h3>
