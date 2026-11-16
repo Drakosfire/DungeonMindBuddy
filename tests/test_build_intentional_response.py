@@ -350,3 +350,17 @@ def test_current_page_navigation_refresh_preserves_identity_without_capability()
     assert first["capability_sha256"] is second["capability_sha256"] is None
     adapter.work=S(build_source=S(document_id="third",title="Newly created workshop"))
     assert freeze_interaction(adapter)["current_page"]=={"document_id":"third","title":"Newly created workshop"}
+
+
+def test_statblock_variant_review_guidance_reaches_the_writer_request():
+    from apps.live_control_server.services.build_jev_writer import WriterProjection
+
+    input_packet = packet()
+    input_packet["user_question"] = "Draft a friendly variant of the sentinel for review in chat."
+    request = WriterProjection(json.dumps(input_packet), 0, str(uuid4())).kwargs()
+    instructions = request["instructions"]
+
+    assert "put the requested traits in\nthe Markdown statblock itself" in instructions
+    assert "Preserve unchanged mechanics from the exact base provided" in instructions
+    assert "A preview does not save or apply mechanics" in instructions
+    assert json.loads(request["input"]) == input_packet
