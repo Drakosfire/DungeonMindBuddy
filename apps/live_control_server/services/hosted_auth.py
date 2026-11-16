@@ -497,7 +497,7 @@ def install_hosted_request_boundary(
     world_path_resolvers = [
         (method, path, compile_path(path)[0], resolver)
         for (method, path), resolver in route_resolvers.items()
-        if "{world_id}" in path or "{document_id}" in path
+        if any(marker in path for marker in ("{world_id}", "{document_id}", "{run_id}"))
     ]
     collections = dict(collection_authorizers or {})
     # Collection authorization is an explicit, code-owned read capability. It
@@ -607,6 +607,7 @@ def install_hosted_request_boundary(
                 params = match.groupdict()
                 request.state.hosted_route_world_id = params.get("world_id")
                 request.state.hosted_route_document_id = params.get("document_id")
+                request.state.hosted_route_run_id = params.get("run_id")
         if resolver is None:
             return JSONResponse(
                 status_code=403,
