@@ -2,7 +2,7 @@
 import hashlib
 import json
 import re
-from src.graph_memory.extraction.known_entity_registry import normalize_match_surface, is_unsafe_match_alias
+from graph_memory.extraction.known_entity_registry import normalize_match_surface, is_unsafe_match_alias
 
 
 MAX_NAME_DECISIONS = 1000
