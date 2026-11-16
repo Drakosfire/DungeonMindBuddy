@@ -95,6 +95,7 @@ function neighborhoodFrames(step: RetrievalStep): RetrievalStep[] {
 }
 
 const stepKey = (step: RetrievalStep) => `${step.native ? 'native' : 'graph'}:${step.sequence}:${step.frame ?? ''}`
+const showsLookupResult = (step: RetrievalStep) => !step.frame || step.frame === 'Neighborhood results'
 const stepLabel = (step: RetrievalStep) => step.frame ?? (step.native ? 'Read native assertions' : labels[step.request.operation])
 
 const labels = {
@@ -347,7 +348,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       {step.pruning && <details>
         <summary>Pruned {step.pruning.total} {step.pruning.total === 1 ? 'candidate' : 'candidates'}</summary>
         <p>{step.pruning.reason}.</p>
-        <ul>{nodes.map(node => <li key={node.node_id}>{displayNodeName(node)}</li>)}</ul>
+        <ul>{nodes.map(node => <li key={node.node_id}>{displayNodeName(node) === 'Unnamed object' ? <code>{node.node_id}</code> : displayNodeName(node)}</li>)}</ul>
         {step.pruning.total > nodes.length && <p>Some pruned candidates were outside the trace sample.</p>}
       </details>}
       {wide && trace && !steps.some(item => item.hop || item.result.neighborhood_replay) && <p>Directed traversal was unavailable for this attempt.</p>}
@@ -355,9 +356,9 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       <div className="buddy-retrieval-replay__workspace" hidden={!wide}>
         <section aria-label="Recorded lookup results">
           <h5>{stepLabel(step)}</h5>
-          {(!step.pruning && !step.hop && step.frame !== 'Starting nodes' && (step.native ? step.writerEvidence : writerObservations.has(step.sequence))) && <p><strong>Evidence sent to the answer writer</strong></p>}
-          <p>{total_counts.nodes} objects · {total_counts.relationships} relationships · {total_counts.claims} claims</p>
-          {projection_status === 'limited' && <p>Some results were omitted from the saved trace.</p>}
+          {(showsLookupResult(step) && (step.native ? step.writerEvidence : writerObservations.has(step.sequence))) && <p><strong>Evidence sent to the answer writer</strong></p>}
+          {showsLookupResult(step) && <p>{total_counts.nodes} objects · {total_counts.relationships} relationships · {total_counts.claims} claims</p>}
+          {showsLookupResult(step) && projection_status === 'limited' && <p>Some results were omitted from the saved trace.</p>}
           {relationship_ids.length > relationships.length && <p>Some relationship endpoints were unavailable in this trace.</p>}
           {relationships.length > 0 && <details>
             <summary>Returned relationships ({relationships.length})</summary>
@@ -391,8 +392,8 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         <ol ref={list} className="buddy-retrieval-replay__steps" aria-label="Recorded retrieval steps">
           {steps.map((item, position) => (
             <li key={stepKey(item)} data-replay-active={position === index ? true : undefined}><button type="button" aria-current={position === index ? 'step' : undefined}
-              onClick={() => select(position)}>{stepLabel(item)} · {item.result.outcome}
-              {(!item.pruning && !item.hop && item.frame !== 'Starting nodes' && (item.native ? item.writerEvidence : writerObservations.has(item.sequence))) && <strong> · Writer evidence</strong>}</button></li>
+              onClick={() => select(position)}>{stepLabel(item)}{showsLookupResult(item) && ` · ${item.result.outcome}`}
+              {(showsLookupResult(item) && (item.native ? item.writerEvidence : writerObservations.has(item.sequence))) && <strong> · Writer evidence</strong>}</button></li>
           ))}
         </ol>
       </div>
