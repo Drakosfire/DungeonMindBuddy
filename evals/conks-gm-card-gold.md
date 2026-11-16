@@ -16,6 +16,26 @@ mechanics, and related cards. A card's display order can change without
 changing its triggers. Inspecting a card records no fictional outcome.
 Record what happened on the run, linked to the card and relevant World nodes.
 
+## Source links at the table
+
+Give each material cue, trigger, or mechanic a labeled deep link to its
+supporting passage or region. Selecting it opens the exact excerpt in Buddy
+beside the card or in an anchored panel. For maps, illustrations, and
+statblocks, show the relevant region at a readable size. Keep the current
+card and scene available, and return focus to the link on close. The GM
+should never need to open the PDF or search a page to find the evidence.
+
+Bind links to the exact source revision and passage or region. Preserve
+them when cards are reordered or carried into Play. Keep proposed mechanics
+and generated map material labeled as authored prep, with their own links.
+
+| Card | Example link | What opens directly in Buddy |
+| --- | --- | --- |
+| J2 | When fire spreads | The fire-spread condition within Growth Spurt, printed p. 13. |
+| R1 | Raid trigger and retreat | The selected passages for the delayed attack and withdrawal, printed p. 14. |
+| M1 | Guardian statblock | The Guardian region in Appendix A, printed p. 17. |
+| M2 | Resin harvest and collapse | The passage with the safe harvest, structural warning, and escape consequence, printed p. 16. |
+
 ## H1 · Arrive in Hempholm
 
 **At a glance.** A village has an immediately visible danger: a grotesque
@@ -173,7 +193,10 @@ Source: C17. Printed p. 16.
 3. Return to the tree and take the fire branch. Bring up the raid during
    firefighting after the qualifying fictional delay. Verify celebration
    does not become played history. Reopen the run and check scene notes,
-   actual choices, and exact mechanics revision.
+   actual choices, and exact mechanics revision. In both Plan and Play,
+   open the four source-link examples above after reopening. Verify exact
+   content, readable regions, and return to the same card without opening
+   the PDF or changing Play state.
 4. Check both Marrow decisions can be opened independently. Record only
    the selected outcomes. Publish the reviewed recap and use a fresh
    session to verify a cited departure from the Plan.
