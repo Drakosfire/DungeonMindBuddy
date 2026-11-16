@@ -25,9 +25,10 @@ should be able to take over from each saved checkpoint.
   [Sheep authoring controls](plan-authoring-benchmark.md) can inform Plan review
   and consent. Neither record establishes Play, combat, or recap continuity.
 
-Before dispatch, locate the authorized PDF bytes and verify their hashes,
-recover any reusable historical artifact by exact revision, and inventory
-availability. Keep licensed prose and credentials outside the repository.
+For the fresh run, locate and hash the authorized source PDFs. Use fresh
+DeepSeek OCR 2 ingestion through local Buddy. Historical outputs document
+prior evidence only. Use the [Conks source-to-Plan Gold](conks-source-to-plan-gold.md)
+to score OCR recovery and Plan coverage. Keep licensed prose and credentials outside the repository.
 Pin Buddy and dependencies, isolated World and database identity, eligibility
 and admissions, request and history, expected witnesses, and the scripted
 departure before execution. An unavailable fixture is unqualified. A pinned
