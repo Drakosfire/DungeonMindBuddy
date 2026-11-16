@@ -80,3 +80,7 @@
   stroke-width: 4;
   pointer-events: none;
 }
+
+.buddy-retrieval-replay__canvas [data-visit='pruned'] {
+  opacity: 0.42;
+}
