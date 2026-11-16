@@ -278,6 +278,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
@@ -2063,6 +2064,16 @@ def test_hosted_owner_saves_exact_world_plan(hosted, application_state_dsn, tmp_
     assert snapshot.status_code == 200, snapshot.text
     assert snapshot.json()["record"]["title"] == "After"
     assert snapshot.json()["markdown"] == body["markdown"]
+    path = f"/api/live/workspace-documents/{plan.document_id}/committed-revision"
+    committed = hosted.client.request("GET", path)
+    assert committed.status_code == 200, committed.text
+    assert committed.json()["world_id"] == "managed"
+    assert committed.json()["document_id"] == plan.document_id
+    assert committed.json()["markdown"] == body["markdown"]
+    assert committed.json()["content_sha256"] == saved.json()["normalized_content_sha256"]
+    assert committed.headers["cache-control"] == "no-store"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=managed").status_code == 403
 
 
 def test_hosted_owner_creates_lists_and_reopens_plan(hosted, application_state_dsn):

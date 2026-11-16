@@ -286,8 +286,19 @@ async def resolve_hosted_build_page(request: Request) -> str:
     return world_id
 
 
+async def resolve_hosted_committed_plan(request: Request) -> str:
+    if request.query_params or await request.body():
+        raise _denied()
+    world_id = await _owned_build_page(
+        _hosted_subject(request), getattr(request.state, "hosted_route_document_id", None), plan_only=True
+    )
+    request.state.hosted_plan_context_world = world_id
+    return world_id
+
+
 async def _owned_build_page(
-    subject: str, document_id: str | None, *, allow_plan_snapshot: bool = False, plan_write_world: str | None = None
+    subject: str, document_id: str | None, *,
+    allow_plan_snapshot: bool = False, plan_write_world: str | None = None, plan_only: bool = False,
 ) -> str:
     from apps.live_control_server import config
     from apps.live_control_server.services.workspace_document_registry import (
@@ -305,8 +316,10 @@ async def _owned_build_page(
         if exc.status_code == 404:
             raise _denied() from None
         raise _unavailable() from None
-    if plan_write_world is not None:
-        if not isinstance(record, WorldOwnedPlanRecordV2) or record.world_id != plan_write_world:
+    if plan_only or plan_write_world is not None:
+        if not isinstance(record, WorldOwnedPlanRecordV2) or (
+            plan_write_world is not None and record.world_id != plan_write_world
+        ):
             raise _denied()
     elif not record.world_id or not (
         record.kind == "worldbuilding_source" or (allow_plan_snapshot and isinstance(record, WorldOwnedPlanRecordV2))
