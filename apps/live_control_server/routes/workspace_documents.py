@@ -532,12 +532,15 @@ def get_workspace_document_snapshot_route(
     response_model=WorkspaceCommittedRevisionAny,
 )
 def get_workspace_document_current_committed_revision(
-    document_id: str,
+    document_id: str, request: Request = None,
 ) -> dict[str, Any]:
     try:
         committed = get_committed_playable_revision(document_id)
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_hosted_plan_world_context(
+        request, getattr(committed, "world_id", None) if committed.kind == "plan" else None
+    )
     return committed.model_dump(mode="json")
 
 
