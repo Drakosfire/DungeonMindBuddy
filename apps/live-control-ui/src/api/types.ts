@@ -1229,7 +1229,7 @@ export interface SurfaceNativeCompletionV1 {
   collaboration:ConversationCollaborationV3|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
   saved_source_citations:{segment_index:number;text_sha256:string;section_event_ids:string[]}[];
   native_body_citations:NativeBodyExcerptCitationV1[];native_clause_citations:NativeStatementClauseCitationV1[];
-  native_assertion_citations:NativeAssertionCitationV1[];
+  native_assertion_citations:NativeAssertionCitation[];
 }
 export interface AgentSurfaceNativeContextResponseV1 {
   schema:'dmb_agent_surface_native_context_response_v1';receipt:SurfaceNativeContextReceiptV1;
@@ -1410,16 +1410,23 @@ export interface NativeAssertionCitationV1 {
   managed_world_id:string;native_world_id:string;read_revision_id:string;assertion_sha256:string;evidence_ref_id:string;
   source_artifact_id:string;source_revision_id:string;body_sha256:string;start_byte:number;end_byte:number;span_sha256:string;
 }
+export type NativeAssertionPdfCitationV1 = Omit<NativeAssertionCitationV1,'body_sha256'|'start_byte'|'end_byte'|'span_sha256'> & {
+  region:import('./retainedPdfRegions').PdfLocator;
+};
+export type NativeAssertionCitation = NativeAssertionCitationV1 | NativeAssertionPdfCitationV1;
 export interface NativeAssertionClaimV1 {
   kind:'native_assertion_claim';text:string;assertion_ids:string[];qualifications:Record<string,unknown>[];
 }
 export interface SurfaceEvidenceCompletionV7 extends Omit<SurfaceEvidenceCompletionV6,'schema'|'answer_segments'> {
   schema:'dmb_surface_evidence_completion_v7';answer_segments:(SurfaceEvidenceCompletionV6['answer_segments'][number]|NativeAssertionClaimV1)[];
-  native_assertion_citations:NativeAssertionCitationV1[];
+  native_assertion_citations:NativeAssertionCitation[];
 }
-export interface NativeAssertionSourceReadV1 {
+export type NativeAssertionSourceReadV1 = {
   schema:'dmb_native_assertion_source_read_v1';world_id:string;turn_id:string;citation_index:number;citation:NativeAssertionCitationV1;content:string;
-}
+} | {
+  schema:'dmb_native_assertion_pdf_source_read_v1';world_id:string;turn_id:string;citation_index:number;
+  citation:NativeAssertionPdfCitationV1;png_base64:string;
+};
 export interface AgentNativeBodyExcerptReadResponseV2 {
   schema:'dmb_agent_native_body_excerpt_read_v2';world_id:string;turn_id:string;citation_index:number;
   citation:NativeBodyExcerptCitationV1;content:string;display_label:string|null;

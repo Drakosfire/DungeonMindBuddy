@@ -8,6 +8,7 @@ from uuid import UUID
 
 from dungeonmind.contracts.vnext.domain import Assertion
 from dungeonmind.contracts.vnext.source import EvidenceRefV3
+from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
 from pydantic import Field, model_validator
 
 from .native_statement_input import Strict, digest
@@ -211,11 +212,24 @@ class NativeAssertionSpanV1(NativeAssertionLocationV1):
         return self
 
 
+class NativeAssertionPdfRegionV1(Strict):
+    evidence_ref_id: str = Field(min_length=1)
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+    region: NativePdfRegionV1
+
+    @model_validator(mode='after')
+    def exact_revision(self):
+        if self.source_revision_id != self.region.source_revision_id:
+            raise ValueError('Native PDF region source revision differs')
+        return self
+
+
 class NativePlanAssertionReadV1(Strict):
     # Reuse Core's complete wire contracts, including every qualification.
     assertion: Assertion
     evidence: tuple[EvidenceRefV3, ...]
-    spans: tuple[NativeAssertionSpanV1, ...] = Field(min_length=1)
+    spans: tuple[NativeAssertionSpanV1 | NativeAssertionPdfRegionV1, ...] = Field(min_length=1)
 
     @model_validator(mode='after')
     def support_closure(self):
@@ -227,6 +241,15 @@ class NativePlanAssertionReadV1(Strict):
             raise ValueError('Native assertion evidence closure differs')
         for i, span in spans.items():
             ref = refs[i]
+            if isinstance(span, NativeAssertionPdfRegionV1):
+                if (not ref.can_open_source or not ref.can_highlight_span
+                        or not ref.source_locator or ref.source_span_ref_id is not None
+                        or not ref.evidence_ref_id.startswith('pdf-region:')
+                        or ref.source_artifact_id != span.source_artifact_id
+                        or ref.source_revision_id != span.source_revision_id
+                        or NativePdfRegionV1.model_validate_json(ref.source_locator) != span.region):
+                    raise ValueError('Native assertion requires an exact PDF region')
+                continue
             if (not ref.can_open_source or not ref.can_highlight_span or not ref.source_span_ref_id
                     or (ref.source_artifact_id, ref.source_revision_id) != (span.source_artifact_id, span.source_revision_id)):
                 raise ValueError('Native assertion requires exact openable supporting spans')
@@ -235,7 +258,7 @@ class NativePlanAssertionReadV1(Strict):
 
 class NativePlanAssertionReadV2(NativePlanAssertionReadV1):
     """Retain Core support identity, not another copy of its immutable bytes."""
-    spans: tuple[NativeAssertionLocationV1, ...] = Field(min_length=1)
+    spans: tuple[NativeAssertionLocationV1 | NativeAssertionPdfRegionV1, ...] = Field(min_length=1)
 
 
 def compact_assertion_read(read):
@@ -341,7 +364,7 @@ def producing_reads(turn, authorization, raw):
         in zip(model_frame(turn)['assertions'], reads, strict=True))
 
 
-class NativeAssertionCitationV1(NativeAssertionLocationV1):
+class NativeAssertionCitationBinding(Strict):
     segment_index: int = Field(ge=0, strict=True)
     assertion_id: str = Field(min_length=1)
     read_event_id: UUID
@@ -353,6 +376,7 @@ class NativeAssertionCitationV1(NativeAssertionLocationV1):
     read_revision_id: str
     assertion_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
 
+class NativeAssertionCitationV1(NativeAssertionLocationV1, NativeAssertionCitationBinding):
     @model_validator(mode='after')
     def exact_bytes(self):
         if self.start_byte >= self.end_byte:
@@ -360,9 +384,17 @@ class NativeAssertionCitationV1(NativeAssertionLocationV1):
         return self
 
 
+class NativeAssertionPdfCitationV1(NativeAssertionPdfRegionV1, NativeAssertionCitationBinding):
+    pass
+
+
+NativeAssertionCitation = NativeAssertionCitationV1 | NativeAssertionPdfCitationV1
+
+
 def citation(receipt, authorization, event, read, span, *, index):
     authority = receipt.native_query.authority
-    return NativeAssertionCitationV1(**span.model_dump(exclude={'text'}), segment_index=index,
+    citation_type = NativeAssertionPdfCitationV1 if isinstance(span, NativeAssertionPdfRegionV1) else NativeAssertionCitationV1
+    return citation_type(**span.model_dump(exclude={'text'}), segment_index=index,
         assertion_id=read.assertion.assertion_id, read_event_id=event.event_id,
         provider_attempt_id=authorization.provider_attempt_id, envelope_sha256=authorization.envelope_sha256,
         context_receipt_sha256=receipt.context_receipt_sha256, managed_world_id=authority.managed_world_id,
