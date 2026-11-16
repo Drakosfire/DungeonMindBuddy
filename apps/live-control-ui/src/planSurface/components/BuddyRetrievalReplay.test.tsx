@@ -38,3 +38,22 @@ it('synchronizes the trail and step list, and cancels playback when paused', () 
     vi.useRealTimers()
   }
 })
+
+it('scrolls both panes to a selected offscreen step without moving focus', () => {
+  render(<BuddyRetrievalReplay steps={Array.from({ length: 10 }, (_, index) => lookup(index + 1, `Object ${index}`))} />)
+  const trail = screen.getByRole('group', { name: 'Operations and returned objects' })
+  const pane = trail.parentElement!
+  const list = screen.getByRole('list', { name: 'Recorded retrieval steps' })
+  const last = within(list).getAllByRole('button').at(-1)!
+  const trailRow = within(trail).getByRole('button', { name: /^Step 10,/ }).parentElement!
+  const bounds = (top: number, height: number) => new DOMRect(0, top, 200, height)
+  vi.spyOn(pane, 'getBoundingClientRect').mockReturnValue(bounds(0, 200))
+  vi.spyOn(list, 'getBoundingClientRect').mockReturnValue(bounds(0, 200))
+  vi.spyOn(trailRow, 'getBoundingClientRect').mockReturnValue(bounds(750, 68))
+  vi.spyOn(last.parentElement!, 'getBoundingClientRect').mockReturnValue(bounds(315, 34))
+  last.focus()
+  fireEvent.click(last)
+  expect(pane.scrollTop).toBe(618)
+  expect(list.scrollTop).toBe(149)
+  expect(last).toHaveFocus()
+})
