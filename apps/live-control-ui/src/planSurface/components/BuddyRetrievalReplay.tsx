@@ -22,7 +22,9 @@ export function replaySteps(trace: BuddyTurnContextTrace): RetrievalStep[] {
         outcome: step.unavailable_count ? 'partial' : 'enough', graph_revision: step.revision_id,
         coverage_status: step.unavailable_count ? 'incomplete' : 'complete',
         projection_status: step.unavailable_count ? 'limited' : 'complete',
-        nodes: step.subject_ids.map(id => ({ node_id: id, label: id, kind: 'object' })),
+        nodes: step.subject_ids.map(id => ({
+          node_id: id, label: step.subject_labels?.[id] ?? 'Unnamed object', kind: step.subject_kinds?.[id] ?? 'object',
+        })),
         claim_ids: step.assertion_ids, relationship_ids: [], evidence_ref_ids: [],
         returned_counts: counts, total_counts: { ...counts, claims: counts.claims + step.unavailable_count },
         omission_codes: [],
