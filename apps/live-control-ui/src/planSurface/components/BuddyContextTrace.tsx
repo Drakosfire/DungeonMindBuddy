@@ -2,7 +2,7 @@ import { nativeRetrievalActivity } from './nativeRetrievalActivity'
 import './BuddyEvidence.css'
 import './BuddyContextTrace.css'
 import { useState } from 'react'
-import { CapturedPrompt } from './BuddyPromptInspector'
+import { BuddyPromptInspector, CapturedPrompt } from './BuddyPromptInspector'
 import { traceCostEstimate } from './traceCostEstimate'
 import { authoredTraceLabel, buddyTraceText, traceSnapshotLabel } from './buddyTraceText'
 import { BuddyRetrievalReplay, replaySteps } from './BuddyRetrievalReplay'
@@ -194,7 +194,8 @@ function RetrievalReplayDetails({ trace }: { trace: BuddyTurnContextTrace }) {
   </details>
 }
 
-export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnContextTrace | null; ownerActive: boolean }) {
+export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: { trace: BuddyTurnContextTrace | null; ownerActive: boolean; replyDetails?: boolean }) {
+  const [promptOpen, setPromptOpen] = useState(false)
   if (!trace) return <p className="buddy-context-trace__muted">No execution trace was captured for this turn.</p>
   const failed = trace.terminal_status === 'failed' || trace.terminal_status === 'interrupted'
   const failures = trace.observations.filter((event): event is Extract<BuddyTraceObservation, {kind: 'failure'}> => event.kind === 'failure' && event.phase !== 'trace_capture')
@@ -202,9 +203,20 @@ export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnCont
   const rows = traceRows(trace.observations)
   const last = trace.observations.at(-1)
   const passages = trace.observations.filter((event): event is BuddyTraceSourcePassage => event.kind === 'source_passage' || event.kind === 'source_passage_reuse')
+  const copy = <CopyTrace key={`${trace.trace_id}:${trace.attempt}:${trace.observations.length}:${trace.closed_at}`} trace={trace} />
+  const diagnostics = <details onToggle={event => setPromptOpen(event.currentTarget.open)}>
+    <summary>The Prompt</summary>
+    {promptOpen && <BuddyPromptInspector trace={trace} />}
+  </details>
+  const timeline = <details open={!replyDetails}><summary>Execution timeline</summary><ol>{rows.map(({ event, observations }) => <li key={event.sequence}>
+      <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>
+      <div><Event event={event} passages={passages} trace={trace} />
+        {observations.length > 1 && <><p className="buddy-context-trace__muted">Same provider call · usage updated at {(observations.at(-1)!.elapsed_ms / 1000).toFixed(1)}s</p>
+          <JsonDetails label="Call lifecycle and usage updates" value={observations} /></>}
+      </div></li>)}</ol></details>
   return <section className="buddy-context-trace" aria-label="Buddy context trace">
     <header><div><h4>{failed ? 'Reply error report' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
-      <CopyTrace key={`${trace.trace_id}:${trace.attempt}:${trace.observations.length}:${trace.closed_at}`} trace={trace} />
+      {!replyDetails && copy}
       <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · Trace window ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
     {failed && <section role="alert" className="buddy-context-trace__error-report" aria-label="Reply failure">
       <h5>This attempt stopped before completing a reply.</h5>
@@ -217,11 +229,6 @@ export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnCont
     </section>}
     {trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
     <RetrievalReplayDetails trace={trace} />
-    <details open><summary>Execution timeline</summary><ol>{rows.map(({ event, observations }) => <li key={event.sequence}>
-      <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>
-      <div><Event event={event} passages={passages} trace={trace} />
-        {observations.length > 1 && <><p className="buddy-context-trace__muted">Same provider call · usage updated at {(observations.at(-1)!.elapsed_ms / 1000).toFixed(1)}s</p>
-          <JsonDetails label="Call lifecycle and usage updates" value={observations} /></>}
-      </div></li>)}</ol></details>
+    {replyDetails ? <details><summary>Diagnostics</summary>{copy}{diagnostics}{timeline}</details> : timeline}
   </section>
 }

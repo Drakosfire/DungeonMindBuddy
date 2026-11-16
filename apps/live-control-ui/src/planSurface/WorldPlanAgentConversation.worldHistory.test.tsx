@@ -2847,7 +2847,6 @@ describe("World Plan conversation consumer", () => {
     const citation = await screen.findByRole("button",{name:"Open source 1"});
     expect(citation).toHaveAttribute("title","Session 29 recap");
     expect(read).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('tab',{name:'The Prompt'}));
     fireEvent.click(citation);
     const passage=await screen.findByLabelText("Evidence passage");
     expect(passage).toHaveTextContent("Exact inline source passage");expect(passage).toBeVisible();
@@ -5248,7 +5247,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(within(screen.getByText("Details", {selector: "summary"}).closest("details")!).getByRole("button", {name: named ? "Read River Watch — synthetic source · lines 1–1" : "Read passage 1"}));
     await screen.findByRole("region", {name: "Opened source passage"});
     expect(open).toHaveBeenCalledWith(worldId, turnId, 0);
-    expect(screen.getByRole("tab", {name: "The Prompt"})).toBeInTheDocument();
+    expect(screen.queryByRole("tab", {name: "The Prompt"})).not.toBeInTheDocument();
   });
 
   it("renders retained Build suggestion content in Plan without exposing page-write controls", async () => {
@@ -5493,10 +5492,10 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByText(/Provider-reported usage: 42 input · 7 output/)).toBeInTheDocument();
     expect(loadTrace).toHaveBeenCalledWith(worldId, "turn-trace", expect.any(AbortSignal));
     openLatestTurnDetails();
-    fireEvent.click(screen.getByRole("tab", { name: "The Prompt" }));
+    fireEvent.click(screen.getByText("Diagnostics", { selector: "summary" }));
+    fireEvent.click(screen.getByText("The Prompt", { selector: "summary" }));
     await screen.findByText(/No complete request was captured for this call/);
     expect(loadTrace).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("tab", { name: "Evidence Trail" }));
     fireEvent.click(screen.getByText("Details"));
     fireEvent.click(screen.getByText("Details"));
     expect(loadTrace).toHaveBeenCalledTimes(1);

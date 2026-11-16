@@ -51,7 +51,6 @@ import { ConversationRecovery } from "../../agentInteraction/ConversationRecover
 import { ConversationDock } from "../../ui/ConversationDock";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
-import { ResponseEvidenceTabs } from "./ResponseEvidenceTabs";
 import { ConversationWorkbook } from "./ConversationWorkbook";
 import { BuddyActivity } from "./BuddyActivity";
 import { BuddyContextTraceLoader } from "./BuddyContextTraceLoader";
@@ -5431,19 +5430,14 @@ export function WorldPlanAgentConversation({
           sourceName={planContext.saved_source_name}
           segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
     if(planContext?.completion?.schema==='dmb_surface_native_completion_v1') return <section className="world-plan-agent-conversation__evidence-trail">
-      <h4>Source information</h4><ResponseEvidenceTabs evidence={<p>{planContext.completion.native_body_citations.length+planContext.completion.native_clause_citations.length+planContext.completion.native_assertion_citations.length} inline citations.{(planContext.completion.native_body_citations.length || planContext.completion.native_clause_citations.length || planContext.completion.native_assertion_citations.length) ? " Open the numbered citations beside the statements in this reply." : ""}{planContext.completion.answer_segments.some(segment => segment.kind === "statblock_pdf_claim") ? " Open Reviewed statblock PDF sources in the reply to inspect the cited crop." : ""}</p>}
-        prompt={verifiedWorldId&&history?.conversation_id?<BuddyContextTraceLoader enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}/>:<p>The saved request is unavailable.</p>}/>
+      <h4>Sources</h4><p>{planContext.completion.native_body_citations.length+planContext.completion.native_clause_citations.length+planContext.completion.native_assertion_citations.length} inline citations.{(planContext.completion.native_body_citations.length || planContext.completion.native_clause_citations.length || planContext.completion.native_assertion_citations.length) ? " Open the numbered citations beside the statements in this reply." : ""}{planContext.completion.answer_segments.some(segment => segment.kind === "statblock_pdf_claim") ? " Open Reviewed statblock PDF sources in the reply to inspect the cited crop." : ""}</p>
     </section>;
     if ((planContext?.completion?.schema === "dmb_build_intentional_response_completion_v1" || (planContext?.completion?.schema==="dmb_build_intentional_response_completion_v2"||planContext?.completion?.schema==="dmb_build_intentional_response_completion_v3")) || (planContext?.completion?.schema === "dmb_build_relationship_review_completion_v1" || (planContext?.completion?.schema==="dmb_build_relationship_review_completion_v2"||planContext?.completion?.schema==="dmb_build_relationship_review_completion_v3")) || planContext?.completion?.schema === "dmb_build_connected_page_review_completion_v1" || planContext?.completion?.schema === "dmb_build_collaboration_completion_v1" || planContext?.completion?.schema === "dmb_build_related_page_completion_v1" || planContext?.completion?.schema === "dmb_build_draft_context_completion_v1" || planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_build_graph_completion_v3" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v3" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v4" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v5" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v6"||planContext?.completion?.schema === "dmb_surface_evidence_completion_v7"))))) {
       return <section className="world-plan-agent-conversation__evidence-trail">
         <h4>Source information</h4>
-        <ResponseEvidenceTabs evidence={verifiedWorldId
+        {verifiedWorldId
           ? <>{savedEvidence}<BuildSourcePassageEvidence completion={planContext.completion} worldId={verifiedWorldId} turnId={turn.turn_id} /></>
           : <p>Select the original World to open these source passages.</p>}
-          prompt={verifiedWorldId && history?.conversation_id
-            ? <BuddyContextTraceLoader enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id}
-              conversationId={history.conversation_id} />
-            : <p>The saved request is unavailable.</p>} />
       </section>;
     }
     const playEvidence = turn.provenance.surface_id === "play" && verifiedWorldId
@@ -5502,7 +5496,7 @@ export function WorldPlanAgentConversation({
 
     return <section id={`buddy-evidence-${turn.turn_id}`} className="world-plan-agent-conversation__evidence-trail">
       <h4>Source information</h4><p>{summary}</p>
-      <ResponseEvidenceTabs evidence={<div className="world-plan-agent-conversation__evidence-trail-content">
+      <div className="world-plan-agent-conversation__evidence-trail-content">
         {savedEvidence}
         {playEvidence}
         {!hasEvidence && !savedEvidence && !playEvidence ? <p>No Graph citations were saved with this answer.</p> : null}
@@ -5563,9 +5557,7 @@ export function WorldPlanAgentConversation({
             </section> : null}
           </div>;
         })}
-      </div>} prompt={verifiedWorldId && history?.conversation_id ? <BuddyContextTraceLoader
-        enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}
-      /> : <p>No complete request was captured for this response.</p>} />
+      </div>
     </section>;
   }
 
@@ -6459,9 +6451,9 @@ export function WorldPlanAgentConversation({
       loaded={loaded} load={signal => inspectSavedMessage(turn, signal)} reviewLabel={savedReview ? 'Review new page' : undefined}
       showSources={Boolean(!previewReady && turn.assistant_text && turn.lifecycle_status === 'completed' && !buildCompose.items.some(item => item.originTurnId === turn.turn_id))}>
       {open && buildCompose.items.find(item => item.originTurnId === turn.turn_id)?.details}
-      {content}
-      {verifiedWorldId && history?.conversation_id && <BuddyContextTraceLoader enabled={open}
+      {verifiedWorldId && history?.conversation_id && <BuddyContextTraceLoader enabled={open} replyDetails
         worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}/>}
+      {content}
     </ConversationReplyDetails>;
   };
   const renderConversationEvent = (event: WorldConversationDisplayEvent,
