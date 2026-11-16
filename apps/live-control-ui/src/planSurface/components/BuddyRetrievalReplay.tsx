@@ -352,7 +352,14 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
 
   const inspectedNode = inspected ? resolve(inspected.node, inspected.visits.includes(index) ? index : inspected.visits[0]) : undefined
   const inspectedHops = inspectedId === null ? [] : steps.slice(0, index + 1)
-    .flatMap(item => item.hop && [item.hop.from_node_id, item.hop.to_node_id].includes(inspectedId) ? [item.hop] : [])
+    .flatMap((item, position) => {
+      if (!item.hop || ![item.hop.from_node_id, item.hop.to_node_id].includes(inspectedId)) return []
+      const label = (id: string) => {
+        const node = item.result.nodes.find(record => record.node_id === id)
+        return node ? displayNodeName(resolve(node, position)) : 'Unnamed object'
+      }
+      return [{ position, from: label(item.hop.from_node_id), to: label(item.hop.to_node_id) }]
+    })
   const { nodes: recordedNodes, relationship_ids, relationships = [], total_counts, projection_status, evidence_ref_ids } = step.result
   const nodes = recordedNodes.map(node => resolve(node, index))
   const passages = evidence_ref_ids.flatMap(id => passagesByEvidence.get(JSON.stringify([step.revision_pin, id])) ?? [])
@@ -382,8 +389,8 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         <p>{inspectedNode.kind}</p>
         {inspectedId !== null && step.pruning?.ids.includes(inspectedId) && <p>{step.pruning.reason}.</p>}
         {inspectedHops.length > 0 && <ul aria-label="Recorded hops for this node">
-          {inspectedHops.map((hop, position) => <li key={`${hop.relationship_id}:${position}`}>
-            {rows.objects.get(hop.from_node_id)?.node.label} → {rows.objects.get(hop.to_node_id)?.node.label}
+          {inspectedHops.map(hop => <li key={hop.position}>
+            {hop.from} → {hop.to}
           </li>)}
         </ul>}
         <ul>{inspected.visits.filter(position => position <= index).map(position => (
