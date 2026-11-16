@@ -302,3 +302,18 @@ it("shares pending catalog reads within an account and fences an account switch"
   await api.listWorldContainers();
   expect(fetch).toHaveBeenCalledTimes(3);
 });
+
+it("admits the exact hosted Start Play preview without a local bearer", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const path = "/api/live/world-play-runs/v2/preparation?world_id=managed&entry_scene_id=scene%3Agate";
+  const init = { method: "POST", body: JSON.stringify({ playable_artifact_id: "plan" }) };
+  await api.authenticatedApiFetch(path, init);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "&world_id=foreign", init)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

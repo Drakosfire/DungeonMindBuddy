@@ -135,6 +135,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_plan_world_context,
     resolve_hosted_committed_plan,
     resolve_hosted_plan_create,
+    resolve_hosted_play_preparation,
     resolve_hosted_world_lookup,
 )
 from bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -172,6 +173,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/workspace-documents/world-plans"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): resolve_hosted_committed_plan,
     ("POST", "/api/live/workspace-documents/world-plans"): resolve_hosted_plan_create,
+    ("POST", "/api/live/world-play-runs/v2/preparation"): resolve_hosted_play_preparation,
     ("GET", "/api/live/media/images/{asset_id}/metadata"): resolve_hosted_saved_artwork,
     ("GET", "/api/live/media/images/{asset_id}/original"): resolve_hosted_saved_artwork,
     ("POST", FIRST_WORLD_PREPARE_PATH): resolve_hosted_first_world,

@@ -429,6 +429,16 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(metadata|original)$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  const preparationPath = "/api/live/world-play-runs/v2/preparation";
+  if (path.startsWith(preparationPath + "?")) {
+    const selectors = new URLSearchParams(path.slice(preparationPath.length + 1));
+    const worldId = selectors.get("world_id");
+    const entryScene = selectors.get("entry_scene_id");
+    if (method !== "POST" || !worldId || !requestBodyRecord(init?.body)) return false;
+    const expected = new URLSearchParams({ world_id: worldId });
+    if (entryScene) expected.set("entry_scene_id", entryScene);
+    return path === `${preparationPath}?${expected}`;
+  }
   if (path === "/api/live/world-containers") return method === "GET" && init?.body == null;
   if (path.startsWith(HOSTED_WORLD_LOOKUP_PATH + "?")) {
     const query = new URLSearchParams(path.slice(HOSTED_WORLD_LOOKUP_PATH.length + 1));

@@ -248,6 +248,9 @@ def hosted(monkeypatch, request):
     app.add_api_route(access.BUILD_PDF_SOURCES_PATH, get_build_pdf_sources, methods=["GET"])
     app.add_api_route(access.BUILD_PDF_SOURCES_PATH, post_build_pdf_source, methods=["POST"])
 
+    from apps.live_control_server.routes import play_runs
+
+    app.include_router(play_runs.router)
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
     app.include_router(live.router)
@@ -280,6 +283,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
+            ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
@@ -2100,3 +2104,30 @@ def test_hosted_owner_creates_lists_and_reopens_plan(hosted, application_state_d
     snapshot = hosted.client.request("GET", f"{base}/{record['document_id']}/snapshot")
     assert snapshot.status_code == 200, snapshot.text
     assert snapshot.json()["record"]["title"] == body["title"]
+
+
+def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_state_dsn, tmp_path):
+    from application_state.content.service import commit_plan
+    from apps.live_control_server.services.workspace_document_registry import create_world_owned_plan_v2
+    from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
+
+    plan = create_world_owned_plan_v2(tmp_path, world_id="managed", title="Play source")
+    commit_plan(plan.document_id, V2_SOURCE_MARKDOWN, expected_world_id="managed", expected_revision=plan.revision)
+    saved = hosted.client.request("GET", f"/api/live/workspace-documents/{plan.document_id}/committed-revision")
+    assert saved.status_code == 200, saved.text
+    record = saved.json()
+    body = {
+        "playable_artifact_id": plan.document_id,
+        "expected_playable_revision": record["revision_n"],
+        "expected_playable_work_revision_id": record["work_revision_id"],
+        "expected_playable_content_sha256": record["content_sha256"],
+    }
+    path = "/api/live/world-play-runs/v2/preparation?world_id=managed"
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path + "&world_id=managed", json=body).status_code == 403
+    assert hosted.client.request("POST", path.replace("managed", "foreign"), json=body).status_code == 403
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 200, result.text
+    assert {k: result.json()["request"][k] for k in body} == body
+    assert result.json()["scenes"]
+    assert result.headers["cache-control"] == "no-store"
