@@ -652,6 +652,7 @@
       "tests/test_native_plan_statements.py",
       "tests/test_native_recap_preparation.py",
       "tests/test_native_recap_source_admission.py",
+      "tests/test_reserved_world_pdf_admission.py",
       "tests/test_native_recap_source_identity.py",
       "tests/test_native_reference_navigation.py",
       "tests/test_native_source_inspection.py",
