@@ -13,6 +13,7 @@ from application_state.errors import ApplicationStateConflictError, ApplicationS
 from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
 from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
 from apps.live_control_server.services.graph_object_authoring_prepare import (
+    _prepare_binding_key,
     decode_publication_intent,
     sign_publication_intent,
 )
@@ -65,6 +66,7 @@ def _intent(space_id, draft, evidence_id):
 def prepare(world_id, draft, principal):
     if not draft.name.strip() or not draft.description.strip():
         raise ApplicationStateConflictError("Provide the Event name and reviewed text.")
+    _prepare_binding_key()
     bound = native.binding(world_id)
     space = bound["native_world_id"]
     repo = native.repository()

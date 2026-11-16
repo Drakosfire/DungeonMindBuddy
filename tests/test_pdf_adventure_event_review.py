@@ -83,6 +83,13 @@ def test_pdf_event_preserves_review_and_reopens_citation(
         draft = {"operation_id": str(uuid4()), "region": region,
                  "name": "Alarm", "description": "The bell calls the villagers."}
         assert client.post(events + "/prepare", json=draft).status_code == 401
+        before = repo.get_head(space)
+        with monkeypatch.context() as without_signing:
+            without_signing.delenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY")
+            unavailable = client.post(events + "/prepare", json=draft, headers=auth)
+        assert unavailable.status_code == 503, unavailable.text
+        assert unavailable.json()["detail"]["code"] == "authority_unavailable"
+        assert repo.get_head(space) == before
         wrong = draft | {"region": region | {"content_sha256": "0" * 64}}
         assert client.post(events + "/prepare", json=wrong, headers=auth).status_code == 409
         review = client.post(events + "/prepare", json=draft, headers=auth)
