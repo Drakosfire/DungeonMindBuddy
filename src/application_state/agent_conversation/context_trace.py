@@ -16,7 +16,7 @@ from .neighborhood_replay import NeighborhoodReplay, ReplayExclusionStep
 
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
-from .native_replay import NativeReplayAssertionStep
+from .native_replay import NativeReplayAssertionStep, NativeDiscoveryReplay
 
 MAX_CONTEXT_TRACE_BYTES = 1_048_576
 CONTEXT_TRACE_TERMINAL_RESERVE_BYTES = 4096
@@ -448,6 +448,7 @@ class TurnContextTraceV1(TraceModel):
     observations: list[ContextTraceObservation] = Field(max_length=2048)
     writer_evidence_sequences: list[int] | None = Field(default=None, max_length=2048)
     native_assertion_steps: list[NativeReplayAssertionStep] | None = Field(default=None, max_length=2048)
+    native_discovery_replay: NativeDiscoveryReplay | None = Field(default=None, exclude_if=lambda value: value is None)
     retrieval_exclusion_steps: list[ReplayExclusionStep] | None = Field(default=None, max_length=2048, exclude_if=lambda value: value is None)
     graph_replay_order: dict[int, int] | None = Field(default=None, max_length=2048)
 

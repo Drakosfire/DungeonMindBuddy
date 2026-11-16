@@ -58,8 +58,31 @@ export function replaySteps(trace: BuddyTurnContextTrace): RetrievalStep[] {
     })
   const order = (step: RetrievalStep) => step.native || step.pruning
     ? step.sequence : trace.graph_replay_order?.[step.sequence] ?? (native.length ? Number.MAX_SAFE_INTEGER : step.sequence)
-  return [...graph, ...native, ...exclusions].sort((left, right) => order(left) - order(right))
+  const steps = [...graph, ...native, ...exclusions].sort((left, right) => order(left) - order(right))
     .flatMap(neighborhoodFrames)
+  const discovery = trace.native_discovery_replay
+  if (!discovery?.hops.length) return steps
+
+  const discoveryFrame = (frame: string, ids: readonly string[], hop?: RetrievalStep['hop']): RetrievalStep => {
+    const nodes = ids.map(id => ({ node_id: id, label: discovery.labels[id] ?? 'Unnamed object', kind: 'object' }))
+    const counts = { nodes: nodes.length, relationships: 0, claims: 0, evidence_refs: 0 }
+    return {
+      sequence: -1, frame, hop, revision_pin: discovery.revision_id,
+      request: { operation: 'search', query_text: '', seed_node_ids: [] },
+      result: {
+        outcome: 'enough', graph_revision: discovery.revision_id, coverage_status: 'complete',
+        projection_status: 'complete', nodes, relationship_ids: [], claim_ids: [], evidence_ref_ids: [],
+        returned_counts: counts, total_counts: counts, omission_codes: [],
+      },
+    }
+  }
+  return [
+    discoveryFrame('Starting nodes', discovery.seed_ids),
+    ...discovery.hops.map((hop, index) => discoveryFrame(
+      `Native discovery hop ${index + 1}`, [hop.from_node_id, hop.to_node_id], hop,
+    )),
+    ...steps,
+  ]
 }
 
 function neighborhoodFrames(step: RetrievalStep): RetrievalStep[] {
