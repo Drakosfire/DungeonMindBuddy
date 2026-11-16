@@ -1,3 +1,4 @@
+import { getWorldAgentReplayIdentities } from '../../api/liveApi'
 import { GraphCircleGlyph } from '../../localWorld/worldGraphCanvas/GraphCircleGlyph'
 import { graphTypeColor } from '../../localWorld/worldGraphCanvas/graphTypeStyles'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -107,18 +108,23 @@ function keepStepVisible(pane: HTMLElement | null) {
   else if (row.bottom > frame.bottom) pane.scrollTop += row.bottom - frame.bottom
 }
 
-const Trail = memo(function Trail({ layout, active, wide, select }: {
+type ReplayIdentity = RetrievalStep['result']['nodes'][number]
+const emptyIdentities: ReadonlyMap<string, ReplayIdentity> = new Map()
+
+const Trail = memo(function Trail({ layout, active, wide, select, resolve }: {
   layout: ReturnType<typeof layoutTrail>
   active: number
   wide: boolean
   select: (position: number) => void
+  resolve: (node: ReplayIdentity, position: number) => ReplayIdentity
 }) {
   return <div className="buddy-retrieval-replay__canvas">
     <svg viewBox={`0 0 ${layout.width} ${layout.height}`} role="group" aria-label="Recorded graph nodes">
       {[...layout.objects.values()].map(({ node, visits, x, y }) => {
         const current = visits.includes(active)
         const position = visits[0]
-        const name = displayNodeName(node)
+        const presentation = resolve(node, current ? active : position)
+        const name = displayNodeName(presentation)
         const state = current ? 'current' : position < active ? 'visited' : 'upcoming'
         const selectVisit = () => {
           if (!current) select(visits.find(visit => visit > active) ?? visits.at(-1)!)
@@ -133,8 +139,8 @@ const Trail = memo(function Trail({ layout, active, wide, select }: {
             }
           }}>
           <title>{name}</title>
-          <g style={{ color: graphTypeColor(node.kind) }}>
-            <GraphCircleGlyph center={0} radius={24} kind={node.kind} name="" showLabels={false} fullCorpus />
+          <g style={{ color: graphTypeColor(presentation.kind) }}>
+            <GraphCircleGlyph center={0} radius={24} kind={presentation.kind} name="" showLabels={false} fullCorpus />
           </g>
           {(wide || current) && <text className="buddy-retrieval-replay__label" y="39" textAnchor="middle">
             {name.length > 14 ? `${name.slice(0, 13)}…` : name}
@@ -162,14 +168,51 @@ function indexPassages(trace: BuddyTurnContextTrace | undefined) {
 export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly RetrievalStep[]; trace?: BuddyTurnContextTrace }) {
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
+  const [identityResult, setIdentityResult] = useState<{
+    trace: BuddyTurnContextTrace
+    identities: ReadonlyMap<string, ReplayIdentity>
+  }>()
+  const identities = identityResult?.trace === trace ? identityResult?.identities ?? emptyIdentities : emptyIdentities
   const [wide, setWide] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const list = useRef<HTMLOListElement>(null)
   const passagesByEvidence = useMemo(() => indexPassages(trace), [trace])
   const writerObservations = useMemo(() => new Set(trace?.writer_evidence_sequences ?? []), [trace?.writer_evidence_sequences])
   const rows = useMemo(() => layoutTrail(steps), [steps])
+  const nativeBySequence = useMemo(() => new Map(
+    trace?.native_assertion_steps?.map(step => [step.sequence, step]),
+  ), [trace])
+  const resolve = useCallback((node: ReplayIdentity, position: number): ReplayIdentity => {
+    const step = steps[position]
+    const saved = step?.native ? nativeBySequence.get(step.sequence) : undefined
+    const fallback = identities.get(node.node_id)
+    if (!saved || saved.revision_id !== step.revision_pin || !fallback) return node
+    return {
+      ...node,
+      label: saved.subject_labels?.[node.node_id] ?? fallback.label,
+      kind: saved.subject_kinds?.[node.node_id] ?? fallback.kind,
+    }
+  }, [identities, nativeBySequence, steps])
   const step = steps[index]
   const last = index + 1 >= steps.length
+
+  useEffect(() => {
+    if (!trace?.native_assertion_steps?.some(step => step.subject_ids.some(id =>
+      !step.subject_labels?.[id] || !step.subject_kinds?.[id]))) return
+    const controller = new AbortController()
+    const { world_id, turn_id, trace_id } = trace
+    void getWorldAgentReplayIdentities(world_id, turn_id, trace_id, controller.signal).then(result => {
+      if (controller.signal.aborted || result.world_id !== world_id
+          || result.turn_id !== turn_id || result.trace_id !== trace_id) return
+      setIdentityResult({
+        trace,
+        identities: new Map(result.identities
+          .filter(item => rows.objects.has(item.node_id))
+          .map(item => [item.node_id, item])),
+      })
+    }).catch(() => { /* The saved trace remains usable without optional display metadata. */ })
+    return () => controller.abort()
+  }, [trace, rows])
 
   useEffect(() => {
     if (!playing || last) return
@@ -191,7 +234,8 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
 
   if (!step) return <p>No graph lookup steps were retained for this attempt.</p>
 
-  const { nodes, relationship_ids, relationships = [], total_counts, projection_status, evidence_ref_ids } = step.result
+  const { nodes: recordedNodes, relationship_ids, relationships = [], total_counts, projection_status, evidence_ref_ids } = step.result
+  const nodes = recordedNodes.map(node => resolve(node, index))
   const passages = evidence_ref_ids.flatMap(id => passagesByEvidence.get(JSON.stringify([step.revision_pin, id])) ?? [])
   return (
     <section className="buddy-retrieval-replay" aria-label="Retrieval replay">
@@ -211,7 +255,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         {nodes.length === 1 ? displayNodeName(nodes[0]) : nodes.length ? `${nodes.length} objects` : stepLabel(step)}
       </p>
       <div data-wide={wide}>
-        <Trail layout={rows} active={index} wide={wide} select={select} />
+        <Trail layout={rows} active={index} wide={wide} select={select} resolve={resolve} />
       </div>
       <div className="buddy-retrieval-replay__workspace" hidden={!wide}>
         <section aria-label="Recorded lookup results">

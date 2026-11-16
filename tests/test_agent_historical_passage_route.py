@@ -41,9 +41,11 @@ def passage_api(monkeypatch):
     app = FastAPI()
     app.include_router(agent.router, prefix='/api/live')
 
-    async def get(*, query=None, authorized=True, turn=None):
+    async def get(*, query=None, authorized=True, turn=None, identities=False):
         q = urlencode({key: ref[key] for key in ['conversation_id', 'attempt', 'source_read_id', 'content_sha256']}) if query is None else query
         path = f"/api/live/agent/worlds/{ref['world_id']}/conversation/turns/{turn or ref['turn_id']}/context-trace/{ref['trace_id']}/source-passages/{ref['source_read_event_id']}"
+        if identities:
+            path = path.rsplit('/source-passages/', 1)[0] + '/identities'
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=('127.0.0.1', 1234)), base_url='http://test') as client:
             return await client.get(path + '?' + q, headers={'Authorization': f'Bearer {token}'} if authorized else {})
 
@@ -105,3 +107,30 @@ def test_serialized_control_character_payload_is_bounded_without_truncation(pass
     response = asyncio.run(passage_api.get())
     assert response.status_code == 409
     assert len(response.content) < 256
+
+
+@pytest.mark.parametrize(('authorized', 'query', 'status'), [
+    (False, '', 401),
+    (True, 'subject_id=foreign-object', 422),
+    (True, '', 200),
+])
+def test_replay_identity_route_only_accepts_the_trace_pin(passage_api, monkeypatch, authorized, query, status):
+    from apps.live_control_server.services import agent_replay_identities
+
+    calls = []
+
+    def read(**kwargs):
+        calls.append(kwargs)
+        return {'identities': []}
+
+    monkeypatch.setattr(agent_replay_identities, 'replay_identities', read)
+    response = asyncio.run(passage_api.get(query=query, authorized=authorized, identities=True))
+    assert response.status_code == status
+    if status == 200:
+        assert response.headers['cache-control'] == 'no-store'
+        assert len(calls) == 1
+        assert calls[0]['world_id'] == passage_api.ref['world_id']
+        assert str(calls[0]['turn_id']) == passage_api.ref['turn_id']
+        assert str(calls[0]['trace_id']) == passage_api.ref['trace_id']
+    else:
+        assert not calls
