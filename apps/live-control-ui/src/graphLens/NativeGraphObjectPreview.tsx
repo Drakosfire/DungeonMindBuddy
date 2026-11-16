@@ -1,3 +1,4 @@
+import {displayClassification} from "../nativeGraphDemo/nativeGraphPresentation";
 import {GraphNodeViewer} from "./GraphNodeViewer";
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
@@ -25,19 +26,22 @@ export function NativeGraphObjectPreview({reference:ref,onClose,inlineHost}:{ref
  },[ref,retry]);
  const labels = new Map([[ref.node_id, ref.label]]);
  const dossier = detail?.entity.found ? buildNodeExplorer(detail, ref.node_id, labels) : null;
+ const kind = dossier && displayClassification(dossier.identityAssertions.flatMap(assertion =>
+  assertion.predicate.endsWith(':classification') && assertion.value.kind === 'term_ref' ? [assertion.value.term] : []
+ ));
  return createPortal(<dialog ref={dialog} className="saved-statblock-dialog native-graph-object-preview" aria-label={`Object · ${ref.label}`} onClose={onClose} onKeyDown={event=>{if(event.key==='Escape')event.stopPropagation();}}>
   <div className="saved-statblock-dialog__body">
-  <GraphNodeViewer dialog label={ref.label} partial={detail?.entity.completeness.status === "partial"} controls={<button type="button" autoFocus aria-label="Close object preview" onClick={onClose}>×</button>}>
+  <GraphNodeViewer dialog label={ref.label} kind={kind || undefined} partial={detail?.entity.completeness.status === "partial"} controls={<button type="button" autoFocus aria-label="Close object preview" onClick={onClose}>×</button>}>
    {failure?<><p role="alert">{failure}</p><button type="button" onClick={()=>setRetry(v=>v+1)}>Retry object preview</button></>:!detail?<p role="status">Loading selected object…</p>:dossier ? <>
-    <a href={"/build?" + new URLSearchParams({
+    {detail.scope.scope_mode === "world" && <a href={"/build?" + new URLSearchParams({
       world: detail.scope.managed_world_id,
       nativeWorld: detail.scope.native_world_id,
       bindingVersion: String(detail.scope.binding_version),
       graphRevision: detail.scope.revision_id,
       graphNodeId: ref.node_id,
-    })}>Open object in Build</a>
+    })}>Open object in Build</a>}
     <NodeDossier model={dossier} detail={detail} entityId={ref.node_id} labels={labels}
-      showStatblocks eagerStatblocks inlineHost={inlineHost} onInlineOpened={onClose} />
+      showStatblocks={kind !== "event"} eagerStatblocks inlineHost={inlineHost} onInlineOpened={onClose} />
    </> : <p>This object is unavailable in the selected revision.</p>}
   </GraphNodeViewer>
   </div>
