@@ -34,3 +34,9 @@ reorder the card and reopen. The PDF digest, page, rectangle and rendered
 bytes must still match. Unavailable, altered and foreign support must not
 be admitted. Keep runtime qualification provider-free until the exact
 selection, save and reopen contracts pass. Then qualify one ordinary Plan turn.
+
+The proposal projection belongs to the save invariant above. Include
+`application_state.agent_conversation.plan_authoring` in the bounded write set:
+derive each internal link from the admitted PDF citation and its original
+completion index. Keep historical non-PDF Markdown byte-identical. Verify that
+the proposal-supplied link survives save, reorder, and exact reopen.

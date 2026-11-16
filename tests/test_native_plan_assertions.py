@@ -1008,7 +1008,14 @@ def _ordinary_native_case(
         from application_state.content.service import snapshot_content
         proposal=data['plan_proposal']
         assert proposal['capture']==capture.model_dump(mode='json',by_alias=True)
-        assert proposal['replacement_markdown']==turn.completion.answer_segments[0].text+('\n\nNo additional applicable rule is established.' if mixed else '')
+        expected_markdown = turn.completion.answer_segments[0].text
+        if pdf_region is not None:
+            expected_markdown += f" [PDF page {pdf_region.page}](#dmb-ref:citation:pdf_{turn.turn_id}_0)"
+        assert proposal['replacement_markdown'] == expected_markdown + ('\n\nNo additional applicable rule is established.' if mixed else '')
+        if pdf_region is not None:
+            assert f"#dmb-ref:citation:pdf_{turn.turn_id}_0" in proposal["replacement_markdown"], (
+                "Apply would save the reviewed prose without its verified PDF citation"
+            )
         writer=next(e for e in turn.graph_context_execution.events if type(e) is NativeWriterAuthorizedV1)
         assert proposal['origin']['evidence_event_ids']==[str(identity) for identity in writer.native_read_event_ids]
         assert snapshot_content(capture.document_id).markdown==markdown
@@ -1055,7 +1062,7 @@ def _ordinary_native_case(
             plan = create_world_plan(world_id=world, title="Reviewed PDF citation")
             plan_id = str(plan.work_object_id)
             link = f"[PDF page {pdf_region.page}](#dmb-ref:citation:pdf_{turn.turn_id}_0)"
-            scene = f"### First scene\n\n{link}\n"
+            scene = f"### First scene\n\n{proposal['replacement_markdown'] if authoring else link}\n"
             other = "### Second scene\n\nContinue the adventure.\n"
             plan, _ = commit_plan(plan_id, "# Plan\n\n" + scene + "\n" + other,
                 expected_revision=plan.object_revision, expected_world_id=world)

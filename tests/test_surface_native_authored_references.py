@@ -339,14 +339,15 @@ def test_pdf_assertion_support_normalizes_and_reopens(pdf_assertion_lane, monkey
 from tests.test_native_plan_assertions import native_read_admission_probes as native_read_admission_probes
 
 
+@pytest.mark.parametrize("authoring", [False, True])
 def test_pdf_assertion_reopens_from_ordinary_persisted_plan_turn(
-    pdf_assertion_lane, tmp_path, monkeypatch, native_read_admission_probes,
+    pdf_assertion_lane, tmp_path, monkeypatch, native_read_admission_probes, authoring,
 ):
     from tests.test_native_plan_assertions import _ordinary_native_case
 
     lane, region = pdf_assertion_lane
     _ordinary_native_case(lane, tmp_path, monkeypatch, True, False, 'original', None,
-        False, native_read_admission_probes, pdf_region=region)
+        False, native_read_admission_probes, pdf_region=region, authoring=authoring)
 
 
 @pytest.mark.parametrize('mutation', ['turn', 'conversation', 'attempt'])
