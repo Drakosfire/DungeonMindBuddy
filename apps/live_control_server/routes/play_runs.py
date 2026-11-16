@@ -362,7 +362,11 @@ def put_world_play_run_rebase_v2(
 def get_world_play_run_reference_manifest_v2(
     run_id: str,
     world_id: Annotated[str, Query(min_length=1)],
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     try:
         manifest = get_world_play_run_reference_manifest(
             world_id=world_id, run_id=run_id
@@ -379,15 +383,12 @@ def get_world_play_run_reference_manifest_v2(
 def get_world_run_content(
     run_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]
 ):
-    from apps.live_control_server.services.agent_graph_auth import (
-        enforce_native_graph_gm,
-    )
     from apps.live_control_server.services.play_run_edition import (
         edition_response,
         read_content,
     )
 
-    enforce_native_graph_gm(request)
+    _authorize_world_session(request, world_id)
     return edition_response(read_content, run_id=run_id, world_id=world_id)
 
 

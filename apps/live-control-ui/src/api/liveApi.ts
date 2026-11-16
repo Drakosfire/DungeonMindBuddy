@@ -439,6 +439,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === (suffix ? "POST" : "PUT")
       && requestBodyRecord(init?.body)?.schema_version === "dmb_world_session_create_v1";
   }
+  const runContent = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\?/.exec(path);
+  if (runContent) {
+    const worldId = new URLSearchParams(path.slice(runContent[0].length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === runContent[0] + new URLSearchParams({ world_id: worldId });
+  }
   const preparationPath = "/api/live/world-play-runs/v2/preparation";
   if (path.startsWith(preparationPath + "?")) {
     const selectors = new URLSearchParams(path.slice(preparationPath.length + 1));
