@@ -211,7 +211,7 @@ export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnCont
     <details onToggle={event => setReplayOpen(event.currentTarget.open)}>
       <summary>Replay retrieval</summary>
       {replayOpen && <BuddyRetrievalReplay key={`${trace.trace_id}:${trace.attempt}`}
-        steps={trace.observations.filter(event => event.kind === 'graph_tool')} />}
+        trace={trace} steps={trace.observations.filter(event => event.kind === 'graph_tool')} />}
     </details>
     <details open><summary>Execution timeline</summary><ol>{rows.map(({ event, observations }) => <li key={event.sequence}>
       <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>
