@@ -42,6 +42,10 @@ def native_discovery_replay(receipt):
               if item["entity_id"] in sources}
     labels.update({item["statement_id"]: item["label"][:256] for item in query["matches"]
                    if item["statement_id"] in destinations})
+    for item in query.get("assertion_matches", []):
+        identity = item["subject_entity_id"]
+        if identity in destinations:
+            labels.setdefault(identity, item["label"].rsplit(" · ", 1)[0][:256])
     return NativeDiscoveryReplay(
         revision_id=query["authority"]["revision_id"],
         seed_ids=[item["entity_id"] for item in query["object_matches"] if item["entity_id"] in sources],

@@ -79,7 +79,7 @@ export function replaySteps(trace: BuddyTurnContextTrace): RetrievalStep[] {
   return [
     discoveryFrame('Starting nodes', discovery.seed_ids),
     ...discovery.hops.map((hop, index) => discoveryFrame(
-      `Source statement hop ${index + 1}`, [hop.from_node_id, hop.to_node_id], hop,
+      `Native discovery hop ${index + 1}`, [hop.from_node_id, hop.to_node_id], hop,
     )),
     ...steps,
   ]

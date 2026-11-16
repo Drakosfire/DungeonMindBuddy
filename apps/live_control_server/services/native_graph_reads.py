@@ -114,10 +114,11 @@ def _subject_labels(statement_id, paths, entities, campaign, *, labels=None):
     return ', '.join(sorted(set(subjects)))
 
 
-def _assertion_matches(entities, *, excluded_subjects, name_scope=None):
+def _assertion_matches(entities, *, excluded_subjects, name_scope=None, discovery_hops=None):
     """Only assertions returned by Core's scoped complete-entity reads; no body IO."""
     found = {}
     scoped_labels = {}
+    reached = {hop.to_node_id for hop in discovery_hops or ()}
     for entity_id, entity in entities.items():
         if not entity.found or entity.completeness.status != 'complete':
             continue
@@ -133,6 +134,16 @@ def _assertion_matches(entities, *, excluded_subjects, name_scope=None):
             labels = scoped_labels[scope]
             row = found.setdefault(assertion.assertion_id, [assertion, set(), labels[assertion.subject_entity_id]])
             row[1].add(entity_id)
+            if (discovery_hops is not None and len(discovery_hops) < 32
+                    and parsed.subject_entity_id not in entities and parsed.subject_entity_id not in reached
+                    and getattr(parsed.value, 'entity_id', None) == entity_id):
+                from application_state.agent_conversation.neighborhood_replay import NeighborhoodReplayHop
+
+                discovery_hops.append(NeighborhoodReplayHop(
+                    relationship_id=assertion.assertion_id, from_node_id=entity_id,
+                    to_node_id=assertion.subject_entity_id,
+                ))
+                reached.add(assertion.subject_entity_id)
     return tuple(NativePlanAssertionMatchV1(assertion_id=a.assertion_id,
         subject_entity_id=a.subject_entity_id, discovered_entity_ids=tuple(sorted(witnesses)),
         assertion_sha256=digest(a), label=f'{label} · {a.predicate}')
@@ -205,7 +216,8 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
             label=(f"About {subjects} · " if subjects else "")
                 + f"{logical['object_id']} — {payload['episode']} ({clause['campaign']})"))
     return (tuple(matches), _assertion_matches(entities, excluded_subjects=qualified_subjects,
-            name_scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign_id),) if scope_mode=='campaign' else None),
+            name_scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign_id),) if scope_mode=='campaign' else None,
+            discovery_hops=discovery_hops),
         tuple(sorted(set(gaps))), entities)
 
 

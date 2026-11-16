@@ -101,13 +101,17 @@ class NativeGraphQueryV4(NativeGraphQueryV3):
         if len(ids) != len(set(ids)) or set(ids) != set(self.discovered_entity_ids):
             raise ValueError('Native object catalog differs from exact discovered entities')
         matches = {match.statement_id: match for match in self.matches}
+        assertions = {match.assertion_id: match for match in self.assertion_matches}
         targets = set()
         for hop in self.discovery_hops:
             match = matches.get(hop.to_node_id)
-            if (hop.to_node_id in targets or hop.to_node_id in ids or match is None
-                or hop.from_node_id not in match.discovered_entity_ids
-                or hop.relationship_id not in match.discovery_assertion_ids):
-                raise ValueError('Native replay hop differs from the admitted statement discovery')
+            assertion = assertions.get(hop.relationship_id)
+            statement_path = (match is not None and hop.from_node_id in match.discovered_entity_ids
+                              and hop.relationship_id in match.discovery_assertion_ids)
+            assertion_path = (assertion is not None and assertion.subject_entity_id == hop.to_node_id
+                              and hop.from_node_id in assertion.discovered_entity_ids)
+            if hop.to_node_id in targets or hop.to_node_id in ids or not (statement_path or assertion_path):
+                raise ValueError('Native replay hop differs from admitted discovery')
             targets.add(hop.to_node_id)
         return self
 
