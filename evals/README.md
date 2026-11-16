@@ -1,5 +1,6 @@
 # Lab and evaluation
 
+- [Adventure-to-follow-up benchmark](adventure-to-follow-up-benchmark.md) — adventure intake, Plan, Play, combat, and cited recap continuity.
 This directory holds experiments, regression fixtures, and evaluation evidence.
 Start with the suite that owns the question you are testing.
 
