@@ -77,3 +77,12 @@
   stroke-width: 2;
   opacity: 1;
 }
+
+.buddy-retrieval-replay__trail .buddy-retrieval-replay__relationship path {
+  stroke: var(--color-accent, currentColor);
+}
+
+.buddy-retrieval-replay__trail .is-current .buddy-retrieval-replay__relationship path {
+  opacity: 1;
+  stroke-width: 2;
+}

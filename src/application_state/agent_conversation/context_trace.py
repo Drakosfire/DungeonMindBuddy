@@ -196,6 +196,12 @@ class TraceGraphNode(TraceModel):
     kind: str = Field(min_length=1, max_length=128)
 
 
+class TraceGraphRelationship(TraceModel):
+    relationship_id: str = Field(min_length=1, max_length=256)
+    source_node_id: str = Field(min_length=1, max_length=256)
+    target_node_id: str = Field(min_length=1, max_length=256)
+
+
 class TraceGraphResultCounts(TraceModel):
     nodes: int = Field(strict=True, ge=0)
     relationships: int = Field(strict=True, ge=0)
@@ -212,6 +218,7 @@ class TraceGraphResultProjection(TraceModel):
     projection_status: Literal["complete", "limited"]
     nodes: list[TraceGraphNode] = Field(max_length=64)
     relationship_ids: list[str] = Field(max_length=128)
+    relationships: list[TraceGraphRelationship] = Field(default_factory=list, max_length=128)
     claim_ids: list[str] = Field(max_length=128)
     evidence_ref_ids: list[str] = Field(max_length=128)
     returned_counts: TraceGraphResultCounts
@@ -245,6 +252,9 @@ class TraceGraphResultProjection(TraceModel):
             values = getattr(self, field)
             if any(not value.strip() for value in values) or len(values) != len(set(values)):
                 raise ValueError(f"{field} must contain unique nonblank values")
+        endpoint_ids = [relationship.relationship_id for relationship in self.relationships]
+        if len(endpoint_ids) != len(set(endpoint_ids)) or not set(endpoint_ids).issubset(self.relationship_ids):
+            raise ValueError("relationship endpoints must refer to unique projected relationships")
         node_ids = [node.node_id for node in self.nodes]
         if len(node_ids) != len(set(node_ids)):
             raise ValueError("node projection IDs must be unique")
