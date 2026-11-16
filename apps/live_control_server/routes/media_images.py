@@ -292,22 +292,31 @@ def associate_image(action_id: UUID, body: ImageAssociationRequest, request: Req
         raise HTTPException(error.status_code, detail=str(error)) from error
 
 
+def _saved_artwork_owner(request: Request, asset_id: UUID) -> str:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_saved_artwork
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        return require_hosted_saved_artwork(request, asset_id)
+    return enforce_native_graph_gm(request).subject
+
+
 @router.get('/{asset_id}/metadata')
 def image_metadata(asset_id: UUID, request: Request, response: Response):
-    principal = enforce_native_graph_gm(request)
+    owner = _saved_artwork_owner(request, asset_id)
     response.headers['Cache-Control'] = 'no-store'
     try:
-        return _public_record(media.get_asset(asset_id, principal.subject))
+        return _public_record(media.get_asset(asset_id, owner))
     except ApplicationStateError as error:
         raise HTTPException(error.status_code, detail='Media asset unavailable.') from error
 
 
 @router.get('/{asset_id}/original', response_class=Response)
 def image_original(asset_id: UUID, request: Request) -> Response:
-    principal = enforce_native_graph_gm(request)
+    owner = _saved_artwork_owner(request, asset_id)
     try:
-        row = media.get_asset(asset_id, principal.subject)
-        content = media.read_staged_bytes(asset_id, principal.subject)
+        row = media.get_asset(asset_id, owner)
+        content = media.read_staged_bytes(asset_id, owner)
     except ApplicationStateError as error:
         raise HTTPException(error.status_code, detail='Media asset could not be opened.') from error
     return Response(
