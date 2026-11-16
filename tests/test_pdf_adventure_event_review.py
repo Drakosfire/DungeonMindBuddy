@@ -113,3 +113,15 @@ def test_pdf_event_preserves_review_and_reopens_citation(
         assert verified.status_code == 200, verified.text
         assert verified.json()["region"] == packet["draft"]["region"]
         assert b64decode(verified.json()["png_base64"]).startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_missing_signing_authority_is_reported_unavailable(monkeypatch):
+    from fastapi import HTTPException
+    import pytest
+    from apps.live_control_server.services.graph_object_authoring_prepare import sign_publication_intent
+
+    monkeypatch.delenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", raising=False)
+    with pytest.raises(HTTPException) as caught:
+        pdf_adventure_events._invoke(lambda *_: sign_publication_intent({}), None, None, None)
+    assert caught.value.status_code == 503
+    assert caught.value.detail["code"] == "authority_unavailable"
