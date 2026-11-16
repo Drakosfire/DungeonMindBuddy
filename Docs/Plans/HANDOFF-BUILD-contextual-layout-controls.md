@@ -1,0 +1,27 @@
+# Build contextual layout controls
+
+Status: ACTIVE for local implementation and verification, authorized November 16, 2026 by Alan's Continue after the contextual formatting proposal. The parent assigned this bounded designing-steward scope. Stop before push, PR, merge or deployment; that explicit local-first instruction overrides ordinary publication completion for this pass.
+
+## Outcome and topology
+Serial successor to merged composer #3689, #3690, #3697 and #3711. One independently reviewable presentation change: replace the permanent composer testing toolbar with opt-in, contextual controls while preserving all existing layout operations and persistence. Do not add layout capabilities or change durable contracts.
+
+Base: origin/main a705bb4bf89f615340fef667983c8f7966d5a0f0. Branch: codex/build-contextual-layout-20261116. Isolated checkout: /home/drakosfire/Projects/build-contextual-layout-20261116. All 65 listed open PR heads were fetched and filename diffs checked; no overlap with pageComposer, MarkdownCanvas or buildBuildSurfaceInteractionPublication paths. Recheck before expanding ownership. Older composer handoffs still say ACTIVE but their named PRs are merged; this successor owns only the UI paths below, not their old storage leases.
+
+## Design authority and invariants
+Read Docs/Design/ui-language/DESIGN-interaction-layer-language.md, Docs/Design/ARCHITECTURE-surface-interaction-layer.md and the composer specification at 56507b4cc47241be61a1d27fbd53a87e5d3a7421:Docs/Backlog/DESIGN-build-page-composer.md. Cheap chrome, expensive current work; publish into shared Edit capabilities instead of another persistent toolbar.
+
+Writing/reading has no layout toolbar. Normal caret placement must not reveal row settings. Explicit row/image handle selection opens a compact anchored menu; layout creation remains discoverable through the existing block/shared Edit path. Details stay closed until asked. Preserve keyboard and tap discoverability, semantic order, actual table editing, image identity, undo, existing line modes, responsive stacking, draft and save contracts. No hover-triggered actions.
+
+Failure critique: outside clicks must not restore trigger focus over the intended paragraph caret; Escape may restore trigger focus without scrolling. Opening/dismissing at viewport bottom must not shift the reading position or collapse an intended native text selection. Do not copy the agent-coupled ContextualAgentMenu blindly. Never act on stale/destroyed/read-only editors or stale selected objects. Do not lose existing row/image operations while hiding controls.
+
+## Expected exclusive write lease
+- This handoff and truthful predecessor settlement in HANDOFF-BUILD-page-composer-row.md, HANDOFF-BUILD-page-composer-controls.md and HANDOFF-BUILD-page-image-text.md.
+- apps/live-control-ui/src/tiptap/pageComposer/ UI modules, CSS and existing PageRow.test.tsx (not presentation schema/mappers).
+- apps/live-control-ui/src/markdownCanvas/MarkdownCanvas.tsx and directly owning existing test.
+- apps/live-control-ui/src/buildSurface/reference/buildBuildSurfaceInteractionPublication.ts and its existing test, only if necessary for shared Edit discovery.
+Return for a bounded lease amendment if another host/publication path is required. No backend, schema, lockfile, runtime config, Plan, agent features, or missing artwork repair.
+
+## Isolation and validation
+Keep existing fixture15489 and API18089, operator/API8000 and all live/retained Worlds untouched. Allocate new local ports only after checking occupancy, and disposable fixture state only. No paid calls. Use known-good saved artwork; Edge missing thumbnails are a separate unresolved symptom.
+
+First focused editor tests and typecheck/build; then exact-commit hosted verifier and one meaningful full discovered diagnostic per AGENTS, respecting the global frontend lock and external evidence filesystem. Retain inherited red failures and exact source evidence. Browser witness: long fixture target near viewport bottom, open/dismiss controls, type directly into next paragraph, multiline selection, keyboard/Escape, narrow viewport, row resize/undo, image text options, save/cold reopen and unchanged semantic Markdown for presentation-only edits. Report missing evidence honestly. Independent review remains separate; no merge authority.
