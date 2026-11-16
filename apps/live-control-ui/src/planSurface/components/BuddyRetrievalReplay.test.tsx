@@ -300,3 +300,16 @@ it.each([
     setNativeGraphAccessToken(null)
   }
 })
+
+it('uses the same playback position when popping out and returning to the conversation', () => {
+  render(<BuddyRetrievalReplay steps={[lookup(1, 'Caelynn'), lookup(2, 'Mossglade')]} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Pop out replay' }))
+  const dialog = within(screen.getByRole('dialog', { name: 'Expanded retrieval replay' }))
+  expect(dialog.getByRole('status')).toHaveTextContent('Step 2 of 2')
+  expect(screen.getAllByRole('group', { name: 'Recorded graph nodes' })).toHaveLength(1)
+  fireEvent.click(dialog.getByRole('button', { name: 'Previous step' }))
+  fireEvent.click(dialog.getByRole('button', { name: 'Return to conversation' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.getByRole('status')).toHaveTextContent('Step 1 of 2')
+})

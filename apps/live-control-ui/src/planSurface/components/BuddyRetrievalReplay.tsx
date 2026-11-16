@@ -320,6 +320,21 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
   }>()
   const identities = identityResult?.trace === trace ? identityResult?.identities ?? emptyIdentities : emptyIdentities
   const [wide, setWide] = useState(false)
+  const [poppedOut, setPoppedOut] = useState(false)
+  const popoutDialog = useRef<HTMLDialogElement>(null)
+  const popoutTrigger = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!poppedOut) return
+    const dialog = popoutDialog.current
+    dialog?.showModal()
+    return () => { if (dialog?.open) dialog.close() }
+  }, [poppedOut])
+  const restoreInline = () => {
+    popoutDialog.current?.close()
+    setPoppedOut(false)
+    requestAnimationFrame(() => popoutTrigger.current?.focus())
+  }
+  const spacious = wide || poppedOut
   const [expanded, setExpanded] = useState(false)
   const list = useRef<HTMLOListElement>(null)
   const passagesByEvidence = useMemo(() => indexPassages(trace), [trace])
@@ -461,7 +476,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       {passages.length === 0 && <p>No matching source excerpt was captured for this lookup.</p>}
     </>
   }
-  return (
+  const replay = (
     <section className="buddy-retrieval-replay" aria-label="Retrieval replay">
       <div className="buddy-retrieval-replay__controls">
         <button type="button" disabled={playing || steps.length < 2} onClick={() => {
@@ -471,15 +486,18 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         <button type="button" disabled={!playing} onClick={() => setPlaying(false)}>Pause</button>
         <button type="button" disabled={index === 0} onClick={() => select(index - 1)}>Previous step</button>
         <button type="button" disabled={last} onClick={() => select(index + 1)}>Next step</button>
-        <button type="button" aria-expanded={wide} onClick={() => setWide(value => !value)}>{wide ? 'Collapse' : 'Expand'}</button>
+        {!poppedOut && <button type="button" aria-expanded={wide} onClick={() => setWide(value => !value)}>{wide ? 'Collapse' : 'Expand'}</button>}
+        {poppedOut
+          ? <button type="button" autoFocus onClick={restoreInline}>Return to conversation</button>
+          : <button ref={popoutTrigger} type="button" aria-haspopup="dialog" onClick={() => setPoppedOut(true)}>Pop out replay</button>}
         <span role="status">Step {index + 1} of {steps.length}</span>
       </div>
       {wide && trace && trace.writer_evidence_sequences == null && !steps.some(item => item.writerEvidence) && <p>Writer evidence was unavailable for this attempt.</p>}
       <p className="buddy-retrieval-replay__caption">
         {nodes.length === 1 ? displayNodeName(nodes[0]) : nodes.length ? `${nodes.length} objects` : stepLabel(step)}
       </p>
-      <div data-wide={wide}>
-        <Trail layout={rows} active={index} wide={wide} select={select} resolve={resolve} pruned={step.pruning?.ids} inspect={inspect} inspectedId={inspectedId} reveal={steps.some(item => item.hop || item.pruning)} />
+      <div data-wide={spacious}>
+        <Trail layout={rows} active={index} wide={spacious} select={select} resolve={resolve} pruned={step.pruning?.ids} inspect={inspect} inspectedId={inspectedId} reveal={steps.some(item => item.hop || item.pruning)} />
       </div>
       {showNodeDialog && inspected && inspectedNode && <dialog ref={nodeDialog}
         className="buddy-retrieval-replay__node-details" aria-label="Replay node details"
@@ -531,7 +549,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       </details>}
       {wide && trace && !steps.some(item => item.hop || item.result.neighborhood_replay) && <p>Directed traversal was unavailable for this attempt.</p>}
       {wide && trace && trace.retrieval_exclusion_steps == null && !steps.some(item => item.result.neighborhood_replay) && <p>Pruning decisions were unavailable for this attempt.</p>}
-      <div className="buddy-retrieval-replay__workspace" hidden={!wide}>
+      <div className="buddy-retrieval-replay__workspace" hidden={!spacious}>
         <section aria-label="Recorded lookup results">
           <h5>{stepLabel(step)}</h5>
           {(showsLookupResult(step) && (step.native ? step.writerEvidence : writerObservations.has(step.sequence))) && <p><strong>Evidence sent to the answer writer</strong></p>}
@@ -567,4 +585,10 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       </div>
     </section>
   )
+  return poppedOut ? <dialog ref={popoutDialog} className="buddy-retrieval-replay__popout"
+    aria-label="Expanded retrieval replay" onCancel={event => { event.preventDefault(); restoreInline() }}
+    onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation() }}>
+    {replay}
+  </dialog> : replay
+
 }
