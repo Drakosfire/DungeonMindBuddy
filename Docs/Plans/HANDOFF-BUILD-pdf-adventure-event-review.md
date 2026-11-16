@@ -14,7 +14,7 @@ Retry uses the same operation and recovers its exact receipt. Graph readback
 must reopen the cited PDF region.
 
 Write scope covers the dedicated PDF Event route, service and review UI,
-their focused tests, and registration hooks in the local application and PDF
+their focused tests, their entries in the test classification inventory, and registration hooks in the local application and PDF
 preview. Reuse the PDF evidence registration helper with the existing creature
 consumer. Open #3196 owns PDF upload validation and #3664 owns Build shell
 navigation. Keep their files outside this slice. Use disposable databases and
