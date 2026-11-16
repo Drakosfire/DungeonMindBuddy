@@ -30,6 +30,7 @@ from application_state.errors import (
 )
 from application_state.unit_of_work import unit_of_work
 from .native_replay import native_assertion_steps
+from .neighborhood_replay import replay_exclusion_steps
 
 
 def _load_trace(payload: object) -> TurnContextTraceV1:
@@ -447,8 +448,11 @@ class TurnContextTraceStore:
             native_steps = native_assertion_steps(
                 turn[0], turn[2], start=trace.execution_start_sequence, stop=next_start,
             )
+            exclusion_steps = replay_exclusion_steps(
+                turn[0], start=trace.execution_start_sequence, stop=next_start,
+            )
             graph_order = None
-            if native_steps:
+            if native_steps or exclusion_steps:
                 sequences = {event["event_id"]: event["sequence"] for event in turn[0].get("events", [])}
                 graph_order = {
                     event.sequence: sequences[str(event.execution_event_id)]
@@ -458,6 +462,7 @@ class TurnContextTraceStore:
             traces[index] = trace.model_copy(update={
                 "writer_evidence_sequences": _writer_evidence_sequences(trace, turn[0], next_start),
                 "native_assertion_steps": native_steps or None,
+                "retrieval_exclusion_steps": exclusion_steps or None,
                 "graph_replay_order": graph_order,
             })
         return traces
@@ -601,6 +606,16 @@ def _validate_graph_tool_observation(observation: TraceGraphTool, execution: obj
         raise ApplicationStateValidationError(
             "graph trace result scope or coverage differs from its execution receipt"
         )
+    neighborhood = event.get("neighborhood_replay")
+    if result.neighborhood_replay is not None:
+        retained_ids = set(result.discovery_relationship_ids)
+        if neighborhood is None or result.neighborhood_replay.model_dump(mode="json") != {
+            **neighborhood,
+            "hops": [hop for hop in neighborhood["hops"] if hop["relationship_id"] in retained_ids],
+        }:
+            raise ApplicationStateValidationError("trace neighborhood provenance differs from the execution receipt")
+    elif neighborhood is not None:
+        raise ApplicationStateValidationError("trace is missing recorded neighborhood provenance")
     if not set(result.discovery_relationship_ids).issubset(event.get("discovery_relationship_ids", [])):
         raise ApplicationStateValidationError("trace discovery edges differ from the execution receipt")
     for field, event_field in (

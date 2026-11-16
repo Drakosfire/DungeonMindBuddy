@@ -329,6 +329,9 @@ class WorldGraphNativeReviewedSourceObservationMatch(_ReviewedSourceObservationM
 
 class WorldGraphRetrievalResult(_RetrievalResponseModel):
     _discovery_relationship_ids: tuple[str, ...] = PrivateAttr(default=())
+    _discovery_hops: tuple[tuple[str, str, str], ...] = PrivateAttr(default=())
+    _object_limit_pruned_ids: tuple[str, ...] = PrivateAttr(default=())
+    _object_limit_pruned_count: int = PrivateAttr(default=0)
     schema_: Literal[RETRIEVAL_RESULT_SCHEMA] = Field(
         alias="schema", default=RETRIEVAL_RESULT_SCHEMA
     )
