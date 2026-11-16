@@ -125,6 +125,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     WORLD_LOOKUP_PATH,
     hosted_owner_collection,
     resolve_hosted_build_pdf_world,
+    resolve_hosted_saved_artwork,
     resolve_hosted_build_extraction,
     resolve_hosted_build_page,
     resolve_hosted_build_page_create,
@@ -164,6 +165,8 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("GET", "/api/live/media/images/{asset_id}/metadata"): resolve_hosted_saved_artwork,
+    ("GET", "/api/live/media/images/{asset_id}/original"): resolve_hosted_saved_artwork,
     ("POST", FIRST_WORLD_PREPARE_PATH): resolve_hosted_first_world,
     ("POST", FIRST_WORLD_CONFIRM_PATH): resolve_hosted_first_world,
     ("GET", PDF_STATBLOCK_REVIEWS_PATH): resolve_hosted_build_pdf_world,

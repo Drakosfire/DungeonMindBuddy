@@ -334,6 +334,48 @@ async def resolve_hosted_build_extraction(request: Request) -> str:
     return world_id
 
 
+def hosted_world_media_owner(world_id: str) -> str:
+    return f"hosted_world:{world_id}"
+
+
+async def resolve_hosted_saved_artwork(request: Request) -> str:
+    from application_state import media
+    from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
+
+    subject = _hosted_subject(request)
+    asset_id = getattr(request.state, "hosted_route_asset_id", None)
+    if not asset_id or request.query_params or await request.body():
+        raise _denied()
+    try:
+        if str(UUID(asset_id)) != asset_id:
+            raise _denied()
+    except ValueError:
+        raise _denied() from None
+
+    for world_id, subjects in hosted_auth.hosted_world_access().items():
+        if subject not in subjects:
+            continue
+        try:
+            await run_in_threadpool(media.get_asset, asset_id, hosted_world_media_owner(world_id))
+        except ApplicationStateNotFoundError:
+            continue
+        except ApplicationStateError:
+            raise _unavailable() from None
+        await run_in_threadpool(_owned_world, subject, world_id)
+        request.state.hosted_saved_artwork = (asset_id, world_id)
+        return world_id
+    raise _denied()
+
+
+def require_hosted_saved_artwork(request: Request, asset_id: UUID) -> str:
+    binding = getattr(request.state, "hosted_saved_artwork", None)
+    if binding is None or binding[0] != str(asset_id):
+        raise _denied()
+    world_id = binding[1]
+    _owned_world(_hosted_subject(request), world_id)
+    return hosted_world_media_owner(world_id)
+
+
 async def resolve_hosted_build_page_inventory(request: Request) -> str:
     subject = _hosted_subject(request)
     selectors = request.query_params.getlist("world_id")

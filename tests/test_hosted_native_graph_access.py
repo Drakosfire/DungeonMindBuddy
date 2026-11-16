@@ -235,7 +235,10 @@ def hosted(monkeypatch, request):
     allowlist = {world_id: subjects for world_id in ("managed", "foreign", "unowned")}
     monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps(allowlist))
 
+    from apps.live_control_server.routes.media_images import router as media_router
+
     app = FastAPI()
+    app.include_router(media_router)
     app.include_router(explorer_router)
     app.include_router(worlds_router)
     app.include_router(inspection_router)
@@ -273,6 +276,8 @@ def hosted(monkeypatch, request):
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
             ("POST", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
+            ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
@@ -1964,3 +1969,27 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert read.status_code == 409, read.text
     assert reviewed_runs == [run_id]
     assert read.headers["cache-control"] == "no-store"
+
+
+def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn):
+    from io import BytesIO
+
+    from PIL import Image
+    from application_state import media
+
+    world_id = next(iter(access.hosted_auth.hosted_world_access()))
+    image = BytesIO()
+    Image.new("RGB", (2, 2)).save(image, format="PNG")
+    payload = image.getvalue()
+    asset = media.stage_image(payload, access.hosted_world_media_owner(world_id), {})
+    path = f"/api/live/media/images/{asset['asset_id']}"
+    metadata = hosted.client.request("GET", f"{path}/metadata")
+    assert metadata.status_code == 200, metadata.text
+    assert metadata.json()["asset_id"] == str(asset["asset_id"])
+    original = hosted.client.request("GET", f"{path}/original")
+    assert original.status_code == 200, original.text
+    assert original.content == payload
+    assert original.headers["cache-control"] == "no-store"
+    for suffix in ("metadata", "original"):
+        assert hosted.client.request("GET", f"{path}/{suffix}", session="other-session").status_code == 403
+        assert hosted.client.request("GET", f"{path}/{suffix}?world_id={world_id}").status_code == 403
