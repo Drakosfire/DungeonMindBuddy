@@ -37,7 +37,7 @@ from application_state.world_catalog.types import (
 from apps.live_control_server.routes.native_graph_explorer import (
     router as explorer_router,
 )
-from apps.live_control_server.routes import extract_promote, live, workspace_documents
+from apps.live_control_server.routes import extract_promote, graph_preview, live, workspace_documents
 from apps.live_control_server.routes.world_containers import router as worlds_router
 from apps.live_control_server.routes.native_graph_inspection import (
     router as inspection_router,
@@ -248,6 +248,7 @@ def hosted(monkeypatch, request):
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
     app.include_router(live.router)
+    app.include_router(graph_preview.router)
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", get_pdf_statblock_publication, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", post_pdf_statblock_publication, methods=["POST"])
@@ -270,6 +271,9 @@ def hosted(monkeypatch, request):
             ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("POST", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
+            ("POST", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
@@ -1869,7 +1873,7 @@ def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_prepar
     assert prepared == ["owned"]
 
 
-def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_state_dsn):
+def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_state_dsn, monkeypatch):
     documents = "/api/live/workspace-documents"
     editor = "/api/live/tiptap/markdown-write"
     create = {
@@ -1904,3 +1908,38 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert reopened.status_code == 200, reopened.text
     assert reopened.headers["cache-control"] == "no-store"
     assert "The pilot town has a well." in reopened.json()["markdown"]
+
+
+    from apps.live_control_server.services import graph_preview_runner, graph_run_registry
+
+    runs = {}
+
+    def run_extraction(*, source_artifact_id, **kwargs):
+        run_id = str(uuid4())
+        run = SimpleNamespace(
+            run_id=run_id, source_artifact_id=source_artifact_id, source_domain="worldbuilding",
+            model_dump=lambda **kwargs: {"run_id": run_id},
+        )
+        runs[run_id] = run
+        return SimpleNamespace(run=run, failure_kind=None, diagnostics=[])
+
+    monkeypatch.setattr(graph_preview_runner, "run_worldbuilding_production_extraction", run_extraction)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", runs.__getitem__)
+    launch = "/api/live/graph-preview/extraction-runs"
+    snapshot = reopened.json()
+    extraction = {
+        "document_id": record["document_id"],
+        "expected_revision": snapshot["record"]["revision"],
+        "expected_content_sha256": snapshot["content_sha256"],
+    }
+    assert snapshot["record"]["target_relpath"] is None
+    assert hosted.client.request("POST", launch, json=extraction, session="other-session").status_code == 403
+    assert not runs
+    started = hosted.client.request("POST", launch, json=extraction)
+    assert started.status_code == 200, started.text
+    exact_run = f"{launch}/{started.json()['run']['run_id']}"
+    for route in (exact_run, f"{exact_run}/build-context"):
+        assert hosted.client.request("GET", route, session="other-session").status_code == 403
+        read = hosted.client.request("GET", route)
+        assert read.status_code == 200, read.text
+        assert read.headers["cache-control"] == "no-store"

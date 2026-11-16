@@ -261,14 +261,9 @@ async def resolve_hosted_build_page_create(request: Request) -> str:
 
 
 async def resolve_hosted_build_page(request: Request) -> str:
-    from apps.live_control_server import config
     from apps.live_control_server.services.tiptap_markdown_write import (
         TiptapMarkdownWriteCommitRequest, TiptapMarkdownWritePrepareRequest,
     )
-    from apps.live_control_server.services.workspace_document_registry import (
-        WorkspaceDocumentRegistryError, get_workspace_document,
-    )
-
     subject = _hosted_subject(request)
     if request.method == "GET":
         document_id = getattr(request.state, "hosted_route_document_id", None)
@@ -281,6 +276,17 @@ async def resolve_hosted_build_page(request: Request) -> str:
         if write.schema_version is not None:
             raise _denied()
         document_id = write.document_id
+    world_id = await _owned_build_page(subject, document_id)
+    request.state.hosted_build_page_world = world_id
+    return world_id
+
+
+async def _owned_build_page(subject: str, document_id: str | None) -> str:
+    from apps.live_control_server import config
+    from apps.live_control_server.services.workspace_document_registry import (
+        WorkspaceDocumentRegistryError, get_workspace_document,
+    )
+
     try:
         if not document_id or str(UUID(document_id)) != document_id:
             raise _denied()
@@ -295,8 +301,37 @@ async def resolve_hosted_build_page(request: Request) -> str:
     if record.kind != "worldbuilding_source" or not record.world_id:
         raise _denied()
     await run_in_threadpool(_owned_world, subject, record.world_id)
-    request.state.hosted_build_page_world = record.world_id
     return record.world_id
+
+
+async def resolve_hosted_build_extraction(request: Request) -> str:
+    from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError, get_extraction_run
+    from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, get_source_artifact
+
+    subject = _hosted_subject(request)
+    if request.method == "POST":
+        document_id = (await request.json()).get("document_id")
+        if not isinstance(document_id, str):
+            raise _denied()
+        world_id = await _owned_build_page(subject, document_id)
+    else:
+        run_id = getattr(request.state, "hosted_route_run_id", None)
+        if not run_id:
+            raise _denied()
+        try:
+            run = await run_in_threadpool(get_extraction_run, run_id)
+            artifact = await run_in_threadpool(get_source_artifact, run.source_artifact_id)
+        except (GraphRunRegistryError, SourceArtifactRegistryError) as exc:
+            if exc.status_code == 404:
+                raise _denied() from None
+            raise _unavailable() from None
+        if run.source_domain != "worldbuilding" or artifact.source_domain != "worldbuilding":
+            raise _denied()
+        world_id = await _owned_build_page(subject, artifact.workspace_document_id)
+        if artifact.world_id != world_id:
+            raise _denied()
+    request.state.hosted_build_page_world = world_id
+    return world_id
 
 
 async def resolve_hosted_build_page_inventory(request: Request) -> str:
