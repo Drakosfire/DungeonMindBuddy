@@ -15,7 +15,11 @@ export function ReplayNodeFinding({ trace, step, assertionId, nodeId }: {
   const value = assertion.value;
   if (assertion.predicate === "dungeonbuddy:summary" && value && typeof value === "object"
       && "kind" in value && value.kind === "literal" && "value" in value && typeof value.value === "string") {
+    const qualifications = assertion.metadata;
     return <div>
+      {qualifications && <p className="graph-node-explorer__context">
+        {[qualifications.claim_mode.replace(/^dungeonbuddy\.claim:/, ""), qualifications.epistemic_basis, qualifications.standing].join(" · ")}
+      </p>}
       <p>{value.value}</p>
       <details><summary>Open exact evidence</summary><RecordedReplayAssertionContent read={read} /></details>
     </div>;

@@ -11,7 +11,7 @@ export function useRecordedReplayAssertion({ trace, step, assertionId, open }: {
   const { sequence, revision_pin, scope_mode, campaign_id, native } = step
   const wave = useSyncExternalStore(subscribeReadWave, getReadWaveVersion, getReadWaveVersion)
   const binding = JSON.stringify([world_id, turn_id, trace_id, sequence, assertionId, revision_pin, scope_mode, campaign_id, native])
-  const [read, setRead] = useState<{ binding: string; wave: number; assertion: BuddyReplayAssertionResponse['assertion'] | null; excerpts?: BuddyReplayNativeAssertionResponse['excerpts'] }>()
+  const [read, setRead] = useState<{ binding: string; wave: number; assertion: (BuddyReplayAssertionResponse['assertion'] & Pick<BuddyReplayNativeAssertionResponse['assertion'], 'metadata'>) | null; excerpts?: BuddyReplayNativeAssertionResponse['excerpts'] }>()
   useEffect(() => {
     if (!open) return
     const controller = new AbortController()
@@ -37,13 +37,13 @@ export function useRecordedReplayAssertion({ trace, step, assertionId, open }: {
   return read?.binding === binding && read.wave === wave ? read : undefined
 }
 
-export function BuddyReplayAssertion({ trace, step, assertionId, label }: {
-  trace: BuddyTurnContextTrace; step: RetrievalStep; assertionId: string; label?: string
+export function BuddyReplayAssertion({ trace, step, assertionId }: {
+  trace: BuddyTurnContextTrace; step: RetrievalStep; assertionId: string
 }) {
   const [open, setOpen] = useState(false)
   const read = useRecordedReplayAssertion({ trace, step, assertionId, open })
   return <details onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary>{label ?? `Open assertion · ${assertionId}`}</summary>
+    <summary>Open assertion · {assertionId}</summary>
     {open && (!read ? <p role="status">Reading the recorded assertion…</p>
       : read.assertion ? <RecordedReplayAssertionContent read={read} />
       : <p role="alert">The assertion is unavailable at the recorded revision.</p>)}

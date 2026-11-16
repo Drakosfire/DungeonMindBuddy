@@ -400,6 +400,16 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
     const ids = read.assertionIdsBySubject?.[inspectedId]
     return ids?.length ? [{ position, read, ids }] : []
   })
+  const seenFindings = new Set<string>()
+  const findings = [...inspectedReads]
+    .sort((a, b) => Number(Boolean(b.read.writerEvidence)) - Number(Boolean(a.read.writerEvidence)))
+    .flatMap(({ read, ids, position }) => ids.slice(0, 3).flatMap(assertionId => {
+      const key = JSON.stringify([read.revision_pin, assertionId])
+      if (seenFindings.has(key)) return []
+      seenFindings.add(key)
+      return [{ assertionId, read, position }]
+    }))
+    .slice(0, 3)
   const inspectedPruning = inspectedVisits.filter(position =>
     inspectedId !== null && steps[position].pruning?.ids.includes(inspectedId))
   const { nodes: recordedNodes, relationship_ids, relationships = [], total_counts, projection_status } = step.result
@@ -452,11 +462,11 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
           controls={<button type="button" autoFocus aria-label="Close node details" onClick={dismissNode}>×</button>}>
         <NodeOverview replay>
           {inspectedReads.length > 0 || inspectedHops.length > 0 || inspectedPruning.length > 0 ? <>
+            {trace && findings.map(({ assertionId, read, position }) => <ReplayNodeFinding
+              key={`${position}:${assertionId}`} trace={trace} step={read} assertionId={assertionId} nodeId={inspectedNode.node_id} />)}
             {trace && inspectedReads.map(({ position, read, ids }) => <div key={position}>
               <p>Buddy read {ids.length} {ids.length === 1 ? 'record' : 'records'} about this node in step {position + 1}.
                 {read.writerEvidence && ' These records were passed to the answer writer.'}</p>
-              {ids.slice(0, 2).map(assertionId => <ReplayNodeFinding
-                key={assertionId} trace={trace} step={read} assertionId={assertionId} nodeId={inspectedNode.node_id} />)}
               <RecordedAssertions trace={trace} step={{ ...read, result: { ...read.result, claim_ids: [...ids] } }} />
               <button type="button" onClick={() => { dismissNode(); select(position) }}>Go to step {position + 1}</button>
             </div>)}

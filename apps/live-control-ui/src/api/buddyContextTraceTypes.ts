@@ -1,3 +1,4 @@
+import type { NativeAssertion } from "./nativeGraphInspection";
 import type {AuthoredReferenceInput} from './types'
 /** APP-STATE context-trace consumer shape. Observations grant no evidence authority. */
 export interface WorldAgentTurnContextTraceResponse {
@@ -106,7 +107,7 @@ export interface BuddyTurnContextTrace {
 export interface BuddyReplayNativeAssertionResponse {
   schema: 'dmb_replay_native_assertion_v1'; world_id: string; turn_id: string; trace_id: string
   sequence: number; revision_id: string
-  assertion: { assertion_id: string; subject_entity_id: string; predicate: string; value: unknown }
+  assertion: { assertion_id: string; subject_entity_id: string; predicate: string; value: unknown; metadata?: NativeAssertion["metadata"] }
   excerpts: { evidence_ref_id: string; text: string }[]
 }
 
