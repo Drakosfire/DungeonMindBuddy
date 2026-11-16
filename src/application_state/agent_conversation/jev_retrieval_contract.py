@@ -378,6 +378,28 @@ def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) ->
     return _selection_from_choices(request, validated_choice_answers(result, expected))
 
 
+
+def retrieval_exclusions_for_replay(request, result, *, requested_work=None):
+    """Project explicit votes from the same validated decision used by retrieval."""
+    from .neighborhood_replay import ExcludedReplayCandidate, RetrievalExclusionReplay
+
+    if requested_work is not None and requested_work not in {"discuss", "clarify"}:
+        return None
+    excluded = [
+        candidate for index, candidate in enumerate(request.candidates)
+        if candidate.kind != KEYWORD_KIND
+        and (requested_work != "clarify" or not candidate.handle.startswith("saved-authored-page:"))
+        and result.answers[f"candidate_{index}"].selected == "exclude"
+    ]
+    displayable = [
+        candidate for candidate in excluded
+        if len(candidate.handle) <= 256 and len(candidate.label) <= 256 and len(candidate.kind) <= 128
+    ]
+    return RetrievalExclusionReplay(
+        candidates=[ExcludedReplayCandidate(handle=c.handle, label=c.label, kind=c.kind) for c in displayable[:32]],
+        total=len(excluded),
+    )
+
 def _selection_from_choices(request, choices, *, applicable_indexes=None):
     _validate_selection_choices(request, choices)
     planned = _planned_input(request)

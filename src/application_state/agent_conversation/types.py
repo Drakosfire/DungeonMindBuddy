@@ -18,6 +18,8 @@ from enum import Enum
 from typing import Annotated, ClassVar, Literal, NoReturn, Protocol, Union
 from uuid import UUID, uuid4
 
+from .neighborhood_replay import NeighborhoodReplay, RetrievalExclusionReplay
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
 
 from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
@@ -3449,6 +3451,7 @@ class ValidatedGraphOperationEventV1(GraphExecutionEventBaseV1):
     assertion_ids: list[str] = Field(max_length=512)
     relationship_ids: list[str] = Field(max_length=512)
     discovery_relationship_ids: list[str] = Field(default_factory=list, max_length=512, exclude_if=lambda value: not value)
+    neighborhood_replay: NeighborhoodReplay | None = Field(default=None, exclude_if=lambda value: value is None)
     evidence_ref_ids: list[str] = Field(max_length=1024)
     evidence_sufficiency_status: Literal["sufficient", "insufficient"]
     coverage_status: Literal["complete", "incomplete"]
@@ -3464,6 +3467,11 @@ class ValidatedGraphOperationEventV1(GraphExecutionEventBaseV1):
         discovery = self.discovery_relationship_ids
         if len(set(discovery)) != len(discovery) or not set(discovery).issubset(self.relationship_ids):
             raise ValueError("discovery edges must be unique returned relationships")
+        if self.neighborhood_replay is not None and (
+            [hop.relationship_id for hop in self.neighborhood_replay.hops] != discovery
+            or (self.neighborhood_replay.object_limit_pruned_count > 0 and not self.truncated)
+        ):
+            raise ValueError("neighborhood provenance differs from operation bounds")
         return self
 
 
@@ -4631,6 +4639,7 @@ class PlanJevRetrievalSelectionV1(GraphExecutionEventBaseV1):
     parent_request_sha256: Digest
     operation: Literal["select_candidates", "discover_more", "finish_retrieval"]
     selected_handles: list[str]
+    exclusion_replay: RetrievalExclusionReplay | None = Field(default=None, exclude_if=lambda value: value is None)
     actual_input_tokens: int | None = Field(default=None, strict=True, ge=0)
     actual_output_tokens: int | None = Field(default=None, strict=True, ge=0)
 
