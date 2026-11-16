@@ -121,6 +121,23 @@ def saved_lookup():
     return trace, authority, service
 
 
+def test_writer_marker_uses_completed_writer_and_respects_attempt_bounds(saved_lookup):
+    from application_state.agent_conversation.context_trace_store import _writer_evidence_sequences
+
+    trace, _, _ = saved_lookup
+    trace.terminal_status = "completed"
+    trace.execution_start_sequence = 5
+    graph_id = str(trace.observations[0].execution_event_id)
+    writer = {"kind": "plan_jev_writer_authorized_v2", "sequence": 6,
+              "provider_attempt_id": "writer", "included_graph_event_ids": [graph_id]}
+    completion = {"kind": "completion_binding", "sequence": 8, "provider_attempt_id": "writer"}
+    execution = {"events": [writer, completion]}
+    assert _writer_evidence_sequences(trace, execution, 9) == [2]
+    assert _writer_evidence_sequences(trace, execution, 8) is None
+    completion["provider_attempt_id"] = "different-writer"
+    assert _writer_evidence_sequences(trace, execution, None) is None
+
+
 def test_replay_assertion_uses_exact_saved_graph_pin(saved_lookup, monkeypatch):
     trace, _, service = saved_lookup
     read = Mock(return_value={"assertion": {"assertion_id": "claim:0"}})

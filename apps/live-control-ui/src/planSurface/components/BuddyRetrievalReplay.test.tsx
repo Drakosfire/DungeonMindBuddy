@@ -43,6 +43,17 @@ it('synchronizes the trail and step list, and cancels playback when paused', () 
   }
 })
 
+it('marks only the recorded writer evidence step as playback advances', () => {
+  const steps = [lookup(4, 'Caelynn'), lookup(8, 'Mossglade')]
+  const trace = { observations: steps, writer_evidence_sequences: [8] } as BuddyTurnContextTrace
+  render(<BuddyRetrievalReplay steps={steps} trace={trace} />)
+  const list = screen.getByRole('list', { name: 'Recorded retrieval steps' })
+  expect(within(list).getAllByRole('button', { name: /Writer evidence/ })).toHaveLength(1)
+  expect(screen.queryByText('Evidence sent to the answer writer')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
+  expect(screen.getByText('Evidence sent to the answer writer')).toBeInTheDocument()
+})
+
 it('scrolls both panes to a selected offscreen step without moving focus', () => {
   render(<BuddyRetrievalReplay steps={Array.from({ length: 10 }, (_, index) => lookup(index + 1, `Object ${index}`))} />)
   const trail = screen.getByRole('group', { name: 'Operations and returned objects' })
