@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BuddyReplayAssertion } from './BuddyReplayAssertion'
 import { BuddyHistoricalSourcePassage } from './BuddyHistoricalSourcePassage'
 import type { BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 import './BuddyRetrievalReplay.css'
@@ -162,6 +163,11 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
           </ul>}
           {nodes.length > previewSize && <button type="button" aria-expanded={expanded}
             onClick={() => setExpanded(value => !value)}>{expanded ? 'Show fewer objects' : `Show all ${nodes.length} recorded objects`}</button>}
+          {trace && step.result.claim_ids.length > 0 && <details>
+            <summary>Recorded assertions ({step.result.claim_ids.length})</summary>
+            {step.result.claim_ids.map(assertionId => <BuddyReplayAssertion
+              key={`${step.sequence}:${assertionId}`} trace={trace} step={step} assertionId={assertionId} />)}
+          </details>}
           {trace && passages.length > 0 && <section aria-label="Captured source excerpts">
             {passages.map(passage => <BuddyHistoricalSourcePassage key={`${passage.source_read_event_id}:${passage.source_read_id}`}
               graphRevision={step.revision_pin} label={`Open excerpt · ${passage.source_name?.trim() || 'Captured source'}`}

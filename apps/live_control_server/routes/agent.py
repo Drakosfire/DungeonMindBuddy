@@ -1835,6 +1835,27 @@ def get_world_turn_context_trace(world_id: str, turn_id: UUID, request: Request)
         raise HTTPException(status_code=409, detail={"code": "context_trace_binding_invalid"}) from exc
 
 
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/steps/{sequence}/assertion")
+def get_world_replay_assertion(world_id: str, turn_id: UUID, trace_id: UUID, sequence: int, request: Request):
+    from apps.live_control_server.services.agent_replay_assertion import open_replay_assertion
+    from apps.live_control_server.services.native_graph_inspection import InspectionUnavailable
+    from fastapi.responses import JSONResponse
+
+    principal = enforce_native_graph_gm(request)
+    world = _verified_world_id(world_id)
+    selectors = list(request.query_params.multi_items())
+    if not 0 <= sequence < 2048 or len(selectors) != 1 or selectors[0][0] != "assertion_id" or not 0 < len(selectors[0][1].strip()) <= 256:
+        raise HTTPException(status_code=422, detail={"code": "replay_assertion_selector_invalid"})
+    try:
+        result = open_replay_assertion(service=_conversation_service(request), principal=principal,
+            world_id=world, turn_id=turn_id, trace_id=trace_id, sequence=sequence, assertion_id=selectors[0][1])
+        return JSONResponse(result, headers={"Cache-Control": "no-store"})
+    except InspectionUnavailable as exc:
+        raise HTTPException(status_code=404, detail={"code": exc.code}) from exc
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "replay_assertion_unavailable"}) from exc
+
+
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/prompt/{provider_attempt_id}")
 def get_world_turn_prompt(world_id: str, turn_id: UUID, trace_id: UUID, provider_attempt_id: UUID, request: Request):
     """Explicit developer evidence read, under the same GM/World scope as traces."""

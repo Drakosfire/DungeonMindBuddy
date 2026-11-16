@@ -1,5 +1,6 @@
+import { setNativeGraphAccessToken } from '../../api/liveApi'
 import type { BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 import { BuddyRetrievalReplay, type RetrievalStep } from './BuddyRetrievalReplay'
 
@@ -11,6 +12,7 @@ function lookup(sequence: number, label: string): RetrievalStep {
       nodes: [{ node_id: label, label, kind: 'person' }],
       relationship_ids: [],
       evidence_ref_ids: [],
+      claim_ids: [],
       total_counts: { nodes: 1, relationships: 0, claims: 0 },
       outcome: 'enough',
     },
@@ -95,4 +97,34 @@ it('shows returned relationship direction and preserves lookup-only older steps'
   fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
   expect(screen.getByText('Some relationship endpoints were unavailable in this trace.')).toBeInTheDocument()
   expect(screen.queryByText('Returned relationships (1)')).not.toBeInTheDocument()
+})
+
+it('opens a recorded assertion lazily and rejects a different revision', async () => {
+  setNativeGraphAccessToken('synthetic-replay-reader')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({
+    schema: 'dmb_replay_assertion_v1', world_id: 'elderwyld', turn_id: 'turn', trace_id: 'trace',
+    sequence: 1, scope: { managed_world_id: 'elderwyld', revision_id: 'later', scope_mode: 'world', campaign_id: null },
+    assertion: { assertion_id: 'claim:1', subject_entity_id: 'Caelynn', predicate: 'name', value: 'Wrong revision' },
+  }))
+  try {
+    const step = lookup(1, 'Caelynn')
+    step.revision_pin = 'original'
+    step.scope_mode = 'world'
+    step.campaign_id = null
+    step.result.claim_ids = ['claim:1']
+    const trace = { trace_id: 'trace', world_id: 'elderwyld', turn_id: 'turn', observations: [step] } as BuddyTurnContextTrace
+    render(<BuddyRetrievalReplay steps={[step]} trace={trace} />)
+    expect(fetch).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Recorded assertions (1)'))
+    expect(fetch).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Open assertion · claim:1'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('unavailable at the recorded revision')
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(String(fetch.mock.calls[0][0])).toContain('/steps/1/assertion?assertion_id=claim%3A1')
+    expect(screen.queryByText(/Wrong revision/)).not.toBeInTheDocument()
+  } finally {
+    cleanup()
+    fetch.mockRestore()
+    setNativeGraphAccessToken(null)
+  }
 })
