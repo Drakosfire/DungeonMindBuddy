@@ -265,6 +265,7 @@ async def resolve_hosted_build_page(request: Request) -> str:
         TiptapMarkdownWriteCommitRequest, TiptapMarkdownWritePrepareRequest,
     )
     subject = _hosted_subject(request)
+    plan_write_world = None
     if request.method == "GET":
         document_id = getattr(request.state, "hosted_route_document_id", None)
     else:
@@ -273,19 +274,20 @@ async def resolve_hosted_build_page(request: Request) -> str:
             else TiptapMarkdownWriteCommitRequest
         )
         write = model.model_validate(await request.json())
-        if write.schema_version is not None:
-            raise _denied()
+        plan_write_world = write.world_id
         document_id = write.document_id
     plan_snapshot = request.method == "GET" and request.url.path.endswith("/snapshot") and not request.query_params
-    world_id = await _owned_build_page(subject, document_id, allow_plan_snapshot=plan_snapshot)
-    if plan_snapshot:
+    world_id = await _owned_build_page(
+        subject, document_id, allow_plan_snapshot=plan_snapshot, plan_write_world=plan_write_world
+    )
+    if plan_snapshot or plan_write_world is not None:
         request.state.hosted_plan_context_world = world_id
     request.state.hosted_build_page_world = world_id
     return world_id
 
 
 async def _owned_build_page(
-    subject: str, document_id: str | None, *, allow_plan_snapshot: bool = False
+    subject: str, document_id: str | None, *, allow_plan_snapshot: bool = False, plan_write_world: str | None = None
 ) -> str:
     from apps.live_control_server import config
     from apps.live_control_server.services.workspace_document_registry import (
@@ -303,8 +305,12 @@ async def _owned_build_page(
         if exc.status_code == 404:
             raise _denied() from None
         raise _unavailable() from None
-    is_plan = allow_plan_snapshot and isinstance(record, WorldOwnedPlanRecordV2)
-    if not record.world_id or (record.kind != "worldbuilding_source" and not is_plan):
+    if plan_write_world is not None:
+        if not isinstance(record, WorldOwnedPlanRecordV2) or record.world_id != plan_write_world:
+            raise _denied()
+    elif not record.world_id or not (
+        record.kind == "worldbuilding_source" or (allow_plan_snapshot and isinstance(record, WorldOwnedPlanRecordV2))
+    ):
         raise _denied()
     await run_in_threadpool(_owned_world, subject, record.world_id)
     return record.world_id

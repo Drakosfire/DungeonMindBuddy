@@ -784,6 +784,10 @@ def post_statblock_workbench_draft_retrieval_verify(
 def post_tiptap_markdown_write_prepare(
     body: TiptapMarkdownWritePrepareRequest, request: Request,
 ) -> dict[str, Any]:
+    if body.world_id is not None:
+        from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+        require_hosted_plan_world_context(request, body.world_id)
     try:
         if has_saved_media_references(body.markdown):
             enforce_native_graph_gm(request)
@@ -800,6 +804,10 @@ def post_tiptap_markdown_write_prepare(
 def post_tiptap_markdown_write_commit(
     body: TiptapMarkdownWriteCommitRequest, request: Request,
 ) -> dict[str, Any]:
+    if body.world_id is not None:
+        from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+        require_hosted_plan_world_context(request, body.world_id)
     try:
         if has_saved_media_references(body.markdown):
             enforce_native_graph_gm(request)
