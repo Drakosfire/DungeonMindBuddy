@@ -63,6 +63,19 @@ it('interleaves native and legacy reads using ledger order', () => {
   expect(screen.getByText('Evidence sent to the answer writer')).toBeInTheDocument()
 })
 
+it('keeps the last assertion in a dense batch reachable with bounded controls', () => {
+  const step = lookup(4, 'Caelynn')
+  step.result.claim_ids = Array.from({ length: 426 }, (_, index) => `claim:${index + 1}`)
+  const trace = { observations: [step] } as BuddyTurnContextTrace
+  render(<BuddyRetrievalReplay trace={trace} steps={[step]} />)
+  fireEvent.click(screen.getByText('Recorded assertions (426)'))
+  expect(screen.getAllByText(/^Open assertion ·/)).toHaveLength(20)
+  fireEvent.change(screen.getByLabelText('Assertion range'), { target: { value: '21' } })
+  expect(screen.getAllByText(/^Open assertion ·/)).toHaveLength(6)
+  expect(screen.getByText('Open assertion · claim:426')).toBeInTheDocument()
+  expect(screen.queryByText('Open assertion · claim:1')).not.toBeInTheDocument()
+})
+
 it('marks only the recorded writer evidence step as playback advances', () => {
   const steps = [lookup(4, 'Caelynn'), lookup(8, 'Mossglade')]
   const trace = { observations: steps, writer_evidence_sequences: [8] } as BuddyTurnContextTrace

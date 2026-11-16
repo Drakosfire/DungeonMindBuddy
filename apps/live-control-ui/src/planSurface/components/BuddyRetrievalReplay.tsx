@@ -45,6 +45,28 @@ const labels = {
 } satisfies Record<RetrievalStep['request']['operation'], string>
 
 const previewSize = 12
+const assertionPageSize = 20
+
+function RecordedAssertions({ trace, step }: { trace: BuddyTurnContextTrace; step: RetrievalStep }) {
+  const [page, setPage] = useState(0)
+  const assertions = step.result.claim_ids
+  const start = page * assertionPageSize
+  const end = Math.min(start + assertionPageSize, assertions.length)
+  return <details>
+    <summary>Recorded assertions ({assertions.length})</summary>
+    {assertions.length > assertionPageSize && <label>
+      Assertion range{' '}
+      <select value={page} onChange={event => setPage(Number(event.target.value))}>
+        {Array.from({ length: Math.ceil(assertions.length / assertionPageSize) }, (_, index) =>
+          <option key={index} value={index}>
+            {index * assertionPageSize + 1}–{Math.min((index + 1) * assertionPageSize, assertions.length)}
+          </option>)}
+      </select>
+    </label>}
+    {assertions.slice(start, end).map(assertionId => <BuddyReplayAssertion
+      key={assertionId} trace={trace} step={step} assertionId={assertionId} />)}
+  </details>
+}
 
 function layoutTrail(steps: readonly RetrievalStep[]) {
   return steps.map((step, position) => ({
@@ -196,11 +218,8 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
           </ul>}
           {nodes.length > previewSize && <button type="button" aria-expanded={expanded}
             onClick={() => setExpanded(value => !value)}>{expanded ? 'Show fewer objects' : `Show all ${nodes.length} recorded objects`}</button>}
-          {trace && step.result.claim_ids.length > 0 && <details>
-            <summary>Recorded assertions ({step.result.claim_ids.length})</summary>
-            {step.result.claim_ids.map(assertionId => <BuddyReplayAssertion
-              key={`${stepKey(step)}:${assertionId}`} trace={trace} step={step} assertionId={assertionId} />)}
-          </details>}
+          {trace && step.result.claim_ids.length > 0 &&
+            <RecordedAssertions key={stepKey(step)} trace={trace} step={step} />}
           {trace && passages.length > 0 && <section aria-label="Captured source excerpts">
             {passages.map(passage => <BuddyHistoricalSourcePassage key={`${passage.source_read_event_id}:${passage.source_read_id}`}
               graphRevision={step.revision_pin} label={`Open excerpt · ${passage.source_name?.trim() || 'Captured source'}${writerObservations.has(passage.sequence) ? ' · Writer evidence' : ''}`}
