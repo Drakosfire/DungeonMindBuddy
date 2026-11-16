@@ -768,7 +768,33 @@ describe("canonical local guest entry", () => {
     }));
   });
 
-  it.each(["/plan", "/play", "/build", "/ingest", "/combat", "/statblock", "/surface"])(
+  it("opens PDF Build for an authenticated, admitted World", async () => {
+    vi.stubEnv("PROD", true);
+    window.history.replaceState({}, "", "/build?world=world-a");
+    vi.stubGlobal("fetch", managedServerFetch({ authStatus: "authenticated" }));
+    render(<App />);
+
+    expect(await screen.findByLabelText("Choose or drop a PDF")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Build" })).toHaveAttribute("href", "/build?world=world-a");
+  });
+
+  it("keeps hosted PDF Build closed when the World lookup is denied", async () => {
+    vi.stubEnv("PROD", true);
+    window.history.replaceState({}, "", "/build?world=world-a&pdfReview=held-review");
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
+      input === "/api/auth/session"
+        ? Response.json({ status: "authenticated", subject: "other-account" })
+        : Response.json({}, { status: 403 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("World selection unavailable");
+    expect(screen.queryByLabelText("Choose or drop a PDF")).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([path]) => String(path).includes("build-pdf-sources"))).toBe(false);
+  });
+
+  it.each(["/plan", "/play", "/ingest", "/combat", "/statblock", "/surface"])(
     "guards direct hosted entry to %s without mounting the workspace",
     async (path) => {
       window.history.replaceState({}, "", path);
