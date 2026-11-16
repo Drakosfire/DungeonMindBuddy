@@ -1,5 +1,7 @@
 """Read display metadata for subjects already retained in one replay."""
 
+import re
+
 from application_state.agent_conversation.service import _ready_dsn
 from application_state.unit_of_work import unit_of_work
 from dungeonmind.application.vnext import EntityReadService
@@ -13,6 +15,12 @@ from apps.live_control_server.services.native_graph_inspection import (
 MAX_REPLAY_IDENTITIES = 128
 
 
+def _has_recorded_name(label):
+    return bool(label and label.strip() and not re.match(
+        r"^(?:(?:ent|entity|asrt):|Unnamed object(?: \d+)?$)", label, re.IGNORECASE,
+    ))
+
+
 def replay_identities(*, service, principal, world_id, turn_id, trace_id):
     attempts = service.list_context_trace_attempts(world_id=world_id, turn_id=turn_id)
     trace = next((item for item in attempts if item.trace_id == trace_id
@@ -21,7 +29,7 @@ def replay_identities(*, service, principal, world_id, turn_id, trace_id):
         raise InspectionUnavailable("replay_trace_unavailable")
     subjects = dict.fromkeys(
         identity for step in trace.native_assertion_steps or () for identity in step.subject_ids
-        if identity not in step.subject_labels or identity not in step.subject_kinds
+        if not _has_recorded_name(step.subject_labels.get(identity)) or identity not in step.subject_kinds
     )
     identities = []
     if subjects:
