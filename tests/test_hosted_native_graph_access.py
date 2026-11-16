@@ -277,6 +277,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
@@ -2008,3 +2009,23 @@ def test_hosted_plan_context_requires_exact_owned_world(hosted):
         assert hosted.client.request("GET", path, session="other-session").status_code == 403
     for query in ("", f"?world_id={world_id}&world_id={world_id}", f"?world_id={world_id}&campaign_id=other"):
         assert hosted.client.request("GET", f"/api/live/plan-view{query}").status_code == 403
+
+
+def test_hosted_plan_inventory_reopens_an_exact_owned_plan(hosted, application_state_dsn, tmp_path):
+    from apps.live_control_server.services.workspace_document_registry import create_world_owned_plan_v2
+
+    plan = create_world_owned_plan_v2(tmp_path, world_id="managed", title="Hosted session plan")
+    base = "/api/live/workspace-documents"
+    inventory = f"{base}/world-plans?world_id=managed"
+    snapshot = f"{base}/{plan.document_id}/snapshot"
+    listed = hosted.client.request("GET", inventory)
+    assert listed.status_code == 200, listed.text
+    assert [r["document_id"] for r in listed.json()["records"]] == [plan.document_id]
+    read = hosted.client.request("GET", snapshot)
+    assert read.status_code == 200, read.text
+    assert read.json()["record"]["document_id"] == plan.document_id
+    assert read.json()["record"]["world_id"] == "managed"
+    for path in (inventory, snapshot):
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    for path in (inventory + "&scope_mode=world", snapshot + "?view=committed", f"{base}/{plan.document_id}"):
+        assert hosted.client.request("GET", path).status_code == 403

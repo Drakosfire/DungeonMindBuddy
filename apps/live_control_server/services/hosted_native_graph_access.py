@@ -276,15 +276,20 @@ async def resolve_hosted_build_page(request: Request) -> str:
         if write.schema_version is not None:
             raise _denied()
         document_id = write.document_id
-    world_id = await _owned_build_page(subject, document_id)
+    plan_snapshot = request.method == "GET" and request.url.path.endswith("/snapshot") and not request.query_params
+    world_id = await _owned_build_page(subject, document_id, allow_plan_snapshot=plan_snapshot)
+    if plan_snapshot:
+        request.state.hosted_plan_context_world = world_id
     request.state.hosted_build_page_world = world_id
     return world_id
 
 
-async def _owned_build_page(subject: str, document_id: str | None) -> str:
+async def _owned_build_page(
+    subject: str, document_id: str | None, *, allow_plan_snapshot: bool = False
+) -> str:
     from apps.live_control_server import config
     from apps.live_control_server.services.workspace_document_registry import (
-        WorkspaceDocumentRegistryError, get_workspace_document,
+        WorldOwnedPlanRecordV2, WorkspaceDocumentRegistryError, get_workspace_document,
     )
 
     try:
@@ -298,7 +303,8 @@ async def _owned_build_page(subject: str, document_id: str | None) -> str:
         if exc.status_code == 404:
             raise _denied() from None
         raise _unavailable() from None
-    if record.kind != "worldbuilding_source" or not record.world_id:
+    is_plan = allow_plan_snapshot and isinstance(record, WorldOwnedPlanRecordV2)
+    if not record.world_id or (record.kind != "worldbuilding_source" and not is_plan):
         raise _denied()
     await run_in_threadpool(_owned_world, subject, record.world_id)
     return record.world_id
@@ -383,6 +389,8 @@ async def resolve_hosted_plan_world_context(request: Request) -> str:
         [("world_id", world_id)],
         [("scope_mode", "world"), ("world_id", world_id)],
     ):
+        raise _denied()
+    if request.url.path.endswith("/world-plans") and selectors != [("world_id", world_id)]:
         raise _denied()
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
     request.state.hosted_plan_context_world = world.world_id

@@ -167,6 +167,7 @@ PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/plan-view"): resolve_hosted_plan_world_context,
+    ("GET", "/api/live/workspace-documents/world-plans"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/media/images/{asset_id}/metadata"): resolve_hosted_saved_artwork,
     ("GET", "/api/live/media/images/{asset_id}/original"): resolve_hosted_saved_artwork,
     ("POST", FIRST_WORLD_PREPARE_PATH): resolve_hosted_first_world,
