@@ -441,7 +441,11 @@ def validate_citation_records(completion, receipt, authorization, reads):
             if (set(segment.assertion_ids) != cited.get(i, set())
                     or {digest(m) for m in segment.qualifications} != set(metadata)):
                 raise ValueError('Native assertion claim omitted its support or qualifications')
-            expected = {(i, event.event_id, read.assertion.assertion_id, span.evidence_ref_id)
-                for event, read in reads.values() if read.assertion.assertion_id in segment.assertion_ids for span in read.spans}
-            if {key for key in seen if key[0] == i} != expected:
+            # Each citation was checked against its exact producing read above.
+            # Reopening the same immutable evidence in another read adds no support.
+            expected = {(read.assertion.assertion_id, span.evidence_ref_id)
+                for _, read in reads.values() if read.assertion.assertion_id in segment.assertion_ids for span in read.spans}
+            observed = {(assertion_id, evidence_ref_id)
+                for index, _, assertion_id, evidence_ref_id in seen if index == i}
+            if observed != expected:
                 raise ValueError('Native assertion claim omitted a supporting span')

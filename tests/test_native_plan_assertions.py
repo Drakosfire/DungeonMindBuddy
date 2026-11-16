@@ -1507,3 +1507,39 @@ def test_interrupted_actual_opening_retains_unknown_attempt_without_provider_rep
         lane, tmp_path, monkeypatch, native_read_admission_probes):
     _ordinary_native_case(lane, tmp_path, monkeypatch, False, False,
         None, 'opening_timeout', False, native_read_admission_probes)
+
+
+def test_citation_closure_counts_distinct_evidence_across_reads(monkeypatch):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import native_plan_assertions as owner
+    from application_state.agent_conversation.types import NativeAssertionClaimV1
+
+    metadata = {"standing": "provisional"}
+    first_span = SimpleNamespace(evidence_ref_id="pdf-region-1")
+    second_span = SimpleNamespace(evidence_ref_id="pdf-region-2")
+    assertion = SimpleNamespace(assertion_id="assertion-A", metadata=metadata)
+    first = SimpleNamespace(event_id="authored-read")
+    repeat = SimpleNamespace(event_id="search-read")
+    read = SimpleNamespace(assertion=assertion, spans=(first_span,))
+    reads = {(first.event_id, assertion.assertion_id): (first, read),
+             (repeat.event_id, assertion.assertion_id): (repeat, read)}
+    claim = NativeAssertionClaimV1.model_construct(
+        text="A cited Plan card", assertion_ids=[assertion.assertion_id], qualifications=[metadata])
+
+    def citation(receipt, authorization, event, selected, span, *, index):
+        return SimpleNamespace(segment_index=index, read_event_id=event.event_id,
+            assertion_id=selected.assertion.assertion_id, evidence_ref_id=span.evidence_ref_id)
+
+    monkeypatch.setattr(owner, "citation", citation)
+    completion = SimpleNamespace(answer_segments=[claim],
+        native_assertion_citations=[citation(None, None, first, read, first_span, index=0)])
+    owner.validate_citation_records(completion, None, None, reads)
+
+    reads[(repeat.event_id, assertion.assertion_id)] = (
+        repeat, SimpleNamespace(assertion=assertion, spans=(first_span, second_span)))
+    with pytest.raises(ValueError, match="omitted a supporting span"):
+        owner.validate_citation_records(completion, None, None, reads)
+
+    completion.native_assertion_citations[0].read_event_id = "unadmitted-read"
+    with pytest.raises(ValueError, match="lacks exact included support"):
+        owner.validate_citation_records(completion, None, None, reads)
