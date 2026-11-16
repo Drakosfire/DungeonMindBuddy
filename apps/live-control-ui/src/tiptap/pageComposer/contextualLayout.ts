@@ -1,5 +1,21 @@
 import type { Editor } from '@tiptap/core';
-import { Selection } from '@tiptap/pm/state';
+import { Plugin, Selection } from '@tiptap/pm/state';
+
+export const LAYOUT_EDITABILITY_EVENT = 'page-layout-editability';
+
+/** setEditable(..., false) updates PluginViews without emitting a TipTap update. */
+export function layoutEditabilityPlugin() {
+  return new Plugin({ view: view => {
+    let editable = view.editable;
+    const notify = () => view.dom.dispatchEvent(new CustomEvent(LAYOUT_EDITABILITY_EVENT, { detail: editable }));
+    notify();
+    return { update: next => {
+      if (editable === next.editable) return;
+      editable = next.editable;
+      notify();
+    } };
+  } });
+}
 
 export const LAYOUT_CONTROLS_EVENT = 'page-layout-controls';
 export type LayoutRequest = { kind: 'pageRow' | 'pageImageText'; id: string; trigger: HTMLButtonElement };

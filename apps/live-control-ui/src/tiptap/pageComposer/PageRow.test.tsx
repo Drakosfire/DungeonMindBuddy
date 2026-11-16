@@ -9,8 +9,8 @@ import { PAGE_COMPOSER_EXTENSIONS, PageComposerTools, movePageBlock, resizePageR
 const paragraph = (text: string, id = text): JSONContent => ({ type: 'paragraph', attrs: { pageBlockId: id }, content: [{ type: 'text', text }] });
 let editor: Editor;
 afterEach(() => { cleanup(); editor?.destroy(); });
-function create(content: JSONContent[] = [paragraph('First'), paragraph('Second'), paragraph('Third')]) {
-  editor = new Editor({ extensions: [...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, ...PAGE_COMPOSER_EXTENSIONS], content: { type: 'doc', content } });
+function create(content: JSONContent[] = [paragraph('First'), paragraph('Second'), paragraph('Third')], editable = true) {
+  editor = new Editor({ editable, extensions: [...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, ...PAGE_COMPOSER_EXTENSIONS], content: { type: 'doc', content } });
   return editor;
 }
 
@@ -336,5 +336,62 @@ describe('Explicit contextual layout controls', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(editor.state.doc.childCount).toBe(2);
     expect(editor.state.doc.lastChild?.textContent).toBe('Editable title');
+  });
+});
+
+
+describe('Silent composer editability lifecycle', () => {
+  const art: JSONContent = { type: 'paragraph', attrs: { pageBlockId: 'art' }, content: [{ type: 'mediaImage', attrs: { assetId: '11111111-1111-4111-8111-111111111111', alt: 'Artwork' } }] };
+  for (const kind of ['pageRow', 'pageImageText'] as const) {
+    it(`mounts ${kind} read-only, restores silently, closes its popup and hides controls without writes`, () => {
+      const content: JSONContent = kind === 'pageRow'
+        ? { type: 'pageRow', attrs: { id: 'row' }, content: [{ type: 'pageSlot', attrs: { id: 'slot', width: 12 }, content: [paragraph('First')] }] }
+        : { type: 'pageImageText', attrs: { id: 'image-text' }, content: [art, paragraph('Title')] };
+      create([content], false);
+      render(<><EditorContent editor={editor} /><PageComposerTools editor={editor} /></>);
+      const handle = editor.view.dom.querySelector('.page-layout-handle') as HTMLButtonElement;
+      expect(handle.hidden).toBe(true);
+      const before = editor.getJSON(), transaction = vi.fn(), update = vi.fn();
+      editor.on('transaction', transaction); editor.on('update', update);
+      act(() => editor.setEditable(true, false));
+      expect(handle.hidden).toBe(false);
+      fireEvent.click(handle);
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      transaction.mockClear();
+      act(() => editor.setEditable(false, false));
+      expect(handle.hidden).toBe(true);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(handle).toHaveAttribute('aria-expanded', 'false');
+      expect(editor.view.dom.querySelector('[data-layout-selected]')).toBeNull();
+      for (const control of editor.view.dom.querySelectorAll<HTMLButtonElement>('[role=separator]')) {
+        expect(control.hidden).toBe(true); expect(control.disabled).toBe(true);
+      }
+      act(() => editor.setEditable(true, false));
+      expect(handle.hidden).toBe(false);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(transaction).not.toHaveBeenCalled(); expect(update).not.toHaveBeenCalled();
+      expect(editor.getJSON()).toEqual(before);
+    });
+  }
+  it('cancels an active divider preview across silent read-only and editable transitions', () => {
+    create(); wrapPageRow(editor);
+    const divider = editor.view.dom.querySelector('[role=separator]') as HTMLButtonElement;
+    const slots = editor.view.dom.querySelector('.page-composer-row__slots') as HTMLElement;
+    vi.spyOn(slots, 'getBoundingClientRect').mockReturnValue({ left: 0, width: 120 } as DOMRect);
+    divider.setPointerCapture = vi.fn();
+    const pointer = (type: string, x: number) => {
+      const event = new Event(type, { bubbles: true });
+      Object.defineProperties(event, { clientX: { value: x }, pointerId: { value: 1 }, button: { value: 0 } });
+      divider.dispatchEvent(event);
+    };
+    const before = editor.getJSON(), transaction = vi.fn(); editor.on('transaction', transaction);
+    pointer('pointerdown', 60); pointer('pointermove', 80);
+    expect(divider.getAttribute('aria-valuenow')).toBe('8');
+    editor.setEditable(false, false);
+    expect(divider.hidden).toBe(true); expect(divider.getAttribute('aria-valuenow')).toBe('6');
+    editor.setEditable(true, false);
+    pointer('pointermove', 90); pointer('pointerup', 90);
+    expect(divider.hidden).toBe(false); expect(divider.getAttribute('aria-valuenow')).toBe('6');
+    expect(transaction).not.toHaveBeenCalled(); expect(editor.getJSON()).toEqual(before);
   });
 });

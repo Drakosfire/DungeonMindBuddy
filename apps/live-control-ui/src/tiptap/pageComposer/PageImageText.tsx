@@ -4,7 +4,7 @@ import { Selection } from '@tiptap/pm/state';
 import { closeHistory } from '@tiptap/pm/history';
 import { useEffect, useState } from 'react';
 import './PageImageText.css';
-import { layoutHandle } from './contextualLayout';
+import { layoutHandle, LAYOUT_EDITABILITY_EVENT } from './contextualLayout';
 import { validateImageTextContent } from './presentation';
 
 export const IMAGE_TEXT_ANCHORS = ['top-left', 'top-center', 'top-right', 'middle-left', 'middle-center', 'middle-right', 'bottom-left', 'bottom-center', 'bottom-right'] as const;
@@ -65,11 +65,15 @@ export const PageImageText = Node.create({
   parseHTML() { return [{ tag: 'div[data-page-image-text]' }]; },
   renderHTML({ HTMLAttributes }) { return ['div', mergeAttributes(HTMLAttributes, { 'data-page-image-text': '', class: 'page-image-text' }), 0]; },
   addNodeView() {
-    return ({ node: initial, editor, getPos }) => {
+    return ({ node: initial, editor, getPos, view }) => {
       let node = initial;
       const dom = document.createElement('div'); dom.className = 'page-image-text'; dom.dataset.pageImageText = ''; dom.dataset.overlay = 'false';
       const contentDOM = document.createElement('div'); contentDOM.className = 'page-image-text__content'; dom.append(contentDOM);
       const handle = layoutHandle(editor, getPos, 'pageImageText'); dom.append(handle);
+      handle.hidden = !editor.options.editable;
+      const editorDOM = view.dom;
+      const editableChanged = (event: Event) => { handle.hidden = !(event as CustomEvent<boolean>).detail; };
+      editorDOM.addEventListener(LAYOUT_EDITABILITY_EVENT, editableChanged);
       let frame: number | null = null; let destroyed = false;
       let observedImage: HTMLImageElement | null = null; let observedText: HTMLElement | null = null;
       const set = (key: string, value: string) => { if (dom.style.getPropertyValue(key) !== value) dom.style.setProperty(key, value); };
@@ -106,13 +110,12 @@ export const PageImageText = Node.create({
       // React managed images arrive asynchronously; observe child insertion but
       // never consume or suppress the editor's own content mutations.
       const mutations = new MutationObserver(schedule); mutations.observe(contentDOM, { childList: true, subtree: true, characterData: true, attributes: true });
-      editor.on('update', schedule);
       schedule();
       return { dom, contentDOM,
         update(next) { if (next.type !== node.type) return false; node = next; schedule(); return true; },
         stopEvent(event) { return handle.contains(event.target as globalThis.Node); },
         ignoreMutation(mutation) { return handle.contains(mutation.target) || (mutation.type === 'attributes' && mutation.target === dom); },
-        destroy() { editor.off('update', schedule); destroyed = true; if (frame !== null) cancelAnimationFrame(frame); observer?.disconnect(); mutations.disconnect(); contentDOM.removeEventListener('load', schedule, true); },
+        destroy() { editorDOM.removeEventListener(LAYOUT_EDITABILITY_EVENT, editableChanged); destroyed = true; if (frame !== null) cancelAnimationFrame(frame); observer?.disconnect(); mutations.disconnect(); contentDOM.removeEventListener('load', schedule, true); },
       };
     };
   },

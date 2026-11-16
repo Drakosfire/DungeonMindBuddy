@@ -194,3 +194,14 @@ it('rechecks the current block instead of acting on a stale eligible selection',
     await act(async () => { await retained(); });
     expect(current.editor!.state.doc.firstChild?.type.name).toBe('paragraph');
 });
+
+it('updates shared Edit availability across silent editability changes without document writes', () => {
+    current = layoutSession(); current.editor!.setEditable(false, false); render(<Harness />);
+    const before = current.editor!.getJSON(), transaction = vi.fn(); current.editor!.on('transaction', transaction);
+    expect(layoutCommand().availability.status).toBe('disabled');
+    act(() => current.editor!.setEditable(true, false));
+    expect(layoutCommand().availability.status).toBe('enabled');
+    act(() => current.editor!.setEditable(false, false));
+    expect(layoutCommand().availability.status).toBe('disabled');
+    expect(transaction).not.toHaveBeenCalled(); expect(current.editor!.getJSON()).toEqual(before);
+});

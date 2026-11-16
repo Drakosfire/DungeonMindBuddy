@@ -1,3 +1,4 @@
+import { LAYOUT_EDITABILITY_EVENT } from '../../tiptap/pageComposer/contextualLayout';
 import { pageComposerActions } from '../../tiptap/pageComposer/PageRow';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Editor } from '@tiptap/core';
@@ -98,8 +99,10 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
         const editor = session?.editor;
         if (!editor || editor.isDestroyed) return;
         const update = () => refreshLayout(value => value + 1);
+        const editorDOM = editor.view.dom;
+        editorDOM.addEventListener(LAYOUT_EDITABILITY_EVENT, update);
         editor.on('transaction', update); editor.on('update', update); editor.on('destroy', update);
-        return () => { editor.off('transaction', update); editor.off('update', update); editor.off('destroy', update); };
+        return () => { editorDOM.removeEventListener(LAYOUT_EDITABILITY_EVENT, update); editor.off('transaction', update); editor.off('update', update); editor.off('destroy', update); };
     }, [session?.editor]);
     const layoutAllowed = Boolean(acceptedDocument && session?.pageComposerEnabled && !session.pageComposerDisabledReason
         && isEditorInteractive(session.phase) && session.editor?.isEditable && !session.editor.isDestroyed);

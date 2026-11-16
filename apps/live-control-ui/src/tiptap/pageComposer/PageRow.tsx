@@ -5,7 +5,7 @@ import { Plugin, Selection } from '@tiptap/pm/state';
 import { closeHistory } from '@tiptap/pm/history';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { layoutHandle, LAYOUT_CONTROLS_EVENT, type LayoutRequest } from './contextualLayout';
+import { layoutHandle, layoutEditabilityPlugin, LAYOUT_EDITABILITY_EVENT, LAYOUT_CONTROLS_EVENT, type LayoutRequest } from './contextualLayout';
 import './PageRow.css';
 
 const BLOCKS = ['paragraph', 'heading', 'blockquote', 'bulletList', 'orderedList', 'table', 'callout', 'horizontalRule'];
@@ -176,12 +176,13 @@ export const PageSlot = Node.create({
 });
 
 export const PageRow = Node.create({
+  addProseMirrorPlugins() { return [layoutEditabilityPlugin()]; },
   name: 'pageRow', group: 'block', content: 'pageSlot{1,3}', defining: true, isolating: true,
   addAttributes() { return { id: { default: null }, min_height: { default: 0 }, line_mode: { default: 'guide' } }; },
   parseHTML() { return [{ tag: 'div[data-page-row]' }]; },
   renderHTML({ HTMLAttributes }) { return ['div', mergeAttributes(HTMLAttributes, { 'data-page-row': '', class: 'page-composer-row' }), 0]; },
   addNodeView() {
-    return ({ node: initial, editor, getPos }) => {
+    return ({ node: initial, editor, getPos, view }) => {
       let node = initial;
       const dom = document.createElement('div'); dom.className = 'page-composer-row'; dom.dataset.pageRow = '';
       const contentDOM = document.createElement('div'); contentDOM.className = 'page-composer-row__slots';
@@ -190,14 +191,16 @@ export const PageRow = Node.create({
       const controls: HTMLButtonElement[] = [];
       let drag: { index: number; width: number; rect: DOMRect; height?: number; startY?: number; baseHeight?: number } | null = null;
       const widths = () => { const values: number[] = []; node.forEach(slot => values.push(Number(slot.attrs.width))); return values; };
+      let editable = editor.options.editable;
       const paint = (values = widths(), height = node.attrs.min_height) => {
         contentDOM.style.gridTemplateColumns = values.map(width => `minmax(0, ${width}fr)`).join(' ');
         contentDOM.style.setProperty('--page-min-height', `${height}px`);
         dom.dataset.lineMode = node.attrs.line_mode;
-        handle.hidden = editor.isDestroyed || !editor.isEditable;
+        handle.hidden = editor.isDestroyed || !editable;
         let left = 0;
         controls.forEach((control, index) => {
-          control.disabled = !editor.isEditable || !validRow(node);
+          control.disabled = editor.isDestroyed || !editable || !validRow(node);
+          control.hidden = !editable;
           if (index < values.length - 1) {
             left += values[index]; control.style.left = `${left / 12 * 100}%`;
             control.setAttribute('aria-valuenow', String(values[index]));
@@ -265,13 +268,19 @@ export const PageRow = Node.create({
           }
         };
       }
-      const editableChanged = () => paint(); editor.on('update', editableChanged);
+      const editorDOM = view.dom;
+      const editableChanged = (event: Event) => {
+        editable = (event as CustomEvent<boolean>).detail;
+        if (!editable) drag = null;
+        paint();
+      };
+      editorDOM.addEventListener(LAYOUT_EDITABILITY_EVENT, editableChanged);
       paint();
       return { dom, contentDOM,
         update(next) { if (next.type !== node.type || next.childCount !== node.childCount) return false; node = next; if (!drag) paint(); return true; },
         stopEvent(event) { return handle.contains(event.target as globalThis.Node) || controls.some(control => control.contains(event.target as globalThis.Node)); },
         ignoreMutation(mutation) { return mutation.type !== 'selection' && (handle.contains(mutation.target) || mutation.target === dom || (mutation.target === contentDOM && mutation.type === 'attributes') || controls.some(control => control.contains(mutation.target))); },
-        destroy() { drag = null; editor.off('update', editableChanged); },
+        destroy() { drag = null; editorDOM.removeEventListener(LAYOUT_EDITABILITY_EVENT, editableChanged); },
       };
     };
   },
@@ -301,8 +310,10 @@ export function PageComposerTools({ editor, disabledReason }: { editor: Editor |
     const open = (event: Event) => { if (!editor.isDestroyed && editor.isEditable && !disabledReason) setRequest((event as CustomEvent<LayoutRequest>).detail); };
     const editorDOM = editor.view.dom;
     editorDOM.addEventListener(LAYOUT_CONTROLS_EVENT, open);
+    const editableChanged = () => { if (!editor.isEditable) setRequest(null); update(); };
+    editorDOM.addEventListener(LAYOUT_EDITABILITY_EVENT, editableChanged);
     editor.on('transaction', update); editor.on('selectionUpdate', update); editor.on('update', update); editor.on('destroy', update);
-    return () => { editorDOM.removeEventListener(LAYOUT_CONTROLS_EVENT, open); editor.off('transaction', update); editor.off('selectionUpdate', update); editor.off('update', update); editor.off('destroy', update); setRequest(null); };
+    return () => { editorDOM.removeEventListener(LAYOUT_EDITABILITY_EVENT, editableChanged); editorDOM.removeEventListener(LAYOUT_CONTROLS_EVENT, open); editor.off('transaction', update); editor.off('selectionUpdate', update); editor.off('update', update); editor.off('destroy', update); setRequest(null); };
   }, [editor, disabledReason]);
   const liveEditor = editor && !editor.isDestroyed && editor.isEditable && !disabledReason ? editor : null;
   const row = liveEditor ? rowAtSelection(liveEditor) : null;
