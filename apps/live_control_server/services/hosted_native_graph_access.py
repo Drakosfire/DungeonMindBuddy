@@ -305,6 +305,31 @@ async def resolve_hosted_play_preparation(request: Request) -> str:
     return owned_world
 
 
+async def resolve_hosted_play_creation(request: Request) -> str:
+    from application_state.play.session_encounter_types import WorldSessionCreateRequest
+
+    world_id = request.query_params.get("world_id")
+    run_id = getattr(request.state, "hosted_route_run_id", None)
+    if not world_id or request.query_params.multi_items() != [("world_id", world_id)] or not run_id:
+        raise _denied()
+    try:
+        if str(UUID(run_id)) != run_id:
+            raise _denied()
+    except ValueError:
+        raise _denied() from None
+    subject = _hosted_subject(request)
+    if request.method == "GET":
+        if await request.body():
+            raise _denied()
+        world = await run_in_threadpool(_owned_world, subject, world_id)
+        world_id = world.world_id
+    else:
+        source = WorldSessionCreateRequest.model_validate(await request.json())
+        world_id = await _owned_build_page(subject, str(source.playable_artifact_id), plan_write_world=world_id)
+    request.state.hosted_plan_context_world = world_id
+    return world_id
+
+
 async def resolve_hosted_committed_plan(request: Request) -> str:
     if request.query_params or await request.body():
         raise _denied()
