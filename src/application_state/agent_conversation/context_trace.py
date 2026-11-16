@@ -14,6 +14,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
+from .native_replay import NativeReplayAssertionStep
+
 MAX_CONTEXT_TRACE_BYTES = 1_048_576
 CONTEXT_TRACE_TERMINAL_RESERVE_BYTES = 4096
 MAX_SOURCE_PASSAGE_CHARS_PER_TURN = 96_000
@@ -423,6 +425,8 @@ class TurnContextTraceV1(TraceModel):
     capture_failure_code: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{0,63}$")
     observations: list[ContextTraceObservation] = Field(max_length=2048)
     writer_evidence_sequences: list[int] | None = Field(default=None, max_length=2048)
+    native_assertion_steps: list[NativeReplayAssertionStep] | None = Field(default=None, max_length=2048)
+    graph_replay_order: dict[int, int] | None = Field(default=None, max_length=2048)
 
     @model_validator(mode="after")
     def validate_order_scope_and_size(self) -> TurnContextTraceV1:

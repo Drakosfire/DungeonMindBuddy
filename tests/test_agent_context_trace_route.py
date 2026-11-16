@@ -143,6 +143,26 @@ def test_writer_marker_uses_completed_writer_and_respects_attempt_bounds(saved_l
     assert _writer_evidence_sequences(trace, execution, None) is None
 
 
+def test_native_replay_projects_only_the_attempt_and_writer_inclusion():
+    from application_state.agent_conversation.native_replay import native_assertion_steps
+
+    read = {"kind": "native_plan_assertion_read_observed_v2", "sequence": 6, "event_id": "read",
+            "reads": [{"assertion": {"assertion_id": "assertion", "subject_entity_id": "subject"}}],
+            "unavailable_assertion_ids": ["missing"]}
+    writer = {"kind": "native_writer_authorized_v1", "sequence": 8, "provider_attempt_id": "writer",
+              "native_read_event_ids": ["read"]}
+    completion = {"kind": "completion_binding", "sequence": 9, "provider_attempt_id": "writer"}
+    execution = {"events": [read, writer, completion]}
+    receipt = {"native_query": {"authority": {"revision_id": "pinned"}}}
+    steps = native_assertion_steps(execution, receipt, start=5, stop=None)
+    assert [step.model_dump() for step in steps] == [
+        {"sequence": 6, "revision_id": "pinned", "assertion_ids": ["assertion"],
+         "subject_ids": ["subject"], "unavailable_count": 1, "writer_evidence": True}
+    ]
+    assert not native_assertion_steps(execution, receipt, start=5, stop=9)[0].writer_evidence
+    assert native_assertion_steps(execution, receipt, start=7, stop=None) == []
+
+
 def test_replay_assertion_uses_exact_saved_graph_pin(saved_lookup, monkeypatch):
     trace, _, service = saved_lookup
     read = Mock(return_value={"assertion": {"assertion_id": "claim:0"}})

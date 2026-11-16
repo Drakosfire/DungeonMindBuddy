@@ -4,7 +4,37 @@ import { BuddyHistoricalSourcePassage } from './BuddyHistoricalSourcePassage'
 import type { BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 import './BuddyRetrievalReplay.css'
 
-export type RetrievalStep = Extract<BuddyTraceObservation, { kind: 'graph_tool' }>
+type GraphStep = Extract<BuddyTraceObservation, { kind: 'graph_tool' }>
+export type RetrievalStep = Pick<GraphStep, 'sequence' | 'revision_pin' | 'request' | 'result'>
+  & Partial<Pick<GraphStep, 'scope_mode' | 'campaign_id'>>
+  & { native?: true; writerEvidence?: boolean }
+
+export function replaySteps(trace: BuddyTurnContextTrace): RetrievalStep[] {
+  const graph = trace.observations.filter(event => event.kind === 'graph_tool')
+  const native = (trace.native_assertion_steps ?? []).map((step): RetrievalStep => {
+    const counts = { nodes: step.subject_ids.length, relationships: 0, claims: step.assertion_ids.length, evidence_refs: 0 }
+    return {
+      native: true, writerEvidence: step.writer_evidence, sequence: step.sequence, revision_pin: step.revision_id,
+      request: { operation: 'support', target_node_id: step.subject_ids[0] ?? '' },
+      result: {
+        outcome: step.unavailable_count ? 'partial' : 'enough', graph_revision: step.revision_id,
+        coverage_status: step.unavailable_count ? 'incomplete' : 'complete',
+        projection_status: step.unavailable_count ? 'limited' : 'complete',
+        nodes: step.subject_ids.map(id => ({ node_id: id, label: id, kind: 'object' })),
+        claim_ids: step.assertion_ids, relationship_ids: [], evidence_ref_ids: [],
+        returned_counts: counts, total_counts: { ...counts, claims: counts.claims + step.unavailable_count },
+        omission_codes: [],
+      },
+    }
+  })
+  if (!native.length) return graph
+  const order = (step: RetrievalStep) => step.native
+    ? step.sequence : trace.graph_replay_order?.[step.sequence] ?? Number.MAX_SAFE_INTEGER
+  return [...graph, ...native].sort((left, right) => order(left) - order(right))
+}
+
+const stepKey = (step: RetrievalStep) => `${step.native ? 'native' : 'graph'}:${step.sequence}`
+const stepLabel = (step: RetrievalStep) => step.native ? 'Read native assertions' : labels[step.request.operation]
 
 const labels = {
   search: 'Search the graph',
@@ -45,7 +75,7 @@ const Trail = memo(function Trail({ rows, active, select }: {
   return <div ref={pane} className="buddy-retrieval-replay__trail" aria-label="Recorded lookup trail">
     <svg viewBox={`0 0 580 ${rows.length * 84}`} role="group" aria-label="Operations and returned objects">
       {rows.map(({ step, position, y, objects, relationships }) => (
-        <g key={step.sequence} className={active === position ? 'is-current' : undefined}
+        <g key={stepKey(step)} className={active === position ? 'is-current' : undefined}
           data-replay-active={active === position ? true : undefined}>
           {objects.map((node, objectIndex) => {
             const x = 230 + objectIndex * 112
@@ -69,7 +99,7 @@ const Trail = memo(function Trail({ rows, active, select }: {
             </g>
           })}
           <g role="button" tabIndex={0} aria-pressed={active === position}
-            aria-label={`Step ${position + 1}, ${labels[step.request.operation]}`}
+            aria-label={`Step ${position + 1}, ${stepLabel(step)}`}
             onClick={() => select(position)} onKeyDown={event => {
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault()
@@ -77,7 +107,7 @@ const Trail = memo(function Trail({ rows, active, select }: {
               }
             }}>
             <rect x="8" y={y - 15} width="196" height="30" rx="7" />
-            <text x="16" y={y + 4}>{position + 1}. {labels[step.request.operation]}</text>
+            <text x="16" y={y + 4}>{position + 1}. {stepLabel(step)}</text>
           </g>
         </g>
       ))}
@@ -146,8 +176,8 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       <div className="buddy-retrieval-replay__workspace">
         <section aria-label="Recorded lookup results">
           <Trail rows={rows} active={index} select={select} />
-          <h5>{labels[step.request.operation]}</h5>
-          {writerObservations.has(step.sequence) && <p><strong>Evidence sent to the answer writer</strong></p>}
+          <h5>{stepLabel(step)}</h5>
+          {(step.native ? step.writerEvidence : writerObservations.has(step.sequence)) && <p><strong>Evidence sent to the answer writer</strong></p>}
           <p>{total_counts.nodes} objects · {total_counts.relationships} relationships · {total_counts.claims} claims</p>
           {projection_status === 'limited' && <p>Some results were omitted from the saved trace.</p>}
           {relationship_ids.length > relationships.length && <p>Some relationship endpoints were unavailable in this trace.</p>}
@@ -169,7 +199,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
           {trace && step.result.claim_ids.length > 0 && <details>
             <summary>Recorded assertions ({step.result.claim_ids.length})</summary>
             {step.result.claim_ids.map(assertionId => <BuddyReplayAssertion
-              key={`${step.sequence}:${assertionId}`} trace={trace} step={step} assertionId={assertionId} />)}
+              key={`${stepKey(step)}:${assertionId}`} trace={trace} step={step} assertionId={assertionId} />)}
           </details>}
           {trace && passages.length > 0 && <section aria-label="Captured source excerpts">
             {passages.map(passage => <BuddyHistoricalSourcePassage key={`${passage.source_read_event_id}:${passage.source_read_id}`}
@@ -185,9 +215,9 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         </section>
         <ol ref={list} className="buddy-retrieval-replay__steps" aria-label="Recorded retrieval steps">
           {steps.map((item, position) => (
-            <li key={item.sequence} data-replay-active={position === index ? true : undefined}><button type="button" aria-current={position === index ? 'step' : undefined}
-              onClick={() => select(position)}>{labels[item.request.operation]} · {item.result.outcome}
-              {writerObservations.has(item.sequence) && <strong> · Writer evidence</strong>}</button></li>
+            <li key={stepKey(item)} data-replay-active={position === index ? true : undefined}><button type="button" aria-current={position === index ? 'step' : undefined}
+              onClick={() => select(position)}>{stepLabel(item)} · {item.result.outcome}
+              {(item.native ? item.writerEvidence : writerObservations.has(item.sequence)) && <strong> · Writer evidence</strong>}</button></li>
           ))}
         </ol>
       </div>

@@ -77,6 +77,18 @@ export interface BuddyTurnContextTrace {
   capture_status: 'recording' | 'complete' | 'incomplete'; capture_failure_code: string | null
   observations: BuddyTraceObservation[]
   writer_evidence_sequences?: number[] | null
+  graph_replay_order?: Record<string, number> | null
+  native_assertion_steps?: {
+    sequence: number; revision_id: string; assertion_ids: string[]; subject_ids: string[]
+    unavailable_count: number; writer_evidence: boolean
+  }[] | null
+}
+
+export interface BuddyReplayNativeAssertionResponse {
+  schema: 'dmb_replay_native_assertion_v1'; world_id: string; turn_id: string; trace_id: string
+  sequence: number; revision_id: string
+  assertion: { assertion_id: string; subject_entity_id: string; predicate: string; value: unknown }
+  excerpts: { evidence_ref_id: string; text: string }[]
 }
 
 export interface BuddyTracePromptReference extends Observation {

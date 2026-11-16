@@ -377,7 +377,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+(?:\/resolve|\/resolutions\/[^/]+)?)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace(?:\/[^/]+\/prompt\/[^/]+)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
-    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/steps\/\d+\/assertion$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:native-)?steps\/\d+\/assertion$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/prompts$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/source-passages\/\d+$/.test(pathname)
@@ -793,7 +793,7 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/prompt\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
-    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/steps\/\d+\/assertion$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:native-)?steps\/\d+\/assertion$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/prompts$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
     || /^\/api\/live\/world-session-evidence(?:\/[^/]+\/revisions\/\d+)?$/.test(pathname)
@@ -1907,6 +1907,15 @@ export function getWorldAgentReplayAssertion(worldId: string, turnId: string, tr
   const query = new URLSearchParams({ assertion_id: assertionId });
   return apiFetch<import('./buddyContextTraceTypes').BuddyReplayAssertionResponse>(
     `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/steps/${sequence}/assertion?${query}`,
+    { signal, cache: 'no-store' },
+  );
+}
+
+export function getWorldAgentNativeReplayAssertion(worldId: string, turnId: string, traceId: string,
+  sequence: number, assertionId: string, signal: AbortSignal) {
+  const query = new URLSearchParams({ assertion_id: assertionId });
+  return apiFetch<import('./buddyContextTraceTypes').BuddyReplayNativeAssertionResponse>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/native-steps/${sequence}/assertion?${query}`,
     { signal, cache: 'no-store' },
   );
 }

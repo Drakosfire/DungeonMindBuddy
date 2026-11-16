@@ -29,6 +29,7 @@ from application_state.errors import (
     ApplicationStateValidationError,
 )
 from application_state.unit_of_work import unit_of_work
+from .native_replay import native_assertion_steps
 
 
 def _load_trace(payload: object) -> TurnContextTraceV1:
@@ -421,7 +422,7 @@ class TurnContextTraceStore:
 
         with unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
-                "SELECT graph_context_execution, conversation_id FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+                "SELECT graph_context_execution, conversation_id, graph_context_receipt FROM agent.turn WHERE world_id=%s AND turn_id=%s",
                 (world_id, turn_id),
             ).fetchone()
             if turn is None:
@@ -443,8 +444,21 @@ class TurnContextTraceStore:
                 if isinstance(observation, TracePromptReference):
                     validate_prompt_authorization(observation, turn[0], trace.execution_start_sequence)
             next_start = traces[index + 1].execution_start_sequence if index + 1 < len(traces) else None
+            native_steps = native_assertion_steps(
+                turn[0], turn[2], start=trace.execution_start_sequence, stop=next_start,
+            )
+            graph_order = None
+            if native_steps:
+                sequences = {event["event_id"]: event["sequence"] for event in turn[0].get("events", [])}
+                graph_order = {
+                    event.sequence: sequences[str(event.execution_event_id)]
+                    for event in trace.observations if isinstance(event, TraceGraphTool)
+                    and str(event.execution_event_id) in sequences
+                }
             traces[index] = trace.model_copy(update={
                 "writer_evidence_sequences": _writer_evidence_sequences(trace, turn[0], next_start),
+                "native_assertion_steps": native_steps or None,
+                "graph_replay_order": graph_order,
             })
         return traces
 
