@@ -185,8 +185,16 @@ function CopyTrace({ trace }: { trace: BuddyTurnContextTrace }) {
     <span role="status">{status === 'copied' ? 'Trace copied.' : status === 'failed' ? 'Couldn’t copy the trace. Try again or allow clipboard access.' : ''}</span></div>
 }
 
-export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnContextTrace | null; ownerActive: boolean }) {
+function RetrievalReplayDetails({ trace }: { trace: BuddyTurnContextTrace }) {
   const [replayOpen, setReplayOpen] = useState(false)
+  return <details onToggle={event => setReplayOpen(event.currentTarget.open)}>
+    <summary>Replay retrieval</summary>
+    {replayOpen && <BuddyRetrievalReplay key={`${trace.trace_id}:${trace.attempt}`}
+      trace={trace} steps={trace.observations.filter(event => event.kind === 'graph_tool')} />}
+  </details>
+}
+
+export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnContextTrace | null; ownerActive: boolean }) {
   if (!trace) return <p className="buddy-context-trace__muted">No execution trace was captured for this turn.</p>
   const failed = trace.terminal_status === 'failed' || trace.terminal_status === 'interrupted'
   const failures = trace.observations.filter((event): event is Extract<BuddyTraceObservation, {kind: 'failure'}> => event.kind === 'failure' && event.phase !== 'trace_capture')
@@ -208,11 +216,7 @@ export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnCont
       <p>Trace capture status is separate from whether the reply succeeded.</p>
     </section>}
     {trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
-    <details onToggle={event => setReplayOpen(event.currentTarget.open)}>
-      <summary>Replay retrieval</summary>
-      {replayOpen && <BuddyRetrievalReplay key={`${trace.trace_id}:${trace.attempt}`}
-        trace={trace} steps={trace.observations.filter(event => event.kind === 'graph_tool')} />}
-    </details>
+    <RetrievalReplayDetails trace={trace} />
     <details open><summary>Execution timeline</summary><ol>{rows.map(({ event, observations }) => <li key={event.sequence}>
       <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>
       <div><Event event={event} passages={passages} trace={trace} />
