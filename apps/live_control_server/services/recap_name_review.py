@@ -1,7 +1,7 @@
 """Pre-model name review over the same source normalization and native catalog."""
 from apps.live_control_server.services import known_character_context
 from apps.live_control_server.services.source_artifact_registry import _normalize_source_text
-from src.graph_memory.extraction.name_review import review_names,apply_review
+from graph_memory.extraction.name_review import review_names,apply_review
 
 
 def prepare_name_review(text,scope,*,session_id):
