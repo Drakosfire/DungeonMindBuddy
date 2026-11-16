@@ -605,8 +605,8 @@ describe("canonical local guest entry", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Buddy graph playground" })).toBeInTheDocument();
-    expect(screen.getByText(/choose a World to browse its graph/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Choose a World" })).toBeInTheDocument();
+    expect(screen.getByText(/Select a World to open this workspace/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Switch World: Choose" })).toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/native-graph-explorer/graph"
       || String(path).startsWith("/api/live/index-graph/"))).toBe(false);
@@ -795,15 +795,15 @@ describe("canonical local guest entry", () => {
   });
 
   it.each(["/plan", "/play", "/ingest", "/combat", "/statblock", "/surface"])(
-    "guards direct hosted entry to %s without mounting the workspace",
+    "requires an admitted World before mounting %s",
     async (path) => {
       window.history.replaceState({}, "", path);
       const fetchMock = managedServerFetch({ authStatus: "authenticated" });
       vi.stubGlobal("fetch", fetchMock);
       render(<App />);
 
-      expect(await screen.findByRole("heading", { name: "This page is unavailable on hosted Buddy" })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Open Graph" })).toHaveAttribute("href", "/graph");
+      expect(await screen.findByRole("heading", { name: "Choose a World" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Switch World: Choose" })).toBeInTheDocument();
       expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(["/api/auth/session"]);
     },
   );

@@ -112,7 +112,8 @@ function BuddyGraphPage({
   );
 }
 
-export function LocalBuddyApp({ locationSnapshot }: { locationSnapshot: string }) {
+export function BuddyApp({ locationSnapshot }: { locationSnapshot: string }) {
+  const auth = useHostedAuthStatus();
   const selectedWorld = useSelectedWorld();
   const retrySelectedWorld = useRetrySelectedWorld();
   const admission = useSelectedWorldAdmission();
@@ -130,6 +131,16 @@ export function LocalBuddyApp({ locationSnapshot }: { locationSnapshot: string }
         <WorldSelector />
       </main>
     );
+  }
+  if (auth.status === "authenticated" && selectedWorld.kind !== "managed") {
+    return <IsolatedEntry>
+      <AppChrome activeRoute={route} workspaceLayout="bounded">
+        <main className="app-status">
+          <h1>Choose a World</h1>
+          <p>Select a World to open this workspace.</p>
+        </main>
+      </AppChrome>
+    </IsolatedEntry>;
   }
   if (route === "graph" && selectedWorld.kind === "legacy") {
     return <IsolatedEntry>
