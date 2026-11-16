@@ -601,6 +601,8 @@ def _validate_graph_tool_observation(observation: TraceGraphTool, execution: obj
         raise ApplicationStateValidationError(
             "graph trace result scope or coverage differs from its execution receipt"
         )
+    if not set(result.discovery_relationship_ids).issubset(event.get("discovery_relationship_ids", [])):
+        raise ApplicationStateValidationError("trace discovery edges differ from the execution receipt")
     for field, event_field in (
         ("claim_ids", "assertion_ids"),
         ("relationship_ids", "relationship_ids"),

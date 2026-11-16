@@ -73,3 +73,10 @@
 @media (prefers-reduced-motion: reduce) {
   .buddy-retrieval-replay__canvas [data-visit] { transition: none; }
 }
+
+
+.buddy-retrieval-replay__hop {
+  stroke: #a76a23;
+  stroke-width: 4;
+  pointer-events: none;
+}

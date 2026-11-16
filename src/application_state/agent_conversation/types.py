@@ -3448,6 +3448,7 @@ class ValidatedGraphOperationEventV1(GraphExecutionEventBaseV1):
     result_packet_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     assertion_ids: list[str] = Field(max_length=512)
     relationship_ids: list[str] = Field(max_length=512)
+    discovery_relationship_ids: list[str] = Field(default_factory=list, max_length=512, exclude_if=lambda value: not value)
     evidence_ref_ids: list[str] = Field(max_length=1024)
     evidence_sufficiency_status: Literal["sufficient", "insufficient"]
     coverage_status: Literal["complete", "incomplete"]
@@ -3460,6 +3461,9 @@ class ValidatedGraphOperationEventV1(GraphExecutionEventBaseV1):
             values = getattr(self, name)
             if any(not value.strip() for value in values) or values != sorted(set(values)):
                 raise ValueError(f"{name} must be nonblank, sorted, and unique")
+        discovery = self.discovery_relationship_ids
+        if len(set(discovery)) != len(discovery) or not set(discovery).issubset(self.relationship_ids):
+            raise ValueError("discovery edges must be unique returned relationships")
         return self
 
 

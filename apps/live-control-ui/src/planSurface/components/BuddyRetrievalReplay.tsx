@@ -89,6 +89,15 @@ function layoutTrail(steps: readonly RetrievalStep[]) {
       }
     }
   }
+  const edgesByStep = steps.map(({ result }) => {
+    const discovery = new Set(result.discovery_relationship_ids)
+    return (result.relationships ?? []).flatMap(edge => {
+      if (!discovery.has(edge.relationship_id)) return []
+      const from = objects.get(edge.source_node_id)
+      const to = objects.get(edge.target_node_id)
+      return from && to ? [{ id: edge.relationship_id, from, to }] : []
+    })
+  })
   const columns = Math.max(1, Math.ceil(Math.sqrt(objects.size * 1.65)))
   let offset = 0
   for (const object of objects.values()) {
@@ -96,7 +105,7 @@ function layoutTrail(steps: readonly RetrievalStep[]) {
     object.y = 44 + Math.floor(offset / columns) * 88
     offset += 1
   }
-  return { objects, width: columns * 88, height: Math.max(88, Math.ceil(objects.size / columns) * 88) }
+  return { objects, edgesByStep, width: columns * 88, height: Math.max(88, Math.ceil(objects.size / columns) * 88) }
 }
 
 function keepStepVisible(pane: HTMLElement | null) {
@@ -120,6 +129,9 @@ const Trail = memo(function Trail({ layout, active, wide, select, resolve }: {
 }) {
   return <div className="buddy-retrieval-replay__canvas">
     <svg viewBox={`0 0 ${layout.width} ${layout.height}`} role="group" aria-label="Recorded graph nodes">
+      {layout.edgesByStep[active]?.map(({ id, from, to }) =>
+        <line key={id} className="buddy-retrieval-replay__hop" aria-hidden="true"
+          x1={from.x} y1={from.y} x2={to.x} y2={to.y} />)}
       {[...layout.objects.values()].map(({ node, visits, x, y }) => {
         const current = visits.includes(active)
         const position = visits[0]

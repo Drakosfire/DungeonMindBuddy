@@ -3695,6 +3695,7 @@ class _PolicyExecutionAdapter:
                 result_packet_sha256=_canonical_sha256(result_payload),
                 assertion_ids=assertion_ids,
                 relationship_ids=relationship_ids,
+                discovery_relationship_ids=list(result._discovery_relationship_ids),
                 evidence_ref_ids=evidence_ids,
                 evidence_sufficiency_status=(
                     "sufficient" if sufficient else "insufficient"

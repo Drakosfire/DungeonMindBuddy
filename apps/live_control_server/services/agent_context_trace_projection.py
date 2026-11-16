@@ -69,6 +69,8 @@ def graph_operation_observation(
         else:
             observed.update(operation="support", target_node_id=request.target.id)
     expected_operation = "evidence" if observed["operation"] == "support" else observed["operation"]
+    if list(result._discovery_relationship_ids) != execution_event.discovery_relationship_ids:
+        raise ValueError("trace discovery edges differ from the broker read")
     if result.operation != expected_operation:
         raise ValueError("trace result operation differs from its effective request")
     all_nodes = [{"node_id": item.node_id, "label": item.label, "kind": item.kind}
@@ -81,6 +83,10 @@ def graph_operation_observation(
                        "target_node_id": item.target_node_id}
         for item in result.relationships if item.edge_id in retained_relationship_ids
     }
+    node_ids = {node["node_id"] for node in projected["nodes"]}
+    discovery = [identity for identity in execution_event.discovery_relationship_ids
+                 if identity in endpoints and endpoints[identity]["source_node_id"] in node_ids
+                 and endpoints[identity]["target_node_id"] in node_ids]
     totals = {"nodes": len(all_nodes), "relationships": len(relationships),
               "claims": len(assertions), "evidence_refs": len(evidence)}
     returned = {key: len(value) for key, value in projected.items()}
@@ -99,6 +105,7 @@ def graph_operation_observation(
             "projection_status": "limited" if omissions else "complete",
             "nodes": projected["nodes"], "relationship_ids": projected["relationships"],
             "relationships": [endpoints[identity] for identity in projected["relationships"]],
+            "discovery_relationship_ids": discovery,
             "claim_ids": projected["claims"], "evidence_ref_ids": projected["evidence_refs"],
             "returned_counts": returned, "total_counts": totals, "omission_codes": omissions,
         },

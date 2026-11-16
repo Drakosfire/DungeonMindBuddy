@@ -114,3 +114,35 @@ def test_retains_only_directed_endpoints_from_validated_relationship_rows():
     ]
     del observation['result']['relationships']
     assert TraceGraphTool.model_validate(observation).result.relationships == []
+
+
+
+def test_neighborhood_replay_keeps_only_recorded_discovery_with_visible_endpoints():
+    result, _, event = fixture(node_count=65, operation="neighborhood")
+    edges = [("discovery", "node:1"), ("examined", "node:2"), ("omitted", "node:64")]
+    result = WorldGraphRetrievalResult.model_validate({
+        **result.model_dump(mode="json", by_alias=True),
+        "relationships": [
+            {"edgeId": identity, "sourceNodeId": "node:0", "targetNodeId": target,
+             "predicate": "knows", "label": "Knows"}
+            for identity, target in edges
+        ],
+    })
+    payload = result.model_dump(mode="json", by_alias=True)
+    result._discovery_relationship_ids = ("discovery", "omitted")
+    assert result.model_dump(mode="json", by_alias=True) == payload
+    event = ValidatedGraphOperationEventV1.model_validate({
+        **event.model_dump(),
+        "result_packet_sha256": hashlib.sha256(json.dumps(
+            payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        ).encode()).hexdigest(),
+        "relationship_ids": sorted(identity for identity, _ in edges),
+        "discovery_relationship_ids": list(result._discovery_relationship_ids),
+    })
+    from application_state.agent_conversation.context_trace import TraceGraphTool
+
+    trace = TraceGraphTool.model_validate(graph_operation_observation(
+        request=request("neighborhood"), result=result, result_payload=payload, execution_event=event,
+        sequence=0, elapsed_ms=0, duration_ms=1,
+    ))
+    assert trace.result.discovery_relationship_ids == ["discovery"]

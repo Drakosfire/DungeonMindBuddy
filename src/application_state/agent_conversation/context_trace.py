@@ -221,6 +221,7 @@ class TraceGraphResultProjection(TraceModel):
     nodes: list[TraceGraphNode] = Field(max_length=64)
     relationship_ids: list[str] = Field(max_length=128)
     relationships: list[TraceGraphRelationship] = Field(default_factory=list, max_length=128)
+    discovery_relationship_ids: list[str] = Field(default_factory=list, max_length=128, exclude_if=lambda value: not value)
     claim_ids: list[str] = Field(max_length=128)
     evidence_ref_ids: list[str] = Field(max_length=128)
     returned_counts: TraceGraphResultCounts
@@ -258,6 +259,12 @@ class TraceGraphResultProjection(TraceModel):
         if len(endpoint_ids) != len(set(endpoint_ids)) or not set(endpoint_ids).issubset(self.relationship_ids):
             raise ValueError("relationship endpoints must refer to unique projected relationships")
         node_ids = [node.node_id for node in self.nodes]
+        discovery = self.discovery_relationship_ids
+        visible = set(node_ids)
+        visible_edges = {edge.relationship_id for edge in self.relationships
+                         if edge.source_node_id in visible and edge.target_node_id in visible}
+        if len(set(discovery)) != len(discovery) or not set(discovery).issubset(visible_edges):
+            raise ValueError("discovery edges must have projected endpoints")
         if len(node_ids) != len(set(node_ids)):
             raise ValueError("node projection IDs must be unique")
         if self.outcome in {"partial", "truncated"} and self.coverage_status != "incomplete":
@@ -282,6 +289,8 @@ class TraceGraphTool(TraceEvent):
 
     @model_validator(mode="after")
     def validate_graph_revision(self) -> TraceGraphTool:
+        if self.result.discovery_relationship_ids and not isinstance(self.request, TraceGraphNeighborhoodRequest):
+            raise ValueError("only neighborhood reads can record discovery edges")
         if self.revision_pin != self.result.graph_revision:
             raise ValueError("graph result revision differs from its request pin")
         if (self.scope_mode == "campaign") != (self.campaign_id is not None):
