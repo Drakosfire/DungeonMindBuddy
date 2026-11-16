@@ -286,6 +286,25 @@ async def resolve_hosted_build_page(request: Request) -> str:
     return world_id
 
 
+async def resolve_hosted_play_preparation(request: Request) -> str:
+    from application_state.play.session_encounter_types import WorldSessionSourceRequest
+
+    world_id = request.query_params.get("world_id")
+    entry_scene_id = request.query_params.get("entry_scene_id")
+    selectors = sorted(request.query_params.multi_items())
+    expected = [("world_id", world_id)]
+    if entry_scene_id:
+        expected.insert(0, ("entry_scene_id", entry_scene_id))
+    if not world_id or selectors != expected:
+        raise _denied()
+    source = WorldSessionSourceRequest.model_validate(await request.json())
+    owned_world = await _owned_build_page(
+        _hosted_subject(request), str(source.playable_artifact_id), plan_write_world=world_id,
+    )
+    request.state.hosted_plan_context_world = owned_world
+    return owned_world
+
+
 async def resolve_hosted_committed_plan(request: Request) -> str:
     if request.query_params or await request.body():
         raise _denied()

@@ -241,8 +241,19 @@ from apps.live_control_server.routes.combat_scene_templates import call
 from apps.live_control_server.services.play_run_registry import world_session_outcome
 
 
-@router.post("/world-play-runs/v2/preparation", dependencies=[Depends(native_graph_gm_dependency)])
-def preview_world_session(body: WorldSessionSourceRequest, world_id: str = Query(min_length=1), entry_scene_id: str | None = None):
+@router.post("/world-play-runs/v2/preparation")
+def preview_world_session(
+    body: WorldSessionSourceRequest, request: Request,
+    world_id: str = Query(min_length=1), entry_scene_id: str | None = None,
+):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     return call(session_encounters.preparation_preview, world_id=_verified_world(world_id), request=body, entry_scene_id=entry_scene_id)
 
 
