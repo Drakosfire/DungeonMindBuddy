@@ -20,6 +20,9 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
     monkeypatch.setattr(build_pdf_admission, "validate_pdf_structure", validate)
 
     class Repository:
+        def get_head(self, space):
+            return object()
+
         def retain_native_pdf_source(self, command, body):
             artifact, revision = build_native_pdf_source_records(command, body)
             records[command.space_id, revision.source_revision_id] = (artifact, revision, 1, body)
@@ -42,6 +45,8 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
             raise HTTPException(status_code=401)
 
     monkeypatch.setattr(agent, "enforce_native_graph_gm", authorize)
+    from apps.live_control_server.services import hosted_native_graph_access
+    monkeypatch.setattr(hosted_native_graph_access, "require_build_pdf_access", lambda request, *args, **kwargs: authorize(request))
     monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
     monkeypatch.setattr(native_world_source_admission, "_repository", Repository)
     monkeypatch.setattr(
@@ -250,6 +255,8 @@ def test_saved_pdf_review_creature_draft_replays_at_exact_revision(monkeypatch, 
             raise HTTPException(status_code=401)
 
     monkeypatch.setattr(agent, "enforce_native_graph_gm", authorize)
+    from apps.live_control_server.services import hosted_native_graph_access
+    monkeypatch.setattr(hosted_native_graph_access, "require_build_pdf_access", lambda request, *args, **kwargs: authorize(request))
     monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
     monkeypatch.setattr(statblock_storage, "statblock_data_root", lambda _: tmp_path)
     review = {"revision": 2, "regions": [], "definition": {

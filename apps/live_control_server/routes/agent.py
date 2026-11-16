@@ -2265,7 +2265,7 @@ async def post_build_pdf_source(world_id: str, admission_id: UUID, request: Requ
 
     from dungeonmind.contracts.vnext.pdf_region import NativePdfSourceAdmissionV1
     from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import (
-        NativeWorldSourceAdmissionError, _repository, _source_world_binding,
+        NativeWorldSourceAdmissionError, _source_world_binding, retain_pdf_in_bound_world,
     )
 
     from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
@@ -2296,7 +2296,7 @@ async def post_build_pdf_source(world_id: str, admission_id: UUID, request: Requ
         })
         require_build_pdf_access(request, world_id)
         await run_in_threadpool(validate_pdf_structure, raw)
-        revision = await run_in_threadpool(_repository().retain_native_pdf_source, command, raw)
+        revision = await run_in_threadpool(retain_pdf_in_bound_world, verified, binding, command, raw)
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
     except ValueError as exc:
