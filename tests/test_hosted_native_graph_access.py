@@ -37,7 +37,7 @@ from application_state.world_catalog.types import (
 from apps.live_control_server.routes.native_graph_explorer import (
     router as explorer_router,
 )
-from apps.live_control_server.routes import workspace_documents
+from apps.live_control_server.routes import extract_promote, workspace_documents
 from apps.live_control_server.routes.world_containers import router as worlds_router
 from apps.live_control_server.routes.native_graph_inspection import (
     router as inspection_router,
@@ -246,6 +246,7 @@ def hosted(monkeypatch, request):
     app.add_api_route(access.BUILD_PDF_SOURCES_PATH, post_build_pdf_source, methods=["POST"])
 
     app.include_router(workspace_documents.router)
+    app.include_router(extract_promote.router)
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", get_pdf_statblock_publication, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", post_pdf_statblock_publication, methods=["POST"])
@@ -263,6 +264,8 @@ def hosted(monkeypatch, request):
                 for operation in OPERATIONS
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
+            ("POST", access.FIRST_WORLD_PREPARE_PATH): access.resolve_hosted_first_world,
+            ("POST", access.FIRST_WORLD_CONFIRM_PATH): access.resolve_hosted_first_world,
             ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("POST", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
@@ -1832,3 +1835,29 @@ def test_hosted_build_reads_only_exact_published_statblock(hosted, monkeypatch, 
         assert response.json() == {"pdf_portrait": "retained-artwork"}
     else:
         assert "retained-artwork" not in response.text
+
+
+def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_preparing(hosted, monkeypatch):
+    from apps.live_control_server.services import promotable_ingest_run
+
+    monkeypatch.setattr(
+        promotable_ingest_run, "resolve_promotable_ingest_run",
+        lambda run_id, *, root: SimpleNamespace(world_id="managed" if run_id in {"owned", "changed"} else "foreign"),
+    )
+    prepared = []
+
+    def prepare(payload, *, authorize_world):
+        authorize_world("foreign" if payload.run_id == "changed" else "managed")
+        prepared.append(payload.run_id)
+        raise extract_promote.ExtractPromoteError("probe reached", code="probe_reached", status_code=409)
+
+    monkeypatch.setattr(extract_promote, "prepare_first_world", prepare)
+    payload = {"runId": "owned", "decisions": [{"assertionId": "source-assertion", "decision": "create_new"}]}
+    route = access.FIRST_WORLD_PREPARE_PATH
+
+    assert hosted.client.request("POST", route, json=payload).status_code == 409
+    assert hosted.client.request("POST", route, json=payload, session="other-session").status_code == 403
+    assert hosted.client.request("POST", route, json={**payload, "runId": "foreign"}).status_code == 403
+    assert hosted.client.request("POST", route, json=payload, origin="https://untrusted.example").status_code == 403
+    assert hosted.client.request("POST", route, json={**payload, "runId": "changed"}).status_code == 403
+    assert prepared == ["owned"]
