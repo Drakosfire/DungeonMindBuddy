@@ -92,3 +92,25 @@ def test_rejects_observation_that_does_not_match_its_validated_broker_event(chan
     with pytest.raises(ValueError,match='differs|identifiers'):
         graph_operation_observation(request=request('search'),result=result,result_payload=payload,
             execution_event=event,sequence=0,elapsed_ms=0,duration_ms=1)
+
+
+def test_retains_only_directed_endpoints_from_validated_relationship_rows():
+    result, _, event = fixture(node_count=2)
+    result = WorldGraphRetrievalResult.model_validate({
+        **result.model_dump(mode='json', by_alias=True),
+        'relationships': [{'edgeId':'edge:one','sourceNodeId':'node:0','targetNodeId':'node:1',
+                           'predicate':'knows','label':'Knows'}],
+    })
+    payload = result.model_dump(mode='json', by_alias=True)
+    digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True,
+                                      separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+    event = event.model_copy(update={'result_packet_sha256':digest, 'relationship_ids':['edge:one']})
+    observation = graph_operation_observation(request=request('search'), result=result, result_payload=payload,
+        execution_event=event, sequence=0, elapsed_ms=0, duration_ms=1)
+    from application_state.agent_conversation.context_trace import TraceGraphTool
+    trace = TraceGraphTool.model_validate(observation)
+    assert [row.model_dump() for row in trace.result.relationships] == [
+        {'relationship_id':'edge:one', 'source_node_id':'node:0', 'target_node_id':'node:1'},
+    ]
+    del observation['result']['relationships']
+    assert TraceGraphTool.model_validate(observation).result.relationships == []

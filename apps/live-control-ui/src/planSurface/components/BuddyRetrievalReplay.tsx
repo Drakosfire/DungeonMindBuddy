@@ -21,6 +21,7 @@ function layoutTrail(steps: readonly RetrievalStep[]) {
     position,
     y: position * 84 + 34,
     objects: step.result.nodes.slice(0, 3),
+    relationships: step.result.relationships ?? [],
   }))
 }
 
@@ -42,7 +43,7 @@ const Trail = memo(function Trail({ rows, active, select }: {
   useEffect(() => keepStepVisible(pane.current), [active, rows])
   return <div ref={pane} className="buddy-retrieval-replay__trail" aria-label="Recorded lookup trail">
     <svg viewBox={`0 0 580 ${rows.length * 84}`} role="group" aria-label="Operations and returned objects">
-      {rows.map(({ step, position, y, objects }) => (
+      {rows.map(({ step, position, y, objects, relationships }) => (
         <g key={step.sequence} className={active === position ? 'is-current' : undefined}
           data-replay-active={active === position ? true : undefined}>
           {objects.map((node, objectIndex) => {
@@ -52,6 +53,18 @@ const Trail = memo(function Trail({ rows, active, select }: {
               <rect x={x} y={y + 16} width="104" height="28" rx="7" />
               <title>{node.label}</title>
               <text x={x + 6} y={y + 34}>{node.label.length > 13 ? node.label.slice(0, 12) + '…' : node.label}</text>
+            </g>
+          })}
+          {relationships.map(relationship => {
+            const source = objects.findIndex(node => node.node_id === relationship.source_node_id)
+            const target = objects.findIndex(node => node.node_id === relationship.target_node_id)
+            if (source < 0 || target < 0 || source === target) return null
+            const x1 = 282 + source * 112
+            const x2 = 282 + target * 112
+            const arrow = x2 - Math.sign(x2 - x1) * 5
+            return <g key={relationship.relationship_id} className="buddy-retrieval-replay__relationship">
+              <title>{`${objects[source].label} → ${objects[target].label}`}</title>
+              <path d={`M ${x1} ${y + 44} V ${y + 47} H ${x2} V ${y + 44} M ${arrow} ${y + 42} L ${x2} ${y + 44} L ${arrow} ${y + 47}`} />
             </g>
           })}
           <g role="button" tabIndex={0} aria-pressed={active === position}
@@ -113,7 +126,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
 
   if (!step) return <p>No graph lookup steps were retained for this attempt.</p>
 
-  const { nodes, relationship_ids, total_counts, projection_status, evidence_ref_ids } = step.result
+  const { nodes, relationship_ids, relationships = [], total_counts, projection_status, evidence_ref_ids } = step.result
   const passages = evidence_ref_ids.flatMap(id => passagesByEvidence.get(JSON.stringify([step.revision_pin, id])) ?? [])
   return (
     <section className="buddy-retrieval-replay" aria-label="Retrieval replay">
@@ -133,7 +146,15 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
           <h5>{labels[step.request.operation]}</h5>
           <p>{total_counts.nodes} objects · {total_counts.relationships} relationships · {total_counts.claims} claims</p>
           {projection_status === 'limited' && <p>Some results were omitted from the saved trace.</p>}
-          {relationship_ids.length > 0 && <p>Relationship endpoints were unavailable in this trace.</p>}
+          {relationship_ids.length > relationships.length && <p>Some relationship endpoints were unavailable in this trace.</p>}
+          {relationships.length > 0 && <details>
+            <summary>Returned relationships ({relationships.length})</summary>
+            <ul>{relationships.map(relationship => <li key={relationship.relationship_id}>
+              {nodes.find(node => node.node_id === relationship.source_node_id)?.label ?? relationship.source_node_id}
+              {' → '}
+              {nodes.find(node => node.node_id === relationship.target_node_id)?.label ?? relationship.target_node_id}
+            </li>)}</ul>
+          </details>}
           {nodes.length > 0 && <ul className="buddy-retrieval-replay__nodes">
             {(expanded ? nodes : nodes.slice(0, previewSize)).map(node => (
               <li key={node.node_id}><strong>{node.label}</strong> <span>{node.kind}</span></li>

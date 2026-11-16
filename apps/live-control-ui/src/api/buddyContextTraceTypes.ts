@@ -44,6 +44,7 @@ export interface BuddyTraceGraphResult {
   outcome: 'enough' | 'partial' | 'truncated' | 'empty' | 'denied' | 'unavailable'
   graph_revision: string; coverage_status: 'complete' | 'incomplete'; projection_status: 'complete' | 'limited'
   nodes: { node_id: string; label: string; kind: string }[]
+  relationships?: { relationship_id: string; source_node_id: string; target_node_id: string }[]
   relationship_ids: string[]; claim_ids: string[]; evidence_ref_ids: string[]
   returned_counts: BuddyTraceGraphCounts; total_counts: BuddyTraceGraphCounts; omission_codes: string[]
 }

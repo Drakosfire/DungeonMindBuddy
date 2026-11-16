@@ -79,3 +79,20 @@ it('offers only captured passages matching the lookup evidence, World, and revis
   expect(screen.getByText('Open excerpt · Session 1')).toBeInTheDocument()
   expect(screen.queryByText(/Elsewhere|Later revision|Captured text/)).not.toBeInTheDocument()
 })
+
+it('shows returned relationship direction and preserves lookup-only older steps', () => {
+  const current = lookup(1, 'Caelynn')
+  const older = lookup(2, 'Previous result')
+  current.result.nodes.push({ node_id: 'Mossglade', label: 'Mossglade', kind: 'event' })
+  current.result.relationship_ids = ['edge:one']
+  current.result.relationships = [{
+    relationship_id: 'edge:one', source_node_id: 'Caelynn', target_node_id: 'Mossglade',
+  }]
+  older.result.relationship_ids = ['edge:older']
+  render(<BuddyRetrievalReplay steps={[current, older]} />)
+  expect(screen.getByText('Returned relationships (1)')).toBeInTheDocument()
+  expect(screen.getAllByText('Caelynn → Mossglade')).toHaveLength(2)
+  fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
+  expect(screen.getByText('Some relationship endpoints were unavailable in this trace.')).toBeInTheDocument()
+  expect(screen.queryByText('Returned relationships (1)')).not.toBeInTheDocument()
+})

@@ -75,6 +75,12 @@ def graph_operation_observation(
                  for item in result.nodes]
     projected = {"nodes": all_nodes[:64], "relationships": relationships[:128],
                  "claims": assertions[:128], "evidence_refs": evidence[:128]}
+    retained_relationship_ids = set(projected["relationships"])
+    endpoints = {
+        item.edge_id: {"relationship_id": item.edge_id, "source_node_id": item.source_node_id,
+                       "target_node_id": item.target_node_id}
+        for item in result.relationships if item.edge_id in retained_relationship_ids
+    }
     totals = {"nodes": len(all_nodes), "relationships": len(relationships),
               "claims": len(assertions), "evidence_refs": len(evidence)}
     returned = {key: len(value) for key, value in projected.items()}
@@ -92,6 +98,7 @@ def graph_operation_observation(
             "coverage_status": execution_event.coverage_status,
             "projection_status": "limited" if omissions else "complete",
             "nodes": projected["nodes"], "relationship_ids": projected["relationships"],
+            "relationships": [endpoints[identity] for identity in projected["relationships"]],
             "claim_ids": projected["claims"], "evidence_ref_ids": projected["evidence_refs"],
             "returned_counts": returned, "total_counts": totals, "omission_codes": omissions,
         },
