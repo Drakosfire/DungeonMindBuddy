@@ -65,6 +65,23 @@ def test_query_records_only_the_about_link_used_to_read_a_statement(lane, monkey
     assert (hop.from_node_id, hop.to_node_id) == (lane.ids["B"], result.matches[0].statement_id)
     assert hop.relationship_id in result.matches[0].discovery_assertion_ids
 
+    from apps.live_control_server.routes.agent import _plan_context_resolver
+    from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1
+
+    saved = NativePlanQueryV1.model_validate(result.model_dump(
+        mode="json", by_alias=True,
+        exclude={"assertion_matches", "authored_targets", "object_matches", "discovery_hops"},
+    ) | {"schema": "dmb_native_plan_query_v1"})
+    context, _ = query(lane)
+    monkeypatch.setattr(native_graph_reads, "prepare_query", lambda *args, **kwargs: (context, result))
+    _, reopened = _plan_context_resolver(
+        SimpleNamespace(message=result.question, surface=SimpleNamespace(surface_id="plan"), authored_references=None),
+        {"kind": "world", "id": lane.world.world_id}, SimpleNamespace(world_id=lane.world.world_id),
+        SimpleNamespace(native_query=saved), native_query_mode=True, native_principal=GM,
+    )
+    assert type(reopened) is NativePlanQueryV1
+    assert reopened.sha256 == saved.sha256
+
 def test_identity_only_is_not_qualified_support_and_campaign_scope_is_preserved(lane):
     _, empty = query(lane, 'B')
     assert empty.discovered_entity_ids and not empty.matches
