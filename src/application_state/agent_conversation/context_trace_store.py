@@ -480,17 +480,10 @@ def _writer_evidence_sequences(
     graph_ids = set(writer["included_graph_event_ids"])
     source_ids = set(writer.get("included_source_read_event_ids", []))
     source_ids.update(writer.get("included_source_reuse_event_ids", []))
-    source_refs = {
-        (item.graph_revision, item.evidence_ref_id)
-        for item in trace.observations
-        if isinstance(item, TraceSourcePassage) and str(item.source_read_event_id) in source_ids
-    }
     return [
         item.sequence for item in trace.observations
-        if isinstance(item, TraceGraphTool) and (
-            str(item.execution_event_id) in graph_ids
-            or any((item.revision_pin, ref) in source_refs for ref in item.result.evidence_ref_ids)
-        )
+        if (isinstance(item, TraceGraphTool) and str(item.execution_event_id) in graph_ids)
+        or (isinstance(item, TraceSourcePassage) and str(item.source_read_event_id) in source_ids)
     ]
 
 

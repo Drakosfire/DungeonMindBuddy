@@ -122,17 +122,22 @@ def saved_lookup():
 
 
 def test_writer_marker_uses_completed_writer_and_respects_attempt_bounds(saved_lookup):
+    from application_state.agent_conversation.context_trace import TraceSourcePassage
     from application_state.agent_conversation.context_trace_store import _writer_evidence_sequences
 
     trace, _, _ = saved_lookup
     trace.terminal_status = "completed"
     trace.execution_start_sequence = 5
     graph_id = str(trace.observations[0].execution_event_id)
+    source_id = uuid4()
+    trace.observations.append(TraceSourcePassage.model_construct(sequence=3, source_read_event_id=source_id))
+    trace.observations.append(TraceSourcePassage.model_construct(sequence=4, source_read_event_id=uuid4()))
     writer = {"kind": "plan_jev_writer_authorized_v2", "sequence": 6,
-              "provider_attempt_id": "writer", "included_graph_event_ids": [graph_id]}
+              "provider_attempt_id": "writer", "included_graph_event_ids": [graph_id],
+              "included_source_read_event_ids": [str(source_id)]}
     completion = {"kind": "completion_binding", "sequence": 8, "provider_attempt_id": "writer"}
     execution = {"events": [writer, completion]}
-    assert _writer_evidence_sequences(trace, execution, 9) == [2]
+    assert _writer_evidence_sequences(trace, execution, 9) == [2, 3]
     assert _writer_evidence_sequences(trace, execution, 8) is None
     completion["provider_attempt_id"] = "different-writer"
     assert _writer_evidence_sequences(trace, execution, None) is None
