@@ -356,3 +356,12 @@ it('replaces a numbered alias with a recorded name from the same revision', () =
   expect(screen.getByRole('button', { name: 'Caelynn', exact: true })).toBeVisible()
   expect(screen.queryByRole('button', { name: /Unnamed object/ })).not.toBeInTheDocument()
 })
+
+it('places the animation before the compact playback controls', () => {
+  render(<BuddyRetrievalReplay steps={[lookup(1, 'Caelynn'), lookup(2, 'Mossglade')]} />)
+  const graph = screen.getByRole('group', { name: 'Recorded graph nodes' })
+  const play = screen.getByRole('button', { name: 'Play' })
+  expect(graph.compareDocumentPosition(play) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(play).toHaveTextContent('▶')
+  expect(screen.getByRole('button', { name: 'Pop out replay' })).toHaveTextContent('↗')
+})

@@ -488,27 +488,27 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
   }
   const replay = (
     <section className="buddy-retrieval-replay" aria-label="Retrieval replay">
+      <div data-wide={spacious}>
+        <Trail layout={rows} active={index} wide={spacious} select={select} resolve={resolve} pruned={step.pruning?.ids} inspect={inspect} inspectedId={inspectedId} reveal={steps.some(item => item.hop || item.pruning)} />
+      </div>
       <div className="buddy-retrieval-replay__controls">
-        <button type="button" disabled={playing || steps.length < 2} onClick={() => {
+        <button type="button" aria-label="Play" title="Play" disabled={playing || steps.length < 2} onClick={() => {
           if (last) select(0)
           setPlaying(true)
-        }}>Play</button>
-        <button type="button" disabled={!playing} onClick={() => setPlaying(false)}>Pause</button>
-        <button type="button" disabled={index === 0} onClick={() => select(index - 1)}>Previous step</button>
-        <button type="button" disabled={last} onClick={() => select(index + 1)}>Next step</button>
-        {!poppedOut && <button type="button" aria-expanded={wide} onClick={() => setWide(value => !value)}>{wide ? 'Collapse' : 'Expand'}</button>}
+        }}><span aria-hidden="true">▶</span></button>
+        <button type="button" aria-label="Pause" title="Pause" disabled={!playing} onClick={() => setPlaying(false)}><span aria-hidden="true">Ⅱ</span></button>
+        <button type="button" aria-label="Previous step" title="Previous step" disabled={index === 0} onClick={() => select(index - 1)}><span aria-hidden="true">⏮</span></button>
+        <button type="button" aria-label="Next step" title="Next step" disabled={last} onClick={() => select(index + 1)}><span aria-hidden="true">⏭</span></button>
+        {!poppedOut && <button type="button" aria-expanded={wide} aria-label={wide ? "Collapse" : "Expand"} title={wide ? "Collapse" : "Expand"} onClick={() => setWide(value => !value)}><span aria-hidden="true">{wide ? "−" : "+"}</span></button>}
         {poppedOut
-          ? <button type="button" autoFocus onClick={restoreInline}>Return to conversation</button>
-          : <button ref={popoutTrigger} type="button" aria-haspopup="dialog" onClick={() => setPoppedOut(true)}>Pop out replay</button>}
+          ? <button type="button" autoFocus aria-label="Return to conversation" title="Return to conversation" onClick={restoreInline}><span aria-hidden="true">↙</span></button>
+          : <button ref={popoutTrigger} type="button" aria-haspopup="dialog" aria-label="Pop out replay" title="Pop out replay" onClick={() => setPoppedOut(true)}><span aria-hidden="true">↗</span></button>}
         <span role="status">Step {index + 1} of {steps.length}</span>
       </div>
       {wide && trace && trace.writer_evidence_sequences == null && !steps.some(item => item.writerEvidence) && <p>Writer evidence was unavailable for this attempt.</p>}
       <p className="buddy-retrieval-replay__caption">
         {nodes.length === 1 ? displayNodeName(nodes[0]) : nodes.length ? `${nodes.length} objects` : stepLabel(step)}
       </p>
-      <div data-wide={spacious}>
-        <Trail layout={rows} active={index} wide={spacious} select={select} resolve={resolve} pruned={step.pruning?.ids} inspect={inspect} inspectedId={inspectedId} reveal={steps.some(item => item.hop || item.pruning)} />
-      </div>
       {showNodeDialog && inspected && inspectedNode && <dialog ref={nodeDialog}
         className="buddy-retrieval-replay__node-details" aria-label="Replay node details"
         onCancel={event => { event.preventDefault(); event.stopPropagation(); dismissNode() }}

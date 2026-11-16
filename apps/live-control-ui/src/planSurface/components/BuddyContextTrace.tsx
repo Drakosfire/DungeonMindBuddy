@@ -185,12 +185,14 @@ function CopyTrace({ trace }: { trace: BuddyTurnContextTrace }) {
     <span role="status">{status === 'copied' ? 'Trace copied.' : status === 'failed' ? 'Couldn’t copy the trace. Try again or allow clipboard access.' : ''}</span></div>
 }
 
-function RetrievalReplayDetails({ trace }: { trace: BuddyTurnContextTrace }) {
-  const [replayOpen, setReplayOpen] = useState(false)
-  return <details onToggle={event => setReplayOpen(event.currentTarget.open)}>
+function RetrievalReplayDetails({ trace, initialOpen }: { trace: BuddyTurnContextTrace; initialOpen: boolean }) {
+  const steps = replaySteps(trace)
+  const [replayOpen, setReplayOpen] = useState(initialOpen)
+  if (!steps.length) return null
+  return <details open={replayOpen} onToggle={event => setReplayOpen(event.currentTarget.open)}>
     <summary>Replay retrieval</summary>
     {replayOpen && <BuddyRetrievalReplay key={`${trace.trace_id}:${trace.attempt}`}
-      trace={trace} steps={replaySteps(trace)} />}
+      trace={trace} steps={steps} />}
   </details>
 }
 
@@ -214,10 +216,12 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
         {observations.length > 1 && <><p className="buddy-context-trace__muted">Same provider call · usage updated at {(observations.at(-1)!.elapsed_ms / 1000).toFixed(1)}s</p>
           <JsonDetails label="Call lifecycle and usage updates" value={observations} /></>}
       </div></li>)}</ol></details>
-  return <section className="buddy-context-trace" aria-label="Buddy context trace">
-    <header><div><h4>{failed ? 'Reply error report' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
+  const traceHeader = <header><div><h4>{failed ? 'Reply error report' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
       {!replyDetails && copy}
       <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · Trace window ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
+  return <section className="buddy-context-trace" aria-label="Buddy context trace">
+    {replyDetails && <RetrievalReplayDetails trace={trace} initialOpen />}
+    {!replyDetails && traceHeader}
     {failed && <section role="alert" className="buddy-context-trace__error-report" aria-label="Reply failure">
       <h5>This attempt stopped before completing a reply.</h5>
       {failure ? <><p>{failure.code === 'build_source_name_missing' ? 'A retrieved passage has no verified source name. Buddy stopped while assembling source context.' : 'Recorded failure:'} <code>{failure.code}</code></p><p>Stage: {failure.stage ?? failure.phase}</p>
@@ -228,7 +232,7 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
       <p>Trace capture status is separate from whether the reply succeeded.</p>
     </section>}
     {trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
-    <RetrievalReplayDetails trace={trace} />
-    {replyDetails ? <details><summary>Diagnostics</summary>{copy}{diagnostics}{timeline}</details> : timeline}
+    {!replyDetails && <RetrievalReplayDetails trace={trace} initialOpen={false} />}
+    {replyDetails ? <details><summary>Diagnostics</summary>{traceHeader}{copy}{diagnostics}{timeline}</details> : timeline}
   </section>
 }

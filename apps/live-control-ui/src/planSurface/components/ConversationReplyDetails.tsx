@@ -37,10 +37,10 @@ export function ConversationReplyDetails({ id, open, onOpenChange, loaded, load,
       if (next && !loaded && !busy && !error) inspect();
     }}>
     <summary>Details</summary>
-    {open && <>
-      {busy && <p role="status">Loading reply details…</p>}
-      {error && <div><p role="alert">{error}</p><button type="button" onClick={inspect}>Retry details</button></div>}
-    </>}
     {children}
+    {open && busy && <p role="status">Loading reply details…</p>}
+    {open && error && <details><summary>Some reply details couldn’t load</summary>
+      <p role="alert">{error}</p><button type="button" onClick={inspect}>Retry details</button>
+    </details>}
   </details></>;
 }
