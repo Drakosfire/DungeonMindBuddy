@@ -204,7 +204,7 @@ it('opens an honest error report for a historical interruption without a cause',
   render(<BuddyContextTrace ownerActive={false} trace={{...trace([]), terminal_status:'interrupted'}} />)
   expect(screen.getByText('Reply error report')).toBeInTheDocument()
   expect(screen.getByRole('alert')).toHaveTextContent('The specific cause was not recorded')
-  expect(screen.getByText('Execution timeline').closest('details')).not.toHaveAttribute('open')
+  expect(screen.getByText('Execution timeline').closest('details')).toHaveAttribute('open')
 })
 
 it('leads with safe durable exception metadata without pretending capture is success', () => {
@@ -233,8 +233,8 @@ describe('copy captured trace', () => {
       const captured = {...trace([passage('A source excerpt with ``` fences.'),
         {kind:'failure' as const,sequence:1,elapsed_ms:23700,phase:'delivery',code:'build_source_name_missing',stage:'context_acquisition'}]), terminal_status:'interrupted' as const, attempt:2}
       render(<BuddyContextTrace ownerActive={false} trace={captured} />)
-      expect(screen.getByText('Execution timeline').closest('details')).not.toHaveAttribute('open')
-      fireEvent.click(screen.getByRole('button', {name:'Copy trace',exact:true,hidden:true}))
+      expect(screen.getByText('Execution timeline').closest('details')).toHaveAttribute('open')
+      fireEvent.click(screen.getByRole('button', {name:'Copy trace',exact:true}))
       await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Trace copied.'))
       const copied = writeText.mock.calls[0][0] as string
       expect(copied).toContain('Attempt: 2')
@@ -252,10 +252,10 @@ describe('copy captured trace', () => {
     vi.stubGlobal('navigator', { clipboard: { writeText } })
     try {
       render(<BuddyContextTrace ownerActive={false} trace={trace([])} />)
-      fireEvent.click(screen.getByRole('button', {name:'Copy trace',exact:true,hidden:true}))
+      fireEvent.click(screen.getByRole('button', {name:'Copy trace',exact:true}))
       await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Couldn’t copy'))
       expect(screen.queryByText('Trace copied.')).not.toBeInTheDocument()
-      fireEvent.click(screen.getByRole('button', {name:'Copy trace',exact:true,hidden:true}))
+      fireEvent.click(screen.getByRole('button', {name:'Copy trace',exact:true}))
       await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Trace copied.'))
     } finally { vi.unstubAllGlobals() }
   })
