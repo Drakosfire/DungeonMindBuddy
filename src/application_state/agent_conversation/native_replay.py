@@ -23,12 +23,14 @@ def load_native_replay_read(*, world_id, turn_id, trace_id, sequence, assertion_
     """Read the exact saved authorization and assertion in one database snapshot."""
     from .context_trace_store import _load_trace
     from .native_context import SurfaceNativeContextReceiptV1
+    from .native_execution import SurfaceNativeExecutionV1, _join_context_binding
     from .native_plan_assertions import (
         NativePlanQueryV2,
         NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadV1, NativePlanAssertionReadV2,
     )
     from .service import _ready_dsn
-    from .types import PlanNativeContextReceiptV1, canonical_sha256
+    from .native_reads import validate_execution_binding
+    from .types import PlanNativeContextReceiptV1, PlanNativeExecutionV1
     from application_state.unit_of_work import unit_of_work
 
     with unit_of_work(_ready_dsn()) as conn:
@@ -65,10 +67,14 @@ def load_native_replay_read(*, world_id, turn_id, trace_id, sequence, assertion_
               for codec in (SurfaceNativeContextReceiptV1, PlanNativeContextReceiptV1)}
     captured = codecs[receipt["schema"]].model_validate_json(json.dumps(receipt))
     query = captured.native_query
-    if (not isinstance(query, NativePlanQueryV2)
-            or execution["context_receipt_sha256"] != captured.context_receipt_sha256
-            or execution["policy"]["native_query_sha256"] != canonical_sha256(query)):
-        raise ValueError("Saved native execution differs from its query receipt")
+    if not isinstance(query, NativePlanQueryV2):
+        raise ValueError("Saved query does not admit native assertions")
+    if isinstance(captured, SurfaceNativeContextReceiptV1):
+        ledger = SurfaceNativeExecutionV1.model_validate_json(json.dumps(execution))
+        _join_context_binding(captured, ledger)
+    else:
+        ledger = PlanNativeExecutionV1.model_validate_json(json.dumps(execution))
+        validate_execution_binding(captured, ledger)
     grant = NativePlanAssertionReadAuthorizedV1.model_validate_json(json.dumps(grant_data))
     codec = NativePlanAssertionReadV2 if observed["kind"].endswith("_v2") else NativePlanAssertionReadV1
     saved = codec.model_validate_json(json.dumps(saved_data))
