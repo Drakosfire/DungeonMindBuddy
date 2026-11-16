@@ -2029,3 +2029,36 @@ def test_hosted_plan_inventory_reopens_an_exact_owned_plan(hosted, application_s
         assert hosted.client.request("GET", path, session="other-session").status_code == 403
     for path in (inventory + "&scope_mode=world", snapshot + "?view=committed", f"{base}/{plan.document_id}"):
         assert hosted.client.request("GET", path).status_code == 403
+
+
+def test_hosted_owner_saves_exact_world_plan(hosted, application_state_dsn, tmp_path):
+    from apps.live_control_server.services.workspace_document_registry import create_world_owned_plan_v2
+
+    plan = create_world_owned_plan_v2(tmp_path, world_id="managed", title="Before")
+    editor = "/api/live/tiptap/markdown-write"
+    body = {
+        "schema_version": "dmb_tiptap_markdown_write_prepare_v2",
+        "scope_mode": "world",
+        "world_id": "managed",
+        "document_id": plan.document_id,
+        "title": "After",
+        "markdown": "# After\n\nA saved Plan.\n",
+        "expected_revision": plan.revision,
+    }
+    assert hosted.client.request("POST", f"{editor}/prepare", json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", f"{editor}/prepare", json={**body, "world_id": "foreign"}).status_code == 403
+    prepared = hosted.client.request("POST", f"{editor}/prepare", json=body)
+    assert prepared.status_code == 200, prepared.text
+    commit = {
+        **body,
+        "schema_version": "dmb_tiptap_markdown_write_commit_v2",
+        "expected_revision": prepared.json()["registry_revision"],
+        "writer_confirm_token": prepared.json()["writer_confirm_token"],
+    }
+    assert hosted.client.request("POST", f"{editor}/commit", json=commit, session="other-session").status_code == 403
+    saved = hosted.client.request("POST", f"{editor}/commit", json=commit)
+    assert saved.status_code == 200, saved.text
+    snapshot = hosted.client.request("GET", f"/api/live/workspace-documents/{plan.document_id}/snapshot")
+    assert snapshot.status_code == 200, snapshot.text
+    assert snapshot.json()["record"]["title"] == "After"
+    assert snapshot.json()["markdown"] == body["markdown"]
