@@ -37,7 +37,7 @@ from application_state.world_catalog.types import (
 from apps.live_control_server.routes.native_graph_explorer import (
     router as explorer_router,
 )
-from apps.live_control_server.routes import extract_promote, workspace_documents
+from apps.live_control_server.routes import extract_promote, live, workspace_documents
 from apps.live_control_server.routes.world_containers import router as worlds_router
 from apps.live_control_server.routes.native_graph_inspection import (
     router as inspection_router,
@@ -247,6 +247,7 @@ def hosted(monkeypatch, request):
 
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
+    app.include_router(live.router)
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", get_pdf_statblock_publication, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", post_pdf_statblock_publication, methods=["POST"])
@@ -269,6 +270,11 @@ def hosted(monkeypatch, request):
             ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("POST", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
+            ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
+            ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
+            ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
+            ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
+            ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/accept/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
             ("GET", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
@@ -1861,3 +1867,40 @@ def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_prepar
     assert hosted.client.request("POST", route, json=payload, origin="https://untrusted.example").status_code == 403
     assert hosted.client.request("POST", route, json={**payload, "runId": "changed"}).status_code == 403
     assert prepared == ["owned"]
+
+
+def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_state_dsn):
+    documents = "/api/live/workspace-documents"
+    editor = "/api/live/tiptap/markdown-write"
+    create = {
+        "title": "First source", "kind": "worldbuilding_source",
+        "authority_state": "draft", "visibility_state": "internal",
+        "source_domain": "worldbuilding", "document_class": "lore",
+        "world_id": "managed", "campaign_id": "managed",
+    }
+    assert hosted.client.request("POST", documents, json=create, session="other-session").status_code == 403
+    assert hosted.client.request("POST", documents, json={**create, "campaign_id": "foreign"}).status_code == 403
+    created = hosted.client.request("POST", documents, json=create)
+    assert created.status_code == 200, created.text
+    record = created.json()
+    document = f"{documents}/{record['document_id']}"
+    markdown = "# First source\n\nThe pilot town has a well.\n"
+    request = {
+        "document_id": record["document_id"], "markdown": markdown,
+        "expected_revision": record["revision"],
+    }
+
+    assert hosted.client.request("GET", document, session="other-session").status_code == 403
+    assert hosted.client.request("GET", f"{document}/snapshot?world_id=foreign").status_code == 403
+    assert hosted.client.request("POST", f"{editor}/prepare", json=request, session="other-session").status_code == 403
+    prepared = hosted.client.request("POST", f"{editor}/prepare", json=request)
+    assert prepared.status_code == 200, prepared.text
+    token = prepared.json()["writer_confirm_token"]
+    commit = {**request, "writer_confirm_token": token}
+    assert hosted.client.request("POST", f"{editor}/commit", json=commit, session="other-session").status_code == 403
+    committed = hosted.client.request("POST", f"{editor}/commit", json=commit)
+    assert committed.status_code == 200, committed.text
+    reopened = hosted.client.request("GET", f"{document}/snapshot")
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.headers["cache-control"] == "no-store"
+    assert "The pilot town has a well." in reopened.json()["markdown"]

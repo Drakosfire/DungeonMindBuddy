@@ -8,6 +8,7 @@ promoted by this first hosted capability.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from uuid import UUID
 
 from fastapi import HTTPException, Request
 from pydantic import TypeAdapter
@@ -238,6 +239,64 @@ def require_build_pdf_access(request: Request, world_id: str) -> None:
     if getattr(request.state, "hosted_build_pdf_world", None) != world_id:
         raise _denied()
     _owned_world(_hosted_subject(request), world_id)
+
+
+async def resolve_hosted_build_page_create(request: Request) -> str:
+    from apps.live_control_server.services.workspace_document_registry import CreateWorkspaceDocumentRequest
+
+    subject = _hosted_subject(request)
+    create = CreateWorkspaceDocumentRequest.model_validate(await request.json())
+    world_id = create.world_id
+    if (
+        not world_id or create.kind != "worldbuilding_source"
+        or create.campaign_id != world_id
+        or create.target_session is not None or create.target_relpath is not None
+        or create.authority_state not in (None, "draft")
+        or create.visibility_state not in (None, "internal")
+    ):
+        raise _denied()
+    await run_in_threadpool(_owned_world, subject, world_id)
+    request.state.hosted_build_page_world = world_id
+    return world_id
+
+
+async def resolve_hosted_build_page(request: Request) -> str:
+    from apps.live_control_server import config
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteCommitRequest, TiptapMarkdownWritePrepareRequest,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        WorkspaceDocumentRegistryError, get_workspace_document,
+    )
+
+    subject = _hosted_subject(request)
+    if request.method == "GET":
+        document_id = getattr(request.state, "hosted_route_document_id", None)
+    else:
+        model = (
+            TiptapMarkdownWritePrepareRequest if request.url.path.endswith("/prepare")
+            else TiptapMarkdownWriteCommitRequest
+        )
+        write = model.model_validate(await request.json())
+        if write.schema_version is not None:
+            raise _denied()
+        document_id = write.document_id
+    try:
+        if not document_id or str(UUID(document_id)) != document_id:
+            raise _denied()
+    except ValueError:
+        raise _denied() from None
+    try:
+        record = await run_in_threadpool(get_workspace_document, config.repo_root(), document_id)
+    except WorkspaceDocumentRegistryError as exc:
+        if exc.status_code == 404:
+            raise _denied() from None
+        raise _unavailable() from None
+    if record.kind != "worldbuilding_source" or not record.world_id:
+        raise _denied()
+    await run_in_threadpool(_owned_world, subject, record.world_id)
+    request.state.hosted_build_page_world = record.world_id
+    return record.world_id
 
 
 async def resolve_hosted_build_page_inventory(request: Request) -> str:
