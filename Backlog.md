@@ -51,6 +51,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 | [Composable spatial workspace and themes](#deferred-composable-spatial-workspace-and-selectable-themes) | Select either saved canvas arrangements or a reversible theme, not both in one slice. |
 | [Connected campaign arcs](Docs/Backlog/IDEA-connected-campaign-arcs.md) | Explore the source-backed Wandering Forest arc across sessions; use unrelated material as a negative control. |
 | [Conversation search replay](Docs/Backlog/IDEA-conversation-search-replay.md) | Replay one recorded search and exact cited evidence inside Conversation Details. |
+| [AW workflow capabilities](Docs/Backlog/IDEA-aw-workflow-capabilities.md) | Start with editable conversation drafts, then reuse them for Meat Mind review and confirmation. |
 | [Campaign recap contributor](Docs/Backlog/IDEA-recap-contributor.md) | One campaign, two accounts, GM publication, and a spoiler-isolation witness. |
 | [Deeper Build document hierarchy](Docs/Backlog/IDEA-build-document-hierarchy.md) | Retain only if dogfood shows a navigation gap after the merged picker and recap browser. |
 | [Independent source archive and restore](#deferred-define-independent-source-artifact-archive-and-restore) | Define what discovery and old citations do before designing controls. |
