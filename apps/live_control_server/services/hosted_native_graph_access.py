@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from fastapi import HTTPException, Request
 from pydantic import TypeAdapter
+from starlette.concurrency import run_in_threadpool
 
 from application_state.world_catalog import service as catalog
 
@@ -34,6 +35,8 @@ from apps.live_control_server.services.world_container_registry import (
 )
 
 
+FIRST_WORLD_PREPARE_PATH = "/api/live/extract-promote/worldbuilding/first-world/prepare"
+FIRST_WORLD_CONFIRM_PATH = "/api/live/extract-promote/worldbuilding/first-world/confirm"
 EXPLORER_PREFIX = "/api/live/native-graph-explorer"
 WORLD_COLLECTION_PATH = "/api/live/world-containers"
 WORLD_LOOKUP_PATH = f"{WORLD_COLLECTION_PATH}/lookup"
@@ -166,6 +169,56 @@ def require_explorer_access(
     elif principal.auth_method == "hosted_owner":
         # The global principal type alone carries no scoped ownership proof.
         raise _denied()
+
+
+async def resolve_hosted_first_world(request: Request) -> str:
+    """Authorize only the exact World recorded on the server-owned ingest run."""
+    from apps.live_control_server import config
+    from apps.live_control_server.models.extract_promote import (
+        FirstWorldGraphConfirmRequest, FirstWorldGraphPrepareRequest,
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        PromotableIngestRunError, resolve_promotable_ingest_run,
+    )
+
+    subject = _hosted_subject(request)
+    if request.query_params:
+        raise _denied()
+    if request.url.path == FIRST_WORLD_PREPARE_PATH:
+        payload = FirstWorldGraphPrepareRequest.model_validate(await request.json())
+        run_id = payload.run_id
+        claimed_world = None
+    elif request.url.path == FIRST_WORLD_CONFIRM_PATH:
+        confirmation = FirstWorldGraphConfirmRequest.model_validate(await request.json())
+        run_id = confirmation.plan.run_id
+        claimed_world = confirmation.plan.world_id
+    else:
+        raise _denied()
+
+    try:
+        run = await run_in_threadpool(resolve_promotable_ingest_run, run_id, root=config.repo_root())
+    except PromotableIngestRunError:
+        raise _denied() from None
+    world_id = run.world_id
+    if not world_id or (claimed_world is not None and claimed_world != world_id):
+        raise _denied()
+    await run_in_threadpool(_owned_world, subject, world_id)
+    request.state.hosted_first_world = world_id
+    return world_id
+
+
+def first_world_authorizer(request: Request):
+    """Preserve local GM authority and recheck hosted ownership of the resolved run."""
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+        return None
+
+    def authorize(world_id: str) -> None:
+        if not world_id or getattr(request.state, "hosted_first_world", None) != world_id:
+            raise _denied()
+        _owned_world(_hosted_subject(request), world_id)
+
+    return authorize
 
 
 async def resolve_hosted_build_pdf_world(request: Request) -> str:

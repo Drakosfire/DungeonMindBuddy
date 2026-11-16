@@ -118,6 +118,8 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     BUILD_PDF_SOURCES_PATH,
     BUILD_PAGE_INVENTORY_PATH,
     EXPLORER_PREFIX,
+    FIRST_WORLD_CONFIRM_PATH,
+    FIRST_WORLD_PREPARE_PATH,
     INSPECTION_READ_PATH,
     WORLD_COLLECTION_PATH,
     WORLD_LOOKUP_PATH,
@@ -125,6 +127,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_build_pdf_world,
     resolve_hosted_build_page_inventory,
     resolve_hosted_explorer_world,
+    resolve_hosted_first_world,
     resolve_hosted_world_lookup,
 )
 from bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -158,6 +161,8 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", FIRST_WORLD_PREPARE_PATH): resolve_hosted_first_world,
+    ("POST", FIRST_WORLD_CONFIRM_PATH): resolve_hosted_first_world,
     ("GET", PDF_STATBLOCK_REVIEWS_PATH): resolve_hosted_build_pdf_world,
     ("GET", PDF_STATBLOCK_REVIEW_PATH): resolve_hosted_build_pdf_world,
     ("GET", f"{PDF_STATBLOCK_REVIEW_PATH}/publication"): resolve_hosted_build_pdf_world,
