@@ -104,24 +104,13 @@
 }
 
 .buddy-retrieval-replay__node-details::backdrop { background: rgb(10 15 24 / 55%); }
-.buddy-retrieval-replay__node-details header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: .75rem;
-}
-.buddy-retrieval-replay__node-details header h5 {
-  font-size: 1rem;
-  margin: 0;
-}
-.buddy-retrieval-replay__node-details header button { flex: none; }
 .buddy-retrieval-replay__node-details .buddy-retrieval-replay__node-visits {
   display: grid;
   gap: .35rem;
   padding: 0;
   list-style: none;
 }
-.buddy-retrieval-replay__node-details .buddy-retrieval-replay__node-visits button {
+.buddy-retrieval-replay__node-details .buddy-retrieval-replay__node-visits > li > button {
   width: 100%;
   max-width: none;
   text-align: start;
