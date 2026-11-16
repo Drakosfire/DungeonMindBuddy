@@ -60,20 +60,36 @@ export function RecordedReplayAssertionContent({
   const subject = labelFor?.(assertion.subject_entity_id) ?? "An unnamed object";
   const relation = assertion.predicate.split(":").at(-1)?.replaceAll("_", " ") ?? "relationship";
   const value = assertion.value;
-  let sentence = `The record describes ${subject}.`;
+  let sentence = `The record gives ${subject} a “${relation}” value.`;
+  let structuredValue: unknown;
+  let literal = value;
   if (value && typeof value === "object" && "kind" in value) {
     if (value.kind === "entity_ref" && "entity_id" in value && typeof value.entity_id === "string") {
       const object = labelFor?.(value.entity_id) ?? "an unnamed object";
       sentence = nodeOverviewRelationship(assertion.predicate, subject, object)
         ?? (relation === "precedes" ? `${subject} happens before “${object}.”` : `The record links ${subject} to ${object} by “${relation}.”`);
-    } else if (value.kind === "literal" && "value" in value && typeof value.value === "string") {
-      sentence = value.value;
+      literal = undefined;
     } else if (value.kind === "term_ref" && "term" in value && typeof value.term === "string") {
-      sentence = `The record classifies ${subject} as ${value.term.split(":").at(-1)?.replaceAll("_", " ")}.`;
+      const term = value.term.split(":").at(-1)?.replaceAll("_", " ");
+      sentence = relation === "classification" ? `The record classifies ${subject} as ${term}.`
+        : `The record gives ${subject} the “${relation}” term “${term}.”`;
+      literal = undefined;
+    } else if (value.kind === "literal" && "value" in value) {
+      literal = value.value;
     }
+  }
+  if (typeof literal === "string" || typeof literal === "number" || typeof literal === "boolean" || literal === null) {
+    sentence = relation === "summary" && typeof literal === "string" ? literal
+      : `The record gives ${subject} the “${relation}” value “${String(literal)}.”`;
+  } else if (literal !== undefined) {
+    structuredValue = literal;
   }
   return <>
     <p>{sentence}</p>
+    {structuredValue !== undefined && <details>
+      <summary>Recorded value</summary>
+      <pre>{JSON.stringify(structuredValue, null, 2)}</pre>
+    </details>}
     {read.excerpts?.map(excerpt => <blockquote key={excerpt.evidence_ref_id}>{excerpt.text}</blockquote>)}
   </>;
 }
