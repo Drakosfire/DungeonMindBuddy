@@ -1,3 +1,5 @@
+import { GraphCircleGlyph } from '../../localWorld/worldGraphCanvas/GraphCircleGlyph'
+import { graphTypeColor } from '../../localWorld/worldGraphCanvas/graphTypeStyles'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BuddyReplayAssertion } from './BuddyReplayAssertion'
 import { BuddyHistoricalSourcePassage } from './BuddyHistoricalSourcePassage'
@@ -68,14 +70,30 @@ function RecordedAssertions({ trace, step }: { trace: BuddyTurnContextTrace; ste
   </details>
 }
 
+function displayNodeName(node: RetrievalStep['result']['nodes'][number]) {
+  return /^(ent|entity|asrt):/i.test(node.label) ? 'Unnamed object' : node.label
+}
+
 function layoutTrail(steps: readonly RetrievalStep[]) {
-  return steps.map((step, position) => ({
-    step,
-    position,
-    y: position * 84 + 34,
-    objects: step.result.nodes.slice(0, 3),
-    relationships: step.result.relationships ?? [],
-  }))
+  const objects = new Map<string, { node: RetrievalStep['result']['nodes'][number]; visits: number[]; x: number; y: number }>()
+  for (const [position, step] of steps.entries()) {
+    for (const node of step.result.nodes) {
+      const existing = objects.get(node.node_id)
+      if (existing) {
+        existing.visits.push(position)
+      } else {
+        objects.set(node.node_id, { node, visits: [position], x: 0, y: 0 })
+      }
+    }
+  }
+  const columns = Math.max(1, Math.ceil(Math.sqrt(objects.size * 1.65)))
+  let offset = 0
+  for (const object of objects.values()) {
+    object.x = 44 + (offset % columns) * 88
+    object.y = 44 + Math.floor(offset / columns) * 88
+    offset += 1
+  }
+  return { objects, width: columns * 88, height: Math.max(88, Math.ceil(objects.size / columns) * 88) }
 }
 
 function keepStepVisible(pane: HTMLElement | null) {
@@ -87,55 +105,42 @@ function keepStepVisible(pane: HTMLElement | null) {
   else if (row.bottom > frame.bottom) pane.scrollTop += row.bottom - frame.bottom
 }
 
-const Trail = memo(function Trail({ rows, active, select }: {
-  rows: ReturnType<typeof layoutTrail>
+const Trail = memo(function Trail({ layout, active, wide, select }: {
+  layout: ReturnType<typeof layoutTrail>
   active: number
+  wide: boolean
   select: (position: number) => void
 }) {
-  const pane = useRef<HTMLDivElement>(null)
-  useEffect(() => keepStepVisible(pane.current), [active, rows])
-  return <div ref={pane} className="buddy-retrieval-replay__trail" aria-label="Recorded lookup trail">
-    <svg viewBox={`0 0 580 ${rows.length * 84}`} role="group" aria-label="Operations and returned objects">
-      {rows.map(({ step, position, y, objects, relationships }) => (
-        <g key={stepKey(step)} className={active === position ? 'is-current' : undefined}
-          data-replay-active={active === position ? true : undefined}>
-          {objects.map((node, objectIndex) => {
-            const x = 230 + objectIndex * 112
-            return <g key={node.node_id}>
-              <path d={`M 204 ${y} H ${x} V ${y + 17}`} />
-              <rect x={x} y={y + 16} width="104" height="28" rx="7" />
-              <title>{node.label}</title>
-              <text x={x + 6} y={y + 34}>{node.label.length > 13 ? node.label.slice(0, 12) + '…' : node.label}</text>
-            </g>
-          })}
-          {relationships.map(relationship => {
-            const source = objects.findIndex(node => node.node_id === relationship.source_node_id)
-            const target = objects.findIndex(node => node.node_id === relationship.target_node_id)
-            if (source < 0 || target < 0 || source === target) return null
-            const x1 = 282 + source * 112
-            const x2 = 282 + target * 112
-            const arrow = x2 - Math.sign(x2 - x1) * 5
-            return <g key={relationship.relationship_id} className="buddy-retrieval-replay__relationship">
-              <title>{`${objects[source].label} → ${objects[target].label}`}</title>
-              <path d={`M ${x1} ${y + 44} V ${y + 47} H ${x2} V ${y + 44} M ${arrow} ${y + 42} L ${x2} ${y + 44} L ${arrow} ${y + 47}`} />
-            </g>
-          })}
-          <g role="button" tabIndex={0} aria-pressed={active === position}
-            aria-label={`Step ${position + 1}, ${stepLabel(step)}`}
-            onClick={() => select(position)} onKeyDown={event => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                select(position)
-              }
-            }}>
-            <rect x="8" y={y - 15} width="196" height="30" rx="7" />
-            <text x="16" y={y + 4}>{position + 1}. {stepLabel(step)}</text>
+  return <div className="buddy-retrieval-replay__canvas">
+    <svg viewBox={`0 0 ${layout.width} ${layout.height}`} role="group" aria-label="Recorded graph nodes">
+      {[...layout.objects.values()].map(({ node, visits, x, y }) => {
+        const current = visits.includes(active)
+        const position = visits[0]
+        const name = displayNodeName(node)
+        const state = current ? 'current' : position < active ? 'visited' : 'upcoming'
+        return <g key={node.node_id} transform={`translate(${x} ${y})`}
+          data-visit={state} role="button" tabIndex={wide || current ? 0 : -1}
+          aria-label={name} aria-pressed={current}
+          onClick={() => select(position)} onKeyDown={event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              select(position)
+            }
+          }}>
+          <title>{name}</title>
+          <g style={{ color: graphTypeColor(node.kind) }}>
+            <GraphCircleGlyph center={0} radius={24} kind={node.kind} name="" showLabels={false} fullCorpus />
           </g>
+          {(wide || current) && <text className="buddy-retrieval-replay__label" y="39" textAnchor="middle">
+            {name.length > 14 ? `${name.slice(0, 13)}…` : name}
+          </text>}
         </g>
-      ))}
+      })}
     </svg>
+    {layout.objects.size === 0 && <p>This lookup retained no graph nodes.</p>}
   </div>
 })
+
 
 function indexPassages(trace: BuddyTurnContextTrace | undefined) {
   const index = new Map<string, BuddyTraceSourcePassage[]>()
@@ -152,6 +157,7 @@ function indexPassages(trace: BuddyTurnContextTrace | undefined) {
 export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly RetrievalStep[]; trace?: BuddyTurnContextTrace }) {
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
+  const [wide, setWide] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const list = useRef<HTMLOListElement>(null)
   const passagesByEvidence = useMemo(() => indexPassages(trace), [trace])
@@ -170,7 +176,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
     return () => window.clearTimeout(timer)
   }, [index, last, playing, steps.length])
 
-  useEffect(() => keepStepVisible(list.current), [index, steps])
+  useEffect(() => keepStepVisible(list.current), [index, steps, wide])
 
   const select = useCallback((next: number) => {
     setPlaying(false)
@@ -192,12 +198,18 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         <button type="button" disabled={!playing} onClick={() => setPlaying(false)}>Pause</button>
         <button type="button" disabled={index === 0} onClick={() => select(index - 1)}>Previous step</button>
         <button type="button" disabled={last} onClick={() => select(index + 1)}>Next step</button>
+        <button type="button" aria-expanded={wide} onClick={() => setWide(value => !value)}>{wide ? 'Collapse' : 'Expand'}</button>
         <span role="status">Step {index + 1} of {steps.length}</span>
       </div>
-      {trace && trace.writer_evidence_sequences == null && <p>Writer evidence was unavailable for this attempt.</p>}
-      <div className="buddy-retrieval-replay__workspace">
+      {wide && trace && trace.writer_evidence_sequences == null && !steps.some(item => item.writerEvidence) && <p>Writer evidence was unavailable for this attempt.</p>}
+      <p className="buddy-retrieval-replay__caption">
+        {nodes.length === 1 ? displayNodeName(nodes[0]) : nodes.length ? `${nodes.length} objects` : stepLabel(step)}
+      </p>
+      <div data-wide={wide}>
+        <Trail layout={rows} active={index} wide={wide} select={select} />
+      </div>
+      <div className="buddy-retrieval-replay__workspace" hidden={!wide}>
         <section aria-label="Recorded lookup results">
-          <Trail rows={rows} active={index} select={select} />
           <h5>{stepLabel(step)}</h5>
           {(step.native ? step.writerEvidence : writerObservations.has(step.sequence)) && <p><strong>Evidence sent to the answer writer</strong></p>}
           <p>{total_counts.nodes} objects · {total_counts.relationships} relationships · {total_counts.claims} claims</p>
@@ -206,14 +218,14 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
           {relationships.length > 0 && <details>
             <summary>Returned relationships ({relationships.length})</summary>
             <ul>{relationships.map(relationship => <li key={relationship.relationship_id}>
-              {nodes.find(node => node.node_id === relationship.source_node_id)?.label ?? relationship.source_node_id}
+              {nodes.find(node => node.node_id === relationship.source_node_id)?.label ?? "Unnamed object"}
               {' → '}
-              {nodes.find(node => node.node_id === relationship.target_node_id)?.label ?? relationship.target_node_id}
+              {nodes.find(node => node.node_id === relationship.target_node_id)?.label ?? "Unnamed object"}
             </li>)}</ul>
           </details>}
           {nodes.length > 0 && <ul className="buddy-retrieval-replay__nodes">
             {(expanded ? nodes : nodes.slice(0, previewSize)).map(node => (
-              <li key={node.node_id}><strong>{node.label}</strong> <span>{node.kind}</span></li>
+              <li key={node.node_id}><strong>{displayNodeName(node)}</strong> <span>{node.kind}</span></li>
             ))}
           </ul>}
           {nodes.length > previewSize && <button type="button" aria-expanded={expanded}

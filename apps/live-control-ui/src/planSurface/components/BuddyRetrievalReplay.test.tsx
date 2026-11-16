@@ -23,10 +23,12 @@ it('synchronizes the trail and step list, and cancels playback when paused', () 
   vi.useFakeTimers()
   try {
     render(<BuddyRetrievalReplay steps={[lookup(4, 'Caelynn'), lookup(8, 'Mossglade')]} />)
-    const trail = screen.getByRole('group', { name: 'Operations and returned objects' })
+    const trail = screen.getByRole('group', { name: 'Recorded graph nodes' })
+    expect(screen.queryByRole('list', { name: 'Recorded retrieval steps' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
     const steps = screen.getByRole('list', { name: 'Recorded retrieval steps' })
-    const first = within(trail).getByRole('button', { name: /^Step 1,/ })
-    const second = within(trail).getByRole('button', { name: /^Step 2,/ })
+    const first = within(trail).getByRole('button', { name: 'Caelynn' })
+    const second = within(trail).getByRole('button', { name: 'Mossglade' })
     expect(first).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'Play' }))
     fireEvent.click(screen.getByRole('button', { name: 'Pause' }))
@@ -35,6 +37,10 @@ it('synchronizes the trail and step list, and cancels playback when paused', () 
     fireEvent.click(screen.getByRole('button', { name: 'Play' }))
     act(() => vi.advanceTimersByTime(1000))
     expect(second).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse' }))
+    expect(screen.getByRole('group', { name: 'Recorded graph nodes' })).toBe(trail)
+    expect(screen.getByRole('status')).toHaveTextContent('Step 2 of 2')
+    fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
     expect(within(steps).getAllByRole('button')[1]).toHaveAttribute('aria-current', 'step')
     fireEvent.keyDown(first, { key: 'Enter' })
     expect(within(steps).getAllByRole('button')[0]).toHaveAttribute('aria-current', 'step')
@@ -58,6 +64,7 @@ it('interleaves native and legacy reads using ledger order', () => {
   const steps = replaySteps(trace)
   expect(steps.map(step => [step.sequence, Boolean(step.native)])).toEqual([[0, false], [6, true], [1, false]])
   render(<BuddyRetrievalReplay trace={trace} steps={steps} />)
+  fireEvent.click(screen.getByRole("button", { name: "Expand" }))
   fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
   expect(screen.getByRole('heading', { name: 'Read native assertions' })).toBeInTheDocument()
   expect(screen.getByText('Evidence sent to the answer writer')).toBeInTheDocument()
@@ -68,6 +75,7 @@ it('keeps the last assertion in a dense batch reachable with bounded controls', 
   step.result.claim_ids = Array.from({ length: 426 }, (_, index) => `claim:${index + 1}`)
   const trace = { observations: [step] } as BuddyTurnContextTrace
   render(<BuddyRetrievalReplay trace={trace} steps={[step]} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
   fireEvent.click(screen.getByText('Recorded assertions (426)'))
   expect(screen.getAllByText(/^Open assertion ·/)).toHaveLength(20)
   fireEvent.change(screen.getByLabelText('Assertion range'), { target: { value: '21' } })
@@ -80,6 +88,7 @@ it('marks only the recorded writer evidence step as playback advances', () => {
   const steps = [lookup(4, 'Caelynn'), lookup(8, 'Mossglade')]
   const trace = { observations: steps, writer_evidence_sequences: [8] } as BuddyTurnContextTrace
   render(<BuddyRetrievalReplay steps={steps} trace={trace} />)
+  fireEvent.click(screen.getByRole("button", { name: "Expand" }))
   const list = screen.getByRole('list', { name: 'Recorded retrieval steps' })
   expect(within(list).getAllByRole('button', { name: /Writer evidence/ })).toHaveLength(1)
   expect(screen.queryByText('Evidence sent to the answer writer')).not.toBeInTheDocument()
@@ -87,21 +96,16 @@ it('marks only the recorded writer evidence step as playback advances', () => {
   expect(screen.getByText('Evidence sent to the answer writer')).toBeInTheDocument()
 })
 
-it('scrolls both panes to a selected offscreen step without moving focus', () => {
+it('scrolls the step list to a selected offscreen step without moving focus', () => {
   render(<BuddyRetrievalReplay steps={Array.from({ length: 10 }, (_, index) => lookup(index + 1, `Object ${index}`))} />)
-  const trail = screen.getByRole('group', { name: 'Operations and returned objects' })
-  const pane = trail.parentElement!
+  fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
   const list = screen.getByRole('list', { name: 'Recorded retrieval steps' })
   const last = within(list).getAllByRole('button').at(-1)!
-  const trailRow = within(trail).getByRole('button', { name: /^Step 10,/ }).parentElement!
   const bounds = (top: number, height: number) => new DOMRect(0, top, 200, height)
-  vi.spyOn(pane, 'getBoundingClientRect').mockReturnValue(bounds(0, 200))
   vi.spyOn(list, 'getBoundingClientRect').mockReturnValue(bounds(0, 200))
-  vi.spyOn(trailRow, 'getBoundingClientRect').mockReturnValue(bounds(750, 68))
   vi.spyOn(last.parentElement!, 'getBoundingClientRect').mockReturnValue(bounds(315, 34))
   last.focus()
   fireEvent.click(last)
-  expect(pane.scrollTop).toBe(618)
   expect(list.scrollTop).toBe(149)
   expect(last).toHaveFocus()
 })
@@ -122,6 +126,7 @@ it('offers only captured passages matching the lookup evidence, World, and revis
       { ...source, source_name: 'Later revision', graph_revision: 'revision-two' }],
   } as BuddyTurnContextTrace
   render(<BuddyRetrievalReplay steps={[step]} trace={trace} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
   expect(screen.getByText('Open excerpt · Session 1')).toBeInTheDocument()
   expect(screen.queryByText(/Elsewhere|Later revision|Captured text/)).not.toBeInTheDocument()
 })
@@ -136,8 +141,9 @@ it('shows returned relationship direction and preserves lookup-only older steps'
   }]
   older.result.relationship_ids = ['edge:older']
   render(<BuddyRetrievalReplay steps={[current, older]} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
   expect(screen.getByText('Returned relationships (1)')).toBeInTheDocument()
-  expect(screen.getAllByText('Caelynn → Mossglade')).toHaveLength(2)
+  expect(screen.getByText('Caelynn → Mossglade')).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
   expect(screen.getByText('Some relationship endpoints were unavailable in this trace.')).toBeInTheDocument()
   expect(screen.queryByText('Returned relationships (1)')).not.toBeInTheDocument()
@@ -158,6 +164,7 @@ it('opens a recorded assertion lazily and rejects a different revision', async (
     step.result.claim_ids = ['claim:1']
     const trace = { trace_id: 'trace', world_id: 'elderwyld', turn_id: 'turn', observations: [step] } as BuddyTurnContextTrace
     render(<BuddyRetrievalReplay steps={[step]} trace={trace} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
     expect(fetch).not.toHaveBeenCalled()
     fireEvent.click(screen.getByText('Recorded assertions (1)'))
     expect(fetch).not.toHaveBeenCalled()
