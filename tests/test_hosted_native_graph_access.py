@@ -274,6 +274,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
@@ -1943,3 +1944,23 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
         read = hosted.client.request("GET", route)
         assert read.status_code == 200, read.text
         assert read.headers["cache-control"] == "no-store"
+
+    reviewed_runs = []
+
+    def read_review_package(run_id):
+        reviewed_runs.append(run_id)
+        raise extract_promote.ExtractPromoteError(
+            "Review package is still being prepared.",
+            code="review_package_pending",
+            status_code=409,
+        )
+
+    monkeypatch.setattr(extract_promote, "get_exact_run_review_package", read_review_package)
+    run_id = started.json()["run"]["run_id"]
+    review_route = f"/api/live/extract-promote/runs/{run_id}/review-package"
+    assert hosted.client.request("GET", review_route, session="other-session").status_code == 403
+    assert not reviewed_runs
+    read = hosted.client.request("GET", review_route)
+    assert read.status_code == 409, read.text
+    assert reviewed_runs == [run_id]
+    assert read.headers["cache-control"] == "no-store"

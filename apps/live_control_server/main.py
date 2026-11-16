@@ -190,6 +190,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/graph-preview/extraction-runs"): resolve_hosted_build_extraction,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): resolve_hosted_build_extraction,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): resolve_hosted_build_extraction,
+    ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): resolve_hosted_build_extraction,
     ("GET", WORLD_LOOKUP_PATH): resolve_hosted_world_lookup,
     ("POST", INSPECTION_READ_PATH): resolve_hosted_explorer_world,
     ("POST", f"{EXPLORER_PREFIX}/graph"): resolve_hosted_explorer_world,
