@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BuddyTraceObservation } from '../../api/buddyContextTraceTypes'
 import './BuddyRetrievalReplay.css'
 
@@ -23,15 +23,27 @@ function layoutTrail(steps: readonly RetrievalStep[]) {
   }))
 }
 
+function keepStepVisible(pane: HTMLElement | null) {
+  const active = pane?.querySelector('[data-replay-active]')
+  if (!pane || !active) return
+  const frame = pane.getBoundingClientRect()
+  const row = active.getBoundingClientRect()
+  if (row.top < frame.top) pane.scrollTop += row.top - frame.top
+  else if (row.bottom > frame.bottom) pane.scrollTop += row.bottom - frame.bottom
+}
+
 const Trail = memo(function Trail({ rows, active, select }: {
   rows: ReturnType<typeof layoutTrail>
   active: number
   select: (position: number) => void
 }) {
-  return <div className="buddy-retrieval-replay__trail" aria-label="Recorded lookup trail">
+  const pane = useRef<HTMLDivElement>(null)
+  useEffect(() => keepStepVisible(pane.current), [active, rows])
+  return <div ref={pane} className="buddy-retrieval-replay__trail" aria-label="Recorded lookup trail">
     <svg viewBox={`0 0 580 ${rows.length * 84}`} role="group" aria-label="Operations and returned objects">
       {rows.map(({ step, position, y, objects }) => (
-        <g key={step.sequence} className={active === position ? 'is-current' : undefined}>
+        <g key={step.sequence} className={active === position ? 'is-current' : undefined}
+          data-replay-active={active === position ? true : undefined}>
           {objects.map((node, objectIndex) => {
             const x = 230 + objectIndex * 112
             return <g key={node.node_id}>
@@ -62,6 +74,7 @@ export function BuddyRetrievalReplay({ steps }: { steps: readonly RetrievalStep[
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const list = useRef<HTMLOListElement>(null)
   const rows = useMemo(() => layoutTrail(steps), [steps])
   const step = steps[index]
   const last = index + 1 >= steps.length
@@ -76,11 +89,13 @@ export function BuddyRetrievalReplay({ steps }: { steps: readonly RetrievalStep[
     return () => window.clearTimeout(timer)
   }, [index, last, playing, steps.length])
 
-  function select(next: number) {
+  useEffect(() => keepStepVisible(list.current), [index, steps])
+
+  const select = useCallback((next: number) => {
     setPlaying(false)
     setExpanded(false)
     setIndex(next)
-  }
+  }, [])
 
   if (!step) return <p>No graph lookup steps were retained for this attempt.</p>
 
@@ -112,9 +127,9 @@ export function BuddyRetrievalReplay({ steps }: { steps: readonly RetrievalStep[
           {nodes.length > previewSize && <button type="button" aria-expanded={expanded}
             onClick={() => setExpanded(value => !value)}>{expanded ? 'Show fewer objects' : `Show all ${nodes.length} recorded objects`}</button>}
         </section>
-        <ol className="buddy-retrieval-replay__steps" aria-label="Recorded retrieval steps">
+        <ol ref={list} className="buddy-retrieval-replay__steps" aria-label="Recorded retrieval steps">
           {steps.map((item, position) => (
-            <li key={item.sequence}><button type="button" aria-current={position === index ? 'step' : undefined}
+            <li key={item.sequence} data-replay-active={position === index ? true : undefined}><button type="button" aria-current={position === index ? 'step' : undefined}
               onClick={() => select(position)}>{labels[item.request.operation]} · {item.result.outcome}</button></li>
           ))}
         </ol>
