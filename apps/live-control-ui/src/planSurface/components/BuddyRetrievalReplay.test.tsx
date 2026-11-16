@@ -1,8 +1,23 @@
 import { setNativeGraphAccessToken } from '../../api/liveApi'
 import type { BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { BuddyRetrievalReplay, replaySteps, type RetrievalStep } from './BuddyRetrievalReplay'
+
+const dialogMethods = Object.getOwnPropertyDescriptors(HTMLDialogElement.prototype)
+beforeAll(() => {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: { configurable: true, value(this: HTMLDialogElement) { this.setAttribute('open', '') } },
+    close: { configurable: true, value(this: HTMLDialogElement) { this.removeAttribute('open') } },
+  })
+})
+afterAll(() => {
+  for (const name of ['showModal', 'close']) {
+    const original = dialogMethods[name]
+    if (original) Object.defineProperty(HTMLDialogElement.prototype, name, original)
+    else Reflect.deleteProperty(HTMLDialogElement.prototype, name)
+  }
+})
 
 function lookup(sequence: number, label: string): RetrievalStep {
   return {
@@ -226,11 +241,14 @@ it('reveals recorded seeds, draws directed hops in order, and explains object-li
 
 it('opens and closes contextual details for the selected replay node', () => {
   render(<BuddyRetrievalReplay steps={[lookup(4, 'Caelynn')]} />)
-  expect(screen.queryByRole('region', { name: 'Replay node details' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('dialog', { name: 'Replay node details' })).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Caelynn' }))
-  const detail = screen.getByRole('region', { name: 'Replay node details' })
+  const detail = screen.getByRole('dialog', { name: 'Replay node details' })
   expect(within(detail).getByRole('heading', { name: 'Caelynn' })).toBeInTheDocument()
   expect(within(detail).getByRole('button', { name: 'Step 1 · Look up an object' })).toBeInTheDocument()
   fireEvent.click(within(detail).getByRole('button', { name: 'Close node details' }))
   expect(detail).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Caelynn' }))
+  fireEvent(screen.getByRole('dialog', { name: 'Replay node details' }), new Event('cancel', { cancelable: true }))
+  expect(screen.queryByRole('dialog', { name: 'Replay node details' })).not.toBeInTheDocument()
 })

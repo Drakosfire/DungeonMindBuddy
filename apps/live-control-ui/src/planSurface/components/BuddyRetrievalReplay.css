@@ -91,7 +91,40 @@
 }
 
 .buddy-retrieval-replay__node-details {
-  padding: 0.75rem;
-  border: 1px solid currentColor;
-  border-radius: 0.5rem;
+  box-sizing: border-box;
+  inline-size: min(28rem, calc(100vw - 2rem));
+  max-block-size: min(32rem, calc(100dvh - 2rem));
+  overflow: auto;
+  padding: 1rem;
+  color: #f1f4fa;
+  background: #1b2535;
+  border: 1px solid #53627a;
+  border-radius: .75rem;
+  overflow-wrap: anywhere;
+}
+
+.buddy-retrieval-replay__node-details::backdrop { background: rgb(10 15 24 / 55%); }
+.buddy-retrieval-replay__node-details header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: .75rem;
+}
+.buddy-retrieval-replay__node-details header h5 {
+  font-size: 1rem;
+  margin: 0;
+}
+.buddy-retrieval-replay__node-details header button { flex: none; }
+.buddy-retrieval-replay__node-details .buddy-retrieval-replay__node-visits {
+  display: grid;
+  gap: .35rem;
+  padding: 0;
+  list-style: none;
+}
+.buddy-retrieval-replay__node-details .buddy-retrieval-replay__node-visits button {
+  width: 100%;
+  max-width: none;
+  text-align: start;
+  overflow-wrap: normal;
+  white-space: normal;
 }
