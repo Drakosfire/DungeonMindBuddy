@@ -103,6 +103,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
   const [expanded, setExpanded] = useState(false)
   const list = useRef<HTMLOListElement>(null)
   const passagesByEvidence = useMemo(() => indexPassages(trace), [trace])
+  const writerObservations = useMemo(() => new Set(trace?.writer_evidence_sequences ?? []), [trace?.writer_evidence_sequences])
   const rows = useMemo(() => layoutTrail(steps), [steps])
   const step = steps[index]
   const last = index + 1 >= steps.length
@@ -141,10 +142,12 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         <button type="button" disabled={last} onClick={() => select(index + 1)}>Next step</button>
         <span role="status">Step {index + 1} of {steps.length}</span>
       </div>
+      {trace && trace.writer_evidence_sequences == null && <p>Writer evidence was unavailable for this attempt.</p>}
       <div className="buddy-retrieval-replay__workspace">
         <section aria-label="Recorded lookup results">
           <Trail rows={rows} active={index} select={select} />
           <h5>{labels[step.request.operation]}</h5>
+          {writerObservations.has(step.sequence) && <p><strong>Evidence sent to the answer writer</strong></p>}
           <p>{total_counts.nodes} objects · {total_counts.relationships} relationships · {total_counts.claims} claims</p>
           {projection_status === 'limited' && <p>Some results were omitted from the saved trace.</p>}
           {relationship_ids.length > relationships.length && <p>Some relationship endpoints were unavailable in this trace.</p>}
@@ -170,7 +173,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
           </details>}
           {trace && passages.length > 0 && <section aria-label="Captured source excerpts">
             {passages.map(passage => <BuddyHistoricalSourcePassage key={`${passage.source_read_event_id}:${passage.source_read_id}`}
-              graphRevision={step.revision_pin} label={`Open excerpt · ${passage.source_name?.trim() || 'Captured source'}`}
+              graphRevision={step.revision_pin} label={`Open excerpt · ${passage.source_name?.trim() || 'Captured source'}${writerObservations.has(passage.sequence) ? ' · Writer evidence' : ''}`}
               reference={{
                 schema: 'dmb_trace_historical_source_ref_v1', world_id: trace.world_id,
                 conversation_id: trace.conversation_id, turn_id: trace.turn_id, attempt: trace.attempt,
@@ -183,7 +186,8 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         <ol ref={list} className="buddy-retrieval-replay__steps" aria-label="Recorded retrieval steps">
           {steps.map((item, position) => (
             <li key={item.sequence} data-replay-active={position === index ? true : undefined}><button type="button" aria-current={position === index ? 'step' : undefined}
-              onClick={() => select(position)}>{labels[item.request.operation]} · {item.result.outcome}</button></li>
+              onClick={() => select(position)}>{labels[item.request.operation]} · {item.result.outcome}
+              {writerObservations.has(item.sequence) && <strong> · Writer evidence</strong>}</button></li>
           ))}
         </ol>
       </div>

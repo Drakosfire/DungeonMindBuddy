@@ -422,6 +422,7 @@ class TurnContextTraceV1(TraceModel):
     capture_status: Literal["recording", "complete", "incomplete"] = "recording"
     capture_failure_code: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{0,63}$")
     observations: list[ContextTraceObservation] = Field(max_length=2048)
+    writer_evidence_sequences: list[int] | None = Field(default=None, max_length=2048)
 
     @model_validator(mode="after")
     def validate_order_scope_and_size(self) -> TurnContextTraceV1:

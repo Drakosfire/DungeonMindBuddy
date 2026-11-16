@@ -432,7 +432,7 @@ class TurnContextTraceStore:
                 (turn_id,),
             ).fetchall()
         traces = [_load_trace(row[0]) for row in rows]
-        for trace, row in zip(traces, rows, strict=True):
+        for index, (trace, row) in enumerate(zip(traces, rows, strict=True)):
             if trace.attempt != row[1]:
                 raise ApplicationStateValidationError("stored trace attempt differs from its row")
             if trace.world_id != world_id or trace.turn_id != turn_id or trace.conversation_id != turn[1]:
@@ -442,7 +442,49 @@ class TurnContextTraceStore:
                     validate_authored_reference_observation(observation, turn[0], trace)
                 if isinstance(observation, TracePromptReference):
                     validate_prompt_authorization(observation, turn[0], trace.execution_start_sequence)
+            next_start = traces[index + 1].execution_start_sequence if index + 1 < len(traces) else None
+            traces[index] = trace.model_copy(update={
+                "writer_evidence_sequences": _writer_evidence_sequences(trace, turn[0], next_start),
+            })
         return traces
+
+
+def _writer_evidence_sequences(
+    trace: TurnContextTraceV1, execution: object, next_start: int | None,
+) -> list[int] | None:
+    """Project recorded writer input onto this completed attempt's lookup steps."""
+    if trace.terminal_status != "completed" or not isinstance(execution, dict):
+        return None
+    events = [
+        event for event in execution.get("events", [])
+        if event["sequence"] >= trace.execution_start_sequence
+        and (next_start is None or event["sequence"] < next_start)
+    ]
+    completions = [event for event in events if event["kind"] == "completion_binding"]
+    if len(completions) != 1:
+        return None
+    completion = completions[0]
+    writers = [
+        event for event in events
+        if event["kind"] in {
+            "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
+            "plan_native_writer_authorized_v1", "plan_native_writer_authorized_v2",
+            "native_writer_authorized_v1", "native_build_writer_authorized_v2",
+        }
+        and event["provider_attempt_id"] == completion["provider_attempt_id"]
+        and event["sequence"] < completion["sequence"]
+    ]
+    if len(writers) != 1:
+        return None
+    writer = writers[0]
+    graph_ids = set(writer["included_graph_event_ids"])
+    source_ids = set(writer.get("included_source_read_event_ids", []))
+    source_ids.update(writer.get("included_source_reuse_event_ids", []))
+    return [
+        item.sequence for item in trace.observations
+        if (isinstance(item, TraceGraphTool) and str(item.execution_event_id) in graph_ids)
+        or (isinstance(item, TraceSourcePassage) and str(item.source_read_event_id) in source_ids)
+    ]
 
 
 def _historical_sources_available(conn, trace: TurnContextTraceV1,

@@ -76,6 +76,7 @@ export interface BuddyTurnContextTrace {
   started_at: string; closed_at: string | null; terminal_status: 'completed' | 'failed' | 'interrupted' | null
   capture_status: 'recording' | 'complete' | 'incomplete'; capture_failure_code: string | null
   observations: BuddyTraceObservation[]
+  writer_evidence_sequences?: number[] | null
 }
 
 export interface BuddyTracePromptReference extends Observation {
