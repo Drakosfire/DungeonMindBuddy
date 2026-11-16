@@ -175,7 +175,10 @@ def test_native_replay_projects_only_the_attempt_and_writer_inclusion():
     read = {"kind": "native_plan_assertion_read_observed_v2", "sequence": 6, "event_id": "read",
             "reads": [{"assertion": {"assertion_id": "assertion", "subject_entity_id": "subject",
                                      "predicate": "dnd5e:classification",
-                                     "value": {"kind": "term_ref", "term": "dnd5e:character"}}}],
+                                     "value": {"kind": "term_ref", "term": "dnd5e:character"}}},
+                      {"assertion": {"assertion_id": "connection", "subject_entity_id": "subject",
+                                     "predicate": "dungeonbuddy:works_with",
+                                     "value": {"kind": "entity_ref", "entity_id": "other"}}}],
             "unavailable_assertion_ids": ["missing"]}
     writer = {"kind": "native_writer_authorized_v1", "sequence": 8, "provider_attempt_id": "writer",
               "native_read_event_ids": ["read"]}
@@ -186,9 +189,9 @@ def test_native_replay_projects_only_the_attempt_and_writer_inclusion():
                                                    {"entity_id": "other", "label": "Not read"}]}}
     steps = native_assertion_steps(execution, receipt, start=5, stop=None)
     assert [step.model_dump() for step in steps] == [
-        {"sequence": 6, "revision_id": "pinned", "assertion_ids": ["assertion"],
-         "subject_ids": ["subject"], "assertion_ids_by_subject": {"subject": ["assertion"]}, "subject_labels": {"subject": "Caelynn"}, "subject_kinds": {"subject": "character"},
-         "unavailable_count": 1, "writer_evidence": True}
+        {"sequence": 6, "revision_id": "pinned", "assertion_ids": ["assertion", "connection"],
+         "subject_ids": ["subject"], "assertion_ids_by_subject": {"subject": ["connection", "assertion"]}, "subject_labels": {"subject": "Caelynn"}, "subject_kinds": {"subject": "character"},
+         "related_labels": {"other": "Not read"}, "unavailable_count": 1, "writer_evidence": True}
     ]
     assert not native_assertion_steps(execution, receipt, start=5, stop=9)[0].writer_evidence
     assert native_assertion_steps(execution, receipt, start=7, stop=None) == []

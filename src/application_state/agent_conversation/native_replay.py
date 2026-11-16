@@ -20,6 +20,7 @@ class NativeReplayAssertionStep(BaseModel):
     assertion_ids_by_subject: dict[str, list[str]] = Field(default_factory=dict)
     subject_labels: dict[str, str] = Field(default_factory=dict)
     subject_kinds: dict[str, str] = Field(default_factory=dict)
+    related_labels: dict[str, str] = Field(default_factory=dict)
     unavailable_count: int
     writer_evidence: bool
 
@@ -160,11 +161,19 @@ def native_assertion_steps(execution, receipt, *, start: int, stop: int | None):
                 term = value.get("term")
                 if isinstance(term, str) and term.startswith("dnd5e:"):
                     classifications.setdefault(assertion["subject_entity_id"], set()).add(term.removeprefix("dnd5e:"))
+        related_labels = {
+            target: labels[target]
+            for assertion in assertions
+            if assertion.get("value", {}).get("kind") == "entity_ref"
+            and (target := assertion["value"].get("entity_id")) in labels
+        }
         summary_order = {
             assertion["assertion_id"]: (
                 0 if assertion.get("predicate") == "dungeonbuddy:summary"
                 else 1 if assertion.get("value", {}).get("kind") == "entity_ref"
-                else 2
+                and assertion["value"].get("entity_id") in related_labels
+                else 2 if assertion.get("value", {}).get("kind") == "entity_ref"
+                else 3
             )
             for assertion in assertions
         }
@@ -178,6 +187,7 @@ def native_assertion_steps(execution, receipt, *, start: int, stop: int | None):
             assertion_ids_by_subject=assertion_ids_by_subject,
             subject_labels={identity: labels[identity] for identity in subjects if identity in labels},
             subject_kinds={identity: next(iter(kinds)) for identity, kinds in classifications.items() if len(kinds) == 1},
+            related_labels=related_labels,
             unavailable_count=len(event["unavailable_assertion_ids"]),
             writer_evidence=event["event_id"] in included,
         ))

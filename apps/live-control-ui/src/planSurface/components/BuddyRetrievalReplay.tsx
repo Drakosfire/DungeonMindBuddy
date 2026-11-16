@@ -466,7 +466,11 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
               key={`${position}:${assertionId}`} trace={trace} step={read} assertionId={assertionId} nodeId={inspectedNode.node_id}
               nodeLabel={displayNodeName(inspectedNode)} labelFor={id => {
                 const related = read.result.nodes.find(node => node.node_id === id)
-                if (!related) return undefined
+                if (!related) {
+                  const saved = nativeBySequence.get(read.sequence)
+                  return saved?.revision_id === read.revision_pin && Object.hasOwn(saved.related_labels ?? {}, id)
+                    ? saved.related_labels?.[id] : undefined
+                }
                 const label = displayNodeName(resolve(related, position))
                 return label === 'Unnamed object' ? undefined : label
               }} />)}

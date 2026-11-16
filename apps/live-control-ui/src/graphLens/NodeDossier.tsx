@@ -14,7 +14,12 @@ export function NodeDossier({ model, detail, entityId, nodeLabel, showStatblocks
 }) {
   const [statblocksOpen, setStatblocksOpen] = useState(false);
   if (!detail.entity.found) return <p>This object is unavailable in the selected revision.</p>;
-  const summaries = model.summaries.filter(record => record.text.trim()).slice(0, 2);
+  const label = nodeLabel ?? labels.get(entityId);
+  const summaries = model.summaries
+    .map(record => ({ ...record, text: record.text.trim().replace(/^[-*]\s+/, "") }))
+    .filter(record => record.text && !record.text.includes("\n"))
+    .sort((a, b) => Number(Boolean(label && b.text.startsWith(label))) - Number(Boolean(label && a.text.startsWith(label))))
+    .slice(0, 2);
   const related = model.groups
     .flatMap(group => group.rows)
     .flatMap(row => {
