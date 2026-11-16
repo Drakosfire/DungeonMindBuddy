@@ -53,6 +53,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 | [Layered map editor](Docs/Backlog/IDEA-layered-map-editor.md) | One durable map with editable overlays. Share coordinates where justified, not a single UI with page layout. |
 | [App-wide theming](#idea-app-wide-theme-system) | One shared design system, selectable and customizable themes, with reviewed agent proposals. |
 | [Composable spatial workspace](#deferred-composable-spatial-workspace) | Saved canvas arrangements; not page composition or a separate theme system. |
+| [Standalone Elderwyld demo World and timeline](#idea-standalone-elderwyld-demo-world-and-timeline) | Author a populated, shareable setting history for signed-out Buddy without using collaborative campaign material. |
 | [Connected campaign arcs](Docs/Backlog/IDEA-connected-campaign-arcs.md) | Explore the source-backed Wandering Forest arc across sessions; use unrelated material as a negative control. |
 | [Step through Buddy's work](Docs/Backlog/IDEA-conversation-search-replay.md) | One Conversation Details experience for traces, Jev graph search, and exact cited evidence. |
 | [Campaign recap contributor](Docs/Backlog/IDEA-recap-contributor.md) | One campaign, two accounts, GM publication, and a spoiler-isolation witness. |
@@ -101,6 +102,16 @@ One row per product idea. These rows are pointers, not separate status records. 
 **Surfaces when:** Planning Build authoring or shared page layout. Product sequencing remains with `Docs/Roadmaps/ROADMAP-demo.md`; high priority does not create a dispatch or authorize a schema or storage change.
 
 **Refs:** Edge source `bba72416-9dfe-49bb-add0-21a346e9a421`; `apps/live-control-ui/src/tiptap/extensions/MediaImageNode.tsx`; `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
+
+## [IDEA] Standalone Elderwyld demo World and timeline
+
+**Goal:** Create a populated Elderwyld demo World with its own chronology, separate from the played campaigns. Write original setting history and demo material rather than copying, paraphrasing, or anonymizing jointly authored recaps. The demo should feel like a lived-in World without sharing prose Alan does not solely own.
+
+**First slice:** Author one coherent arc with dated Events and connected people, places, and objects. Give it a few original, citable sources, a Build handout, and a Plan scene that can be run in Play. Bundle those records with the demo Graph and Conversation evidence so one story carries across the surfaces.
+
+**Release boundary:** Use a standalone demo World and independently review its sources, citations, assets, and any conversation or trace captures before public use. Exclude live campaign records and player contributions; use only original demo material or assets cleared for this use. Signed-out edits and Play progress stay temporary, with no database writes or link to the live World. This item is content groundwork, not approval to publish or implement the guest runtime.
+
+---
 
 ## [IDEA] Shared agent actions across surfaces
 
