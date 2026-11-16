@@ -7,12 +7,41 @@ from apps.live_control_server.services.native_graph_inspection import Inspection
 
 def open_native_replay_assertion(*, service, principal, world_id, turn_id, trace_id, sequence, assertion_id):
     from application_state.agent_conversation.native_plan_assertions import (
-        NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1,
         NativePlanAssertionReadV2, compact_assertion_read,
     )
-    from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
     from .native_graph_reads import reopen_context
     from .native_statement_clause_reads import _reopen_record
+
+    from application_state.agent_conversation.native_replay import load_native_replay_read
+
+    try:
+        selected = load_native_replay_read(world_id=world_id, turn_id=turn_id, trace_id=trace_id,
+                                           sequence=sequence, assertion_id=assertion_id)
+        if selected is None:
+            selected = _load_mixed_native_replay_read(service=service, world_id=world_id, turn_id=turn_id,
+                                                       trace_id=trace_id, sequence=sequence, assertion_id=assertion_id)
+        query, grant, saved = selected
+        authority = query.authority
+        reopened = _reopen_record(reopen_context(query, principal), grant, assertion_id, principal, assertion=True)
+        retained = compact_assertion_read(reopened) if isinstance(saved, NativePlanAssertionReadV2) else reopened
+        if retained != saved:
+            raise ValueError("Pinned native assertion differs from its saved read")
+    except (ValueError, TypeError, KeyError, AttributeError, StopIteration) as exc:
+        raise InspectionUnavailable("replay_native_assertion_unavailable") from exc
+    return {
+        "schema": "dmb_replay_native_assertion_v1", "world_id": world_id,
+        "turn_id": str(turn_id), "trace_id": str(trace_id), "sequence": sequence,
+        "revision_id": authority.revision_id,
+        "assertion": reopened.assertion.model_dump(mode="json"),
+        "excerpts": [span.model_dump(mode="json") for span in reopened.spans],
+    }
+
+
+def _load_mixed_native_replay_read(*, service, world_id, turn_id, trace_id, sequence, assertion_id):
+    from application_state.agent_conversation.native_plan_assertions import (
+        NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1,
+    )
+    from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 
     attempts = service.list_context_trace_attempts(world_id=world_id, turn_id=turn_id)
     trace = next((row for row in attempts if row.trace_id == trace_id
@@ -27,31 +56,18 @@ def open_native_replay_assertion(*, service, principal, world_id, turn_id, trace
         turn = turn.base_projection.turn
     if (turn.world_id, turn.turn_id, turn.conversation_id) != (world_id, turn_id, trace.conversation_id):
         raise InspectionUnavailable("replay_trace_unavailable")
-    try:
-        query = turn.graph_context_receipt.native_query
-        authority = query.authority
-        if authority.managed_world_id != world_id:
-            raise ValueError("Recorded query belongs to a different World")
-        events = turn.graph_context_execution.events
-        observed = next(event for event in events
+    query = turn.graph_context_receipt.native_query
+    authority = query.authority
+    if authority.managed_world_id != world_id:
+        raise ValueError("Recorded query belongs to a different World")
+    events = turn.graph_context_execution.events
+    observed = next(event for event in events
                         if isinstance(event, NativePlanAssertionReadObservedV1) and event.sequence == sequence)
-        grant = next(event for event in events
+    grant = next(event for event in events
                      if isinstance(event, NativePlanAssertionReadAuthorizedV1)
                      and event.event_id == observed.authorization_event_id)
-        saved = next(read for read in observed.reads if read.assertion.assertion_id == assertion_id)
-        reopened = _reopen_record(reopen_context(query, principal), grant, assertion_id, principal, assertion=True)
-        retained = compact_assertion_read(reopened) if isinstance(saved, NativePlanAssertionReadV2) else reopened
-        if retained != saved:
-            raise ValueError("Pinned native assertion differs from its saved read")
-    except (ValueError, TypeError, KeyError, AttributeError, StopIteration) as exc:
-        raise InspectionUnavailable("replay_native_assertion_unavailable") from exc
-    return {
-        "schema": "dmb_replay_native_assertion_v1", "world_id": world_id,
-        "turn_id": str(turn_id), "trace_id": str(trace_id), "sequence": sequence,
-        "revision_id": authority.revision_id,
-        "assertion": reopened.assertion.model_dump(mode="json"),
-        "excerpts": [span.model_dump(mode="json") for span in reopened.spans],
-    }
+    saved = next(read for read in observed.reads if read.assertion.assertion_id == assertion_id)
+    return query, grant, saved
 
 
 def open_replay_assertion(*, service, principal, world_id, turn_id, trace_id, sequence, assertion_id):

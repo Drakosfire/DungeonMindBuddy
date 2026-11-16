@@ -143,6 +143,32 @@ def test_writer_marker_uses_completed_writer_and_respects_attempt_bounds(saved_l
     assert _writer_evidence_sequences(trace, execution, None) is None
 
 
+@pytest.mark.parametrize(("sequence", "stop", "expected"), [
+    (4, None, "another attempt"),
+    (8, 8, "another attempt"),
+    (6, None, "not enough values to unpack"),
+])
+def test_scoped_native_read_rejects_wrong_attempt_or_missing_record(monkeypatch, sequence, stop, expected):
+    from contextlib import nullcontext
+    from application_state import unit_of_work
+    from application_state.agent_conversation import context_trace_store, service
+    from application_state.agent_conversation.native_replay import load_native_replay_read
+
+    trace = SimpleNamespace(world_id="world", turn_id=uuid4(), conversation_id=uuid4(),
+                            trace_id=uuid4(), attempt=1, execution_start_sequence=5)
+    conn = Mock()
+    conn.execute.return_value.fetchone.return_value = (
+        trace.conversation_id, "base", {}, {"events": []}, trace.attempt, {}, stop,
+    )
+    monkeypatch.setattr(unit_of_work, "unit_of_work", lambda _: nullcontext(conn))
+    monkeypatch.setattr(service, "_ready_dsn", lambda: "test")
+    monkeypatch.setattr(context_trace_store, "_load_trace", lambda _: trace)
+    with pytest.raises(ValueError, match=expected):
+        load_native_replay_read(world_id=trace.world_id, turn_id=trace.turn_id,
+                               trace_id=trace.trace_id, sequence=sequence, assertion_id="claim")
+    assert conn.execute.call_args.args[1] == (trace.world_id, trace.turn_id, trace.trace_id)
+
+
 def test_native_replay_projects_only_the_attempt_and_writer_inclusion():
     from application_state.agent_conversation.native_replay import native_assertion_steps
 
