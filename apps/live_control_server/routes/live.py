@@ -1076,7 +1076,11 @@ def get_live_surface(include_session_views: bool = False) -> dict[str, Any]:
 def get_live_plan_view(
     world_id: str | None = Query(default=None),
     scope_mode: Literal["world"] | None = Query(default=None),
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     if scope_mode == "world" and world_id is None:
         raise HTTPException(status_code=422, detail="world_id is required for World Plan context.")
     if world_id is not None:

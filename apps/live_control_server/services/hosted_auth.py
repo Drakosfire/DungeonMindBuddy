@@ -639,6 +639,7 @@ def install_hosted_request_boundary(
         response = await call_next(request)
         if any(hasattr(request.state, marker) for marker in (
             "hosted_native_graph_world", "hosted_build_pdf_world", "hosted_build_page_world",
+            "hosted_plan_context_world",
         )):
             response.headers["Cache-Control"] = "no-store"
         return response
