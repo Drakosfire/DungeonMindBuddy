@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { CapturedPrompt } from './BuddyPromptInspector'
 import { traceCostEstimate } from './traceCostEstimate'
 import { authoredTraceLabel, buddyTraceText, traceSnapshotLabel } from './buddyTraceText'
-import { BuddyRetrievalReplay } from './BuddyRetrievalReplay'
+import { BuddyRetrievalReplay, replaySteps } from './BuddyRetrievalReplay'
 import { BuddyHistoricalSourcePassage } from './BuddyHistoricalSourcePassage'
 import type { BuddyTraceMaterial, BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTracePromptReference, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 export type { BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
@@ -190,7 +190,7 @@ function RetrievalReplayDetails({ trace }: { trace: BuddyTurnContextTrace }) {
   return <details onToggle={event => setReplayOpen(event.currentTarget.open)}>
     <summary>Replay retrieval</summary>
     {replayOpen && <BuddyRetrievalReplay key={`${trace.trace_id}:${trace.attempt}`}
-      trace={trace} steps={trace.observations.filter(event => event.kind === 'graph_tool')} />}
+      trace={trace} steps={replaySteps(trace)} />}
   </details>
 }
 

@@ -2,7 +2,7 @@ import { setNativeGraphAccessToken } from '../../api/liveApi'
 import type { BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
-import { BuddyRetrievalReplay, type RetrievalStep } from './BuddyRetrievalReplay'
+import { BuddyRetrievalReplay, replaySteps, type RetrievalStep } from './BuddyRetrievalReplay'
 
 function lookup(sequence: number, label: string): RetrievalStep {
   return {
@@ -41,6 +41,26 @@ it('synchronizes the trail and step list, and cancels playback when paused', () 
   } finally {
     vi.useRealTimers()
   }
+})
+
+it('interleaves native and legacy reads using ledger order', () => {
+  const trace = {
+    observations: [
+      { ...lookup(0, 'Caelynn'), kind: 'graph_tool' },
+      { ...lookup(1, 'Mossglade'), kind: 'graph_tool' },
+    ],
+    graph_replay_order: { 0: 3, 1: 9 },
+    native_assertion_steps: [{
+      sequence: 6, revision_id: 'revision-one', assertion_ids: ['claim:1'],
+      subject_ids: ['Caelynn'], unavailable_count: 0, writer_evidence: true,
+    }],
+  } as BuddyTurnContextTrace
+  const steps = replaySteps(trace)
+  expect(steps.map(step => [step.sequence, Boolean(step.native)])).toEqual([[0, false], [6, true], [1, false]])
+  render(<BuddyRetrievalReplay trace={trace} steps={steps} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
+  expect(screen.getByRole('heading', { name: 'Read native assertions' })).toBeInTheDocument()
+  expect(screen.getByText('Evidence sent to the answer writer')).toBeInTheDocument()
 })
 
 it('marks only the recorded writer evidence step as playback advances', () => {
