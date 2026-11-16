@@ -99,6 +99,12 @@ def test_pdf_event_preserves_review_and_reopens_citation(
         review = client.post(events + "/prepare", json=draft, headers=auth)
         assert review.status_code == 200, review.text
         packet = review.json()
+        foreign_world = create_world_container(name="Unrelated PDF Event fixture")
+        foreign_events = f"/api/live/worlds/{foreign_world.world_id}/pdf-adventure-events"
+        foreign = client.post(foreign_events + "/confirm", json=packet, headers=auth)
+        assert foreign.status_code == 409, foreign.text
+        foreign_space = foreign_world.native_graph_binding.native_world_id
+        assert repo.get_head(foreign_space) is None
         before = repo.get_head(space).head_revision_id
         tampered = packet | {"draft": draft | {"name": "Changed"}}
         assert client.post(events + "/confirm", json=tampered, headers=auth).status_code == 409
