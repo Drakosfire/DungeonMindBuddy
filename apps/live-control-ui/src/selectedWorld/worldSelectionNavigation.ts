@@ -13,7 +13,7 @@ export function selectWorldFromLocation(worldId: string | null): void {
   navigatePrimaryAppHref(worldSelectionHref(
     `${window.location.pathname}${window.location.search}${window.location.hash}`,
     worldId,
-  ));
+  ), { allowSameWorld: true });
 }
 
 export function worldScopedSurfaceHref(pathname: string, worldId: string | null): string {

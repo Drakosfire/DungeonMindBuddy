@@ -19,6 +19,12 @@ describe("World selection navigation", () => {
     expect(worldScopedSurfaceHref("/play", "world-a")).toBe("/play?world=world-a");
   });
 
+  it("clears a stale extraction link when reselecting its World", () => {
+    window.history.replaceState({}, "", "/build?world=a&documentId=doc-a&extractionRunId=run-a");
+    selectWorldFromLocation("a");
+    expect(window.location.pathname + window.location.search).toBe("/build?world=a");
+  });
+
   it("pushes the same route when its World changes and exposes back navigation", () => {
     window.history.replaceState({}, "", "/plan?world=a&documentId=plan-a");
     const push = vi.spyOn(window.history, "pushState");
