@@ -213,7 +213,7 @@ const Trail = memo(function Trail({ layout, active, wide, select, resolve, prune
   resolve: (node: ReplayIdentity, position: number) => ReplayIdentity
   pruned?: readonly string[]
   reveal: boolean
-  inspect: (id: string) => void
+  inspect: (id: string, trigger: SVGGElement) => void
   inspectedId: string | null
 }) {
   const arrow = useId()
@@ -239,17 +239,17 @@ const Trail = memo(function Trail({ layout, active, wide, select, resolve, prune
         const name = displayNodeName(presentation)
         if (reveal && position > active) return null
         const state = pruned?.includes(node.node_id) ? 'pruned' : current ? 'current' : position < active ? 'visited' : 'upcoming'
-        const selectVisit = () => {
-          inspect(node.node_id)
+        const selectVisit = (trigger: SVGGElement) => {
+          inspect(node.node_id, trigger)
           if (!current) select(visits.find(visit => visit > active) ?? visits.at(-1)!)
         }
         return <g key={node.node_id} transform={`translate(${x} ${y})`}
           data-visit={state} data-inspected={inspectedId === node.node_id || undefined} role="button" tabIndex={wide || current ? 0 : -1}
           aria-label={name} aria-pressed={current}
-          onClick={selectVisit} onKeyDown={event => {
+          aria-haspopup="dialog" onClick={event => selectVisit(event.currentTarget)} onKeyDown={event => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault()
-              selectVisit()
+              selectVisit(event.currentTarget)
             }
           }}>
           <title>{name}</title>
@@ -283,6 +283,16 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [inspectedId, setInspectedId] = useState<string | null>(null)
+  const nodeDialog = useRef<HTMLDialogElement>(null)
+  const dismissNode = () => {
+    nodeDialog.current?.close()
+    setInspectedId(null)
+  }
+  const inspect = useCallback((id: string, trigger: SVGGElement) => {
+    trigger.focus()
+    setPlaying(false)
+    setInspectedId(id)
+  }, [])
   const [identityResult, setIdentityResult] = useState<{
     trace: BuddyTurnContextTrace
     identities: ReadonlyMap<string, ReplayIdentity>
@@ -348,6 +358,13 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
   }, [])
 
   const inspected = inspectedId === null ? undefined : rows.objects.get(inspectedId)
+  const showNodeDialog = Boolean(inspected && inspected.visits[0] <= index)
+  useEffect(() => {
+    const dialog = nodeDialog.current
+    if (!showNodeDialog || !dialog) return
+    dialog.showModal()
+    return () => { if (dialog.open) dialog.close() }
+  }, [showNodeDialog])
   if (!step) return <p>No graph lookup steps were retained for this attempt.</p>
 
   const inspectedNode = inspected ? resolve(inspected.node, inspected.visits.includes(index) ? index : inspected.visits[0]) : undefined
@@ -381,11 +398,16 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         {nodes.length === 1 ? displayNodeName(nodes[0]) : nodes.length ? `${nodes.length} objects` : stepLabel(step)}
       </p>
       <div data-wide={wide}>
-        <Trail layout={rows} active={index} wide={wide} select={select} resolve={resolve} pruned={step.pruning?.ids} inspect={setInspectedId} inspectedId={inspectedId} reveal={steps.some(item => item.hop || item.pruning)} />
+        <Trail layout={rows} active={index} wide={wide} select={select} resolve={resolve} pruned={step.pruning?.ids} inspect={inspect} inspectedId={inspectedId} reveal={steps.some(item => item.hop || item.pruning)} />
       </div>
-      {inspected && inspectedNode && inspected.visits[0] <= index && <section className="buddy-retrieval-replay__node-details" aria-label="Replay node details">
-        <button type="button" onClick={() => setInspectedId(null)}>Close node details</button>
-        <h5>{displayNodeName(inspectedNode)}</h5>
+      {showNodeDialog && inspected && inspectedNode && <dialog ref={nodeDialog}
+        className="buddy-retrieval-replay__node-details" aria-label="Replay node details"
+        onCancel={event => { event.preventDefault(); dismissNode() }}
+        onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation() }}>
+        <header>
+          <h5>{displayNodeName(inspectedNode)}</h5>
+          <button type="button" autoFocus aria-label="Close node details" onClick={dismissNode}>×</button>
+        </header>
         <p>{inspectedNode.kind}</p>
         {inspectedId !== null && step.pruning?.ids.includes(inspectedId) && <p>{step.pruning.reason}.</p>}
         {inspectedHops.length > 0 && <ul aria-label="Recorded hops for this node">
@@ -393,12 +415,12 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
             {hop.from} → {hop.to}
           </li>)}
         </ul>}
-        <ul>{inspected.visits.filter(position => position <= index).map(position => (
-          <li key={position}><button type="button" onClick={() => select(position)}>
+        <ul className="buddy-retrieval-replay__node-visits">{inspected.visits.filter(position => position <= index).map(position => (
+          <li key={position}><button type="button" onClick={() => { dismissNode(); select(position) }}>
             Step {position + 1} · {stepLabel(steps[position])}
           </button></li>
         ))}</ul>
-      </section>}
+      </dialog>}
       {step.pruning && <details>
         <summary>Pruned {step.pruning.total} {step.pruning.total === 1 ? 'candidate' : 'candidates'}</summary>
         <p>{step.pruning.reason}.</p>
