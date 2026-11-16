@@ -44,45 +44,32 @@
   }
 }
 
-.buddy-retrieval-replay__trail {
-  max-block-size: 20rem;
-  overflow: auto;
+.buddy-retrieval-replay__workspace[hidden] { display: none; }
+.buddy-retrieval-replay__canvas {
+  background: #f3efe6;
+  color: #222831;
+  border-radius: 8px;
+  width: min(100%, 19rem);
 }
+.buddy-retrieval-replay [data-wide="true"] .buddy-retrieval-replay__canvas { width: 100%; }
+.buddy-retrieval-replay__canvas svg { display: block; width: 100%; height: 10rem; }
+.buddy-retrieval-replay [data-wide="true"] .buddy-retrieval-replay__canvas svg { height: 24rem; }
+.buddy-retrieval-replay__canvas circle { fill: currentColor; stroke: #36414b; stroke-width: 1.5; }
+.buddy-retrieval-replay__canvas [data-visit="upcoming"] { opacity: .18; }
+.buddy-retrieval-replay__canvas [data-visit="visited"] { opacity: .55; }
+.buddy-retrieval-replay__canvas [data-visit="current"] circle { stroke-width: 3; }
+.buddy-retrieval-replay__canvas g[role="button"]:focus-visible circle { stroke: #795616; stroke-width: 4; }
+.buddy-retrieval-replay__label { fill: #222831; font-size: 11px; }
 
-.buddy-retrieval-replay__trail svg {
-  display: block;
-  min-inline-size: 30rem;
-  inline-size: 100%;
-  font-size: 13px;
+.buddy-retrieval-replay__steps button { width: 100%; text-align: start; overflow-wrap: normal; }
+
+.buddy-retrieval-replay { container-type: inline-size; }
+.buddy-retrieval-replay__caption { margin-block: .25rem .5rem; }
+.buddy-retrieval-replay__canvas [data-visit] { transition: opacity 180ms ease-out; }
+.buddy-retrieval-replay__canvas [role="button"] { cursor: pointer; }
+@container (max-width: 38rem) {
+  .buddy-retrieval-replay__workspace { grid-template-columns: minmax(0, 1fr); }
 }
-
-.buddy-retrieval-replay__trail rect,
-.buddy-retrieval-replay__trail path {
-  stroke: currentColor;
-  fill: none;
-  opacity: .5;
-}
-
-.buddy-retrieval-replay__trail text {
-  fill: currentColor;
-  pointer-events: none;
-}
-
-.buddy-retrieval-replay__trail [role="button"] {
-  cursor: pointer;
-}
-
-.buddy-retrieval-replay__trail .is-current rect,
-.buddy-retrieval-replay__trail [role="button"]:focus-visible rect {
-  stroke-width: 2;
-  opacity: 1;
-}
-
-.buddy-retrieval-replay__trail .buddy-retrieval-replay__relationship path {
-  stroke: var(--color-accent, currentColor);
-}
-
-.buddy-retrieval-replay__trail .is-current .buddy-retrieval-replay__relationship path {
-  opacity: 1;
-  stroke-width: 2;
+@media (prefers-reduced-motion: reduce) {
+  .buddy-retrieval-replay__canvas [data-visit] { transition: none; }
 }
