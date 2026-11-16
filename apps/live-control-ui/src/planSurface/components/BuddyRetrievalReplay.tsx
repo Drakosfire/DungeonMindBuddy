@@ -404,7 +404,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
   const findings = [...inspectedReads]
     .sort((a, b) => Number(Boolean(b.read.writerEvidence)) - Number(Boolean(a.read.writerEvidence)))
     .flatMap(({ read, ids, position }) => ids.slice(0, 3).flatMap(assertionId => {
-      const key = JSON.stringify([read.revision_pin, assertionId])
+      const key = JSON.stringify([read.sequence, read.revision_pin, read.scope_mode, read.campaign_id, assertionId])
       if (seenFindings.has(key)) return []
       seenFindings.add(key)
       return [{ assertionId, read, position }]
