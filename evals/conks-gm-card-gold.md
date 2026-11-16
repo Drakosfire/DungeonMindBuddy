@@ -32,6 +32,26 @@ mechanics, and related cards. A card's display order can change without
 changing its triggers. Inspecting a card records no fictional outcome.
 Record what happened on the run, linked to the card and relevant World nodes.
 
+## What the GM sees first
+
+Put scene procedures and NPC dialogue directly where the GM uses them.
+For example, the celebration card shows the children's request and the
+drinking rule, and the fire card shows the exertion check, the house-loss
+roll, and where displaced families go. Opening an NPC shows their usable
+description and dialogue immediately. Keep Notes collapsed at the bottom.
+A citation opens the supporting page, region, or Buddy object on demand.
+Verify that an excerpt contains its actual body as well as any heading.
+
+A candidate workflow for ingestion and authoring is to identify source-backed
+**adventure Events** such as the fire and caretaker raid. Let a Plan card
+reference one or more Events and arrange their usable cues and procedures
+in context. Keep event conditions and source links when the GM groups or
+reorders cards. In this rehearsal, the raid can follow either the celebration
+or firefighting, with the same destruction-and-delay trigger. The adventure
+Events describe possibilities in prep. Only outcomes actually recorded in
+Play belong in the reviewed recap and played timeline. This is a design
+hypothesis for the benchmark, pending ordinary workflow proof.
+
 ## Source links at the table
 
 Give each material cue, trigger, or mechanic a labeled deep link to its
