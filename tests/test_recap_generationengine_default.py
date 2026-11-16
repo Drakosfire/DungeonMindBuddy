@@ -44,6 +44,11 @@ def ordinary(monkeypatch, tmp_path, application_state_dsn):
 
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
     seed_binding(tmp_path, "managed-fixture-world", "world:synthetic")
+    from apps.live_control_server.services import known_character_context
+    monkeypatch.setattr(known_character_context, "read_known_character_catalog", lambda *_: {
+        "status": "no_native_head", "entities": [],
+        "native_pin": {"native_world_id": "world:synthetic", "binding_version": 1},
+    })
     artifact = create_recap_source_artifact(
         tmp_path, world_id="world:synthetic", campaign_id="synthetic",
         session_id="session-1", recap_text="Ari guarded the gate.\n",
