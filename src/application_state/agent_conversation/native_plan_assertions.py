@@ -11,6 +11,7 @@ from dungeonmind.contracts.vnext.source import EvidenceRefV3
 from pydantic import Field, model_validator
 
 from .native_statement_input import Strict, digest
+from .neighborhood_replay import NeighborhoodReplayHop
 from .native_plan_statements import NativePlanQueryV1, NativePlanStatementMatchV1
 
 POLICY = 'dmb_surface_evidence_answer_v8'
@@ -92,12 +93,22 @@ class NativeGraphQueryV4(NativeGraphQueryV3):
     """Object selection expands to existing, frozen record witness sets."""
     schema_: Literal['dmb_native_graph_query_v4'] = Field(default='dmb_native_graph_query_v4', alias='schema')
     object_matches: tuple[NativeObjectMatchV1, ...]
+    discovery_hops: tuple[NeighborhoodReplayHop, ...] = Field(default=(), max_length=32, exclude_if=lambda value: not value)
 
     @model_validator(mode='after')
     def object_closure(self):
         ids = tuple(m.entity_id for m in self.object_matches)
         if len(ids) != len(set(ids)) or set(ids) != set(self.discovered_entity_ids):
             raise ValueError('Native object catalog differs from exact discovered entities')
+        matches = {match.statement_id: match for match in self.matches}
+        targets = set()
+        for hop in self.discovery_hops:
+            match = matches.get(hop.to_node_id)
+            if (hop.to_node_id in targets or hop.to_node_id in ids or match is None
+                or hop.from_node_id not in match.discovered_entity_ids
+                or hop.relationship_id not in match.discovery_assertion_ids):
+                raise ValueError('Native replay hop differs from the admitted statement discovery')
+            targets.add(hop.to_node_id)
         return self
 
 

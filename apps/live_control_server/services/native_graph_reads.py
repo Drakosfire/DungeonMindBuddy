@@ -139,7 +139,7 @@ def _assertion_matches(entities, *, excluded_subjects, name_scope=None):
         for a, witnesses, label in sorted(found.values(), key=lambda row: row[0].assertion_id))
 
 
-def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campaign_id, read_entity):
+def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campaign_id, read_entity, discovery_hops=None):
     """Compose one catalog from actual scoped Core entities, without body IO."""
     gaps = []
     routes, entities = {}, {}
@@ -162,7 +162,8 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
     qualified_subjects = set()
     for statement_id, paths in routes.items():
         obj = entities.get(statement_id)
-        if obj is None:
+        followed_link = obj is None
+        if followed_link:
             obj = read_entity(revision_id, statement_id, pinned)
         if not obj.found or obj.completeness.status != 'complete':
             gaps.append('native_statement_entity_unavailable')
@@ -184,6 +185,13 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
         witness_ids = {a for _, ids in paths for a in ids}
         if not witness_ids <= own_ids:
             raise ValueError('Statement discovery links differ from admitted complete entity')
+        if followed_link and discovery_hops is not None and len(discovery_hops) < 32:
+            from application_state.agent_conversation.neighborhood_replay import NeighborhoodReplayHop
+
+            source_id, assertions = paths[0]
+            discovery_hops.append(NeighborhoodReplayHop(
+                relationship_id=assertions[0], from_node_id=source_id, to_node_id=statement_id,
+            ))
         logical = clause['logical_source']
         campaign = clause['campaign']
         if campaign not in scoped_labels:
@@ -322,9 +330,10 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
                 == 'dungeonbuddy.time:fictional_anchor_v1'
             )
         discovered = tuple(dict.fromkeys((*discovered, *timeline_events)))
+    discovery_hops = []
     matches, assertion_matches, entity_gaps, _entities = _entity_catalog(discovered, pinned,
         space=space, revision_id=revision_id, scope_mode=scope_mode, campaign_id=campaign_id,
-        read_entity=read_entity)
+        read_entity=read_entity, discovery_hops=discovery_hops)
     gaps.extend(entity_gaps)
     targets = []
     if authored_references is not None:
@@ -350,7 +359,7 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         assertion_matches=assertion_matches,
         search_result_sha256=result.result_digest, discovered_entity_ids=discovered,
         matches=tuple(matches), status='partial' if gaps else 'complete', gap_codes=tuple(sorted(set(gaps))),
-        authored_targets=tuple(targets), object_matches=tuple(objects))
+        authored_targets=tuple(targets), object_matches=tuple(objects), discovery_hops=tuple(discovery_hops))
     if resolve(managed_world_id) != bound:
         raise ValueError('Active Graph binding changed during native query')
     return QueryContext(query, bound, pinned, repo, principal, resolve), query

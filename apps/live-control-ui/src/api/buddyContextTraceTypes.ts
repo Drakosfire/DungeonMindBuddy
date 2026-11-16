@@ -84,6 +84,12 @@ export interface BuddyTurnContextTrace {
   observations: BuddyTraceObservation[]
   writer_evidence_sequences?: number[] | null
   graph_replay_order?: Record<string, number> | null
+  native_discovery_replay?: {
+    revision_id: string
+    seed_ids: string[]
+    labels: Record<string, string>
+    hops: { relationship_id: string; from_node_id: string; to_node_id: string }[]
+  } | null
   retrieval_exclusion_steps?: {
     sequence: number
     candidates: { handle: string; label: string; kind: string }[]

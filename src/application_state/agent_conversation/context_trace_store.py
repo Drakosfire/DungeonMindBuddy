@@ -29,7 +29,7 @@ from application_state.errors import (
     ApplicationStateValidationError,
 )
 from application_state.unit_of_work import unit_of_work
-from .native_replay import native_assertion_steps
+from .native_replay import native_assertion_steps, native_discovery_replay
 from .neighborhood_replay import replay_exclusion_steps
 
 
@@ -462,6 +462,7 @@ class TurnContextTraceStore:
             traces[index] = trace.model_copy(update={
                 "writer_evidence_sequences": _writer_evidence_sequences(trace, turn[0], next_start),
                 "native_assertion_steps": native_steps or None,
+                "native_discovery_replay": native_discovery_replay(turn[2]) if trace.attempt == 1 else None,
                 "retrieval_exclusion_steps": exclusion_steps or None,
                 "graph_replay_order": graph_order,
             })

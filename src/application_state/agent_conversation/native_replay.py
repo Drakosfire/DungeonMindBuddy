@@ -4,6 +4,8 @@ import json
 
 from pydantic import BaseModel, Field
 
+from .neighborhood_replay import NeighborhoodReplayHop
+
 ASSERTION_READ_KINDS = frozenset({
     "native_plan_assertion_read_observed_v1",
     "native_plan_assertion_read_observed_v2",
@@ -19,6 +21,32 @@ class NativeReplayAssertionStep(BaseModel):
     subject_kinds: dict[str, str] = Field(default_factory=dict)
     unavailable_count: int
     writer_evidence: bool
+
+
+
+class NativeDiscoveryReplay(BaseModel):
+    revision_id: str
+    seed_ids: list[str]
+    labels: dict[str, str]
+    hops: list[NeighborhoodReplayHop]
+
+
+def native_discovery_replay(receipt):
+    query = receipt.get("native_query") if isinstance(receipt, dict) else None
+    if not isinstance(query, dict) or not query.get("discovery_hops"):
+        return None
+    hops = [NeighborhoodReplayHop.model_validate(hop) for hop in query["discovery_hops"]]
+    sources = {hop.from_node_id for hop in hops}
+    destinations = {hop.to_node_id for hop in hops}
+    labels = {item["entity_id"]: item["label"][:256] for item in query["object_matches"]
+              if item["entity_id"] in sources}
+    labels.update({item["statement_id"]: item["label"][:256] for item in query["matches"]
+                   if item["statement_id"] in destinations})
+    return NativeDiscoveryReplay(
+        revision_id=query["authority"]["revision_id"],
+        seed_ids=[item["entity_id"] for item in query["object_matches"] if item["entity_id"] in sources],
+        labels=labels, hops=hops,
+    )
 
 
 def load_native_replay_read(*, world_id, turn_id, trace_id, sequence, assertion_id):

@@ -44,6 +44,27 @@ def test_natural_query_discovers_qualified_statement_without_subject_id(lane):
     assert read.support.payload['reporter'] == lane.ids['A']
 
 
+
+def test_query_records_only_the_about_link_used_to_read_a_statement(lane, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads
+
+    commit(lane)
+    search = native_graph_reads.SearchReadService.search_entities
+
+    def only_seed(self, context, question):
+        result = search(self, context, question)
+        return replace(result, hits=tuple(hit for hit in result.hits if hit.entity.entity_id == lane.ids["B"]))
+
+    monkeypatch.setattr(native_graph_reads.SearchReadService, "search_entities", only_seed)
+    _, result = query(lane)
+    from application_state.agent_conversation.native_replay import native_discovery_replay
+
+    discovery = native_discovery_replay({"native_query": result.model_dump(mode="json", by_alias=True)})
+    assert discovery.seed_ids == [lane.ids["B"]]
+    hop, = discovery.hops
+    assert (hop.from_node_id, hop.to_node_id) == (lane.ids["B"], result.matches[0].statement_id)
+    assert hop.relationship_id in result.matches[0].discovery_assertion_ids
+
 def test_identity_only_is_not_qualified_support_and_campaign_scope_is_preserved(lane):
     _, empty = query(lane, 'B')
     assert empty.discovered_entity_ids and not empty.matches
