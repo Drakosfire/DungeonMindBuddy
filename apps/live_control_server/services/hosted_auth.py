@@ -497,7 +497,7 @@ def install_hosted_request_boundary(
     world_path_resolvers = [
         (method, path, compile_path(path)[0], resolver)
         for (method, path), resolver in route_resolvers.items()
-        if "{world_id}" in path
+        if any(marker in path for marker in ("{world_id}", "{document_id}", "{run_id}"))
     ]
     collections = dict(collection_authorizers or {})
     # Collection authorization is an explicit, code-owned read capability. It
@@ -604,7 +604,10 @@ def install_hosted_request_boundary(
             ]
             if len(matches) == 1:
                 route_path, match, resolver = matches[0]
-                request.state.hosted_route_world_id = match.group("world_id")
+                params = match.groupdict()
+                request.state.hosted_route_world_id = params.get("world_id")
+                request.state.hosted_route_document_id = params.get("document_id")
+                request.state.hosted_route_run_id = params.get("run_id")
         if resolver is None:
             return JSONResponse(
                 status_code=403,
@@ -633,7 +636,9 @@ def install_hosted_request_boundary(
         except HTTPException as exc:
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
         response = await call_next(request)
-        if hasattr(request.state, "hosted_native_graph_world") or hasattr(request.state, "hosted_build_pdf_world"):
+        if any(hasattr(request.state, marker) for marker in (
+            "hosted_native_graph_world", "hosted_build_pdf_world", "hosted_build_page_world",
+        )):
             response.headers["Cache-Control"] = "no-store"
         return response
 

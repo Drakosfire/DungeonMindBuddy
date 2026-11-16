@@ -8,9 +8,11 @@ promoted by this first hosted capability.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from uuid import UUID
 
 from fastapi import HTTPException, Request
 from pydantic import TypeAdapter
+from starlette.concurrency import run_in_threadpool
 
 from application_state.world_catalog import service as catalog
 
@@ -34,6 +36,8 @@ from apps.live_control_server.services.world_container_registry import (
 )
 
 
+FIRST_WORLD_PREPARE_PATH = "/api/live/extract-promote/worldbuilding/first-world/prepare"
+FIRST_WORLD_CONFIRM_PATH = "/api/live/extract-promote/worldbuilding/first-world/confirm"
 EXPLORER_PREFIX = "/api/live/native-graph-explorer"
 WORLD_COLLECTION_PATH = "/api/live/world-containers"
 WORLD_LOOKUP_PATH = f"{WORLD_COLLECTION_PATH}/lookup"
@@ -168,6 +172,56 @@ def require_explorer_access(
         raise _denied()
 
 
+async def resolve_hosted_first_world(request: Request) -> str:
+    """Authorize only the exact World recorded on the server-owned ingest run."""
+    from apps.live_control_server import config
+    from apps.live_control_server.models.extract_promote import (
+        FirstWorldGraphConfirmRequest, FirstWorldGraphPrepareRequest,
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        PromotableIngestRunError, resolve_promotable_ingest_run,
+    )
+
+    subject = _hosted_subject(request)
+    if request.query_params:
+        raise _denied()
+    if request.url.path == FIRST_WORLD_PREPARE_PATH:
+        payload = FirstWorldGraphPrepareRequest.model_validate(await request.json())
+        run_id = payload.run_id
+        claimed_world = None
+    elif request.url.path == FIRST_WORLD_CONFIRM_PATH:
+        confirmation = FirstWorldGraphConfirmRequest.model_validate(await request.json())
+        run_id = confirmation.plan.run_id
+        claimed_world = confirmation.plan.world_id
+    else:
+        raise _denied()
+
+    try:
+        run = await run_in_threadpool(resolve_promotable_ingest_run, run_id, root=config.repo_root())
+    except PromotableIngestRunError:
+        raise _denied() from None
+    world_id = run.world_id
+    if not world_id or (claimed_world is not None and claimed_world != world_id):
+        raise _denied()
+    await run_in_threadpool(_owned_world, subject, world_id)
+    request.state.hosted_first_world = world_id
+    return world_id
+
+
+def first_world_authorizer(request: Request):
+    """Preserve local GM authority and recheck hosted ownership of the resolved run."""
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+        return None
+
+    def authorize(world_id: str) -> None:
+        if not world_id or getattr(request.state, "hosted_first_world", None) != world_id:
+            raise _denied()
+        _owned_world(_hosted_subject(request), world_id)
+
+    return authorize
+
+
 async def resolve_hosted_build_pdf_world(request: Request) -> str:
     subject = _hosted_subject(request)
     world_id = getattr(request.state, "hosted_route_world_id", None)
@@ -185,6 +239,99 @@ def require_build_pdf_access(request: Request, world_id: str) -> None:
     if getattr(request.state, "hosted_build_pdf_world", None) != world_id:
         raise _denied()
     _owned_world(_hosted_subject(request), world_id)
+
+
+async def resolve_hosted_build_page_create(request: Request) -> str:
+    from apps.live_control_server.services.workspace_document_registry import CreateWorkspaceDocumentRequest
+
+    subject = _hosted_subject(request)
+    create = CreateWorkspaceDocumentRequest.model_validate(await request.json())
+    world_id = create.world_id
+    if (
+        not world_id or create.kind != "worldbuilding_source"
+        or create.campaign_id != world_id
+        or create.target_session is not None or create.target_relpath is not None
+        or create.authority_state not in (None, "draft")
+        or create.visibility_state not in (None, "internal")
+    ):
+        raise _denied()
+    await run_in_threadpool(_owned_world, subject, world_id)
+    request.state.hosted_build_page_world = world_id
+    return world_id
+
+
+async def resolve_hosted_build_page(request: Request) -> str:
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteCommitRequest, TiptapMarkdownWritePrepareRequest,
+    )
+    subject = _hosted_subject(request)
+    if request.method == "GET":
+        document_id = getattr(request.state, "hosted_route_document_id", None)
+    else:
+        model = (
+            TiptapMarkdownWritePrepareRequest if request.url.path.endswith("/prepare")
+            else TiptapMarkdownWriteCommitRequest
+        )
+        write = model.model_validate(await request.json())
+        if write.schema_version is not None:
+            raise _denied()
+        document_id = write.document_id
+    world_id = await _owned_build_page(subject, document_id)
+    request.state.hosted_build_page_world = world_id
+    return world_id
+
+
+async def _owned_build_page(subject: str, document_id: str | None) -> str:
+    from apps.live_control_server import config
+    from apps.live_control_server.services.workspace_document_registry import (
+        WorkspaceDocumentRegistryError, get_workspace_document,
+    )
+
+    try:
+        if not document_id or str(UUID(document_id)) != document_id:
+            raise _denied()
+    except ValueError:
+        raise _denied() from None
+    try:
+        record = await run_in_threadpool(get_workspace_document, config.repo_root(), document_id)
+    except WorkspaceDocumentRegistryError as exc:
+        if exc.status_code == 404:
+            raise _denied() from None
+        raise _unavailable() from None
+    if record.kind != "worldbuilding_source" or not record.world_id:
+        raise _denied()
+    await run_in_threadpool(_owned_world, subject, record.world_id)
+    return record.world_id
+
+
+async def resolve_hosted_build_extraction(request: Request) -> str:
+    from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError, get_extraction_run
+    from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, get_source_artifact
+
+    subject = _hosted_subject(request)
+    if request.method == "POST":
+        document_id = (await request.json()).get("document_id")
+        if not isinstance(document_id, str):
+            raise _denied()
+        world_id = await _owned_build_page(subject, document_id)
+    else:
+        run_id = getattr(request.state, "hosted_route_run_id", None)
+        if not run_id:
+            raise _denied()
+        try:
+            run = await run_in_threadpool(get_extraction_run, run_id)
+            artifact = await run_in_threadpool(get_source_artifact, run.source_artifact_id)
+        except (GraphRunRegistryError, SourceArtifactRegistryError) as exc:
+            if exc.status_code == 404:
+                raise _denied() from None
+            raise _unavailable() from None
+        if run.source_domain != "worldbuilding" or artifact.source_domain != "worldbuilding":
+            raise _denied()
+        world_id = await _owned_build_page(subject, artifact.workspace_document_id)
+        if artifact.world_id != world_id:
+            raise _denied()
+    request.state.hosted_build_page_world = world_id
+    return world_id
 
 
 async def resolve_hosted_build_page_inventory(request: Request) -> str:

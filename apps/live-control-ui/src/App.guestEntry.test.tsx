@@ -605,8 +605,8 @@ describe("canonical local guest entry", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Buddy graph playground" })).toBeInTheDocument();
-    expect(screen.getByText(/choose a World to browse its graph/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Choose a World" })).toBeInTheDocument();
+    expect(screen.getByText(/Select a World to open this workspace/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Switch World: Choose" })).toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/native-graph-explorer/graph"
       || String(path).startsWith("/api/live/index-graph/"))).toBe(false);
@@ -768,14 +768,14 @@ describe("canonical local guest entry", () => {
     }));
   });
 
-  it("opens PDF Build for an authenticated, admitted World", async () => {
+  it("opens the Build workspace for an authenticated, admitted World", async () => {
     vi.stubEnv("PROD", true);
     window.history.replaceState({}, "", "/build?world=world-a");
     vi.stubGlobal("fetch", managedServerFetch({ authStatus: "authenticated" }));
     render(<App />);
 
-    expect(await screen.findByLabelText("Choose or drop a PDF")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Build" })).toHaveAttribute("href", "/build?world=world-a");
+    expect(await screen.findByRole("heading", { name: /Start with a spark/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Open document/i })).toBeInTheDocument();
   });
 
   it("keeps hosted PDF Build closed when the World lookup is denied", async () => {
@@ -795,15 +795,15 @@ describe("canonical local guest entry", () => {
   });
 
   it.each(["/plan", "/play", "/ingest", "/combat", "/statblock", "/surface"])(
-    "guards direct hosted entry to %s without mounting the workspace",
+    "requires an admitted World before mounting %s",
     async (path) => {
       window.history.replaceState({}, "", path);
       const fetchMock = managedServerFetch({ authStatus: "authenticated" });
       vi.stubGlobal("fetch", fetchMock);
       render(<App />);
 
-      expect(await screen.findByRole("heading", { name: "This page is unavailable on hosted Buddy" })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Open Graph" })).toHaveAttribute("href", "/graph");
+      expect(await screen.findByRole("heading", { name: "Choose a World" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Switch World: Choose" })).toBeInTheDocument();
       expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(["/api/auth/session"]);
     },
   );

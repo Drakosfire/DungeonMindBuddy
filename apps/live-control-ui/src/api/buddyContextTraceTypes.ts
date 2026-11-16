@@ -45,6 +45,7 @@ export interface BuddyTraceGraphResult {
   graph_revision: string; coverage_status: 'complete' | 'incomplete'; projection_status: 'complete' | 'limited'
   nodes: { node_id: string; label: string; kind: string }[]
   relationships?: { relationship_id: string; source_node_id: string; target_node_id: string }[]
+  discovery_relationship_ids?: string[]
   relationship_ids: string[]; claim_ids: string[]; evidence_ref_ids: string[]
   returned_counts: BuddyTraceGraphCounts; total_counts: BuddyTraceGraphCounts; omission_codes: string[]
 }
@@ -80,6 +81,7 @@ export interface BuddyTurnContextTrace {
   graph_replay_order?: Record<string, number> | null
   native_assertion_steps?: {
     sequence: number; revision_id: string; assertion_ids: string[]; subject_ids: string[]
+    subject_labels?: Record<string, string>; subject_kinds?: Record<string, string>
     unavailable_count: number; writer_evidence: boolean
   }[] | null
 }

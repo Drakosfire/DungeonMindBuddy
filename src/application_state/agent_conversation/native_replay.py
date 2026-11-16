@@ -2,7 +2,7 @@
 
 import json
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 ASSERTION_READ_KINDS = frozenset({
     "native_plan_assertion_read_observed_v1",
@@ -15,6 +15,8 @@ class NativeReplayAssertionStep(BaseModel):
     revision_id: str
     assertion_ids: list[str]
     subject_ids: list[str]
+    subject_labels: dict[str, str] = Field(default_factory=dict)
+    subject_kinds: dict[str, str] = Field(default_factory=dict)
     unavailable_count: int
     writer_evidence: bool
 
@@ -88,7 +90,8 @@ def native_assertion_steps(execution, receipt, *, start: int, stop: int | None):
     """Keep ledger sequence and identify the completed writer's exact read events."""
     if not isinstance(execution, dict) or not isinstance(receipt, dict):
         return []
-    revision = (receipt.get("native_query") or {}).get("authority", {}).get("revision_id")
+    query = receipt.get("native_query") or {}
+    revision = query.get("authority", {}).get("revision_id")
     if not revision:
         return []
     events = [
@@ -108,16 +111,27 @@ def native_assertion_steps(execution, receipt, *, start: int, stop: int | None):
     if len(writers) == 1:
         included.update(writers[0].get("native_read_event_ids", ()))
         included.update(writers[0].get("native_assertion_read_event_ids", ()))
+    labels = {item["entity_id"]: item["label"] for item in query.get("object_matches", ())}
     steps = []
     for event in events:
         if event["kind"] not in ASSERTION_READ_KINDS:
             continue
         assertions = [read["assertion"] for read in event["reads"]]
+        subjects = list(dict.fromkeys(assertion["subject_entity_id"] for assertion in assertions))
+        classifications: dict[str, set[str]] = {}
+        for assertion in assertions:
+            value = assertion.get("value", {})
+            if assertion.get("predicate") == "dnd5e:classification" and value.get("kind") == "term_ref":
+                term = value.get("term")
+                if isinstance(term, str) and term.startswith("dnd5e:"):
+                    classifications.setdefault(assertion["subject_entity_id"], set()).add(term.removeprefix("dnd5e:"))
         steps.append(NativeReplayAssertionStep(
             sequence=event["sequence"],
             revision_id=revision,
             assertion_ids=[assertion["assertion_id"] for assertion in assertions],
-            subject_ids=list(dict.fromkeys(assertion["subject_entity_id"] for assertion in assertions)),
+            subject_ids=subjects,
+            subject_labels={identity: labels[identity] for identity in subjects if identity in labels},
+            subject_kinds={identity: next(iter(kinds)) for identity, kinds in classifications.items() if len(kinds) == 1},
             unavailable_count=len(event["unavailable_assertion_ids"]),
             writer_evidence=event["event_id"] in included,
         ))

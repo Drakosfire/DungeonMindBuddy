@@ -1,3 +1,4 @@
+import { GraphCircleGlyph, shortLabel } from "./GraphCircleGlyph";
 import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent, type CSSProperties, type RefObject, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type {
@@ -27,9 +28,7 @@ function recordedNames(node: ProjectedGraphNode): string[] {
   const names = node.object.properties.recordedNames;
   return Array.isArray(names) ? names.filter((name): name is string => typeof name === "string" && name.trim().length > 0) : [];
 }
-function shortLabel(value: string, limit: number): string {
-  return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
-}
+
 interface NodePosition { readonly x: number; readonly y: number; readonly radius?: number }
 
 export interface CanvasCreationKind {
@@ -99,15 +98,9 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
       onPointerDown={(event) => { event.stopPropagation(); handlersRef.current.beginGesture(event, { id: node.id, x: position.x, y: position.y }); }}
     >
       <title>{description}</title>
-      {nodeShape === "circle" ? <>
-        <circle className="world-graph-canvas__node-circle" cx={CIRCLE_RADIUS} cy={CIRCLE_RADIUS} r={radius} />
-        {(showLabels || selected || hovered || focused) && <>
-          <text className="world-graph-canvas__node-kind" style={fullCorpus ? { fontSize: Math.min(11, Math.max(8, radius * 0.25)) } : undefined} x={CIRCLE_RADIUS} y={CIRCLE_RADIUS - 5} textAnchor="middle">{shortLabel(node.kind, Math.max(7, Math.floor(radius / 3.4)))}</text>
-          <text className="world-graph-canvas__node-name" style={fullCorpus ? { fontSize: Math.min(15, Math.max(9, radius * 0.35)) } : undefined} x={CIRCLE_RADIUS} y={CIRCLE_RADIUS + 17} textAnchor="middle">
-            {shortLabel(node.name, Math.max(7, Math.floor(radius / 4)))}
-          </text>
-        </>}
-      </> : <>
+      {nodeShape === "circle" ? <GraphCircleGlyph center={CIRCLE_RADIUS} radius={radius}
+        kind={node.kind} name={node.name} showLabels={showLabels || selected || hovered || focused}
+        fullCorpus={fullCorpus} /> : <>
         <rect width={NODE_WIDTH} height={NODE_HEIGHT} rx="12" />
         <text className="world-graph-canvas__node-kind" x="14" y="22">{node.kind}</text>
         <text className="world-graph-canvas__node-name" x="14" y="49">{node.name.length > 22 ? `${node.name.slice(0, 21)}…` : node.name}</text>

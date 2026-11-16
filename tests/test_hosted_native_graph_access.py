@@ -37,7 +37,7 @@ from application_state.world_catalog.types import (
 from apps.live_control_server.routes.native_graph_explorer import (
     router as explorer_router,
 )
-from apps.live_control_server.routes import workspace_documents
+from apps.live_control_server.routes import extract_promote, graph_preview, live, workspace_documents
 from apps.live_control_server.routes.world_containers import router as worlds_router
 from apps.live_control_server.routes.native_graph_inspection import (
     router as inspection_router,
@@ -246,6 +246,9 @@ def hosted(monkeypatch, request):
     app.add_api_route(access.BUILD_PDF_SOURCES_PATH, post_build_pdf_source, methods=["POST"])
 
     app.include_router(workspace_documents.router)
+    app.include_router(extract_promote.router)
+    app.include_router(live.router)
+    app.include_router(graph_preview.router)
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", get_pdf_statblock_publication, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", post_pdf_statblock_publication, methods=["POST"])
@@ -263,9 +266,20 @@ def hosted(monkeypatch, request):
                 for operation in OPERATIONS
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
+            ("POST", access.FIRST_WORLD_PREPARE_PATH): access.resolve_hosted_first_world,
+            ("POST", access.FIRST_WORLD_CONFIRM_PATH): access.resolve_hosted_first_world,
             ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("POST", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
+            ("POST", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
+            ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
+            ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
+            ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
+            ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
+            ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/accept/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
             ("GET", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
@@ -1832,3 +1846,121 @@ def test_hosted_build_reads_only_exact_published_statblock(hosted, monkeypatch, 
         assert response.json() == {"pdf_portrait": "retained-artwork"}
     else:
         assert "retained-artwork" not in response.text
+
+
+def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_preparing(hosted, monkeypatch):
+    from apps.live_control_server.services import promotable_ingest_run
+
+    monkeypatch.setattr(
+        promotable_ingest_run, "resolve_promotable_ingest_run",
+        lambda run_id, *, root: SimpleNamespace(world_id="managed" if run_id in {"owned", "changed"} else "foreign"),
+    )
+    prepared = []
+
+    def prepare(payload, *, authorize_world):
+        authorize_world("foreign" if payload.run_id == "changed" else "managed")
+        prepared.append(payload.run_id)
+        raise extract_promote.ExtractPromoteError("probe reached", code="probe_reached", status_code=409)
+
+    monkeypatch.setattr(extract_promote, "prepare_first_world", prepare)
+    payload = {"runId": "owned", "decisions": [{"assertionId": "source-assertion", "decision": "create_new"}]}
+    route = access.FIRST_WORLD_PREPARE_PATH
+
+    assert hosted.client.request("POST", route, json=payload).status_code == 409
+    assert hosted.client.request("POST", route, json=payload, session="other-session").status_code == 403
+    assert hosted.client.request("POST", route, json={**payload, "runId": "foreign"}).status_code == 403
+    assert hosted.client.request("POST", route, json=payload, origin="https://untrusted.example").status_code == 403
+    assert hosted.client.request("POST", route, json={**payload, "runId": "changed"}).status_code == 403
+    assert prepared == ["owned"]
+
+
+def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_state_dsn, monkeypatch):
+    documents = "/api/live/workspace-documents"
+    editor = "/api/live/tiptap/markdown-write"
+    create = {
+        "title": "First source", "kind": "worldbuilding_source",
+        "authority_state": "draft", "visibility_state": "internal",
+        "source_domain": "worldbuilding", "document_class": "lore",
+        "world_id": "managed", "campaign_id": "managed",
+    }
+    assert hosted.client.request("POST", documents, json=create, session="other-session").status_code == 403
+    assert hosted.client.request("POST", documents, json={**create, "campaign_id": "foreign"}).status_code == 403
+    created = hosted.client.request("POST", documents, json=create)
+    assert created.status_code == 200, created.text
+    record = created.json()
+    document = f"{documents}/{record['document_id']}"
+    markdown = "# First source\n\nThe pilot town has a well.\n"
+    request = {
+        "document_id": record["document_id"], "markdown": markdown,
+        "expected_revision": record["revision"],
+    }
+
+    assert hosted.client.request("GET", document, session="other-session").status_code == 403
+    assert hosted.client.request("GET", f"{document}/snapshot?world_id=foreign").status_code == 403
+    assert hosted.client.request("POST", f"{editor}/prepare", json=request, session="other-session").status_code == 403
+    prepared = hosted.client.request("POST", f"{editor}/prepare", json=request)
+    assert prepared.status_code == 200, prepared.text
+    token = prepared.json()["writer_confirm_token"]
+    commit = {**request, "writer_confirm_token": token}
+    assert hosted.client.request("POST", f"{editor}/commit", json=commit, session="other-session").status_code == 403
+    committed = hosted.client.request("POST", f"{editor}/commit", json=commit)
+    assert committed.status_code == 200, committed.text
+    reopened = hosted.client.request("GET", f"{document}/snapshot")
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.headers["cache-control"] == "no-store"
+    assert "The pilot town has a well." in reopened.json()["markdown"]
+
+
+    from apps.live_control_server.services import graph_preview_runner, graph_run_registry
+
+    runs = {}
+
+    def run_extraction(*, source_artifact_id, **kwargs):
+        run_id = str(uuid4())
+        run = SimpleNamespace(
+            run_id=run_id, source_artifact_id=source_artifact_id, source_domain="worldbuilding",
+            model_dump=lambda **kwargs: {"run_id": run_id},
+        )
+        runs[run_id] = run
+        return SimpleNamespace(run=run, failure_kind=None, diagnostics=[])
+
+    monkeypatch.setattr(graph_preview_runner, "run_worldbuilding_production_extraction", run_extraction)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", runs.__getitem__)
+    launch = "/api/live/graph-preview/extraction-runs"
+    snapshot = reopened.json()
+    extraction = {
+        "document_id": record["document_id"],
+        "expected_revision": snapshot["record"]["revision"],
+        "expected_content_sha256": snapshot["content_sha256"],
+    }
+    assert snapshot["record"]["target_relpath"] is None
+    assert hosted.client.request("POST", launch, json=extraction, session="other-session").status_code == 403
+    assert not runs
+    started = hosted.client.request("POST", launch, json=extraction)
+    assert started.status_code == 200, started.text
+    exact_run = f"{launch}/{started.json()['run']['run_id']}"
+    for route in (exact_run, f"{exact_run}/build-context"):
+        assert hosted.client.request("GET", route, session="other-session").status_code == 403
+        read = hosted.client.request("GET", route)
+        assert read.status_code == 200, read.text
+        assert read.headers["cache-control"] == "no-store"
+
+    reviewed_runs = []
+
+    def read_review_package(run_id):
+        reviewed_runs.append(run_id)
+        raise extract_promote.ExtractPromoteError(
+            "Review package is still being prepared.",
+            code="review_package_pending",
+            status_code=409,
+        )
+
+    monkeypatch.setattr(extract_promote, "get_exact_run_review_package", read_review_package)
+    run_id = started.json()["run"]["run_id"]
+    review_route = f"/api/live/extract-promote/runs/{run_id}/review-package"
+    assert hosted.client.request("GET", review_route, session="other-session").status_code == 403
+    assert not reviewed_runs
+    read = hosted.client.request("GET", review_route)
+    assert read.status_code == 409, read.text
+    assert reviewed_runs == [run_id]
+    assert read.headers["cache-control"] == "no-store"
