@@ -87,6 +87,31 @@ statblock regions with the associated source block.
 See the [GM card Gold](conks-gm-card-gold.md) for a playable grouping and
 out-of-order rehearsal.
 
+## Structured appendix Gold
+
+Score these four cases separately from the original C01–C25 results. Printed
+pp. 18–19 are physical PDF pages 17–18.
+
+| ID | Source | Expected Graph object and recoverable content |
+| --- | --- | --- |
+| I01 | p. 18, Appendix B | **Maglubiyet’s Statue** as an Item. Recover its rarity, attunement requirement, and full item rules. Saladin’s inventory references this same object. |
+| I02 | p. 18, Appendix B | **Belly’s Mouthwash** as an Item. Recover its rarity and full item rules. The Shacks competition references this same object as the prize. |
+| T01 | p. 19, Appendix C | **Male Villager Names** as a Table. Preserve the 1d12 selector, all 12 keyed rows in order, and the Name and Notes columns, including blank notes. |
+| T02 | p. 19, Appendix C | **Female Villager Names** as a Table, with the same selector, row, and column checks. |
+
+For each case, record OCR recovery, reviewed Graph publication, card access,
+and editing separately. Verify the full item or table opens from Plan and Play
+without leaving the current card. Reopen the exact original item block or
+table region from its citation. For both tables, verify that an explicit roll
+value opens the matching row. The table remains browsable in full.
+
+In isolated state, edit one Item field and one Table cell through the ordinary
+owner. Save and reopen each from both the Graph and a referencing card. Verify
+that unrelated fields and rows survive, the card still resolves the same
+object, and the edited revision keeps its original citation while making the
+GM's changes distinguishable from the source. Card links can read live
+approved prep in Plan. A saved Play run must retain the revision it used.
+
 ## Scoring the fresh run
 
 For each ID, record the OCR block or region locator, its page, the saved Plan

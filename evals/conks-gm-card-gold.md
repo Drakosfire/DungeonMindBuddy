@@ -32,6 +32,16 @@ mechanics, and related cards. A card's display order can change without
 changing its triggers. Inspecting a card records no fictional outcome.
 Record what happened on the run, linked to the card and relevant World nodes.
 
+## Items and tables at the table
+
+Make the full appendices reachable from any card. Link Maglubiyet’s Statue
+from Saladin’s wagon and Belly’s Mouthwash from the Shacks competition. Make
+both villager-name tables callable from the Hempholm people and places card
+when the GM needs to improvise an NPC. The cards open the same editable Graph
+objects used in the reference index, with the exact source available on demand.
+Use the [structured appendix Gold](conks-source-to-plan-gold.md#structured-appendix-gold)
+to verify ingestion, publication, access, and edits.
+
 ## What the GM sees first
 
 Put scene procedures and NPC dialogue directly where the GM uses them.
