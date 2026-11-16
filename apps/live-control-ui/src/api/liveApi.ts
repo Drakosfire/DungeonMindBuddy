@@ -429,6 +429,16 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(metadata|original)$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  const creation = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/creation(?::cancel)?)?\?/.exec(path);
+  if (creation) {
+    const query = new URLSearchParams(path.slice(creation[0].length));
+    const worldId = query.get("world_id");
+    const suffix = creation[1];
+    if (!worldId || path !== creation[0] + new URLSearchParams({ world_id: worldId })) return false;
+    if (suffix === "/creation") return method === "GET" && init?.body == null;
+    return method === (suffix ? "POST" : "PUT")
+      && requestBodyRecord(init?.body)?.schema_version === "dmb_world_session_create_v1";
+  }
   const preparationPath = "/api/live/world-play-runs/v2/preparation";
   if (path.startsWith(preparationPath + "?")) {
     const selectors = new URLSearchParams(path.slice(preparationPath.length + 1));

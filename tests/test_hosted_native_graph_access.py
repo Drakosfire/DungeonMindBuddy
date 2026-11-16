@@ -284,6 +284,9 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
+            ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
@@ -2131,3 +2134,21 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert {k: result.json()["request"][k] for k in body} == body
     assert result.json()["scenes"]
     assert result.headers["cache-control"] == "no-store"
+    from uuid import uuid4
+
+    run_id = str(uuid4())
+    base = f"/api/live/world-play-runs/v2/{run_id}"
+    run_path = f"{base}?world_id=managed"
+    receipt_path = f"{base}/creation?world_id=managed"
+    intent = result.json()["request"]
+    assert hosted.client.request("PUT", run_path, json=intent, session="other-session").status_code == 403
+    assert hosted.client.request("PUT", run_path.replace("managed", "foreign"), json=intent).status_code == 403
+    created = hosted.client.request("PUT", run_path, json=intent)
+    assert created.status_code == 200, created.text
+    receipt = created.json()
+    assert receipt["run"]["run_id"] == run_id
+    assert receipt["run"]["playable_work_revision_id"] == body["expected_playable_work_revision_id"]
+    assert hosted.client.request("PUT", run_path, json=intent).json() == receipt
+    assert hosted.client.request("GET", receipt_path).json() == receipt
+    assert hosted.client.request("GET", receipt_path, session="other-session").status_code == 403
+    assert hosted.client.request("POST", f"{base}/creation:cancel?world_id=managed", json=intent).json() == receipt

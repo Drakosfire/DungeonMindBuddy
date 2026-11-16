@@ -317,3 +317,22 @@ it("admits the exact hosted Start Play preview without a local bearer", async ()
   await expect(api.authenticatedApiFetch(path + "&world_id=foreign", init)).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("sends exact hosted run creation and recovery through the session cookie transport", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const base = "/api/live/world-play-runs/v2/12345678-1234-1234-1234-123456789abc";
+  const body = JSON.stringify({ schema_version: "dmb_world_session_create_v1" });
+  await api.authenticatedApiFetch(base + "?world_id=managed", { method: "PUT", body });
+  await api.authenticatedApiFetch(base + "/creation?world_id=managed");
+  await api.authenticatedApiFetch(base + "/creation:cancel?world_id=managed", { method: "POST", body });
+  expect(fetch).toHaveBeenCalledTimes(3);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(base + "/creation?world_id=managed&scope=extra")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(3);
+});
