@@ -1,3 +1,5 @@
+import { ReplayNodeFinding } from "./ReplayNodeFinding"
+import { NodeOverview } from "../../graphLens/NodeOverview"
 import { GraphNodeViewer } from "../../graphLens/GraphNodeViewer"
 import { getWorldAgentReplayIdentities } from '../../api/liveApi'
 import { GraphCircleGlyph } from '../../localWorld/worldGraphCanvas/GraphCircleGlyph'
@@ -13,6 +15,7 @@ export type RetrievalStep = Pick<GraphStep, 'sequence' | 'revision_pin' | 'reque
   & Partial<Pick<GraphStep, 'scope_mode' | 'campaign_id'>>
   & {
     native?: true
+    assertionIdsBySubject?: Readonly<Record<string, readonly string[]>>
     writerEvidence?: boolean
     frame?: string
     hop?: { relationship_id: string; from_node_id: string; to_node_id: string }
@@ -24,7 +27,7 @@ export function replaySteps(trace: BuddyTurnContextTrace): RetrievalStep[] {
   const native = (trace.native_assertion_steps ?? []).map((step): RetrievalStep => {
     const counts = { nodes: step.subject_ids.length, relationships: 0, claims: step.assertion_ids.length, evidence_refs: 0 }
     return {
-      native: true, writerEvidence: step.writer_evidence, sequence: step.sequence, revision_pin: step.revision_id,
+      native: true, assertionIdsBySubject: step.assertion_ids_by_subject, writerEvidence: step.writer_evidence, sequence: step.sequence, revision_pin: step.revision_id,
       request: { operation: 'support', target_node_id: step.subject_ids[0] ?? '' },
       result: {
         outcome: step.unavailable_count ? 'partial' : 'enough', graph_revision: step.revision_id,
@@ -378,6 +381,14 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       }
       return [{ position, from: label(item.hop.from_node_id), to: label(item.hop.to_node_id) }]
     })
+  const inspectedVisits = inspected?.visits.filter(position => position <= index) ?? []
+  const inspectedReads = inspectedId === null ? [] : inspectedVisits.flatMap(position => {
+    const read = steps[position]
+    const ids = read.assertionIdsBySubject?.[inspectedId]
+    return ids?.length ? [{ position, read, ids }] : []
+  })
+  const inspectedPruning = inspectedVisits.filter(position =>
+    inspectedId !== null && steps[position].pruning?.ids.includes(inspectedId))
   const { nodes: recordedNodes, relationship_ids, relationships = [], total_counts, projection_status } = step.result
   const nodes = recordedNodes.map(node => resolve(node, index))
   const renderStepEvidence = (recordedStep: RetrievalStep) => {
@@ -424,13 +435,27 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation() }}>
         <GraphNodeViewer dialog label={displayNodeName(inspectedNode)} kind={inspectedNode.kind}
           controls={<button type="button" autoFocus aria-label="Close node details" onClick={dismissNode}>×</button>}>
-        {inspectedId !== null && step.pruning?.ids.includes(inspectedId) && <p>{step.pruning.reason}.</p>}
-        {inspectedHops.length > 0 && <ul aria-label="Recorded hops for this node">
-          {inspectedHops.map(hop => <li key={hop.position}>
-            {hop.from} → {hop.to}
-          </li>)}
-        </ul>}
-        <ul className="buddy-retrieval-replay__node-visits">{inspected.visits.filter(position => position <= index).map(position => (
+        <NodeOverview replay>
+          {inspectedReads.length > 0 || inspectedHops.length > 0 || inspectedPruning.length > 0 ? <>
+            {trace && inspectedReads.map(({ position, read, ids }) => <div key={position}>
+              <p>Buddy read {ids.length} {ids.length === 1 ? 'record' : 'records'} about this node in step {position + 1}.
+                {read.writerEvidence && ' These records were passed to the answer writer.'}</p>
+              {ids.slice(0, 2).map(assertionId => <ReplayNodeFinding
+                key={assertionId} trace={trace} step={read} assertionId={assertionId} nodeId={inspectedNode.node_id} />)}
+              <RecordedAssertions trace={trace} step={{ ...read, result: { ...read.result, claim_ids: [...ids] } }} />
+              <button type="button" onClick={() => { dismissNode(); select(position) }}>Go to step {position + 1}</button>
+            </div>)}
+            {inspectedHops.map(({ position, from, to }) => <p key={position}>
+              Buddy followed a recorded connection from {from} to {to}.{' '}
+              <button type="button" onClick={() => { dismissNode(); select(position) }}>Go to step {position + 1}</button>
+            </p>)}
+            {inspectedPruning.map(position => <p key={position}>
+              {steps[position].pruning?.reason}.{' '}
+              <button type="button" onClick={() => { dismissNode(); select(position) }}>Go to step {position + 1}</button>
+            </p>)}
+          </> : undefined}
+        </NodeOverview>
+        <ul className="buddy-retrieval-replay__node-visits">{inspectedVisits.map(position => (
           <li key={position}><button type="button" onClick={() => { dismissNode(); select(position) }}>
             Step {position + 1} · {stepLabel(steps[position])}
           </button>

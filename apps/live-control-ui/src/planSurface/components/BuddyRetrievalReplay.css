@@ -117,3 +117,11 @@
   overflow-wrap: normal;
   white-space: normal;
 }
+
+.buddy-retrieval-replay__node-details .buddy-retrieval-replay__node-visits > li {
+  display: block;
+}
+
+.buddy-retrieval-replay__node-details .buddy-retrieval-replay__node-visits > li > details {
+  margin-block: .35rem .65rem;
+}

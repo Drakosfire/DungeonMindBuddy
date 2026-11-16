@@ -187,7 +187,7 @@ def test_native_replay_projects_only_the_attempt_and_writer_inclusion():
     steps = native_assertion_steps(execution, receipt, start=5, stop=None)
     assert [step.model_dump() for step in steps] == [
         {"sequence": 6, "revision_id": "pinned", "assertion_ids": ["assertion"],
-         "subject_ids": ["subject"], "subject_labels": {"subject": "Caelynn"}, "subject_kinds": {"subject": "character"},
+         "subject_ids": ["subject"], "assertion_ids_by_subject": {"subject": ["assertion"]}, "subject_labels": {"subject": "Caelynn"}, "subject_kinds": {"subject": "character"},
          "unavailable_count": 1, "writer_evidence": True}
     ]
     assert not native_assertion_steps(execution, receipt, start=5, stop=9)[0].writer_evidence

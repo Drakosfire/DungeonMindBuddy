@@ -1,3 +1,4 @@
+import { NodeOverview } from "./NodeOverview";
 import { useState } from "react";
 import type { NativeAssertion, NativeGraphEntity } from "../api/nativeGraphInspection";
 import { SourceCitationEvidence } from "../planSurface/components/SourceCitationEvidence";
@@ -12,7 +13,34 @@ export function NodeDossier({ model, detail, entityId, showStatblocks, labels, e
 }) {
   const [statblocksOpen, setStatblocksOpen] = useState(false);
   if (!detail.entity.found) return <p>This object is unavailable in the selected revision.</p>;
+  const summaries = model.summaries.filter(record => record.text.trim()).slice(0, 2);
+  const related = model.groups
+    .flatMap(group => group.rows)
+    .filter(row => row.direction !== "self" && labels.has(row.neighborId) && !row.text.includes(" → "))
+    .slice(0, summaries.length ? 1 : 3);
+  const overview = [
+    ...summaries.map(({ assertion, text, contexts }) => ({
+      text, contexts, records: [assertion],
+    })),
+    ...related.map(row => ({
+      text: `The graph records this connection: ${row.text}.`, contexts: row.contexts, records: row.assertions,
+    })),
+  ];
+  const excerptsUnavailable = entityOnly && !sourceReads;
   return <div className="native-node-dossier">
+    <NodeOverview>{overview.length ? overview.map(({ text, contexts, records }) => {
+      const ids = records.map(record => record.assertion_id);
+      const choices = nativeObjectEvidenceChoices(detail, records, excerptsUnavailable);
+      const qualifications = [...new Set(records.map(assertionStatus))];
+      return <div key={ids[0]}>
+        <p className="graph-node-explorer__context">{[...contexts, ...qualifications].join(" · ")}</p>
+        {choices.length ? <SourceCitationEvidence identity={JSON.stringify([detail.scope, ids])}
+          statements={[{ text, choices }]} /> : <>
+          <p>{text}</p>
+          <Evidence records={records} detail={detail} entityOnly={excerptsUnavailable} commonStatus={null} />
+        </>}
+      </div>;
+    }) : undefined}</NodeOverview>
     <section aria-label="Connections">
       <h3>Connections</h3>
       {!model.relationshipRecordCount ? <p>No admitted connections in this view.</p> : null}

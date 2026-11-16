@@ -97,6 +97,7 @@ export interface BuddyTurnContextTrace {
   }[] | null
   native_assertion_steps?: {
     sequence: number; revision_id: string; assertion_ids: string[]; subject_ids: string[]
+    assertion_ids_by_subject?: Record<string, string[]>
     subject_labels?: Record<string, string>; subject_kinds?: Record<string, string>
     unavailable_count: number; writer_evidence: boolean
   }[] | null
