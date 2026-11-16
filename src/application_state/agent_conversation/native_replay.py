@@ -160,12 +160,16 @@ def native_assertion_steps(execution, receipt, *, start: int, stop: int | None):
                 term = value.get("term")
                 if isinstance(term, str) and term.startswith("dnd5e:"):
                     classifications.setdefault(assertion["subject_entity_id"], set()).add(term.removeprefix("dnd5e:"))
-        summary_ids = {
-            assertion["assertion_id"] for assertion in assertions
-            if assertion.get("predicate") == "dungeonbuddy:summary"
+        summary_order = {
+            assertion["assertion_id"]: (
+                0 if assertion.get("predicate") == "dungeonbuddy:summary"
+                else 1 if assertion.get("value", {}).get("kind") == "entity_ref"
+                else 2
+            )
+            for assertion in assertions
         }
         for ids in assertion_ids_by_subject.values():
-            ids.sort(key=lambda assertion_id: assertion_id not in summary_ids)
+            ids.sort(key=summary_order.__getitem__)
         steps.append(NativeReplayAssertionStep(
             sequence=event["sequence"],
             revision_id=revision,

@@ -49,7 +49,7 @@ describe("GraphNodeExplorer", () => {
     inspect.mockResolvedValue({ schema: "dmb_native_graph_source_v1", scope: { ...detail.scope, revision_id: "newer" }, source: { text: "Wrong newer text" } });
     render(<GraphNodeExplorer detail={detail} node={{ id: "lysandra", name: "Lysandra", kind: "person" }} revision="rev" onFocus={vi.fn()} onClose={vi.fn()} labels={new Map([["stafl", "Stafl"]])} onExplore={vi.fn()} />);
     const overview = within(screen.getByRole("region", { name: "Overview" }));
-    expect(overview.getByText(/Commands Stafl/)).toBeInTheDocument();
+    expect(overview.getByText(/Lysandra commands Stafl/)).toBeInTheDocument();
     expect(inspect).not.toHaveBeenCalled();
     fireEvent.click(overview.getByRole("button", { name: "Read supporting source" }));
     expect(await screen.findByText(/exact cited passage is unavailable/)).toBeInTheDocument();

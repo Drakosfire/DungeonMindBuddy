@@ -463,7 +463,13 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         <NodeOverview replay>
           {inspectedReads.length > 0 || inspectedHops.length > 0 || inspectedPruning.length > 0 ? <>
             {trace && findings.map(({ assertionId, read, position }) => <ReplayNodeFinding
-              key={`${position}:${assertionId}`} trace={trace} step={read} assertionId={assertionId} nodeId={inspectedNode.node_id} />)}
+              key={`${position}:${assertionId}`} trace={trace} step={read} assertionId={assertionId} nodeId={inspectedNode.node_id}
+              nodeLabel={displayNodeName(inspectedNode)} labelFor={id => {
+                const related = read.result.nodes.find(node => node.node_id === id)
+                if (!related) return undefined
+                const label = displayNodeName(resolve(related, position))
+                return label === 'Unnamed object' ? undefined : label
+              }} />)}
             {trace && inspectedReads.map(({ position, read, ids }) => <div key={position}>
               <p>Buddy read {ids.length} {ids.length === 1 ? 'record' : 'records'} about this node in step {position + 1}.
                 {read.writerEvidence && ' These records were passed to the answer writer.'}</p>
