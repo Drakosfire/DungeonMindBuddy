@@ -1,3 +1,4 @@
+import { pageComposerActions } from '../../tiptap/pageComposer/PageRow';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Editor } from '@tiptap/core';
 import { useAgentInteraction } from '../../agentInteraction/AgentInteractionProvider';
@@ -92,9 +93,31 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
             await boundSession.saveMarkdown();
         };
     }, [documentId, session]);
-    const publication = useMemo(() => buildBuildSurfaceInteractionPublication({ documentId, acceptedDocument, referenceContext,
+    const [layoutRevision, refreshLayout] = useState(0);
+    useEffect(() => {
+        const editor = session?.editor;
+        if (!editor || editor.isDestroyed) return;
+        const update = () => refreshLayout(value => value + 1);
+        editor.on('transaction', update); editor.on('update', update); editor.on('destroy', update);
+        return () => { editor.off('transaction', update); editor.off('update', update); editor.off('destroy', update); };
+    }, [session?.editor]);
+    const layoutAllowed = Boolean(acceptedDocument && session?.pageComposerEnabled && !session.pageComposerDisabledReason
+        && isEditorInteractive(session.phase) && session.editor?.isEditable && !session.editor.isDestroyed);
+    const liveLayoutAllowed = useRef(false);
+    useLayoutEffect(() => { liveLayoutAllowed.current = layoutAllowed; return () => { liveLayoutAllowed.current = false; }; }, [layoutAllowed]);
+    const layoutActions = useMemo(() => {
+        const editor = owner.editor;
+        if (!session?.pageComposerEnabled || !editor || editor.isDestroyed) return [];
+        return pageComposerActions(editor).map(action => ({ ...action, enabled: layoutAllowed && action.enabled, invoke: () => {
+            if (live.current !== owner || !liveLayoutAllowed.current || editor.isDestroyed || !editor.isEditable) return;
+            // Selection and availability can change while the shared Edit panel stays open.
+            const currentAction = pageComposerActions(editor).find(candidate => candidate.id === action.id);
+            if (currentAction?.enabled) currentAction.invoke();
+        } }));
+    }, [owner, session?.pageComposerEnabled, layoutAllowed, layoutRevision]);
+    const publication = useMemo(() => buildBuildSurfaceInteractionPublication({ documentId, acceptedDocument, referenceContext, layoutActions,
         documentSave: acceptedDocument && session ? { saveDisabled: session.saveDisabled, disabledReason: session.saveDisabled ? session.statusLabel : undefined, save: saveDocument } : null,
-    }), [documentId, acceptedDocument, referenceContext, session, saveDocument]);
+    }), [documentId, acceptedDocument, referenceContext, session, saveDocument, layoutActions]);
     usePublishSurfaceInteraction(publication);
     useRulesLookupProjection('build', true);
     useStatblockWorkbenchProjection('build');

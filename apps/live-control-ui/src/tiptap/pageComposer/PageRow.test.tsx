@@ -1,12 +1,14 @@
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { EditorContent } from '@tiptap/react';
 import { wrapPageImageText, unwrapPageImageText, updatePageImageText } from './PageImageText';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Editor, type JSONContent } from '@tiptap/core';
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../MarkdownEditorCore';
-import { PAGE_COMPOSER_EXTENSIONS, movePageBlock, resizePageRow, unwrapPageRow, wrapPageRow, updatePageRowPresentation } from './PageRow';
+import { PAGE_COMPOSER_EXTENSIONS, PageComposerTools, movePageBlock, resizePageRow, unwrapPageRow, wrapPageRow, updatePageRowPresentation } from './PageRow';
 
 const paragraph = (text: string, id = text): JSONContent => ({ type: 'paragraph', attrs: { pageBlockId: id }, content: [{ type: 'text', text }] });
 let editor: Editor;
-afterEach(() => editor?.destroy());
+afterEach(() => { cleanup(); editor?.destroy(); });
 function create(content: JSONContent[] = [paragraph('First'), paragraph('Second'), paragraph('Third')]) {
   editor = new Editor({ extensions: [...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, ...PAGE_COMPOSER_EXTENSIONS], content: { type: 'doc', content } });
   return editor;
@@ -254,4 +256,85 @@ describe('Image and text stack transactions', () => {
     expect(editor.state.doc.child(0).child(0).child(1).attrs.pageBlockId).toBe('caption');
   });
 
+});
+
+
+describe('Explicit contextual layout controls', () => {
+  function mountRow() {
+    create(); wrapPageRow(editor);
+    render(<><EditorContent editor={editor} /><PageComposerTools editor={editor} /></>);
+    return screen.getByRole('button', { name: 'Row layout options' });
+  }
+  it('keeps normal caret placement quiet and details closed until explicitly requested', () => {
+    const handle = mountRow();
+    act(() => editor.commands.setTextSelection(4));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(handle);
+    expect(screen.getByRole('dialog', { name: 'Row layout' })).toBeInTheDocument();
+    expect(screen.getByText('Row settings').parentElement).not.toHaveAttribute('open');
+    expect(handle).toHaveAttribute('aria-expanded', 'true');
+  });
+  it('preserves a native multiline selection and focuses the trigger without scrolling on Escape', () => {
+    const handle = mountRow();
+    act(() => editor.commands.setTextSelection({ from: 3, to: 14 }));
+    const before = editor.state.selection.toJSON();
+    fireEvent.click(handle);
+    expect(editor.state.selection.toJSON()).toEqual(before);
+    const focus = vi.spyOn(handle, 'focus');
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    expect(editor.state.selection.toJSON()).toEqual(before);
+  });
+  it('dismisses outside without restoring trigger focus or stealing the next paragraph caret', () => {
+    const handle = mountRow(); fireEvent.click(handle);
+    const focus = vi.spyOn(handle, 'focus');
+    fireEvent.pointerDown(editor.view.dom.lastElementChild!);
+    act(() => { editor.commands.setTextSelection(editor.state.doc.content.size - 1); editor.commands.insertContent(' typed'); });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(focus).not.toHaveBeenCalled();
+    expect(editor.state.doc.lastChild?.textContent).toBe('Third typed');
+  });
+  it('updates row presentation, preserves semantic content and supports one-step undo', () => {
+    const handle = mountRow(); const before = editor.getText();
+    fireEvent.click(handle); fireEvent.click(screen.getByText('Row settings'));
+    fireEvent.change(screen.getByLabelText('Row lines'), { target: { value: 'clean' } });
+    expect(editor.state.doc.firstChild?.attrs.line_mode).toBe('clean');
+    expect(editor.getText()).toBe(before);
+    fireEvent.click(screen.getByRole('button', { name: 'Undo', exact: true }));
+    expect(editor.state.doc.firstChild?.attrs.line_mode).toBe('guide');
+  });
+  it('cancels an uncommitted height field on Escape', () => {
+    const handle = mountRow(); fireEvent.click(handle); fireEvent.click(screen.getByText('Row settings'));
+    act(() => screen.getByLabelText('Minimum row height').focus());
+    fireEvent.change(screen.getByLabelText('Minimum row height'), { target: { value: '240' } });
+    fireEvent.keyDown(screen.getByLabelText('Minimum row height'), { key: 'Escape' });
+    expect(editor.state.doc.firstChild?.attrs.min_height).toBe(0);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+  it('dismisses when the selected row is removed or the editor becomes read-only', () => {
+    const handle = mountRow(); fireEvent.click(handle);
+    act(() => editor.setEditable(false));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(handle);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    act(() => { editor.setEditable(true); editor.commands.setContent({ type: 'doc', content: [paragraph('Replacement')] }); });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+  it('keeps image text settings explicit and preserves artwork identity on style changes', () => {
+    const art = { type: 'paragraph', attrs: { pageBlockId: 'art' }, content: [{ type: 'mediaImage', attrs: { assetId: '11111111-1111-4111-8111-111111111111', alt: 'Known artwork' } }] };
+    create([art, paragraph('Editable title')]); editor.commands.setTextSelection(1); wrapPageImageText(editor);
+    render(<><EditorContent editor={editor} /><PageComposerTools editor={editor} /></>);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Image and text options' }));
+    expect(screen.getByText('Image text settings').parentElement).not.toHaveAttribute('open');
+    fireEvent.click(screen.getByText('Image text settings'));
+    fireEvent.change(screen.getByLabelText('Text anchor'), { target: { value: 'bottom-right' } });
+    expect(editor.state.doc.firstChild?.attrs.anchor).toBe('bottom-right');
+    expect(editor.state.doc.firstChild?.firstChild?.firstChild?.attrs.assetId).toBe('11111111-1111-4111-8111-111111111111');
+    fireEvent.click(screen.getByRole('button', { name: 'Unstack image and text' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(editor.state.doc.childCount).toBe(2);
+    expect(editor.state.doc.lastChild?.textContent).toBe('Editable title');
+  });
 });
