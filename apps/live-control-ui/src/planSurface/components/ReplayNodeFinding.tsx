@@ -33,6 +33,6 @@ export function ReplayNodeFinding({ trace, step, assertionId, nodeId, nodeLabel,
       {[qualifications.claim_mode.replace(/^dungeonbuddy\.claim:/, ""), qualifications.epistemic_basis, qualifications.standing].join(" · ")}
     </p>}
     <p>{finding}</p>
-    <details><summary>Open exact evidence</summary><RecordedReplayAssertionContent read={read} /></details>
+    <details><summary>Open exact evidence</summary><RecordedReplayAssertionContent read={read} labelFor={id => id === nodeId ? nodeLabel : labelFor(id)} /></details>
   </div>;
 }

@@ -100,11 +100,11 @@ it('keeps the last assertion in a dense batch reachable with bounded controls', 
   render(<BuddyRetrievalReplay trace={trace} steps={[step]} />)
   fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
   fireEvent.click(screen.getByText('Recorded assertions (426)'))
-  expect(screen.getAllByText(/^Open assertion ·/)).toHaveLength(20)
+  expect(screen.getAllByText(/^Open recorded assertion/)).toHaveLength(20)
   fireEvent.change(screen.getByLabelText('Assertion range'), { target: { value: '21' } })
-  expect(screen.getAllByText(/^Open assertion ·/)).toHaveLength(6)
-  expect(screen.getByText('Open assertion · claim:426')).toBeInTheDocument()
-  expect(screen.queryByText('Open assertion · claim:1')).not.toBeInTheDocument()
+  expect(screen.getAllByText(/^Open recorded assertion/)).toHaveLength(6)
+  expect(screen.getByText('Open recorded assertion 426')).toBeInTheDocument()
+  expect(screen.queryByText('Open recorded assertion 1')).not.toBeInTheDocument()
 })
 
 it('marks only the recorded writer evidence step as playback advances', () => {
@@ -191,7 +191,7 @@ it('opens a recorded assertion lazily and rejects a different revision', async (
     expect(fetch).not.toHaveBeenCalled()
     fireEvent.click(screen.getByText('Recorded assertions (1)'))
     expect(fetch).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByText('Open assertion · claim:1'))
+    fireEvent.click(screen.getByText('Open recorded assertion 1'))
     expect(await screen.findByRole('alert')).toHaveTextContent('unavailable at the recorded revision')
     expect(fetch).toHaveBeenCalledTimes(1)
     expect(String(fetch.mock.calls[0][0])).toContain('/steps/1/assertion?assertion_id=claim%3A1')
@@ -285,7 +285,7 @@ it.each([
     fireEvent.click(screen.getByRole('button', { name: 'Caelynn' }))
     const overview = within(screen.getByRole('region', { name: 'What Buddy learned' }))
     if (visible) {
-      expect(await overview.findByText('The recorded qualifier took place at the arena.')).toBeVisible()
+      expect(await overview.findByText('The recorded qualifier took place at the arena.', { selector: 'div > p' })).toBeVisible()
       fireEvent.click(overview.getByText('Open exact evidence'))
       expect(overview.getByText('Exact historical excerpt.')).toBeVisible()
     } else {

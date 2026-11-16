@@ -1,3 +1,4 @@
+import { nodeOverviewRelationship } from "../../graphLens/nodeOverviewRelationship";
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { getReadWaveVersion, subscribeReadWave } from '../../api/inFlightReads'
 import { getWorldAgentNativeReplayAssertion, getWorldAgentReplayAssertion } from '../../api/liveApi'
@@ -37,27 +38,42 @@ export function useRecordedReplayAssertion({ trace, step, assertionId, open }: {
   return read?.binding === binding && read.wave === wave ? read : undefined
 }
 
-export function BuddyReplayAssertion({ trace, step, assertionId }: {
-  trace: BuddyTurnContextTrace; step: RetrievalStep; assertionId: string
+export function BuddyReplayAssertion({ trace, step, assertionId, labelFor, number }: {
+  trace: BuddyTurnContextTrace; step: RetrievalStep; assertionId: string; labelFor?: (id: string) => string | undefined; number?: number
 }) {
   const [open, setOpen] = useState(false)
   const read = useRecordedReplayAssertion({ trace, step, assertionId, open })
   return <details onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary>Open assertion · {assertionId}</summary>
+    <summary>Open recorded assertion{number === undefined ? "" : ` ${number}`}</summary>
     {open && (!read ? <p role="status">Reading the recorded assertion…</p>
-      : read.assertion ? <RecordedReplayAssertionContent read={read} />
+      : read.assertion ? <RecordedReplayAssertionContent read={read} labelFor={labelFor} />
       : <p role="alert">The assertion is unavailable at the recorded revision.</p>)}
   </details>
 }
 
 
 export function RecordedReplayAssertionContent({
-  read,
-}: { read: NonNullable<ReturnType<typeof useRecordedReplayAssertion>> }) {
-  if (!read.assertion) return null;
+  read, labelFor,
+}: { read: NonNullable<ReturnType<typeof useRecordedReplayAssertion>>; labelFor?: (id: string) => string | undefined }) {
+  const assertion = read.assertion;
+  if (!assertion) return null;
+  const subject = labelFor?.(assertion.subject_entity_id) ?? "An unnamed object";
+  const relation = assertion.predicate.split(":").at(-1)?.replaceAll("_", " ") ?? "relationship";
+  const value = assertion.value;
+  let sentence = `The record describes ${subject}.`;
+  if (value && typeof value === "object" && "kind" in value) {
+    if (value.kind === "entity_ref" && "entity_id" in value && typeof value.entity_id === "string") {
+      const object = labelFor?.(value.entity_id) ?? "an unnamed object";
+      sentence = nodeOverviewRelationship(assertion.predicate, subject, object)
+        ?? (relation === "precedes" ? `${subject} happens before “${object}.”` : `The record links ${subject} to ${object} by “${relation}.”`);
+    } else if (value.kind === "literal" && "value" in value && typeof value.value === "string") {
+      sentence = value.value;
+    } else if (value.kind === "term_ref" && "term" in value && typeof value.term === "string") {
+      sentence = `The record classifies ${subject} as ${value.term.split(":").at(-1)?.replaceAll("_", " ")}.`;
+    }
+  }
   return <>
-    <p>{read.assertion.subject_entity_id} · {read.assertion.predicate}</p>
-    <pre>{JSON.stringify(read.assertion.value, null, 2)}</pre>
+    <p>{sentence}</p>
     {read.excerpts?.map(excerpt => <blockquote key={excerpt.evidence_ref_id}>{excerpt.text}</blockquote>)}
   </>;
 }

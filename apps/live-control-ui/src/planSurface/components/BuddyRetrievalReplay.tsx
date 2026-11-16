@@ -137,7 +137,7 @@ const labels = {
 const previewSize = 12
 const assertionPageSize = 20
 
-function RecordedAssertions({ trace, step }: { trace: BuddyTurnContextTrace; step: RetrievalStep }) {
+function RecordedAssertions({ trace, step, labelFor }: { trace: BuddyTurnContextTrace; step: RetrievalStep; labelFor?: (id: string) => string | undefined }) {
   const [page, setPage] = useState(0)
   const assertions = step.result.claim_ids
   const start = page * assertionPageSize
@@ -153,9 +153,13 @@ function RecordedAssertions({ trace, step }: { trace: BuddyTurnContextTrace; ste
           </option>)}
       </select>
     </label>}
-    {assertions.slice(start, end).map(assertionId => <BuddyReplayAssertion
-      key={assertionId} trace={trace} step={step} assertionId={assertionId} />)}
+    {assertions.slice(start, end).map((assertionId, position) => <BuddyReplayAssertion
+      key={assertionId} trace={trace} step={step} assertionId={assertionId} labelFor={labelFor} number={start + position + 1} />)}
   </details>
+}
+
+function replayLabelScope(step: RetrievalStep) {
+  return JSON.stringify([step.revision_pin, step.scope_mode, step.campaign_id])
 }
 
 function displayNodeName(node: RetrievalStep['result']['nodes'][number]) {
@@ -324,17 +328,42 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
   const nativeBySequence = useMemo(() => new Map(
     trace?.native_assertion_steps?.map(step => [step.sequence, step]),
   ), [trace])
+  const namesByScope = useMemo(() => {
+    const labels = new Map<string, Map<string, string>>()
+    for (const frame of steps) {
+      if (!frame.revision_pin) continue
+      const key = replayLabelScope(frame)
+      let byId = labels.get(key)
+      if (!byId) labels.set(key, byId = new Map())
+      for (const node of frame.result.nodes) {
+        const label = displayNodeName(node)
+        if (label !== 'Unnamed object' && !byId.has(node.node_id)) byId.set(node.node_id, label)
+      }
+    }
+    return labels
+  }, [steps])
   const resolve = useCallback((node: ReplayIdentity, position: number): ReplayIdentity => {
     const step = steps[position]
     const saved = step?.native ? nativeBySequence.get(step.sequence) : undefined
-    const fallback = identities.get(node.node_id)
-    if (!saved || saved.revision_id !== step.revision_pin || !fallback) return node
+    const fallback = saved?.revision_id === step?.revision_pin && saved ? identities.get(node.node_id) : undefined
     return {
       ...node,
-      label: saved.subject_labels?.[node.node_id] ?? fallback.label,
-      kind: saved.subject_kinds?.[node.node_id] ?? fallback.kind,
+      label: saved?.subject_labels?.[node.node_id] ?? (displayNodeName(node) !== 'Unnamed object' ? node.label
+        : (step && namesByScope.get(replayLabelScope(step))?.get(node.node_id)) ?? fallback?.label ?? node.label),
+      kind: saved?.subject_kinds?.[node.node_id] ?? fallback?.kind ?? node.kind,
     }
-  }, [identities, nativeBySequence, steps])
+  }, [identities, namesByScope, nativeBySequence, steps])
+  const labelForStep = (position: number) => (id: string) => {
+    const frame = steps[position]
+    const node = frame.result.nodes.find(record => record.node_id === id)
+    if (node) {
+      const label = displayNodeName(resolve(node, position))
+      if (label !== 'Unnamed object') return label
+    }
+    const saved = frame.native ? nativeBySequence.get(frame.sequence) : undefined
+    return (saved?.revision_id === frame.revision_pin && saved && Object.hasOwn(saved.related_labels ?? {}, id)
+      ? saved.related_labels?.[id] : undefined) ?? namesByScope.get(replayLabelScope(frame))?.get(id)
+  }
   const step = steps[index]
   const last = index + 1 >= steps.length
 
@@ -464,20 +493,11 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
           {inspectedReads.length > 0 || inspectedHops.length > 0 || inspectedPruning.length > 0 ? <>
             {trace && findings.map(({ assertionId, read, position }) => <ReplayNodeFinding
               key={`${position}:${assertionId}`} trace={trace} step={read} assertionId={assertionId} nodeId={inspectedNode.node_id}
-              nodeLabel={displayNodeName(inspectedNode)} labelFor={id => {
-                const related = read.result.nodes.find(node => node.node_id === id)
-                if (!related) {
-                  const saved = nativeBySequence.get(read.sequence)
-                  return saved?.revision_id === read.revision_pin && Object.hasOwn(saved.related_labels ?? {}, id)
-                    ? saved.related_labels?.[id] : undefined
-                }
-                const label = displayNodeName(resolve(related, position))
-                return label === 'Unnamed object' ? undefined : label
-              }} />)}
+              nodeLabel={displayNodeName(inspectedNode)} labelFor={labelForStep(position)} />)}
             {trace && inspectedReads.map(({ position, read, ids }) => <div key={position}>
               <p>Buddy read {ids.length} {ids.length === 1 ? 'record' : 'records'} about this node in step {position + 1}.
                 {read.writerEvidence && ' These records were passed to the answer writer.'}</p>
-              <RecordedAssertions trace={trace} step={{ ...read, result: { ...read.result, claim_ids: [...ids] } }} />
+              <RecordedAssertions trace={trace} labelFor={labelForStep(position)} step={{ ...read, result: { ...read.result, claim_ids: [...ids] } }} />
               <button type="button" onClick={() => { dismissNode(); select(position) }}>Go to step {position + 1}</button>
             </div>)}
             {inspectedHops.map(({ position, from, to }) => <p key={position}>
@@ -496,7 +516,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
           </button>
             {trace && (steps[position].result.claim_ids.length > 0 || steps[position].result.evidence_ref_ids.length > 0) && <details>
               <summary>Evidence from step {position + 1}</summary>
-              {steps[position].result.claim_ids.length > 0 && <RecordedAssertions trace={trace} step={steps[position]} />}
+              {steps[position].result.claim_ids.length > 0 && <RecordedAssertions trace={trace} labelFor={labelForStep(position)} step={steps[position]} />}
               {renderStepEvidence(steps[position])}
             </details>}
           </li>
@@ -534,7 +554,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
           {nodes.length > previewSize && <button type="button" aria-expanded={expanded}
             onClick={() => setExpanded(value => !value)}>{expanded ? 'Show fewer objects' : `Show all ${nodes.length} recorded objects`}</button>}
           {trace && step.result.claim_ids.length > 0 &&
-            <RecordedAssertions key={stepKey(step)} trace={trace} step={step} />}
+            <RecordedAssertions key={stepKey(step)} trace={trace} labelFor={labelForStep(index)} step={step} />}
           {renderStepEvidence(step)}
         </section>
         <ol ref={list} className="buddy-retrieval-replay__steps" aria-label="Recorded retrieval steps">
