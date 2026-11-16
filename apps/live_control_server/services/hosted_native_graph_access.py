@@ -305,6 +305,22 @@ async def resolve_hosted_play_preparation(request: Request) -> str:
     return owned_world
 
 
+async def resolve_hosted_play_read(request: Request) -> str:
+    world_id = request.query_params.get("world_id")
+    if not world_id or request.query_params.multi_items() != [("world_id", world_id)] or await request.body():
+        raise _denied()
+    run_id = getattr(request.state, "hosted_route_run_id", None)
+    if run_id is not None:
+        try:
+            if str(UUID(run_id)) != run_id:
+                raise _denied()
+        except ValueError:
+            raise _denied() from None
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_play_creation(request: Request) -> str:
     from application_state.play.session_encounter_types import WorldSessionCreateRequest
 

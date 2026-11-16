@@ -285,6 +285,9 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
+            ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
@@ -2152,3 +2155,18 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert hosted.client.request("GET", receipt_path).json() == receipt
     assert hosted.client.request("GET", receipt_path, session="other-session").status_code == 403
     assert hosted.client.request("POST", f"{base}/creation:cancel?world_id=managed", json=intent).json() == receipt
+
+    runs = "/api/live/world-play-runs/v2"
+    for path in (f"{runs}?world_id=managed", f"{runs}/active?world_id=managed", run_path):
+        response = hosted.client.request("GET", path)
+        assert response.status_code == 200, response.text
+        assert response.headers["cache-control"] == "no-store"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+        assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    opened = hosted.client.request("GET", run_path).json()
+    assert opened["run_id"] == run_id
+    assert opened["playable_work_revision_id"] == body["expected_playable_work_revision_id"]
+    listed = hosted.client.request("GET", f"{runs}?world_id=managed").json()
+    assert [record["run_id"] for record in listed["records"]] == [run_id]
+    active = hosted.client.request("GET", f"{runs}/active?world_id=managed").json()
+    assert active["world_id"] == "managed"
