@@ -111,19 +111,19 @@ function keepStepVisible(pane: HTMLElement | null) {
 type ReplayIdentity = RetrievalStep['result']['nodes'][number]
 const emptyIdentities: ReadonlyMap<string, ReplayIdentity> = new Map()
 
-const Trail = memo(function Trail({ layout, active, wide, select, identities }: {
+const Trail = memo(function Trail({ layout, active, wide, select, resolve }: {
   layout: ReturnType<typeof layoutTrail>
   active: number
   wide: boolean
   select: (position: number) => void
-  identities: ReadonlyMap<string, ReplayIdentity>
+  resolve: (node: ReplayIdentity, position: number) => ReplayIdentity
 }) {
   return <div className="buddy-retrieval-replay__canvas">
     <svg viewBox={`0 0 ${layout.width} ${layout.height}`} role="group" aria-label="Recorded graph nodes">
       {[...layout.objects.values()].map(({ node, visits, x, y }) => {
         const current = visits.includes(active)
         const position = visits[0]
-        const presentation = identities.get(node.node_id) ?? node
+        const presentation = resolve(node, current ? active : position)
         const name = displayNodeName(presentation)
         const state = current ? 'current' : position < active ? 'visited' : 'upcoming'
         const selectVisit = () => {
@@ -179,6 +179,20 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
   const passagesByEvidence = useMemo(() => indexPassages(trace), [trace])
   const writerObservations = useMemo(() => new Set(trace?.writer_evidence_sequences ?? []), [trace?.writer_evidence_sequences])
   const rows = useMemo(() => layoutTrail(steps), [steps])
+  const nativeBySequence = useMemo(() => new Map(
+    trace?.native_assertion_steps?.map(step => [step.sequence, step]),
+  ), [trace])
+  const resolve = useCallback((node: ReplayIdentity, position: number): ReplayIdentity => {
+    const step = steps[position]
+    const saved = step?.native ? nativeBySequence.get(step.sequence) : undefined
+    const fallback = identities.get(node.node_id)
+    if (!saved || saved.revision_id !== step.revision_pin || !fallback) return node
+    return {
+      ...node,
+      label: saved.subject_labels?.[node.node_id] ?? fallback.label,
+      kind: saved.subject_kinds?.[node.node_id] ?? fallback.kind,
+    }
+  }, [identities, nativeBySequence, steps])
   const step = steps[index]
   const last = index + 1 >= steps.length
 
@@ -221,7 +235,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
   if (!step) return <p>No graph lookup steps were retained for this attempt.</p>
 
   const { nodes: recordedNodes, relationship_ids, relationships = [], total_counts, projection_status, evidence_ref_ids } = step.result
-  const nodes = recordedNodes.map(node => identities.get(node.node_id) ?? node)
+  const nodes = recordedNodes.map(node => resolve(node, index))
   const passages = evidence_ref_ids.flatMap(id => passagesByEvidence.get(JSON.stringify([step.revision_pin, id])) ?? [])
   return (
     <section className="buddy-retrieval-replay" aria-label="Retrieval replay">
@@ -241,7 +255,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         {nodes.length === 1 ? displayNodeName(nodes[0]) : nodes.length ? `${nodes.length} objects` : stepLabel(step)}
       </p>
       <div data-wide={wide}>
-        <Trail layout={rows} active={index} wide={wide} select={select} identities={identities} />
+        <Trail layout={rows} active={index} wide={wide} select={select} resolve={resolve} />
       </div>
       <div className="buddy-retrieval-replay__workspace" hidden={!wide}>
         <section aria-label="Recorded lookup results">
