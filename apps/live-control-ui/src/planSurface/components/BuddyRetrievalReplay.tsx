@@ -305,11 +305,14 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
   const [playing, setPlaying] = useState(false)
   const [inspectedId, setInspectedId] = useState<string | null>(null)
   const nodeDialog = useRef<HTMLDialogElement>(null)
+  const inspectedTrigger = useRef<SVGGElement>(null)
   const dismissNode = () => {
     nodeDialog.current?.close()
     setInspectedId(null)
+    inspectedTrigger.current?.focus()
   }
   const inspect = useCallback((id: string, trigger: SVGGElement) => {
+    inspectedTrigger.current = trigger
     trigger.focus()
     setPlaying(false)
     setInspectedId(id)
@@ -501,7 +504,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       </div>
       {showNodeDialog && inspected && inspectedNode && <dialog ref={nodeDialog}
         className="buddy-retrieval-replay__node-details" aria-label="Replay node details"
-        onCancel={event => { event.preventDefault(); dismissNode() }}
+        onCancel={event => { event.preventDefault(); event.stopPropagation(); dismissNode() }}
         onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation() }}>
         <GraphNodeViewer dialog label={displayNodeName(inspectedNode)} kind={inspectedNode.kind.includes(':')
           ? displayClassification([inspectedNode.kind]).replace(' (role unspecified)', '')
@@ -586,7 +589,11 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
     </section>
   )
   return poppedOut ? <dialog ref={popoutDialog} className="buddy-retrieval-replay__popout"
-    aria-label="Expanded retrieval replay" onCancel={event => { event.preventDefault(); restoreInline() }}
+    aria-label="Expanded retrieval replay" onCancel={event => {
+      if (event.target !== event.currentTarget) return
+      event.preventDefault()
+      restoreInline()
+    }}
     onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation() }}>
     {replay}
   </dialog> : replay
