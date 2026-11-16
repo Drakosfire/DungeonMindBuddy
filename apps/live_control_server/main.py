@@ -34,6 +34,7 @@ from apps.live_control_server.routes.live import router as live_router
 from apps.live_control_server.routes.party_registry import router as party_registry_router
 from apps.live_control_server.routes.play_runs import router as play_runs_router
 from apps.live_control_server.routes.source_statements import router as source_statements_router
+from apps.live_control_server.routes.pdf_adventure_events import router as pdf_adventure_events_router
 from apps.live_control_server.routes.native_graph_inspection import router as native_graph_inspection_router
 from apps.live_control_server.routes.native_source_inspection import router as native_source_inspection_router
 from apps.live_control_server.routes.play_prepared_tables import router as play_prepared_tables_router
@@ -241,6 +242,7 @@ def create_app() -> FastAPI:
     application.include_router(world_graph_bootstrap_router)
     application.include_router(extract_promote_router)
     application.include_router(source_statements_router)
+    application.include_router(pdf_adventure_events_router)
     application.include_router(native_graph_inspection_router)
     application.include_router(native_source_inspection_router)
     application.include_router(world_graph_projection_router)
