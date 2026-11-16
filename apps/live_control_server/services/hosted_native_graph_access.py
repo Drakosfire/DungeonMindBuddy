@@ -376,6 +376,27 @@ def require_hosted_saved_artwork(request: Request, asset_id: UUID) -> str:
     return hosted_world_media_owner(world_id)
 
 
+async def resolve_hosted_plan_world_context(request: Request) -> str:
+    selectors = request.query_params.multi_items()
+    world_id = request.query_params.get("world_id")
+    if not world_id or await request.body() or sorted(selectors) not in (
+        [("world_id", world_id)],
+        [("scope_mode", "world"), ("world_id", world_id)],
+    ):
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
+
+
+def require_hosted_plan_world_context(request: Request | None, world_id: str | None) -> None:
+    if hosted_auth.deployment_environment() != hosted_auth.PRODUCTION_ENVIRONMENT:
+        return
+    if request is None or not world_id or getattr(request.state, "hosted_plan_context_world", None) != world_id:
+        raise _denied()
+    _owned_world(_hosted_subject(request), world_id)
+
+
 async def resolve_hosted_build_page_inventory(request: Request) -> str:
     subject = _hosted_subject(request)
     selectors = request.query_params.getlist("world_id")

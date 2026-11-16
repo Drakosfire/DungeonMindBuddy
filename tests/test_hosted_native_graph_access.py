@@ -276,6 +276,7 @@ def hosted(monkeypatch, request):
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
             ("POST", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
@@ -1993,3 +1994,17 @@ def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn):
     for suffix in ("metadata", "original"):
         assert hosted.client.request("GET", f"{path}/{suffix}", session="other-session").status_code == 403
         assert hosted.client.request("GET", f"{path}/{suffix}?world_id={world_id}").status_code == 403
+
+
+def test_hosted_plan_context_requires_exact_owned_world(hosted):
+    world_id = next(iter(access.hosted_auth.hosted_world_access()))
+    for query, version in ((f"world_id={world_id}", "v1"), (f"scope_mode=world&world_id={world_id}", "v2")):
+        path = f"/api/live/plan-view?{query}"
+        response = hosted.client.request("GET", path)
+        assert response.status_code == 200, response.text
+        assert response.json()["world_id"] == world_id
+        assert response.json()["schema_version"] == f"dmb_managed_world_plan_context_{version}"
+        assert response.headers["cache-control"] == "no-store"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    for query in ("", f"?world_id={world_id}&world_id={world_id}", f"?world_id={world_id}&campaign_id=other"):
+        assert hosted.client.request("GET", f"/api/live/plan-view{query}").status_code == 403
