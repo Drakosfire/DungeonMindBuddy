@@ -1,3 +1,4 @@
+import { GraphNodeViewer } from "../../graphLens/GraphNodeViewer"
 import { getWorldAgentReplayIdentities } from '../../api/liveApi'
 import { GraphCircleGlyph } from '../../localWorld/worldGraphCanvas/GraphCircleGlyph'
 import { graphTypeColor } from '../../localWorld/worldGraphCanvas/graphTypeStyles'
@@ -377,9 +378,26 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       }
       return [{ position, from: label(item.hop.from_node_id), to: label(item.hop.to_node_id) }]
     })
-  const { nodes: recordedNodes, relationship_ids, relationships = [], total_counts, projection_status, evidence_ref_ids } = step.result
+  const { nodes: recordedNodes, relationship_ids, relationships = [], total_counts, projection_status } = step.result
   const nodes = recordedNodes.map(node => resolve(node, index))
-  const passages = evidence_ref_ids.flatMap(id => passagesByEvidence.get(JSON.stringify([step.revision_pin, id])) ?? [])
+  const renderStepEvidence = (recordedStep: RetrievalStep) => {
+    const { evidence_ref_ids: refs } = recordedStep.result
+    if (!trace || refs.length === 0) return null
+    const passages = refs.flatMap(id => passagesByEvidence.get(JSON.stringify([recordedStep.revision_pin, id])) ?? [])
+    return <>
+      {passages.length > 0 && <section aria-label="Captured source excerpts">
+        {passages.map(passage => <BuddyHistoricalSourcePassage key={`${passage.source_read_event_id}:${passage.source_read_id}`}
+          graphRevision={recordedStep.revision_pin} label={`Open excerpt · ${passage.source_name?.trim() || 'Captured source'}${writerObservations.has(passage.sequence) ? ' · Writer evidence' : ''}`}
+          reference={{
+            schema: 'dmb_trace_historical_source_ref_v1', world_id: trace.world_id,
+            conversation_id: trace.conversation_id, turn_id: trace.turn_id, attempt: trace.attempt,
+            trace_id: trace.trace_id, source_read_event_id: passage.source_read_event_id,
+            source_read_id: passage.source_read_id, content_sha256: passage.content_sha256,
+          }} />)}
+      </section>}
+      {passages.length === 0 && <p>No matching source excerpt was captured for this lookup.</p>}
+    </>
+  }
   return (
     <section className="buddy-retrieval-replay" aria-label="Retrieval replay">
       <div className="buddy-retrieval-replay__controls">
@@ -404,11 +422,8 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         className="buddy-retrieval-replay__node-details" aria-label="Replay node details"
         onCancel={event => { event.preventDefault(); dismissNode() }}
         onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation() }}>
-        <header>
-          <h5>{displayNodeName(inspectedNode)}</h5>
-          <button type="button" autoFocus aria-label="Close node details" onClick={dismissNode}>×</button>
-        </header>
-        <p>{inspectedNode.kind}</p>
+        <GraphNodeViewer dialog label={displayNodeName(inspectedNode)} kind={inspectedNode.kind}
+          controls={<button type="button" autoFocus aria-label="Close node details" onClick={dismissNode}>×</button>}>
         {inspectedId !== null && step.pruning?.ids.includes(inspectedId) && <p>{step.pruning.reason}.</p>}
         {inspectedHops.length > 0 && <ul aria-label="Recorded hops for this node">
           {inspectedHops.map(hop => <li key={hop.position}>
@@ -418,8 +433,15 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         <ul className="buddy-retrieval-replay__node-visits">{inspected.visits.filter(position => position <= index).map(position => (
           <li key={position}><button type="button" onClick={() => { dismissNode(); select(position) }}>
             Step {position + 1} · {stepLabel(steps[position])}
-          </button></li>
+          </button>
+            {trace && (steps[position].result.claim_ids.length > 0 || steps[position].result.evidence_ref_ids.length > 0) && <details>
+              <summary>Evidence from step {position + 1}</summary>
+              {steps[position].result.claim_ids.length > 0 && <RecordedAssertions trace={trace} step={steps[position]} />}
+              {renderStepEvidence(steps[position])}
+            </details>}
+          </li>
         ))}</ul>
+        </GraphNodeViewer>
       </dialog>}
       {step.pruning && <details>
         <summary>Pruned {step.pruning.total} {step.pruning.total === 1 ? 'candidate' : 'candidates'}</summary>
@@ -453,17 +475,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
             onClick={() => setExpanded(value => !value)}>{expanded ? 'Show fewer objects' : `Show all ${nodes.length} recorded objects`}</button>}
           {trace && step.result.claim_ids.length > 0 &&
             <RecordedAssertions key={stepKey(step)} trace={trace} step={step} />}
-          {trace && passages.length > 0 && <section aria-label="Captured source excerpts">
-            {passages.map(passage => <BuddyHistoricalSourcePassage key={`${passage.source_read_event_id}:${passage.source_read_id}`}
-              graphRevision={step.revision_pin} label={`Open excerpt · ${passage.source_name?.trim() || 'Captured source'}${writerObservations.has(passage.sequence) ? ' · Writer evidence' : ''}`}
-              reference={{
-                schema: 'dmb_trace_historical_source_ref_v1', world_id: trace.world_id,
-                conversation_id: trace.conversation_id, turn_id: trace.turn_id, attempt: trace.attempt,
-                trace_id: trace.trace_id, source_read_event_id: passage.source_read_event_id,
-                source_read_id: passage.source_read_id, content_sha256: passage.content_sha256,
-              }} />)}
-          </section>}
-          {trace && evidence_ref_ids.length > 0 && passages.length === 0 && <p>No matching source excerpt was captured for this lookup.</p>}
+          {renderStepEvidence(step)}
         </section>
         <ol ref={list} className="buddy-retrieval-replay__steps" aria-label="Recorded retrieval steps">
           {steps.map((item, position) => (
