@@ -69,7 +69,9 @@ def graph_operation_observation(
         else:
             observed.update(operation="support", target_node_id=request.target.id)
     expected_operation = "evidence" if observed["operation"] == "support" else observed["operation"]
-    if list(result._discovery_relationship_ids) != execution_event.discovery_relationship_ids:
+    discovery_ids = (list(result._discovery_relationship_ids)
+                     if isinstance(request, WorldGraphNeighborhoodRequest) else [])
+    if discovery_ids != execution_event.discovery_relationship_ids:
         raise ValueError("trace discovery edges differ from the broker read")
     if result.operation != expected_operation:
         raise ValueError("trace result operation differs from its effective request")
