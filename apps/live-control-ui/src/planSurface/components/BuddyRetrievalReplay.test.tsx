@@ -1,3 +1,4 @@
+import type { BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 import { BuddyRetrievalReplay, type RetrievalStep } from './BuddyRetrievalReplay'
@@ -9,6 +10,7 @@ function lookup(sequence: number, label: string): RetrievalStep {
     result: {
       nodes: [{ node_id: label, label, kind: 'person' }],
       relationship_ids: [],
+      evidence_ref_ids: [],
       total_counts: { nodes: 1, relationships: 0, claims: 0 },
       outcome: 'enough',
     },
@@ -56,4 +58,24 @@ it('scrolls both panes to a selected offscreen step without moving focus', () =>
   expect(pane.scrollTop).toBe(618)
   expect(list.scrollTop).toBe(149)
   expect(last).toHaveFocus()
+})
+
+it('offers only captured passages matching the lookup evidence, World, and revision', () => {
+  const step = lookup(1, 'Mossglade')
+  step.revision_pin = 'revision-one'
+  step.result.evidence_ref_ids = ['support-one']
+  const source = {
+    kind: 'source_passage', world_id: 'elderwyld', graph_revision: 'revision-one',
+    evidence_ref_id: 'support-one', source_read_id: 'read-one', source_read_event_id: 'event-one',
+    source_name: 'Session 1', content_sha256: 'digest', text: 'Captured text',
+  }
+  const trace = {
+    trace_id: 'trace', world_id: 'elderwyld', conversation_id: 'conversation', turn_id: 'turn', attempt: 1,
+    observations: [step, source,
+      { ...source, source_name: 'Elsewhere', world_id: 'foreign' },
+      { ...source, source_name: 'Later revision', graph_revision: 'revision-two' }],
+  } as BuddyTurnContextTrace
+  render(<BuddyRetrievalReplay steps={[step]} trace={trace} />)
+  expect(screen.getByText('Open excerpt · Session 1')).toBeInTheDocument()
+  expect(screen.queryByText(/Elsewhere|Later revision|Captured text/)).not.toBeInTheDocument()
 })

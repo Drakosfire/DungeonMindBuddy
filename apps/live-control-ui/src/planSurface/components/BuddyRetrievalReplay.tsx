@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { BuddyTraceObservation } from '../../api/buddyContextTraceTypes'
+import { BuddyHistoricalSourcePassage } from './BuddyHistoricalSourcePassage'
+import type { BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 import './BuddyRetrievalReplay.css'
 
 export type RetrievalStep = Extract<BuddyTraceObservation, { kind: 'graph_tool' }>
@@ -70,11 +71,24 @@ const Trail = memo(function Trail({ rows, active, select }: {
   </div>
 })
 
-export function BuddyRetrievalReplay({ steps }: { steps: readonly RetrievalStep[] }) {
+function indexPassages(trace: BuddyTurnContextTrace | undefined) {
+  const index = new Map<string, BuddyTraceSourcePassage[]>()
+  for (const event of trace?.observations ?? []) {
+    if (event.kind !== 'source_passage' || event.world_id !== trace?.world_id) continue
+    const key = JSON.stringify([event.graph_revision, event.evidence_ref_id])
+    const matches = index.get(key)
+    if (matches) matches.push(event)
+    else index.set(key, [event])
+  }
+  return index
+}
+
+export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly RetrievalStep[]; trace?: BuddyTurnContextTrace }) {
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const list = useRef<HTMLOListElement>(null)
+  const passagesByEvidence = useMemo(() => indexPassages(trace), [trace])
   const rows = useMemo(() => layoutTrail(steps), [steps])
   const step = steps[index]
   const last = index + 1 >= steps.length
@@ -99,7 +113,8 @@ export function BuddyRetrievalReplay({ steps }: { steps: readonly RetrievalStep[
 
   if (!step) return <p>No graph lookup steps were retained for this attempt.</p>
 
-  const { nodes, relationship_ids, total_counts, projection_status } = step.result
+  const { nodes, relationship_ids, total_counts, projection_status, evidence_ref_ids } = step.result
+  const passages = evidence_ref_ids.flatMap(id => passagesByEvidence.get(JSON.stringify([step.revision_pin, id])) ?? [])
   return (
     <section className="buddy-retrieval-replay" aria-label="Retrieval replay">
       <div className="buddy-retrieval-replay__controls">
@@ -126,6 +141,17 @@ export function BuddyRetrievalReplay({ steps }: { steps: readonly RetrievalStep[
           </ul>}
           {nodes.length > previewSize && <button type="button" aria-expanded={expanded}
             onClick={() => setExpanded(value => !value)}>{expanded ? 'Show fewer objects' : `Show all ${nodes.length} recorded objects`}</button>}
+          {trace && passages.length > 0 && <section aria-label="Captured source excerpts">
+            {passages.map(passage => <BuddyHistoricalSourcePassage key={`${passage.source_read_event_id}:${passage.source_read_id}`}
+              graphRevision={step.revision_pin} label={`Open excerpt · ${passage.source_name?.trim() || 'Captured source'}`}
+              reference={{
+                schema: 'dmb_trace_historical_source_ref_v1', world_id: trace.world_id,
+                conversation_id: trace.conversation_id, turn_id: trace.turn_id, attempt: trace.attempt,
+                trace_id: trace.trace_id, source_read_event_id: passage.source_read_event_id,
+                source_read_id: passage.source_read_id, content_sha256: passage.content_sha256,
+              }} />)}
+          </section>}
+          {trace && evidence_ref_ids.length > 0 && passages.length === 0 && <p>No matching source excerpt was captured for this lookup.</p>}
         </section>
         <ol ref={list} className="buddy-retrieval-replay__steps" aria-label="Recorded retrieval steps">
           {steps.map((item, position) => (
