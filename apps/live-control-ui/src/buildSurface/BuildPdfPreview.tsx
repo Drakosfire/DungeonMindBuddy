@@ -475,14 +475,14 @@ export function PdfPages({ file, worldId, restored, onRetained, readOnly = false
   );
 }
 
-export function BuildPdfPreview({ worldId, initialFile, initialRetained, onPdfOpen, toolbarControls }: { worldId?: string; initialFile?: File; initialRetained?: RetainedPdf; onPdfOpen?: () => void; toolbarControls?: ReactNode }) {
+export function BuildPdfPreview({ worldId, initialFile, initialRetained, onPdfOpen, toolbarControls, persistShortcuts = true }: { worldId?: string; initialFile?: File; initialRetained?: RetainedPdf; onPdfOpen?: () => void; toolbarControls?: ReactNode; persistShortcuts?: boolean }) {
   const [selection, setSelection] = useState<{ file: File; version: number; restored?: PdfLocator } | undefined>(() => initialFile ? { file: initialFile, version: 0 } : undefined);
   const [reopenError, setReopenError] = useState("");
   const [reopening, setReopening] = useState(false);
   const [retained, setRetained] = useState<RetainedPdf[]>(() =>
-    worldId ? readRetainedPdfRegions(worldId) : []);
+    persistShortcuts && worldId ? readRetainedPdfRegions(worldId) : []);
   function saveLocator(locator: PdfLocator) {
-    if (!worldId || !selection) return;
+    if (!persistShortcuts || !worldId || !selection) return;
     const entry = { name: selection.file.name, locator };
     setRetained(previous => [entry, ...previous.filter(
       saved => pdfRegionKey(saved.locator) !== pdfRegionKey(locator),

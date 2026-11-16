@@ -737,9 +737,9 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
             setValidation("");
             setIssues([]);
           }}>Mark movement unspecified</button>}
-          <button type="button" aria-expanded={developerTools}
-            onClick={() => setDeveloperTools(!developerTools)}>Developer tools</button>
-          {developerTools && <section aria-label="Developer tools">
+          {auth.status !== "authenticated" && <button type="button" aria-expanded={developerTools}
+            onClick={() => setDeveloperTools(!developerTools)}>Developer tools</button>}
+          {auth.status !== "authenticated" && developerTools && <section aria-label="Developer tools">
             <button type="button" disabled={!mechanicsResolved} onClick={() => void validate()}>Validate mechanics</button>
             {validation && <span role="status">{validation}</span>}
             <button type="button" disabled={!mechanicsResolved || createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}

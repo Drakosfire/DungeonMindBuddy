@@ -22,6 +22,11 @@ const LocalBuddyApp = import.meta.env.VITE_BUDDY_HOSTED_BUILD !== "1" ? deferred
   "local Buddy",
 ) : null;
 
+const HostedBuildPage = deferredComponent(
+  () => import("./buildSurface/HostedBuildPage").then(module => ({ default: module.HostedBuildPage })),
+  "Build",
+);
+
 function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
   const auth = useHostedAuthStatus();
   return LocalBuddyApp && auth.status === "local_operator"
@@ -70,6 +75,10 @@ function HostedBuddy({ locationSnapshot }: { readonly locationSnapshot: string }
           <a href={worldScopedSurfaceHref("/", worldId)} onClick={interceptPrimaryNavigationClick}>Home</a>
           {" · "}
           <a href={graphHref} onClick={interceptPrimaryNavigationClick}>Graph</a>
+          {signedIn && worldId && <>
+            {" · "}
+            <a href={worldScopedSurfaceHref("/build", worldId)} onClick={interceptPrimaryNavigationClick}>Build</a>
+          </>}
         </nav>
         {signedIn && <>
           <WorldSelector compact />
@@ -85,17 +94,20 @@ function HostedBuddy({ locationSnapshot }: { readonly locationSnapshot: string }
         </>}
         <SurfaceContextHost />
       </header>
-      {path !== "/" && path !== "/graph" ? (
+      {path !== "/" && path !== "/graph" && path !== "/build" ? (
         <main className="app-status">
           <h1>This page is unavailable on hosted Buddy</h1>
           <a href={graphHref} onClick={interceptPrimaryNavigationClick}>Open Graph</a>
         </main>
+      ) : path === "/build" && signedIn && world.kind === "managed" ? (
+        <HostedBuildPage key={JSON.stringify([auth.subject, world.worldId])}
+          worldId={world.worldId} locationSnapshot={locationSnapshot} />
       ) : path === "/graph" && signedIn && world.kind === "managed" ? (
         <ManagedWorldGraph key={JSON.stringify([auth.subject, world.worldId])} worldId={world.worldId}
           worldTitle={world.name} stateScopeId={JSON.stringify(["hosted", auth.subject, world.worldId])} />
       ) : (
         <main className="app-status">
-          <h1>{path === "/" ? "DungeonMind Buddy" : "Buddy graph playground"}</h1>
+          <h1>{path === "/" ? "DungeonMind Buddy" : path === "/build" ? "Build" : "Buddy graph playground"}</h1>
           {!signedIn ? (
             <a href={dungeonMindLoginHref(locationSnapshot)}>Sign in with DungeonMind</a>
           ) : world.kind === "loading" ? (
@@ -105,7 +117,7 @@ function HostedBuddy({ locationSnapshot }: { readonly locationSnapshot: string }
           ) : world.kind === "managed" ? (
             <a href={graphHref} onClick={interceptPrimaryNavigationClick}>Browse {world.name}’s graph</a>
           ) : (
-            <p>Choose a World to browse its graph.</p>
+            <p>{path === "/build" ? "Choose a World to open Build." : "Choose a World to browse its graph."}</p>
           )}
         </main>
       )}
