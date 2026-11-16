@@ -187,3 +187,39 @@ it('opens a recorded assertion lazily and rejects a different revision', async (
     setNativeGraphAccessToken(null)
   }
 })
+
+it('reveals recorded seeds, draws directed hops in order, and explains object-limit pruning', () => {
+  const step = lookup(4, 'Caelynn')
+  step.request = { operation: 'neighborhood', seed_node_ids: ['Caelynn'], depth: 2 }
+  step.result.nodes.push({ node_id: 'Mossglade', label: 'Mossglade', kind: 'person' })
+  step.result.nodes.push({ node_id: 'Arena', label: 'Arena', kind: 'location' })
+  step.result.neighborhood_replay = {
+    hops: [
+      { relationship_id: 'first', from_node_id: 'Caelynn', to_node_id: 'Mossglade' },
+      { relationship_id: 'second', from_node_id: 'Mossglade', to_node_id: 'Arena' },
+    ],
+    object_limit_pruned_ids: ['discarded'],
+    object_limit_pruned_count: 1,
+  }
+  const trace = { observations: [{ ...step, kind: 'graph_tool' }] } as BuddyTurnContextTrace
+  render(<BuddyRetrievalReplay steps={replaySteps(trace)} trace={trace} />)
+  const trail = screen.getByRole('group', { name: 'Recorded graph nodes' })
+  const seed = within(trail).getByRole('button', { name: 'Caelynn' })
+  const position = seed.getAttribute('transform')
+  const next = screen.getByRole('button', { name: 'Next step' })
+  expect(within(trail).getAllByRole('button')).toHaveLength(1)
+  expect(trail.querySelectorAll('line')).toHaveLength(0)
+  fireEvent.click(next)
+  expect(within(trail).getByRole('button', { name: 'Mossglade' })).toBeInTheDocument()
+  const arrow = trail.querySelector('line')!
+  expect(arrow).toHaveAttribute('marker-end')
+  expect(arrow).toHaveAttribute('x1', '44')
+  fireEvent.click(next)
+  expect(trail.querySelectorAll('line')).toHaveLength(2)
+  expect(arrow).toHaveAttribute('opacity', '0.24')
+  fireEvent.click(next)
+  fireEvent.click(next)
+  expect(seed).toHaveAttribute('transform', position)
+  expect(within(trail).getByRole('button', { name: 'Unnamed object' })).toHaveAttribute('data-visit', 'pruned')
+  expect(screen.getByText('Dropped by the neighborhood object limit.')).toBeInTheDocument()
+})

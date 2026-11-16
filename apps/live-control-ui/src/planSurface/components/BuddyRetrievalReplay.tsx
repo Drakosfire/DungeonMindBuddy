@@ -1,7 +1,7 @@
 import { getWorldAgentReplayIdentities } from '../../api/liveApi'
 import { GraphCircleGlyph } from '../../localWorld/worldGraphCanvas/GraphCircleGlyph'
 import { graphTypeColor } from '../../localWorld/worldGraphCanvas/graphTypeStyles'
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { BuddyReplayAssertion } from './BuddyReplayAssertion'
 import { BuddyHistoricalSourcePassage } from './BuddyHistoricalSourcePassage'
 import type { BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
@@ -10,7 +10,13 @@ import './BuddyRetrievalReplay.css'
 type GraphStep = Extract<BuddyTraceObservation, { kind: 'graph_tool' }>
 export type RetrievalStep = Pick<GraphStep, 'sequence' | 'revision_pin' | 'request' | 'result'>
   & Partial<Pick<GraphStep, 'scope_mode' | 'campaign_id'>>
-  & { native?: true; writerEvidence?: boolean }
+  & {
+    native?: true
+    writerEvidence?: boolean
+    frame?: string
+    hop?: { relationship_id: string; from_node_id: string; to_node_id: string }
+    pruning?: { reason: string; total: number; ids: string[] }
+  }
 
 export function replaySteps(trace: BuddyTurnContextTrace): RetrievalStep[] {
   const graph = trace.observations.filter(event => event.kind === 'graph_tool')
@@ -32,14 +38,65 @@ export function replaySteps(trace: BuddyTurnContextTrace): RetrievalStep[] {
       },
     }
   })
-  if (!native.length) return graph
-  const order = (step: RetrievalStep) => step.native
-    ? step.sequence : trace.graph_replay_order?.[step.sequence] ?? Number.MAX_SAFE_INTEGER
-  return [...graph, ...native].sort((left, right) => order(left) - order(right))
+  const exclusions = (trace.retrieval_exclusion_steps ?? []).filter(step => step.total > 0)
+    .map((step): RetrievalStep => {
+      const nodes = step.candidates.map(candidate => ({
+        node_id: candidate.handle.startsWith('node:') ? candidate.handle.slice(5) : candidate.handle,
+        label: candidate.label, kind: candidate.kind,
+      }))
+      const counts = { nodes: nodes.length, relationships: 0, claims: 0, evidence_refs: 0 }
+      return {
+        sequence: step.sequence, frame: 'Candidate pruning', revision_pin: '',
+        request: { operation: 'search', query_text: '', seed_node_ids: [] },
+        pruning: { reason: 'JEV excluded this candidate during relevance selection', total: step.total, ids: nodes.map(node => node.node_id) },
+        result: {
+          outcome: 'enough', graph_revision: '', coverage_status: 'complete', projection_status: 'complete',
+          nodes, relationship_ids: [], claim_ids: [], evidence_ref_ids: [],
+          returned_counts: counts, total_counts: counts, omission_codes: [],
+        },
+      }
+    })
+  const order = (step: RetrievalStep) => step.native || step.pruning
+    ? step.sequence : trace.graph_replay_order?.[step.sequence] ?? (native.length ? Number.MAX_SAFE_INTEGER : step.sequence)
+  return [...graph, ...native, ...exclusions].sort((left, right) => order(left) - order(right))
+    .flatMap(neighborhoodFrames)
 }
 
-const stepKey = (step: RetrievalStep) => `${step.native ? 'native' : 'graph'}:${step.sequence}`
-const stepLabel = (step: RetrievalStep) => step.native ? 'Read native assertions' : labels[step.request.operation]
+function neighborhoodFrames(step: RetrievalStep): RetrievalStep[] {
+  const replay = step.result.neighborhood_replay
+  if (!replay || step.request.operation !== 'neighborhood') return [step]
+  const nodes = new Map(step.result.nodes.map(node => [node.node_id, node]))
+  const frameResult = { ...step.result, claim_ids: [], evidence_ref_ids: [],
+    relationship_ids: [], relationships: [], discovery_relationship_ids: [] }
+  const seeds = new Set(step.request.seed_node_ids)
+  const frames: RetrievalStep[] = [{
+    ...step, frame: 'Starting nodes',
+    result: { ...frameResult, nodes: step.result.nodes.filter(node => seeds.has(node.node_id)) },
+  }]
+  for (const [index, hop] of replay.hops.entries()) {
+    const endpoints = [nodes.get(hop.from_node_id), nodes.get(hop.to_node_id)]
+      .filter((node): node is ReplayIdentity => node !== undefined)
+    if (endpoints.length !== 2) continue
+    frames.push({ ...step, frame: `Hop ${index + 1}`, hop, result: { ...frameResult, nodes: endpoints } })
+  }
+  frames.push({
+    ...step, frame: 'Neighborhood results',
+    result: { ...step.result, discovery_relationship_ids: [] },
+  })
+  if (replay.object_limit_pruned_count > 0) {
+    const pruned = replay.object_limit_pruned_ids.map(id => ({ node_id: id, label: 'Unnamed object', kind: 'object' }))
+    frames.push({
+      ...step, frame: 'Object limit pruning',
+      pruning: { reason: 'Dropped by the neighborhood object limit', total: replay.object_limit_pruned_count, ids: replay.object_limit_pruned_ids },
+      result: { ...frameResult, nodes: pruned },
+    })
+  }
+  return frames
+}
+
+const stepKey = (step: RetrievalStep) => `${step.native ? 'native' : 'graph'}:${step.sequence}:${step.frame ?? ''}`
+const showsLookupResult = (step: RetrievalStep) => !step.frame || step.frame === 'Neighborhood results'
+const stepLabel = (step: RetrievalStep) => step.frame ?? (step.native ? 'Read native assertions' : labels[step.request.operation])
 
 const labels = {
   search: 'Search the graph',
@@ -89,13 +146,18 @@ function layoutTrail(steps: readonly RetrievalStep[]) {
       }
     }
   }
-  const edgesByStep = steps.map(({ result }) => {
+  const edgesByStep = steps.map(({ result, hop }) => {
+    if (hop) {
+      const from = objects.get(hop.from_node_id)
+      const to = objects.get(hop.to_node_id)
+      return from && to ? [{ id: hop.relationship_id, from, to, directed: true }] : []
+    }
     const discovery = new Set(result.discovery_relationship_ids)
     return (result.relationships ?? []).flatMap(edge => {
       if (!discovery.has(edge.relationship_id)) return []
       const from = objects.get(edge.source_node_id)
       const to = objects.get(edge.target_node_id)
-      return from && to ? [{ id: edge.relationship_id, from, to }] : []
+      return from && to ? [{ id: edge.relationship_id, from, to, directed: false }] : []
     })
   })
   const columns = Math.max(1, Math.ceil(Math.sqrt(objects.size * 1.65)))
@@ -120,24 +182,38 @@ function keepStepVisible(pane: HTMLElement | null) {
 type ReplayIdentity = RetrievalStep['result']['nodes'][number]
 const emptyIdentities: ReadonlyMap<string, ReplayIdentity> = new Map()
 
-const Trail = memo(function Trail({ layout, active, wide, select, resolve }: {
+const Trail = memo(function Trail({ layout, active, wide, select, resolve, pruned, reveal }: {
   layout: ReturnType<typeof layoutTrail>
   active: number
   wide: boolean
   select: (position: number) => void
   resolve: (node: ReplayIdentity, position: number) => ReplayIdentity
+  pruned?: readonly string[]
+  reveal: boolean
 }) {
+  const arrow = useId()
   return <div className="buddy-retrieval-replay__canvas">
     <svg viewBox={`0 0 ${layout.width} ${layout.height}`} role="group" aria-label="Recorded graph nodes">
-      {layout.edgesByStep[active]?.map(({ id, from, to }) =>
-        <line key={id} className="buddy-retrieval-replay__hop" aria-hidden="true"
-          x1={from.x} y1={from.y} x2={to.x} y2={to.y} />)}
+      <defs><marker id={arrow} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#a76a23" />
+      </marker></defs>
+      {layout.edgesByStep.slice(0, active + 1).flatMap((edges, position) =>
+        edges.filter(edge => position === active || edge.directed).map(({ id, from, to, directed }) => {
+          const dx = to.x - from.x
+          const dy = to.y - from.y
+          const distance = Math.hypot(dx, dy)
+          const inset = directed && distance > 0 ? 26 / distance : 0
+          return <line key={`${position}:${id}`} className="buddy-retrieval-replay__hop" aria-hidden="true"
+            opacity={position === active ? 1 : 0.24} markerEnd={directed ? `url(#${arrow})` : undefined}
+            x1={from.x} y1={from.y} x2={to.x - dx * inset} y2={to.y - dy * inset} />
+        }))}
       {[...layout.objects.values()].map(({ node, visits, x, y }) => {
         const current = visits.includes(active)
         const position = visits[0]
         const presentation = resolve(node, current ? active : position)
         const name = displayNodeName(presentation)
-        const state = current ? 'current' : position < active ? 'visited' : 'upcoming'
+        if (reveal && position > active) return null
+        const state = pruned?.includes(node.node_id) ? 'pruned' : current ? 'current' : position < active ? 'visited' : 'upcoming'
         const selectVisit = () => {
           if (!current) select(visits.find(visit => visit > active) ?? visits.at(-1)!)
         }
@@ -267,14 +343,22 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         {nodes.length === 1 ? displayNodeName(nodes[0]) : nodes.length ? `${nodes.length} objects` : stepLabel(step)}
       </p>
       <div data-wide={wide}>
-        <Trail layout={rows} active={index} wide={wide} select={select} resolve={resolve} />
+        <Trail layout={rows} active={index} wide={wide} select={select} resolve={resolve} pruned={step.pruning?.ids} reveal={steps.some(item => item.hop || item.pruning)} />
       </div>
+      {step.pruning && <details>
+        <summary>Pruned {step.pruning.total} {step.pruning.total === 1 ? 'candidate' : 'candidates'}</summary>
+        <p>{step.pruning.reason}.</p>
+        <ul>{nodes.map(node => <li key={node.node_id}>{displayNodeName(node) === 'Unnamed object' ? <code>{node.node_id}</code> : displayNodeName(node)}</li>)}</ul>
+        {step.pruning.total > nodes.length && <p>Some pruned candidates were outside the trace sample.</p>}
+      </details>}
+      {wide && trace && !steps.some(item => item.hop || item.result.neighborhood_replay) && <p>Directed traversal was unavailable for this attempt.</p>}
+      {wide && trace && trace.retrieval_exclusion_steps == null && !steps.some(item => item.result.neighborhood_replay) && <p>Pruning decisions were unavailable for this attempt.</p>}
       <div className="buddy-retrieval-replay__workspace" hidden={!wide}>
         <section aria-label="Recorded lookup results">
           <h5>{stepLabel(step)}</h5>
-          {(step.native ? step.writerEvidence : writerObservations.has(step.sequence)) && <p><strong>Evidence sent to the answer writer</strong></p>}
-          <p>{total_counts.nodes} objects · {total_counts.relationships} relationships · {total_counts.claims} claims</p>
-          {projection_status === 'limited' && <p>Some results were omitted from the saved trace.</p>}
+          {(showsLookupResult(step) && (step.native ? step.writerEvidence : writerObservations.has(step.sequence))) && <p><strong>Evidence sent to the answer writer</strong></p>}
+          {showsLookupResult(step) && <p>{total_counts.nodes} objects · {total_counts.relationships} relationships · {total_counts.claims} claims</p>}
+          {showsLookupResult(step) && projection_status === 'limited' && <p>Some results were omitted from the saved trace.</p>}
           {relationship_ids.length > relationships.length && <p>Some relationship endpoints were unavailable in this trace.</p>}
           {relationships.length > 0 && <details>
             <summary>Returned relationships ({relationships.length})</summary>
@@ -308,8 +392,8 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         <ol ref={list} className="buddy-retrieval-replay__steps" aria-label="Recorded retrieval steps">
           {steps.map((item, position) => (
             <li key={stepKey(item)} data-replay-active={position === index ? true : undefined}><button type="button" aria-current={position === index ? 'step' : undefined}
-              onClick={() => select(position)}>{stepLabel(item)} · {item.result.outcome}
-              {(item.native ? item.writerEvidence : writerObservations.has(item.sequence)) && <strong> · Writer evidence</strong>}</button></li>
+              onClick={() => select(position)}>{stepLabel(item)}{showsLookupResult(item) && ` · ${item.result.outcome}`}
+              {(showsLookupResult(item) && (item.native ? item.writerEvidence : writerObservations.has(item.sequence))) && <strong> · Writer evidence</strong>}</button></li>
           ))}
         </ol>
       </div>
