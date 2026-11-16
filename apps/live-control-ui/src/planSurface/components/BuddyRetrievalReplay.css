@@ -125,3 +125,20 @@
 .buddy-retrieval-replay__node-details .buddy-retrieval-replay__node-visits > li > details {
   margin-block: .35rem .65rem;
 }
+
+.buddy-retrieval-replay__popout {
+  box-sizing: border-box;
+  width: min(76rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 1rem;
+  overflow: auto;
+  border: 1px solid #53627a;
+  border-radius: .75rem;
+  background: #1b2535;
+  color: #f1f4fa;
+}
+
+.buddy-retrieval-replay__popout::backdrop { background: rgb(10 15 24 / 55%); }
+.buddy-retrieval-replay__popout [data-wide="true"] .buddy-retrieval-replay__canvas svg {
+  height: clamp(16rem, 58dvh, 44rem);
+}
