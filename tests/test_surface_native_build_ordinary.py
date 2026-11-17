@@ -1744,6 +1744,13 @@ def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monk
     review = case.client.get(f"{draft_path}/variant-reviews/{review_id}").json()
     assert review["base_locator"]["revision_id"] == "rev_meatmind"
     assert review["saved"] is False
+    from tests.application_state.test_conversation_drafts import _check_variant_response_loss
+
+    _check_variant_response_loss(
+        service, {"world_id": case.world, "conversation_id": case.turn.conversation_id,
+                  "turn_id": turns[-1].turn_id}, monkeypatch, case.client.app, draft_path,
+        existing_review=UUID(review_id), mounted_client=case.client,
+    )
 
 
 def test_followup_reoffers_only_the_bound_statblock_on_the_same_page(lane, tmp_path, monkeypatch):
