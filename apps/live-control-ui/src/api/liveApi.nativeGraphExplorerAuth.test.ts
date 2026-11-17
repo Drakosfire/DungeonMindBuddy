@@ -870,3 +870,17 @@ it("uses the hosted session for exact Worldbuilding evidence corrections", async
   await expect(api.authenticatedApiFetch(path + "?world_id=foreign", init)).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("uses the hosted session for a pinned Runbook revision", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+  const path = "/api/live/workspace-documents/world-runbooks/00000000-0000-4000-8000-000000000001/committed-revision/2?world_id=managed";
+  const exact = path + "&expected_sha256=" + "a".repeat(64);
+  await api.authenticatedApiFetch(exact);
+  expect(fetch).toHaveBeenCalledWith(exact, expect.objectContaining({
+    credentials: "same-origin", mode: "same-origin",
+  }));
+  await expect(api.authenticatedApiFetch(path)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

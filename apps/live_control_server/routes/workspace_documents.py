@@ -313,6 +313,7 @@ def get_world_owned_runbook(
     world_id: Annotated[str, Query(min_length=1)],
     request: Request,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, world_id)
     unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
     if unsupported:
         raise HTTPException(
@@ -337,6 +338,7 @@ def get_world_owned_runbook_snapshot(
     world_id: Annotated[str, Query(min_length=1)],
     request: Request,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, world_id)
     unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
     if unsupported:
         raise HTTPException(
@@ -425,6 +427,7 @@ def get_world_owned_runbook_current_revision(
     world_id: Annotated[str, Query(min_length=1)],
     request: Request,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, world_id)
     unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
     if unsupported:
         raise HTTPException(
@@ -456,6 +459,7 @@ def get_world_owned_runbook_exact_revision(
     ],
     request: Request,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, world_id)
     unsupported = sorted(
         set(request.query_params.keys()) - {"world_id", "expected_sha256"}
     )
