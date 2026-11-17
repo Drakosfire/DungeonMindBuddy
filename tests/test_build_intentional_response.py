@@ -356,10 +356,26 @@ def test_retained_selection_keeps_exact_probability_inventory():
     retained_menu = c.digest(c.question(guidance=c._RETAINED_GUIDANCE, work_options=c._RETAINED_WORK))
     probabilities = {name: float(name == "discuss") for name in c._RETAINED_WORK}
     response = {"answers": {"requested_work": {"selected": "discuss", "probabilities": probabilities}}}
-    assert c.known_semantics(retained_menu, c._RETAINED_RESOLVER_DIGEST)
+    assert c.known_semantics(retained_menu, c._resolver_digest(c._RETAINED_WORK))
     assert c.selected(response, menu=retained_menu) == "discuss"
     with pytest.raises(ValueError, match="Invalid actual semantic selection"):
         c.selected(response, menu=c.MENU_DIGEST)
     probabilities["draft_in_conversation"] = 0.0
     with pytest.raises(ValueError, match="Invalid actual semantic selection"):
         c.selected(response, menu=retained_menu)
+
+
+def test_variant_approval_requires_the_explicit_choice_in_the_new_menu():
+    previous = c.digest(c.question(guidance=c._PRE_APPROVAL_GUIDANCE, work_options=c._PRE_APPROVAL_WORK))
+    assert c.known_semantics(previous, c._resolver_digest(c._PRE_APPROVAL_WORK))
+    assert "review_variant_approval" not in c.decision_instructions(previous)
+    assert "review_variant_approval" in c.decision_instructions()
+
+    label = "review_variant_approval"
+    response = {"answers": {"requested_work": {
+        "selected": label,
+        "probabilities": {key: float(key == label) for key in c.WORK},
+    }}}
+    assert c.selected(response, menu=c.MENU_DIGEST) == label
+    with pytest.raises(ValueError):
+        c.selected(response, menu=previous)

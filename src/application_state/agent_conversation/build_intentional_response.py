@@ -444,6 +444,21 @@ review in chat now. Choose discuss for brainstorming or acknowledging a premise.
 """
 
 
+_PRE_APPROVAL_WORK = WORK
+_PRE_APPROVAL_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **_PRE_APPROVAL_WORK,
+    "review_variant_approval": Work(
+        "create", "Open confirmation for a statblock variant already drafted for review in this conversation.",
+    ),
+})
+GUIDANCE = _PRE_APPROVAL_GUIDANCE + """
+Use review_variant_approval only when the user explicitly approves or asks to save
+an existing conversation statblock draft. Use change_mechanics for a new creation,
+a revision request, or an action on a different mechanics object.
+"""
+
+
 def _resolver_digest(work_options):
     return digest({
         "policy": POLICY,
@@ -455,23 +470,24 @@ def _resolver_digest(work_options):
 
 MENU_DIGEST = digest(question(guidance=GUIDANCE))
 RESOLVER_DIGEST = _resolver_digest(WORK)
-_MENU_GUIDANCE = MappingProxyType({
-    MENU_DIGEST: GUIDANCE,
+_MENU_CONTRACTS = MappingProxyType({
+    MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST),
+    digest(question(guidance=_PRE_APPROVAL_GUIDANCE, work_options=_PRE_APPROVAL_WORK)):
+        (_PRE_APPROVAL_GUIDANCE, _PRE_APPROVAL_WORK, _resolver_digest(_PRE_APPROVAL_WORK)),
     **{
-        digest(question(guidance=guidance, work_options=_RETAINED_WORK)): guidance
+        digest(question(guidance=guidance, work_options=_RETAINED_WORK)):
+            (guidance, _RETAINED_WORK, _resolver_digest(_RETAINED_WORK))
         for guidance in (_RETAINED_GUIDANCE, _IMAGE_DESTINATION_GUIDANCE, _PREVIOUS_GUIDANCE, _DESTINATION_GUIDANCE)
     },
 })
-_RETAINED_RESOLVER_DIGEST = _resolver_digest(_RETAINED_WORK)
 
 
 def _menu_work(menu):
-    return WORK if menu == MENU_DIGEST else _RETAINED_WORK
+    return _MENU_CONTRACTS[menu][1]
 
 
 def known_semantics(menu, resolver):
-    expected = RESOLVER_DIGEST if menu == MENU_DIGEST else _RETAINED_RESOLVER_DIGEST
-    return menu in _MENU_GUIDANCE and resolver == expected
+    return menu in _MENU_CONTRACTS and resolver == _MENU_CONTRACTS[menu][2]
 
 
 def enabled(policy):
@@ -721,12 +737,12 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
 
 
 def known_menu(menu_digest):
-    return menu_digest in _MENU_GUIDANCE
+    return menu_digest in _MENU_CONTRACTS
 
 
 def decision_instructions(menu_digest=MENU_DIGEST):
     try:
-        guidance = _MENU_GUIDANCE[menu_digest]
+        guidance = _MENU_CONTRACTS[menu_digest][0]
     except KeyError as exc:
         raise ValueError("Unknown frozen Build semantic menu") from exc
     return (

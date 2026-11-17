@@ -481,7 +481,7 @@ class AgentConversationService:
             choices = [
                 event for event in execution.events if isinstance(event, BuildRequestedWorkResolutionV1)
             ] if execution is not None else []
-            if len(choices) != 1 or choices[0].requested_work != "change_mechanics":
+            if len(choices) != 1 or choices[0].requested_work != "review_variant_approval":
                 return {"status": "not_requested"}
             return approval_handoff(
                 conn, world_id=world_id, conversation_id=conversation_id, prior_to=envelope.sequence,
