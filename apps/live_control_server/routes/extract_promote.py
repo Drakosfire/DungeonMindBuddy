@@ -83,6 +83,7 @@ from apps.live_control_server.services.exact_run_evidence_correction import (
     correct_recap_run_evidence,
 )
 from apps.live_control_server.services.recap_semantic_candidate_correction import correct_recap_candidate
+from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency, require_explorer_access
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
     native_graph_gm_dependency,
@@ -669,18 +670,20 @@ def _native_recap_operation(body, request, principal, operation):
 def prepare_native_recap(
     body: NativeRecapPrepareRequest | NativeWorldbuildingPrepareRequest,
     request: Request,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ):
     from apps.live_control_server.services.native_recap_preparation import prepare
+    require_explorer_access(principal, body.managed_world_id)
     return _native_recap_operation(body, request, principal, prepare)
 
 
 def confirm_native_recap(
     body: NativeRecapConfirmRequest,
     request: Request,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ):
     from apps.live_control_server.services.native_recap_preparation import confirm
+    require_explorer_access(principal, body.envelope.review.managed_world_id)
     return _native_recap_operation(body, request, principal, confirm)
 
 

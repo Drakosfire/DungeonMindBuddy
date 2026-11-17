@@ -333,6 +333,8 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
+            ("POST", "/api/live/extract-promote/native-prepare"): access.resolve_hosted_native_publication,
+            ("POST", "/api/live/extract-promote/native-confirm"): access.resolve_hosted_native_publication,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
@@ -2886,3 +2888,43 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+
+def test_hosted_native_publication_uses_world_owner_for_both_steps(hosted, monkeypatch):
+    from apps.live_control_server.services import native_recap_preparation
+
+    calls = []
+
+    def prepare(body, principal):
+        calls.append(("prepare", body.managed_world_id, principal.subject))
+        return {"prepared": True}
+
+    def confirm(body, principal):
+        calls.append(("confirm", body.envelope.review.managed_world_id, principal.subject))
+        return {"confirmed": True}
+
+    monkeypatch.setattr(native_recap_preparation, "prepare", prepare)
+    monkeypatch.setattr(native_recap_preparation, "confirm", confirm)
+    review = {
+        "managed_world_id": "managed", "run_id": "run", "expected_run_revision": 2,
+        "candidate_sha256": "a" * 64, "expected_parent_revision_id": "rev:head",
+        "expected_source_authority_epoch": 1, "selections": [],
+        "workspace_document_id": "document", "workspace_document_revision": 1,
+    }
+    confirmation = {
+        "envelope": {
+            "purpose": "dmb_native_worldbuilding_confirm_v1", "producer": "dungeonbuddy:reviewed-worldbuilding",
+            "principal": "hosted_dms:synthetic-owner-alpha", "binding": {"scope": "fixture"},
+            "parent_context": {"source_epoch": 1}, "review": review, "prepared_change_id": "fixture",
+            "prepared_digest": "b" * 64, "expires_at": "2030-01-01T00:00:00Z",
+        },
+        "prepared": {}, "token": "fixture",
+    }
+    for step, body in (("prepare", review), ("confirm", confirmation)):
+        path = f"/api/live/extract-promote/native-{step}"
+        assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+        assert hosted.client.request("POST", path, json=body, origin="https://outside.invalid").status_code == 403
+        result = hosted.client.request("POST", path, json=body)
+        assert result.status_code == 200, result.text
+    assert calls == [(step, "managed", "hosted_dms:synthetic-owner-alpha") for step in ("prepare", "confirm")]

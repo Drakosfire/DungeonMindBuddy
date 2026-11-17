@@ -750,3 +750,21 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
     except Exception:
         raise _unavailable() from None
     return WorldContainersListResponse(records=permitted).model_dump(mode="json")
+
+
+async def resolve_hosted_native_publication(request: Request) -> str:
+    from apps.live_control_server.models.native_recap_preparation import (
+        NativeRecapConfirmRequest, NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest,
+    )
+
+    if request.query_params:
+        raise _denied()
+    subject = _hosted_subject(request)
+    payload = await request.json()
+    if request.url.path.endswith("/native-confirm"):
+        review = NativeRecapConfirmRequest.model_validate(payload).envelope.review
+    else:
+        review = TypeAdapter(NativeRecapPrepareRequest | NativeWorldbuildingPrepareRequest).validate_python(payload)
+    world = await run_in_threadpool(_owned_world, subject, review.managed_world_id)
+    request.state.hosted_native_graph_world = world.world_id
+    return world.world_id
