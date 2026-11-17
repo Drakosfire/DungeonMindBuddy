@@ -184,6 +184,7 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("GET", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence"): resolve_hosted_conversation_world,
     ("GET", "/api/live/connected-pages/{operation_id}"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/media/images/preparations/list"): resolve_hosted_image_history,

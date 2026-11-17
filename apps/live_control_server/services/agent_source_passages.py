@@ -149,7 +149,6 @@ def open_source_passage(
 def open_saved_turn_graph_evidence(*, world_id: str, turn_id: UUID, claim_id: str,
         anchor_id: str, service: AgentConversationService):
     from apps.live_control_server.services.agent_turn_service import _evidence_anchor_open_targets
-    from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
 
     turn = service.inspect_turn(world_id=world_id, turn_id=turn_id)
     if isinstance(turn, MixedCompletedTurnV1):
@@ -164,7 +163,29 @@ def open_saved_turn_graph_evidence(*, world_id: str, turn_id: UUID, claim_id: st
     ]
     if len(matches) != 1:
         raise SourcePassageOpenError("source_passage_not_found", 404)
-    target = matches[0]
+    return _open_pinned_evidence_anchor(matches[0])
+
+
+def open_saved_plan_action_graph_evidence(*, world_id: str, action_id: UUID, claim_id: str, anchor_id: str):
+    from application_state.plan_action_dialogue.service import PlanActionDialogueService
+    from apps.live_control_server.models.agent_turn import AgentEvidenceAnchorOpenTargetV1
+    from apps.live_control_server.services.plan_action_consultation import project_plan_action_source_targets
+
+    action = PlanActionDialogueService().read_prompt_action(world_id=world_id, action_id=action_id)
+    matches = [
+        item for item in project_plan_action_source_targets(action)
+        if item["claim_id"] == claim_id and item["anchor_id"] == anchor_id
+        and item["managed_world_id"] == world_id
+    ]
+    if len(matches) != 1:
+        raise SourcePassageOpenError("source_passage_not_found", 404)
+    return _open_pinned_evidence_anchor(AgentEvidenceAnchorOpenTargetV1.model_validate(matches[0]))
+
+
+def _open_pinned_evidence_anchor(target):
+    from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
+
+    world_id = target.managed_world_id
     try:
         binding = resolve_managed_world_binding(world_id)
         if (binding.native_world_id, binding.binding_version) != (target.native_world_id, target.binding_version):

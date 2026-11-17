@@ -292,9 +292,10 @@ def hosted(monkeypatch, request):
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
-    from apps.live_control_server.routes.agent import get_saved_turn_graph_evidence
+    from apps.live_control_server.routes.agent import get_saved_plan_action_graph_evidence, get_saved_turn_graph_evidence
 
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence", get_saved_turn_graph_evidence, methods=["GET"])
+    app.add_api_route("/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence", get_saved_plan_action_graph_evidence, methods=["GET"])
     app.include_router(live.router)
     app.include_router(graph_preview.router)
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
@@ -309,7 +310,7 @@ def hosted(monkeypatch, request):
         app,
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
-               if "/variant-reviews/{review_id}" in key[1] or key[1] == "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence"},
+               if "/variant-reviews/{review_id}" in key[1] or key[1].endswith("/graph-evidence")},
             **{
                 (
                     "POST",
@@ -2949,3 +2950,25 @@ def test_saved_turn_evidence_withholds_mismatched_native_readback(monkeypatch):
     opened.source_revision_id = "different-revision"
     with pytest.raises(passages.SourcePassageOpenError, match="source_passage_binding_invalid"):
         passages.open_saved_turn_graph_evidence(**selectors)
+
+
+def test_hosted_action_evidence_checks_owner_and_exact_selectors(hosted, monkeypatch):
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import agent_source_passages as passages
+
+    action_id = uuid4()
+    calls = []
+
+    def read(**coordinates):
+        calls.append(coordinates)
+        raise passages.SourcePassageOpenError("source_passage_not_found", 404)
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(passages, "open_saved_plan_action_graph_evidence", read)
+    path = f"/api/live/agent/worlds/managed/plan-proposals/{action_id}/graph-evidence?claim_id=claim&anchor_id=anchor"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&continuation=invalid").status_code == 422
+    assert not calls
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 404, response.text
+    assert calls == [dict(world_id="managed", action_id=action_id, claim_id="claim", anchor_id="anchor")]

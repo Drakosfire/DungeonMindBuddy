@@ -377,7 +377,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     return true;
   }
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+(?:\/resolve|\/resolutions\/[^/]+)?)?$/.test(pathname)
-    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/graph-evidence$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/(?:conversation\/turns|plan-proposals)\/[^/]+\/graph-evidence$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace(?:\/[^/]+\/prompt\/[^/]+)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:identities|(?:native-)?steps\/\d+\/assertion)$/.test(pathname)
@@ -429,7 +429,7 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
-  const savedEvidence = /^\/api\/live\/agent\/worlds\/[^/?#%]+\/conversation\/turns\/[0-9a-f-]+\/graph-evidence\?([^#]+)$/.exec(path);
+  const savedEvidence = /^\/api\/live\/agent\/worlds\/[^/?#%]+\/(?:conversation\/turns|plan-proposals)\/[0-9a-f-]+\/graph-evidence\?([^#]+)$/.exec(path);
   if (savedEvidence) {
     const query = new URLSearchParams(savedEvidence[1]);
     return method === "GET" && init?.body == null && query.size === 2
@@ -2000,12 +2000,14 @@ export async function postCitationFreshness(
 
 export async function postWorldGraphSourceAnchorRead(
   request: WorldGraphSourceAnchorReadRequest,
-  saved?: { worldId: string; turnId: string; claimId: string },
+  saved?: { worldId: string; claimId: string } & ({ turnId: string } | { actionId: string }),
 ): Promise<WorldGraphSourceAnchorReadResponse> {
   if (saved && !isLoopbackApiDestination(`${baseUrl}/api/live`)) {
     const query = new URLSearchParams({ claim_id: saved.claimId, anchor_id: request.anchorId });
+    const subject = "actionId" in saved ? `plan-proposals/${encodeURIComponent(saved.actionId)}`
+      : `conversation/turns/${encodeURIComponent(saved.turnId)}`;
     return apiFetch<WorldGraphSourceAnchorReadResponse>(
-      `/api/live/agent/worlds/${encodeURIComponent(saved.worldId)}/conversation/turns/${encodeURIComponent(saved.turnId)}/graph-evidence?${query}`,
+      `/api/live/agent/worlds/${encodeURIComponent(saved.worldId)}/${subject}/graph-evidence?${query}`,
     );
   }
   return apiFetch<WorldGraphSourceAnchorReadResponse>(
