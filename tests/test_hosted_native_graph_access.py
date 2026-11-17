@@ -315,6 +315,7 @@ def hosted(monkeypatch, request):
                 for operation in OPERATIONS
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
+            ("POST", access.COMPLETE_OBJECT_PATH): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", access.COMPLETE_OBJECT_PATH)],
             ("POST", access.FIRST_WORLD_PREPARE_PATH): access.resolve_hosted_first_world,
             ("POST", access.FIRST_WORLD_CONFIRM_PATH): access.resolve_hosted_first_world,
             ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
@@ -2886,3 +2887,29 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_complete_object_reads_exact_pinned_world(hosted):
+    entity = _create_entity(hosted)
+    scope = _inspection_payload(hosted, entity)["scope"]
+    projection = {
+        "schema": "dmb_world_graph_object_projection_request_v1",
+        "worldId": scope["managed_world_id"],
+        "campaignId": hosted.lane.run.campaign_id,
+        "revisionPin": scope["revision_id"],
+        "nodeId": entity,
+        "scopeMode": "world",
+        "admissibility": "gm",
+    }
+    body = {"scope": scope, "request": projection}
+    path = access.COMPLETE_OBJECT_PATH
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert "Synthetic hosted person" in response.text
+    denied = hosted.client.request("POST", path, session="other-session", json=body)
+    assert denied.status_code == 403, denied.text
+    for change in ({"worldId": "other-world"}, {"revisionPin": "other-revision"}):
+        denied = hosted.client.request(
+            "POST", path, json={**body, "request": {**projection, **change}}
+        )
+        assert denied.status_code == 403, denied.text

@@ -594,6 +594,17 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return isRecord(scope) && scope.scope_mode === "world" && scope.campaign_id === null
       && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id);
   }
+  if (path === "/api/live/native-graph-inspection/complete-object") {
+    const body = requestBodyRecord(init?.body);
+    const scope = body?.scope;
+    const request = body?.request;
+    return isRecord(scope) && isRecord(request)
+      && scope.scope_mode === "world" && scope.campaign_id === null
+      && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id)
+      && typeof scope.revision_id === "string" && Boolean(scope.revision_id)
+      && request.worldId === scope.managed_world_id && request.revisionPin === scope.revision_id
+      && request.scopeMode === "world" && request.admissibility === "gm";
+  }
   if (HOSTED_EXPLORER_PATHS.has(path)) return true;
   if (path !== "/api/live/native-graph-inspection/read") return false;
   const body = requestBodyRecord(init?.body);

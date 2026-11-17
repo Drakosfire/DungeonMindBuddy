@@ -267,6 +267,32 @@ it("authenticates native complete-object reads with their exact revision pin", a
   expect(init?.signal).toBe(signal);
 });
 
+it("uses hosted cookies only for a complete-object read with a matching World pin", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ fixture: true }));
+  const scope = { ...entityInspectionBody.scope, scope_mode: "world" as const };
+  const request = {
+    schema: "dmb_world_graph_object_projection_request_v1",
+    worldId: scope.managed_world_id,
+    campaignId: "campaign-a",
+    revisionPin: scope.revision_id,
+    nodeId: "entity-a",
+    scopeMode: "world",
+    admissibility: "gm",
+  } satisfies Parameters<typeof api.postNativeWorldGraphCompleteObject>[0];
+
+  await api.postNativeWorldGraphCompleteObject(request, scope);
+  expect(fetch.mock.calls[0][1]).toMatchObject({
+    credentials: "same-origin", redirect: "error", cache: "no-store",
+  });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.postNativeWorldGraphCompleteObject({ ...request, revisionPin: "other" }, scope))
+    .rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
 it("authenticates Build authoring identity reads for the selected World", async () => {
   const api = await setup();
   api.setNativeGraphAccessToken("synthetic-managed-graph-token");

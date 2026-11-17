@@ -23,7 +23,7 @@ from apps.live_control_server.models.native_graph_explorer import (
     NativeGraphExplorerOperationRequest,
     NativeGraphExplorerPrepareRequest,
 )
-from apps.live_control_server.models.native_graph_inspection import InspectionPin, InspectionRead, InspectionScope
+from apps.live_control_server.models.native_graph_inspection import InspectionPin, InspectionRead, InspectionScope, NativeCompleteObjectRead
 from apps.live_control_server.models.native_source_inspection import NativeSourceRead
 from apps.live_control_server.services import hosted_auth
 from apps.live_control_server.services.agent_graph_auth import (
@@ -47,7 +47,9 @@ WORLD_LOOKUP_PATH = f"{WORLD_COLLECTION_PATH}/lookup"
 BUILD_PDF_SOURCES_PATH = hosted_auth.BUILD_PDF_SOURCES_PATH
 BUILD_PAGE_INVENTORY_PATH = "/api/live/workspace-documents/pages/inventory"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
+COMPLETE_OBJECT_PATH = "/api/live/native-graph-inspection/complete-object"
 _REQUESTS = {
+    COMPLETE_OBJECT_PATH: TypeAdapter(NativeCompleteObjectRead),
     "/api/live/native-graph-inspection/catalog": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-source-inspection/catalog": TypeAdapter(InspectionScope),
     "/api/live/native-source-inspection/read": TypeAdapter(NativeSourceRead),
@@ -124,7 +126,19 @@ async def resolve_hosted_explorer_world(request: Request) -> str:
     # The hosted middleware already bounds bytes and rejects duplicate keys and
     # conflicting selectors before invoking this exact code-owned resolver.
     body = _REQUESTS[request.url.path].validate_python(await request.json())
-    if isinstance(body, (InspectionRead, NativeSourceRead)):
+    if isinstance(body, NativeCompleteObjectRead):
+        scope, projection = body.scope, body.request
+        if (
+            scope is None
+            or scope.scope_mode != "world"
+            or projection.scope_mode != "world"
+            or projection.world_id != scope.managed_world_id
+            or projection.revision_pin != scope.revision_id
+            or projection.admissibility != "gm"
+        ):
+            raise _denied()
+        managed_world_id = scope.managed_world_id
+    elif isinstance(body, (InspectionRead, NativeSourceRead)):
         if body.scope.scope_mode != "world":
             raise _denied()
         managed_world_id = body.scope.managed_world_id
