@@ -27,7 +27,7 @@ def _values(value):
         return "; ".join(
             f"{_label(key)}: {text}"
             for key, item in value.items()
-            if key != "key" and (text := _values(item))
+            if (text := _values(item))
         )
     if isinstance(value, list):
         return ", ".join(text for item in value if (text := _values(item)))
@@ -60,7 +60,9 @@ def render_variant_markdown(definition: StatblockDefinitionV1Input) -> str:
 
     for armor in data["defenses"]["armor_classes"]:
         condition = f" ({armor['condition']})" if armor["condition"] else ""
-        lines.append(f"**{armor['label']}** {armor['value']}{condition}")
+        label = armor["label"] or "Armor class"
+        standing = "default" if armor["default"] else "alternate"
+        lines.append(f"**{label}** {armor['value']} ({standing}){condition}")
     for key, title in (
         ("movement", "Movement"), ("senses", "Senses"),
         ("communication", "Communication"), ("proficiencies", "Proficiencies"),
@@ -88,14 +90,14 @@ def render_variant_markdown(definition: StatblockDefinitionV1Input) -> str:
     for section, rules in sections.items():
         lines.extend(["", f"## {_RULE_SECTIONS.get(section, _label(section))}"])
         for rule in rules:
-            lines.extend(["", f"**{rule['name']}.** {rule['rules_text']}"])
+            lines.extend(["", f"**{rule['name']}.** {rule['rules_text']}", f"- **Rule reference** `{rule['key']}`"])
             activation = rule["activation"]
             usage = rule["usage"]
             mechanic = rule["mechanic"]
             for label, value in (
                 ("Timing", activation["timing_text"]),
                 ("Trigger", activation["trigger"]),
-                ("Use", usage if usage["kind"] != "manual" else usage["refresh_text"]),
+                ("Use", usage if usage["kind"] != "manual" or usage["resource_key"] else usage["refresh_text"]),
                 ("Cost", rule["costs"]),
                 ("Mechanics", mechanic if mechanic["kind"] != "human_adjudicated" else None),
             ):
