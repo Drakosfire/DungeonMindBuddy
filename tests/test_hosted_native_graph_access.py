@@ -2165,6 +2165,18 @@ def test_hosted_turn_evidence_checks_owner_and_exact_selectors(hosted, monkeypat
     assert calls == [("managed", turn_id, "claim", "anchor")]
 
 
+    def recap(*, continuation, **coords):
+        calls.append((coords["anchor_id"], continuation))
+        raise passages.SourcePassageOpenError("source_passage_not_found", 404)
+
+    monkeypatch.setattr(passages, "open_saved_turn_related_recap", recap)
+    assert hosted.client.request("GET", path + "&continuation=invalid").status_code == 422
+    recap_path = path.replace("anchor_id=anchor", "anchor_id=dm-context-anchor%3Av2%3Arecap")
+    recap_path += "&continuation=recap-page%3Av2%3Asecond"
+    result = hosted.client.request("GET", recap_path)
+    assert result.status_code == 404, result.text
+    assert calls[-1] == ("dm-context-anchor:v2:recap", "recap-page:v2:second")
+
 def test_hosted_recap_selection_requires_world_owner_and_origin(hosted, monkeypatch):
     from apps.live_control_server.services import ingest_selection_context
 

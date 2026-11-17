@@ -437,8 +437,10 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const savedEvidence = /^\/api\/live\/agent\/worlds\/[^/?#%]+\/conversation\/turns\/[0-9a-f-]+\/graph-evidence\?([^#]+)$/.exec(path);
   if (savedEvidence) {
     const query = new URLSearchParams(savedEvidence[1]);
-    return method === "GET" && init?.body == null && query.size === 2
-      && Boolean(query.get("claim_id")) && Boolean(query.get("anchor_id"));
+    const anchor = query.get("anchor_id");
+    return method === "GET" && init?.body == null && Boolean(query.get("claim_id")) && Boolean(anchor)
+      && (query.size === 2 || (query.size === 3 && Boolean(anchor?.startsWith("dm-context-anchor:v2:"))
+        && Boolean(query.get("continuation"))));
   }
   const terminalDiagnostic = /^\/api\/live\/world-plan-edit\/actions\/[0-9a-f-]+\/terminal-diagnostic\?([^#]+)$/.exec(path);
   if (terminalDiagnostic) {
@@ -2245,7 +2247,15 @@ export async function postWorldGraphSourceAnchorRead(
 
 export async function postWorldGraphRecapContextReadV2(
   request: WorldGraphRecapContextReadRequestV2,
+  saved?: { worldId: string; turnId: string; claimId: string },
 ): Promise<WorldGraphRecapContextReadResponseV2> {
+  if (saved && !isLoopbackApiDestination(`${baseUrl}/api/live`)) {
+    const query = new URLSearchParams({ claim_id: saved.claimId, anchor_id: request.contextAnchorId });
+    if (request.continuation) query.set("continuation", request.continuation);
+    return apiFetch<WorldGraphRecapContextReadResponseV2>(
+      `/api/live/agent/worlds/${encodeURIComponent(saved.worldId)}/conversation/turns/${encodeURIComponent(saved.turnId)}/graph-evidence?${query}`,
+    );
+  }
   return apiFetch<WorldGraphRecapContextReadResponseV2>(
     "/api/live/world-graph/retrieval/recap-context/v2/read",
     { method: "POST", body: JSON.stringify(request) },
