@@ -173,7 +173,7 @@ def open_saved_receipt(conn, *, world_id, conversation_id, turn_id, review_id):
     return row[0]
 
 
-def approval_handoff(conn, *, world_id, conversation_id, prior_to, page_id, page_kind):
+def approval_handoff(conn, *, world_id, conversation_id, prior_to, accepted_at, page_id, page_kind):
     """Find an exact current review on the same Build page, without choosing among reviews."""
     with conn.cursor(row_factory=dict_row) as cursor:
         candidates = cursor.execute(
@@ -195,13 +195,14 @@ def approval_handoff(conn, *, world_id, conversation_id, prior_to, page_id, page
               AND producer.surface_id = 'build'
               AND origin.reference_role = 'primary' AND origin.resolution = 'resolved'
               AND origin.object_id = %s AND origin.kind = %s
-              AND NOT EXISTS (
-                  SELECT 1 FROM agent.conversation_variant_review later
-                  WHERE later.turn_id = review.turn_id AND later.revision > review.revision
+              AND review.revision = (
+                  SELECT max(at_approval.revision)
+                  FROM agent.conversation_draft_revision AS at_approval
+                  WHERE at_approval.turn_id = producer.turn_id AND at_approval.created_at <= %s
               )
             LIMIT 2
             """,
-            (world_id, conversation_id, prior_to, page_id, page_kind),
+            (world_id, conversation_id, prior_to, page_id, page_kind, accepted_at),
         ).fetchall()
     if len(candidates) > 1:
         return {"status": "ambiguous"}

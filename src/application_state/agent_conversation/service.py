@@ -490,7 +490,7 @@ class AgentConversationService:
                 return {"status": "not_requested"}
             return approval_handoff(
                 conn, world_id=world_id, conversation_id=conversation_id, prior_to=envelope.sequence,
-                page_id=primary.object_id, page_kind=primary.kind,
+                accepted_at=envelope.accepted_at, page_id=primary.object_id, page_kind=primary.kind,
             )
 
     def edit_conversation_draft(
