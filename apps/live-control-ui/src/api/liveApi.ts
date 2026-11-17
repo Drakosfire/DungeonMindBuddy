@@ -429,6 +429,20 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(metadata|original)$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  const savedMechanicsPreview = "/api/live/combat/encounters/saved-mechanics/preview?";
+  if (path.startsWith(savedMechanicsPreview)) {
+    const worldId = new URLSearchParams(path.slice(savedMechanicsPreview.length)).get("world_id");
+    return method === "POST" && !!worldId && !!requestBodyRecord(init?.body)
+      && path === savedMechanicsPreview + new URLSearchParams({ world_id: worldId });
+  }
+  const savedRevisionList = /^\/api\/live\/threat-drafts\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-revisions\?/.exec(path);
+  if (savedRevisionList) {
+    const query = new URLSearchParams(path.slice(savedRevisionList[0].length));
+    const worldId = query.get("world_id");
+    const offset = query.get("offset");
+    return method === "GET" && init?.body == null && !!worldId && offset !== null && /^\d+$/.test(offset)
+      && path === savedRevisionList[0] + new URLSearchParams({ world_id: worldId, offset });
+  }
   const combatEncounter = /^\/api\/live\/combat\/encounters(\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
   if (combatEncounter) {
     const worldId = new URLSearchParams(path.slice(combatEncounter[0].length)).get("world_id");
