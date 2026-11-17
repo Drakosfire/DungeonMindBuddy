@@ -341,3 +341,14 @@ def test_variant_writer_visible_reply_preserves_retained_edits_schema(monkeypatc
     assert "minItems" not in expected["properties"]["answer_segments"]
     expected["properties"]["answer_segments"]["minItems"] = 1
     assert current["schema"] == expected
+
+    for has_draft in (False, True):
+        witness_work = work | ({"working_draft_context": {"draft_markdown": "An exact condition.", "record_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857"}} if has_draft else {})
+        witnessed = native_output_format(evidence, rules(), witness_work, build_local=True, format_version=6)
+        assert witnessed["name"] == native_build_work_view.VARIANT_WITNESS_FORMAT
+        variant = witnessed["schema"]["properties"]["statblock_variant"]
+        assert next(iter(variant["properties"])) == "authored_rule_witnesses"
+        assert variant["properties"]["authored_rule_witnesses"].get("maxItems") == (None if has_draft else 0)
+        del variant["properties"]["authored_rule_witnesses"]
+        variant["required"].remove("authored_rule_witnesses")
+        assert witnessed["schema"] == native_output_format(evidence, rules(), witness_work, build_local=True, format_version=5)["schema"]
