@@ -2470,6 +2470,22 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(composer).toHaveValue("Keep this next thought");
   });
 
+  it("keeps recovery controls out of Build while saved history shows a running turn", async () => {
+    const running = { ...turn("build", 1, ""), lifecycle_status: "running" as const, assistant_text: null };
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([running]));
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await waitFor(() => expect(getWorldAgentTurnContextTrace).toHaveBeenCalledWith(
+      WORLD, running.turn_id, expect.any(AbortSignal),
+    ));
+
+    fireEvent.click(screen.getByRole("button", { name: "Seed newer pending request" }));
+    expect(screen.queryByRole("button", { name: "Check saved request" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
   it("prepends a requested Play history page without moving the reader or duplicating turns", async () => {
     const latest={...history([turn("play",2,"Middle answer"),turn("play",3,"Latest answer")]),next_before_sequence:2};
     vi.mocked(getWorldAgentConversationHistory).mockImplementation(async (_world,options)=>options?.beforeSequence
