@@ -89,3 +89,23 @@ def test_response_scope_cannot_assert_an_inconsistent_campaign(scope,campaign):
     with pytest.raises(ValidationError):
         ThreatQueryHydrationResponseV1(world_id='native-world',campaign_id=campaign,scope_mode=scope,
             revision_id='graph-a',query_text='Scout',result_label='threat_query_hydration_empty')
+
+
+def test_hosted_hydration_reads_native_projection_under_managed_world(monkeypatch):
+    from apps.live_control_server.services import managed_world_graph_projection as managed
+
+    def read(body):
+        assert body.managed_world_id == "managed-world"
+        assert body.revision_pin == "graph-a"
+        return managed.ManagedWorldGraphProjectionResponse(
+            schema="dmb_managed_world_graph_projection_v1",
+            managed_world_id="managed-world", native_world_id="native-world",
+            binding_version=1, projection=projection(),
+        )
+
+    monkeypatch.setattr(managed, "project_managed_world_graph", read)
+    body = service.ThreatQueryHydrationRequestV1.model_validate(request(worldId="managed-world"))
+    result = service.query_threats_with_hydration(body, root=Path("."), managed_world=True)
+    assert result.world_id == "managed-world"
+    assert result.revision_id == "graph-a"
+    assert result.hits[0].threat.node_id == "npc:scout"

@@ -4674,7 +4674,8 @@ def test_hosted_threat_hydration_requires_exact_owned_world(hosted, monkeypatch)
 
     calls = []
 
-    def hydrate(body, *, root):
+    def hydrate(body, *, root, managed_world):
+        assert managed_world is True
         calls.append((body.world_id, body.revision_pin))
         return SimpleNamespace(model_dump=lambda **_: {"worldId": body.world_id})
 
