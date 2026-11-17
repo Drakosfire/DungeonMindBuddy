@@ -148,8 +148,10 @@ async def resolve_hosted_explorer_world(request: Request) -> str:
     elif isinstance(body, NativeCompleteObjectRead):
         pin, selector = body.scope, body.request
         if (
-            pin is None or pin.scope_mode != "world" or selector.scope_mode != "world"
-            or selector.world_id != pin.managed_world_id or selector.campaign_id
+            pin is None or selector.scope_mode != pin.scope_mode
+            or selector.world_id != pin.managed_world_id
+            or (selector.campaign_id or None) != pin.campaign_id
+            or (pin.scope_mode == "campaign" and selector.focus.campaign_id not in (None, pin.campaign_id))
             or selector.revision_pin != pin.revision_id or selector.admissibility != "gm"
         ):
             raise _denied()

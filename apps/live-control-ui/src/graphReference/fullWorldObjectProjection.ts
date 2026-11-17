@@ -79,6 +79,7 @@ export interface UseCompleteWorldObjectArgs {
   revisionPin?: string | null;
   focus?: WorldGraphObjectProjectionRequest["focus"];
   admissibility?: "gm" | "player";
+  nativePin?: InspectionPin;
 }
 
 export interface UseCompleteWorldObjectResult {
@@ -99,6 +100,7 @@ export function useCompleteWorldObject({
   revisionPin = null,
   focus,
   admissibility = "gm",
+  nativePin,
 }: UseCompleteWorldObjectArgs): UseCompleteWorldObjectResult {
   const [status, setStatus] = useState<CompleteWorldObjectStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -143,6 +145,7 @@ export function useCompleteWorldObject({
         focus: requestFocus,
         admissibility,
       }),
+      nativePin,
     )
       .then((loaded) => {
         if (!isCurrent()) return;
@@ -182,6 +185,7 @@ export function useCompleteWorldObject({
     focusCampaignId,
     focusKind,
     focusSessionId,
+    nativePin,
     nodeId,
     originSurface,
     revisionPin,

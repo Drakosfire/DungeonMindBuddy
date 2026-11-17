@@ -1040,11 +1040,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const scope = body?.scope;
     const selector = body?.request;
     return method === "POST" && isRecord(scope) && isRecord(selector)
-      && scope.scope_mode === "world" && scope.campaign_id === null
+      && ((scope.scope_mode === "world" && scope.campaign_id === null)
+        || (scope.scope_mode === "campaign" && typeof scope.campaign_id === "string" && !!scope.campaign_id))
       && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id)
       && typeof scope.revision_id === "string" && Boolean(scope.revision_id)
-      && selector.worldId === scope.managed_world_id && selector.scopeMode === "world"
-      && selector.revisionPin === scope.revision_id && selector.campaignId === ""
+      && selector.worldId === scope.managed_world_id && selector.scopeMode === scope.scope_mode
+      && selector.revisionPin === scope.revision_id && selector.campaignId === (scope.campaign_id ?? "")
       && selector.admissibility === "gm";
   }
   if (path === "/api/live/native-graph-inspection/related-recaps" || path === "/api/live/native-graph-inspection/recap-page") {

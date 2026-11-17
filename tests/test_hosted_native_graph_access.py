@@ -3759,6 +3759,17 @@ def test_hosted_complete_object_requires_exact_world_pin(hosted, monkeypatch):
     assert request.request.world_id == principal.managed_world_id == "managed"
 
 
+    campaign_pin = {**scope, "scope_mode": "campaign", "campaign_id": "campaign"}
+    campaign_selector = {**selector, "scopeMode": "campaign", "campaignId": "campaign"}
+    assert hosted.client.request("POST", path, json={
+        "scope": campaign_pin, "request": {**campaign_selector, "campaignId": "foreign"},
+    }).status_code == 403
+    campaign_response = hosted.client.request(
+        "POST", path, json={"scope": campaign_pin, "request": campaign_selector},
+    )
+    assert campaign_response.status_code == 200, campaign_response.text
+
+
 def test_hosted_recap_objects_checks_source_pin_and_admitted_evidence(hosted, monkeypatch):
     from apps.live_control_server.services import native_graph_inspection as graph, native_source_inspection as source
 
