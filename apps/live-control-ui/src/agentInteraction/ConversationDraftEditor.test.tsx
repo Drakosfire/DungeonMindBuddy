@@ -1,3 +1,4 @@
+import { readSavedConversationVariantTarget } from "../statblocks/savedStatblockLocation";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { confirmVariantReview, openConversationDraft, openVariantReview, saveConversationDraft } from "../api/conversationDraftApi";
@@ -56,4 +57,7 @@ it("requires explicit confirmation of the displayed review", async () => {
   fireEvent.click(screen.getByRole("button", confirm));
   expect(await screen.findByRole("status")).toHaveTextContent("Statblock variant saved.");
   expect(confirmVariantReview).toHaveBeenCalledExactlyOnceWith(scope, "review");
+  const href = screen.getByRole("link", { name: "Open saved variant" }).getAttribute("href");
+  expect(readSavedConversationVariantTarget(href!)).toEqual({ ...scope, reviewId: "review" });
+  expect(readSavedConversationVariantTarget(href + "&variantReview=other")).toBeNull();
 });

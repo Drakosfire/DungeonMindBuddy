@@ -19,7 +19,11 @@ it("uses the local GM session for variant review and confirmation", async () => 
   await api.openVariantReview(scope, id);
   await api.confirmVariantReview(scope, id);
 
-  expect(fetch).toHaveBeenCalledTimes(3);
+  await api.openSavedConversationVariant(scope, id);
+
+  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(String(fetch.mock.calls[3][0])).toContain(`/variant-reviews/${id}/saved`);
+  expect(fetch.mock.calls[3][1]).toMatchObject({ credentials: "same-origin" });
   expect(String(fetch.mock.calls[1][0])).toContain(`/variant-reviews/${id}`);
   expect(fetch.mock.calls[2][1]).toMatchObject({ method: "POST", credentials: "same-origin" });
   expect(new Headers(fetch.mock.calls[2][1]?.headers).get("X-DMB-Graph-CSRF")).toBe("test-csrf");

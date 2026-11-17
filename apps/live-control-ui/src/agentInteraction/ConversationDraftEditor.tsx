@@ -9,6 +9,7 @@ import {
   type ConversationDraftScope,
 } from "../api/conversationDraftApi";
 
+import { savedConversationVariantHref } from "../statblocks/savedStatblockLocation";
 import { StatblockRenderer } from "../statblocks/render/StatblockRenderer";
 
 export function ConversationDraftEditor({ scope }: { scope: ConversationDraftScope }) {
@@ -108,7 +109,10 @@ export function ConversationDraftEditor({ scope }: { scope: ConversationDraftSco
               <button type="button" disabled={busy || savedVariant} onClick={() => void confirmVariant()}>
                 Confirm and save as new statblock
               </button>
-              {savedVariant && <p role="status">Statblock variant saved.</p>}
+              {savedVariant && <>
+                <p role="status">Statblock variant saved.</p>
+                <a href={savedConversationVariantHref({ ...scope, reviewId: review.id })}>Open saved variant</a>
+              </>}
             </section>
           )}
           {error && (

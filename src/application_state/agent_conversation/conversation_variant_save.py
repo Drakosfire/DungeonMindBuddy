@@ -115,3 +115,23 @@ def open_review(conn, *, world_id, conversation_id, turn_id, review_id):
     if row is None:
         raise ApplicationStateNotFoundError("Conversation variant review not found")
     return row
+
+
+def open_saved_receipt(conn, *, world_id, conversation_id, turn_id, review_id):
+    row = conn.execute(
+        """
+        SELECT save.receipt
+        FROM agent.conversation_variant_review AS review
+        JOIN agent.turn AS turn ON turn.turn_id = review.turn_id
+        JOIN agent.conversation_variant_save AS save
+          ON save.turn_id = review.turn_id AND save.revision = review.revision
+        WHERE turn.world_id = %s AND turn.conversation_id = %s
+          AND review.turn_id = %s AND review.review_id = %s
+          AND save.create_request #>> '{accepted_through,conversation_variant_review}' = %s
+          AND save.receipt IS NOT NULL
+        """,
+        (world_id, conversation_id, turn_id, review_id, str(review_id)),
+    ).fetchone()
+    if row is None:
+        raise ApplicationStateNotFoundError("Saved conversation variant not found")
+    return row[0]

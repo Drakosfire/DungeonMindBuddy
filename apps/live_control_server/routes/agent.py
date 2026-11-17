@@ -1656,6 +1656,21 @@ def get_conversation_variant_review(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
+@router.get(_CONVERSATION_DRAFT_PATH + "/variant-reviews/{review_id}/saved")
+def get_saved_conversation_variant(
+    world_id: str, conversation_id: UUID, turn_id: UUID, review_id: UUID, request: Request,
+):
+    from apps.live_control_server.services.conversation_variant_save import open_saved_variant
+
+    verified = _conversation_draft_access(request, world_id)
+    try:
+        return open_saved_variant(
+            _conversation_service(request), verified, conversation_id, turn_id, review_id=review_id,
+        )
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
 @router.post(_CONVERSATION_DRAFT_PATH + "/variant-reviews/{review_id}/confirm")
 def confirm_conversation_variant_review(
     world_id: str, conversation_id: UUID, turn_id: UUID, review_id: UUID, request: Request,

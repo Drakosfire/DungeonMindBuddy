@@ -127,16 +127,32 @@ def test_draft_route_checks_access_before_read_or_edit(monkeypatch):
 
 
 def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path):
+    import json
+    from pathlib import Path
     from types import SimpleNamespace
 
-    from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import compute_definition_digest
+    from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import (
+        canonicalize_definition_dict, compute_definition_digest,
+    )
     from apps.live_control_server.integrations.dungeonmind_statblocks.errors import downstream_unavailable
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import locator_from_exact_revision
+    from apps.live_control_server.integrations.dungeonmind_statblocks.models import ExactRevisionResourceV1
     from apps.live_control_server.services import conversation_variant_save
     from tests.test_statblock_acceptance_reconciliation import _definition, _locator
 
     definition = _definition()
     digest = compute_definition_digest(definition)
-    locator = _locator().model_copy(update={"definition_digest": digest, "statblock_id": "sb_variant01"})
+    fixture = Path(__file__).parents[1] / "fixtures/statblocks/v1/exact-revision-response.json"
+    raw = json.loads(fixture.read_text())
+    mechanics = definition.model_dump(mode="json")
+    raw.update(statblock_id="sb_variant01", revision_id="rev_variant01", definition=mechanics,
+               canonical_definition=canonicalize_definition_dict(mechanics), definition_digest=digest)
+    raw["validation_receipt"]["definition_digest"] = digest
+    exact = ExactRevisionResourceV1.model_validate(raw)
+    locator = locator_from_exact_revision(exact)
+    exact_reads = []
+    exact_response = exact
+
     review_id = uuid4()
     stale_review_id = uuid4()
     for revision, identifier in [(2, review_id), (1, stale_review_id)]:
@@ -165,6 +181,10 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path):
                 validation_receipt=SimpleNamespace(definition_digest=digest, status="valid", issues=[]),
             )
 
+        def get_exact_revision(self, statblock_id, revision_id):
+            exact_reads.append((statblock_id, revision_id))
+            return exact_response
+
         def create_statblock(self, body):
             create_bodies.append(body)
             if len(create_bodies) == 1:
@@ -180,10 +200,23 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path):
         assert review.status_code == 200, review.text
         assert review.json()["definition"] == definition.model_dump(mode="json")
         assert client.get(review_path.replace(str(scope["conversation_id"]), str(uuid4()))).status_code == 404
+        assert client.get(f"{review_path}/saved").status_code == 404
         assert client.post(f"{review_path}/confirm").status_code == 503
+        assert client.get(f"{review_path}/saved").status_code == 404
         recovered = client.post(f"{review_path}/confirm")
         assert recovered.status_code == 200, recovered.text
         assert recovered.json() == locator.model_dump(mode="json")
+
+        opened = client.get(f"{review_path}/saved")
+        assert opened.status_code == 200, opened.text
+        assert opened.json()["locator"] == recovered.json()
+        assert opened.json()["revision"]["definition"] == json.loads(exact.canonical_definition)
+        foreign_path = review_path.replace(str(scope["conversation_id"]), str(uuid4()))
+        assert client.get(f"{foreign_path}/saved").status_code == 404
+        assert exact_reads == [(locator.statblock_id, locator.revision_id)]
+        exact_response = exact.model_copy(update={"revision_id": "rev_foreign"})
+        assert client.get(f"{review_path}/saved").status_code == 500
+
 
         def unexpected_client():
             pytest.fail("Completed replay tried to open a downstream client")

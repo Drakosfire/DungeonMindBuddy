@@ -1,4 +1,4 @@
-import type { StatblockDefinitionV1_Output } from "../contracts/dungeonbuddy-statblocks-v1/client";
+import type { StatblockDefinitionV1_Output, StatblockRevisionResourceV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
 import { authenticatedApiFetch, LiveApiError } from "./liveApi";
 
 export interface ConversationDraftScope {
@@ -58,4 +58,8 @@ export async function openVariantReview(scope: ConversationDraftScope, reviewId:
 
 export async function confirmVariantReview(scope: ConversationDraftScope, reviewId: string): Promise<{ revision_id: string }> {
   return requestDraftResource(scope, { method: "POST" }, `/variant-reviews/${encodeURIComponent(reviewId)}/confirm`);
+}
+
+export function openSavedConversationVariant(scope: ConversationDraftScope, reviewId: string): Promise<{ revision: StatblockRevisionResourceV1 }> {
+  return requestDraftResource(scope, undefined, `/variant-reviews/${encodeURIComponent(reviewId)}/saved`);
 }
