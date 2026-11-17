@@ -259,11 +259,15 @@ def post_recap_evidence_corrections(
     request_context: Request,
     run_id: str,
     request: ExactRunEvidenceCorrectionRequest,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """GM-only literal evidence child; semantic disposition starts held."""
+    from apps.live_control_server.services.hosted_native_graph_access import recap_selection_subject
+
+    world_id = request_context.query_params.get("managed_world_id")
+    recap_selection_subject(request_context, world_id)
     try:
-        _reject_selector_query(request_context)
+        if not world_id or request_context.query_params.multi_items() != [("managed_world_id", world_id)]:
+            _reject_selector_query(request_context)
         if run_id != request.parent_run_id:
             raise ExtractPromoteError(
                 "path run ID does not match parentRunId",

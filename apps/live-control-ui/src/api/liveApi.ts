@@ -427,6 +427,8 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  const recapCorrection = /^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/recap-evidence-corrections\?managed_world_id=([a-z][a-z0-9_-]{0,62})$/.exec(path);
+  if (recapCorrection) return method === "POST" && requestBodyRecord(init?.body) !== null;
   if (isRecapSelectionContextPath(path)) {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && typeof body?.expected_world_id === "string" && Boolean(body.expected_world_id);

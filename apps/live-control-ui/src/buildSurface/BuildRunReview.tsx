@@ -143,7 +143,7 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
     try {
       const expectedDigest = await (run.source_domain==='worldbuilding'?worldbuildingEvidenceCorrectionDigest(request as WorldbuildingEvidenceCorrectionRequest):exactRunCorrectionDigest(request as RecapCorrectionRequest));
       if (!alive.current || !isScopeCurrent()) return;
-      const result = run.source_domain==='recap' ? await correctRecapRunEvidence(request as RecapCorrectionRequest) : await correctExactRunEvidence(request as WorldbuildingEvidenceCorrectionRequest);
+      const result = run.source_domain==='recap' ? await correctRecapRunEvidence(request as RecapCorrectionRequest, worldId) : await correctExactRunEvidence(request as WorldbuildingEvidenceCorrectionRequest);
       if (!alive.current) return;
       const commit=await onDerivedRun(result, expectedDigest, () => alive.current && isScopeCurrent());
       const adopt=()=>{
