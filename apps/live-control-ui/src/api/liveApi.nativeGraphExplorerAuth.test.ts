@@ -558,3 +558,23 @@ it("reads exact hosted conversation recovery without the local bearer", async ()
   await expect(api.authenticatedApiFetch(String(url) + "&current_pointer_revision=2")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("uses hosted session cookies for Manual knowledge preview and confirmation", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const body = { worldId: "managed", campaignId: "managed", sourceRunId: "saved-build-run", proposals: [] };
+  for (const phase of ["prepare", "commit"]) {
+    const path = `/api/live/graph-authoring/${phase}`;
+    await api.authenticatedApiFetch(path, { method: "POST", body: JSON.stringify(body) });
+    const [url, init] = fetch.mock.calls.at(-1)!;
+    expect(url).toBe(path);
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store", redirect: "error" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+    await expect(api.authenticatedApiFetch(path, {
+      method: "POST", body: JSON.stringify({ ...body, campaignId: "foreign" }),
+    })).rejects.toThrow(/exact same-origin/);
+  }
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
