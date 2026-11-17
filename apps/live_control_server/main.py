@@ -185,6 +185,8 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}"): resolve_hosted_conversation_world,
     ("GET", "/api/live/plan-view"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/workspace-documents/world-plans"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): resolve_hosted_committed_plan,
