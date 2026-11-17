@@ -347,6 +347,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/extract-promote/runs/{run_id}/frozen-source-spans"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
@@ -2886,3 +2887,30 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_frozen_source_spans_checks_owned_run_before_read(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import extract_promote
+    from apps.live_control_server.services import graph_run_registry, source_artifact_registry, workspace_document_registry
+
+    source = SimpleNamespace(
+        source_domain="worldbuilding", workspace_document_id=str(uuid4()), world_id="managed",
+    )
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run",
+                        lambda _: SimpleNamespace(source_domain="worldbuilding", source_artifact_id="source"))
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _: source)
+    monkeypatch.setattr(workspace_document_registry, "get_workspace_document",
+                        lambda *_: SimpleNamespace(kind="worldbuilding_source", world_id="managed"))
+    read = Mock(side_effect=extract_promote.ExtractPromoteError("fixture", code="fixture", status_code=409))
+    monkeypatch.setattr(extract_promote, "get_worldbuilding_frozen_spans", read)
+    path = "/api/live/extract-promote/runs/saved-run/frozen-source-spans"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    source.world_id = "foreign"
+    assert hosted.client.request("GET", path).status_code == 403
+    read.assert_not_called()
+    source.world_id = "managed"
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 409, response.text
+    read.assert_called_once_with("saved-run")

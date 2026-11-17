@@ -428,6 +428,10 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (/^\/api\/live\/graph-preview\/extraction-runs\/[a-z0-9:_-]+(?:\/build-context)?$/i.test(path)
+    || /^\/api\/live\/extract-promote\/runs\/[a-z0-9:_-]+\/(?:review-package|frozen-source-spans|worldbuilding-publication-coverage)$/i.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);
@@ -615,7 +619,9 @@ function apiRequestTarget(
   const pageUrl = typeof window === "undefined" ? undefined : window.location.href;
   let normalizedPath = path;
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
-  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath);
+  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
+    || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+(?:\/build-context)?$/.test(normalizedPath)
+    || /^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:review-package|frozen-source-spans|worldbuilding-publication-coverage)$/.test(normalizedPath);
   if (isLoopbackApiDestination(url)) return { url, localGraphRequest, hostedGraphRequest: false };
   if (localGraphRequest || graphSurface) {
     // Exact relative paths only: explicit API bases, URL credentials, queries,
