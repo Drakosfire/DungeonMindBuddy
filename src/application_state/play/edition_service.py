@@ -245,7 +245,8 @@ def read_command(*, run_id: str, world_id: str, command_id: str) -> ContentRecei
 
 
 def commit_content(
-    *, run_id: str, world_id: str, command_id: str, request: ContentCommit
+    *, run_id: str, world_id: str, command_id: str, request: ContentCommit,
+    media_owner: str | None = None,
 ) -> ContentReceipt:
     run_id, world_id = _coordinates(run_id, world_id)
     command_id = _as_uuid(command_id, field_name="command_id")
@@ -282,6 +283,15 @@ def commit_content(
         if content_hash == current.content_sha256:
             raise ApplicationStateValidationError("Run content edit has no changes")
         _structure(pin.markdown, request.markdown, manifest.manifest)
+        if media_owner is not None:
+            from apps.live_control_server.services.tiptap_markdown_write import (
+                TiptapMarkdownWriteError, validate_saved_media_references,
+            )
+
+            try:
+                validate_saved_media_references(request.markdown, media_owner)
+            except TiptapMarkdownWriteError as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
         n = current.edition_revision + 1
         stamp = datetime.now(UTC)
         if edition is None:

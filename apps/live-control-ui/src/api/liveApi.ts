@@ -511,6 +511,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const query = new URLSearchParams(sessionEvidence[1]);
     return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
   }
+  const playContentCommand = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]+\/content\/commands\/[0-9a-f-]+\?([^#]+)$/.exec(path);
+  if (method === "PUT" && playContentCommand) {
+    const query = new URLSearchParams(playContentCommand[1]);
+    return query.size === 1 && Boolean(query.get("world_id"))
+      && requestBodyRecord(init?.body)?.schema_version === "dmb_world_play_run_content_commit_v1";
+  }
   const sceneProposal = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]+\/content\/proposals\/[0-9a-f-]+\?([^#]+)$/.exec(path);
   if (method === "POST" && sceneProposal) {
     const query = new URLSearchParams(sceneProposal[1]);
