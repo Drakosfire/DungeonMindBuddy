@@ -2438,7 +2438,22 @@ async function validateWorldPlanResponse(
 
   if(hasProposal){
     const proposal=value.plan_proposal,capture=request.plan_authoring_capture;
-    if(!isPlanAuthoredProposal(proposal)||!capture||canonicalJson(proposal.capture)!==canonicalJson(capture)
+    if (!isPlanAuthoredProposal(proposal) || !capture) return {ok:false,message:RESPONSE_MISMATCH};
+    const originalCapture = canonicalJson(capture);
+    const returnedCapture = canonicalJson(proposal.capture);
+    const offeredPlacement = request.plan_placement_catalog?.entries.some(entry =>
+      entry.kind !== "captured_target" && entry.position !== null && entry.root_boundary !== null
+      && entry.target_capture_sha256 === proposal.origin.capture_sha256
+      && returnedCapture === canonicalJson({
+        ...capture,
+        schema: "dmb_plan_authoring_boundary_capture_v1",
+        target_kind: "insert_at_boundary",
+        root_boundary: entry.root_boundary,
+        from: entry.position,
+        to: entry.position,
+      }),
+    );
+    if((returnedCapture !== originalCapture && !offeredPlacement)
       ||proposal.capture.world_id!==request.owner_scope.world_id||proposal.capture.document_id!==request.primary_work.object_id
       ||proposal.capture.base_revision!==request.primary_work.expected_revision
       ||proposal.origin.basis.revision_n!==request.primary_work.expected_revision_n
