@@ -61,3 +61,23 @@ it("requires explicit confirmation of the displayed review", async () => {
   expect(readSavedConversationVariantTarget(href!)).toEqual({ ...scope, reviewId: "review" });
   expect(readSavedConversationVariantTarget(href + "&variantReview=other")).toBeNull();
 });
+
+it("reopens the link for a previously saved variant without confirming again", async () => {
+  const scope = { worldId: "world", conversationId: "conversation", turnId: "turn" };
+  vi.mocked(confirmVariantReview).mockClear();
+  vi.mocked(openConversationDraft).mockResolvedValueOnce({
+    revision: 2, markdown: "Draft", variant_review_ids: ["review"],
+  });
+  vi.mocked(openVariantReview).mockResolvedValueOnce({
+    revision: 2, saved: true,
+    definition: {} as Awaited<ReturnType<typeof openVariantReview>>["definition"],
+  });
+
+  render(<ConversationDraftEditor scope={scope} />);
+  fireEvent.click(screen.getByRole("button", { name: "Open draft" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review statblock variant" }));
+
+  expect(await screen.findByRole("link", { name: "Open saved variant" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Confirm and save as new statblock" })).toBeDisabled();
+  expect(confirmVariantReview).not.toHaveBeenCalled();
+});

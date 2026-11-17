@@ -104,7 +104,13 @@ def open_review(conn, *, world_id, conversation_id, turn_id, review_id):
     with conn.cursor(row_factory=dict_row) as cursor:
         row = cursor.execute(
             """
-            SELECT review.revision, review.definition, review.base_locator
+            SELECT review.revision, review.definition, review.base_locator,
+                   EXISTS (
+                       SELECT 1 FROM agent.conversation_variant_save AS save
+                       WHERE save.turn_id = review.turn_id AND save.revision = review.revision
+                         AND save.create_request #>> '{accepted_through,conversation_variant_review}' = review.review_id::text
+                         AND save.receipt IS NOT NULL
+                   ) AS saved
             FROM agent.conversation_variant_review AS review
             JOIN agent.turn AS turn ON turn.turn_id = review.turn_id
             WHERE turn.world_id = %s AND turn.conversation_id = %s

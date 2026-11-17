@@ -31,6 +31,7 @@ export function ConversationDraftEditor({ scope }: { scope: ConversationDraftSco
       const data = await openVariantReview(scope, reviewId);
       if (data.revision !== draft?.revision) throw new Error("Reopen the latest draft before reviewing.");
       setReview({ id: reviewId, data });
+      setSavedVariant(data.saved === true);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Could not open the variant review.");
     } finally {

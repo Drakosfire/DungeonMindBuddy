@@ -50,6 +50,7 @@ export function saveConversationDraft(scope: ConversationDraftScope, expectedRev
 export interface ConversationVariantReview {
   revision: number;
   definition: StatblockDefinitionV1_Output;
+  saved?: boolean;
 }
 
 export async function openVariantReview(scope: ConversationDraftScope, reviewId: string): Promise<ConversationVariantReview> {

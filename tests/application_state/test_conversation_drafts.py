@@ -198,6 +198,7 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path):
         assert client.get(draft_path).json()["variant_review_ids"] == [str(review_id)]
         review = client.get(review_path)
         assert review.status_code == 200, review.text
+        assert review.json()["saved"] is False
         assert review.json()["definition"] == definition.model_dump(mode="json")
         assert client.get(review_path.replace(str(scope["conversation_id"]), str(uuid4()))).status_code == 404
         assert client.get(f"{review_path}/saved").status_code == 404
@@ -206,6 +207,7 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path):
         recovered = client.post(f"{review_path}/confirm")
         assert recovered.status_code == 200, recovered.text
         assert recovered.json() == locator.model_dump(mode="json")
+        assert client.get(review_path).json()["saved"] is True
 
         opened = client.get(f"{review_path}/saved")
         assert opened.status_code == 200, opened.text
