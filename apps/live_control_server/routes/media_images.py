@@ -210,14 +210,14 @@ class ContextualImageRequest(BaseModel):
 @router.post('/{asset_id}/regenerate')
 async def regenerate_image(asset_id: UUID, body: ContextualImageRequest, request: Request, response: Response):
     """Retain a new candidate; never mutate the source or its occurrences."""
-    principal = enforce_native_graph_gm(request)
+    owner = _saved_artwork_owner(request, asset_id)
     response.headers['Cache-Control'] = 'no-store'
     try:
         assert_at_head()
-        parent = media.get_asset(asset_id, principal.subject)
+        parent = media.get_asset(asset_id, owner)
         if parent['state'] not in {'staged', 'ready'} or parent['content_sha256'] != body.expected_content_sha256:
             raise HTTPException(409, detail="The image changed or is not ready. Reopen its edit menu.")
-        original = media.read_staged_bytes(asset_id, principal.subject)
+        original = media.read_staged_bytes(asset_id, owner)
     except ApplicationStateError as error:
         raise HTTPException(error.status_code, detail="The original image is unavailable or failed integrity verification.") from error
     if not _fal_key():
@@ -245,7 +245,7 @@ async def regenerate_image(asset_id: UUID, body: ContextualImageRequest, request
     if image.media_type not in {'image/png', 'image/jpeg', 'image/webp'} or len(image.content) > 20 * 1024 * 1024:
         raise HTTPException(502, detail="The generated image could not be retained. Your original is unchanged.")
     try:
-        child = media.stage_image(image.content, principal.subject, {
+        child = media.stage_image(image.content, owner, {
             'kind': 'contextual_image_generation_v1', 'parent_asset_id': str(asset_id),
             'parent_content_sha256': parent['content_sha256'], 'mode': body.mode,
             'instructions': body.instructions, 'prompt': body.instructions, 'authored_prompt': body.instructions,
