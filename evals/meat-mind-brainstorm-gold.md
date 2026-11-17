@@ -255,3 +255,14 @@ the resolved statblock. It therefore passes the brevity control and misses
 part of the opener's grounding check. These single samples establish neither
 a latency win nor observed-turn quality. Billed cost was unavailable. No
 retrieval or product writes ran.
+
+A second synthetic prompt refinement explicitly asked the writer to name a
+resolved attachment. It still asked for the creature's role and party level
+without naming the attachment (1,180 input, 85 output, 1.94s). A separate
+packet control used a consistent label and alias between the attachment and
+the resolved mechanics and held that refined instruction fixed. The writer
+still omitted the acknowledgment and returned an invented sentinel idea
+(1,183 input, 217 output, 2.50s). Neither follow-up passes the opener check.
+The fixture asks about a clockwork creature while the source mechanics
+record is named Meat Mind, which limits the inference about the observed
+turn. Keep these as negative diagnostic results and keep runtime defaults.
