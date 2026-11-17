@@ -288,6 +288,9 @@ def hosted(monkeypatch, request):
     app.include_router(combat_encounters.router)
     app.include_router(threat_drafts.router)
     app.include_router(world_mechanics_associations.router)
+    from apps.live_control_server.routes import threat_query_hydration
+
+    app.include_router(threat_query_hydration.router)
     app.include_router(play_runs.router)
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
@@ -333,6 +336,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
+            ("POST", "/api/live/threats/query-hydration"): access.resolve_hosted_threat_hydration,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
@@ -2886,3 +2890,30 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+
+def test_hosted_threat_hydration_requires_exact_owned_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import threat_query_hydration
+
+    calls = []
+
+    def hydrate(body, *, root, managed_world):
+        assert managed_world
+        calls.append((body.world_id, body.revision_pin))
+        return SimpleNamespace(model_dump=lambda **_: {"worldId": body.world_id})
+
+    monkeypatch.setattr(threat_query_hydration, "query_threats_with_hydration", hydrate)
+    path = "/api/live/threats/query-hydration"
+    body = {"worldId": "managed", "scopeMode": "world", "campaignId": None,
+            "revisionPin": "rev:exact", "queryText": "Threat"}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "worldId": "foreign"}).status_code == 403
+    assert hosted.client.request("POST", path, json={
+        **body, "scopeMode": "campaign", "campaignId": "campaign",
+    }).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 200, result.text
+    assert result.json() == {"worldId": "managed"}
+    assert calls == [("managed", "rev:exact")]

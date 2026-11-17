@@ -18,6 +18,7 @@ from starlette.concurrency import run_in_threadpool
 
 from application_state.world_catalog import service as catalog
 
+from apps.live_control_server.models.threat_query_hydration import ThreatQueryHydrationRequestV1
 from apps.live_control_server.models.native_graph_explorer import (
     NativeGraphExplorerGraphRequest,
     NativeGraphExplorerOperationRequest,
@@ -750,3 +751,23 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
     except Exception:
         raise _unavailable() from None
     return WorldContainersListResponse(records=permitted).model_dump(mode="json")
+
+async def resolve_hosted_threat_hydration(request: Request) -> str:
+    if request.query_params:
+        raise _denied()
+    body = ThreatQueryHydrationRequestV1.model_validate(await request.json())
+    if body.scope_mode != "world":
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.world_id)
+    request.state.hosted_native_graph_world = world.world_id
+    return world.world_id
+
+
+def require_threat_hydration_access(request: Request, body: ThreatQueryHydrationRequestV1) -> None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+        return
+    if body.scope_mode != "world" or getattr(request.state, "hosted_native_graph_world", None) != body.world_id:
+        raise _denied()
+    hosted_auth.require_hosted_write_origin(request)
+    _owned_world(_hosted_subject(request), body.world_id)

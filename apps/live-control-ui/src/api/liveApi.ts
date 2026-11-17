@@ -428,6 +428,12 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (path === "/api/live/threats/query-hydration") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body?.scopeMode === "world" && body.campaignId === null
+      && typeof body.worldId === "string" && Boolean(body.worldId)
+      && typeof body.revisionPin === "string" && Boolean(body.revisionPin);
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);
