@@ -448,6 +448,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && (query.size === 2 || (query.size === 3 && savedEvidence[1] === "conversation/turns" && Boolean(anchor?.startsWith("dm-context-anchor:v2:"))
         && Boolean(query.get("continuation"))));
   }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
   const terminalDiagnostic = /^\/api\/live\/world-plan-edit\/actions\/[0-9a-f-]+\/terminal-diagnostic\?([^#]+)$/.exec(path);
   if (terminalDiagnostic) {
     const query = new URLSearchParams(terminalDiagnostic[1]);
