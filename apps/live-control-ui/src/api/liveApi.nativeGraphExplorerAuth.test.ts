@@ -560,5 +560,15 @@ it("uses the hosted session for exact saved PDF review reads", async () => {
   await expect(api.authenticatedApiFetch(detail + "?world_id=foreign")).rejects.toThrow(/exact same-origin/);
   await expect(api.authenticatedApiFetch(revision + "&revision_id=other")).rejects.toThrow(/exact same-origin/);
   await expect(api.authenticatedApiFetch(status, { method: "POST", body: "{}" })).rejects.toThrow(/exact same-origin/);
-  expect(fetch).toHaveBeenCalledTimes(4);
+  const save = { method: "PUT", body: JSON.stringify({ expected_revision: 1, definition: {}, regions: [] }) };
+  await api.authenticatedApiFetch(detail, save);
+  const [url, init] = fetch.mock.calls.at(-1)!;
+  expect(url).toBe(detail);
+  expect(init).toMatchObject({ method: "PUT", credentials: "same-origin", redirect: "error" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  for (const path of [list, status, detail + "?world_id=other"]) {
+    await expect(api.authenticatedApiFetch(path, save)).rejects.toThrow(/exact same-origin/);
+  }
+  await expect(api.authenticatedApiFetch(detail, { ...save, body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(5);
 });

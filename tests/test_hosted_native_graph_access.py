@@ -294,7 +294,10 @@ def hosted(monkeypatch, request):
     app.include_router(extract_promote.router)
     app.include_router(live.router)
     app.include_router(graph_preview.router)
+    from apps.live_control_server.routes.agent import put_pdf_statblock_review
+
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
+    app.add_api_route(PDF_REVIEW, put_pdf_statblock_review, methods=["PUT"])
     app.add_api_route(f"{PDF_REVIEW}/publication", get_pdf_statblock_publication, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", post_pdf_statblock_publication, methods=["POST"])
     app.add_api_route(f"{PDF_REVIEW}/publication/statblock", get_published_pdf_statblock, methods=["GET"])
@@ -385,6 +388,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
+            ("PUT", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/accept/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
             ("GET", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
@@ -1763,6 +1767,40 @@ def test_hosted_pdf_review_checks_owner_before_read(hosted, monkeypatch, session
     assert reads == ([("managed", review_id)] if expected == 200 else [])
     if expected == 200:
         assert response.headers["cache-control"] == "no-store"
+
+
+def test_hosted_pdf_review_save_checks_owner_and_expected_revision(hosted, monkeypatch):
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.routes import agent
+
+    review_id = uuid4()
+    path = PDF_REVIEW.format(world_id="managed", review_id=review_id)
+    body = {"definition": {}, "regions": [], "expected_revision": 1}
+    writes = []
+
+    def save_review(**fields):
+        writes.append(fields)
+        if fields["expected_revision"] != 1:
+            raise ApplicationStateConflictError("stale review")
+        return {"revision": 2}
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(agent, "_authorized_pdf_statblock", lambda *args, **kwargs: (
+        SimpleNamespace(model_dump=lambda **kwargs: {}), [],
+    ))
+    monkeypatch.setattr(pdf_statblock_review, "save_review", save_review)
+    assert hosted.client.request("PUT", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("PUT", path, json=body, origin=None).status_code == 403
+    assert writes == []
+    response = hosted.client.request("PUT", path, json=body)
+    assert response.status_code == 200, response.text
+    assert response.json() == {"revision": 2}
+    assert writes == [{
+        "world_id": "managed", "review_id": review_id, "expected_revision": 1,
+        "definition": {}, "regions": [],
+    }]
+    response = hosted.client.request("PUT", path, json={**body, "expected_revision": 0})
+    assert response.status_code == 409, response.text
 
 
 def test_hosted_pdf_review_denies_ownership_transfer_during_read(hosted, monkeypatch):
