@@ -440,6 +440,39 @@ def _validated_base_execution_locked(
 class AgentConversationService:
     """Stateless storage boundary. World verification belongs to the caller."""
 
+    def conversation_draft_turn_ids(self, world_id: str, conversation_id: UUID, turn_ids: list[UUID]) -> set[UUID]:
+        if not turn_ids:
+            return set()
+        with unit_of_work(_ready_dsn()) as conn:
+            rows = conn.execute(
+                """
+                SELECT turn_id FROM agent.conversation_draft_revision
+                WHERE world_id = %s AND conversation_id = %s AND turn_id = ANY(%s)
+                    AND revision = 1
+                """,
+                (_world_id(world_id), conversation_id, turn_ids),
+            )
+            return {row[0] for row in rows}
+
+    def open_conversation_draft(self, world_id: str, conversation_id: UUID, turn_id: UUID):
+        from .conversation_drafts import open_draft
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return open_draft(conn, world_id=_world_id(world_id),
+                              conversation_id=conversation_id, turn_id=turn_id)
+
+    def edit_conversation_draft(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, markdown: str,
+    ):
+        from .conversation_drafts import edit_draft
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return edit_draft(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, expected_revision=expected_revision, markdown=markdown,
+            )
+
     def get_world_pointer(self, world_id: str) -> WorldPointer:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -2819,6 +2852,25 @@ class AgentConversationService:
                 raise ApplicationStateConflictError(
                     "turn claim expired or was fenced before completion"
                 )
+            from .types import BuildIntentionalResponseCompletionV1, BuildRequestedWorkResolutionV1, SurfaceNativeCompletionV1
+
+            if isinstance(result.completion, (BuildIntentionalResponseCompletionV1, SurfaceNativeCompletionV1)) and execution is not None:
+                selected_draft = any(
+                    isinstance(event, BuildRequestedWorkResolutionV1)
+                    and event.requested_work == "draft_in_conversation"
+                    and event.operation == "answer_from_sources"
+                    and event.resolution["barrier"] is None
+                    for event in execution.events
+                )
+                if selected_draft:
+                    from .conversation_drafts import create_draft
+
+                    if not result.assistant_text.strip():
+                        raise ApplicationStateValidationError("Conversation draft requires Markdown text")
+                    create_draft(
+                        conn, world_id=world_id, conversation_id=turn.conversation_id,
+                        turn_id=turn.turn_id, markdown=result.assistant_text,
+                    )
             if action is not None:
                 actions.finish_authoring_result(conn,action,authoring_proposal,updated)
         return updated

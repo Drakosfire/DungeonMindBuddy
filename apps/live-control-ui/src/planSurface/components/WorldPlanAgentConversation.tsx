@@ -1,3 +1,4 @@
+import { ConversationDraftEditor } from "../../agentInteraction/ConversationDraftEditor";
 import { downloadBlob } from "../../shared/downloadBlob";
 import { SavedStatblockPdfEvidence } from './SavedStatblockPdfEvidence';
 import { savedStatblockHref } from '../../statblocks/savedStatblockLocation';
@@ -1721,6 +1722,12 @@ function isHistoryTurn(
     return ['discuss','write_current_page'].includes(String(operation))&&isRecord(value.provenance)
       &&value.provenance.surface_id==='plan'&&isHistoryTurn(envelope,schema,worldId);
   }
+  if (Object.hasOwn(value, 'conversation_draft_available')) {
+    const { conversation_draft_available: draft, ...envelope } = value;
+    return draft === true && value.lifecycle_status === 'completed'
+      && isRecord(value.provenance) && value.provenance.surface_id === 'build'
+      && isHistoryTurn(envelope, schema, worldId);
+  }
   if(Object.hasOwn(value,'authored_references')){
     const {authored_references:references,...envelope}=value;
     return isAuthoredReferences(references,worldId)&&isRecord(value.provenance)
@@ -1886,6 +1893,7 @@ function messagePresentation(page: ActiveConversationMessages): WorldAgentConver
 function sameSavedMessage(a: WorldAgentConversationHistoryTurn, b: WorldAgentConversationHistoryTurn) {
   return a.turn_id === b.turn_id && a.sequence === b.sequence && a.lifecycle_status === b.lifecycle_status && a.user_text === b.user_text
     && a.assistant_text === b.assistant_text && 'idempotency_key' in a && 'idempotency_key' in b && a.idempotency_key === b.idempotency_key
+    && a.conversation_draft_available === b.conversation_draft_available
     && canonicalJson(a.provenance) === canonicalJson(b.provenance);
 }
 
@@ -6613,6 +6621,13 @@ export function WorldPlanAgentConversation({
               pointerRevision={history.pointer_revision}
               disabled={composerBusy||!isBuild||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}
               onVisible={()=>agent.setPaneOpen(false)}/>:null}
+            {verifiedWorldId && history?.conversation_id &&
+              (turn.conversation_draft_available || savedMessage?.conversation_draft_available) && (
+                <ConversationDraftEditor
+                  key={`draft:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
+                  scope={{ worldId: verifiedWorldId, conversationId: history.conversation_id, turnId: turn.turn_id }}
+                />
+              )}
             {verifiedWorldId && history?.conversation_id && !pageWorkPlan && <ConversationWorkbook
               key={`workbook:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
               collaboration={collaboration}

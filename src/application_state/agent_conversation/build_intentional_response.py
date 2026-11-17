@@ -191,12 +191,14 @@ class Capabilities:
             raise ValueError("Invalid captured Surface/manual capability")
 
 
-def question(*, guidance=GUIDANCE):
+def question(*, guidance=None, work_options=None):
+    guidance = GUIDANCE if guidance is None else guidance
+    work_options = WORK if work_options is None else work_options
     return {
         "type": "choice",
         "instructions": guidance,
         "criteria": {
-            name: f"{work.family}: {work.meaning}" for name, work in WORK.items()
+            name: f"{work.family}: {work.meaning}" for name, work in work_options.items()
         },
     }
 
@@ -403,26 +405,48 @@ into a compulsory form or invent a task. Preserve temporary/conditional meaning 
 
 FORMAT = "build_intentional_response_answer_v1"
 COMPLETION = "dmb_build_intentional_response_completion_v1"
-MENU_DIGEST = digest(question())
-# Persisted decisions retain their exact producing instructions. Only the
-# current menu is emitted; the previous digest remains an immutable reader.
-_PREVIOUS_MENU_DIGEST = digest(question(guidance=_PREVIOUS_GUIDANCE))
-_DESTINATION_MENU_DIGEST = digest(question(guidance=_DESTINATION_GUIDANCE))
-_IMAGE_DESTINATION_MENU_DIGEST = digest(question(guidance=_IMAGE_DESTINATION_GUIDANCE))
-_MENU_GUIDANCE = MappingProxyType({
-    _IMAGE_DESTINATION_MENU_DIGEST: _IMAGE_DESTINATION_GUIDANCE,
-    MENU_DIGEST: GUIDANCE,
-    _PREVIOUS_MENU_DIGEST: _PREVIOUS_GUIDANCE,
-    _DESTINATION_MENU_DIGEST: _DESTINATION_GUIDANCE,
+_RETAINED_WORK = WORK
+_RETAINED_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **_RETAINED_WORK,
+    "draft_in_conversation": Work(
+        "discuss", "Write an explicitly requested editable draft for review in chat.",
+    ),
 })
-RESOLVER_DIGEST = digest(
-    {
+GUIDANCE = _RETAINED_GUIDANCE + """
+Choose draft_in_conversation for an explicit request to produce a written draft for
+review in chat now. Choose discuss for brainstorming or acknowledging a premise.
+"""
+
+
+def _resolver_digest(work_options):
+    return digest({
         "policy": POLICY,
-        "work": {k: asdict(v) for k, v in WORK.items()},
+        "work": {key: asdict(value) for key, value in work_options.items()},
         "unavailable": sorted(UNAVAILABLE),
         "resolver_version": 1,
-    }
-)
+    })
+
+
+MENU_DIGEST = digest(question(guidance=GUIDANCE))
+RESOLVER_DIGEST = _resolver_digest(WORK)
+_MENU_GUIDANCE = MappingProxyType({
+    MENU_DIGEST: GUIDANCE,
+    **{
+        digest(question(guidance=guidance, work_options=_RETAINED_WORK)): guidance
+        for guidance in (_RETAINED_GUIDANCE, _IMAGE_DESTINATION_GUIDANCE, _PREVIOUS_GUIDANCE, _DESTINATION_GUIDANCE)
+    },
+})
+_RETAINED_RESOLVER_DIGEST = _resolver_digest(_RETAINED_WORK)
+
+
+def _menu_work(menu):
+    return WORK if menu == MENU_DIGEST else _RETAINED_WORK
+
+
+def known_semantics(menu, resolver):
+    expected = RESOLVER_DIGEST if menu == MENU_DIGEST else _RETAINED_RESOLVER_DIGEST
+    return menu in _MENU_GUIDANCE and resolver == expected
 
 
 def enabled(policy):
@@ -468,7 +492,7 @@ def _captured_semantics(policy):
 
 def resolution_for(policy, label):
     caps,_,menu,resolver=_captured_semantics(policy)
-    if menu not in _MENU_GUIDANCE or resolver != RESOLVER_DIGEST:
+    if not known_semantics(menu, resolver) or label not in _menu_work(menu):
         raise ValueError("Unknown semantic menu or resolver")
     return json.loads(canonical(resolve(label,caps)))
 
@@ -592,7 +616,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     wire_question = {
         "type": "choice",
         "instructions": decision_instructions(menu),
-        "criteria": {name: None for name in WORK},
+        "criteria": {name: None for name in _menu_work(menu)},
     }
     state = request.get("state", {})
     decision = state.get("decision", {})
@@ -670,7 +694,7 @@ def decision_instructions(menu_digest=MENU_DIGEST):
     return (
         guidance
         + "\n"
-        + "\n".join(f"{name}: {w.family}: {w.meaning}" for name, w in WORK.items())
+        + "\n".join(f"{name}: {w.family}: {w.meaning}" for name, w in _menu_work(menu_digest).items())
     )
 
 
