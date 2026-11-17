@@ -200,12 +200,11 @@ def get_saved_recap_runs(
     request: Request,
     managed_world_id: Annotated[str, Query(min_length=1)],
     campaign_id: Annotated[str | None, Query(min_length=1)] = None,
-    _principal=Depends(native_graph_gm_dependency),
 ):
-    from apps.live_control_server.services.ingest_run_catalog import (
-        list_saved_recap_runs,
-    )
+    from apps.live_control_server.services.ingest_run_catalog import list_saved_recap_runs
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
 
+    require_saved_recap_access(request, managed_world_id)
     _saved_run_query(request, {"managed_world_id"}, {"campaign_id"})
     return _saved_run_response(
         lambda: list_saved_recap_runs(
@@ -249,12 +248,11 @@ def get_extraction_run_recap_inspection(
     managed_world_id: Annotated[str, Query(min_length=1)],
     expected_run_revision: Annotated[int, Query(gt=0)],
     source_revision_id: Annotated[UUID, Query()],
-    _principal=Depends(native_graph_gm_dependency),
 ):
-    from apps.live_control_server.services.ingest_run_catalog import (
-        read_saved_recap_source,
-    )
+    from apps.live_control_server.services.ingest_run_catalog import read_saved_recap_source
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
 
+    require_saved_recap_access(request, managed_world_id)
     _saved_run_query(
         request, {"managed_world_id", "expected_run_revision", "source_revision_id"}
     )
