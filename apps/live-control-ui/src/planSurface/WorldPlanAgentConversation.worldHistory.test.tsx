@@ -2852,7 +2852,7 @@ describe("World Plan conversation consumer", () => {
     expect(passage).toHaveTextContent("Exact inline source passage");expect(passage).toBeVisible();
     expect(document.getElementById("buddy-details-inline-source-turn")).toHaveAttribute("open");
     expect(read).toHaveBeenCalledOnce();
-    expect(read).toHaveBeenCalledWith(expect.objectContaining({anchorId:"anchor-test",revisionPin:"graph-revision-test"}));
+    expect(read).toHaveBeenCalledWith(expect.objectContaining({anchorId:"anchor-test",revisionPin:"graph-revision-test"}), expect.objectContaining({worldId, turnId:"inline-source-turn"}));
     expect(screen.getAllByText("Session 29 recap").length).toBeGreaterThan(0);
     expect(screen.queryByText("source-revision-test")).not.toBeInTheDocument();
     expect(screen.queryByText("artifact-test")).not.toBeInTheDocument();
