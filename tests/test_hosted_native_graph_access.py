@@ -288,6 +288,9 @@ def hosted(monkeypatch, request):
     app.include_router(combat_encounters.router)
     app.include_router(threat_drafts.router)
     app.include_router(world_mechanics_associations.router)
+    from apps.live_control_server.routes import build_proposal_reviews
+
+    app.include_router(build_proposal_reviews.router, prefix="/api/live/agent")
     app.include_router(play_runs.router)
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
@@ -333,6 +336,8 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
+            ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
@@ -2886,3 +2891,30 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+
+def test_hosted_build_review_binds_world_and_action(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from application_state.errors import ApplicationStateNotFoundError
+    from apps.live_control_server.routes import agent, build_proposal_reviews
+
+    service = Mock()
+    service.get.side_effect = ApplicationStateNotFoundError("Proposal not found")
+    service.execute.side_effect = ApplicationStateNotFoundError("Proposal not found")
+    monkeypatch.setattr(build_proposal_reviews, "BuildProposalReviewService", lambda **kwargs: service)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    action = uuid4()
+    path = f"/api/live/agent/worlds/managed/build-proposals/{action}/review"
+    body = {"operation": "open", "expected_revision": 0}
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert hosted.client.request("POST", path + "?world_id=foreign", json=body).status_code == 403
+    service.get.assert_not_called()
+    service.execute.assert_not_called()
+    assert hosted.client.request("GET", path).status_code == 404
+    service.get.assert_called_once_with("managed", action)
+    assert hosted.client.request("POST", path, json=body).status_code == 404
+    world, saved_action, command = service.execute.call_args.args
+    assert (world, saved_action, command.operation) == ("managed", action, "open")
