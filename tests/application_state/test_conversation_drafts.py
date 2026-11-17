@@ -253,6 +253,7 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *
         def unexpected_client():
             pytest.fail("Completed replay tried to open a downstream client")
 
-        monkeypatch.setattr(conversation_variant_save, "DungeonMindStatblockV1Client", unexpected_client)
-        assert client.post(f"{review_path}/confirm").json() == recovered.json()
+        with monkeypatch.context() as replay:
+            replay.setattr(conversation_variant_save, "DungeonMindStatblockV1Client", unexpected_client)
+            assert client.post(f"{review_path}/confirm").json() == recovered.json()
     assert len(create_bodies) == 2

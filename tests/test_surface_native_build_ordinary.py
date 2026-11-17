@@ -1751,6 +1751,27 @@ def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monk
                   "turn_id": turns[-1].turn_id}, monkeypatch, case.client.app, draft_path,
         existing_review=UUID(review_id), mounted_client=case.client,
     )
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document
+    from tests.test_authored_page_database_cutover import save
+
+    page_id = template["primary_work"]["object_id"]
+    page = get_workspace_document(tmp_path, page_id)
+    preceding = get_workspace_document_snapshot(tmp_path, page_id)
+    assert preceding.content_sha256 == template["primary_work"]["expected_content_sha256"]
+    href = (
+        f"/statblock?world={case.world}&conversation={case.turn.conversation_id}"
+        f"&turn={turns[-1].turn_id}&variantReview={review_id}"
+    )
+    edited = preceding.markdown.rstrip() + f"\n\n[Open saved statblock variant]({href})\n"
+    result, _ = save(tmp_path, page, edited)
+    reopened = get_workspace_document_snapshot(tmp_path, page_id)
+    assert reopened.loaded_revision == result.committed_record.revision
+    assert reopened.markdown == edited
+    assert reopened.markdown.count(href) == 1
+    saved_variant = case.client.get(f"{draft_path}/variant-reviews/{review_id}/saved")
+    assert saved_variant.status_code == 200, saved_variant.text
+    assert saved_variant.json()["locator"]["revision_id"] == "rev_variant01"
+
 
 
 def test_followup_reoffers_only_the_bound_statblock_on_the_same_page(lane, tmp_path, monkeypatch):
