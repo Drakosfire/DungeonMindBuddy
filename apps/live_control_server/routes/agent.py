@@ -1699,7 +1699,9 @@ def get_world_turn_native_body_excerpt(world_id: str, turn_id: UUID, citation_in
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}")
 def get_world_turn_native_source_section(world_id: str, turn_id: UUID, citation_index: int,request: Request):
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     if request.query_params or not 0 <= citation_index <= 16383:
         raise HTTPException(status_code=422,detail={"code":"source_section_selector_invalid"})
@@ -1720,7 +1722,9 @@ def get_world_turn_native_source_section(world_id: str, turn_id: UUID, citation_
 def get_world_turn_source_passage(world_id: str, turn_id: UUID, citation_index: int,
         request: Request):
     """Explicit authenticated historical source read, separate from Graph claims."""
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     if request.query_params or not 0 <= citation_index <= 16383:
         raise HTTPException(status_code=422, detail={"code": "source_passage_selector_invalid"})

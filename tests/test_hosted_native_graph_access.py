@@ -265,6 +265,10 @@ def hosted(monkeypatch, request):
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/new", agent_routes.post_new_world_conversation, methods=["POST"])
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}", agent_routes.get_new_world_conversation_status, methods=["GET"])
     app.include_router(conversation_library.router)
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
+        agent_routes.get_world_turn_native_source_section, methods=["GET"],
+    )
     app.include_router(combat_encounters.router)
     app.include_router(threat_drafts.router)
     app.include_router(world_mechanics_associations.router)
@@ -333,6 +337,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters/saved-mechanics/preview"): access.resolve_hosted_combat_encounter,
@@ -2619,3 +2625,30 @@ def test_hosted_conversation_starts_and_reopens_in_exact_world(hosted, applicati
         assert response.status_code == 200, response.text
         assert response.headers["cache-control"] == "no-store"
         assert hosted.client.request("GET", path, session="other-session").status_code == 403
+
+
+def test_hosted_citation_read_binds_world_and_saved_turn(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import agent_native_source_sections
+
+    turn_id = uuid4()
+    conversation_service = object()
+    opened = Mock()
+    opened.return_value.model_dump.return_value = {"text": "Saved passage"}
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: conversation_service)
+    monkeypatch.setattr(agent_native_source_sections, "open_native_source_section", opened)
+    path = f"/api/live/agent/worlds/managed/conversation/turns/{turn_id}/native-source-sections/0"
+    assert hosted.client.request("GET", path, session=None).status_code == 401
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?source_id=other").status_code == 422
+    opened.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json() == {"text": "Saved passage"}
+    opened.assert_called_once_with(
+        world_id="managed", turn_id=turn_id, citation_index=0, service=conversation_service,
+    )
