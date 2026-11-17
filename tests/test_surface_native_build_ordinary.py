@@ -406,7 +406,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 candidate["answer_segments"] = [dict(kind="statblock_pdf_claim",
                     source="pdf0:0", quote="Hit Points 41")]
             if saved_statblock and current_work == "draft_in_conversation":
-                new_rule = definition["rule_elements"][0] | {"key": "truce", "name": "Terms of Truce"}
+                new_rule = definition["rule_elements"][0] | {"key": "truce", "name": "Terms of Truce", "costs": None}
                 candidate["statblock_variant"] = {
                     "source": "statblock0", "add_rules": [new_rule], "replace_rules": [],
                 }
@@ -1751,7 +1751,7 @@ def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monk
     from tests.test_statblock_acceptance_reconciliation import _definition
 
     base = _definition().model_dump(mode="json")
-    new_rule = base["rule_elements"][0] | {"key": "truce", "name": "Terms of Truce"}
+    new_rule = base["rule_elements"][0] | {"key": "truce", "name": "Terms of Truce", "costs": []}
     assert review["definition"] == base | {"rule_elements": [*base["rule_elements"], new_rule]}
     assert review["saved"] is False
     from tests.application_state.test_conversation_drafts import _check_variant_response_loss

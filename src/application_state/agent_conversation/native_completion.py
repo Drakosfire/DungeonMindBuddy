@@ -230,6 +230,9 @@ def _apply_statblock_rule_edits(base, proposal):
             raise ValueError("Statblock rule edits must be arrays")
         for raw in proposal[field]:
             rule = RuleElementInput.model_validate(raw).model_dump(mode="json")
+            # The statblock service uses an empty cost list for a rule with no costs.
+            if rule["costs"] is None:
+                rule["costs"] = []
             key = rule["key"]
             if key in edited or (key in inherited) != (field == "replace_rules"):
                 raise ValueError("Statblock rule edit key conflicts with the saved base")
