@@ -274,9 +274,10 @@ def get_extraction_run_recap_inspection(
 def get_extraction_run_candidate_projection(
     run_id: str,
     request: Request,
-    _principal=Depends(native_graph_gm_dependency),
 ):
     """Read exact frozen candidate prose; never admit or publish domain data."""
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+    require_saved_recap_access(request, request.query_params.get("managed_world_id", ""))
     if set(request.query_params) != {"managed_world_id"} or len(
         request.query_params.getlist("managed_world_id")
     ) != 1:

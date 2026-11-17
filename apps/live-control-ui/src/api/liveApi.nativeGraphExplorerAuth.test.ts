@@ -387,11 +387,12 @@ it("reads the hosted Ingest catalog and exact source using session cookies", asy
   const base = "/api/live/graph-preview/extraction-runs";
   const catalog = base + "?managed_world_id=managed&campaign_id=campaign";
   const inspection = base + "/recap-run/recap-inspection?managed_world_id=managed&expected_run_revision=2&source_revision_id=12345678-1234-1234-1234-123456789abc";
-  for (const [index, path] of [catalog, inspection].entries()) {
+  const candidate = base + "/recap-run/candidate-projection?managed_world_id=managed";
+  for (const [index, path] of [catalog, inspection, candidate].entries()) {
     await api.authenticatedApiFetch(path);
     expect(fetch.mock.calls[index][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
     expect(new Headers(fetch.mock.calls[index][1]?.headers).has("Authorization")).toBe(false);
     await expect(api.authenticatedApiFetch(path + "&managed_world_id=foreign")).rejects.toThrow(/exact same-origin/);
   }
-  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenCalledTimes(3);
 });
