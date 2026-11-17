@@ -621,6 +621,16 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && !!worldId && !!requestBodyRecord(init?.body)
       && path === mechanicsPreview[0] + new URLSearchParams({ world_id: worldId });
   }
+  if (/^\/api\/live\/threat-drafts\/[0-9a-f-]+\/mechanics-revisions$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.world_id === "string" && Boolean(body.world_id);
+  }
+  const mechanicsOperation = /^\/api\/live\/threat-drafts\/[0-9a-f-]+\/mechanics-revision-operations\/[0-9a-f-]+(:recover)?\?([^#]+)$/.exec(path);
+  if (mechanicsOperation) {
+    const query = new URLSearchParams(mechanicsOperation[2]);
+    return method === (mechanicsOperation[1] ? "POST" : "GET") && init?.body == null
+      && query.size === 1 && Boolean(query.get("world_id"));
+  }
   const savedRevisionList = /^\/api\/live\/threat-drafts\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-revisions\?/.exec(path);
   if (savedRevisionList) {
     const query = new URLSearchParams(path.slice(savedRevisionList[0].length));

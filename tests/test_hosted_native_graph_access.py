@@ -63,6 +63,7 @@ from tests.test_native_graph_explorer import InMemoryExplorerStore, _snapshot
 from tests.test_native_recap_preparation import TOKEN, lane as recap_lane  # noqa: F401
 from tests.test_combat_mechanics_adoption import adoption_case  # noqa: F401
 from tests.test_world_mechanics_associations import prepared as mechanics_prepared  # noqa: F401
+from tests.test_statblock_saved_revisions import revision_case, prepared  # noqa: F401
 from tests.test_combat_exact_world_mechanics import combat  # noqa: F401
 from tests.test_statblock_saved_revisions import revision_case  # noqa: F401
 from tests.test_world_mechanics_associations import prepared  # noqa: F401
@@ -483,6 +484,9 @@ def hosted(monkeypatch, request):
             ("PUT", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_saved_statblock,
+            ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_statblock_revision_save,
+            ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}"): access.resolve_hosted_saved_statblock,
+            ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/world-mechanics/associations"): access.resolve_hosted_mechanics_association,
             ("GET", "/api/live/world-mechanics/associations/creatures"): access.resolve_hosted_plan_world_context,
@@ -3705,3 +3709,35 @@ def test_hosted_persists_and_reopens_exact_mechanics_association(mechanics_prepa
     status = f"{base}/requests/{fixture.body['request_id']}?world_id={world}"
     assert hosted.client.request("GET", status).json() == record
     assert hosted.client.request("GET", status, session="other-session").status_code == 403
+
+
+def test_hosted_portrait_revision_recovers_exact_save(revision_case, hosted, monkeypatch):
+    import json
+
+    from tests.integration.test_build_images_postgres import ready, saved_image
+
+    fixture = revision_case
+    world = "elderwyld"
+    hosted.records[world] = _record(world, OWNER, fixture.view.native_world_id)
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+    asset = ready(saved_image(f"hosted_world:{world}"))
+    body = {**fixture.request, "portrait_asset_id": str(asset["asset_id"])}
+    assert hosted.client.request("POST", fixture.url, json=body, origin=None).status_code == 403
+    fixture.manual.timeout = True
+    unknown = hosted.client.request("POST", fixture.url, json=body)
+    assert unknown.status_code == 200, unknown.text
+    assert unknown.json()["state"] == "outcome_unknown"
+    operation = fixture.url.replace("mechanics-revisions", "mechanics-revision-operations") + "/" + body["operation_id"]
+    status = hosted.client.request("GET", f"{operation}?world_id={world}")
+    assert status.status_code == 200, status.text
+    assert status.json()["operation"]["state"] == "outcome_unknown"
+    assert hosted.client.request("POST", f"{operation}:recover?world_id={world}", origin=None).status_code == 403
+    recovered = hosted.client.request("POST", f"{operation}:recover?world_id={world}")
+    assert recovered.status_code == 200, recovered.text
+    result = recovered.json()
+    assert result["state"] == "committed"
+    assert fixture.manual.appends == 1
+    revision_id = result["result"]["revision_id"]
+    opened = hosted.client.request("GET", f"{fixture.url}/{revision_id}?world_id={world}")
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["resource"]["provenance"]["accepted_through"]["buddy_portrait_asset_id"] == str(asset["asset_id"])

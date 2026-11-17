@@ -592,6 +592,17 @@ def require_combat_encounter_access(request: Request, world_id: str) -> None:
     _owned_world(_hosted_subject(request), world_id)
 
 
+async def resolve_hosted_statblock_revision_save(request: Request) -> str:
+    from apps.live_control_server.models.statblock_saved_revision import SaveMechanicsRevisionRequest
+
+    if request.query_params:
+        raise _denied()
+    body = SaveMechanicsRevisionRequest.model_validate(await request.json())
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.world_id)
+    request.state.hosted_build_pdf_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_saved_statblock(request: Request) -> str:
     selectors = request.query_params.multi_items()
     world_id = request.query_params.get("world_id")
