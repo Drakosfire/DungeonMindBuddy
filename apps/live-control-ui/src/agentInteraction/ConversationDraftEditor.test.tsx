@@ -177,3 +177,29 @@ it("stages a bounded rule correction and confirms only the successor review", as
   expect(await screen.findByRole("status")).toHaveTextContent("Statblock variant saved.");
   expect(confirmVariantReview).toHaveBeenCalledExactlyOnceWith(scope, "new");
 });
+
+it("recovers from a lost correction response without carrying approval to the new review", async () => {
+  const scope = { worldId: "world", conversationId: "conversation", turnId: "approval" };
+  const producer = { ...scope, turnId: "producer" };
+  const definition = { rule_elements: [{
+    key: "rain", name: "Rain", rules_text: "Any hostile action starts rain.", activation: {},
+  }] } as Awaited<ReturnType<typeof openVariantReview>>["definition"];
+  vi.mocked(confirmVariantReview).mockClear();
+  vi.mocked(openConversationVariantApproval).mockResolvedValueOnce({ scope: producer, reviewId: "old", revision: 1 });
+  vi.mocked(openConversationDraft)
+    .mockResolvedValueOnce({ revision: 1, markdown: "Old", variant_review_ids: ["old"] })
+    .mockResolvedValueOnce({ revision: 2, markdown: "Corrected", variant_review_ids: ["new"] });
+  vi.mocked(openVariantReview).mockResolvedValueOnce({ revision: 1, definition });
+  vi.mocked(correctVariantReview).mockRejectedValueOnce(new Error("Response lost."));
+
+  render(<ConversationVariantApproval scope={scope} />);
+  fireEvent.click(screen.getByRole("button", { name: "Find reviewed statblock" }));
+  fireEvent.click(await screen.findByText("Correct reviewed rules"));
+  fireEvent.change(screen.getByRole("textbox", { name: "Rule text" }), { target: { value: "Qualifying violence starts rain." } });
+  fireEvent.click(screen.getByRole("button", { name: "Stage corrected review" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Open latest draft for review" }));
+  expect(await screen.findByDisplayValue("Corrected")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Review statblock variant" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Confirm and save as new statblock" })).not.toBeInTheDocument();
+  expect(confirmVariantReview).not.toHaveBeenCalled();
+});

@@ -215,13 +215,13 @@ export function ConversationDraftEditor({ scope, placement, initialReview }: {
     }
   }
 
-  async function open() {
+  async function open(reopenProducer = false) {
     setReview(null);
     setSavedVariant(false);
     setBusy(true);
     setError("");
     try {
-      if (approvalTarget) {
+      if (approvalTarget && !reopenProducer) {
         const latest = await loadReviewedDraft(approvalTarget);
         setDraft(latest.draft);
         setMarkdown(latest.draft.markdown);
@@ -229,6 +229,7 @@ export function ConversationDraftEditor({ scope, placement, initialReview }: {
         setSavedVariant(latest.review.data.saved === true);
       } else {
         const latest = await openConversationDraft(scope);
+        if (reopenProducer) setApprovalTarget(undefined);
         setDraft(latest);
         setMarkdown(latest.markdown);
       }
@@ -265,7 +266,7 @@ export function ConversationDraftEditor({ scope, placement, initialReview }: {
           <button type="button" disabled={busy || markdown === draft.markdown} onClick={() => void save()}>
             Save draft
           </button>
-          {!initialReview && markdown === draft.markdown && draft.variant_review_ids?.map(reviewId => (
+          {!approvalTarget && markdown === draft.markdown && draft.variant_review_ids?.map(reviewId => (
             <button key={reviewId} type="button" disabled={busy} onClick={() => void inspectVariant(reviewId)}>
               Review statblock variant
             </button>
@@ -296,8 +297,8 @@ export function ConversationDraftEditor({ scope, placement, initialReview }: {
             </section>
           )}
           {error && (
-            <button type="button" disabled={busy} onClick={() => void open()}>
-              Discard local edits and reopen
+            <button type="button" disabled={busy} onClick={() => void open(Boolean(approvalTarget))}>
+              {approvalTarget ? "Open latest draft for review" : "Discard local edits and reopen"}
             </button>
           )}
         </>
