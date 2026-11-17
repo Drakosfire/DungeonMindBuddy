@@ -641,7 +641,12 @@ it("reads saved PDF reviews on hosted Buddy without a local bearer", async () =>
   }
   await expect(api.authenticatedApiFetch(detail + "?world_id=foreign")).rejects.toThrow(/exact same-origin/);
   await expect(api.authenticatedApiFetch(published + "&revision_id=another")).rejects.toThrow(/exact same-origin/);
-  expect(fetch).toHaveBeenCalledTimes(4);
+  await api.authenticatedApiFetch(detail, {
+    method: "PUT", body: JSON.stringify({ expected_revision: 1, definition: {}, regions: [] }),
+  });
+  expect(fetch.mock.calls.at(-1)?.[1]).toMatchObject({ method: "PUT", credentials: "same-origin", redirect: "error" });
+  await expect(api.authenticatedApiFetch(detail, { method: "PUT", body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(5);
 });
 
 it("opens and checks saved PDF regions through hosted session transport", async () => {
