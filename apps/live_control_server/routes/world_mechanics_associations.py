@@ -22,15 +22,15 @@ WorldId = Annotated[str, Query(pattern=r"^[a-z][a-z0-9_-]{0,62}$")]
 
 
 @router.get("/creatures")
-def list_creatures(world_id: WorldId, principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency)):
+def list_creatures(world_id: WorldId, request: Request):
+    _authorize_world_read(request, world_id)
     try:
         return creatures.catalog(world_id).response()
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
-@router.get("", response_model=list[WorldMechanicsAssociation])
-def get_associations(world_id: WorldId, request: Request):
+def _authorize_world_read(request: Request, world_id: str):
     from apps.live_control_server.services import hosted_auth
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
     from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
@@ -39,6 +39,11 @@ def get_associations(world_id: WorldId, request: Request):
         require_hosted_plan_world_context(request, world_id)
     else:
         enforce_native_graph_gm(request)
+
+
+@router.get("", response_model=list[WorldMechanicsAssociation])
+def get_associations(world_id: WorldId, request: Request):
+    _authorize_world_read(request, world_id)
     return list_associations(world_id)
 
 
@@ -51,8 +56,8 @@ def list_associations(world_id: str, principal: NativeGraphPrincipal | None = No
 
 
 @router.get("/requests/{request_id}", response_model=WorldMechanicsAssociation | None)
-def association_request(request_id: UUID, world_id: WorldId,
-                        principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency)):
+def association_request(request_id: UUID, world_id: WorldId, request: Request):
+    _authorize_world_read(request, world_id)
     try:
         resolve_managed_world_binding(world_id)
         return state.find_request(world_id=world_id, request_id=request_id)
