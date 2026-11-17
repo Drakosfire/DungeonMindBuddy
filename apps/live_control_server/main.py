@@ -192,6 +192,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/agent/readiness"): resolve_hosted_agent_readiness,
     ("GET", "/api/live/media/images/preparations/list"): resolve_hosted_image_history,
     ("GET", "/api/live/media/images/preparations/{action_id}"): resolve_hosted_image_world,
+    ("POST", "/api/live/media/images/preparations/{action_id}/asset"): resolve_hosted_image_world,
     ("GET", "/api/live/rules/catalog"): resolve_hosted_rules_lookup,
     ("GET", "/api/live/rules/query"): resolve_hosted_rules_lookup,
     ("GET", "/api/live/rules/passages/{citation_id}"): resolve_hosted_rules_lookup,

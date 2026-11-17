@@ -390,6 +390,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/media/images/preparations/list"): access.resolve_hosted_image_history,
             ("GET", "/api/live/media/images/preparations/{action_id}"): access.resolve_hosted_image_world,
+            ("POST", "/api/live/media/images/preparations/{action_id}/asset"): access.resolve_hosted_image_world,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/library"): access.resolve_hosted_media_library,
@@ -3300,3 +3301,31 @@ def test_hosted_generated_artwork_is_readable_in_its_world(hosted, application_s
     assert original.status_code == 200, original.text
     assert original.content == payload
     provider.generate_image.assert_awaited_once()
+
+
+def test_hosted_prepared_image_association_uses_world_asset_owner(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import media_images
+    from apps.live_control_server.services import build_document_proposal
+
+    service = Mock()
+    service.get.return_value.reservation.basis.world_id = "managed"
+    service.associate.return_value.model_dump.return_value = {"revision": 2}
+    monkeypatch.setattr(media_images, "BuildImageService", lambda: service)
+    monkeypatch.setattr(build_document_proposal, "_source", Mock())
+    action, asset = uuid4(), uuid4()
+    path = f"/api/live/media/images/preparations/{action}/asset?world_id=managed"
+    body = {"asset_id": str(asset), "expected_revision": 1}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    service.get.assert_not_called()
+    service.get.return_value.reservation.basis.world_id = "foreign"
+    assert hosted.client.request("POST", path, json=body).status_code == 404
+    service.associate.assert_not_called()
+    service.get.return_value.reservation.basis.world_id = "managed"
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    _, owner = service.get.call_args.args
+    assert owner.startswith("hosted_dms:")
+    service.associate.assert_called_once_with(action, asset, owner, 1, asset_owner="hosted_world:managed")

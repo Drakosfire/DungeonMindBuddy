@@ -462,6 +462,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/media\/images\/[0-9a-f-]+$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  const imageAssociation = /^\/api\/live\/media\/images\/preparations\/[0-9a-f-]+\/asset\?([^#]+)$/.exec(path);
+  if (imageAssociation) {
+    const query = new URLSearchParams(imageAssociation[1]);
+    return method === "POST" && query.size === 1 && Boolean(query.get("world_id"))
+      && isRecord(requestBodyRecord(init?.body));
+  }
   const imagePreparation = /^\/api\/live\/media\/images\/preparations\/[0-9a-f-]+\?([^#]+)$/.exec(path);
   if (imagePreparation) {
     const query = new URLSearchParams(imagePreparation[1]);

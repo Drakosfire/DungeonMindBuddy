@@ -62,7 +62,7 @@ export function PreparedBuildImage({record,bridge,active}: {record:PreparedImage
       if(capture.basis.world_id!==expected.world_id || capture.basis.document_id!==expected.document_id || capture.basis.registry_revision!==expected.registry_revision || capture.basis.content_sha256!==expected.content_sha256) throw new Error('Place this image on the page used for its image direction.');
       const asset=await mediaRequest(image.asset_id+'/metadata',undefined,placement.signal);
       if(asset.asset_id!==image.asset_id || !['staged','ready'].includes(asset.state)) throw new Error('The retained image is unavailable. Reopen it before placing it.');
-      const selected=await mediaRequest('preparations/'+prepared.action_id+'/asset',{asset_id:image.asset_id,expected_revision:prepared.revision},placement.signal) as PreparedImage;
+      const selected=await mediaRequest('preparations/'+prepared.action_id+'/asset?world_id='+encodeURIComponent(prepared.reservation.basis.world_id),{asset_id:image.asset_id,expected_revision:prepared.revision},placement.signal) as PreparedImage;
       setPrepared(selected);
       placement.signal.throwIfAborted();
       if(!mounted.current || studioEpoch.current!==epoch || !current.current.active || current.current.record.action_id!==start.record.action_id || current.current.bridge!==start.bridge) throw new Error('The page changed. Place the image again.');
