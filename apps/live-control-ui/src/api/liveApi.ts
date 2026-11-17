@@ -940,6 +940,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && scope?.scope_mode === "world" && scope.campaign_id === null
       && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id);
   }
+  if (path === "/api/live/world-graph/managed-projection") {
+    const body = requestBodyRecord(init?.body);
+    return body?.schema === "dmb_managed_world_graph_projection_request_v1"
+      && typeof body.managedWorldId === "string" && Boolean(body.managedWorldId);
+  }
   if (path === "/api/live/threats/query-hydration") {
     const body = requestBodyRecord(init?.body);
     return body?.scopeMode === "world" && body.campaignId === null

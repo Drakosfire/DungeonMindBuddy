@@ -71,7 +71,6 @@ router = APIRouter(
     prefix="/api/live/world-graph",
     tags=["world-graph-projection"],
     route_class=_ProjectionAPIRoute,
-    dependencies=[Depends(native_graph_gm_dependency)],
 )
 
 
@@ -98,7 +97,7 @@ def _reject_query_params(request: Request) -> None:
         )
 
 
-@router.post("/projection", response_model=WorldGraphProjection)
+@router.post("/projection", response_model=WorldGraphProjection, dependencies=[Depends(native_graph_gm_dependency)])
 def post_world_graph_projection(
     request_context: Request,
     request: WorldGraphProjectionRequest,
@@ -128,6 +127,18 @@ def post_managed_world_graph_projection(
     request: ManagedWorldGraphProjectionRequest,
 ) -> dict[str, Any] | JSONResponse:
     """Read a managed World through Buddy's private native Graph binding."""
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        hosted_explorer_principal, require_explorer_access,
+    )
+
+    local = hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS
+    if local:
+        enforce_native_graph_gm(request_context)
+    else:
+        principal = hosted_explorer_principal(request_context)
+        require_explorer_access(principal, request.managed_world_id)
     try:
         _reject_query_params(request_context)
         response = project_managed_world_graph(request)
@@ -141,10 +152,12 @@ def post_managed_world_graph_projection(
                 status_code=500,
             )
         )
+    if not local:
+        require_explorer_access(principal, response.managed_world_id)
     return response.model_dump(mode="json", by_alias=True)
 
 
-@router.post("/recap-projection", response_model=WorldGraphRecapProjection)
+@router.post("/recap-projection", response_model=WorldGraphRecapProjection, dependencies=[Depends(native_graph_gm_dependency)])
 def post_world_graph_recap_projection(
     request_context: Request,
     request: WorldGraphProjectionRequest,

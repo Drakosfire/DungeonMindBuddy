@@ -822,3 +822,18 @@ it.each(["prepare", "confirm"])("uses exact hosted transport for PDF Event %s", 
   await expect(api.authenticatedApiFetch(path + "?world_id=foreign", init)).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("reads the managed graph projection on the exact hosted route", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+  const path = "/api/live/world-graph/managed-projection";
+  const body = { schema: "dmb_managed_world_graph_projection_request_v1", managedWorldId: "managed" };
+  const init = { method: "POST", body: JSON.stringify(body) };
+  await api.authenticatedApiFetch(path, init);
+  expect(fetch).toHaveBeenCalledWith(path, expect.objectContaining({
+    method: "POST", credentials: "same-origin", mode: "same-origin",
+  }));
+  await expect(api.authenticatedApiFetch(path + "?world_id=foreign", init)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

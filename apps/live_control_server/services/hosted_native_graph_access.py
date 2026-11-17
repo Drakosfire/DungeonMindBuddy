@@ -886,6 +886,17 @@ async def resolve_hosted_build_extraction(request: Request) -> str:
     return world_id
 
 
+async def resolve_hosted_managed_projection(request: Request) -> str:
+    from apps.live_control_server.services.managed_world_graph_projection import ManagedWorldGraphProjectionRequest
+
+    if request.query_params:
+        raise _denied()
+    body = ManagedWorldGraphProjectionRequest.model_validate(await request.json())
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.managed_world_id)
+    request.state.hosted_native_graph_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_source_statement_publication(request: Request) -> str:
     from apps.live_control_server.models.source_statements import ConfirmStatement, ExtendSourceEvidence, StatementSelection
 

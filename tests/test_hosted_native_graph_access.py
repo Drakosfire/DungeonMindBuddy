@@ -361,6 +361,9 @@ def hosted(monkeypatch, request):
     app.include_router(combat_encounters.router)
     from apps.live_control_server.routes import threat_query_hydration
 
+    from apps.live_control_server.routes import world_graph_projection
+
+    app.include_router(world_graph_projection.router)
     app.include_router(threat_query_hydration.router)
     app.include_router(threat_drafts.router)
     app.include_router(world_mechanics_associations.router)
@@ -414,6 +417,7 @@ def hosted(monkeypatch, request):
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/complete-object"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/threats/query-hydration"): access.resolve_hosted_explorer_world,
+            ("POST", "/api/live/world-graph/managed-projection"): access.resolve_hosted_managed_projection,
             ("POST", "/api/live/native-source-inspection/published-recap"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-source-inspection/published-recap/objects"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/recap-page"): access.resolve_hosted_explorer_world,
@@ -4942,3 +4946,26 @@ def test_hosted_source_statement_subject_is_exact_world_read(hosted, monkeypatch
     result = hosted.client.request("GET", path)
     assert result.status_code == 200, result.text
     assert calls == [("managed", "rev:head", "hosted_dms:synthetic-owner-alpha")]
+
+
+def test_hosted_managed_projection_reaches_only_owned_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import world_graph_projection
+
+    calls = []
+
+    def project(body):
+        calls.append((body.managed_world_id, body.revision_pin))
+        raise world_graph_projection.WorldGraphProjectionServiceError(
+            "fixture reached", code="fixture", status_code=409,
+        )
+
+    monkeypatch.setattr(world_graph_projection, "project_managed_world_graph", project)
+    path = "/api/live/world-graph/managed-projection"
+    body = {"schema": "dmb_managed_world_graph_projection_request_v1",
+            "managedWorldId": "managed", "revisionPin": "rev:exact"}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "managedWorldId": "foreign"}).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 409, result.text
+    assert calls == [("managed", "rev:exact")]
