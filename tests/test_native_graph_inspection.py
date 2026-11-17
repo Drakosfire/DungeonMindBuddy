@@ -154,7 +154,12 @@ def test_actual_catalogue_and_selected_details_preserve_native_records_without_b
 
 def test_catalog_and_selected_entity_preserve_nested_temporal_metadata(inspection):
     x = inspection
-    payload = {"episode": "session-29", "qualified": True, "nested": [None, {"order": 2, "_sample": {"_saved": True}}]}
+    payload = {
+        "episode": "session-29",
+        "qualified": True,
+        "nested": [None, {"order": 2, "_sample": {"_saved": True}}],
+        "_sa_literal_key": {"values": [False, 0, "text"]},
+    }
     meta = replace(
         x.meta,
         temporal_scope=wk.TemporalScope(
