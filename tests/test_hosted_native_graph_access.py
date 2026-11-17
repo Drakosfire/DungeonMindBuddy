@@ -386,6 +386,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content/revisions/{revision_n}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): access.resolve_hosted_play_read,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): access.resolve_hosted_play_command,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/review/commands/{command_id}"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): access.resolve_hosted_play_command,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
@@ -2507,19 +2508,21 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert missing_command.status_code == 404, missing_command.text
     assert hosted.client.request("PUT", roll_path, json=roll).json()["receipt"] == recorded.json()["receipt"]
 
-    from application_state.play.session_review import ReviewCommand, commit_review
     from apps.live_control_server.services.play_run_edition import read_content
 
     content = read_content(run_id=run_id, world_id="managed")
     reflections = "The party returned safely after scouting the gate."
-    commit_review(
-        world_id="managed", run_id=run_id, command_id=str(uuid4()),
-        request=ReviewCommand(
-            action="end", expected_revision=0,
-            expected_run_revision=content.observed_run_revision,
-            expected_content_sha256=content.content_sha256, final_thoughts=reflections,
-        ),
-    )
+    review_command_path = f"{base}/review/commands/{uuid4()}?world_id=managed"
+    review_command = {
+        "action": "end", "expected_revision": 0,
+        "expected_run_revision": content.observed_run_revision,
+        "expected_content_sha256": content.content_sha256, "final_thoughts": reflections,
+    }
+    assert hosted.client.request("PUT", review_command_path, json=review_command, origin=None).status_code == 403
+    assert hosted.client.request("PUT", review_command_path, json=review_command, session="other-session").status_code == 403
+    ended = hosted.client.request("PUT", review_command_path, json=review_command)
+    assert ended.status_code == 200, ended.text
+    assert hosted.client.request("PUT", review_command_path, json=review_command).json() == ended.json()
     indexed = hosted.client.request("GET", evidence_path)
     assert indexed.status_code == 200, indexed.text
     assert [item["run_id"] for item in indexed.json()["sessions"]] == [run_id]

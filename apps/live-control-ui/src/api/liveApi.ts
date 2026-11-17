@@ -511,6 +511,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const query = new URLSearchParams(sessionEvidence[1]);
     return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
   }
+  const playReviewCommand = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]+\/review\/commands\/[0-9a-f-]+\?([^#]+)$/.exec(path);
+  if (method === "PUT" && playReviewCommand) {
+    const query = new URLSearchParams(playReviewCommand[1]);
+    const action = requestBodyRecord(init?.body)?.action;
+    return query.size === 1 && Boolean(query.get("world_id")) && (action === "end" || action === "save" || action === "reopen");
+  }
   const playContentCommand = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]+\/content\/commands\/[0-9a-f-]+\?([^#]+)$/.exec(path);
   if (method === "PUT" && playContentCommand) {
     const query = new URLSearchParams(playContentCommand[1]);
