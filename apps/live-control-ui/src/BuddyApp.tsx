@@ -79,7 +79,7 @@ function BuddyGraphPage({
 
   let explorer: ReactNode;
   if (managedWorldId && selectedWorld.kind === "managed") {
-    explorer = <ManagedWorldGraph key={stateScopeId} worldId={managedWorldId}
+    explorer = <ManagedWorldGraph key={stateScopeId}
       worldTitle={selectedWorld.name} stateScopeId={stateScopeId} />;
   } else if (auth.status === "local_operator") {
     explorer = <NativeGraphDemo api={playgroundApi} embedded mode="playground" />;

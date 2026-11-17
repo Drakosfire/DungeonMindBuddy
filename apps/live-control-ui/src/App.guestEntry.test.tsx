@@ -628,6 +628,40 @@ describe("canonical local guest entry", () => {
     expect(fetchMock.mock.calls.some(([path]) => String(path).startsWith("/api/live/index-graph/"))).toBe(false);
   });
 
+  it("warms the World graph from Build and reuses it across Graph visits", async () => {
+    window.history.replaceState({}, "", "/build?world=world-a");
+    const fetchMock = managedServerFetch({
+      graphRead: (world, count) => count === 2
+        ? new Promise<Response>(() => {})
+        : Response.json(managedGraphEnvelope(world, count === 1 ? "Aster" : "Updated Aster")),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    const reads = () => fetchMock.mock.calls.filter(([path]) => path === "/api/live/native-graph-explorer/graph");
+    const navigate = (path: string) => act(() => {
+      window.history.pushState({}, "", path);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    render(<App />);
+    await waitFor(() => expect(reads()).toHaveLength(1));
+    navigate("/graph?world=world-a");
+    expect(await revealIsolatedObject(user, "Aster")).toBeInTheDocument();
+    navigate("/build?world=world-a");
+    await waitFor(() => expect(screen.queryByText("World · World A")).not.toBeInTheDocument());
+    navigate("/graph?world=world-a");
+    expect(await screen.findByText("World · World A")).toBeInTheDocument();
+    expect(reads()).toHaveLength(1);
+
+    await user.click(await graphMenuAction("Refresh"));
+    await waitFor(() => expect(reads()).toHaveLength(2));
+    navigate("/build?world=world-a");
+    await waitFor(() => expect(screen.queryByText("World · World A")).not.toBeInTheDocument());
+    navigate("/graph?world=world-a");
+    expect(await revealIsolatedObject(user, "Updated Aster")).toBeInTheDocument();
+    expect(reads()).toHaveLength(3);
+  });
+
   it("does not apply a late World A graph response after switching to World B", async () => {
     vi.stubEnv("PROD", true);
     window.history.replaceState({}, "", "/graph?world=world-a");

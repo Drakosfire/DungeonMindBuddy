@@ -1004,7 +1004,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         };
       }
     const controller = new AbortController();
-    api.readGraph(controller.signal).then(async (loadedGraph) => {
+    (api.readInitialGraph?.() ?? api.readGraph(controller.signal)).then(async (loadedGraph) => {
       if (!installReadGraph(loadedGraph, graphRequest, owner)) return;
       const pending = restoreWorldState(loadedGraph);
       setLoading(false);
