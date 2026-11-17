@@ -145,6 +145,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_build_page_inventory,
     resolve_hosted_explorer_world,
     resolve_hosted_first_world,
+    resolve_hosted_manual_knowledge,
     resolve_hosted_native_relationship,
     resolve_hosted_plan_world_context,
     resolve_hosted_committed_plan,
@@ -186,6 +187,8 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", "/api/live/graph-authoring/prepare"): resolve_hosted_manual_knowledge,
+    ("POST", "/api/live/graph-authoring/commit"): resolve_hosted_manual_knowledge,
     ("GET", "/api/live/graph-authoring/object-kinds"): resolve_hosted_plan_world_context,
     ("POST", "/api/live/graph-authoring/document-relationship/request"): resolve_hosted_native_relationship,
     ("POST", "/api/live/graph-authoring/document-relationship/native-prepare"): resolve_hosted_native_relationship,

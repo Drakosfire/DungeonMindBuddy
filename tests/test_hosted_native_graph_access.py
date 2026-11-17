@@ -310,7 +310,8 @@ def hosted(monkeypatch, request):
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
                if "/variant-reviews/{review_id}" in key[1]
-               or key[1] == "/api/live/graph-authoring/object-kinds"
+               or key[1] in {"/api/live/graph-authoring/object-kinds",
+                             "/api/live/graph-authoring/prepare", "/api/live/graph-authoring/commit"}
                or key[1].startswith("/api/live/graph-authoring/document-relationship/")},
             **{
                 (
@@ -2957,3 +2958,38 @@ def test_hosted_relationship_request_uses_owned_world(hosted, monkeypatch):
     response = hosted.client.request("POST", path, json=body)
     assert response.status_code == 200, response.text
     assert calls == [("managed", f"hosted_dms:{OWNER}")]
+
+
+def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypatch):
+    from apps.live_control_server.routes import graph_authoring
+    from apps.live_control_server.services import graph_run_registry, source_artifact_registry
+    from tests.test_graph_object_authoring_prepare import object_proposal
+
+    async def owned_page(subject, document_id):
+        assert (subject, document_id) == (OWNER, "build-doc")
+        return "managed"
+
+    def dispatch(body, *, authenticated_actor):
+        calls.append((body.source_run_id, authenticated_actor))
+        raise graph_authoring.GraphObjectAuthoringError("Reached authoring.", code="probe", status_code=409)
+
+    calls = []
+    monkeypatch.setattr(access, "_owned_build_page", owned_page)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run: SimpleNamespace(
+        source_artifact_id=run, source_domain="worldbuilding",
+    ))
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda artifact: SimpleNamespace(
+        source_domain="worldbuilding", workspace_document_id="build-doc",
+        world_id="managed" if artifact == "owned" else "foreign",
+    ))
+    monkeypatch.setattr(graph_authoring, "prepare_graph_object_authoring_write", dispatch)
+    monkeypatch.setattr(graph_authoring, "commit_graph_object_authoring_write", dispatch)
+    payload = {"worldId": "managed", "campaignId": "managed", "sourceRunId": "owned", "proposals": [object_proposal()]}
+    for phase in ("prepare", "commit"):
+        path = f"/api/live/graph-authoring/{phase}"
+        body = {**payload, "confirmToken": "token", "currentOverlayToken": "overlay"} if phase == "commit" else payload
+        assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+        assert hosted.client.request("POST", path, json={**body, "sourceRunId": "foreign"}).status_code == 403
+        response = hosted.client.request("POST", path, json=body)
+        assert response.status_code == 409, response.text
+    assert calls == [("owned", f"hosted_dms:{OWNER}")] * 2
