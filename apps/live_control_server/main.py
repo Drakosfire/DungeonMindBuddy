@@ -227,6 +227,8 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/media/images/{asset_id}/original"): resolve_hosted_saved_artwork,
     ("POST", FIRST_WORLD_PREPARE_PATH): resolve_hosted_first_world,
     ("POST", FIRST_WORLD_CONFIRM_PATH): resolve_hosted_first_world,
+    ("POST", "/api/live/worlds/{world_id}/pdf-adventure-events/prepare"): resolve_hosted_build_pdf_world,
+    ("POST", "/api/live/worlds/{world_id}/pdf-adventure-events/confirm"): resolve_hosted_build_pdf_world,
     ("GET", PDF_STATBLOCK_REVIEWS_PATH): resolve_hosted_build_pdf_world,
     ("GET", PDF_STATBLOCK_REVIEW_PATH): resolve_hosted_build_pdf_world,
     ("GET", f"{PDF_STATBLOCK_REVIEW_PATH}/publication"): resolve_hosted_build_pdf_world,
