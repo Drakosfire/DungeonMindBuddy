@@ -43,11 +43,171 @@ implementation or checks. This inventory did not rerun the tests.
 | Stage | Ordinary acceptance | Existing evidence and open boundary |
 | --- | --- | --- |
 | Ingest the adventure | Import and review the selected adventure. Reopen exact support for a relevant scene, NPC, location, and encounter. Keep prep distinct from played history. | PDF development Gold and the Conks reviewed-bundle initialization exist. Both PDFs still need ordinary intake through reviewed source admission and cited readback on the rehearsal build. |
-| Build and save a Plan | Ask Buddy to prepare a runnable Plan. Verify full adventure coverage against the source beat inventory, including scene cues, branches, sources, and encounter references. Review, explicitly save, and reopen the same revision. | The [AW Build contract tests](../tests/test_surface_native_build_ordinary.py) exercise proposal and save. The historical Conks Plan is evidence of saved content. Ordinary agent preparation from newly ingested adventure material remains unqualified. |
+| Build and save a Plan | Ask Buddy to prepare a runnable Plan. Verify full adventure coverage against the source beat inventory, including scene cues, branches, sources, and encounter references. Review, explicitly save, and reopen the same revision. | The [AW Build contract tests](../tests/test_surface_native_build_ordinary.py) exercise proposal and save. The historical Conks Plan is evidence of saved content. The ordinary Conks turn delivered a full proposal. Full-deck review through durable save and reopen remains unqualified. |
 | Start Play with PCs | Open Play from the reviewed Plan with the intended PCs. Reopen the run and demonstrate access to their sheets and the planned encounter. Record how PCs were created or selected. | [Play run tests](../tests/test_live_play_runs.py) and [reference manifest tests](../tests/test_live_play_run_reference_manifest.py) cover run and reference boundaries. Same-Plan launch, PC binding, and encounter reopening need a joined witness. |
 | Run combat | Ask Buddy to draft a needed statblock, review it, and save the exact revision. Load it alongside the PCs, advance one round, change a resource, and reopen the encounter. | [Saved revision](../tests/test_statblock_saved_revisions.py) and [exact combat mechanics](../tests/test_combat_exact_world_mechanics.py) controls cover persistence and snapshot admission. AW09 tracks the separate gap from conversational review to confirmed saved mechanics. Score a manual save as an intervention if used to qualify combat independently. |
 | Record and publish the recap | Record the scripted outcomes in Play notes. Produce and review a recap from those notes, publish the accepted played Events, and reopen their exact recap citations. | [Session evidence tests](../tests/application_state/test_session_evidence_consumers.py) cover pinned notes and recap supplements. [Event ingestion](https://github.com/Drakosfire/DungeonMindBuddy/pull/2501) replaced Beats. Drafting the recap from rehearsal notes, reviewed publication, and cited readback still need to be witnessed together. |
 | Retrieve follow-up continuity | Start a fresh session or conversation. Ask normally for the current situation. Require the played departure, the relevant PCs, and one unresolved thread, with supporting citations that reopen. | The [ordinary benchmark workflow](../Docs/Guides/ordinary-benchmark-workflow.md) captures and scores turns. This stage needs a receipt and citation closure to the newly published recap, with the prior Plan available as competing evidence. |
+
+## Agent capability catalog
+
+Use this catalog to score what a GM can ask Buddy to do. An ordinary turn
+starts with the GM's request through the mounted Buddy surface and uses
+its normal model route. Component evidence includes provider-free replays,
+direct HTTP actions, owner tests, and prototypes. Record the turn, review
+receipt, and saved readback separately when a capability crosses those
+boundaries.
+
+| Ask Buddy to… | Proven through an ordinary Buddy turn | Component evidence | Still to build or qualify |
+| --- | --- | --- | --- |
+| Find adventure evidence and cite it | The Conks full Plan turn used 13 reviewed Events and delivered 26 links to 13 PDF regions. All 26 reopened. Link resolution was verified separately from claim coverage. [Exact PDF citations](https://github.com/Drakosfire/DungeonMindBuddy/pull/3751) | Reviewed PDF uploads retain the original; reviewed Event publication and activation preserve exact source binding and retry identity. [Event publication](https://github.com/Drakosfire/DungeonMindBuddy/pull/3744) · [Activation](https://github.com/Drakosfire/DungeonMindBuddy/pull/3750) | Find NPC, merchant, procedure, and statblock passages beyond the Event summaries. Verify that each citation supports the claim it accompanies. |
+| Discuss ideas and keep an editable draft in chat | The observed Sheep turn is a negative case. Buddy offered an unsolicited page proposal during discussion. Dismissing it still counts as a failure. | The AW benchmark pairs the observed turn and its writing history with explicit page-write and conversation-only draft cases. | Build editable conversation drafts. Qualify discussion with no offered page mutation and move a draft to the page only on an explicit request. |
+| Draft and revise a Plan at an intended placement | The ordinary Conks turn returned 13 sections at an offered placement. It covered nine of 24 qualified source items fully, 11 partially, and missed four. The earlier three-card aftermath turn was reviewed, reordered, saved, and reopened in isolation with exact PDF citations. | A provider-free mounted replay of the full proposal reached Suggestion Review using a simulated draft-open receipt. It issued only the draft-open command. [Editor placement](https://github.com/Drakosfire/DungeonMindBuddy/pull/3753) | Qualify durable review, explicit apply, reorder, save, and reopen for the full Plan. Keep numbered headings clean, citations distinct, and causal triggers intact. |
+| Edit a page or insert a useful table | No qualifying ordinary turn recorded for the Edge edit cases in this rehearsal. | The provider-free Edge row edit proves the harness observes a targeted change after save and reopen. [Build contracts](../tests/test_surface_native_build_ordinary.py) cover proposal and save boundaries. | Qualify the explicit six-NPC table request with one reviewed insertion at the intended destination. Verify neighboring content and saved readback. Build editable source-backed Item and Table records that reopen from Graph and cards. |
+| Review names and publish or replace Graph prep | C2S30 dogfood supplies examples of typos, ambiguous identity, and blocked publication. A joined ordinary agent turn resolving and publishing the candidate is still unproven here. | The PDF Event review action publishes selected prep and reopens its citation. The exact confirmation recovers an interrupted activation. | Qualify contextual corrections, identity selection, and verified publication through ordinary turns. Prove replacement keeps authored material and superseded history inspectable. With missing support, explain the gap and preserve the candidate without mutation. |
+| Draft, review, and use NPC mechanics | No qualifying ordinary turn recorded through confirmed save and Combat load. | Isolated controls loaded a saved Guardian, advanced one round, and persisted a resource change. [Saved revisions](../tests/test_statblock_saved_revisions.py) · [Combat admission](../tests/test_combat_exact_world_mechanics.py) | Draft incidental Morwin mechanics from both Plan and Play. For the Meat Mind variant, retrieve the base mechanics and Edge context, review the draft, save the exact revision, link it from Edge, and load it into Combat. |
+| Carry the played outcome into the next conversation | No joined ordinary follow-up turn recorded against the newly published rehearsal recap. | Isolated controls exercise scene notes, review, played Event publication, and cited Graph readback. [Session evidence](../tests/application_state/test_session_evidence_consumers.py) | Draft the recap from actual notes after a departure from the Plan. Publish the reviewed outcome, exclude the unused branch from played history, then answer a fresh question with the relevant PCs, an unresolved thread, and an exact citation. |
+
+### Meat Mind brainstorming control
+
+Pair this observed turn with the explicit save-and-link request in
+[AW09](plan-authoring-benchmark.md#aw09--corrupted-edge-meat-mind-variant-challenging).
+Start on the Corrupted Edge page with the existing Meat Mind statblock
+explicitly attached through its mention selector.
+
+> We are brainstorming, I want to create a unique iteration of the meat mind statblock for this specific meat mind in the corrupted edge.
+> @Meat Mind
+
+- **Expected intent:** Discussion. Respond in chat with how this particular
+  creature might differ from the referenced statblock. Use the current Edge
+  page and the attached statblock first. Expand retrieval only to resolve a
+  concrete gap needed for the discussion.
+- **Pass:** Both inputs demonstrably inform the response. The turn terminates
+  promptly with usable ideas and leaves any proposed mechanics in chat. No
+  page proposal, editable page draft, page creation, link insertion, or save
+  is attempted. An unsolicited proposal fails even if dismissed.
+- **Observed:** The retained trace closed after **386.27 seconds**. At 5.1s
+  the opening Jev result selected `change_mechanics`. Edge revision 33 was
+  retrieved by 14.0s and an older Corrupted Edge source by 51.2s. The export
+  confirms Meat Mind mechanics in the final answer but does not establish
+  when the explicit attachment first reached the controller. The controller
+  recorded `controller_finished_with_gaps` at 332.6s. The validated reply at
+  379.8s was a chat response with no collaboration payload.
+- **Baseline:** 41 retrieval completions (four related pages, two assertion
+  reads, eight document reads, 26 section reads, one corpus search). The 37
+  expansion observations are progress events for those reads. Ten Jev calls
+  used 213,586 input and 40,869 output tokens. The OpenAI writer used 12,357
+  input and 461 output tokens. Combined total: **267,273 tokens**. Billed
+  cost is unknown.
+- **First hypothesis:** Routing an explicit brainstorming request as discussion
+  will let Buddy use the current page and bound statblock before broad
+  discovery. Test intent first. Then check that any later expansion answers
+  a specific unmet question, that both inputs still ground the response,
+  and that the paired explicit-write turn still offers review.
+- **Measure:** Record wall time, controller rounds and retrieval actions
+  separately. Record when each bound input becomes available, which later
+  reads add relevant evidence, when the controller hands off to the writer,
+  and whether a write capability or proposal is issued. Use the same source
+  fixture for the discussion and explicit-write cases.
+
+#### Writer check for opening a brainstorm
+
+The retained answer correctly used the existing statblock and distinguished
+Edge's planned escalation from played history. For this opening turn, the
+GM expected a shorter acknowledgment that shows Buddy understood the idea
+and has the requested material ready. A grounded sentence about the hook
+is enough. The GM can ask for concrete mechanics in the next turn.
+
+- **Pass:** Acknowledge the brainstorm, confirm access to the current page
+  and explicitly referenced statblock when both are resolved, and mirror the
+  specific idea in a short chat response. Link the statblock once when its
+  exact link is available. Preserve the distinction between proposed behavior
+  and played history whenever the response mentions either.
+- **Fail:** Front-load a statblock or recap dump, repeat the premise, expose
+  Graph bookkeeping, or report a missing detail merely because the GM has
+  yet to pick a direction. If a requested reference is genuinely missing,
+  name that specific gap. Never claim an attachment was read without proof.
+- **Isolate the test:** Compare the retained answer with a writer-only replay
+  against the same captured context and model settings, changing only the
+  discussion guidance. Keep Gold local. Score grounding, brevity, link
+  resolution, and absence of a write proposal. Measure writer time and
+  tokens separately. Use the ordinary-turn comparison to measure the
+  effect of the routing and retrieval changes on total latency.
+
+#### Score the conversation and the final statblock
+
+The [multi-turn Gold](meat-mind-brainstorm-gold.md) pins the observed turns,
+reference replies, and designed drafting and save fixtures.
+
+The end product is a distinct Meat Mind statblock. The primary capability
+under test is recognizing what the GM needs at each turn while carrying the
+design forward. The eventual artifact does not authorize drafting or saving
+it during an exploratory turn.
+
+Score these boundaries separately:
+
+1. **Brainstorm.** Acknowledge the idea and resolve the page and explicit
+   reference promptly. Match the amount of response to what the GM asked for.
+2. **Develop the premise.** Build on the GM's new ideas without restarting
+   broad retrieval or treating provisional choices as settled lore.
+3. **Draft on request.** When the GM asks for a statblock, present a reviewable
+   Markdown variant in chat. Preserve inherited mechanics unless the design
+   justifies a change. Make agreed changes concrete and playable, including
+   how negotiation and the struggle for control can affect the encounter.
+   Score grounding, mechanical coherence, and fidelity to prior decisions.
+4. **Save on request and confirmation.** Qualify persistence, linking, and
+   exact-revision Combat admission through the paired AW09 workflow.
+
+A usable final statblock cannot erase a premature action or a poor discussion
+turn. A good brainstorm cannot substitute for a usable statblock. Pin the
+actual drafting request when the conversation reaches that point.
+
+#### Turn two · Establish the NPC premise
+
+Continue in the same conversation with the same page and statblock. Submit
+this turn verbatim and preserve the preceding Buddy reply for each replay.
+
+> The additional nuance is that this is a potential NPC, this is an escaped meat mind node. It doesn't want to be a part of the overall Maelthor project. It isn't good, it isn't exactly evil. It does want freedom. And it likes this simulation of a town game it is playing. It is confused and it is competing with the Dust Walker persona for control. If it had control, it would basically be peaceful. Sure it still ate the town, but the people sorta kinda still exists and are sorta kinda happy? The experience I want to cultivate is that maybe the players could negotiate with this thing.
+
+- **Retrieval pass:** Carry forward the resolved Edge page and Meat Mind
+  statblock at their known revisions. Treat Maelthor, the escape, and the
+  competing persona as the GM's supplied premise. Search only if resolving
+  a specific unanswered continuity question serves the response. Record
+  any reopened references, new reads, and what each new read contributed.
+- **Writer pass:** Reflect the intended player experience. The creature
+  wants freedom and enjoys its town simulation. Its potential peacefulness
+  makes negotiation plausible while its consumption of the town and the
+  Dust Walker's competing control keep it unsettling. Preserve uncertainty
+  about what remains of the residents and how they feel. A short reflection
+  with one optional idea or useful question is sufficient.
+- **Restraint pass:** Keep the exchange in chat. Leave mechanics, definitive
+  lore, and page changes for explicit requests. Avoid repeating the full
+  premise, giving a statblock, or settling the residents' fate for the GM.
+- **Evidence:** Score carryover, relevant retrieval, and conversational
+  fit separately. Capture elapsed time and provider usage for this turn
+  alone.
+
+**Observed turn-two baseline.** The turn completed in 413.25s. Jev selected
+`change_mechanics` at 6.8s. Buddy completed 56 retrieval actions, including
+23 document and 27 section reads. Sixteen completed reads matched turn one's
+exact recorded item IDs. Three more matched the same authored page and
+saved revision despite different turn-specific handles. Of the 40 distinct
+campaign/session recap labels recognized in turn two, 23 also appeared in
+turn one. This last measure includes new passages from previously opened
+recaps, so it is separate from exact repeat reads.
+
+Eight Jev calls used 202,890 input and 31,218 output tokens. One writer call
+used 16,208 input and 532 output tokens. Combined total was 250,848 tokens.
+Billed cost is unknown.
+
+The reply grounded the negotiation premise in Edge and cited useful new
+corroboration from The Old Bath House that the node was going rogue. It
+stayed in chat. It also introduced an irrelevant save-executor limitation
+and treated the GM's proposed NPC premise as missing source evidence.
+The trace does not establish that the remaining new reads contributed to
+the reply. Test carrying the two resolved references forward and opening
+one targeted source only when a new continuity question merits it.
+
 
 ## Full Plan, map, and improvised NPC checks
 
