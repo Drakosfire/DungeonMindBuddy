@@ -107,12 +107,12 @@ class PlanJevDriver:
         adapter = self.adapter
         if adapter.request.surface.surface_id != "build":
             return False
-        from application_state.agent_conversation.build_intentional_response import selected_action
+        from application_state.agent_conversation.build_intentional_response import is_anchored_discussion, selected_action
 
-        selected = selected_action(adapter._broker_execution())
-        return (isinstance(selected, t.BuildRequestedWorkResolutionV1)
-                and selected.requested_work == "discuss"
-                and selected.resolution.get("source_scope") == "anchored")
+        execution = adapter._broker_execution()
+        if not any(isinstance(event, t.BuildRequestedWorkResolutionV1) for event in execution.events):
+            return False
+        return is_anchored_discussion(selected_action(execution))
 
     def offered(self):
         if self.finished:return ()

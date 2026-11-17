@@ -556,6 +556,14 @@ def validate_turn_arguments(execution, *, user_text, turn_id, attempt):
             raise ValueError('Retained semantic action differs from its exact turn arguments')
 
 
+def is_anchored_discussion(selection):
+    from .types import BuildRequestedWorkResolutionV1
+
+    return (isinstance(selection, BuildRequestedWorkResolutionV1)
+            and selection.requested_work == "discuss"
+            and selection.resolution.get("source_scope") == "anchored")
+
+
 def selected_action(execution):
     from .types import BuildRequestedWorkResolutionV1, BuildReviewedActionSelectionV1
     choices=[e for e in execution.events if isinstance(e,(BuildRequestedWorkResolutionV1,BuildReviewedActionSelectionV1))]

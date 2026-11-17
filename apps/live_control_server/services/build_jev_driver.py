@@ -1255,7 +1255,9 @@ class BuildJevDriver:
                 a.turn = _require_fresh_execution_append(a.fence.append('record_build_requested_work_resolution', 'selection', event,
                     producer_proof={'request_json': prepared.body.decode(), 'response_json': raw}))
                 self.operation, self.selection = selected, event
-                if 'related_page_catalog' in self._interaction:
+                from application_state.agent_conversation.build_intentional_response import is_anchored_discussion
+                anchored = is_anchored_discussion(event)
+                if 'related_page_catalog' in self._interaction and not anchored:
                     select_pages(self, prepared, actual_response)
             else:
                 question = self._selection_intent.questions[0]

@@ -60,7 +60,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup"):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -232,6 +232,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         raise AssertionError('Fresh Build used classic Graph broker instead of shared native access')
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config', classic)
 
+    if read_optional_page:
+        monkeypatch.setattr("apps.live_control_server.services.build_related_pages.root", lambda: tmp_path)
+        optional_page = create_page_fixture(tmp_path, world_id=world, campaign_id=world,
+            title="Optional lore", kind="worldbuilding_source", source_domain="worldbuilding",
+            document_class="lore", authority_state="draft", visibility_state="internal")
+        save_page(tmp_path, optional_page.document_id, "This unrelated lore should remain unread.")
+
     class Decisions(httpx2.AsyncBaseTransport):
         def __init__(self):
             self.calls = []
@@ -268,6 +275,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 chosen = ((current_work or ('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss')) if name=='requested_work' else source_need if name=='source_need'
                     else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
+                    else "read" if read_optional_page and name.startswith("related_page_")
                     else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
                 answers[name] = dict(type='choice', choice=chosen, confidence=1,
@@ -1711,14 +1719,16 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
 
 def test_anchored_discussion_only_offers_current_page_and_saved_mechanics(lane, tmp_path, monkeypatch):
     case = _fresh_case(
-        lane, tmp_path, monkeypatch, None, False, False, False,
+        lane, tmp_path, monkeypatch, None, True, False, False,
         message="Let's brainstorm this creature.", requested_work="discuss",
-        saved_statblock="associated", source_need="anchored",
+        saved_statblock="associated", source_need="anchored", read_optional_page=True,
     )
     resolution, = [event for event in case.turn.graph_context_execution.events
                    if isinstance(event, t.BuildRequestedWorkResolutionV1)]
     assert resolution.resolution["source_scope"] == "anchored"
     requests = [json.loads(call.content) for call in case.decisions.calls]
+    assert any(name.startswith("related_page_") for request in requests for name in request["questions"])
+    assert not any(event.kind.startswith("build_related_page") for event in case.turn.graph_context_execution.events)
     retrieval = [request for request in requests if "operation" in request["questions"]]
     assert retrieval
     kinds = [candidate["kind"] for request in retrieval
