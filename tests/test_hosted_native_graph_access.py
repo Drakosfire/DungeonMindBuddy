@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from application_state import pdf_statblock_review
 from apps.live_control_server.routes.agent import (
     _pdf_review_creature_draft_id, get_pdf_statblock_publication, get_pdf_statblock_review,
-    get_published_pdf_statblock, post_accept_pdf_statblock_review,
+    get_published_pdf_statblock, post_accept_pdf_statblock_review, post_append_pdf_statblock_review,
     post_pdf_statblock_creature_draft, post_pdf_statblock_publication,
 )
 from application_state.errors import ApplicationStateUnavailableError
@@ -300,6 +300,7 @@ def hosted(monkeypatch, request):
     app.add_api_route(f"{PDF_REVIEW}/publication/statblock", get_published_pdf_statblock, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/creature-draft", post_pdf_statblock_creature_draft, methods=["POST"])
     app.add_api_route(f"{PDF_REVIEW}/accept/{{draft_id}}", post_accept_pdf_statblock_review, methods=["POST"])
+    app.add_api_route(f"{PDF_REVIEW}/append/{{draft_id}}", post_append_pdf_statblock_review, methods=["POST"])
     from apps.live_control_server.main import HOSTED_WORLD_SCOPE_RESOLVERS
 
     install_hosted_request_boundary(
@@ -386,6 +387,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/accept/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
+            ("POST", f"{PDF_REVIEW}/append/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
             ("GET", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
             ("GET", f"{PDF_REVIEW}/publication/statblock"): access.resolve_hosted_build_pdf_world,
@@ -1827,6 +1829,36 @@ def test_hosted_pdf_accept_refuses_unrelated_draft_before_storage(hosted, monkey
         "validation_definition_digest": validation["definition_digest"],
     })
     assert response.status_code == expected, response.text
+
+
+@pytest.mark.parametrize(
+    "session, origin, expected",
+    [("owner-session", FRONTEND_ORIGIN, 200), ("other-session", FRONTEND_ORIGIN, 403),
+     ("owner-session", None, 403)],
+)
+def test_hosted_pdf_append_requires_world_owner_and_origin(hosted, monkeypatch, session, origin, expected):
+    from apps.live_control_server.routes import agent, statblock_candidates
+    from apps.live_control_server.services.statblock_saved_revision import append_pdf_review
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    review_id, draft_id = uuid4(), uuid4()
+    calls = []
+
+    def append(callback, **kwargs):
+        assert callback is append_pdf_review
+        calls.append((kwargs["world_id"], kwargs["review_id"], kwargs["draft_id"]))
+        return {"state": "committed"}
+
+    monkeypatch.setattr(statblock_candidates, "_revision_call", append)
+    path = PDF_REVIEW.format(world_id="managed", review_id=review_id)
+    response = hosted.client.request("POST", f"{path}/append/{draft_id}", session=session, origin=origin, json={
+        "operation_id": str(uuid4()), "expected_revision": 1,
+        "base": {"provider": "dungeonmind", "statblock_id": "sb_saved", "revision_id": "rev_published",
+                 "contract": "dungeonmind.dungeonbuddy-statblocks", "contract_version": "1.0.0",
+                 "definition_digest": "sha256:" + "a" * 64},
+    })
+    assert response.status_code == expected, response.text
+    assert calls == ([("managed", review_id, str(draft_id))] if expected == 200 else [])
 
 
 @pytest.mark.parametrize("session, expected", [("owner-session", 200), ("other-session", 403)])

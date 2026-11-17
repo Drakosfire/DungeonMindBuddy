@@ -3060,14 +3060,17 @@ def post_append_pdf_statblock_review(
     body: AppendPdfStatblockReviewRequest, request: Request,
 ):
     from apps.live_control_server.routes.statblock_candidates import _revision_call
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
     from apps.live_control_server.services.statblock_saved_revision import append_pdf_review
 
-    enforce_native_graph_gm(request)
+    require_build_pdf_access(request, world_id)
     world_id = _verified_world_id(world_id)
-    return _revision_call(
+    result = _revision_call(
         append_pdf_review, draft_id=str(draft_id), world_id=world_id, review_id=review_id,
         request=body, load_review=lambda: get_pdf_statblock_review(world_id, review_id, request),
     )
+    require_build_pdf_access(request, world_id)
+    return result
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/region:validate", status_code=204)

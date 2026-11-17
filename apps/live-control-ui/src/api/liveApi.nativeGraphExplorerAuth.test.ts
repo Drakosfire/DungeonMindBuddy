@@ -539,3 +539,21 @@ it("reads earlier image directions with the exact hosted session route", async (
   await expect(api.authenticatedApiFetch(path + "&world_id=other")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("uses the hosted session to append a PDF review to an exact saved draft", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const id = "12345678-1234-1234-1234-123456789abc";
+  const path = "/api/live/agent/worlds/elderwyld/build-pdf-sources/statblock-reviews/" + id + "/append/" + id;
+  const append = { method: "POST", body: JSON.stringify({ operation_id: id, expected_revision: 1, base: { revision_id: "rev_saved" } }) };
+  await api.authenticatedApiFetch(path, append);
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toBe(path);
+  expect(init).toMatchObject({ ...append, credentials: "same-origin", redirect: "error" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "?world_id=other", append)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path, { ...append, body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
