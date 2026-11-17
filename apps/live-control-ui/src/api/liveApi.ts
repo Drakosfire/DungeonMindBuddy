@@ -441,6 +441,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && ["build", "plan", "play"].includes(surface ?? "")
       && ["true", "false"].includes(worldGraph ?? "") && query.size === 3;
   }
+  const imagePreparation = /^\/api\/live\/media\/images\/preparations\/[0-9a-f-]+\?([^#]+)$/.exec(path);
+  if (imagePreparation) {
+    const query = new URLSearchParams(imagePreparation[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
   const imageHistory = "/api/live/media/images/preparations/list?";
   if (path.startsWith(imageHistory)) {
     const selectors = new URLSearchParams(path.slice(imageHistory.length));

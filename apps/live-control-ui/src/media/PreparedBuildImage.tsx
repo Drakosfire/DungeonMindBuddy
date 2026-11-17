@@ -38,7 +38,7 @@ export function PreparedBuildImage({record,bridge,active}: {record:PreparedImage
       const expected=start.record.reservation.basis;
       if (capture.basis.world_id!==expected.world_id || capture.basis.document_id!==expected.document_id
         || capture.basis.registry_revision!==expected.registry_revision || capture.basis.content_sha256!==expected.content_sha256) throw new Error('Open the page used for this image direction, or ask for a new image here.');
-      const fresh=await mediaRequest('preparations/'+start.record.action_id) as PreparedImage;
+      const fresh=await mediaRequest('preparations/'+start.record.action_id+'?world_id='+encodeURIComponent(expected.world_id)) as PreparedImage;
       if (!mounted.current || current.current.record.action_id!==start.record.action_id || !current.current.active || current.current.bridge!==start.bridge) return;
       if (fresh.reservation.conversation_id!==start.record.reservation.conversation_id || fresh.prompt!==start.record.prompt || fresh.alt!==start.record.alt || (fresh.purpose??null)!==(start.record.purpose??null)) throw new Error('The prepared direction changed. Reopen it.');
       captured.current=capture;setPrepared(fresh);setOpen(true);

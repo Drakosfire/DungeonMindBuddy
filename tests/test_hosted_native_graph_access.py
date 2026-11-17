@@ -277,9 +277,10 @@ def hosted(monkeypatch, request):
         "/api/live/agent/worlds/{world_id}/build-proposals",
         agent_routes.list_build_document_proposals, methods=["GET"],
     )
-    from apps.live_control_server.routes.media_images import image_preparations
+    from apps.live_control_server.routes.media_images import image_preparation, image_preparations
 
     app.add_api_route("/api/live/media/images/preparations/list", image_preparations, methods=["GET"])
+    app.add_api_route("/api/live/media/images/preparations/{action_id}", image_preparation, methods=["GET"])
 
 
 
@@ -388,6 +389,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/media/images/preparations/list"): access.resolve_hosted_image_history,
+            ("GET", "/api/live/media/images/preparations/{action_id}"): access.resolve_hosted_image_preparation,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
@@ -3216,3 +3218,30 @@ def test_hosted_plan_terminal_diagnostic_reads_owned_action(hosted, monkeypatch)
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with("managed", action)
+
+
+def test_hosted_image_preparation_binds_world_and_owner(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import media_images
+
+    service = Mock()
+    record = service.get.return_value
+    record.reservation.basis.world_id = "managed"
+    record.model_dump.return_value = {"prompt": "A gate at dusk"}
+    monkeypatch.setattr(media_images, "BuildImageService", lambda: service)
+    action = uuid4()
+    path = f"/api/live/media/images/preparations/{action}?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    service.get.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    identifier, owner = service.get.call_args.args
+    assert identifier == action
+    assert owner.startswith("hosted_dms:")
+    record.reservation.basis.world_id = "foreign"
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 404
+    assert "A gate at dusk" not in denied.text
