@@ -306,6 +306,14 @@ def hosted(monkeypatch, request):
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin",
         agent_routes.get_world_turn_connected_page_origin, methods=["GET"],
     )
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}",
+        agent_routes.get_build_document_proposal, methods=["GET"],
+    )
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review",
+        agent_routes.get_plan_authoring_review, methods=["GET"],
+    )
     app.include_router(conversation_library.router)
     from apps.live_control_server.routes import conversation_work_plans
 
@@ -437,6 +445,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin"): access.resolve_hosted_conversation_world,
@@ -3523,3 +3533,29 @@ def test_hosted_connected_page_origin_reads_exact_saved_turn(hosted, monkeypatch
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(service, "managed", turn)
+
+
+@pytest.mark.parametrize("surface", ["build", "plan"])
+def test_hosted_exact_proposal_read_binds_world(hosted, monkeypatch, surface):
+    from unittest.mock import Mock
+
+    from application_state.build_proposal import service as build
+    from application_state.errors import ApplicationStateNotFoundError
+    from application_state.plan_action_dialogue import authoring_review as plan
+    from apps.live_control_server.routes import agent
+
+    read = Mock(side_effect=ApplicationStateNotFoundError("Proposal not found"))
+    if surface == "build":
+        monkeypatch.setattr(build, "BuildProposalService", lambda: SimpleNamespace(get=read))
+    else:
+        monkeypatch.setattr(plan, "read_review", read)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    action = uuid4()
+    path = f"/api/live/agent/worlds/managed/{surface}-proposals/{action}"
+    if surface == "plan":
+        path += "/review"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=foreign").status_code == 403
+    read.assert_not_called()
+    assert hosted.client.request("GET", path).status_code == 404
+    read.assert_called_once_with("managed", action)

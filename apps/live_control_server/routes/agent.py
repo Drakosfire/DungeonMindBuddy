@@ -1333,7 +1333,11 @@ def _verified_world_id(world_id: str) -> str:
 @router.get("/worlds/{world_id}/plan-proposals/{action_id}/review",
     response_model=PlanReviewSnapshotV1)
 def get_plan_authoring_review(world_id: str, action_id: UUID, request: Request):
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="Plan proposal does not accept query selectors")
     verified = _verified_world_id(world_id)
     from application_state.plan_action_dialogue.authoring_review import read_review
     try:
@@ -3054,7 +3058,9 @@ def list_build_document_proposals(world_id: str, conversation_id: UUID, request:
 def get_build_document_proposal(world_id: str, action_id: UUID, request: Request):
     from application_state.build_proposal.service import BuildProposalService
     from apps.live_control_server.services.build_document_proposal import _public
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422, detail="Build proposal does not accept query selectors")

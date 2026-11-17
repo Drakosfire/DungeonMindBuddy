@@ -567,6 +567,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/turns\/[0-9a-f-]+\/context-trace$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/(?:build-proposals\/[0-9a-f-]+|plan-proposals\/[0-9a-f-]+\/review)$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
   if (/^\/api\/live\/agent\/worlds\/[^/?]+\/build-proposals\?conversation_id=[0-9a-f-]+$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
