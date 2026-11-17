@@ -13,7 +13,7 @@ import copy
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -392,6 +392,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/media/images/preparations/{action_id}"): access.resolve_hosted_image_world,
             ("POST", "/api/live/media/images/preparations/{action_id}/asset"): access.resolve_hosted_image_world,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
+            ("POST", "/api/live/media/images/{asset_id}/save"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/library"): access.resolve_hosted_media_library,
             ("GET", "/api/live/media/images/capabilities"): access.resolve_hosted_image_world,
@@ -3314,6 +3315,22 @@ def test_hosted_generated_artwork_is_readable_in_its_world(hosted, application_s
     assert original.status_code == 200, original.text
     assert original.content == payload
     provider.generate_image.assert_awaited_once()
+
+    from tests.integration.test_build_images_postgres import ready
+
+    owner = access.hosted_world_media_owner("managed")
+    save = AsyncMock(side_effect=lambda identifier, scope: ready(media.get_asset(identifier, scope)))
+    monkeypatch.setattr(media_images.media_storage, "save_asset", save)
+    save_path = f"/api/live/media/images/{asset_id}/save"
+    assert hosted.client.request("POST", save_path, json={}, session="other-session").status_code == 403
+    assert hosted.client.request("POST", save_path, json={}, origin=None).status_code == 403
+    assert hosted.client.request("POST", save_path, json={"unexpected": True}).status_code == 403
+    save.assert_not_called()
+    saved = hosted.client.request("POST", save_path, json={})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["state"] == "ready"
+    assert media.get_asset(asset_id, owner)["state"] == "ready"
+    save.assert_awaited_once_with(UUID(asset_id), owner)
 
 
 def test_hosted_prepared_image_association_uses_world_asset_owner(hosted, monkeypatch):

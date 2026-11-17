@@ -446,6 +446,10 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && typeof body?.document_id === "string" && Boolean(body.document_id)
       && typeof body.markdown === "string" && body.markdown.includes("dmb-media:");
   }
+  if (/^\/api\/live\/media\/images\/[0-9a-f-]+\/save$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body !== null && Object.keys(body).length === 0;
+  }
   const imageGeneration = /^\/api\/live\/media\/images\/generate\?([^#]+)$/.exec(path);
   if (imageGeneration) {
     const query = new URLSearchParams(imageGeneration[1]);
