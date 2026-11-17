@@ -740,9 +740,15 @@ _CONNECTED_ERRORS = (ConnectedGraphError,ConnectedPageError, WorkspaceDocumentRe
     WorldGraphProjectionServiceError) + NATIVE_ERRORS
 
 
+def _connected_page_principal(request: Request, world_id: str):
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    return conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+
+
 @router.post('/connected-pages/prepare')
 def post_connected_page_prepare(body: ConnectedPageRequest, request: Request):
-    principal = enforce_native_graph_gm(request)
+    principal = _connected_page_principal(request, body.world_id)
     try:
         return prepare_connected_page(_managed_world_root(), body, principal=principal)
     except _CONNECTED_ERRORS as exc:
@@ -751,7 +757,7 @@ def post_connected_page_prepare(body: ConnectedPageRequest, request: Request):
 
 @router.post('/connected-pages/confirm')
 def post_connected_page_confirm(body: ConnectedPageConfirmation, request: Request):
-    principal = enforce_native_graph_gm(request)
+    principal = _connected_page_principal(request, body.world_id)
     try:
         return confirm_connected_page(_managed_world_root(), body.operation_id, body.world_id, body.confirm_token, principal=principal)
     except _CONNECTED_ERRORS as exc:
@@ -760,14 +766,8 @@ def post_connected_page_confirm(body: ConnectedPageConfirmation, request: Reques
 
 @router.get('/connected-pages/{operation_id}')
 def read_connected_page(operation_id: UUID, world_id: str, request: Request):
-    from apps.live_control_server.services import hosted_auth
-    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
-
-    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
-        require_hosted_plan_world_context(request, world_id)
-    else:
-        enforce_native_graph_gm(request)
+    principal = _connected_page_principal(request, world_id)
     try:
-        return get_connected_page(_managed_world_root(), operation_id, world_id)
+        return get_connected_page(_managed_world_root(), operation_id, world_id, principal=principal)
     except _CONNECTED_ERRORS as exc:
         raise HTTPException(status_code=getattr(exc, 'status_code', 409), detail=str(exc)) from exc

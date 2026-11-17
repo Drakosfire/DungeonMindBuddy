@@ -371,7 +371,7 @@ def prepare_connected_page(root: Path, intent: ConnectedPageRequest, *, principa
         return _response(root, state)
 
 
-def get_connected_page(root: Path, operation_id, world_id: str):
+def get_connected_page(root: Path, operation_id, world_id: str, *, principal=None):
     root = artifact_data_root(root)
     with locked_operation(operation_id) as journal:
         state = _read(journal)
@@ -382,6 +382,8 @@ def get_connected_page(root: Path, operation_id, world_id: str):
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
         if state['intent']['world_id'] != world_id:
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+        if state.get('hosted_owner') is not None:
+            _require_operation_owner(state, principal)
         _ownership(root, parse_connected_page_intent(state['intent']))
         return _response(root, state)
 

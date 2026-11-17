@@ -273,6 +273,23 @@ async def resolve_hosted_image_history(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_connected_page(request: Request) -> str:
+    if request.method == "GET":
+        world_id = request.query_params.get("world_id")
+        if request.query_params.multi_items() != [("world_id", world_id)] or await request.body():
+            raise _denied()
+    else:
+        if request.query_params:
+            raise _denied()
+        body = await request.json()
+        world_id = body.get("world_id") if isinstance(body, dict) else None
+    if not isinstance(world_id, str) or not world_id:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_conversation_world(request: Request) -> str:
     world_id = getattr(request.state, "hosted_route_world_id", None)
     if not world_id or (request.method == "GET" and await request.body()):

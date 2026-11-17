@@ -362,7 +362,9 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/rules/catalog"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/rules/query"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/rules/passages/{citation_id}"): access.resolve_hosted_rules_lookup,
-            ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_connected_page,
+            ("POST", "/api/live/connected-pages/prepare"): access.resolve_hosted_connected_page,
+            ("POST", "/api/live/connected-pages/confirm"): access.resolve_hosted_connected_page,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/world-workspace/trash"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
@@ -3431,4 +3433,41 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     response = hosted.client.request("GET", path)
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
-    read.assert_called_once_with(tmp_path, operation, "managed")
+    assert read.call_args.args == (tmp_path, operation, "managed")
+    assert read.call_args.kwargs["principal"].managed_world_id == "managed"
+
+
+def test_hosted_connected_page_writes_use_same_world_principal(hosted, monkeypatch, tmp_path):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import workspace_documents
+
+    prepare = Mock(return_value={"phase": "prepared"})
+    confirm = Mock(return_value={"phase": "complete"})
+    monkeypatch.setattr(workspace_documents, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(workspace_documents, "prepare_connected_page", prepare)
+    monkeypatch.setattr(workspace_documents, "confirm_connected_page", confirm)
+    operation = str(uuid4())
+    intent = {
+        "operation_id": operation, "world_id": "managed", "title": "Gate",
+        "place": {"label": "Gate", "kind": "location"}, "mode": "scaffold",
+        "origin": {
+            "kind": "saved_page_excerpt", "document_id": str(uuid4()), "revision": 1,
+            "content_sha256": "a" * 64, "line_start": 1, "line_end": 1,
+            "selected_text": "The gate.",
+        },
+    }
+    confirmation = {"operation_id": operation, "world_id": "managed", "confirm_token": "fixture"}
+    for action, body, call in (("prepare", intent, prepare), ("confirm", confirmation, confirm)):
+        path = f"/api/live/connected-pages/{action}"
+        assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+        assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+        assert hosted.client.request("POST", path, json={**body, "world_id": "foreign"}).status_code == 403
+        call.assert_not_called()
+        response = hosted.client.request("POST", path, json=body)
+        assert response.status_code == 200, response.text
+        assert response.headers["cache-control"] == "no-store"
+    principals = [call.call_args.kwargs["principal"] for call in (prepare, confirm)]
+    assert principals[0] == principals[1]
+    assert principals[0].managed_world_id == "managed"
+    assert principals[0].subject.startswith("hosted_dms:")
