@@ -266,6 +266,7 @@ def hosted(monkeypatch, request):
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation", agent_routes.get_world_conversation_history, methods=["GET"])
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/new", agent_routes.post_new_world_conversation, methods=["POST"])
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}", agent_routes.get_new_world_conversation_status, methods=["GET"])
+    app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolutions/{operation_id}", agent_routes.get_world_command_resolution, methods=["GET"])
     app.add_api_route("/api/live/agent/turn", agent_routes.post_agent_turn, methods=["POST"])
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}",
@@ -466,6 +467,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/agent/turn"): access.resolve_hosted_chat_turn,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolutions/{operation_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
@@ -3218,6 +3220,32 @@ def test_hosted_conversation_starts_and_reopens_in_exact_world(hosted, applicati
         assert response.status_code == 200, response.text
         assert response.headers["cache-control"] == "no-store"
         assert hosted.client.request("GET", path, session="other-session").status_code == 403
+
+
+def test_hosted_resolution_read_checks_world_and_exact_coordinates(hosted, monkeypatch):
+    from apps.live_control_server.routes import agent
+
+    command, operation = uuid4(), uuid4()
+    reads = []
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: SimpleNamespace(
+        get_command_resolution=lambda body: reads.append(body),
+    ))
+    path = (
+        f"/api/live/agent/worlds/managed/conversation/commands/{command}/resolutions/{operation}"
+        "?original_pointer_revision=0&original_active_conversation_id=null"
+        "&current_pointer_revision=1&current_active_conversation_id=null"
+    )
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&current_pointer_revision=2").status_code in (403, 422)
+    assert not reads
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "absent"
+    assert len(reads) == 1
+    assert reads[0].original_command.world_id == "managed"
+    assert reads[0].original_command.command_id == command
+    assert reads[0].resolution_operation_id == operation
 
 
 def test_hosted_citation_read_binds_world_and_saved_turn(hosted, monkeypatch):

@@ -2150,7 +2150,9 @@ def get_world_command_resolution(world_id: str, command_id: UUID, operation_id: 
     original_pointer_revision: int = Query(ge=0), original_active_conversation_id: str = Query(),
     current_pointer_revision: int = Query(ge=0), current_active_conversation_id: str = Query(),
 ) -> AgentCommandResolutionResponseV1:
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     allowed = {"original_pointer_revision", "original_active_conversation_id", "current_pointer_revision", "current_active_conversation_id"}
     if set(request.query_params) != allowed or any(len(request.query_params.getlist(key)) != 1 for key in allowed):

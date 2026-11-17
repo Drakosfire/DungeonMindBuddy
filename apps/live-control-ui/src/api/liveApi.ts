@@ -646,6 +646,15 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/conversation\/turns\/[0-9a-f-]+\/(?:related-pages|saved-sections\/\d+)\/[0-9a-f-]+$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  const resolution = /^\/api\/live\/agent\/worlds\/[^/?#%]+\/conversation\/commands\/[0-9a-f-]+\/resolutions\/[0-9a-f-]+\?([^#]+)$/.exec(path);
+  if (resolution) {
+    const query = new URLSearchParams(resolution[1]);
+    return method === "GET" && init?.body == null && query.size === 4
+      && ["original_pointer_revision", "current_pointer_revision"].every(key => /^\d+$/.test(query.get(key) ?? ""))
+      && ["original_active_conversation_id", "current_active_conversation_id"].every(
+        key => /^(?:null|[0-9a-f-]+)$/.test(query.get(key) ?? ""),
+      );
+  }
   const conversation = /^\/api\/live\/agent\/worlds\/[^/?]+\/(conversation(?:\/new|\/commands\/[0-9a-f-]+)?|conversations(?:\/active\/messages|\/[0-9a-f-]+\/(?:messages|turns|retry-context))?)(?:\?([^#]*))?$/.exec(path);
   if (conversation) {
     if (conversation[1] === "conversation/new") {
