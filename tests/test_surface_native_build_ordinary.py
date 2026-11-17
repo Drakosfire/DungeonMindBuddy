@@ -2148,6 +2148,12 @@ def test_variant_correction_creates_a_new_review_without_saving(lane, tmp_path, 
         fresh = approval_handoff(conn, **target_scope, accepted_at=datetime.now(timezone.utc))
     assert fresh["status"] == "ready"
     assert str(fresh["review_id"]) == successor["review_id"]
+    edited = case.client.put(draft_path, json={
+        "expected_revision": 2, "markdown": new_draft["markdown"] + "\nUnreviewed edit.",
+    })
+    assert edited.status_code == 200, edited.text
+    with unit_of_work() as conn:
+        assert approval_handoff(conn, **target_scope, accepted_at=datetime.now(timezone.utc)) == {"status": "stale"}
 
 
 def test_variant_exact_correction_rejects_overlapping_matches():

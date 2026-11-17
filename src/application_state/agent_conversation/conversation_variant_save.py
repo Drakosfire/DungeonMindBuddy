@@ -198,6 +198,9 @@ def approval_handoff(conn, *, world_id, conversation_id, prior_to, accepted_at, 
               AND review.revision = (
                   SELECT max(at_approval.revision)
                   FROM agent.conversation_draft_revision AS at_approval
+                  JOIN agent.conversation_variant_review AS reviewed_at_approval
+                    ON reviewed_at_approval.turn_id = at_approval.turn_id
+                   AND reviewed_at_approval.revision = at_approval.revision
                   WHERE at_approval.turn_id = producer.turn_id AND at_approval.created_at <= %s
               )
             LIMIT 2
