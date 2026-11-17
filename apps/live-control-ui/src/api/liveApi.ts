@@ -441,6 +441,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && ["build", "plan", "play"].includes(surface ?? "")
       && ["true", "false"].includes(worldGraph ?? "") && query.size === 3;
   }
+  const imageGeneration = /^\/api\/live\/media\/images\/generate\?([^#]+)$/.exec(path);
+  if (imageGeneration) {
+    const query = new URLSearchParams(imageGeneration[1]);
+    return method === "POST" && query.size === 1 && Boolean(query.get("world_id"))
+      && isRecord(requestBodyRecord(init?.body));
+  }
   const imageCapabilities = /^\/api\/live\/media\/images\/capabilities\?([^#]+)$/.exec(path);
   if (imageCapabilities) {
     const query = new URLSearchParams(imageCapabilities[1]);

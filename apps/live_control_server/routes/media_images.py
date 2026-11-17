@@ -123,8 +123,22 @@ def _image_failure_message(error: GenerationEngineError, unavailable: str) -> st
 
 
 @router.post("/generate")
-async def generate_image_preview(body: ImagePreviewRequest, request: Request, response: Response):
-    principal = enforce_native_graph_gm(request)
+async def generate_image_preview(
+    body: ImagePreviewRequest, request: Request, response: Response, world_id: str | None = None,
+):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        conversation_graph_principal, hosted_world_media_owner,
+    )
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        if world_id is None:
+            raise HTTPException(403, detail="Select a World before generating artwork.")
+        principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+        asset_owner = hosted_world_media_owner(world_id)
+    else:
+        principal = enforce_native_graph_gm(request)
+        asset_owner = principal.subject
     response.headers["Cache-Control"] = "no-store"
     if not _fal_key():
         raise HTTPException(503, detail="Image generation needs the server's fal credential.")
@@ -136,6 +150,8 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
     if body.preparation_id is not None:
         try:
             preparation = BuildImageService().get(body.preparation_id, principal.subject)
+            if world_id is not None and preparation.reservation.basis.world_id != world_id:
+                raise HTTPException(404, detail="Image preparation unavailable.")
         except ApplicationStateError as error:
             raise HTTPException(error.status_code, detail='Image preparation unavailable.') from error
     effective_prompt = MAP_FRAMING + "\n\n" + body.prompt if body.purpose == "map" else body.prompt
@@ -160,7 +176,7 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
         if image.media_type not in {"image/png", "image/jpeg", "image/webp"} or len(image.content) > 20 * 1024 * 1024:
             raise HTTPException(502, detail="The returned image could not be previewed.")
         try:
-            row = media.stage_image(image.content, principal.subject, {
+            row = media.stage_image(image.content, asset_owner, {
                 "kind": "generation", "prompt": effective_prompt, "authored_prompt": body.prompt, "model": body.model,
                 "settings": body.model_dump(mode="json", exclude={"prompt"}),
                 "observation": result.observation.model_dump(mode="json"),

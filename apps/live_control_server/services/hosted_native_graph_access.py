@@ -251,9 +251,10 @@ def first_world_authorizer(request: Request):
     return authorize
 
 
-async def resolve_hosted_image_preparation(request: Request) -> str:
+async def resolve_hosted_image_world(request: Request) -> str:
     world_id = request.query_params.get("world_id")
-    if not world_id or request.query_params.multi_items() != [("world_id", world_id)] or await request.body():
+    if (not world_id or request.query_params.multi_items() != [("world_id", world_id)]
+        or (request.method == "GET" and await request.body())):
         raise _denied()
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
     request.state.hosted_conversation_world = world.world_id
