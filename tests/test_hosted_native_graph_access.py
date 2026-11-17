@@ -306,7 +306,8 @@ def hosted(monkeypatch, request):
         app,
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
-               if "/variant-reviews/{review_id}" in key[1]},
+               if "/variant-reviews/{review_id}" in key[1]
+               or key[1].endswith("/plan-proposals/{action_id}/review")},
             **{
                 (
                     "POST",
