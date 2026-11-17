@@ -539,3 +539,22 @@ it("reads earlier image directions with the exact hosted session route", async (
   await expect(api.authenticatedApiFetch(path + "&world_id=other")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("uses the hosted session for status, prepare, and confirm of an exact creature draft", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const path = "/api/live/threat-drafts/11111111-1111-4111-8111-111111111111/native-creature";
+  await api.authenticatedApiFetch(path + "?world_id=managed");
+  await api.authenticatedApiFetch(path + "/prepare", { method: "POST", body: '{"world_id":"managed"}' });
+  await api.authenticatedApiFetch(path + "/confirm", { method: "POST", body: '{"review":{"world_id":"managed"}}' });
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(path + "/confirm?world_id=managed", {
+    method: "POST", body: '{"review":{"world_id":"managed"}}',
+  })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(3);
+});
