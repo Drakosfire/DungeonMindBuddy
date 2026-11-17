@@ -347,6 +347,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/extract-promote/runs/{run_id}/worldbuilding-publication-coverage"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
@@ -2886,3 +2887,43 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_extraction_coverage_requires_owned_document_and_matching_result(hosted, monkeypatch):
+    from apps.live_control_server.models.worldbuilding_publication_coverage import WorldbuildingPublicationCoverage
+    from apps.live_control_server.services import (
+        graph_run_registry, source_artifact_registry, workspace_document_registry,
+        worldbuilding_publication_coverage,
+    )
+
+    document_id = "00000000-0000-4000-8000-000000000001"
+    monkeypatch.setattr(workspace_document_registry, "get_workspace_document",
+                        lambda *_: SimpleNamespace(kind="worldbuilding_source", world_id="managed"))
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run",
+                        lambda run_id: SimpleNamespace(source_artifact_id=run_id, source_domain="worldbuilding"))
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact",
+                        lambda artifact: SimpleNamespace(source_domain="worldbuilding",
+                            workspace_document_id=document_id, world_id="foreign" if artifact == "foreign" else "managed"))
+    calls = []
+
+    def read(run_id):
+        calls.append(run_id)
+        world_id = "foreign" if run_id == "mismatch" else "managed"
+        return WorldbuildingPublicationCoverage(
+            run_id=run_id, managed_world_id=world_id, native_world_id="native",
+            revision_id="rev:head", source_artifact_id="artifact", source_revision_id="source",
+            status="not_published", scanned_revision_count=1,
+        )
+
+    monkeypatch.setattr(worldbuilding_publication_coverage, "get_worldbuilding_publication_coverage", read)
+    base = "/api/live/extract-promote/runs"
+    path = f"{base}/owned/worldbuilding-publication-coverage"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", f"{base}/foreign/worldbuilding-publication-coverage").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=foreign").status_code >= 400
+    assert calls == []
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 200, result.text
+    assert result.json()["managedWorldId"] == "managed"
+    assert hosted.client.request("GET", f"{base}/mismatch/worldbuilding-publication-coverage").status_code == 403
+    assert calls == ["owned", "mismatch"]

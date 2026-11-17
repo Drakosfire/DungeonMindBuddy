@@ -157,15 +157,24 @@ router = APIRouter(
 def get_worldbuilding_publication_coverage_route(
     request: Request,
     run_id: str,
-    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """Authenticated historical proof; no publication replay or caller selectors."""
     from apps.live_control_server.services.worldbuilding_publication_coverage import (
         get_worldbuilding_publication_coverage,
     )
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
+
+    local = hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS
+    if local:
+        enforce_native_graph_gm(request)
+    else:
+        require_hosted_build_native_source(request, getattr(request.state, "hosted_build_page_world", ""))
+
     try:
         _reject_selector_query(request)
-        return get_worldbuilding_publication_coverage(run_id).model_dump(mode="json", by_alias=True)
+        coverage = get_worldbuilding_publication_coverage(run_id)
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -173,6 +182,10 @@ def get_worldbuilding_publication_coverage_route(
             "Publication coverage is unknown because native evidence could not be read.",
             code="publication_coverage_unavailable", status_code=503,
         ))
+
+    if not local:
+        require_hosted_build_native_source(request, coverage.managed_world_id)
+    return coverage.model_dump(mode="json", by_alias=True)
 
 
 def _reject_selector_query(request: Request) -> None:
