@@ -1686,7 +1686,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const authority = context.receipt.graph_authority;
     const ref = (kind: string, object_id: string, revision: string) => ({ resolution: "resolved" as const,
       kind, object_id, revision, content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null });
-    const historical = { ...base, knowledge_context: context,
+    const historical = { ...base, idempotency_key: "11111111-1111-4111-8111-000000000001", knowledge_context: context,
       provenance: { ...base.provenance, surface_id: "build", surface_instance_id: "build-instance",
         primary_work: { ...ref("build", "source-one", "2"), content_sha256: SHA }, supporting_work: [
           ref("dmb_build_source_visibility_v1", source.visibility, "1"),
@@ -1695,7 +1695,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
         ] } };
     if (foreign) context.receipt.source_basis.document_id = "another-source";
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(),
-      schema: "dmb_agent_conversation_history_v2", turns: [historical] });
+      schema: "dmb_agent_conversation_history_v3", turns: [historical] });
     vi.mocked(postWorldGraphSourceAnchorRead).mockResolvedValue({
       schema: "dmb_world_graph_source_anchor_read_v1", outcome: "enough", anchorId: "anchor-one",
       evidenceRefId: "evidence-internal-test", sourceArtifactId: "artifact-one", sourceRevisionId: "source-rev-one",
@@ -1705,12 +1705,14 @@ describe("one App-level World conversation host across Plan and Play", () => {
     } as Awaited<ReturnType<typeof postWorldGraphSourceAnchorRead>>);
     render(<Harness initial="build" />);
     fireEvent.click(await screen.findByRole("button", {name: "Open"}));
+    const details = await screen.findByText("Details", { selector: "summary" });
+    fireEvent.click(details);
     if (foreign) {
-      await screen.findByRole("group", {name: "World history unavailable"});
+      await screen.findByText(/invalid Graph-context receipt/);
       expect(screen.queryByRole("button", {name: "Open evidence"})).not.toBeInTheDocument();
     } else {
       await screen.findAllByText("The western gate is watched.");
-      fireEvent.click(screen.getByText(/1 claim · 1 cited Graph reference/));
+      fireEvent.click(await screen.findByText(/1 claim · 1 cited Graph reference/));
       fireEvent.click(await screen.findByRole("button", {name: "Open evidence"}));
       await screen.findByText("The saved source describes the guards at the western gate.");
       expect(postWorldGraphSourceAnchorRead).toHaveBeenCalledWith(expect.objectContaining({
