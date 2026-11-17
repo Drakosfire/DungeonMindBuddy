@@ -734,3 +734,23 @@ def test_native_denied_source_cannot_publish(case,monkeypatch):
     assert response.status_code==409
     assert case.authority.publish_calls==0
     assert get(case).json()['phase']=='prepared'
+
+
+def test_hosted_operation_is_bound_to_reserving_principal(case):
+    from types import SimpleNamespace
+
+    intent = owner.parse_connected_page_intent(case.request)
+    creator = SimpleNamespace(role="gm", auth_method="hosted_owner", subject="hosted_dms:creator")
+    other = SimpleNamespace(role="gm", auth_method="hosted_owner", subject="hosted_dms:other")
+    prepared = owner.prepare_connected_page(case.root, intent, principal=creator)
+    assert prepared["phase"] == "prepared"
+    with pytest.raises(owner.ConnectedPageError, match="not found"):
+        owner.prepare_connected_page(case.root, intent, principal=other)
+    with pytest.raises(owner.ConnectedPageError, match="not found"):
+        owner.confirm_connected_page(
+            case.root, intent.operation_id, intent.world_id, prepared["prepared"]["confirm_token"], principal=other,
+        )
+    completed = owner.confirm_connected_page(
+        case.root, intent.operation_id, intent.world_id, prepared["prepared"]["confirm_token"], principal=creator,
+    )
+    assert completed["phase"] == "complete"

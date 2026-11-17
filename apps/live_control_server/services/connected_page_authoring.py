@@ -88,8 +88,11 @@ def verify_origin_capture(origin) -> str:
 def _validate_state(state, operation_id):
     try:
         intent = parse_connected_page_intent(state['intent'])
-        if (set(state) != {'schema', 'intent', 'intent_sha256', 'page_id', 'phase', 'initial_markdown',
+        if (set(state) - {'hosted_owner'} != {'schema', 'intent', 'intent_sha256', 'page_id', 'phase', 'initial_markdown',
                           'working_text_sha256', 'saved_source', 'graph_request', 'prepared', 'receipt'}
+                or ('hosted_owner' in state and (
+                    not isinstance(state['hosted_owner'], str) or not state['hosted_owner'].startswith('hosted_dms:')
+                ))
                 or state['schema'] not in (legacy_operation_schema(intent), native_graph.SCHEMA)
                 or (isinstance(intent, SavedConnectedPageIntent) and state['working_text_sha256'] != intent.origin.content_sha256)
                 or state['intent_sha256'] != _sha(_json(intent.model_dump(mode='json')))
@@ -311,6 +314,15 @@ def _response(root, state):
             'relationships': intent.relationships} if receipt else None}
 
 
+def _require_operation_owner(state, principal):
+    owner = state.get('hosted_owner')
+    if getattr(principal, 'auth_method', None) == 'hosted_owner':
+        if owner != principal.subject:
+            raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+    elif owner is not None:
+        raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+
+
 def prepare_connected_page(root: Path, intent: ConnectedPageRequest, *, principal):
     root = artifact_data_root(root)
     native_graph.require_native_graph_gm(principal)
@@ -318,6 +330,8 @@ def prepare_connected_page(root: Path, intent: ConnectedPageRequest, *, principa
     with locked_operation(intent.operation_id) as journal:
         state = _read(journal)
         digest = _sha(_json(intent.model_dump(mode='json')))
+        if state is not None:
+            _require_operation_owner(state, principal)
         if state and state['intent_sha256'] != digest:
             raise ConnectedPageError('This operation already belongs to a different page request')
         if state and state['schema'] != native_graph.SCHEMA and state['phase'] != 'complete':
@@ -333,6 +347,8 @@ def prepare_connected_page(root: Path, intent: ConnectedPageRequest, *, principa
                 'intent_sha256': digest, 'page_id': str(uuid.uuid4()), 'phase': 'reserved',
                 'initial_markdown': _initial_markdown(intent, source), 'working_text_sha256': working_hash,
                 'saved_source': None, 'graph_request': None, 'prepared': None, 'receipt': None}
+            if getattr(principal, 'auth_method', None) == 'hosted_owner':
+                state['hosted_owner'] = principal.subject
             journal.save(state)
         if state['phase'] == 'reserved':
             create_workspace_document(root, title=intent.title, campaign_id=intent.world_id,
@@ -382,6 +398,7 @@ def confirm_connected_page(root: Path, operation_id, world_id: str, confirm_toke
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
         if state['intent']['world_id'] != world_id:
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+        _require_operation_owner(state, principal)
         _ownership(root, parse_connected_page_intent(state['intent']))
         _response(root, state)
         if not state['prepared'] or state['prepared']['confirm_token'] != confirm_token:
