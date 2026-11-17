@@ -1989,6 +1989,12 @@ def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_
     assert reviewed.status_code == 200, reviewed.text
     assert reviewed.json()["base_locator"]["revision_id"] == "rev_meatmind"
 
+    definition = reviewed.json()["definition"]
+    markdown = draft.json()["markdown"]
+    assert markdown.startswith(f"# {definition['identity']['name']}\n")
+    assert all(rule["rules_text"] in markdown for rule in definition["rule_elements"])
+    assert markdown != case.turn.assistant_text
+
 
 def test_requested_chat_draft_is_persisted_by_ordinary_build(lane, tmp_path, monkeypatch):
     case = _fresh_case(
