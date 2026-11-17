@@ -1,3 +1,4 @@
+import { navigatePrimaryAppHref } from "../chrome/appNavigation";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { loadNativeDocuments, nativeDocumentHref } from "./buildNativeDocuments";
 import type { NativeSourceMetadata } from "../api/nativeSourceInspection";
@@ -305,7 +306,7 @@ export function BuildDocumentSelector({
       setWithdrawn(ids => [...ids, deleteTarget.id]);
       setDeleteTarget(null);
       if (deleteTarget.id === activeId || (deleteTarget.statblock && deleteTarget.statblock.draftId === activeStatblock?.draftId)) {
-        window.location.assign("/build?" + new URLSearchParams({ world: worldId }));
+        navigatePrimaryAppHref("/build?" + new URLSearchParams({ world: worldId }), { allowBuildTargetChange: true });
       }
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : "Could not delete the document.");
@@ -316,9 +317,9 @@ export function BuildDocumentSelector({
 
   function openDocument(id: string) {
     closePicker();
-    if (id.startsWith("/build?")) window.location.assign(id);
+    if (id.startsWith("/build?")) navigatePrimaryAppHref(id, { allowBuildTargetChange: true });
     else if (worldId && (activeStatblock || activeNativeId || new URLSearchParams(window.location.search).has("pdf"))) {
-      window.location.assign("/build?" + new URLSearchParams({ world: worldId, documentId: id }));
+      navigatePrimaryAppHref("/build?" + new URLSearchParams({ world: worldId, documentId: id }), { allowBuildTargetChange: true });
     } else onSelect(id);
   }
 
