@@ -217,12 +217,12 @@ def test_statblock_rule_edits_preserve_unmentioned_mechanics():
 
     base = _definition().model_dump(mode="json")
     first = base["rule_elements"][0]
-    addition = first | {"key": "new_rule"}
-    replacement = first | {"summary": "Explicit replacement"}
+    addition = first | {"key": "new_rule", "costs": None}
+    replacement = first | {"summary": "Explicit replacement", "costs": []}
     assembled = _apply_statblock_rule_edits(base, {
         "add_rules": [addition], "replace_rules": [replacement],
     })
-    assert assembled == base | {"rule_elements": [replacement, *base["rule_elements"][1:], addition]}
+    assert assembled == base | {"rule_elements": [replacement, *base["rule_elements"][1:], addition | {"costs": []}]}
     assert base == _definition().model_dump(mode="json")
     with pytest.raises(ValueError, match="key conflicts"):
         _apply_statblock_rule_edits(base, {"add_rules": [replacement], "replace_rules": []})
