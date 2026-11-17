@@ -615,6 +615,24 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const action = requestBodyRecord(init?.body)?.action;
     return query.size === 1 && Boolean(query.get("world_id")) && (action === "end" || action === "save" || action === "reopen");
   }
+  const runEncounter = /^\/api\/live\/combat\/run-encounters\/[0-9a-f-]+\/scenes\/[^/?#]+?(\/preview|\/cancel|\/inspect|\/encounters\/[0-9a-f-]+(?:\/mechanics-adoptions(?::cancel|\/[0-9a-f-]+)?)?)?\?([^#]+)$/.exec(path);
+  if (runEncounter) {
+    const suffix = runEncounter[1] ?? "";
+    const query = new URLSearchParams(runEncounter[2]);
+    const history = method === "GET" && suffix.endsWith("/mechanics-adoptions");
+    const allowed = history ? ["world_id", "before_operation_id", "limit"] : ["world_id"];
+    if (!query.get("world_id") || query.size !== new Set(query.keys()).size
+      || [...query.keys()].some(key => !allowed.includes(key))) return false;
+    if (!suffix || suffix === "/cancel" || suffix === "/inspect" || suffix === "/preview") {
+      return (method === "GET" && (!suffix || suffix === "/preview") && init?.body == null)
+        || (method === "POST" && suffix !== "/preview"
+          && requestBodyRecord(init?.body)?.schema_version === "dmb_scene_encounter_materialize_v1");
+    }
+    const encounter = /^\/encounters\/[0-9a-f-]+$/.test(suffix);
+    return (method === "GET" && !suffix.endsWith(":cancel") && init?.body == null)
+      || ((encounter && method === "PUT" || method === "POST" && /\/mechanics-adoptions(?::cancel)?$/.test(suffix))
+        && isRecord(requestBodyRecord(init?.body)));
+  }
   const sceneTemplate = /^\/api\/live\/combat\/scene-templates(\/cancel|\/operations\/[0-9a-f-]+|\/[0-9a-f-]+\/scenes\/[^/?#]+(?:\/versions\/[1-9][0-9]*)?)?\?([^#]+)$/.exec(path);
   if (sceneTemplate) {
     const query = new URLSearchParams(sceneTemplate[2]);

@@ -1,6 +1,6 @@
 """GM-only scoped encounter commands. APP verifies complete Run ownership."""
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from application_state.play import session_encounters as sessions
 from application_state.play.session_encounter_types import (
     RunEncounterScope, MaterializeSceneEncounterRequest,
@@ -11,10 +11,15 @@ from application_state.combat_encounters.adoption_types import AdoptMechanicsReq
 from apps.live_control_server.routes.combat_encounters import _verified_world, _adoption_call
 from apps.live_control_server.routes.combat_scene_templates import call
 from apps.live_control_server.services import combat_encounters, combat_mechanics
-from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
+from apps.live_control_server.services.hosted_native_graph_access import require_combat_encounter_access
+
+
+def run_encounter_access(request: Request, world_id: str = Query(min_length=1, max_length=63)) -> None:
+    require_combat_encounter_access(request, world_id)
+
 
 router = APIRouter(prefix='/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}',
-    tags=['combat-run-encounters'], dependencies=[Depends(native_graph_gm_dependency)])
+    tags=['combat-run-encounters'], dependencies=[Depends(run_encounter_access)])
 
 @router.get('')
 def read(run_id: UUID, scene_id: str, world_id: str = Query(min_length=1,max_length=63)):

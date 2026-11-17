@@ -348,8 +348,9 @@ def hosted(monkeypatch, request):
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
         agent_routes.get_world_turn_native_source_section, methods=["GET"],
     )
-    from apps.live_control_server.routes import combat_scene_templates
+    from apps.live_control_server.routes import combat_run_encounters, combat_scene_templates
 
+    app.include_router(combat_run_encounters.router)
     app.include_router(combat_scene_templates.router)
     app.include_router(combat_encounters.router)
     app.include_router(threat_drafts.router)
@@ -390,7 +391,7 @@ def hosted(monkeypatch, request):
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
                if "/variant-reviews/{review_id}" in key[1]
-               or key[1].startswith("/api/live/combat/scene-templates")},
+               or key[1].startswith(("/api/live/combat/scene-templates", "/api/live/combat/run-encounters/"))},
             **{
                 (
                     "POST",
@@ -4520,3 +4521,20 @@ def test_hosted_scene_template_command_requires_world_owner_and_origin(hosted, m
     assert response.status_code == 200, response.text
     assert cancel.call_args.kwargs["world_id"] == "managed"
     assert cancel.call_args.kwargs["request"].pin.scene_id == "scene:gate"
+
+def test_hosted_run_encounter_read_binds_exact_world_run_and_scene(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import combat_run_encounters
+
+    monkeypatch.setattr(combat_run_encounters, "_verified_world", lambda world: world)
+    read = Mock(return_value=None)
+    monkeypatch.setattr(combat_run_encounters.sessions, "read_encounter", read)
+    run_id = uuid4()
+    path = f"/api/live/combat/run-encounters/{run_id}/scenes/scene%3Agate?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    assert hosted.client.request("POST", path, origin="https://outside.example", json={}).status_code == 403
+    read.assert_not_called()
+    assert hosted.client.request("GET", path).status_code == 200
+    read.assert_called_once_with(world_id="managed", run_id=run_id, scene_id="scene:gate")
