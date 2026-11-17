@@ -476,6 +476,10 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && typeof body?.world_id === "string" && Boolean(body.world_id)
       && typeof body.operation_id === "string" && Boolean(body.operation_id);
   }
+  if (path === "/api/live/graph-authoring/document-relationship/request") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.world_id === "string" && Boolean(body.world_id);
+  }
   if (path === "/api/live/graph-authoring/document-relationship/native-prepare"
     || path === "/api/live/graph-authoring/document-relationship/native-confirm") {
     const review = requestBodyRecord(init?.body)?.review;

@@ -358,6 +358,7 @@ def hosted(monkeypatch, request):
     app.add_api_route("/api/live/graph-authoring/commit", graph_authoring.post_graph_object_authoring_commit, methods=["POST"])
     app.add_api_route("/api/live/graph-authoring/object-kinds", graph_authoring.get_graph_object_authoring_kinds, methods=["GET"])
     app.add_api_route("/api/live/graph-authoring/document-relationship/native-prepare", graph_authoring.post_native_relationship_prepare, methods=["POST"])
+    app.add_api_route("/api/live/graph-authoring/document-relationship/request", graph_authoring.post_document_relationship_request, methods=["POST"])
     app.add_api_route("/api/live/graph-authoring/document-relationship/native-confirm", graph_authoring.post_native_relationship_confirm, methods=["POST"])
     app.include_router(extract_promote.router)
     app.include_router(live.router)
@@ -412,6 +413,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/graph-authoring/commit"): access.resolve_hosted_manual_knowledge,
             ("GET", "/api/live/graph-authoring/object-kinds"): access.resolve_hosted_plan_world_context,
             ("POST", "/api/live/graph-authoring/document-relationship/native-prepare"): access.resolve_hosted_native_relationship,
+            ("POST", "/api/live/graph-authoring/document-relationship/request"): access.resolve_hosted_native_relationship,
             ("POST", "/api/live/graph-authoring/document-relationship/native-confirm"): access.resolve_hosted_native_relationship,
             ("POST", "/api/live/connected-pages/prepare"): access.resolve_hosted_connected_page,
             ("POST", "/api/live/connected-pages/confirm"): access.resolve_hosted_connected_page,
@@ -2192,6 +2194,31 @@ def test_hosted_turn_evidence_checks_owner_and_exact_selectors(hosted, monkeypat
     result = hosted.client.request("GET", recap_path)
     assert result.status_code == 404, result.text
     assert calls[-1] == ("dm-context-anchor:v2:recap", "recap-page:v2:second")
+
+def test_hosted_relationship_request_uses_owned_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import graph_authoring
+
+    calls = []
+    def build(root, request, principal):
+        calls.append((request.world_id, principal.subject))
+        return SimpleNamespace(model_dump=lambda **kwargs: {"worldId": request.world_id})
+
+    monkeypatch.setattr(graph_authoring, "relationship_request", build)
+    endpoint = {"node_id": None, "label": "Edge", "kind": "location"}
+    body = {
+        "world_id": "managed", "document_source": {"documentId": str(uuid4()), "revision": 1,
+                                                     "contentSha256": "a" * 64},
+        "source": endpoint, "target": {**endpoint, "label": "Mireward"},
+        "quote": "Edge is near Mireward.", "predicate": "located_in", "label": "Location", "context": "Recap",
+    }
+    path = "/api/live/graph-authoring/document-relationship/request"
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert not calls
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert calls == [("managed", f"hosted_dms:{OWNER}")]
+
 
 def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypatch):
     from apps.live_control_server.routes import graph_authoring

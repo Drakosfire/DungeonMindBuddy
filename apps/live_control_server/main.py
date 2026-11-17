@@ -200,6 +200,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/graph-authoring/commit"): resolve_hosted_manual_knowledge,
     ("GET", "/api/live/graph-authoring/object-kinds"): resolve_hosted_plan_world_context,
     ("POST", "/api/live/graph-authoring/document-relationship/native-prepare"): resolve_hosted_native_relationship,
+    ("POST", "/api/live/graph-authoring/document-relationship/request"): resolve_hosted_native_relationship,
     ("POST", "/api/live/graph-authoring/document-relationship/native-confirm"): resolve_hosted_native_relationship,
     ("POST", "/api/live/connected-pages/prepare"): resolve_hosted_connected_page,
     ("POST", "/api/live/connected-pages/confirm"): resolve_hosted_connected_page,

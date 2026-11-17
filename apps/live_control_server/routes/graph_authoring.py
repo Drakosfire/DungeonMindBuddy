@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, ConfigDict
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.services.graph_document_relationship import (
@@ -18,7 +18,7 @@ from apps.live_control_server.services.graph_document_relationship import (
 from apps.live_control_server.config import repo_root
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.services.native_graph_inspection import InspectionUnavailable
-from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm, native_graph_gm_dependency
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
 from apps.live_control_server.services.workspace_document_registry import WorkspaceDocumentRegistryError
 from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
@@ -58,8 +58,9 @@ def get_graph_object_authoring_kinds(request: Request = None, world_id: str | No
 @router.post("/document-relationship/request")
 def post_document_relationship_request(
     request: DocumentRelationshipRequest,
-    principal=Depends(native_graph_gm_dependency),
+    request_context: Request,
 ) -> dict[str, Any]:
+    principal = _relationship_principal(request_context, request.world_id)
     try:
         return relationship_request(repo_root(), request, principal).model_dump(mode="json", by_alias=True)
     except (InspectionUnavailable, DungeonMindError) as exc:

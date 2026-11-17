@@ -318,7 +318,7 @@ async def resolve_hosted_native_relationship(request: Request) -> str:
     if request.query_params:
         raise _denied()
     body = await request.json()
-    review = body.get("review") if isinstance(body, dict) else None
+    review = body if request.url.path.endswith("/request") else body.get("review") if isinstance(body, dict) else None
     world_id = review.get("world_id") if isinstance(review, dict) else None
     if not isinstance(world_id, str) or not world_id:
         raise _denied()
