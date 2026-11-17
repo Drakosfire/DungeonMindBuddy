@@ -901,3 +901,21 @@ def test_unlayered_v1_fingerprint_is_unchanged():
             ).encode()
         ).hexdigest()
     )
+
+
+def test_saved_variant_href_survives_ordinary_page_commit(tmp_path, page):
+    from uuid import uuid4
+
+    body = "# Edge\n\nBefore the insertion.\n\nAfter the insertion.\n"
+    first, _ = save(tmp_path, page, body)
+    href = (
+        f"/statblock?world={page.world_id}&conversation={uuid4()}"
+        f"&turn={uuid4()}&variantReview={uuid4()}"
+    )
+    link = f"[Open saved statblock variant]({href})"
+    edited = body.replace("After the insertion.", f"{link}\n\nAfter the insertion.")
+    result, _ = save(tmp_path, first.committed_record, edited)
+    reopened = workspace.get_committed_page_snapshot(tmp_path, page.document_id)
+    assert reopened.loaded_revision == result.committed_record.revision
+    assert reopened.markdown == edited
+    assert reopened.markdown.count(href) == 1

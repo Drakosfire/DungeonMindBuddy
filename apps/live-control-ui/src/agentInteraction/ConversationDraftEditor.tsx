@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   openConversationDraft,
   openVariantReview,
@@ -9,10 +9,19 @@ import {
   type ConversationDraftScope,
 } from "../api/conversationDraftApi";
 
+import type { BuildComposeBridge, PreparedBuildProposal } from "../buildSurface/buildComposeBridge";
 import { savedConversationVariantHref } from "../statblocks/savedStatblockLocation";
 import { StatblockRenderer } from "../statblocks/render/StatblockRenderer";
 
-export function ConversationDraftEditor({ scope }: { scope: ConversationDraftScope }) {
+interface VariantPagePlacement {
+  documentId: string;
+  bridge: BuildComposeBridge;
+}
+
+export function ConversationDraftEditor({ scope, placement }: {
+  scope: ConversationDraftScope;
+  placement?: VariantPagePlacement;
+}) {
   const id = useId();
   const [draft, setDraft] = useState<ConversationDraft | null>(null);
   const [markdown, setMarkdown] = useState("");
@@ -21,6 +30,42 @@ export function ConversationDraftEditor({ scope }: { scope: ConversationDraftSco
 
   const [review, setReview] = useState<{ id: string; data: ConversationVariantReview } | null>(null);
   const [savedVariant, setSavedVariant] = useState(false);
+
+  const pendingPlacement = useRef<{ href: string; prepared: PreparedBuildProposal } | null>(null);
+  const [linkedHref, setLinkedHref] = useState<string | null>(null);
+
+  async function saveVariantLink(reviewId: string) {
+    if (!placement?.bridge.placeSavedVariantLink) return;
+    const variant = { ...scope, reviewId };
+    const href = savedConversationVariantHref(variant);
+    const { bridge, documentId } = placement;
+    setBusy(true);
+    setError("");
+    try {
+      const pending = pendingPlacement.current;
+      if (pending && pending.href !== href) {
+        throw new Error("Finish saving the previous variant link first.");
+      }
+      let prepared = pending?.prepared;
+      if (!prepared) {
+        const captured = await bridge.capture();
+        if (captured.basis.document_id !== documentId || captured.basis.world_id !== scope.worldId) {
+          throw new Error("Open the original Build page before linking the variant.");
+        }
+        prepared = await bridge.placeSavedVariantLink!(captured, variant);
+        pendingPlacement.current = { href, prepared };
+      }
+      await bridge.saveProposal(
+        prepared.captured.basis, prepared.afterEditorSha256, prepared.afterDraftSha256,
+      );
+      pendingPlacement.current = null;
+      setLinkedHref(href);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not save the variant link.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function inspectVariant(reviewId: string) {
     setBusy(true);
@@ -113,6 +158,12 @@ export function ConversationDraftEditor({ scope }: { scope: ConversationDraftSco
               {savedVariant && <>
                 <p role="status">Statblock variant saved.</p>
                 <a href={savedConversationVariantHref({ ...scope, reviewId: review.id })}>Open saved variant</a>
+                {placement?.bridge.placeSavedVariantLink && <button type="button" disabled={busy || linkedHref === savedConversationVariantHref({ ...scope, reviewId: review.id })}
+                  onClick={() => void saveVariantLink(review.id)}>
+                  Insert at cursor and save page
+                </button>}
+                {linkedHref === savedConversationVariantHref({ ...scope, reviewId: review.id }) &&
+                  <p role="status">Variant link verified on the saved page.</p>}
               </>}
             </section>
           )}

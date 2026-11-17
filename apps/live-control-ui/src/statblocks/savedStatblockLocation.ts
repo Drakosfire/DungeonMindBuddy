@@ -36,3 +36,15 @@ export function readSavedConversationVariantTarget(snapshot: string): SavedConve
  const [worldId, conversationId, turnId, reviewId] = values.map(items => items[0]!);
  return { worldId, conversationId, turnId, reviewId };
 }
+
+
+/** Inert first-party page link. The server still authorizes the saved receipt. */
+export function admittedSavedConversationVariantHref(value: string): boolean {
+ if (!value.startsWith("/statblock?") || /[\\#\s]/u.test(value)) return false;
+ const target = readSavedConversationVariantTarget(value);
+ if (!target) return false;
+ const params = new URL(value, "http://localhost").searchParams;
+ const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+ return [...params].length === 4 && /^[A-Za-z0-9._:-]+$/.test(target.worldId)
+  && [target.conversationId, target.turnId, target.reviewId].every(part => uuid.test(part));
+}

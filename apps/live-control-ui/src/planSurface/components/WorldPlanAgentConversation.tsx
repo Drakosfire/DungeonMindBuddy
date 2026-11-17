@@ -6496,6 +6496,9 @@ export function WorldPlanAgentConversation({
         <ConversationDraftEditor
           key={`draft:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
           scope={{ worldId: verifiedWorldId, conversationId: history.conversation_id, turnId: turn.turn_id }}
+          placement={onOriginalPage && buildMode?.savedSource && buildMode.composeBridge
+            ? { documentId: buildMode.savedSource.documentId, bridge: buildMode.composeBridge }
+            : undefined}
         />
       );
     const hasLightweightReply = Boolean(pageSuggestion || turn.assistant_text || ['completed','failed','interrupted'].includes(turn.lifecycle_status));
