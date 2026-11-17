@@ -109,9 +109,9 @@ export async function correctRecapRunEvidence(input: {
   parentRunId: string;
   parentCandidateSha256: string;
   corrections: ExactRunEvidenceQuoteCorrection[];
-}): Promise<RecapEvidenceCorrectionResponse> {
+}, worldId?: string): Promise<RecapEvidenceCorrectionResponse> {
   const { response } = await authenticatedApiFetch(
-    `/api/live/extract-promote/runs/${encodeURIComponent(input.parentRunId)}/recap-evidence-corrections`,
+    `/api/live/extract-promote/runs/${encodeURIComponent(input.parentRunId)}/recap-evidence-corrections${worldId ? `?managed_world_id=${encodeURIComponent(worldId)}` : ""}`,
     { method: "POST", body: JSON.stringify({ schema: "dmb_exact_run_evidence_correction_request_v1", ...input }) },
   );
   if (!response.ok) {

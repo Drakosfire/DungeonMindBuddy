@@ -765,12 +765,12 @@ def _commit_plan_postgres(
 
 
 def prepare_tiptap_markdown_write(
-    *, root: Path, request: TiptapMarkdownWritePrepareRequest
+    *, root: Path, request: TiptapMarkdownWritePrepareRequest, media_owner: str = "local_operator",
 ) -> TiptapMarkdownWritePrepareResponse:
     write_mode = _normalize_write_mode(request.write_mode)
     if write_mode == "source_import":
         _source_import_content(request.markdown)
-    validate_saved_media_references(request.markdown)
+    validate_saved_media_references(request.markdown, media_owner)
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
 
@@ -795,12 +795,12 @@ def prepare_tiptap_markdown_write(
 
 
 def commit_tiptap_markdown_write(
-    *, root: Path, request: TiptapMarkdownWriteCommitRequest
+    *, root: Path, request: TiptapMarkdownWriteCommitRequest, media_owner: str = "local_operator",
 ) -> TiptapMarkdownWriteCommitResponse:
     write_mode = _normalize_write_mode(request.write_mode)
     if write_mode == "source_import":
         _source_import_content(request.markdown)
-    validate_saved_media_references(request.markdown)
+    validate_saved_media_references(request.markdown, media_owner)
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
 

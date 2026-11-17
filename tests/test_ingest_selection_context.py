@@ -349,10 +349,10 @@ def test_neighborhood_is_bounded_sorted_and_explicitly_truncated(context):
     assert ids == sorted(ids) and len(ids) == 65 and "e079" in ids
 
 
-def test_authenticated_route_and_schema_rejection(context):
+def test_authenticated_route_and_schema_rejection(context, monkeypatch):
     from apps.live_control_server.routes import extract_promote as routes
     from apps.live_control_server.services.agent_graph_auth import (
-        native_graph_gm_dependency,
+        enforce_native_graph_gm,
         NativeGraphPrincipal,
     )
 
@@ -361,7 +361,9 @@ def test_authenticated_route_and_schema_rejection(context):
     principal = NativeGraphPrincipal(
         subject="operator:http", role="gm", auth_method="local_operator"
     )
-    app.dependency_overrides[native_graph_gm_dependency] = lambda: principal
+    from apps.live_control_server.services import hosted_native_graph_access as access
+
+    monkeypatch.setattr(access, "enforce_native_graph_gm", lambda _: principal)
     url = f"/api/live/extract-promote/runs/{context.run.run_id}/selection-context"
 
     async def exercise():
@@ -385,7 +387,7 @@ def test_authenticated_route_and_schema_rejection(context):
                 url, json={**context.body, "expected_run_revision": 1}
             )
             assert stale.status_code == 409
-            app.dependency_overrides.clear()
+            monkeypatch.setattr(access, "enforce_native_graph_gm", enforce_native_graph_gm)
             unauthenticated = await client.post(url, json=context.body)
             assert unauthenticated.status_code in (401, 503)
 

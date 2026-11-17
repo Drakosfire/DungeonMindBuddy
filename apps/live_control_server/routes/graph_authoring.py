@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, ConfigDict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.services.graph_document_relationship import (
@@ -18,7 +18,7 @@ from apps.live_control_server.services.graph_document_relationship import (
 from apps.live_control_server.config import repo_root
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.services.native_graph_inspection import InspectionUnavailable
-from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
 from apps.live_control_server.services.workspace_document_registry import WorkspaceDocumentRegistryError
 from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
@@ -48,15 +48,19 @@ _STORE_RETIRED = {
 
 
 @router.get("/object-kinds")
-def get_graph_object_authoring_kinds() -> dict[str, Any]:
+def get_graph_object_authoring_kinds(request: Request = None, world_id: str | None = None) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     return {"objectKinds": graph_review_supported_object_kinds()}
 
 
 @router.post("/document-relationship/request")
 def post_document_relationship_request(
     request: DocumentRelationshipRequest,
-    principal=Depends(native_graph_gm_dependency),
+    request_context: Request,
 ) -> dict[str, Any]:
+    principal = _relationship_principal(request_context, request.world_id)
     try:
         return relationship_request(repo_root(), request, principal).model_dump(mode="json", by_alias=True)
     except (InspectionUnavailable, DungeonMindError) as exc:
@@ -82,11 +86,17 @@ class NativeRelationshipConfirmRequest(BaseModel):
     confirm_token: str
 
 
+def _relationship_principal(request: Request, world_id: str):
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    return conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+
+
 @router.post("/document-relationship/native-prepare")
 def post_native_relationship_prepare(
-    body: NativeRelationshipPrepareRequest,
-    principal=Depends(native_graph_gm_dependency),
+    body: NativeRelationshipPrepareRequest, request: Request,
 ):
+    principal = _relationship_principal(request, body.review.world_id)
     try:
         return prepare_reviewed_native_relationship(
             repo_root(), body.review, principal,
@@ -101,9 +111,9 @@ def post_native_relationship_prepare(
 
 @router.post("/document-relationship/native-confirm")
 def post_native_relationship_confirm(
-    body: NativeRelationshipConfirmRequest,
-    principal=Depends(native_graph_gm_dependency),
+    body: NativeRelationshipConfirmRequest, request: Request,
 ):
+    principal = _relationship_principal(request, body.review.world_id)
     try:
         result = confirm_native_relationship(
             repo_root(), body.review, body.prepared, body.confirm_token, principal,
@@ -118,10 +128,13 @@ def post_native_relationship_confirm(
 
 @router.post("/prepare", response_model=GraphObjectAuthoringPrepareResponse)
 def post_graph_object_authoring_prepare(
-    request: GraphObjectAuthoringPrepareRequest,
+    request: GraphObjectAuthoringPrepareRequest, request_context: Request,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import manual_knowledge_actor
+
+    actor = manual_knowledge_actor(request_context, world_id=request.world_id, run_id=request.source_run_id)
     try:
-        response = prepare_graph_object_authoring_write(request)
+        response = prepare_graph_object_authoring_write(request, authenticated_actor=actor) if actor else prepare_graph_object_authoring_write(request)
     except GraphObjectAuthoringError as exc:
         raise HTTPException(
             status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}
@@ -131,10 +144,13 @@ def post_graph_object_authoring_prepare(
 
 @router.post("/commit", response_model=GraphObjectAuthoringCommitResponse)
 def post_graph_object_authoring_commit(
-    request: GraphObjectAuthoringCommitRequest,
+    request: GraphObjectAuthoringCommitRequest, request_context: Request,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import manual_knowledge_actor
+
+    actor = manual_knowledge_actor(request_context, world_id=request.world_id, run_id=request.source_run_id)
     try:
-        response = commit_graph_object_authoring_write(request)
+        response = commit_graph_object_authoring_write(request, authenticated_actor=actor) if actor else commit_graph_object_authoring_write(request)
     except GraphObjectAuthoringError as exc:
         raise HTTPException(
             status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}

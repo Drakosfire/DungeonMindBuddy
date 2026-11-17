@@ -6,7 +6,7 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -85,7 +85,6 @@ from apps.live_control_server.services.exact_run_evidence_correction import (
 from apps.live_control_server.services.recap_semantic_candidate_correction import correct_recap_candidate
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
-    native_graph_gm_dependency,
 )
 
 logger = logging.getLogger(__name__)
@@ -157,15 +156,24 @@ router = APIRouter(
 def get_worldbuilding_publication_coverage_route(
     request: Request,
     run_id: str,
-    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """Authenticated historical proof; no publication replay or caller selectors."""
     from apps.live_control_server.services.worldbuilding_publication_coverage import (
         get_worldbuilding_publication_coverage,
     )
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
+
+    local = hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS
+    if local:
+        enforce_native_graph_gm(request)
+    else:
+        require_hosted_build_native_source(request, getattr(request.state, "hosted_build_page_world", ""))
+
     try:
         _reject_selector_query(request)
-        return get_worldbuilding_publication_coverage(run_id).model_dump(mode="json", by_alias=True)
+        coverage = get_worldbuilding_publication_coverage(run_id)
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -173,6 +181,10 @@ def get_worldbuilding_publication_coverage_route(
             "Publication coverage is unknown because native evidence could not be read.",
             code="publication_coverage_unavailable", status_code=503,
         ))
+
+    if not local:
+        require_hosted_build_native_source(request, coverage.managed_world_id)
+    return coverage.model_dump(mode="json", by_alias=True)
 
 
 def _reject_selector_query(request: Request) -> None:
@@ -259,11 +271,15 @@ def post_recap_evidence_corrections(
     request_context: Request,
     run_id: str,
     request: ExactRunEvidenceCorrectionRequest,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """GM-only literal evidence child; semantic disposition starts held."""
+    from apps.live_control_server.services.hosted_native_graph_access import recap_selection_subject
+
+    world_id = request_context.query_params.get("managed_world_id")
+    recap_selection_subject(request_context, world_id)
     try:
-        _reject_selector_query(request_context)
+        if not world_id or request_context.query_params.multi_items() != [("managed_world_id", world_id)]:
+            _reject_selector_query(request_context)
         if run_id != request.parent_run_id:
             raise ExtractPromoteError(
                 "path run ID does not match parentRunId",
@@ -303,11 +319,13 @@ def post_recap_candidate_corrections(
     request_context: Request,
     run_id: str,
     request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9 | RecapCandidateCorrectionRequestV10 | RecapCandidateCorrectionRequestV11,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    managed_world_id: str | None = None,
 ) -> dict[str, Any] | JSONResponse:
     """GM-only bounded semantic candidate child; no World publication."""
+    _native_publication_principal(request_context, managed_world_id or "")
     try:
-        _reject_selector_query(request_context)
+        if request_context.query_params.multi_items() != [("managed_world_id", managed_world_id)]:
+            _reject_selector_query(request_context)
         if run_id != request.parent_run_id:
             raise ExtractPromoteError(
                 "path run ID does not match parentRunId",
@@ -333,11 +351,19 @@ def post_recap_semantic_disposition(
     request_context: Request,
     run_id: str,
     request: RecapSemanticDecisionRequest,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    managed_world_id: str | None = None,
 ) -> dict[str, Any] | JSONResponse:
     """GM-only exact-child decision; caller cannot supply reviewer or time."""
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        principal = enforce_native_graph_gm(request_context)
+    else:
+        principal = _native_publication_principal(request_context, managed_world_id or "")
     try:
-        _reject_selector_query(request_context)
+        if request_context.query_params.multi_items() != [("managed_world_id", managed_world_id)]:
+            _reject_selector_query(request_context)
         response = decide_recap_semantic_disposition(
             run_id, request, reviewer_id=principal.subject
         )
@@ -359,14 +385,16 @@ def post_ingest_selection_context(
     request_context: Request,
     run_id: str,
     request: IngestSelectionContextRequest,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """Read-only, exact-run selection packet; never invokes a model or Graph write."""
     from apps.live_control_server.services.ingest_selection_context import resolve_ingest_selection_context
     from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError
+    from apps.live_control_server.services.hosted_native_graph_access import recap_selection_subject
+
+    subject = recap_selection_subject(request_context, request.expected_world_id)
     try:
         _reject_selector_query(request_context)
-        return resolve_ingest_selection_context(run_id, request, operator_subject=principal.subject)
+        return resolve_ingest_selection_context(run_id, request, operator_subject=subject)
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except GraphRunRegistryError as exc:
@@ -419,18 +447,23 @@ def post_extract_promote_prepare(
 )
 def get_worldbuilding_publication_capabilities(
     request_context: Request,
-    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    world_id: str | None = None,
 ) -> WorldbuildingPublicationCapabilities | JSONResponse:
-    """Inspect configuration only; confirm remains the plan authority boundary.
+    """Report configuration without attempting publication or testing reachability."""
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
 
-    No database connection or source/World lookup is attempted. A configured
-    descriptor does not prove reachability, plan validity, or publication success.
-    Historical sealed plans (including their inert metadata) remain untouched.
-    """
-    try:
-        _reject_selector_query(request_context)
-    except ExtractPromoteError as exc:
-        return _error_response(exc)
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request_context)
+    else:
+        require_hosted_plan_world_context(request_context, world_id)
+    selectors = request_context.query_params.multi_items()
+    if selectors and (not world_id or selectors != [("world_id", world_id)]):
+        try:
+            _reject_selector_query(request_context)
+        except ExtractPromoteError as exc:
+            return _error_response(exc)
     reasons = []
     try:
         live_config.world_graph_authority_mode()
@@ -666,21 +699,32 @@ def _native_recap_operation(body, request, principal, operation):
         }) from exc
 
 
+def _native_publication_principal(request: Request, world_id: str) -> NativeGraphPrincipal:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        hosted_explorer_principal, require_explorer_access,
+    )
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return enforce_native_graph_gm(request)
+    principal = hosted_explorer_principal(request)
+    require_explorer_access(principal, world_id)
+    return principal
+
+
 def prepare_native_recap(
     body: NativeRecapPrepareRequest | NativeWorldbuildingPrepareRequest,
     request: Request,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ):
     from apps.live_control_server.services.native_recap_preparation import prepare
+    principal = _native_publication_principal(request, body.managed_world_id)
     return _native_recap_operation(body, request, principal, prepare)
 
 
-def confirm_native_recap(
-    body: NativeRecapConfirmRequest,
-    request: Request,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
-):
+def confirm_native_recap(body: NativeRecapConfirmRequest, request: Request):
     from apps.live_control_server.services.native_recap_preparation import confirm
+    principal = _native_publication_principal(request, body.envelope.review.managed_world_id)
     return _native_recap_operation(body, request, principal, confirm)
 
 
@@ -694,14 +738,22 @@ router.add_api_route(
 )
 
 
-def native_worldbuilding_context(
-    body: NativeWorldbuildingContextRequest,
-    request: Request,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
-):
+def native_worldbuilding_context(body: NativeWorldbuildingContextRequest, request: Request):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        hosted_explorer_principal, require_explorer_access,
+    )
     from apps.live_control_server.services.native_recap_preparation import worldbuilding_review_context
 
-    return _native_recap_operation(body, request, principal, worldbuilding_review_context)
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        principal = enforce_native_graph_gm(request)
+    else:
+        principal = hosted_explorer_principal(request)
+    require_explorer_access(principal, body.managed_world_id)
+    response = _native_recap_operation(body, request, principal, worldbuilding_review_context)
+    require_explorer_access(principal, body.managed_world_id)
+    return response
 
 
 router.add_api_route(

@@ -339,8 +339,13 @@ def test_incomplete_discovered_bundle_is_partial_not_flattened(lane, monkeypatch
     assert output["gap_codes"] == ["statement_bundle_unavailable"]
 
 
-def test_authenticated_routes_and_strict_selection(lane):
-    from apps.live_control_server.routes.source_statements import router
+def test_authenticated_routes_and_strict_selection(lane, monkeypatch):
+    from apps.live_control_server.services import agent_graph_auth
+
+    monkeypatch.setattr(agent_graph_auth, "enforce_native_graph_gm", lambda _: GM)
+    from apps.live_control_server.routes import source_statements as routes
+    monkeypatch.setattr(routes, "authenticate_native_graph_principal", lambda _: GM)
+    router = routes.router
     from apps.live_control_server.services.agent_graph_auth import (
         authenticate_native_graph_principal,
         native_graph_gm_dependency,
@@ -674,8 +679,10 @@ def test_extension_proof_tamper_refuses_before_publication(extension_lane, monke
     assert lane.repo.get_head(lane.world.world_id) == head
 
 
-def extension_client(principal=GM):
-    from apps.live_control_server.routes.source_statements import router
+def extension_client(monkeypatch, principal=GM):
+    from apps.live_control_server.services import agent_graph_auth
+    from apps.live_control_server.routes import source_statements as routes
+    router = routes.router
     from apps.live_control_server.services.agent_graph_auth import (
         authenticate_native_graph_principal,
     )
@@ -683,13 +690,15 @@ def extension_client(principal=GM):
     app.include_router(router)
     if principal is not None:
         app.dependency_overrides[authenticate_native_graph_principal] = lambda: principal
+        monkeypatch.setattr(agent_graph_auth, "authenticate_native_graph_principal", lambda _: principal)
+        monkeypatch.setattr(routes, "authenticate_native_graph_principal", lambda _: principal)
     return TestClient(app, client=("127.0.0.1", 50000))
 
 
-def test_http_extension_prepare_confirm_read_and_replay(extension_lane):
+def test_http_extension_prepare_confirm_read_and_replay(extension_lane, monkeypatch):
     lane = extension_lane
     request = extension_request(lane)
-    with extension_client() as client:
+    with extension_client(monkeypatch) as client:
         url = "/api/live/source-statements/extend-evidence"
         reply = client.post(url, json=request.model_dump())
         assert reply.status_code == 200, reply.text
@@ -727,7 +736,7 @@ def test_http_extension_authority_refusal_before_core_io(extension_lane, monkeyp
             raise HTTPException(404, "managed World has no native binding")
         monkeypatch.setattr(service.native, "binding", refused)
     principal = None if role == "anonymous" else replace(GM, role="player") if role == "player" else GM
-    with extension_client(principal) as client:
+    with extension_client(monkeypatch, principal) as client:
         response = client.post("/api/live/source-statements/extend-evidence", json=request.model_dump())
         assert response.status_code == {"anonymous": 401, "player": 403, "wrong-world": 404}[role]
 
@@ -747,7 +756,7 @@ def test_http_extension_unknown_outcome_preserves_exact_recovery_key(extension_l
             reason="synthetic lost acknowledgement",
         )
     monkeypatch.setattr(service, "publish_native_source_evidence_extension", lost)
-    with extension_client() as client:
+    with extension_client(monkeypatch) as client:
         failed = client.post("/api/live/source-statements/extend-evidence", json=request.model_dump())
         assert failed.status_code == 409
         assert failed.json()["detail"]["retry_original_packet"] is True
@@ -805,7 +814,7 @@ def test_http_closed_requests_refuse_before_repository(extension_lane, monkeypat
         body["body_text" if change == "body" else "authority"] = "untrusted"
         url = "/api/live/source-statements/extend-evidence"
     monkeypatch.setattr(service.native, "repository", lambda: pytest.fail("invalid request reached Core"))
-    with extension_client() as client:
+    with extension_client(monkeypatch) as client:
         assert client.post(url, json=body).status_code == 422
 
 

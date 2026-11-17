@@ -477,6 +477,7 @@ def test_recap_route_requires_gm_and_preserves_private_quote_draft(
     import fastapi.routing as fastapi_routing
     from apps.live_control_server.main import create_app
     from apps.live_control_server.routes import extract_promote as routes
+    from apps.live_control_server.services import agent_graph_auth
     from apps.live_control_server.services.agent_graph_auth import (
         NativeGraphPrincipal, authenticate_native_graph_principal,
     )
@@ -516,11 +517,11 @@ def test_recap_route_requires_gm_and_preserves_private_quote_draft(
         transport = httpx.ASGITransport(app=app, client=("127.0.0.1", 50000))
         async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8000") as client:
             assert (await client.post(url, json=body)).status_code == 401
-            app.dependency_overrides[authenticate_native_graph_principal] = lambda: NativeGraphPrincipal(
+            monkeypatch.setattr(agent_graph_auth, "authenticate_native_graph_principal", lambda _: NativeGraphPrincipal(
                 subject="player", role="player", auth_method="local_operator"
-            )
+            ))
             assert (await client.post(url, json=body)).status_code == 403
-            app.dependency_overrides.clear()
+            monkeypatch.setattr(agent_graph_auth, "authenticate_native_graph_principal", authenticate_native_graph_principal)
             headers = {"Authorization": f"Bearer {token}"}
             assert (await client.post(url, json={**body, "parentRunId": "other"}, headers=headers)).status_code == 422
             accepted = await client.post(url, json=body, headers=headers)

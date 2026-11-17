@@ -6,14 +6,14 @@ import type { DocumentMediaBridge } from './documentMediaBridge';
 import './DocumentImageStudio.css';
 
 /** The existing Studio generates/retains assets; the host alone writes its document. */
-export function DocumentImageStudio({ bridge, onClose, targetLabel, initialPrompt = "" }: {
-  bridge: DocumentMediaBridge; onClose: () => void; targetLabel: string; initialPrompt?: string;
+export function DocumentImageStudio({ bridge, onClose, targetLabel, worldId, initialPrompt = "" }: {
+  bridge: DocumentMediaBridge; onClose: () => void; targetLabel: string; worldId?: string; initialPrompt?: string;
 }) {
   const tourImage=useTourImage();
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, [bridge]);
   return <aside className="document-image-studio" aria-label={`Image Studio · ${targetLabel}`}>
-    <DeferredMediaImageWizard placeAfterBlock initialPrompt={initialPrompt} onClose={onClose} chooseLabel={`Place in ${targetLabel}`} onChoose={async (image, _result, placement) => {
+    <DeferredMediaImageWizard worldId={worldId} placeAfterBlock initialPrompt={initialPrompt} onClose={onClose} chooseLabel={`Place in ${targetLabel}`} onChoose={async (image, _result, placement) => {
       const generation = getNativeGraphAccessGeneration();
       const target = await bridge.pickInsertion({ ...placement, assetId: image.asset_id });
       placement.signal.throwIfAborted();

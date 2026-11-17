@@ -1669,7 +1669,7 @@ describe("World Plan conversation consumer", () => {
     expect(await within(clarification as HTMLElement).findByText("Mira owns the observatory.")).toBeInTheDocument();
     expect(readSource).toHaveBeenCalledWith(expect.objectContaining({
       worldId: "native-test", revisionPin: "graph-r1", anchorId: "anchor:owner",
-    }));
+    }), expect.objectContaining({ worldId, actionId: clarificationId, claimId: expect.any(String) }));
     mounted.unmount();
     mounted = await mountComponent(7, bridge, null, false, {
       editorSelectionActive: true, draftGeneration: 0, selectionGeneration: 0,
@@ -2852,7 +2852,7 @@ describe("World Plan conversation consumer", () => {
     expect(passage).toHaveTextContent("Exact inline source passage");expect(passage).toBeVisible();
     expect(document.getElementById("buddy-details-inline-source-turn")).toHaveAttribute("open");
     expect(read).toHaveBeenCalledOnce();
-    expect(read).toHaveBeenCalledWith(expect.objectContaining({anchorId:"anchor-test",revisionPin:"graph-revision-test"}));
+    expect(read).toHaveBeenCalledWith(expect.objectContaining({anchorId:"anchor-test",revisionPin:"graph-revision-test"}), expect.objectContaining({worldId, turnId:"inline-source-turn"}));
     expect(screen.getAllByText("Session 29 recap").length).toBeGreaterThan(0);
     expect(screen.queryByText("source-revision-test")).not.toBeInTheDocument();
     expect(screen.queryByText("artifact-test")).not.toBeInTheDocument();
@@ -2906,32 +2906,32 @@ describe("World Plan conversation consumer", () => {
     expect(evidenceRead).toHaveBeenCalledWith(expect.objectContaining({
       worldId: "native-world-internal-test", scopeMode: "world", campaignId: "",
       revisionPin: "graph-revision-test", anchorId: "anchor-test", admissibility: "gm",
-    }));
+    }), expect.objectContaining({ worldId, claimId: expect.any(String), turnId: expect.any(String) }));
     fireEvent.click(screen.getByRole("button", { name: "Open related recap context" }));
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
     expect(screen.getByText("Partial passage. More source text may be available.")).toBeInTheDocument();
     expect(recapRead).toHaveBeenCalledWith(expect.objectContaining({
       revisionPin: "graph-revision-test", contextAnchorId: "dm-context-anchor:v2:test",
-    }));
+    }), expect.objectContaining({ worldId, turnId: expect.any(String) }));
     const firstPage = await recapRead.mock.results[0]!.value;
     recapRead.mockResolvedValue({ ...firstPage, outcome: "enough", content: " — final Ω beat", offsetChars: [...firstPage.content!].length,
       truncated: false, nextContinuation: null });
     fireEvent.click(screen.getByRole("button", { name: "Load more context" }));
     await waitFor(() => expect(screen.getByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage — final Ω beat"));
-    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: firstPage.nextContinuation, maxChars: 12000}));
+    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: firstPage.nextContinuation, maxChars: 12000}), expect.objectContaining({ worldId }));
     expect(screen.queryByRole("button", {name: "Load more context"})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close passage" }));
     expect(screen.queryByLabelText("Related recap context passage")).not.toBeInTheDocument();
     recapRead.mockResolvedValue(firstPage);
     fireEvent.click(screen.getByRole("button", {name: "Open related recap context"}));
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
-    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}));
+    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}), expect.objectContaining({ worldId }));
     mounted.unmount();
     render(conversationElement());
     await expandAnswerEvidence();
     fireEvent.click(await screen.findByRole("button", {name: "Open related recap context"}));
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
-    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}));
+    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}), expect.objectContaining({ worldId }));
     expect(ask).not.toHaveBeenCalled();
   });
 
@@ -4936,7 +4936,7 @@ describe("World Plan conversation consumer", () => {
       target:{schema:'dmb_agent_source_passage_open_target_v1',kind:'source_passage',world_id:worldId,turn_id:turnId,citation_index:0},citation,content:passage});
     await mountComponent(); await screen.findByText('What does the source say?');
     if(mixed) expect(screen.getByText('A proposed outing.').closest('blockquote')).not.toBeNull();
-    expect(screen.getByText('Sources')).toBeInTheDocument();expect(open).not.toHaveBeenCalled();
+    expect(screen.getByText('Sources', { selector: "span" })).toBeInTheDocument();expect(open).not.toHaveBeenCalled();
     openLatestTurnDetails();
     fireEvent.click((mixed ? within(screen.getByLabelText('Source-supported statement')) : within(screen.getByText('Details',{selector:'summary'}).closest('details')!)).getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));
     await screen.findByRole('region',{name:'Opened source passage'});expect(open).toHaveBeenCalledWith(worldId,turnId,0);
@@ -5235,7 +5235,7 @@ describe("World Plan conversation consumer", () => {
         kind: "source_passage", world_id: worldId, turn_id: turnId, citation_index: 0}, citation, content: passage});
     await mountComponent();
     expect(await screen.findByText("What does the lore say?")).toBeInTheDocument();
-    expect(screen.getByText("Sources")).toBeInTheDocument();
+    expect(screen.getByText("Sources", { selector: "span" })).toBeInTheDocument();
     expect(open).not.toHaveBeenCalled();
     openLatestTurnDetails();
     fireEvent.click(within(screen.getByText("Details", {selector: "summary"}).closest("details")!).getByRole("button", {name: named ? "Read River Watch — synthetic source · lines 1–1" : "Read passage 1"}));

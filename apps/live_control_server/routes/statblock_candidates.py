@@ -146,8 +146,8 @@ from apps.live_control_server.models.statblock_saved_revision import SaveMechani
 from apps.live_control_server.services import statblock_saved_revision as saved_versions
 from application_state.errors import ApplicationStateError,ApplicationStateConflictError,ApplicationStateIntegrityError
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
-from fastapi import Query,Depends
-from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal,native_graph_gm_dependency
+from fastapi import Query
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 
 
 def _revision_call(callback,**kwargs):
@@ -159,11 +159,19 @@ def _revision_call(callback,**kwargs):
     except StatblockIntegrationError as exc:raise HTTPException(status_code=503,detail="Saved mechanics provider is unavailable") from exc
 
 
-@router.get("/saved-statblocks/lookup", dependencies=[Depends(native_graph_gm_dependency)])
+@router.get("/saved-statblocks/lookup")
 def lookup_saved_statblock(
+    request: Request,
     world_id: Annotated[str, Query(pattern=r"^[a-z][a-z0-9_-]{0,62}$")],
     name: Annotated[str, Query(min_length=1)],
 ):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+    else:
+        require_hosted_plan_world_context(request, world_id)
     if not name.strip():
         raise HTTPException(status_code=422, detail="Statblock name is required")
     return _revision_call(saved_versions.find_saved_version, world_id=world_id, name=name)
@@ -208,16 +216,32 @@ def open_saved_revision(draft_id: str, revision_id: str, world_id: str, request:
     return packet
 
 
-@router.post('/threat-drafts/{draft_id}/mechanics-revisions')
-def save_manual_revision(draft_id:str,body:SaveMechanicsRevisionRequest,principal:Annotated[NativeGraphPrincipal,Depends(native_graph_gm_dependency)]):
-    return _revision_call(saved_versions.save,draft_id=draft_id,request=body,media_owner=principal.subject)
+@router.post("/threat-drafts/{draft_id}/mechanics-revisions")
+def save_manual_revision(draft_id: UUID, body: SaveMechanicsRevisionRequest, request: Request):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        hosted_world_media_owner, require_build_pdf_access,
+    )
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_build_pdf_access(request, body.world_id)
+        owner = hosted_world_media_owner(body.world_id)
+    else:
+        owner = enforce_native_graph_gm(request).subject
+    return _revision_call(saved_versions.save, draft_id=str(draft_id), request=body, media_owner=owner)
 
 
-@router.post('/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover',dependencies=[Depends(native_graph_gm_dependency)])
-def recover_manual_revision(draft_id:UUID,operation_id:UUID,world_id:Annotated[str,Query(pattern=r'^[a-z][a-z0-9_-]{0,62}$')]):
-    return _revision_call(saved_versions.recover,world_id=world_id,draft_id=draft_id,operation_id=operation_id)
+@router.post("/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover")
+def recover_manual_revision(draft_id: UUID, operation_id: UUID, world_id: Annotated[str, Query(pattern=r"^[a-z][a-z0-9_-]{0,62}$")], request: Request):
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
+    return _revision_call(saved_versions.recover, world_id=world_id, draft_id=draft_id, operation_id=operation_id)
 
 
-@router.get('/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}',dependencies=[Depends(native_graph_gm_dependency)])
-def inspect_manual_revision(draft_id:UUID,operation_id:UUID,world_id:Annotated[str,Query(pattern=r'^[a-z][a-z0-9_-]{0,62}$')]):
-    return _revision_call(saved_versions.inspect_operation,world_id=world_id,draft_id=draft_id,operation_id=operation_id)
+@router.get("/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}")
+def inspect_manual_revision(draft_id: UUID, operation_id: UUID, world_id: Annotated[str, Query(pattern=r"^[a-z][a-z0-9_-]{0,62}$")], request: Request):
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
+    return _revision_call(saved_versions.inspect_operation, world_id=world_id, draft_id=draft_id, operation_id=operation_id)

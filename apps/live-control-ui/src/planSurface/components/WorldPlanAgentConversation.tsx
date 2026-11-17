@@ -1,3 +1,4 @@
+import { dungeonMindLoginHref, useHostedAuthStatus } from "../../auth/HostedAuthGate";
 import { ConversationDraftEditor } from "../../agentInteraction/ConversationDraftEditor";
 import { downloadBlob } from "../../shared/downloadBlob";
 import { SavedStatblockPdfEvidence } from './SavedStatblockPdfEvidence';
@@ -2657,6 +2658,7 @@ export function WorldPlanAgentConversation({
   savePlanEnabled = false,
   imagePromptHost,
 }: WorldPlanAgentConversationProps) {
+  const localOperator = useHostedAuthStatus().status === "local_operator";
   const guidance=useGuidedTour();
   const selectedWorld = useSelectedWorld();
   const agent = useAgentInteraction();
@@ -5179,7 +5181,7 @@ export function WorldPlanAgentConversation({
           schema: "dmb_world_graph_source_anchor_read_request_v1",
           worldId: target.native_world_id, campaignId: "", scopeMode: "world", focus,
           admissibility: "gm", revisionPin: target.graph_revision, anchorId: target.anchor_id,
-        });
+        }, { worldId: target.managed_world_id, turnId: turn.turn_id, claimId: target.claim_id });
         if (result.schema === "dmb_world_graph_source_anchor_read_v1"
           && ["enough", "partial", "truncated"].includes(result.outcome)
           && sourceReadMatchesAuthority(target, result.snapshot)
@@ -5197,7 +5199,7 @@ export function WorldPlanAgentConversation({
           worldId: target.native_world_id, campaignId: "", scopeMode: "world", focus,
           admissibility: "gm", revisionPin: target.graph_revision, contextAnchorId: target.context_anchor_id,
           maxChars: 12000, continuation: previous?.page?.nextContinuation ?? null,
-        });
+        }, { worldId: target.managed_world_id, turnId: turn.turn_id, claimId: target.claim_id });
         const descriptor = result.context;
         if (result.schema === "dmb_recap_context_read_v2"
           && ["enough", "truncated"].includes(result.outcome)
@@ -5270,7 +5272,7 @@ export function WorldPlanAgentConversation({
         worldId: target.native_world_id, campaignId: "", scopeMode: "world",
         focus: { kind: "none", sessionId: null, campaignId: null },
         admissibility: "gm", revisionPin: target.graph_revision, anchorId: target.anchor_id,
-      });
+      }, { worldId: target.managed_world_id, actionId: action.action_id, claimId: target.claim_id });
       if (sourceReadEpochRef.current !== epoch || latestRef.current.verifiedWorldId !== target.managed_world_id
         || historySnapshotRef.current?.conversation_id !== action.consultation?.receipt.origin_conversation_id
         || historySnapshotRef.current?.pointer_revision !== action.consultation?.receipt.origin_pointer_revision
@@ -6765,6 +6767,8 @@ export function WorldPlanAgentConversation({
   }
   const activityInComposer = activityBusy || activityLifecycle !== 'completed'
     || Boolean(presentationHosts && !presentationHosts.header);
+  const savedTurnRunning = activityTurn?.lifecycle_status === "accepted"
+    || activityTurn?.lifecycle_status === "running";
   const replyActivity = activityTurnId && verifiedWorldId && activityHistory?.conversation_id
     && !openedTraceTurns[`${verifiedWorldId}\u001f${activityTurnId}`] ? <BuddyTurnInspection
     key={`activity:${verifiedWorldId}:${activityHistory.conversation_id}:${activityTurnId}`}
@@ -6791,9 +6795,9 @@ export function WorldPlanAgentConversation({
   </>);
   const headerActions = (
     <div className="world-plan-agent-conversation__actions">
-            <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
+            {localOperator && <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
               {settingsOpen ? "Close settings" : "Settings"}
-            </button>
+            </button>}
             {!isReadOnly && (!presentationHosts || presentationHosts.newConversation === undefined) ? newConversationButton : null}
             {newConversationDisabledReason ? (
               <p id="world-plan-new-conversation-disabled-reason" className="world-plan-agent-conversation__management-reason" role="note">
@@ -6879,7 +6883,7 @@ export function WorldPlanAgentConversation({
           <button type="button" aria-pressed={playEditMode} onClick={() => setPlayEditMode(true)} disabled={!playMode.sceneEditBridge}>Propose scene edit</button>
           {playEditMode ? <p>Review a change to the current scene in this session copy. The Plan stays intact.</p> : null}
         </div> : null}
-      <BuddyReadiness active={visible && agent.paneState.isOpen} surface={isBuild ? "build" : isReadOnly ? "play" : "plan"}
+      <BuddyReadiness worldId={verifiedWorldId ?? undefined} active={visible && agent.paneState.isOpen && Boolean(verifiedWorldId)} surface={isBuild ? "build" : isReadOnly ? "play" : "plan"}
         worldGraph={useWorldGraphForAsk} blockedReason={composerBusy ? (
           sending || composing || buildCompose.busy || playCompose.busy ? "A request is running."
           : pendingPlayTurn || sharedConversation?.pendingTurn || pendingPlayLoadError || pendingPlayRecoveryHydrating
@@ -6888,7 +6892,7 @@ export function WorldPlanAgentConversation({
             : historyLoading || !history ? "Checking saved conversation history."
             : "Current work is not ready for submission."
         ) : null} />
-      {settingsOpen ? connectionSettings : null}
+      {localOperator && settingsOpen ? connectionSettings : null}
       {isReadOnly ? <details><summary>Advanced</summary>
         {playMode?.admittedRun ? <p>Run {playMode.admittedRun.runId} · revision {playMode.admittedRun.runRevision}</p> : null}
         <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
@@ -6924,7 +6928,7 @@ export function WorldPlanAgentConversation({
           </article>;
         })}
       </details> : null}
-      {pendingPlayTurn && !sending && requestRef.current === null ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
+      {pendingPlayTurn && !activityBusy && !savedTurnRunning && requestRef.current === null ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
         <p>This request needs recovery. You can check its saved status or retry the exact request.</p>
         <details><summary>Saved request details</summary>
           <p>{pendingPlayTurn.request.message}</p>
@@ -7184,10 +7188,11 @@ export function WorldPlanAgentConversation({
       {presentationHosts && effectiveEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
       {authorizationBlocked ? (
         <section className="world-plan-agent-conversation__auth-notice" role="alert">
-          <p>{pendingSavedAsk
+          <p>{!localOperator ? "World authorization was rejected. Check your DungeonMind sign-in and World access, then refresh history." : pendingSavedAsk
             ? "Local authorization was rejected. Reconnect in Settings, then refresh World history before taking another action."
             : "Local authorization was rejected. Reconnect in Settings, then refresh history or retry the saved request."}</p>
-          <button type="button" onClick={openConnectionSettings}>Open Settings</button>
+          {localOperator ? <button type="button" onClick={openConnectionSettings}>Open Settings</button>
+            : <a href={dungeonMindLoginHref(window.location.href)}>Sign in to DungeonMind</a>}
         </section>
       ) : null}
       {saveInFlight ? (
@@ -7256,7 +7261,7 @@ export function WorldPlanAgentConversation({
 
       {activityInComposer && replyActivity}
 
-      {!sending && !composing && !buildCompose.busy && !playCompose.busy
+      {!activityBusy && !savedTurnRunning
         && Boolean(sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) ? (
           <p className="world-plan-agent-conversation__notice" role="status">
             Check the previous request before sending. You can keep drafting.{" "}

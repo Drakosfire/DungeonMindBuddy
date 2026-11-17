@@ -2,7 +2,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from dungeonmind.domain.errors import DungeonMindError
 from psycopg import Error as DatabaseError
 from worldkeeper.application.preparation import InvalidWorldChange
@@ -16,7 +16,7 @@ from application_state.errors import ApplicationStateError
 from apps.live_control_server.config import repo_root
 from apps.live_control_server.models.native_threat_creation import PrepareNativeThreat, ConfirmNativeThreat
 from apps.live_control_server.routes.statblock_storage import statblock_data_root
-from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal, native_graph_gm_dependency
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services import native_threat_creation as service
 from apps.live_control_server.services.graph_object_authoring_prepare import GraphObjectAuthoringError
 from apps.live_control_server.services.threat_draft_store import ThreatDraftStoreError
@@ -40,19 +40,22 @@ def call(operation, *args):
         raise HTTPException(status_code=409, detail="Native creature review changed or is unavailable; prepare it again") from exc
 
 
+def _creature_principal(request: Request, world_id: str):
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    return conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+
+
 @router.get("/{draft_id}/native-creature")
-def read(draft_id: UUID, world_id: WorldId,
-         principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency)):
-    return call(service.status, draft_id, world_id, principal)
+def read(draft_id: UUID, world_id: WorldId, request: Request):
+    return call(service.status, draft_id, world_id, _creature_principal(request, world_id))
 
 
 @router.post("/{draft_id}/native-creature/prepare")
-def prepare(draft_id: UUID, body: PrepareNativeThreat,
-            principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency)):
-    return call(service.prepare, draft_id, body, principal)
+def prepare(draft_id: UUID, body: PrepareNativeThreat, request: Request):
+    return call(service.prepare, draft_id, body, _creature_principal(request, body.world_id))
 
 
 @router.post("/{draft_id}/native-creature/confirm")
-def confirm(draft_id: UUID, body: ConfirmNativeThreat,
-            principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency)):
-    return call(service.confirm, draft_id, body, principal)
+def confirm(draft_id: UUID, body: ConfirmNativeThreat, request: Request):
+    return call(service.confirm, draft_id, body, _creature_principal(request, body.review.world_id))

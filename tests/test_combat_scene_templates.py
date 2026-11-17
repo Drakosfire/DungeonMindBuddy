@@ -19,12 +19,14 @@ pytest_plugins=['tests.application_state.conftest']
 @pytest.fixture
 def scene_case(application_state_dsn,monkeypatch):
     from apps.live_control_server.routes import combat_scene_templates as routes
-    from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal,NativeGraphPrincipal
+    from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal,NativeGraphPrincipal,require_native_graph_gm
     obj=create_world_plan(title='Synthetic road encounter',world_id='elderwyld')
     obj,rev=commit_plan(str(obj.work_object_id),V2_SOURCE_MARKDOWN,expected_world_id='elderwyld',expected_revision=obj.object_revision)
     body=dict(schema_version='dmb_scene_template_create_v1',operation_id=str(uuid4()),pin=dict(document_id=str(obj.work_object_id),scene_id='scene:gate',revision_n=rev.revision_n,work_revision_id=str(rev.work_revision_id),content_sha256=rev.content_sha256),encounter={'title':'Gate guardians'})
     app=FastAPI();app.include_router(routes.router)
     app.dependency_overrides[authenticate_native_graph_principal]=lambda:NativeGraphPrincipal('test-gm','gm','local_session')
+    monkeypatch.setattr(routes, 'enforce_native_graph_gm',
+                        lambda request: require_native_graph_gm(app.dependency_overrides[authenticate_native_graph_principal]()))
     monkeypatch.setattr(routes,'_verified_world',lambda world_id:world_id)
     return SimpleNamespace(obj=obj,rev=rev,body=body,client=TestClient(app),app=app,base='/api/live/combat/scene-templates',dsn=application_state_dsn)
 

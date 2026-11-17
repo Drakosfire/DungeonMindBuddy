@@ -802,7 +802,7 @@ def get_world_play_active_run(*, world_id: str) -> PlayActiveRun | None:
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        active = repo.get_active_run(conn)
+        active = repo.get_active_run(conn, scope_key=f"world:{canonical_world_id}")
         if active is None:
             return None
         run = repo.get_run(conn, active.run_id)
@@ -851,7 +851,8 @@ def set_world_play_active_run(
             raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")
         _resolve_world_run_owner(conn, run, world_id=canonical_world_id)
         _readable_aggregate(run, repo.get_manifest(conn, canonical_run_id))
-        current = repo.lock_active_run(conn)
+        scope_key = f"world:{canonical_world_id}"
+        current = repo.lock_active_run(conn, scope_key=scope_key)
         if current is not None and current.run_id == canonical_run_id:
             active = current
         else:
@@ -859,6 +860,7 @@ def set_world_play_active_run(
                 conn,
                 run_id=canonical_run_id,
                 selected_at=repo.now_utc(),
+                scope_key=scope_key,
             )
         return active
 

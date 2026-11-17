@@ -324,10 +324,9 @@ def _native_source_request(body, request):
 @router.post("/recap-name-review")
 def post_recap_name_review(body: RecapIngestRequest, request: Request, response: Response):
     response.headers["Cache-Control"] = "no-store"
-    from apps.live_control_server.services import hosted_auth
-    if (hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS
-            or hosted_auth.auth_mode() != hosted_auth.LOCAL_MODE):
-        raise HTTPException(status_code=403, detail="Raw recap name review is local-only.")
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, body.managed_world_id)
     if body.operation != "generate_recap_memory" or not (body.raw_text or "").strip():
         raise HTTPException(status_code=422, detail="Select a source recap to check names.")
     _native_source_actor(body, request)

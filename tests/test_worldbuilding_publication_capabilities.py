@@ -115,12 +115,12 @@ def test_non_loopback_fails_closed():
     assert call(peer="192.0.2.1").status_code == 403
 
 
-def test_player_cannot_discover_gm_capability():
+def test_player_cannot_discover_gm_capability(monkeypatch):
     app = FastAPI()
     app.include_router(routes.router)
-    app.dependency_overrides[auth.authenticate_native_graph_principal] = lambda: auth.NativeGraphPrincipal(
+    monkeypatch.setattr(auth, "authenticate_native_graph_principal", lambda _: auth.NativeGraphPrincipal(
         subject="synthetic-player", role="player", auth_method="local_operator"
-    )
+    ))
 
     async def request():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:

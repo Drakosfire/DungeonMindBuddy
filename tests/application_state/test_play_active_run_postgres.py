@@ -108,6 +108,11 @@ def test_world_selection_resumes_and_projects_empty_without_mutation(
     assert fetch_play_active_run_row(application_state_dsn) == before
     assert get_world_play_active_run(world_id=world_a) == selected
 
+    selected_b = set_world_play_active_run(world_b, RUN_ID_B)
+    assert get_world_play_active_run(world_id=world_a) == selected
+    assert get_world_play_active_run(world_id=world_b) == selected_b
+    assert get_play_active_run().run_id is None
+
 
 def test_concurrent_same_world_selection_waits_for_first_commit_and_is_idempotent(
     application_state_dsn: str, monkeypatch: pytest.MonkeyPatch
@@ -137,9 +142,9 @@ def test_concurrent_same_world_selection_waits_for_first_commit_and_is_idempoten
             return row
         return original_lock_run(conn, run_id)
 
-    def hold_first_transaction(conn, *, run_id, selected_at):
+    def hold_first_transaction(conn, *, run_id, selected_at, scope_key):
         upsert_callers.append(current_thread().name)
-        row = original_upsert_active_run(conn, run_id=run_id, selected_at=selected_at)
+        row = original_upsert_active_run(conn, run_id=run_id, selected_at=selected_at, scope_key=scope_key)
         if current_thread().name == "same-run-selection-first":
             first_upsert_complete.set()
             if not release_first.wait(timeout=10):
@@ -208,8 +213,8 @@ def test_campaign_active_run_remains_legacy_and_world_projection_is_empty(
     world_id = f"world-v2-{uuid4()}"
     _create_world_run(world_id=world_id, run_id=RUN_ID_B)
     set_world_play_active_run(world_id, RUN_ID_B)
-    assert get_play_active_run().run_id is None
-    assert fetch_play_active_run_row(application_state_dsn)["run_id"] == RUN_ID_B
+    assert get_play_active_run() == selected
+    assert str(get_world_play_active_run(world_id=world_id).run_id) == RUN_ID_B
 
 
 def test_corrupt_world_aggregate_cannot_be_selected_or_healed(
@@ -445,3 +450,18 @@ def test_active_run_latency_samples(tmp_path: Path, application_state_dsn: str) 
         f"resume_p50={resume_p50:.1f} resume_p95={resume_p95:.1f} "
         "(AS3 Runtime CAS ~74ms p95 retained; measurements are not merge gates)"
     )
+
+
+def test_active_run_migration_preserves_existing_world_selection(application_state_dsn):
+    from alembic import command
+
+    from application_state.cli import alembic_config
+
+    world_id = f"world-migration-{uuid4()}"
+    _create_world_run(world_id=world_id, run_id=RUN_ID_A)
+    before = set_world_play_active_run(world_id, RUN_ID_A)
+    command.downgrade(alembic_config(), "20261117_0160")
+    assert fetch_play_active_run_row(application_state_dsn)["scope_key"] == "local"
+    command.upgrade(alembic_config(), "head")
+    assert get_world_play_active_run(world_id=world_id) == before
+    assert get_play_active_run().run_id is None

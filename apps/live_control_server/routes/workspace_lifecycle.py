@@ -60,9 +60,19 @@ def _raise(exc: Exception) -> None:
     ) from exc
 
 
+def _authorize_workspace_world(request: Request, world_id: str) -> None:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
+
+
 @router.get("/trash")
 def get_world_trash(request: Request, world_id: str = Query(min_length=1)) -> dict:
-    enforce_native_graph_gm(request)
+    _authorize_workspace_world(request, world_id)
     try:
         return list_world_workspace_trash(_root(), world_id=world_id)
     except Exception as exc:
@@ -77,7 +87,7 @@ def mutate_world_document_trash(
     request: Request,
     world_id: str = Query(min_length=1),
 ) -> dict:
-    enforce_native_graph_gm(request)
+    _authorize_workspace_world(request, world_id)
     try:
         return set_world_document_trash(
             _root(),
@@ -98,7 +108,7 @@ def mutate_world_session_trash(
     request: Request,
     world_id: str = Query(min_length=1),
 ) -> dict:
-    enforce_native_graph_gm(request)
+    _authorize_workspace_world(request, world_id)
     try:
         root = _root()
         world = get_world_container(world_id)

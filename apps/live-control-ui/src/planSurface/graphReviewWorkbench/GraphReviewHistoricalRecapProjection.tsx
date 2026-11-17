@@ -24,9 +24,20 @@ export function GraphReviewHistoricalRecapProjection({
   );
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [selectedRelationshipId, setSelectedRelationshipId] = useState<string | null>(null);
+  const nativePin = useMemo(() => {
+    const { managedWorldId, worldId, bindingVersion, campaignId, snapshot } = projection;
+    if (!managedWorldId || !worldId || !bindingVersion || snapshot.worldId !== worldId
+      || snapshot.scopeMode !== "campaign" || snapshot.campaignId !== campaignId) return undefined;
+    return {
+      managed_world_id: managedWorldId, native_world_id: worldId, binding_version: bindingVersion,
+      revision_id: snapshot.revisionId, scope_mode: "campaign" as const, campaign_id: campaignId,
+    };
+  }, [projection]);
   const complete = useCompleteWorldObject({
     enabled: Boolean(activeNodeId),
-    worldId: projection.worldId || projection.snapshot.worldId,
+    worldId: nativePin?.managed_world_id ?? (projection.worldId || projection.snapshot.worldId),
+    scopeMode: nativePin?.scope_mode,
+    nativePin,
     campaignId: projection.campaignId,
     nodeId: activeNodeId,
     revisionPin: projection.snapshot.revisionId,

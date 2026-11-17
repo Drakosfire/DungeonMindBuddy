@@ -230,7 +230,9 @@ def get_world_plan_inventory_page(
     limit: Annotated[int, Query(ge=1, le=100)] = 100,
     before_updated_at: datetime | None = None,
     before_document_id: UUID | None = None,
+    request: Request = None,
 ) -> WorldPlanInventoryPage:
+    require_hosted_plan_world_context(request, world_id)
     before = None
     if before_updated_at is not None or before_document_id is not None:
         if before_updated_at is None or before_document_id is None or before_updated_at.utcoffset() is None:
@@ -272,6 +274,7 @@ def get_world_owned_runbooks(
     world_id: Annotated[str, Query(min_length=1)],
     request: Request,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, world_id)
     unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
     if unsupported:
         raise HTTPException(
@@ -291,8 +294,9 @@ def get_world_owned_runbooks(
     response_model=WorldOwnedRunbookRecordV2,
 )
 def post_world_owned_runbook(
-    body: CreateWorldOwnedRunbookRequestV2,
+    body: CreateWorldOwnedRunbookRequestV2, request: Request = None,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, body.world_id)
     try:
         record = create_world_owned_runbook_v2(
             _managed_world_root(), world_id=body.world_id, title=body.title
@@ -311,6 +315,7 @@ def get_world_owned_runbook(
     world_id: Annotated[str, Query(min_length=1)],
     request: Request,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, world_id)
     unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
     if unsupported:
         raise HTTPException(
@@ -335,6 +340,7 @@ def get_world_owned_runbook_snapshot(
     world_id: Annotated[str, Query(min_length=1)],
     request: Request,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, world_id)
     unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
     if unsupported:
         raise HTTPException(
@@ -358,7 +364,12 @@ def post_world_owned_runbook_tiptap_prepare(
     document_id: str,
     world_id: Annotated[str, Query(min_length=1)],
     body: TiptapMarkdownWritePrepareRequest,
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import hosted_world_media_owner
+
+    require_hosted_plan_world_context(request, world_id)
     if (
         body.document_id != document_id
         or body.schema_version != "dmb_tiptap_markdown_write_prepare_v2"
@@ -374,7 +385,11 @@ def post_world_owned_runbook_tiptap_prepare(
         get_world_owned_runbook_v2(
             world_root, world_id=world_id, document_id=document_id
         )
-        response = prepare_tiptap_markdown_write(root=world_root, request=body)
+        response = prepare_tiptap_markdown_write(root=world_root, request=body,
+            media_owner=(hosted_world_media_owner(world_id)
+                         if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+                         else "local_operator"),
+        )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except TiptapMarkdownWriteError as exc:
@@ -390,7 +405,12 @@ def post_world_owned_runbook_tiptap_commit(
     document_id: str,
     world_id: Annotated[str, Query(min_length=1)],
     body: TiptapMarkdownWriteCommitRequest,
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import hosted_world_media_owner
+
+    require_hosted_plan_world_context(request, world_id)
     if (
         body.document_id != document_id
         or body.schema_version != "dmb_tiptap_markdown_write_commit_v2"
@@ -406,7 +426,11 @@ def post_world_owned_runbook_tiptap_commit(
         get_world_owned_runbook_v2(
             world_root, world_id=world_id, document_id=document_id
         )
-        response = commit_tiptap_markdown_write(root=world_root, request=body)
+        response = commit_tiptap_markdown_write(root=world_root, request=body,
+            media_owner=(hosted_world_media_owner(world_id)
+                         if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+                         else "local_operator"),
+        )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except TiptapMarkdownWriteError as exc:
@@ -423,6 +447,7 @@ def get_world_owned_runbook_current_revision(
     world_id: Annotated[str, Query(min_length=1)],
     request: Request,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, world_id)
     unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
     if unsupported:
         raise HTTPException(
@@ -454,6 +479,7 @@ def get_world_owned_runbook_exact_revision(
     ],
     request: Request,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, world_id)
     unsupported = sorted(
         set(request.query_params.keys()) - {"world_id", "expected_sha256"}
     )
@@ -708,6 +734,7 @@ def get_native_world_source_status(
 def post_native_world_source_admission(
     document_id: str,
     body: NativeWorldSourceAdmissionRequest,
+    request: Request = None,
 ) -> dict[str, Any]:
     try:
         return admit_native_world_source(
@@ -715,6 +742,7 @@ def post_native_world_source_admission(
             document_id,
             expected_revision=body.expected_revision,
             expected_body_sha256=body.expected_body_sha256,
+            authorize_world=lambda world: require_hosted_build_native_source(request, world),
         ).model_dump(mode="json")
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(
@@ -740,9 +768,15 @@ _CONNECTED_ERRORS = (ConnectedGraphError,ConnectedPageError, WorkspaceDocumentRe
     WorldGraphProjectionServiceError) + NATIVE_ERRORS
 
 
+def _connected_page_principal(request: Request, world_id: str):
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    return conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+
+
 @router.post('/connected-pages/prepare')
 def post_connected_page_prepare(body: ConnectedPageRequest, request: Request):
-    principal = enforce_native_graph_gm(request)
+    principal = _connected_page_principal(request, body.world_id)
     try:
         return prepare_connected_page(_managed_world_root(), body, principal=principal)
     except _CONNECTED_ERRORS as exc:
@@ -751,7 +785,7 @@ def post_connected_page_prepare(body: ConnectedPageRequest, request: Request):
 
 @router.post('/connected-pages/confirm')
 def post_connected_page_confirm(body: ConnectedPageConfirmation, request: Request):
-    principal = enforce_native_graph_gm(request)
+    principal = _connected_page_principal(request, body.world_id)
     try:
         return confirm_connected_page(_managed_world_root(), body.operation_id, body.world_id, body.confirm_token, principal=principal)
     except _CONNECTED_ERRORS as exc:
@@ -760,8 +794,8 @@ def post_connected_page_confirm(body: ConnectedPageConfirmation, request: Reques
 
 @router.get('/connected-pages/{operation_id}')
 def read_connected_page(operation_id: UUID, world_id: str, request: Request):
-    enforce_native_graph_gm(request)
+    principal = _connected_page_principal(request, world_id)
     try:
-        return get_connected_page(_managed_world_root(), operation_id, world_id)
+        return get_connected_page(_managed_world_root(), operation_id, world_id, principal=principal)
     except _CONNECTED_ERRORS as exc:
         raise HTTPException(status_code=getattr(exc, 'status_code', 409), detail=str(exc)) from exc

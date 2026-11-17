@@ -49,6 +49,7 @@
       "apps/live-control-ui/src/api/ingestUsageApi.test.ts",
       "apps/live-control-ui/src/api/liveApi.buildRecapAuth.test.ts",
       "apps/live-control-ui/src/api/liveApi.connectedPageAuth.test.ts",
+      "apps/live-control-ui/src/api/conversationDraftApi.test.ts",
       "apps/live-control-ui/src/api/liveApi.conversationLibraryAuth.test.ts",
       "apps/live-control-ui/src/api/liveApi.evidenceReads.test.ts",
       "apps/live-control-ui/src/api/liveApi.nativeGraphExplorerAuth.test.ts",

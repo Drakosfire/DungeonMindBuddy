@@ -2160,7 +2160,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           ) : null}
         </div>}
       />
-      {imageStudio.session ? <DocumentImageStudio key={mediaIdentity} initialPrompt={imageStudio.session.prompt} bridge={mediaBridge} targetLabel="Plan" onClose={imageStudio.close} /> : null}
+      {imageStudio.session ? <DocumentImageStudio worldId={worldId} key={mediaIdentity} initialPrompt={imageStudio.session.prompt} bridge={mediaBridge} targetLabel="Plan" onClose={imageStudio.close} /> : null}
       {documentId&&status==='ready'&&<ConnectedPageReviewControl key={JSON.stringify([worldId,documentId])} surface="plan" worldId={worldId} documentId={documentId}/>}
       <PlanConversationDockAdapter contextLabel={focusTitle ? `${focusTitle} · Full saved Plan` : `${worldName} · Full saved Plan`} reader={(
       <main

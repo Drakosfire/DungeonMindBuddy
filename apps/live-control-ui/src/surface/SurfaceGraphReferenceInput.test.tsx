@@ -19,6 +19,24 @@ it('finds Fellinor without a projection provider and selects the exact native re
  expect(change).toHaveBeenCalledWith([{...reference,node_id:'fellinor',label:'Fellinor'}]);expect(inspectNativeGraph).not.toHaveBeenCalled();expect(screen.queryByRole('searchbox')).toBeNull();
  expect(getNativeGraphCatalog).toHaveBeenCalledWith({managed_world_id:'quarry',scope_mode:'world',campaign_id:null},expect.any(AbortSignal));
 });
+it('keeps both World catalogs loaded across tab switches and reopening', async () => {
+  render(<SurfaceGraphReferenceInput worldId="quarry" value={[]} onChange={vi.fn()} />);
+  expect(getNativeGraphCatalog).toHaveBeenCalledTimes(1);
+  expect(getNativeSourceCatalog).toHaveBeenCalledTimes(1);
+
+  await open();
+  expect(await screen.findByRole('button', {name: 'Use Fellinor as context'})).toBeVisible();
+  fireEvent.click(screen.getByRole('button', {name: 'Sources', exact: true}));
+  const trigger = screen.getByRole('button', {name: '@ Reference'});
+  fireEvent.click(trigger);
+  fireEvent.click(trigger);
+  expect(screen.getByRole('button', {name: 'Sources', exact: true})).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(screen.getByRole('button', {name: 'Objects', exact: true}));
+  expect(screen.getByRole('button', {name: 'Use Fellinor as context'})).toBeVisible();
+  expect(getNativeGraphCatalog).toHaveBeenCalledTimes(1);
+  expect(getNativeSourceCatalog).toHaveBeenCalledTimes(1);
+});
+
 it('keeps duplicate names distinct and inspection separate from selection',async()=>{
  const change=vi.fn();render(<SurfaceGraphReferenceInput worldId="quarry" value={[]} onChange={change}/>);await open();
  fireEvent.click(screen.getByRole('button',{name:'Cedar box second-box',exact:true}));await screen.findByRole('heading',{name:'Cedar box'});

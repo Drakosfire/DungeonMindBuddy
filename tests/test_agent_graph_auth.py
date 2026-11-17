@@ -185,7 +185,7 @@ def _clear_auth_environment(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(key, raising=False)
 
 
-def test_every_public_native_graph_route_has_the_shared_gm_dependency() -> None:
+def test_local_only_native_graph_routes_have_the_shared_gm_dependency() -> None:
     from fastapi.routing import APIRoute
 
     from apps.live_control_server.main import create_app
@@ -201,7 +201,6 @@ def test_every_public_native_graph_route_has_the_shared_gm_dependency() -> None:
     }
     protected_routes = [
         "/api/live/world-graph/projection",
-        "/api/live/world-graph/managed-projection",
         "/api/live/world-graph/recap-projection",
         "/api/live/world-graph/retrieval/search",
         "/api/live/world-graph/retrieval/object",

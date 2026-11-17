@@ -19,6 +19,7 @@ from apps.live_control_server.services import graph_object_authoring_prepare as 
 from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
 from graph_memory.vnext.domain_runtime import GM_LABEL
 from tests.test_native_recap_preparation import lane as recap_lane, TOKEN  # noqa: F401
+from tests.test_hosted_native_graph_access import hosted  # noqa: F401
 
 
 @pytest.fixture
@@ -411,3 +412,34 @@ def test_pdf_region_is_bound_to_signed_native_threat_review(creature, monkeypatc
     assert json.loads(evidence.source_locator) == region | {
         "schema_version": "dm_native_pdf_region_v1",
     }
+
+
+def test_hosted_native_creature_publication_and_replay(creature, hosted, monkeypatch):
+    from tests.test_hosted_native_graph_access import OWNER
+
+    c = creature
+    monkeypatch.setattr(service.native, "binding", c.binding)
+    monkeypatch.setattr(service.native, "repository", lambda: c.lane.repo)
+    monkeypatch.setattr(service.native, "read_repository", lambda: c.lane.repo)
+    prepare_path = c.url + "/prepare"
+    confirm_path = c.url + "/confirm"
+    status_path = c.url + "?world_id=managed"
+    assert hosted.client.request("POST", prepare_path, json=c.request, origin=None).status_code == 403
+    assert hosted.client.request("GET", status_path).json() is None
+    prepared = hosted.client.request("POST", prepare_path, json=c.request)
+    assert prepared.status_code == 200, prepared.text
+    packet = prepared.json()
+    assert packet["review"]["principal"] == f"hosted_dms:{OWNER}"
+    assert hosted.client.request("GET", status_path).json() is None
+    confirmation = {key: packet[key] for key in ("review", "prepared", "token")}
+    assert hosted.client.request("POST", confirm_path, json=confirmation, session="other-session").status_code == 403
+    confirmed = hosted.client.request("POST", confirm_path, json=confirmation)
+    assert confirmed.status_code == 200, confirmed.text
+    published = confirmed.json()
+    assert published["state"] == "published" and published["replayed"] is False
+    assert hosted.client.request("GET", status_path).json()["node_id"] == published["node_id"]
+    head = c.lane.repo.get_head(c.bound["native_world_id"])
+    replay = hosted.client.request("POST", confirm_path, json=confirmation)
+    assert replay.status_code == 200, replay.text
+    assert replay.json() == {**published, "replayed": True}
+    assert c.lane.repo.get_head(c.bound["native_world_id"]) == head

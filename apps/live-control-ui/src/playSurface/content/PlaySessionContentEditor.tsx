@@ -139,7 +139,7 @@ export function PlaySessionContentEditor({
       <SurfaceContextStatus data-testid="play-canvas-save-status" tone={controller.state.saveState === "saved" ? "neutral" : "warning"}><span tabIndex={0} title={savedLabel}>{controller.state.saveState === "saved" ? "Saved" : savedLabel}</span></SurfaceContextStatus>
     </PlaySurfaceContext>
     {mediaTarget === mediaIdentity && visualEditor ? (
-        <PlaySessionImageStudio key={mediaIdentity} editor={visualEditor} identity={mediaIdentity} version={mediaVersion}
+        <PlaySessionImageStudio worldId={content.world_id} key={mediaIdentity} editor={visualEditor} identity={mediaIdentity} version={mediaVersion}
           canEdit={mediaCanEdit} onClose={() => setMediaTarget(null)} />
     ) : null}
     <section className="play-session-content" data-save-state={controller.state.saveState} aria-label="Play session copy">

@@ -1,3 +1,4 @@
+import * as hostedAuth from "../auth/HostedAuthGate";
 import nativeBuildWire from '../test/surface-native-build-http.json';
 import {WorldGuidedTour} from '../guidedTour/WorldGuidedTour';
 import {useGuidedTour} from '../guidedTour/GuidedTour';
@@ -71,7 +72,8 @@ vi.mock("../selectedWorld/SelectedWorldContext", async (importOriginal) => ({
 vi.mock("../api/liveApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/liveApi")>()),
   getBuddyReadiness: vi.fn(async (surface: string, world_graph: boolean) => ({schema: "dmb_agent_readiness_v1", surface, world_graph, configured: true, issues: []})),
-  getNativeGraphCatalog: vi.fn(),
+  getNativeGraphCatalog: vi.fn().mockRejectedValue(new Error("Catalog unavailable in this test")),
+  getNativeSourceCatalog: vi.fn().mockRejectedValue(new Error("Source catalog unavailable in this test")),
   createWorkspaceDocument: vi.fn(),
   getWorkspaceDocumentSnapshot: vi.fn(),
   getCommittedPageSnapshot: vi.fn(),
@@ -1685,7 +1687,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const authority = context.receipt.graph_authority;
     const ref = (kind: string, object_id: string, revision: string) => ({ resolution: "resolved" as const,
       kind, object_id, revision, content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null });
-    const historical = { ...base, knowledge_context: context,
+    const historical = { ...base, idempotency_key: "11111111-1111-4111-8111-000000000001", knowledge_context: context,
       provenance: { ...base.provenance, surface_id: "build", surface_instance_id: "build-instance",
         primary_work: { ...ref("build", "source-one", "2"), content_sha256: SHA }, supporting_work: [
           ref("dmb_build_source_visibility_v1", source.visibility, "1"),
@@ -1694,7 +1696,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
         ] } };
     if (foreign) context.receipt.source_basis.document_id = "another-source";
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(),
-      schema: "dmb_agent_conversation_history_v2", turns: [historical] });
+      schema: "dmb_agent_conversation_history_v3", turns: [historical] });
     vi.mocked(postWorldGraphSourceAnchorRead).mockResolvedValue({
       schema: "dmb_world_graph_source_anchor_read_v1", outcome: "enough", anchorId: "anchor-one",
       evidenceRefId: "evidence-internal-test", sourceArtifactId: "artifact-one", sourceRevisionId: "source-rev-one",
@@ -1704,17 +1706,19 @@ describe("one App-level World conversation host across Plan and Play", () => {
     } as Awaited<ReturnType<typeof postWorldGraphSourceAnchorRead>>);
     render(<Harness initial="build" />);
     fireEvent.click(await screen.findByRole("button", {name: "Open"}));
+    const details = await screen.findByText("Details", { selector: "summary" });
+    fireEvent.click(details);
     if (foreign) {
-      await screen.findByRole("group", {name: "World history unavailable"});
+      await screen.findByText(/invalid Graph-context receipt/);
       expect(screen.queryByRole("button", {name: "Open evidence"})).not.toBeInTheDocument();
     } else {
       await screen.findAllByText("The western gate is watched.");
-      fireEvent.click(screen.getByText(/1 claim · 1 cited Graph reference/));
+      fireEvent.click(await screen.findByText(/1 claim · 1 cited Graph reference/));
       fireEvent.click(await screen.findByRole("button", {name: "Open evidence"}));
       await screen.findByText("The saved source describes the guards at the western gate.");
       expect(postWorldGraphSourceAnchorRead).toHaveBeenCalledWith(expect.objectContaining({
         worldId: authority.native_world_id, revisionPin: authority.graph_revision, anchorId: "anchor-one",
-      }));
+      }), expect.objectContaining({ worldId: WORLD, turnId: historical.turn_id }));
     }
   });
 
@@ -2467,6 +2471,45 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(screen.getByRole("button", { name: "Check saved request" }));
     await waitFor(() => expect(readiness.querySelector("summary")).toBeVisible());
     expect(composer).toHaveValue("Keep this next thought");
+  });
+
+  it("keeps local session settings out of hosted Conversation options", async () => {
+    const auth = vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+      status: "authenticated", refreshWarning: false, subject: "owner", displayName: "Owner",
+    });
+    try {
+      vi.mocked(postWorldPlayAgentTurn).mockRejectedValueOnce(new LiveApiError("Unauthorized", 401));
+      render(<Harness initial="play" />);
+      fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+      const input = await screen.findByLabelText("Message DungeonBuddy");
+      await waitFor(() => expect(input).toBeEnabled());
+      fireEvent.click(screen.getByTitle("Conversation options"));
+      expect(screen.queryByRole("button", { name: "Settings", exact: true })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Connect local session" })).not.toBeInTheDocument();
+      fireEvent.change(input, { target: { value: "Help with this page" } });
+      fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+      const signIn = await screen.findByRole("link", { name: "Sign in to DungeonMind" });
+      expect(signIn.getAttribute("href")).toContain("/api/auth/login?return_to=");
+      expect(screen.queryByRole("button", { name: "Open Settings" })).not.toBeInTheDocument();
+    } finally {
+      auth.mockRestore();
+    }
+  });
+
+  it("keeps recovery controls out of Build while saved history shows a running turn", async () => {
+    const running = { ...turn("build", 1, ""), lifecycle_status: "running" as const, assistant_text: null };
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([running]));
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await waitFor(() => expect(getWorldAgentTurnContextTrace).toHaveBeenCalledWith(
+      WORLD, running.turn_id, expect.any(AbortSignal),
+    ));
+
+    fireEvent.click(screen.getByRole("button", { name: "Seed newer pending request" }));
+    expect(screen.queryByRole("button", { name: "Check saved request" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
   });
 
   it("prepends a requested Play history page without moving the reader or duplicating turns", async () => {
