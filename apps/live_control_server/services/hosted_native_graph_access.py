@@ -703,13 +703,13 @@ async def resolve_hosted_build_extraction(request: Request) -> str:
     from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, get_source_artifact
 
     subject = _hosted_subject(request)
-    if request.method == "POST":
+    run_id = getattr(request.state, "hosted_route_run_id", None)
+    if request.method == "POST" and not run_id:
         document_id = (await request.json()).get("document_id")
         if not isinstance(document_id, str):
             raise _denied()
         world_id = await _owned_build_page(subject, document_id)
     else:
-        run_id = getattr(request.state, "hosted_route_run_id", None)
         if not run_id:
             raise _denied()
         try:

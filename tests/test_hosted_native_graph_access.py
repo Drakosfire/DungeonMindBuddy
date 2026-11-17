@@ -447,6 +447,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/frozen-source-spans"): access.resolve_hosted_build_extraction,
+            ("POST", "/api/live/extract-promote/runs/{run_id}/evidence-corrections"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
@@ -2277,6 +2278,12 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert read.status_code == 409, read.text
     assert reviewed_runs == [run_id]
     assert read.headers["cache-control"] == "no-store"
+    corrections_route = f"/api/live/extract-promote/runs/{run_id}/evidence-corrections"
+    assert hosted.client.request("POST", corrections_route, session="other-session", json={}).status_code == 403
+    read = hosted.client.request("POST", corrections_route, json={})
+    assert read.status_code == 422, read.text
+
+
 
 def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn):
     from io import BytesIO
