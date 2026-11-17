@@ -123,11 +123,11 @@ def test_ambiguous_or_cross_block_quote_cannot_be_previewed(case,graph,body,quot
 def test_new_adapter_denies_before_source_graph_or_freeze_io(case,graph,monkeypatch,mode,status):
     from fastapi.testclient import TestClient
     from unittest.mock import Mock
-    from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal,NativeGraphPrincipal
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
     protected=Mock(side_effect=AssertionError('Denied request must not reach protected source/native IO'))
     monkeypatch.setattr('apps.live_control_server.routes.graph_authoring.relationship_request',protected)
     if mode=='player':
-        case.client.app.dependency_overrides[authenticate_native_graph_principal]=lambda:NativeGraphPrincipal('player','player','local_operator')
+        monkeypatch.setattr("apps.live_control_server.services.agent_graph_auth.authenticate_native_graph_principal", lambda _: NativeGraphPrincipal("player", "player", "local_operator"))
     headers={} if mode=='missing' else {'Authorization':'Bearer wrong' if mode=='wrong' else 'Bearer synthetic-relationship-local-token-with-adequate-length'}
     client=TestClient(case.client.app,client=('203.0.113.1' if mode=='remote' else '127.0.0.1',50000))
     response=client.post('/api/live/graph-authoring/document-relationship/request',json=intent(case),headers=headers)
