@@ -117,6 +117,17 @@ const entityInspectionBody = {
 };
 const hostedRoutes = [
   ...routes,
+  ["complete object", "/api/live/native-graph-inspection/complete-object", {
+    scope: entityInspectionBody.scope,
+    request: {
+      schema: "dmb_world_graph_object_projection_request_v1",
+      worldId: "managed-a", scopeMode: "world", campaignId: "",
+      revisionPin: "revision-a", nodeId: "entity-a", admissibility: "gm",
+    },
+  }],
+  ["published recap", "/api/live/native-source-inspection/published-recap", {
+    managed_world_id: "managed-a", campaign_id: "campaign-a", session_id: "session-a",
+  }],
   ["entity-inspection", "/api/live/native-graph-inspection/read", entityInspectionBody],
   ["chronology", "/api/live/native-graph-inspection/read", { ...entityInspectionBody, selection: { kind: "chronology" } }],
   ["exact-source", "/api/live/native-graph-inspection/read", { ...entityInspectionBody, selection: { kind: "source", assertion_id: "a", evidence_ref_id: "e" } }],
