@@ -1981,6 +1981,11 @@ def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_
     draft_path = f"{root}/drafts/{case.turn.turn_id}"
     draft = case.client.get(draft_path)
     assert draft.status_code == 200, draft.text
+    messages = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert messages.status_code == 200, messages.text
+    row = messages.json()["messages"][-1]
+    assert row["turn_id"] == str(case.turn.turn_id)
+    assert row.get("variant_draft_reviewed") is (True if variant_validation in {"valid", "warnings"} else None)
     if variant_validation not in {"valid", "warnings"}:
         assert draft.json()["markdown"]
         assert not draft.json().get("variant_review_ids")
