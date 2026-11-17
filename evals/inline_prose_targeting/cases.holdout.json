@@ -1,0 +1,6 @@
+[
+ {"id":"build-lantern-rephrase","surface":"Build","request":"Under Preparation, clarify what happens after the three lantern flashes; retain the scouts' unexplained silence.","expected":"replace_scouts","allowClarification":false},
+ {"id":"build-ambiguous-context","surface":"Build","request":"Improve the scout-return paragraph in this page.","expected":"clarify","allowClarification":true},
+ {"id":"plan-semantic-addition","surface":"Plan","request":"Give the GM a briefing once the preparation objective is established, before the first beat starts.","expected":"after_preparation","allowClarification":false},
+ {"id":"quoted-discussion","surface":"Build","request":"Why would someone say 'rewrite the scouts paragraph'? Do not edit the page.","expected":"discuss","allowClarification":false}
+]

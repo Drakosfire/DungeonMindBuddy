@@ -1,0 +1,6 @@
+[
+ {"id":"build-named-rewrite","surface":"Build","request":"In Preparation, rewrite the passage about the returned scouts to be clearer without changing its facts.","expected":"replace_scouts","allowClarification":false},
+ {"id":"build-duplicate","surface":"Build","request":"Rewrite the passage about the returned scouts.","expected":"clarify","allowClarification":true},
+ {"id":"plan-after-objective","surface":"Plan","request":"Add a short briefing after the Preparation objective and before the Opening Beat.","expected":"after_preparation","allowClarification":false},
+ {"id":"plan-after-sentence","surface":"Plan","request":"Add 'A lone watcher keeps vigil above the marsh.' after the opening image sentence, before the scouts return.","expected":"after_opening_sentence","allowClarification":false}
+]
