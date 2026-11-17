@@ -533,7 +533,13 @@ def get_world_session_review(run_id: str, request: Request, world_id: Annotated[
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
     from application_state.play.session_review import read_review
     from application_state.errors import ApplicationStateError
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     try:
         return read_review(run_id=run_id, world_id=world_id)
     except ApplicationStateError as exc:
