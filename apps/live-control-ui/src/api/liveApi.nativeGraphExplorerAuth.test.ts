@@ -511,3 +511,28 @@ it("starts and reloads a hosted World conversation through the DungeonMind sessi
     expect(new Headers(init?.headers).has("Authorization")).toBe(false);
   }
 });
+
+it("opens saved World citations with session cookies and exact selectors", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const root = "/api/live/agent/worlds/managed";
+  const id = "12345678-1234-1234-1234-123456789abc";
+  const turn = `${root}/conversation/turns/${id}/graph-evidence`;
+  const action = `${root}/plan-proposals/${id}/graph-evidence`;
+  const evidence = "?claim_id=claim&anchor_id=anchor";
+  const recap = "?claim_id=claim&anchor_id=dm-context-anchor%3Av2%3Arecap&continuation=recap-page%3Av2%3A2";
+
+  for (const path of [turn + evidence, turn + recap, action + evidence]) {
+    await api.authenticatedApiFetch(path);
+    const [url, init] = fetch.mock.calls.at(-1)!;
+    expect(url).toBe(path);
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store", redirect: "error" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+
+  await expect(api.authenticatedApiFetch(action + recap)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(turn + evidence + "&anchor_id=another")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(3);
+});
