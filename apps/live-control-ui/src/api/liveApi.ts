@@ -443,6 +443,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && isRecord(review) && typeof review.managed_world_id === "string"
       && Boolean(review.managed_world_id) && typeof review.run_id === "string" && Boolean(review.run_id);
   }
+  if (path === "/api/live/extract-promote/worldbuilding/prepare"
+    || path === "/api/live/extract-promote/worldbuilding/confirm") {
+    const body = requestBodyRecord(init?.body);
+    const plan = path.endsWith("/confirm") ? body?.plan : body;
+    return method === "POST" && isRecord(plan) && typeof plan.runId === "string" && Boolean(plan.runId);
+  }
   const capabilityPath = "/api/live/extract-promote/worldbuilding/capabilities?";
   if (path.startsWith(capabilityPath)) {
     const worldId = new URLSearchParams(path.slice(capabilityPath.length)).get("world_id");
