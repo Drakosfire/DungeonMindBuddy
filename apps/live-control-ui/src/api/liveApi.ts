@@ -858,6 +858,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     || /^\/api\/live\/extract-promote\/runs\/[a-z0-9:_-]+\/(?:review-package|frozen-source-spans|worldbuilding-publication-coverage)$/i.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  if (/^\/api\/live\/extract-promote\/runs\/[a-z0-9_-]+\/evidence-corrections$/i.test(path)) {
+    return method === "POST" && requestBodyRecord(init?.body) !== null;
+  }
   const recapRecovery = /^\/api\/live\/graph-preview\/build-recap-launches\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\?/.exec(path);
   if (recapRecovery && method === "GET" && init?.body == null) {
     const query = new URLSearchParams(path.slice(recapRecovery[0].length));
@@ -1022,7 +1025,7 @@ function apiRequestTarget(
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
   const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+(?:\/build-context)?$/.test(normalizedPath)
-    || /^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:review-package|frozen-source-spans|worldbuilding-publication-coverage)$/.test(normalizedPath)
+    || /^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:review-package|frozen-source-spans|worldbuilding-publication-coverage|evidence-corrections)$/.test(normalizedPath)
     || /^\/api\/live\/graph-authoring\/(?:prepare|commit)$/.test(normalizedPath)
     || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/(?:progress|rebase)$/.test(normalizedPath)
     || (normalizedPath === "/api/live/world-play-runs/v2/active" && init?.method?.toUpperCase() === "PUT");
