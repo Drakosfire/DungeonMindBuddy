@@ -1,5 +1,6 @@
 import "./BuildPdfPreview.css";
 import { createPortal } from "react-dom";
+import { PdfAdventureEventReview } from "./PdfAdventureEventReview";
 import { StartPdfStatblockReview } from "./StartPdfStatblockReview";
 import { completePdfTextLines, hasClippedPdfTextLine, pdfTextBoundsOverlap } from "./completePdfTextLines";
 import { hasRecognizablePdfStatblockStructure, PdfStatblockCandidate } from "./PdfStatblockCandidate";
@@ -81,6 +82,7 @@ export function CropOcr({ worldId, region, hasPdfText }: { worldId: string; regi
       {error && <p role="alert">{error}</p>}
       {imageOnly && <p role="status">OCR found an image in this region without transcribing any text.</p>}
       {text && !imageOnly && <label>{review ? `Buddy’s review · Page ${region.page}` : "OCR transcription"}<textarea readOnly rows={8} value={text} /></label>}
+      {!review && text && !imageOnly && <PdfAdventureEventReview key={pdfRegionKey(region)} worldId={worldId} locator={region} text={text} />}
       {!review && text && !imageOnly && hasRecognizablePdfStatblockStructure(text) && <PdfStatblockCandidate text={text} locator={region} />}
     </div>
   );
