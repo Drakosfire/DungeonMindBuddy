@@ -2396,6 +2396,34 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert missing_command.status_code == 404, missing_command.text
     assert hosted.client.request("PUT", roll_path, json=roll).json()["receipt"] == recorded.json()["receipt"]
 
+    from application_state.play.session_review import ReviewCommand, commit_review
+    from apps.live_control_server.services.play_run_edition import read_content
+
+    content = read_content(run_id=run_id, world_id="managed")
+    reflections = "The party returned safely after scouting the gate."
+    commit_review(
+        world_id="managed", run_id=run_id, command_id=str(uuid4()),
+        request=ReviewCommand(
+            action="end", expected_revision=0,
+            expected_run_revision=content.observed_run_revision,
+            expected_content_sha256=content.content_sha256, final_thoughts=reflections,
+        ),
+    )
+    indexed = hosted.client.request("GET", evidence_path)
+    assert indexed.status_code == 200, indexed.text
+    assert [item["run_id"] for item in indexed.json()["sessions"]] == [run_id]
+    saved = hosted.client.request("GET", revision_path)
+    assert saved.status_code == 200, saved.text
+    assert saved.headers["cache-control"] == "no-store"
+    packet = saved.json()
+    assert (packet["world_id"], packet["run_id"], packet["review_revision"]) == ("managed", run_id, 1)
+    assert [(item["kind"], item["text"]) for item in packet["sources"]] == [
+        ("closing_reflections", reflections),
+    ]
+    denied = hosted.client.request("GET", revision_path, session="other-session")
+    assert denied.status_code == 403
+    assert reflections not in denied.text
+
 
 def test_hosted_statblock_picker_reads_only_owned_world(hosted, application_state_dsn, tmp_path, monkeypatch):
     from apps.live_control_server.models.threat_draft import CreateWorldThreatDraftRequest
