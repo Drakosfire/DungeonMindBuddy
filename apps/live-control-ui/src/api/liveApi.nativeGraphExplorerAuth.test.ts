@@ -618,7 +618,7 @@ it("uses hosted transport only for recap object requests with a matching World p
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
-it("lists saved PDF reviews on hosted Buddy without a local bearer", async () => {
+it("reads saved PDF reviews on hosted Buddy without a local bearer", async () => {
   const api = await setup();
   hostedOrigin();
   api.setNativeGraphAccessToken("local-bearer");
@@ -630,5 +630,14 @@ it("lists saved PDF reviews on hosted Buddy without a local bearer", async () =>
   expect(init).toMatchObject({ signal, credentials: "same-origin", cache: "no-store", redirect: "error" });
   expect(new Headers(init?.headers).has("Authorization")).toBe(false);
   await expect(api.authenticatedApiFetch(String(url), { method: "POST", body: "{}" })).rejects.toThrow(/exact same-origin/);
-  expect(fetch).toHaveBeenCalledTimes(1);
+  const detail = String(url) + "/12345678-1234-1234-1234-123456789abc";
+  for (const path of [detail, detail + "/publication"]) {
+    await api.authenticatedApiFetch(path);
+    const [sent, options] = fetch.mock.calls.at(-1)!;
+    expect(sent).toBe(path);
+    expect(options).toMatchObject({ credentials: "same-origin", cache: "no-store", redirect: "error" });
+    expect(new Headers(options?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(detail + "?world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(3);
 });
