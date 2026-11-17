@@ -345,6 +345,16 @@ def resolve(label, capabilities):
     if barrier == "current_page_target_absent":
         relevant = relevant - {"author_save_current_page"}
     followups = [item for item in followups if item["id"] in relevant]
+    if label == "review_variant_approval":
+        followups = [{
+            "id": "find_reviewed_variant",
+            "description": (
+                "Point the user to Find reviewed statblock on this reply. The control checks "
+                "the current draft and opens its review for explicit confirmation when it matches. "
+                "Acknowledge the request briefly. Do not claim a save, page edit, Combat action, "
+                "or missing source evidence for these actions."
+            ),
+        }]
     detail = {
         "current_page_target_absent": "No current-page writing destination was captured. This is a placement limit, not missing inventory or evidence.",
         "image_capability_absent": "No image-preparation capability is offered in this captured request.",

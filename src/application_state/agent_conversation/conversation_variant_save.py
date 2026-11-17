@@ -171,3 +171,21 @@ def approval_handoff(conn, *, world_id, conversation_id, prior_to, page_id, page
     if len(candidates) == 1:
         return {"status": "ready", **candidates[0]}
     return {"status": "ambiguous" if candidates else "unavailable"}
+
+
+def requested_approval(turn):
+    """Recognize only the durable, explicit Build review action."""
+    from .rules_authority_reads import MixedCompletedTurnV1
+    from .types import BuildRequestedWorkResolutionV1
+
+    record = turn.envelope if isinstance(turn, MixedCompletedTurnV1) else turn
+    if record.status != "completed" or record.provenance.surface_id != "build":
+        return False
+    execution = (
+        turn.base_projection.graph_context_execution
+        if isinstance(turn, MixedCompletedTurnV1) else getattr(turn, "graph_context_execution", None)
+    )
+    choices = [
+        event for event in execution.events if isinstance(event, BuildRequestedWorkResolutionV1)
+    ] if execution is not None else []
+    return len(choices) == 1 and choices[0].requested_work == "review_variant_approval"

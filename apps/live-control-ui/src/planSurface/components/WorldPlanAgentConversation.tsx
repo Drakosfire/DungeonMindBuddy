@@ -1,4 +1,4 @@
-import { ConversationDraftEditor } from "../../agentInteraction/ConversationDraftEditor";
+import { ConversationDraftEditor, ConversationVariantApproval } from "../../agentInteraction/ConversationDraftEditor";
 import { downloadBlob } from "../../shared/downloadBlob";
 import { SavedStatblockPdfEvidence } from './SavedStatblockPdfEvidence';
 import { savedStatblockHref } from '../../statblocks/savedStatblockLocation';
@@ -1722,6 +1722,12 @@ function isHistoryTurn(
     return ['discuss','write_current_page'].includes(String(operation))&&isRecord(value.provenance)
       &&value.provenance.surface_id==='plan'&&isHistoryTurn(envelope,schema,worldId);
   }
+  if (Object.hasOwn(value, 'variant_approval_requested')) {
+    const { variant_approval_requested: approval, ...envelope } = value;
+    return approval === true && value.lifecycle_status === 'completed'
+      && isRecord(value.provenance) && value.provenance.surface_id === 'build'
+      && isHistoryTurn(envelope, schema, worldId);
+  }
   if (Object.hasOwn(value, 'conversation_draft_available')) {
     const { conversation_draft_available: draft, ...envelope } = value;
     return draft === true && value.lifecycle_status === 'completed'
@@ -1894,6 +1900,7 @@ function sameSavedMessage(a: WorldAgentConversationHistoryTurn, b: WorldAgentCon
   return a.turn_id === b.turn_id && a.sequence === b.sequence && a.lifecycle_status === b.lifecycle_status && a.user_text === b.user_text
     && a.assistant_text === b.assistant_text && 'idempotency_key' in a && 'idempotency_key' in b && a.idempotency_key === b.idempotency_key
     && a.conversation_draft_available === b.conversation_draft_available
+    && a.variant_approval_requested === b.variant_approval_requested
     && canonicalJson(a.provenance) === canonicalJson(b.provenance);
 }
 
@@ -6501,6 +6508,14 @@ export function WorldPlanAgentConversation({
             : undefined}
         />
       );
+    const variantApproval = isBuild && !historicalAttempt && turn.variant_approval_requested &&
+      verifiedWorldId && history?.conversation_id && (
+        <ConversationVariantApproval key={turn.turn_id}
+          scope={{ worldId: verifiedWorldId, conversationId: history.conversation_id, turnId: turn.turn_id }}
+          placement={onOriginalPage && buildMode?.savedSource && buildMode.composeBridge
+            ? { documentId: buildMode.savedSource.documentId, bridge: buildMode.composeBridge }
+            : undefined} />
+      );
     const hasLightweightReply = Boolean(pageSuggestion || turn.assistant_text || ['completed','failed','interrupted'].includes(turn.lifecycle_status));
     if (!history?.turns.some(full => sameSavedMessage(full, turn))) return <BuddyTurnInspection key={`world:${turn.turn_id}`} worldId={verifiedWorldId ?? ''} conversationId={history?.conversation_id ?? ''} turnId={turn.turn_id} lifecycle={turn.lifecycle_status}>
       <article className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? 'complete' : turn.lifecycle_status}`} data-turn-id={turn.turn_id} data-sequence={turn.sequence} tabIndex={-1}>
@@ -6510,6 +6525,7 @@ export function WorldPlanAgentConversation({
           {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : selectPassage ? null : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : 'This reply did not finish.'}</p>}
           {savedStatblockLinks}
           {draftEditor}
+            {variantApproval}
           {!historicalAttempt && (isBuild || !isReadOnly) && !turn.assistant_text
             && ['failed','interrupted'].includes(turn.lifecycle_status)
             && (isBuild ? turn.provenance.surface_id === 'build'
@@ -6633,6 +6649,7 @@ export function WorldPlanAgentConversation({
               disabled={composerBusy||!isBuild||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}
               onVisible={()=>agent.setPaneOpen(false)}/>:null}
             {draftEditor}
+            {variantApproval}
             {verifiedWorldId && history?.conversation_id && !pageWorkPlan && <ConversationWorkbook
               key={`workbook:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
               collaboration={collaboration}
