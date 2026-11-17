@@ -466,6 +466,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const query = new URLSearchParams(connectedPage[1]);
     return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
   }
+  const mechanicsRead = /^\/api\/live\/world-mechanics\/associations\/(?:creatures|requests\/[0-9a-f-]+)\?([^#]+)$/.exec(path);
+  if (mechanicsRead) {
+    const query = new URLSearchParams(mechanicsRead[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
   const imageGeneration = /^\/api\/live\/media\/images\/generate\?([^#]+)$/.exec(path);
   if (imageGeneration) {
     const query = new URLSearchParams(imageGeneration[1]);

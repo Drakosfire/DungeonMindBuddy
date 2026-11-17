@@ -483,6 +483,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
+            ("GET", "/api/live/world-mechanics/associations/creatures"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/world-mechanics/associations/requests/{request_id}"): access.resolve_hosted_plan_world_context,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
@@ -3618,3 +3620,26 @@ def test_hosted_build_review_binds_world_and_action(hosted, monkeypatch):
     assert hosted.client.request("POST", path, json=body).status_code == 404
     world, saved_action, command = service.execute.call_args.args
     assert (world, saved_action, command.operation) == ("managed", action, "open")
+
+
+def test_hosted_creature_catalog_and_association_read_are_world_scoped(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import world_mechanics_associations as routes
+
+    catalog = Mock(return_value=SimpleNamespace(response=lambda: {"world_id": "managed", "items": []}))
+    find = Mock(return_value=None)
+    monkeypatch.setattr(routes.creatures, "catalog", catalog)
+    monkeypatch.setattr(routes, "resolve_managed_world_binding", lambda world: world)
+    monkeypatch.setattr(routes.state, "find_request", find)
+    request_id = uuid4()
+    base = "/api/live/world-mechanics/associations"
+    for suffix in ("creatures", f"requests/{request_id}"):
+        path = f"{base}/{suffix}?world_id=managed"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+        assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+        response = hosted.client.request("GET", path)
+        assert response.status_code == 200, response.text
+        assert response.headers["cache-control"] == "no-store"
+    catalog.assert_called_once_with("managed")
+    find.assert_called_once_with(world_id="managed", request_id=request_id)
