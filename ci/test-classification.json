@@ -37,6 +37,7 @@
       "apps/live-control-ui/src/api/buildConstructionStream.test.ts",
       "apps/live-control-ui/src/api/buildProposalReviewApi.test.ts",
       "apps/live-control-ui/src/api/buildRecapApi.test.ts",
+      "apps/live-control-ui/src/api/conversationDraftApi.test.ts",
       "apps/live-control-ui/src/api/conversationLibraryApi.test.ts",
       "apps/live-control-ui/src/api/nativeWorldbuildingPublicationApi.test.ts",
       "apps/live-control-ui/src/api/conversationRetryApi.test.ts",

@@ -61,6 +61,8 @@ describe("BuildDocumentSelector", () => {
           saved_revision_id: "other-revision" },
       ],
     })));
+    const previousUrl = window.location.href;
+    window.history.replaceState({}, "", "/build?world=elderwyld");
     try {
       render(<BuildDocumentSelector worldId="elderwyld"
         documents={[record(DOC_A, "Alpha", "longmont-c1")]} listStatus="ready"
@@ -81,8 +83,10 @@ describe("BuildDocumentSelector", () => {
       fireEvent.click(screen.getByRole("button", { name: "Statblock drafts", exact: true }));
       expect(await screen.findByRole("button", { name: "Sewer Meat Extraction" }))
         .toHaveAttribute("data-document-id", "/build?world=elderwyld&pdfReview=sewer-review");
-
+      fireEvent.click(screen.getByRole("button", { name: "Sewer Meat Extraction" }));
+      expect(window.location.search).toBe("?world=elderwyld&pdfReview=sewer-review");
     } finally {
+      window.history.replaceState({}, "", previousUrl);
       request.mockRestore();
       setNativeGraphAccessToken(null);
     }
