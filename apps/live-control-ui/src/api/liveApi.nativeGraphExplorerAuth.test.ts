@@ -421,3 +421,22 @@ it("reads and saves hosted Combat Tracker encounters with the session", async ()
     expect(new Headers(init?.headers).has("Authorization")).toBe(false);
   }
 });
+
+it("reads hosted saved-version history and previews exact Combat mechanics", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const draft = "12345678-1234-1234-1234-123456789abc";
+  const history = `/api/live/threat-drafts/${draft}/mechanics-revisions?world_id=managed&offset=0`;
+  const preview = "/api/live/combat/encounters/saved-mechanics/preview?world_id=managed";
+  await api.authenticatedApiFetch(history);
+  await api.authenticatedApiFetch(preview, { method: "POST", body: "{}" });
+  await expect(api.authenticatedApiFetch(history + "&offset=1")).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(preview)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+});

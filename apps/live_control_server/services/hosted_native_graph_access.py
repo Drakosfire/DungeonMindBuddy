@@ -434,7 +434,9 @@ def require_combat_encounter_access(request: Request, world_id: str) -> None:
 async def resolve_hosted_saved_statblock(request: Request) -> str:
     selectors = request.query_params.multi_items()
     world_id = request.query_params.get("world_id")
-    if not world_id or selectors != [("world_id", world_id)] or await request.body():
+    keys = {key for key, _ in selectors}
+    allowed = {"world_id", "limit", "offset"} if request.url.path.endswith("/mechanics-revisions") else {"world_id"}
+    if not world_id or len(keys) != len(selectors) or not keys <= allowed or await request.body():
         raise _denied()
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
     # The exact revision may include a portrait from a World-owned PDF review.

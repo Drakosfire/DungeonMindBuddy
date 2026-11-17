@@ -260,3 +260,12 @@ def test_multi_actor_adoption_reads_exact_source_once_and_replay_reads_none(adop
     result=apply(p);assert result.status_code==200,result.text
     assert len(result.json()['receipt']['transitions'])==2 and len(calls)==1
     assert apply(p).status_code==200 and len(calls)==1
+
+
+def test_local_selected_saved_revision_can_preview(adoption_case):
+    p = adoption_case
+    path = '/api/live/combat/encounters/saved-mechanics/preview?world_id=elderwyld'
+    response = p.client.post(path, json={'draft_id': p.draft.draft_id, 'locator': p.locator})
+    assert response.status_code == 200, response.text
+    assert response.json()['snapshot']['locator'] == p.locator
+    assert response.json()['hit_points'] == 28

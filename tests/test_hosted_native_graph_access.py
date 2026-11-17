@@ -318,9 +318,11 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/threat-drafts"): access.resolve_hosted_statblock_inventory,
             ("GET", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/encounters/saved-mechanics/preview"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
             ("PUT", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): access.resolve_hosted_saved_statblock,
+            ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
@@ -2453,3 +2455,47 @@ def test_hosted_combat_create_save_and_reload_require_owned_world_and_origin(
     assert result.json()["draft"]["title"] == "Saved rehearsal"
     assert hosted.client.request("GET", detail).json() == result.json()
     assert hosted.client.request("PUT", detail, json=save).status_code == 409
+
+
+def test_hosted_combat_saved_revision_selection_and_preview(hosted, monkeypatch):
+    from apps.live_control_server.routes import combat_encounters, statblock_candidates
+    from application_state.errors import ApplicationStateConflictError
+
+    draft = "12345678-1234-1234-1234-123456789abc"
+    history = f"/api/live/threat-drafts/{draft}/mechanics-revisions?world_id=managed&offset=0"
+    preview = "/api/live/combat/encounters/saved-mechanics/preview?world_id=managed"
+    locator = {
+        "provider": "dungeonmind", "contract": "dungeonmind.dungeonbuddy-statblocks",
+        "contract_version": "1.0.0", "statblock_id": "sb_example", "revision_id": "rev_example",
+        "definition_digest": "sha256:" + "a" * 64,
+    }
+    body = {"draft_id": draft, "locator": locator}
+    calls = []
+
+    def list_versions(_root, **selectors):
+        calls.append(selectors)
+        return {"original": locator, "operations": []}
+
+    def read_preview(*, world_id, draft_id, locator):
+        calls.append((world_id, str(draft_id), locator.revision_id))
+        raise ApplicationStateConflictError("No exact proof for that revision")
+
+    monkeypatch.setattr(statblock_candidates, "statblock_data_root", lambda root: root)
+    monkeypatch.setattr(statblock_candidates.saved_versions, "list_versions", list_versions)
+    monkeypatch.setattr(combat_encounters, "_verified_world", lambda world_id: world_id)
+    monkeypatch.setattr(combat_encounters.combat_mechanics, "preview_saved_override", read_preview)
+    assert hosted.client.request("GET", history, session="other-session").status_code == 403
+    assert hosted.client.request("GET", history + "&offset=1").status_code == 403
+    assert hosted.client.request("POST", preview, origin=None, json=body).status_code == 403
+    assert hosted.client.request("POST", preview, session="other-session", json=body).status_code == 403
+    assert calls == []
+    listed = hosted.client.request("GET", history)
+    assert listed.status_code == 200, listed.text
+    assert listed.headers["cache-control"] == "no-store"
+    assert listed.json()["original"] == locator
+    refused = hosted.client.request("POST", preview, json=body)
+    assert refused.status_code == 409, refused.text
+    assert calls == [
+        {"world_id": "managed", "draft_id": draft, "limit": 50, "offset": 0},
+        ("managed", draft, "rev_example"),
+    ]

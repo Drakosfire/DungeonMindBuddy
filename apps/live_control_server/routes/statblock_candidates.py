@@ -169,8 +169,14 @@ def lookup_saved_statblock(
     return _revision_call(saved_versions.find_saved_version, world_id=world_id, name=name)
 
 
-@router.get('/threat-drafts/{draft_id}/mechanics-revisions',dependencies=[Depends(native_graph_gm_dependency)])
-def list_saved_revisions(draft_id:str,world_id:str,limit:int=Query(50,ge=1,le=100),offset:int=Query(0,ge=0)):
+@router.get('/threat-drafts/{draft_id}/mechanics-revisions')
+def list_saved_revisions(
+    draft_id: str, world_id: str, request: Request,
+    limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+):
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
     return _revision_call(saved_versions.list_versions,world_id=world_id,draft_id=draft_id,limit=limit,offset=offset)
 
 

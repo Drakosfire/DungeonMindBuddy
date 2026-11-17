@@ -185,8 +185,13 @@ def _adoption_call(action):
     except StatblockIntegrationError as exc:raise HTTPException(status_code=503,detail='Exact saved mechanics are unavailable') from exc
 
 
-@router.post('/saved-mechanics/preview',response_model=AdoptionPreview, dependencies=_LOCAL_GM)
-def preview_saved_mechanics_route(world_id:Annotated[str,Query(min_length=1,max_length=63)],body:SavedMechanicsPreviewRequest):
+@router.post('/saved-mechanics/preview', response_model=AdoptionPreview)
+def preview_saved_mechanics_route(
+    world_id: Annotated[str, Query(min_length=1, max_length=63)],
+    body: SavedMechanicsPreviewRequest,
+    request: Request,
+):
+    require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
     return _adoption_call(lambda:combat_mechanics.preview_saved_override(world_id=owner,draft_id=body.draft_id,locator=body.locator))
 
