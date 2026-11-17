@@ -2,7 +2,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from application_state.errors import ApplicationStateError
 from application_state.world_mechanics import service as state
 from application_state.world_mechanics.types import (
@@ -30,7 +30,19 @@ def list_creatures(world_id: WorldId, principal: NativeGraphPrincipal = Depends(
 
 
 @router.get("", response_model=list[WorldMechanicsAssociation])
-def list_associations(world_id: WorldId, principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency)):
+def get_associations(world_id: WorldId, request: Request):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
+    return list_associations(world_id)
+
+
+def list_associations(world_id: str, principal: NativeGraphPrincipal | None = None):
     try:
         resolve_managed_world_binding(world_id)
         return state.list_current(world_id=world_id)

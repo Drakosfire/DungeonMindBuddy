@@ -399,6 +399,18 @@ async def _owned_build_page(
     return record.world_id
 
 
+async def resolve_hosted_statblock_inventory(request: Request) -> str:
+    world_id = request.query_params.get("world_id")
+    selectors = request.query_params.multi_items()
+    allowed = {"world_id", "limit", "offset"} if request.url.path.endswith("/threat-drafts") else {"world_id"}
+    keys = {key for key, _ in selectors}
+    if not world_id or len(keys) != len(selectors) or not keys <= allowed or await request.body():
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_build_native_source(request: Request) -> str:
     selectors = request.query_params.multi_items()
     if await request.body() or (selectors and (
