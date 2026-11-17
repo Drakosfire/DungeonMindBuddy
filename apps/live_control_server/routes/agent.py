@@ -1691,7 +1691,9 @@ def confirm_conversation_variant_review(
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin")
 def get_world_turn_connected_page_origin(world_id: str, turn_id: UUID, request: Request):
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422, detail={"code":"connected_page_origin_selector_invalid"})
