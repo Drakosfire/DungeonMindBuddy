@@ -36,6 +36,15 @@ def extend_empty_clone(dsn: str, evidence: Path):
         AND (payload->>'placement_caret')::numeric=trunc((payload->>'placement_caret')::numeric)
         AND NOT (payload ? 'placement') AND NOT (payload ? 'retired_placements')
         AND (payload->'apply'='null'::jsonb OR payload#>'{{apply,prose_target}}'=payload->'prose_target')"""
+    # Keep the entire replacement arms and add separate boundary-only arms.
+    def boundary_arm(arm, old_version, new_version):
+        return (arm.replace(old_version, new_version)
+            .replace("dmb_build_prose_target_v1", "dmb_build_prose_boundary_target_v1")
+            .replace("->>'operation'='replace_paragraph'", "->>'operation' IN ('insert_before','insert_after')")
+            .replace("::numeric>=1", "::numeric>=0")
+            .replace("::numeric>(", "::numeric=("))
+    new_proposal = f"({new_proposal}) OR ({boundary_arm(new_proposal, 'dmb_build_document_proposal_v2', 'dmb_build_document_proposal_v3')})"
+    new_review = f"({new_review}) OR ({boundary_arm(new_review, 'dmb_build_proposal_review_v4', 'dmb_build_proposal_review_v5')})"
     changes=[]
     with psycopg.connect(dsn) as conn:
         observed=conn.execute('SELECT current_database(),current_user,inet_server_addr()::text,inet_server_port()').fetchone()

@@ -98,6 +98,20 @@ class BuildProseTarget(StrictModel):
         return self
 
 
+class BuildProseBoundaryTarget(BuildProseTarget):
+    """Host-selected root boundary; digest describes its anchor paragraph."""
+    schema_version: Literal["dmb_build_prose_boundary_target_v1"] = Field(default="dmb_build_prose_boundary_target_v1", alias="schema")
+    operation: Literal["insert_before", "insert_after"]
+    from_: int = Field(alias="from", strict=True, ge=0)
+    to: int = Field(strict=True, ge=0)
+
+    @model_validator(mode="after")
+    def forward_range(self):
+        if self.to != self.from_:
+            raise ValueError("Prose boundary requires an exact zero-width position")
+        return self
+
+
 def admit_single_prose_paragraph(markdown: str) -> None:
     # Deliberately narrow isolated proof: one inline Markdown paragraph, not new
     # block authority. The mounted editor separately validates its schema/content.
@@ -118,7 +132,7 @@ class BuildProposalReservation(StrictModel):
     page_body_offer: BuildPageBodyOffer | None = None
     page_end_offer: BuildPageEndOffer | None = None
     reference_image_id: UUID | None = None
-    prose_target: BuildProseTarget | None = None
+    prose_target: BuildProseTarget | BuildProseBoundaryTarget | None = None
 
     @model_validator(mode="after")
     def body_requires_exact_editor(self):
@@ -306,7 +320,8 @@ class BuildProposalRecord(StrictModel):
     @model_validator(mode="after")
     def validate_receipt(self):
         nominated = self.reservation.prose_target is not None
-        if (self.schema_version == "dmb_build_document_proposal_v2") != nominated:
+        expected_version = ("dmb_build_document_proposal_v3" if isinstance(self.reservation.prose_target, BuildProseBoundaryTarget) else "dmb_build_document_proposal_v2") if nominated else "dmb_build_document_proposal_v1"
+        if self.schema_version != expected_version:
             raise ValueError("Prose provenance requires its explicit versioned record")
         if self.proposal and (self.proposal.target == "prose_target") != nominated:
             raise ValueError("Generated proposal target differs from its admitted provenance")
@@ -342,6 +357,10 @@ class BuildProseProposalRecord(BuildProposalRecord):
 
     schema_version: Literal["dmb_build_document_proposal_v2"] = "dmb_build_document_proposal_v2"
     proposal: BuildProseGeneratedProposal | None = None
+
+
+class BuildProseBoundaryProposalRecord(BuildProseProposalRecord):
+    schema_version: Literal["dmb_build_document_proposal_v3"] = "dmb_build_document_proposal_v3"
 
 
 class BuildImageWriterProof(StrictModel):

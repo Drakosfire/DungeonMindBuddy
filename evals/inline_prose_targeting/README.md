@@ -21,9 +21,9 @@ passages require contextual disambiguation or a question, not first-match bindin
 ## Isolated native replacement proof
 
 The optional bridge and mounted review use an explicit default-off in-process
-`allowProseTargets` option. Normal services/routes do not enable it. Only
-`replace_paragraph` is implemented; ordinary model routing and contextual insertion
-remain unproved. Native records/reviews use v2/v4 only inside the disposable proof.
+`allowProseTargets` option. Normal services/routes do not enable it. This original replacement proof implements `replace_paragraph`; the separately
+opted-in boundary proof below adds scripted insertion. Ordinary model routing
+remains unproved. Native records/reviews use v2/v4 only inside the disposable proof.
 The fixture extends two cloned-database format CHECKs with explicit authorization;
 no product migration or production compatibility is claimed.
 
@@ -109,3 +109,33 @@ capability misses, and offered-alias membership are reported separately. This
 membership check is **not** live snapshot/read-only admission; the native bridge
 negative tests own that. No application, Undo, Save or reopen is performed by the
 scorer. A wrong nomination is not reported as an observed wrong-target write.
+
+## Isolated boundary insertion proof and coverage limit
+
+`allowProseBoundaries` is a separate default-off flag. Replacement-only readers
+reject boundary proposal v3/review v5 and `dmb_build_prose_boundary_target_v1`.
+The existing immutable catalog issues before/after aliases. The host validates the
+exact zero-width root boundary, anchor paragraph digest and editor snapshot;
+original author caret/selection and Move provenance are unchanged. New paragraph
+IDs are deterministic, collision-checked and within the existing 80-character
+presentation limit. One Undo restores the whole original editor document.
+
+`native_boundary_frontend.test.ts` covers before/after placement, stale/readonly/
+foreign state, multi-paragraph/forged targets, missing or invalid-ID normalization,
+and plain-page refusal. `native_boundary_roundtrip.test.tsx` witnesses scripted
+insertion after Preparation, duplicate text elsewhere, actual native review and
+explicit Save/cold reopen, full retained row/link/IDs and idempotent receipt. It
+uses a **pre-existing synthetic row**, not a row added to make an edit pass.
+`native_boundary_contract_test.py` exercises the versioned owner boundaries.
+Use a fresh owned adapter/clone for each network roundtrip, as above.
+
+**Real coverage gap:** this isolated boundary path refuses pages without existing
+Page presentation. `tiptap/pageComposer/presentation.ts::projectPresentation`
+currently returns null for a plain page without a row/image-text wrapper, so
+native Save cannot certify retaining its block identities on cold reopen. The
+proof checks the actual project/hydrate owner roundtrip before any draft mutation
+and refuses normalization. It never inserts a dummy row or changes unrelated
+content. Broad plain-page support needs the existing Page presentation/Save
+contract to define and retain identities without visual wrappers. That owner is
+outside this slice; no product acceptance or ordinary contextual routing claim
+is made. Production migration/rollback qualification remains absent.

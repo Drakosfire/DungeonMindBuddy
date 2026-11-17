@@ -251,3 +251,11 @@ production schema, reader drain, runtime activation, provider or private data.
 Use duplicate passages across headings and unrelated caret; prove exact before/
 after placement, semantic order, stale/readonly/foreign/ambiguous refusal and
 missing-ID normalization refusal. Scripted target choice is not model quality.
+
+Boundary witness coverage is deliberately limited to pre-existing composed Pages.
+`projectPresentation` returns null for plain Pages; preserving their exact IDs
+through native Save/reopen needs the Page presentation owner contract, outside
+this lease. Boundary admission refuses plain pages and any project/hydrate JSON
+normalization before mutation. It never adds a wrapper to force persistence.
+New IDs respect the existing80-character bound. This is an isolated coverage gap,
+not completion of ordinary contextual placement.

@@ -12,7 +12,7 @@ from pydantic import ConfigDict, Field, model_validator, model_serializer
 from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.service import _lock_pointer, _ready_dsn
-from application_state.build_proposal.types import StrictModel, BuildProposalBasis, BuildPageBodyOffer, BuildPageEndOffer, BuildProseTarget, admit_single_prose_paragraph
+from application_state.build_proposal.types import StrictModel, BuildProposalBasis, BuildPageBodyOffer, BuildPageEndOffer, BuildProseTarget, BuildProseBoundaryTarget, admit_single_prose_paragraph
 from application_state.build_proposal.service import _load, _save
 from application_state.errors import (
     ApplicationStateConflictError,
@@ -28,7 +28,7 @@ def digest(text):
 
 
 class ReviewApply(StrictModel):
-    prose_target: BuildProseTarget | None = None
+    prose_target: BuildProseTarget | BuildProseBoundaryTarget | None = None
     page_body_target: BuildPageBodyOffer | None = None
     page_end_target: BuildPageEndOffer | None = None
     placement_caret: int = Field(strict=True, ge=0)
@@ -93,7 +93,7 @@ class BuildProposalReview(StrictModel):
     schema_version: Literal["dmb_build_proposal_review_v2", "dmb_build_proposal_review_v3"] = Field(
         default="dmb_build_proposal_review_v2", alias="schema"
     )
-    prose_target: BuildProseTarget | None = None
+    prose_target: BuildProseTarget | BuildProseBoundaryTarget | None = None
     world_id: str
     action_id: UUID
     reservation_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -118,14 +118,16 @@ class BuildProposalReview(StrictModel):
             value.pop("page_body_target", None)
         if self.page_end_target is None:
             value.pop("page_end_target", None)
-        if self.schema_version in {"dmb_build_proposal_review_v2", "dmb_build_proposal_review_v4"}:
+        if self.schema_version in {"dmb_build_proposal_review_v2", "dmb_build_proposal_review_v4", "dmb_build_proposal_review_v5"}:
             value.pop("placement", None)
             value.pop("retired_placements", None)
         return value
 
     @model_validator(mode="after")
     def validate_digest(self):
-        if self.schema_version == "dmb_build_proposal_review_v4":
+        if self.schema_version in {"dmb_build_proposal_review_v4", "dmb_build_proposal_review_v5"}:
+            if (self.schema_version == "dmb_build_proposal_review_v5") != isinstance(self.prose_target, BuildProseBoundaryTarget):
+                raise ValueError("Prose review version differs from target operation")
             if self.prose_target is None or self.placement is not None or self.retired_placements or self.page_body_target or self.page_end_target:
                 raise ValueError("Prose review requires its immutable distinct target")
             admit_single_prose_paragraph(self.markdown)
@@ -176,8 +178,12 @@ class BuildProseProposalReview(BuildProposalReview):
     )
 
 
+class BuildProseBoundaryProposalReview(BuildProseProposalReview):
+    schema_version: Literal["dmb_build_proposal_review_v5"] = Field(default="dmb_build_proposal_review_v5", alias="schema")
+
+
 class BuildReviewCommand(StrictModel):
-    prose_target: BuildProseTarget | None = None
+    prose_target: BuildProseTarget | BuildProseBoundaryTarget | None = None
     operation: Literal["open", "save", "move", "discard", "prepare", "confirm", "replace_placement"]
     expected_revision: int = Field(strict=True, ge=0)
     placement_caret: int | None = Field(default=None, strict=True, ge=0)
@@ -230,15 +236,18 @@ class BuildReviewCommand(StrictModel):
 
 
 class BuildProposalReviewService:
-    def __init__(self, validate_source=None, *, allow_prose_targets=False, validate_prose_target=None):
+    def __init__(self, validate_source=None, *, allow_prose_targets=False, allow_prose_boundaries=False, validate_prose_target=None):
         self.validate_source = validate_source
         self.allow_prose_targets = allow_prose_targets
+        self.allow_prose_boundaries = allow_prose_boundaries
         self.validate_prose_target = validate_prose_target
 
     def _read_review(self, payload):
-        if payload.get("schema") == "dmb_build_proposal_review_v4" and not self.allow_prose_targets:
+        if payload.get("schema", payload.get("schema_version")) == "dmb_build_proposal_review_v4" and not self.allow_prose_targets:
             raise ApplicationStateConflictError("This prose review requires an updated reader")
-        codec = BuildProseProposalReview if self.allow_prose_targets and payload.get("schema", payload.get("schema_version")) == "dmb_build_proposal_review_v4" else BuildProposalReview
+        if payload.get("schema", payload.get("schema_version")) == "dmb_build_proposal_review_v5" and not self.allow_prose_boundaries:
+            raise ApplicationStateConflictError("This boundary review requires an updated reader")
+        codec = BuildProseBoundaryProposalReview if self.allow_prose_boundaries and payload.get("schema", payload.get("schema_version")) == "dmb_build_proposal_review_v5" else BuildProseProposalReview if self.allow_prose_targets and payload.get("schema", payload.get("schema_version")) == "dmb_build_proposal_review_v4" else BuildProposalReview
         return codec.model_validate(payload)
 
     def get(self, world_id, action_id):
@@ -260,7 +269,7 @@ class BuildProposalReviewService:
             ).fetchone()
             if row is None:
                 raise ApplicationStateNotFoundError("Proposal unavailable")
-            proposal = _load(row, allow_prose_targets=self.allow_prose_targets)
+            proposal = _load(row, allow_prose_targets=self.allow_prose_targets, allow_prose_boundaries=self.allow_prose_boundaries)
             row = conn.execute(
                 "SELECT payload FROM agent.build_proposal_review WHERE world_id=%s AND action_id=%s FOR UPDATE",
                 (world_id, action_id),
@@ -293,7 +302,7 @@ class BuildProposalReviewService:
             if command.operation == "open":
                 if proposal.inserted_in_draft:
                     raise ApplicationStateConflictError("Proposal was already inserted")
-                codec = BuildProseProposalReview if self.allow_prose_targets and expected_prose else BuildProposalReview
+                codec = BuildProseBoundaryProposalReview if isinstance(expected_prose, BuildProseBoundaryTarget) else BuildProseProposalReview if expected_prose else BuildProposalReview
                 result = codec(
                     prose_target=expected_prose,
                     world_id=world_id,
@@ -447,7 +456,7 @@ class BuildProposalReviewService:
                         "revision": proposal.revision + 1,
                         "updated_at": now,
                     },
-                    allow_prose_targets=self.allow_prose_targets,
+                    allow_prose_targets=self.allow_prose_targets, allow_prose_boundaries=self.allow_prose_boundaries,
                 )
             else:
                 raise ApplicationStateConflictError("Unsupported review transition")

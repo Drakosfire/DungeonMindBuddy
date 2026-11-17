@@ -5,8 +5,8 @@ import type {BuildComposeBridge,CapturedBuildInsertion,SavedProposalProjection} 
 import {buildProposalMarkdown} from './buildProposalMarkdown';
 import {SurfacePageProposal,SurfaceProposalReview} from '../surface/SurfacePageProposal';
 
-export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,onComplete,inspector,allowProseTargets=false}: {
-  allowProseTargets?:boolean;
+export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,onComplete,inspector,allowProseTargets=false,allowProseBoundaries=false}: {
+  allowProseTargets?:boolean;allowProseBoundaries?:boolean;
   record:BuildProposalRecord;bridge:BuildComposeBridge;sourceKey:string;requestKey:number;
   inspector:ReactNode;onStatus:(text:string)=>void;onComplete:(state:'applied'|'discarded')=>void;
 }) {
@@ -19,9 +19,10 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
   const callbacks=useRef({onStatus,onComplete});callbacks.current={onStatus,onComplete};
   const world=record.reservation.basis.world_id;
   function proposalReview(world:string,action:string,command?:BuildReviewCommand){
-    if(record.schema_version==='dmb_build_document_proposal_v2'&&!allowProseTargets)
+    if(record.schema_version==='dmb_build_document_proposal_v2'&&!allowProseTargets
+      ||record.schema_version==='dmb_build_document_proposal_v3'&&!allowProseBoundaries)
       return Promise.reject(new Error('This prose proposal requires an enabled proof reader. Nothing was changed.'));
-    return allowProseTargets?readProposalReview(world,action,command,{allowProseTargets:true}):readProposalReview(world,action,command);
+    return allowProseTargets||allowProseBoundaries?readProposalReview(world,action,command,{allowProseTargets,allowProseBoundaries}):readProposalReview(world,action,command);
   }
   function basisFor(saved:BuildProposalReview){return saved.placement?.basis??record.reservation.basis;}
   const wholePage=record.proposal?.target==='page_body';
@@ -30,10 +31,11 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
   const fixedTarget=wholePage||atEnd||prose;
   function proseFor(saved:BuildProposalReview){
     const expected=prose?record.reservation.prose_target:undefined;
+    const boundary=expected?.schema==='dmb_build_prose_boundary_target_v1';
     if(JSON.stringify(saved.prose_target??null)!==JSON.stringify(expected??null)
-      ||prose&&(!allowProseTargets||record.schema_version!=='dmb_build_document_proposal_v2'||saved.schema!=='dmb_build_proposal_review_v4'
+      ||prose&&(!(boundary?allowProseBoundaries:allowProseTargets)||record.schema_version!==(boundary?'dmb_build_document_proposal_v3':'dmb_build_document_proposal_v2')||saved.schema!==(boundary?'dmb_build_proposal_review_v5':'dmb_build_proposal_review_v4')
         ||!expected||saved.placement||record.reservation.basis.selection||saved.placement_caret!==record.reservation.basis.caret)
-      ||!prose&&saved.schema==='dmb_build_proposal_review_v4'
+      ||!prose&&['dmb_build_proposal_review_v4','dmb_build_proposal_review_v5'].includes(saved.schema)
       ||saved.apply&&JSON.stringify(saved.apply.prose_target??null)!==JSON.stringify(expected??null))
       throw new Error('The saved review differs from the admitted prose occurrence.');
     return expected??undefined;

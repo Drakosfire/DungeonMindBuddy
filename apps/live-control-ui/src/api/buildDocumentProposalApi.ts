@@ -6,10 +6,15 @@ export interface BuildProposalBasis {
   draft_generation: number; selection_generation: number; editor_sha256?: string | null;
   selection?: { end: number; text: string } | null;
 }
-export interface BuildProseTarget {
+export interface BuildProseReplacementTarget {
   schema: 'dmb_build_prose_target_v1'; catalog_sha256: string; alias: string;
   operation: 'replace_paragraph'; from: number; to: number; before_text_sha256: string;
 }
+export interface BuildProseBoundaryTarget {
+  schema: 'dmb_build_prose_boundary_target_v1'; catalog_sha256: string; alias: string;
+  operation: 'insert_before'|'insert_after'; from: number; to: number; before_text_sha256: string;
+}
+export type BuildProseTarget = BuildProseReplacementTarget | BuildProseBoundaryTarget;
 export interface BuildPageBodyTarget { end: number }
 export interface BuildPageEndTarget { end: number }
 export interface BuildProposalRequest {
@@ -22,7 +27,7 @@ export interface BuildProposalRequest {
   origin?: { client_turn_id: string; durable_turn_id: string; turn_attempt: number; broker_operation_id: string; arguments_sha256: string } | null;
 }
 export interface BuildProposalRecord {
-  schema_version: 'dmb_build_document_proposal_v1' | 'dmb_build_document_proposal_v2'; action_id: string;
+  schema_version: 'dmb_build_document_proposal_v1' | 'dmb_build_document_proposal_v2' | 'dmb_build_document_proposal_v3'; action_id: string;
   reservation: Omit<BuildProposalRequest, 'draft_markdown'>;
   request_fingerprint: string; after_turn_sequence: number; revision: number;
   state: 'reserved' | 'authorized' | 'sdk_entered' | 'response_received' | 'proposed' | 'failed' | 'unknown';

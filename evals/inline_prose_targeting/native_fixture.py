@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 from uuid import uuid4
-from application_state.build_proposal.types import BuildProposalReservation, BuildProseTarget, BuildProviderAuthorization
+from application_state.build_proposal.types import BuildProposalReservation, BuildProseTarget, BuildProseBoundaryTarget, BuildProviderAuthorization
 from application_state.build_proposal.service import BuildProposalService
 from application_state.build_proposal.review import BuildProposalReviewService, BuildReviewCommand
 from application_state.errors import ApplicationStateConflictError
@@ -77,8 +77,8 @@ class NativeProseFixture:
         self.world = 'synthetic-prose-' + uuid4().hex[:10]
         self.document_id = None
         self.admitted = {}
-        self.proposals = BuildProposalService(allow_prose_targets=True, admit_prose_target=self.admit)
-        self.reviews = BuildProposalReviewService(allow_prose_targets=True, validate_prose_target=self.admit)
+        self.proposals = BuildProposalService(allow_prose_targets=True, allow_prose_boundaries=True, admit_prose_target=self.admit)
+        self.reviews = BuildProposalReviewService(allow_prose_targets=True, allow_prose_boundaries=True, validate_prose_target=self.admit)
 
     def bootstrap(self, value):
         if self.document_id: raise ValueError('Fixture already bootstrapped')
@@ -116,9 +116,10 @@ class NativeProseFixture:
         choices, targets = catalog_for(doc)
         if choices != value['catalog_choices'] or sha(raw) != basis['editor_sha256'] or sha(value['draft_markdown']) != basis['draft_sha256']:
             raise ApplicationStateConflictError('Snapshot or offered catalog changed')
-        target = BuildProseTarget.model_validate(value['prose_target'])
+        codec = BuildProseBoundaryTarget if value['prose_target'].get('schema') == 'dmb_build_prose_boundary_target_v1' else BuildProseTarget
+        target = codec.model_validate(value['prose_target'])
         expected = targets.get(target.alias)
-        if (expected is None or target.operation != 'replace_paragraph' or target.catalog_sha256 != sha(wire(choices))
+        if (expected is None or target.catalog_sha256 != sha(wire(choices))
                 or any(target.model_dump(mode='json')[key] != expected[key] for key in ['operation','from','to','before_text_sha256'])):
             raise ApplicationStateConflictError('Alias is not an admitted exact root paragraph')
         action = uuid4()
