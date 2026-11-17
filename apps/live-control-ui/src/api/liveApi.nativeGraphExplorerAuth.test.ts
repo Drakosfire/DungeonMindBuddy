@@ -539,3 +539,20 @@ it("reads earlier image directions with the exact hosted session route", async (
   await expect(api.authenticatedApiFetch(path + "&world_id=other")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+
+it.each(["", "/22222222-2222-4222-8222-222222222222"])(
+  "reads owned hosted Play scene proposals at the exact route %s", async suffix => {
+    const api = await setup();
+    hostedOrigin();
+    api.setNativeGraphAccessToken("local-bearer");
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ fixture: true }));
+    const path = `/api/live/world-play-runs/v2/11111111-1111-4111-8111-111111111111/content/proposals${suffix}?world_id=managed`;
+    await api.authenticatedApiFetch(path);
+    const [, init] = fetch.mock.calls[0];
+    expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+    await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  },
+);
