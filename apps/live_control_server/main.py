@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+import logging
 import os
 import re
 from pathlib import Path
+from time import perf_counter
 from urllib.parse import urlencode
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from fastapi.responses import (
     FileResponse,
     JSONResponse,
@@ -307,6 +310,40 @@ async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
             await dms_http_client.aclose()
 
 
+class HostedRequestTiming:
+    """Log application time to response headers using bounded route templates."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+        self.logger = logging.getLogger("uvicorn.error")
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        started = perf_counter()
+        status = 500
+        headers_at = None
+
+        async def observe(message: Message) -> None:
+            nonlocal status, headers_at
+            if message["type"] == "http.response.start":
+                status = message["status"]
+                headers_at = perf_counter()
+            await send(message)
+
+        try:
+            await self.app(scope, receive, observe)
+        finally:
+            route = getattr(scope.get("route"), "path", "<unmatched>")
+            elapsed_ms = ((headers_at if headers_at is not None else perf_counter()) - started) * 1000
+            self.logger.info(
+                "buddy_request method=%s route=%s status=%d response_start_ms=%.1f",
+                scope["method"], route, status, elapsed_ms,
+            )
+
+
 def create_app() -> FastAPI:
     graph_preview_router = _load_graph_preview_router()
     hosted = deployment_environment() == PRODUCTION_ENVIRONMENT
@@ -361,6 +398,8 @@ def create_app() -> FastAPI:
         application, world_scope_resolvers=HOSTED_WORLD_SCOPE_RESOLVERS,
         collection_authorizers=HOSTED_WORLD_COLLECTION_AUTHORIZERS,
     )
+    if hosted:
+        application.add_middleware(HostedRequestTiming)
 
     @application.get(CURRENT_USER_PATH, include_in_schema=False)
     async def current_user(request: Request) -> dict[str, str]:
