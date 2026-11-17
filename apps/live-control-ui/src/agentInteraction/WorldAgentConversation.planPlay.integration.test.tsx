@@ -1715,7 +1715,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
       await screen.findByText("The saved source describes the guards at the western gate.");
       expect(postWorldGraphSourceAnchorRead).toHaveBeenCalledWith(expect.objectContaining({
         worldId: authority.native_world_id, revisionPin: authority.graph_revision, anchorId: "anchor-one",
-      }));
+      }), expect.objectContaining({ worldId: WORLD, turnId: historical.turn_id }));
     }
   });
 

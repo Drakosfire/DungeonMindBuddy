@@ -2906,7 +2906,7 @@ describe("World Plan conversation consumer", () => {
     expect(evidenceRead).toHaveBeenCalledWith(expect.objectContaining({
       worldId: "native-world-internal-test", scopeMode: "world", campaignId: "",
       revisionPin: "graph-revision-test", anchorId: "anchor-test", admissibility: "gm",
-    }));
+    }), expect.objectContaining({ worldId, claimId: expect.any(String), turnId: expect.any(String) }));
     fireEvent.click(screen.getByRole("button", { name: "Open related recap context" }));
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
     expect(screen.getByText("Partial passage. More source text may be available.")).toBeInTheDocument();
@@ -4936,7 +4936,7 @@ describe("World Plan conversation consumer", () => {
       target:{schema:'dmb_agent_source_passage_open_target_v1',kind:'source_passage',world_id:worldId,turn_id:turnId,citation_index:0},citation,content:passage});
     await mountComponent(); await screen.findByText('What does the source say?');
     if(mixed) expect(screen.getByText('A proposed outing.').closest('blockquote')).not.toBeNull();
-    expect(screen.getByText('Sources')).toBeInTheDocument();expect(open).not.toHaveBeenCalled();
+    expect(screen.getByText('Sources', { selector: "span" })).toBeInTheDocument();expect(open).not.toHaveBeenCalled();
     openLatestTurnDetails();
     fireEvent.click((mixed ? within(screen.getByLabelText('Source-supported statement')) : within(screen.getByText('Details',{selector:'summary'}).closest('details')!)).getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));
     await screen.findByRole('region',{name:'Opened source passage'});expect(open).toHaveBeenCalledWith(worldId,turnId,0);
@@ -5235,7 +5235,7 @@ describe("World Plan conversation consumer", () => {
         kind: "source_passage", world_id: worldId, turn_id: turnId, citation_index: 0}, citation, content: passage});
     await mountComponent();
     expect(await screen.findByText("What does the lore say?")).toBeInTheDocument();
-    expect(screen.getByText("Sources")).toBeInTheDocument();
+    expect(screen.getByText("Sources", { selector: "span" })).toBeInTheDocument();
     expect(open).not.toHaveBeenCalled();
     openLatestTurnDetails();
     fireEvent.click(within(screen.getByText("Details", {selector: "summary"}).closest("details")!).getByRole("button", {name: named ? "Read River Watch — synthetic source · lines 1–1" : "Read passage 1"}));
