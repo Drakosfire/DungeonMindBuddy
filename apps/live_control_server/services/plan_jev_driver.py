@@ -318,7 +318,7 @@ class PlanJevDriver:
         self._read_new_sources(operations)
 
     def _prior_bound_statblock(self):
-        from application_state.agent_conversation.authored_graph_references import object_selections
+        from application_state.agent_conversation.authored_graph_references import native_references, object_selections
         from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
 
         adapter = self.adapter
@@ -328,7 +328,7 @@ class PlanJevDriver:
         prior = adapter.service.list_turns(
             self.statblock_world, turn.conversation_id, limit=12, before_sequence=turn.sequence,
         )
-        for previous in prior:
+        for previous in reversed(prior):
             if not isinstance(previous, t.Turn) or previous.status != "completed":
                 return ()
             receipt = previous.graph_context_receipt
@@ -344,7 +344,7 @@ class PlanJevDriver:
                 if len(reads) != 1 or len(captures) > 1:
                     return ()
                 break
-            if captures or not any(
+            if captures or native_references(previous.graph_context_execution) is not None or not any(
                 isinstance(event, t.BuildRequestedWorkResolutionV1) and event.requested_work == "discuss"
                 for event in events
             ):

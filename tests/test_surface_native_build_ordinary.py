@@ -1732,15 +1732,20 @@ def test_followup_reoffers_only_the_bound_statblock_on_the_same_page(lane, tmp_p
     assert calls == [(case.world, current.conversation_id, {"limit": 12, "before_sequence": current.sequence})]
 
     execution = previous.graph_context_execution
+    action = execution.policy.action
+    unselected_action = action.model_copy(update={
+        "intent": action.intent.model_copy(update={"authored_references": None}),
+    })
     discussion = previous.model_copy(update={
         "sequence": current.sequence,
         "graph_context_execution": execution.model_copy(update={
+            "policy": execution.policy.model_copy(update={"action": unselected_action}),
             "events": tuple(event for event in execution.events
                             if not isinstance(event, (BuildSavedStatblockReadV1, BuildAuthoredReferencesCapturedV1))),
         }),
     })
     driver.adapter.fence.turn = current.model_copy(update={"sequence": current.sequence + 1})
-    driver.adapter.service.list_turns = lambda *_args, **_kwargs: [discussion, previous]
+    driver.adapter.service.list_turns = lambda *_args, **_kwargs: [previous, discussion]
     assert driver._prior_bound_statblock() == (entry,)
 
     intervening_selection = discussion.model_copy(update={
@@ -1748,7 +1753,20 @@ def test_followup_reoffers_only_the_bound_statblock_on_the_same_page(lane, tmp_p
             "events": (*discussion.graph_context_execution.events, capture),
         }),
     })
-    driver.adapter.service.list_turns = lambda *_args, **_kwargs: [intervening_selection, previous]
+    driver.adapter.service.list_turns = lambda *_args, **_kwargs: [previous, intervening_selection]
+    assert driver._prior_bound_statblock() == ()
+
+    empty_selection = action.intent.authored_references.model_copy(update={"references": ()})
+    empty_action = action.model_copy(update={
+        "intent": action.intent.model_copy(update={"authored_references": empty_selection}),
+    })
+    discussion_execution = discussion.graph_context_execution
+    cleared = discussion.model_copy(update={
+        "graph_context_execution": discussion_execution.model_copy(update={
+            "policy": execution.policy.model_copy(update={"action": empty_action}),
+        }),
+    })
+    driver.adapter.service.list_turns = lambda *_args, **_kwargs: [previous, cleared]
     assert driver._prior_bound_statblock() == ()
 
     driver.adapter.fence.turn = current
