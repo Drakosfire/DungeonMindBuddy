@@ -2098,6 +2098,9 @@ def test_variant_markdown_preserves_cross_references_and_armor_profiles():
 
 def test_variant_correction_creates_a_new_review_without_saving(lane, tmp_path, monkeypatch):
     from copy import deepcopy
+    from datetime import datetime, timezone
+    from application_state.agent_conversation.conversation_variant_save import approval_handoff
+    from application_state.unit_of_work import unit_of_work
 
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
@@ -2116,6 +2119,7 @@ def test_variant_correction_creates_a_new_review_without_saving(lane, tmp_path, 
         "rule_key": target["key"], "field": "rules_text",
         "replace_exact": target["rules_text"], "with_text": revised,
     }]}
+    original_approval_time = datetime.now(timezone.utc)
     result = case.client.put(prior_path, json=correction)
     assert result.status_code == 200, result.text
     successor = result.json()
@@ -2134,6 +2138,16 @@ def test_variant_correction_creates_a_new_review_without_saving(lane, tmp_path, 
     new_draft = case.client.get(draft_path).json()
     assert new_draft["variant_review_ids"] == [successor["review_id"]]
     assert revised in new_draft["markdown"]
+    primary = case.turn.provenance.primary_work
+    target_scope = dict(
+        world_id=case.world, conversation_id=case.turn.conversation_id,
+        prior_to=case.turn.sequence + 1, page_id=primary.object_id, page_kind=primary.kind,
+    )
+    with unit_of_work() as conn:
+        assert approval_handoff(conn, **target_scope, accepted_at=original_approval_time) == {"status": "stale"}
+        fresh = approval_handoff(conn, **target_scope, accepted_at=datetime.now(timezone.utc))
+    assert fresh["status"] == "ready"
+    assert str(fresh["review_id"]) == successor["review_id"]
 
 
 def test_variant_exact_correction_rejects_overlapping_matches():
