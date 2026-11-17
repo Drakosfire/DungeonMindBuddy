@@ -352,6 +352,9 @@ def hosted(monkeypatch, request):
 
     from apps.live_control_server.routes import recap_ingest
 
+    from apps.live_control_server.routes import pdf_adventure_events
+
+    app.include_router(pdf_adventure_events.router)
     app.include_router(recap_ingest.router)
     app.include_router(combat_run_encounters.router)
     app.include_router(combat_scene_templates.router)
@@ -417,6 +420,8 @@ def hosted(monkeypatch, request):
             ("POST", access.FIRST_WORLD_CONFIRM_PATH): access.resolve_hosted_first_world,
             ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("POST", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
+            ("POST", "/api/live/worlds/{world_id}/pdf-adventure-events/prepare"): access.resolve_hosted_build_pdf_world,
+            ("POST", "/api/live/worlds/{world_id}/pdf-adventure-events/confirm"): access.resolve_hosted_build_pdf_world,
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
             ("POST", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_saved_recap,
@@ -4688,3 +4693,30 @@ def test_hosted_extraction_coverage_requires_owned_document_and_matching_result(
     assert result.json()["managedWorldId"] == "managed"
     assert hosted.client.request("GET", f"{base}/mismatch/worldbuilding-publication-coverage").status_code == 403
     assert calls == ["owned", "mismatch"]
+
+
+def test_hosted_pdf_event_review_binds_both_steps_to_world_owner(hosted, monkeypatch):
+    from apps.live_control_server.routes import pdf_adventure_events
+
+    calls = []
+
+    def observe(world_id, body, principal):
+        calls.append((world_id, principal.subject, principal.managed_world_id))
+        return {"accepted": True}
+
+    monkeypatch.setattr(pdf_adventure_events.service, "prepare", observe)
+    monkeypatch.setattr(pdf_adventure_events.service, "confirm", observe)
+    draft = {
+        "operation_id": "00000000-0000-4000-8000-000000000002",
+        "name": "Event", "description": "Reviewed description.",
+        "region": {"source_revision_id": "rev:pdf", "content_sha256": "a" * 64, "page": 1,
+                   "left": 0, "top": 0, "right": 1, "bottom": 1},
+    }
+    for action, body in (("prepare", draft), ("confirm", {"token": "fixture", "draft": draft, "prepared": {}})):
+        path = f"/api/live/worlds/managed/pdf-adventure-events/{action}"
+        assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+        assert hosted.client.request("POST", path.replace("/managed/", "/foreign/"), json=body).status_code == 403
+        assert hosted.client.request("POST", path, json=body, origin="https://outside.invalid").status_code == 403
+        result = hosted.client.request("POST", path, json=body)
+        assert result.status_code == 200, result.text
+    assert calls == [("managed", "hosted_dms:synthetic-owner-alpha", "managed")] * 2

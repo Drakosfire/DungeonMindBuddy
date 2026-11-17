@@ -420,13 +420,20 @@ async def resolve_hosted_build_pdf_world(request: Request) -> str:
     return world.world_id
 
 
-def require_build_pdf_access(request: Request, world_id: str) -> None:
+def require_build_pdf_access(request: Request, world_id: str) -> NativeGraphPrincipal:
     if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
-        enforce_native_graph_gm(request)
-        return
+        return enforce_native_graph_gm(request)
     if getattr(request.state, "hosted_build_pdf_world", None) != world_id:
         raise _denied()
-    _owned_world(_hosted_subject(request), world_id)
+    subject = _hosted_subject(request)
+    _owned_world(subject, world_id)
+    return HostedOwnerGraphPrincipal(
+        subject=f"hosted_dms:{subject}",
+        dms_subject=subject,
+        role="gm",
+        auth_method="hosted_owner",
+        managed_world_id=world_id,
+    )
 
 
 async def resolve_hosted_build_page_create(request: Request) -> str:

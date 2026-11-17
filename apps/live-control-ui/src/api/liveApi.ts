@@ -464,6 +464,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/(?:open|region:validate)$/.test(path)) {
     return method === "POST" && requestBodyRecord(init?.body) !== null;
   }
+  if (/^\/api\/live\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/pdf-adventure-events\/(?:prepare|confirm)$/.test(path)) {
+    return method === "POST" && requestBodyRecord(init?.body) !== null;
+  }
   const savedPdfStatblock = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/publication\/statblock\?([^#]+)$/.exec(path);
   if (savedPdfStatblock) {
     const query = new URLSearchParams(savedPdfStatblock[1]);
