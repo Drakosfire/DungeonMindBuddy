@@ -58,7 +58,9 @@ export function captureProseTargetCatalog(getCurrent: () => ProseTargetState | n
     if (node.type.name !== 'paragraph' || !node.textContent.trim()) return;
     // Atom/reference/citation objects must not be silently replaced as prose.
     let textOnly = true;
-    node.forEach(child => { if (!child.isText) textOnly = false; });
+    node.forEach(child => {
+      if (!child.isText || child.marks.some(mark => !['bold', 'italic', 'strike', 'code', 'underline'].includes(mark.type.name))) textOnly = false;
+    });
     if (!textOnly) return;
     const alias = `passage${++occurrence}`;
     const section = headings.map(item => item.text).join(' / ') || 'Before the first heading';
