@@ -430,6 +430,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
   const recapCorrection = /^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/recap-evidence-corrections\?managed_world_id=([a-z][a-z0-9_-]{0,62})$/.exec(path);
   if (recapCorrection) return method === "POST" && requestBodyRecord(init?.body) !== null;
+  if (path === "/api/live/graph-authoring/prepare" || path === "/api/live/graph-authoring/commit") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.worldId === "string" && Boolean(body.worldId)
+      && body.campaignId === body.worldId && typeof body.sourceRunId === "string" && Boolean(body.sourceRunId);
+  }
   if (isRecapSelectionContextPath(path)) {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && typeof body?.expected_world_id === "string" && Boolean(body.expected_world_id);
@@ -859,7 +864,8 @@ function apiRequestTarget(
   const pageUrl = typeof window === "undefined" ? undefined : window.location.href;
   let normalizedPath = path;
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
-  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath);
+  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
+    || /^\/api\/live\/graph-authoring\/(?:prepare|commit)$/.test(normalizedPath);
   if (isLoopbackApiDestination(url)) return { url, localGraphRequest, hostedGraphRequest: false };
   if (localGraphRequest || graphSurface) {
     // Exact relative paths only: explicit API bases, URL credentials, queries,

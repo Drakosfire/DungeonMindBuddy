@@ -353,6 +353,8 @@ def hosted(monkeypatch, request):
     app.include_router(workspace_documents.router)
     from apps.live_control_server.routes import graph_authoring
 
+    app.add_api_route("/api/live/graph-authoring/prepare", graph_authoring.post_graph_object_authoring_prepare, methods=["POST"])
+    app.add_api_route("/api/live/graph-authoring/commit", graph_authoring.post_graph_object_authoring_commit, methods=["POST"])
     app.add_api_route("/api/live/graph-authoring/object-kinds", graph_authoring.get_graph_object_authoring_kinds, methods=["GET"])
     app.add_api_route("/api/live/graph-authoring/document-relationship/native-prepare", graph_authoring.post_native_relationship_prepare, methods=["POST"])
     app.add_api_route("/api/live/graph-authoring/document-relationship/native-confirm", graph_authoring.post_native_relationship_confirm, methods=["POST"])
@@ -404,6 +406,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/rules/query"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/rules/passages/{citation_id}"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_connected_page,
+            ("POST", "/api/live/graph-authoring/prepare"): access.resolve_hosted_manual_knowledge,
+            ("POST", "/api/live/graph-authoring/commit"): access.resolve_hosted_manual_knowledge,
             ("GET", "/api/live/graph-authoring/object-kinds"): access.resolve_hosted_plan_world_context,
             ("POST", "/api/live/graph-authoring/document-relationship/native-prepare"): access.resolve_hosted_native_relationship,
             ("POST", "/api/live/graph-authoring/document-relationship/native-confirm"): access.resolve_hosted_native_relationship,
@@ -2183,6 +2187,41 @@ def test_hosted_turn_evidence_checks_owner_and_exact_selectors(hosted, monkeypat
     result = hosted.client.request("GET", recap_path)
     assert result.status_code == 404, result.text
     assert calls[-1] == ("dm-context-anchor:v2:recap", "recap-page:v2:second")
+
+def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypatch):
+    from apps.live_control_server.routes import graph_authoring
+    from apps.live_control_server.services import graph_run_registry, source_artifact_registry
+    from tests.test_graph_object_authoring_prepare import object_proposal
+
+    async def owned_page(subject, document_id):
+        assert (subject, document_id) == (OWNER, "build-doc")
+        return "managed"
+
+    def dispatch(body, *, authenticated_actor):
+        calls.append((body.source_run_id, authenticated_actor))
+        raise graph_authoring.GraphObjectAuthoringError("Reached authoring.", code="probe", status_code=409)
+
+    calls = []
+    monkeypatch.setattr(access, "_owned_build_page", owned_page)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda run: SimpleNamespace(
+        source_artifact_id=run, source_domain="worldbuilding",
+    ))
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda artifact: SimpleNamespace(
+        source_domain="worldbuilding", workspace_document_id="build-doc",
+        world_id="managed" if artifact == "owned" else "foreign",
+    ))
+    monkeypatch.setattr(graph_authoring, "prepare_graph_object_authoring_write", dispatch)
+    monkeypatch.setattr(graph_authoring, "commit_graph_object_authoring_write", dispatch)
+    payload = {"worldId": "managed", "campaignId": "managed", "sourceRunId": "owned", "proposals": [object_proposal()]}
+    for phase in ("prepare", "commit"):
+        path = f"/api/live/graph-authoring/{phase}"
+        body = {**payload, "confirmToken": "token", "currentOverlayToken": "overlay"} if phase == "commit" else payload
+        assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+        assert hosted.client.request("POST", path, json={**body, "sourceRunId": "foreign"}).status_code == 403
+        response = hosted.client.request("POST", path, json=body)
+        assert response.status_code == 409, response.text
+    assert calls == [("owned", f"hosted_dms:{OWNER}")] * 2
+
 
 def test_hosted_action_evidence_checks_owner_and_exact_selectors(hosted, monkeypatch):
     from apps.live_control_server.routes import agent

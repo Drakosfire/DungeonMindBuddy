@@ -127,10 +127,13 @@ def post_native_relationship_confirm(
 
 @router.post("/prepare", response_model=GraphObjectAuthoringPrepareResponse)
 def post_graph_object_authoring_prepare(
-    request: GraphObjectAuthoringPrepareRequest,
+    request: GraphObjectAuthoringPrepareRequest, request_context: Request,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import manual_knowledge_actor
+
+    actor = manual_knowledge_actor(request_context, world_id=request.world_id, run_id=request.source_run_id)
     try:
-        response = prepare_graph_object_authoring_write(request)
+        response = prepare_graph_object_authoring_write(request, authenticated_actor=actor) if actor else prepare_graph_object_authoring_write(request)
     except GraphObjectAuthoringError as exc:
         raise HTTPException(
             status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}
@@ -140,10 +143,13 @@ def post_graph_object_authoring_prepare(
 
 @router.post("/commit", response_model=GraphObjectAuthoringCommitResponse)
 def post_graph_object_authoring_commit(
-    request: GraphObjectAuthoringCommitRequest,
+    request: GraphObjectAuthoringCommitRequest, request_context: Request,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import manual_knowledge_actor
+
+    actor = manual_knowledge_actor(request_context, world_id=request.world_id, run_id=request.source_run_id)
     try:
-        response = commit_graph_object_authoring_write(request)
+        response = commit_graph_object_authoring_write(request, authenticated_actor=actor) if actor else commit_graph_object_authoring_write(request)
     except GraphObjectAuthoringError as exc:
         raise HTTPException(
             status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}
