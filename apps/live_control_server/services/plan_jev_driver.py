@@ -103,8 +103,22 @@ class PlanJevDriver:
                     handle=handle, label=row["label"],
                     kind=f"World entity: {kind}" if kind is not None else "World entity"))
 
+    def _anchored_discussion(self):
+        adapter = self.adapter
+        if adapter.request.surface.surface_id != "build":
+            return False
+        from application_state.agent_conversation.build_intentional_response import selected_action
+
+        selected = selected_action(adapter._broker_execution())
+        return (isinstance(selected, t.BuildRequestedWorkResolutionV1)
+                and selected.requested_work == "discuss"
+                and selected.resolution.get("source_scope") == "anchored")
+
     def offered(self):
         if self.finished:return ()
+        if self._anchored_discussion():
+            rules = (rules_candidate(),) if self.rules is not None and not self.rules.selected else ()
+            return rules + self._saved_build_sections() + self._saved_statblock_candidates()
         result = [candidate for node, candidate in self.catalog.values() if node not in self.attempted_nodes]
         from .plan_jev_acquisition import query_identity, read_subject_labels
         seen = set(self.attempted_queries)
@@ -130,16 +144,22 @@ class PlanJevDriver:
             result.extend(RetrievalCandidate(handle=assertion_handle(query, match), label=match.label,
                 kind='Reviewed native Graph assertion; select to read its qualifications and exact supporting evidence')
                 for match in query.assertion_matches if match.assertion_id not in self.native_assertion_attempts)
-        result.extend(candidate for handle,(candidate,_range) in self.saved_page_catalog.items() if handle not in self.attempted_saved_pages)
+        result.extend(self._saved_build_sections())
         result.extend(RetrievalCandidate(handle=handle, label=page.title,
             kind="Saved authored Worldbuilding page; read its exact current saved text, not played truth. New connected-page review needs a relevant saved page origin.")
             for handle,page in self.related_saved_pages.items() if handle not in self.attempted_related_pages)
-        result.extend(RetrievalCandidate(handle=handle, label=entry[0],
-            kind="Saved statblock; open its exact saved mechanics revision")
-            for handle, entry in self.saved_statblocks.items()
-            if handle not in self.attempted_statblocks)
+        result.extend(self._saved_statblock_candidates())
         result.extend(self.native_sources.offered())
         return tuple(result)
+
+    def _saved_build_sections(self):
+        return tuple(candidate for handle, (candidate, _range) in self.saved_page_catalog.items()
+                     if handle not in self.attempted_saved_pages)
+
+    def _saved_statblock_candidates(self):
+        return tuple(RetrievalCandidate(handle=handle, label=entry[0],
+                     kind="Saved statblock; open its exact saved mechanics revision")
+                     for handle, entry in self.saved_statblocks.items() if handle not in self.attempted_statblocks)
 
     def _graph_read(self, operation, node=None, *, query=None):
         a = self.adapter
@@ -612,7 +632,7 @@ class PlanJevDriver:
 
     def decision_arguments(self):
         """One actual catalog producer for opening and subsequent decisions."""
-        operations = (('select_candidates', 'finish_retrieval') if self.discovered else
+        operations = (('select_candidates', 'finish_retrieval') if self.discovered or self._anchored_discussion() else
             ('select_candidates', 'discover_more', 'finish_retrieval'))
         examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
         if self.rules is not None and self.rules.selected:

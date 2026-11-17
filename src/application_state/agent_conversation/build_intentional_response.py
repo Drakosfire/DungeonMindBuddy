@@ -203,9 +203,33 @@ def question(*, guidance=None, work_options=None):
     }
 
 
+SOURCE_NEED_OPTIONS = ("anchored", "source_lookup", "uncertain")
+SOURCE_NEED_GUIDANCE = (
+    "Does answering this turn require looking beyond the current page, explicitly referenced or "
+    "carried material, and dialogue? Choose anchored for creative feedback on a supplied premise "
+    "or brainstorming where the GM asks for no new world fact. Choose source_lookup for a factual "
+    "lookup, citation, search in another source, or an explicit new reference that must be located. "
+    "Choose uncertain if the request cannot safely be answered from the anchored material alone."
+)
+
+
+def source_need(request, response):
+    question = request["questions"].get("source_need")
+    if question is None:
+        return None
+    expected = {"type": "choice", "instructions": SOURCE_NEED_GUIDANCE,
+                "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
+    if question != expected:
+        raise ValueError("Build source scope differs from its offered decision")
+    return _selected_choice(response["answers"]["source_need"], SOURCE_NEED_OPTIONS)
+
+
 def selected(response, *, menu=None):
     options = WORK if menu is None else _menu_work(menu)
-    answer = response["answers"]["requested_work"]
+    return _selected_choice(response["answers"]["requested_work"], options)
+
+
+def _selected_choice(answer, options):
     label, probabilities = answer["selected"], answer["probabilities"]
     if (
         label not in options
@@ -491,16 +515,21 @@ def _captured_semantics(policy):
     return caps,policy.action_capability_sha256,policy.requested_work_menu_sha256,policy.response_resolver_sha256
 
 
-def resolution_for(policy, label):
+def resolution_for(policy, label, *, source_scope=None):
     caps,_,menu,resolver=_captured_semantics(policy)
     if not known_semantics(menu, resolver) or label not in _menu_work(menu):
         raise ValueError("Unknown semantic menu or resolver")
-    return json.loads(canonical(resolve(label,caps)))
+    resolution = json.loads(canonical(resolve(label,caps)))
+    if source_scope is not None:
+        if source_scope not in SOURCE_NEED_OPTIONS:
+            raise ValueError("Invalid Build source scope")
+        resolution["source_scope"] = source_scope
+    return resolution
 
 
 def validate_resolution_metadata(event, policy):
     caps,capability,menu,resolver=_captured_semantics(policy)
-    expected=resolution_for(policy,event.requested_work)
+    expected=resolution_for(policy,event.requested_work,source_scope=event.resolution.get("source_scope"))
     if (event.resolution != expected or event.intent_family != expected['intent_family']
             or event.operation != expected['operation'] or event.operation not in caps.operations
             or event.capability_sha256 != capability
@@ -541,7 +570,7 @@ def selected_contract(execution):
     if isinstance(choice,BuildReviewedActionSelectionV1):
         return None
     validate_resolution_metadata(choice,execution.policy)
-    return choice.resolution
+    return {key: value for key, value in choice.resolution.items() if key != "source_scope"}
 
 
 def validate_native_action_events(execution):
@@ -599,7 +628,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     raw_response = strict_json(proof["response_json"])
     label = selected(raw_response, menu=menu)
     response = DecisionResult.model_validate(raw_response)
-    resolution = resolution_for(policy, label)
+    resolution = resolution_for(policy, label, source_scope=source_need(request, raw_response))
     prior = [
         e
         for e in execution.events
