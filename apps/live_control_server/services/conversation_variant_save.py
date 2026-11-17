@@ -1,6 +1,7 @@
 """Create a distinct statblock for an explicitly confirmed conversation revision."""
 
 import json
+import logging
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -52,16 +53,24 @@ class ConfirmConversationVariant(BaseModel):
     review_id: UUID
 
 
+logger = logging.getLogger(__name__)
+
+
 def validate_variant_review(definition, *, client=None):
     """Obtain an owner receipt before presenting generated mechanics for confirmation."""
     from .statblock_definition_validation import validate_definition
 
-    result = validate_definition(definition=definition, client=client)
+    try:
+        result = validate_definition(definition=definition, client=client)
+    except ValueError:
+        logger.warning("Statblock owner returned a malformed validation receipt.")
+        return None
     receipt = result.validation_receipt
     if receipt is None:
         return None
-    if compute_definition_digest(definition) != result.definition_digest:
-        raise ApplicationStateIntegrityError("Statblock validation returned different mechanics.")
+    if result.definition_digest != compute_definition_digest(definition) or receipt.definition_digest != result.definition_digest:
+        logger.warning("Statblock validation did not match the submitted draft definition.")
+        return None
     return receipt
 
 
