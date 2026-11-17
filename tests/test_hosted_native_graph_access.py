@@ -502,6 +502,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
             ("GET", "/api/live/threat-drafts"): access.resolve_hosted_statblock_inventory,
+            ("GET", "/api/live/saved-statblocks/lookup"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/agent/turn"): access.resolve_hosted_chat_turn,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): access.resolve_hosted_conversation_world,
@@ -4720,3 +4721,24 @@ def test_hosted_pdf_event_review_binds_both_steps_to_world_owner(hosted, monkeyp
         result = hosted.client.request("POST", path, json=body)
         assert result.status_code == 200, result.text
     assert calls == [("managed", "hosted_dms:synthetic-owner-alpha", "managed")] * 2
+
+
+def test_hosted_saved_statblock_lookup_requires_owned_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import statblock_candidates
+
+    calls = []
+
+    def lookup(_root, *, world_id, name):
+        calls.append((world_id, name))
+        return {"status": "not_found"}
+
+    monkeypatch.setattr(statblock_candidates.saved_versions, "find_saved_version", lookup)
+    path = "/api/live/saved-statblocks/lookup?world_id=managed&name=Meat+Mind"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path.replace("managed", "foreign")).status_code == 403
+    assert hosted.client.request("GET", path + "&name=Other").status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 200, result.text
+    assert result.json() == {"status": "not_found"}
+    assert calls == [("managed", "Meat Mind")]
