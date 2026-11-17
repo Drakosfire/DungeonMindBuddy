@@ -341,6 +341,12 @@ def get_extraction_run_recap_projection(
         build_historical_recap_world_projection,
     )
 
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_saved_recap_access(request, managed_world_id or "")
     try:
         response = build_historical_recap_world_projection(
             repo_root(),
@@ -356,6 +362,8 @@ def get_extraction_run_recap_projection(
                 "diagnostics": [item.model_dump(mode="json") for item in exc.diagnostics],
             },
         ) from exc
+    if hosted:
+        require_saved_recap_access(request, response.managed_world_id or "")
     return response.model_dump(mode="json", by_alias=True)
 
 
