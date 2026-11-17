@@ -713,14 +713,22 @@ router.add_api_route(
 )
 
 
-def native_worldbuilding_context(
-    body: NativeWorldbuildingContextRequest,
-    request: Request,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
-):
+def native_worldbuilding_context(body: NativeWorldbuildingContextRequest, request: Request):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        hosted_explorer_principal, require_explorer_access,
+    )
     from apps.live_control_server.services.native_recap_preparation import worldbuilding_review_context
 
-    return _native_recap_operation(body, request, principal, worldbuilding_review_context)
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        principal = enforce_native_graph_gm(request)
+    else:
+        principal = hosted_explorer_principal(request)
+    require_explorer_access(principal, body.managed_world_id)
+    response = _native_recap_operation(body, request, principal, worldbuilding_review_context)
+    require_explorer_access(principal, body.managed_world_id)
+    return response
 
 
 router.add_api_route(

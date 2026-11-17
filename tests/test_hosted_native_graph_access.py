@@ -496,6 +496,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/frozen-source-spans"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/worldbuilding-publication-coverage"): access.resolve_hosted_build_extraction,
+            ("POST", "/api/live/extract-promote/native-worldbuilding-context"): access.resolve_hosted_worldbuilding_review_context,
             ("POST", "/api/live/extract-promote/runs/{run_id}/evidence-corrections"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
@@ -4742,3 +4743,32 @@ def test_hosted_saved_statblock_lookup_requires_owned_world(hosted, monkeypatch)
     assert result.status_code == 200, result.text
     assert result.json() == {"status": "not_found"}
     assert calls == [("managed", "Meat Mind")]
+
+
+def test_hosted_worldbuilding_review_context_binds_exact_source(hosted, monkeypatch):
+    from apps.live_control_server.services import native_recap_preparation
+
+    async def owned_extraction(subject, run_id):
+        assert subject == "synthetic-owner-alpha"
+        assert run_id == "saved-run"
+        return "managed", SimpleNamespace(source_artifact_id="saved-source", content_sha256="a" * 64)
+
+    monkeypatch.setattr(access, "_owned_worldbuilding_extraction", owned_extraction)
+    calls = []
+
+    def review(body, principal):
+        calls.append((body.run_id, principal.managed_world_id))
+        return {"context": "verified"}
+
+    monkeypatch.setattr(native_recap_preparation, "worldbuilding_review_context", review)
+    path = "/api/live/extract-promote/native-worldbuilding-context"
+    body = {"managed_world_id": "managed", "run_id": "saved-run",
+            "source_artifact_id": "saved-source", "source_sha256": "a" * 64}
+    assert hosted.client.request("POST", path, json={**body, "source_sha256": "b" * 64}).status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "managed_world_id": "foreign"}).status_code == 403
+    assert hosted.client.request("POST", path + "?world_id=managed", json=body).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 200, result.text
+    assert result.json() == {"context": "verified"}
+    assert calls == [("saved-run", "managed")]

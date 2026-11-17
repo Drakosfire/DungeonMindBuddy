@@ -183,6 +183,10 @@ async def native_graph_explorer_dependency(request: Request) -> NativeGraphPrinc
         and hosted_auth.auth_mode() == hosted_auth.LOCAL_MODE
     ):
         return enforce_native_graph_gm(request)
+    return hosted_explorer_principal(request)
+
+
+def hosted_explorer_principal(request: Request) -> HostedOwnerGraphPrincipal:
     subject = _hosted_subject(request)
     hosted_auth.require_hosted_write_origin(request)
     # Require a fresh lookup here as well: middleware admission is not a cached
@@ -847,10 +851,26 @@ def manual_knowledge_actor(request: Request, *, world_id: str | None, run_id: st
     return f"hosted_dms:{subject}"
 
 
-async def resolve_hosted_build_extraction(request: Request) -> str:
+async def _owned_worldbuilding_extraction(subject: str, run_id: str):
     from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError, get_extraction_run
     from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, get_source_artifact
 
+    try:
+        run = await run_in_threadpool(get_extraction_run, run_id)
+        artifact = await run_in_threadpool(get_source_artifact, run.source_artifact_id)
+    except (GraphRunRegistryError, SourceArtifactRegistryError) as exc:
+        if exc.status_code == 404:
+            raise _denied() from None
+        raise _unavailable() from None
+    if run.source_domain != "worldbuilding" or artifact.source_domain != "worldbuilding":
+        raise _denied()
+    world_id = await _owned_build_page(subject, artifact.workspace_document_id)
+    if artifact.world_id != world_id:
+        raise _denied()
+    return world_id, artifact
+
+
+async def resolve_hosted_build_extraction(request: Request) -> str:
     subject = _hosted_subject(request)
     run_id = getattr(request.state, "hosted_route_run_id", None)
     if request.method == "POST" and not run_id:
@@ -861,19 +881,23 @@ async def resolve_hosted_build_extraction(request: Request) -> str:
     else:
         if not run_id:
             raise _denied()
-        try:
-            run = await run_in_threadpool(get_extraction_run, run_id)
-            artifact = await run_in_threadpool(get_source_artifact, run.source_artifact_id)
-        except (GraphRunRegistryError, SourceArtifactRegistryError) as exc:
-            if exc.status_code == 404:
-                raise _denied() from None
-            raise _unavailable() from None
-        if run.source_domain != "worldbuilding" or artifact.source_domain != "worldbuilding":
-            raise _denied()
-        world_id = await _owned_build_page(subject, artifact.workspace_document_id)
-        if artifact.world_id != world_id:
-            raise _denied()
+        world_id, _ = await _owned_worldbuilding_extraction(subject, run_id)
     request.state.hosted_build_page_world = world_id
+    return world_id
+
+
+async def resolve_hosted_worldbuilding_review_context(request: Request) -> str:
+    from apps.live_control_server.models.native_recap_preparation import NativeWorldbuildingContextRequest
+
+    if request.query_params:
+        raise _denied()
+    subject = _hosted_subject(request)
+    body = NativeWorldbuildingContextRequest.model_validate(await request.json())
+    world_id, artifact = await _owned_worldbuilding_extraction(subject, body.run_id)
+    if (body.managed_world_id != world_id or body.source_artifact_id != artifact.source_artifact_id
+            or body.source_sha256 != artifact.content_sha256):
+        raise _denied()
+    request.state.hosted_native_graph_world = world_id
     return world_id
 
 
