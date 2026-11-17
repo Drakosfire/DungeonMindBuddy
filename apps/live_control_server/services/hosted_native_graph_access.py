@@ -411,16 +411,18 @@ async def resolve_hosted_statblock_inventory(request: Request) -> str:
     return world.world_id
 
 
-async def resolve_hosted_combat_encounter_read(request: Request) -> str:
+async def resolve_hosted_combat_encounter(request: Request) -> str:
     world_id = request.query_params.get("world_id")
-    if not world_id or request.query_params.multi_items() != [("world_id", world_id)] or await request.body():
+    if not world_id or request.query_params.multi_items() != [("world_id", world_id)]:
+        raise _denied()
+    if request.method == "GET" and await request.body():
         raise _denied()
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
     request.state.hosted_combat_encounter_world = world.world_id
     return world.world_id
 
 
-def require_combat_encounter_read(request: Request, world_id: str) -> None:
+def require_combat_encounter_access(request: Request, world_id: str) -> None:
     if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
         enforce_native_graph_gm(request)
         return
