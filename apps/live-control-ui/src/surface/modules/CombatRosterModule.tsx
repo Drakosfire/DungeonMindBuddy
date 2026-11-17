@@ -1,3 +1,4 @@
+import type {SavedConversationVariantTarget} from '../../statblocks/savedStatblockLocation';
 import {useTourNavigationGuard} from '../../guidedTour/Navigation';
 import {useTourEncounter,type TourEncounterScope} from '../../guidedTour/EncounterScope';
 import type {TourDispatchScope} from '../../guidedTour/GuidedTour';
@@ -236,7 +237,7 @@ function cloneDraft(draft: CombatEncounterDraft): CombatEncounterDraft {
 
 export interface PreparedCombatOwnerReading {record:CombatEncounterRecord|null;blocked:boolean;error:string|null;acknowledged:{dispatchScope:TourDispatchScope|null;scope:TourEncounterScope;before:CombatEncounterRecord;saved:CombatEncounterRecord}|null}
 export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:CombatEncounterRecord;onPreparedState?:(reading:PreparedCombatOwnerReading|null)=>void;runScope?:import("../../combat/runEncountersApi").RunEncounterScope};
-export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
+export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;variant?:SavedConversationVariantTarget} = {}) {
   const tourRun=useTourRun(),tour=useGuidedTour(),tourEncounter=useTourEncounter();
   const [preparedAcknowledged,setPreparedAcknowledged]=useState<PreparedCombatOwnerReading["acknowledged"]>(null);
   const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedCombatSave|null>(null);
@@ -638,7 +639,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
                   setEncounters(items=>[current,...items.filter(item=>item.encounter_id!==current.encounter_id)]);
                 }}/>
               <CombatEncounterAssembly key={`${worldId}:${worldRequestGeneration.current}:${visibleRecord.encounter_id}`}
-                worldId={worldId} disabled={operationsBlocked || availableRecovery !== null} remainingSlots={100 - visibleDraft.entities.length}
+                worldId={worldId} variant={variant} disabled={operationsBlocked || availableRecovery !== null} remainingSlots={100 - visibleDraft.entities.length}
                 onAdd={(entities, group) => {
                   const proposed = {...visibleDraft,
                     entities: [...visibleDraft.entities, ...entities].map((entity, index) => ({...entity, order: index + 1})),

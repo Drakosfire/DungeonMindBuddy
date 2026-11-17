@@ -12,6 +12,7 @@ from application_state.combat_encounters.types import (
     CombatEncounterRecord,
     CombatMechanicsSelection, CombatMechanicsSnapshot,
     AcceptedCombatMechanicsSelection, AcceptedCombatMechanicsSnapshot,
+    ConversationVariantCombatSelection, ConversationVariantCombatSnapshot,
     CreateCombatEncounterRequest,
     SaveCombatEncounterRequest,
 )
@@ -163,6 +164,21 @@ def preview_mechanics(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except StatblockIntegrationError as exc:
         raise HTTPException(status_code=503, detail="Exact accepted mechanics are unavailable") from exc
+
+
+@router.post("/conversation-variant/preview", response_model=ConversationVariantCombatSnapshot)
+def preview_conversation_variant(
+    world_id: Annotated[str, Query(min_length=1, max_length=63)],
+    body: ConversationVariantCombatSelection,
+    request: Request,
+):
+    require_combat_encounter_access(request, world_id)
+    try:
+        return combat_mechanics.preview_conversation_variant(
+            world_id=_verified_world(world_id), selection=body,
+        )
+    except ApplicationStateError as exc:
+        _raise_state_error(exc)
 
 
 @router.post("/accepted-mechanics/preview", response_model=AcceptedCombatMechanicsSnapshot)
