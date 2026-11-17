@@ -452,6 +452,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): access.resolve_hosted_play_read,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/rebase"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/review/commands/{command_id}"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): access.resolve_hosted_play_command,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
@@ -4437,19 +4438,25 @@ def test_hosted_variant_review_requires_world_owner_and_write_origin(hosted, mon
         conversation_variant_save.ConfirmConversationVariant(review_id=review_id),
     )
 
-def test_hosted_play_progress_binds_world_run_and_origin(hosted, monkeypatch):
+@pytest.mark.parametrize("operation", ["progress", "rebase"])
+def test_hosted_play_update_binds_world_run_and_origin(hosted, monkeypatch, operation):
     from unittest.mock import Mock
 
     from apps.live_control_server.routes import play_runs
 
     write = Mock(side_effect=play_runs.PlayRunRegistryError("stale revision", status_code=409))
-    monkeypatch.setattr(play_runs, "replace_world_play_run_progress", write)
+    handler = ("replace_world_play_run_progress" if operation == "progress"
+               else "rebase_or_replay_world_play_run")
+    monkeypatch.setattr(play_runs, handler, write)
     run_id = str(uuid4())
-    path = f"/api/live/world-play-runs/v2/{run_id}/progress?world_id=managed"
+    path = f"/api/live/world-play-runs/v2/{run_id}/{operation}?world_id=managed"
     body = {"expected_run_revision": 2, "progress": {
         "current_scene_id": None, "current_beat_id": None, "resolved_beat_ids": [],
         "selections": {}, "notes_by_element_id": {},
     }}
+    if operation == "rebase":
+        body = {"expected_run_revision": 2, "target_playable_revision": 4,
+                "target_playable_content_sha256": "a" * 64}
     assert hosted.client.request("PUT", path, session="other-session", json=body).status_code == 403
     assert hosted.client.request("PUT", path, origin="https://outside.example", json=body).status_code == 403
     assert hosted.client.request("PUT", path + "&world_id=foreign", json=body).status_code == 403

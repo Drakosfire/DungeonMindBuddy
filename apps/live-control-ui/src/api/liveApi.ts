@@ -615,13 +615,18 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const action = requestBodyRecord(init?.body)?.action;
     return query.size === 1 && Boolean(query.get("world_id")) && (action === "end" || action === "save" || action === "reopen");
   }
-  const playProgress = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/progress\?([^#]+)$/.exec(path);
-  if (playProgress) {
-    const query = new URLSearchParams(playProgress[1]);
+  const playRunUpdate = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/(progress|rebase)\?([^#]+)$/.exec(path);
+  if (playRunUpdate) {
+    const query = new URLSearchParams(playRunUpdate[2]);
     const body = requestBodyRecord(init?.body);
     return method === "PUT" && query.size === 1 && Boolean(query.get("world_id"))
       && typeof body?.expected_run_revision === "number" && Number.isSafeInteger(body.expected_run_revision)
-      && body.expected_run_revision > 0 && isRecord(body.progress);
+      && body.expected_run_revision > 0
+      && (playRunUpdate[1] === "progress" ? isRecord(body.progress)
+        : typeof body.target_playable_revision === "number" && Number.isSafeInteger(body.target_playable_revision)
+          && body.target_playable_revision > 0
+          && typeof body.target_playable_content_sha256 === "string"
+          && /^[0-9a-f]{64}$/.test(body.target_playable_content_sha256));
   }
   const playContentCommand = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]+\/content\/commands\/[0-9a-f-]+\?([^#]+)$/.exec(path);
   if (method === "PUT" && playContentCommand) {
@@ -923,7 +928,7 @@ function apiRequestTarget(
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
   const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
     || /^\/api\/live\/graph-authoring\/(?:prepare|commit)$/.test(normalizedPath)
-    || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/progress$/.test(normalizedPath);
+    || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/(?:progress|rebase)$/.test(normalizedPath);
   if (isLoopbackApiDestination(url)) return { url, localGraphRequest, hostedGraphRequest: false };
   if (localGraphRequest || graphSurface) {
     // Exact relative paths only: explicit API bases, URL credentials, queries,

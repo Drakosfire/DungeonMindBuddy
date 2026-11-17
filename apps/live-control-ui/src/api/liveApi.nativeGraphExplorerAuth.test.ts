@@ -690,13 +690,16 @@ it("uses hosted same-origin credentials for exactly the draft read and edit rout
   expect(JSON.parse(String(fetch.mock.calls[1][1]?.body))).toEqual({ expected_revision: 1, markdown: "Edited" });
 });
 
-it("saves Play progress through the exact hosted World route", async () => {
+it.each([
+  ["progress", { progress: {} }],
+  ["rebase", { target_playable_revision: 4, target_playable_content_sha256: "a".repeat(64) }],
+])("writes Play %s through the exact hosted World route", async (operation, payload) => {
   const api = await setup();
   hostedOrigin();
   const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
   const runId = "11111111-1111-4111-8111-111111111111";
-  const path = `/api/live/world-play-runs/v2/${runId}/progress?world_id=managed`;
-  const request = { method: "PUT", body: JSON.stringify({ expected_run_revision: 2, progress: {} }) };
+  const path = `/api/live/world-play-runs/v2/${runId}/${operation}?world_id=managed`;
+  const request = { method: "PUT", body: JSON.stringify({ expected_run_revision: 2, ...payload }) };
   await api.authenticatedApiFetch(path, request);
   expect(fetch.mock.calls[0]).toEqual([path, expect.objectContaining({
     method: "PUT", credentials: "same-origin", mode: "same-origin",
