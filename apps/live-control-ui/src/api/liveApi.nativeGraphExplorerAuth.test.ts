@@ -539,3 +539,24 @@ it("reads earlier image directions with the exact hosted session route", async (
   await expect(api.authenticatedApiFetch(path + "&world_id=other")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("uses hosted cookies for exact saved statblock revision operations", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const draft = "/api/live/threat-drafts/11111111-1111-4111-8111-111111111111";
+  const operation = draft + "/mechanics-revision-operations/22222222-2222-4222-8222-222222222222";
+  await api.authenticatedApiFetch(draft + "/mechanics-revisions", {
+    method: "POST", body: JSON.stringify({ world_id: "managed" }),
+  });
+  await api.authenticatedApiFetch(operation + "?world_id=managed");
+  await api.authenticatedApiFetch(operation + ":recover?world_id=managed", { method: "POST" });
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(operation + "?world_id=managed&world_id=other"))
+    .rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(3);
+});
