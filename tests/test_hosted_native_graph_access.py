@@ -298,6 +298,9 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes.workspace_lifecycle import get_world_trash
 
     app.add_api_route("/api/live/world-workspace/trash", get_world_trash, methods=["GET"])
+    from apps.live_control_server.routes import rules_lookup
+
+    app.include_router(rules_lookup.router)
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -339,6 +342,9 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/rules/catalog"): access.resolve_hosted_rules_lookup,
+            ("GET", "/api/live/rules/query"): access.resolve_hosted_rules_lookup,
+            ("GET", "/api/live/rules/passages/{citation_id}"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/world-workspace/trash"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
@@ -2929,3 +2935,11 @@ def test_hosted_trash_inventory_requires_world_owner(hosted, monkeypatch):
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     inventory.assert_called_once_with(root, world_id="managed")
+def test_hosted_rules_lookup_requires_owned_world(hosted):
+    path = "/api/live/rules/catalog?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert any(source["available"] for source in response.json()["sources"])

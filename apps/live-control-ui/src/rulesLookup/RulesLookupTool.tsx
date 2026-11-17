@@ -1,3 +1,4 @@
+import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { RulesPassageView } from './RulesPassageView';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT, getNativeGraphAccessGeneration, getRulesCatalog, getRulesPassage, queryRulesEvidence } from '../api/liveApi';
@@ -25,6 +26,8 @@ function validatePacket(packet: RulesLookupPacket, corpus: string) {
   }
 }
 export default function RulesLookupTool() {
+  const world = useSelectedWorld();
+  const worldId = world.kind === "managed" ? world.worldId : undefined;
   const [catalog, setCatalog] = useState<RulesCatalog | null>(null);
   const [corpus, setCorpus] = useState('');
   const [question, setQuestion] = useState('');
@@ -59,8 +62,9 @@ export default function RulesLookupTool() {
     setError(reason instanceof Error ? reason.message : fallback);
   }
   useEffect(() => {
+    setCatalog(null); setCorpus(""); setPacket(null); setPassage(null);
     const action = begin();
-    void getRulesCatalog(action.controller.signal).then(value => {
+    void getRulesCatalog(action.controller.signal, worldId).then(value => {
       if (!action.current()) return;
       if (value.schema !== 'dmb_rules_catalog_v1' || !Array.isArray(value.sources) || value.sources.length > 8
         || new Set(value.sources.map(item => item.corpus)).size !== value.sources.length
@@ -73,7 +77,7 @@ export default function RulesLookupTool() {
     }).catch(reason => failed(action, reason, 'Rules sources unavailable.'))
       .finally(() => { if (action.ownerCurrent()) setBusy(false); });
     return retire;
-  }, [retry]);
+  }, [retry, worldId]);
   // Access loss retires visible private evidence immediately, not only on the next request.
   useLayoutEffect(() => {
     const changed = () => { const next = getNativeGraphAccessGeneration(); if (next === accessEpoch.current) return; accessEpoch.current = next; retire(); setCatalog(null); setCorpus(''); setPacket(null); setPassage(null); setBusy(false); setError('Access changed. Reload rules sources.'); };
@@ -84,7 +88,7 @@ export default function RulesLookupTool() {
   async function search() {
     const action = begin(); setPacket(null); setPassage(null);
     try {
-      const value = await queryRulesEvidence(corpus, question.trim(), action.controller.signal);
+      const value = await queryRulesEvidence(corpus, question.trim(), action.controller.signal, worldId);
       if (!action.current()) return;
       validatePacket(value, corpus); setPacket(value);
     } catch (reason) { failed(action, reason, 'Rules lookup failed.'); }
@@ -93,7 +97,7 @@ export default function RulesLookupTool() {
   async function inspect(hit: RulesHit) {
     const action = begin(); setPassage(null);
     try {
-      const value = await getRulesPassage(hit.corpus, hit.citation_id, action.controller.signal);
+      const value = await getRulesPassage(hit.corpus, hit.citation_id, action.controller.signal, worldId);
       if (!action.current()) return;
       if (value.schema !== 'dmb_rules_passage_v1' || value.corpus !== hit.corpus || value.citation_id !== hit.citation_id
         || ['ruleset_id','unit_id','text_sha256','section','source_title','source_uri','source_sha256','page_fingerprint','pdf_page_index','printed_page']

@@ -1,10 +1,16 @@
 """Authenticated passive rules lookup; no source paths or remote fetches."""
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services import rules_lookup as service
 
-router = APIRouter(prefix="/api/live/rules", tags=["rules"], dependencies=[Depends(native_graph_gm_dependency)])
+def require_rules_access(request: Request, world_id: str | None = None):
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id or "", authorize_local=enforce_native_graph_gm)
+
+
+router = APIRouter(prefix="/api/live/rules", tags=["rules"], dependencies=[Depends(require_rules_access)])
 DigestQuery = Annotated[str, Query(pattern=r"^[a-f0-9]{64}$")]
 
 def _read(response: Response, call):
