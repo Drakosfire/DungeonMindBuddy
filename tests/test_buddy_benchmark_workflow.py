@@ -716,6 +716,11 @@ def test_writer_replay_accepts_only_matching_build_authorization(writer_replay, 
         path = replay.root / (name + ".json")
         wrapped = json.loads(path.read_text())
         owner = wrapped["body"]["turns"][0] if name == "history-after" else wrapped["body"]
+        if name == "history-after":
+            from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
+
+            owner["idempotency_key"] = str(_turn_idempotency_key(
+                wrapped["body"]["world_id"], request["turn_id"]))
         owner["knowledge_context"] = owner.pop("plan_context")
         put(path, wrapped)
     ledger = deepcopy(replay.ledger)
