@@ -1,3 +1,4 @@
+from tests.test_hosted_native_graph_access import hosted, recap_lane  # noqa: F401
 """Actual APP CAS and authenticated HTTP review, without source/provider writes."""
 from tests.page_fixtures import page_text, save_page
 
@@ -143,7 +144,8 @@ def test_foreign_world_and_conversation_drift_cannot_mutate(review_case):
     assert service.get("elderwyld", proposal.action_id) == opened
 
 
-def test_review_routes_authentication_exact_scope_and_reopen(review_case, monkeypatch):
+@pytest.mark.parametrize("hosted_mode", [False, True], ids=["local", "hosted"])
+def test_review_routes_authentication_exact_scope_and_reopen(review_case, monkeypatch, hosted_mode, request):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from apps.live_control_server.routes import agent, build_proposal_reviews
@@ -171,12 +173,24 @@ def test_review_routes_authentication_exact_scope_and_reopen(review_case, monkey
         monkeypatch.setattr(
             build_proposal_reviews, "enforce_native_graph_gm", lambda _: None
         )
-        opened = client.post(root, json={"operation": "open", "expected_revision": 0})
+        get, post = client.get, client.post
+        if hosted_mode:
+            import json
+
+            from tests.test_hosted_native_graph_access import HOSTED_WORLD_ACCESS_ENV, OWNER, _record
+
+            hosted = request.getfixturevalue("hosted")
+            hosted.records["elderwyld"] = _record("elderwyld", OWNER, "native-build-fixture")
+            monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({"elderwyld": [OWNER]}))
+            get = lambda path, **kwargs: hosted.client.request("GET", path, **kwargs)
+            post = lambda path, **kwargs: hosted.client.request("POST", path, **kwargs)
+            assert post(root, json={"operation": "open", "expected_revision": 0}, origin=None).status_code == 403
+        opened = post(root, json={"operation": "open", "expected_revision": 0})
         assert opened.status_code == 200, opened.text
-        assert client.get(root).json() == opened.json()
-        assert client.get(root + "?revision=1").status_code == 422
+        assert get(root).json() == opened.json()
+        assert get(root + "?revision=1").status_code == 422
         assert (
-            client.post(
+            post(
                 root,
                 json={
                     "operation": "discard",
@@ -186,13 +200,13 @@ def test_review_routes_authentication_exact_scope_and_reopen(review_case, monkey
             ).status_code
             == 422
         )
-        assert client.get(root.replace("/elderwyld/", "/foreign/")).status_code == 404
-        discarded = client.post(
+        assert get(root.replace("/elderwyld/", "/foreign/")).status_code == (403 if hosted_mode else 404)
+        discarded = post(
             root, json={"operation": "discard", "expected_revision": 1}
         )
         assert discarded.status_code == 200 and discarded.json()["state"] == "discarded"
         assert (
-            client.post(
+            post(
                 root,
                 json={"operation": "save", "expected_revision": 1, "markdown": "Stale"},
             ).status_code
