@@ -13,6 +13,7 @@ from apps.live_control_server.models.statblock_mechanics_acceptance import (
     AcceptPdfStatblockReviewRequestV1,
 )
 from apps.live_control_server.models.statblock_saved_revision import AppendPdfStatblockReviewRequest
+from apps.live_control_server.services.conversation_variant_save import CorrectConversationVariant
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -1669,6 +1670,20 @@ def get_conversation_variant_review(
         return _conversation_service(request).open_conversation_variant_review(
             verified, conversation_id, turn_id, review_id=review_id,
         )
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.put(_CONVERSATION_DRAFT_PATH + "/variant-reviews/{review_id}")
+def correct_conversation_variant_review(
+    world_id: str, conversation_id: UUID, turn_id: UUID, review_id: UUID,
+    body: CorrectConversationVariant, request: Request,
+):
+    from apps.live_control_server.services.conversation_variant_save import correct_variant
+
+    verified = _conversation_draft_access(request, world_id)
+    try:
+        return correct_variant(_conversation_service(request), verified, conversation_id, turn_id, review_id, body)
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 

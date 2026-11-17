@@ -518,6 +518,19 @@ class AgentConversationService:
                 definition=definition, base_locator=base_locator,
             )
 
+    def store_conversation_variant_correction(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        review_id: UUID, expected_revision: int, definition: dict, markdown: str,
+    ):
+        from .conversation_variant_save import store_correction
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return store_correction(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id, expected_revision=expected_revision,
+                definition=definition, markdown=markdown,
+            )
+
     def open_conversation_variant_review(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *, review_id: UUID,
     ):
