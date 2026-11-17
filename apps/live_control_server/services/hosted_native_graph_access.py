@@ -411,6 +411,17 @@ async def resolve_hosted_statblock_inventory(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_saved_statblock(request: Request) -> str:
+    selectors = request.query_params.multi_items()
+    world_id = request.query_params.get("world_id")
+    if not world_id or selectors != [("world_id", world_id)] or await request.body():
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    # The exact revision may include a portrait from a World-owned PDF review.
+    request.state.hosted_build_pdf_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_build_native_source(request: Request) -> str:
     selectors = request.query_params.multi_items()
     if await request.body() or (selectors and (

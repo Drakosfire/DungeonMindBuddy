@@ -174,11 +174,13 @@ def list_saved_revisions(draft_id:str,world_id:str,limit:int=Query(50,ge=1,le=10
     return _revision_call(saved_versions.list_versions,world_id=world_id,draft_id=draft_id,limit=limit,offset=offset)
 
 
-@router.get('/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}',dependencies=[Depends(native_graph_gm_dependency)])
+@router.get('/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}')
 def open_saved_revision(draft_id: str, revision_id: str, world_id: str, request: Request):
     from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
     from apps.live_control_server.routes.agent import get_pdf_statblock_review
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
+    require_build_pdf_access(request, world_id)
     packet = _revision_call(saved_versions.open_version, world_id=world_id, draft_id=draft_id, revision_id=revision_id)
     resource = packet["resource"]
     accepted_through = (resource.get("provenance") or {}).get("accepted_through") or {}

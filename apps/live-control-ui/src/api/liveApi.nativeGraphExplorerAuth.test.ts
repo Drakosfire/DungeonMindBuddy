@@ -364,3 +364,17 @@ it("lists hosted World mechanics from the exact picker route using session cooki
   })).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("opens an exact hosted statblock revision using session cookies", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const path = "/api/live/threat-drafts/12345678-1234-1234-1234-123456789abc/mechanics-revisions/rev_exact?world_id=managed";
+  await api.authenticatedApiFetch(path);
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path, { method: "POST", body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
