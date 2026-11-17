@@ -6,7 +6,7 @@ from apps.live_control_server.services.native_recap_source_admission import publ
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from uuid import UUID
 from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
 from apps.live_control_server.models.saved_recap_runs import SavedRecapRunsResponse, SavedRecapSourceResponse
@@ -315,6 +315,7 @@ def get_extraction_run_candidate_projection(
 def get_extraction_run_recap_projection(
     run_id: str,
     request: Request,
+    response_context: Response,
 ) -> dict[str, Any]:
     """Project exact durable recap text onto the current governed World.
 
@@ -364,6 +365,7 @@ def get_extraction_run_recap_projection(
         ) from exc
     if hosted:
         require_saved_recap_access(request, response.managed_world_id or "")
+        response_context.headers["Cache-Control"] = "no-store"
     return response.model_dump(mode="json", by_alias=True)
 
 
