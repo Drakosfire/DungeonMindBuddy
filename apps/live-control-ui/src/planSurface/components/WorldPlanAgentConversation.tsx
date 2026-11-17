@@ -6520,7 +6520,7 @@ export function WorldPlanAgentConversation({
             ? { documentId: buildMode.savedSource.documentId, bridge: buildMode.composeBridge }
             : undefined} />
       );
-    const reviewedDraftReply = draftEditor && (turn.variant_draft_reviewed || savedMessage?.variant_draft_reviewed)
+    const reviewedDraftReply = draftEditor && (savedMessage ? savedMessage.variant_draft_reviewed : turn.variant_draft_reviewed)
       ? <p>Open the statblock draft to review the mechanics.</p> : null;
     const hasLightweightReply = Boolean(pageSuggestion || turn.assistant_text || ['completed','failed','interrupted'].includes(turn.lifecycle_status));
     if (!history?.turns.some(full => sameSavedMessage(full, turn))) return <BuddyTurnInspection key={`world:${turn.turn_id}`} worldId={verifiedWorldId ?? ''} conversationId={history?.conversation_id ?? ''} turnId={turn.turn_id} lifecycle={turn.lifecycle_status}>
