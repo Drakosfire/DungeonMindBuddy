@@ -794,3 +794,18 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
     except Exception:
         raise _unavailable() from None
     return WorldContainersListResponse(records=permitted).model_dump(mode="json")
+
+
+async def resolve_hosted_worldbuilding_review_context(request: Request) -> str:
+    from apps.live_control_server.models.native_recap_preparation import NativeWorldbuildingContextRequest
+
+    if request.query_params:
+        raise _denied()
+    subject = _hosted_subject(request)
+    body = NativeWorldbuildingContextRequest.model_validate(await request.json())
+    world_id, artifact = await _owned_worldbuilding_extraction(subject, body.run_id)
+    if (body.managed_world_id != world_id or body.source_artifact_id != artifact.source_artifact_id
+            or body.source_sha256 != artifact.content_sha256):
+        raise _denied()
+    request.state.hosted_native_graph_world = world_id
+    return world_id
