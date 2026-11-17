@@ -292,6 +292,8 @@ code {
   overflow: visible;
 }
 
+.workspace-navigation-fallback:empty { display: none; }
+
 .app-site-nav {
   display: flex;
   flex-wrap: wrap;

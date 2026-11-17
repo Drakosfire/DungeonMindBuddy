@@ -3,6 +3,7 @@ import {WorldGuidedTour} from './guidedTour/WorldGuidedTour';
 import { DocumentReferenceSurfaceHost } from './documentReference/DocumentReferenceSurfaceHost';
 import type { ReactNode } from "react";
 import type { AppRouteKey } from "./chrome/appChromeConfig";
+import { WorkspacePrimaryNavigation } from "./chrome/WorkspacePrimaryNavigation";
 import { useSelectedWorld } from "./selectedWorld/SelectedWorldContext";
 import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionProvider";
 import { WorldAgentConversation, WorldAgentConversationProvider } from "./agentInteraction/WorldAgentConversation";
@@ -41,7 +42,7 @@ export function LocalWorkspace({ route, pageAdmitted, children }: {
               <SurfaceContextProvider>
                 <PeekRegionProvider key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}>
                   <DocumentReferenceSurfaceHost worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null} surface={pageAdmitted ? route : "pending"}>
-                  {children}
+                  <WorkspacePrimaryNavigation route={route}>{children}</WorkspacePrimaryNavigation>
                   {pageAdmitted ? <>
                     <ToolHost />
                     <LegacyProjectionHostAdapter />
