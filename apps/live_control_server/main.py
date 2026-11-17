@@ -347,6 +347,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/workspace-documents/{document_id}"): resolve_hosted_build_page,
     ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): resolve_hosted_build_page,
     ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): resolve_hosted_build_native_source,
+    ("POST", "/api/live/workspace-documents/{document_id}/native-world-source"): resolve_hosted_build_native_source,
     ("GET", "/api/live/threat-drafts"): resolve_hosted_statblock_inventory,
     ("GET", "/api/live/saved-statblocks/lookup"): resolve_hosted_statblock_inventory,
     ("POST", "/api/live/combat/scene-templates"): resolve_hosted_play_command,

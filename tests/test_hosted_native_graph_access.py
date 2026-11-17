@@ -530,6 +530,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
+            ("POST", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
             ("GET", "/api/live/threat-drafts"): access.resolve_hosted_statblock_inventory,
             ("GET", "/api/live/saved-statblocks/lookup"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/agent/turn"): access.resolve_hosted_chat_turn,
@@ -5276,3 +5277,33 @@ def test_hosted_runbook_edit_uses_world_media_owner(hosted, monkeypatch, phase):
     result = hosted.client.request("POST", path, json=body)
     assert result.status_code == 409, result.text
     assert calls == [("managed", document_id, "hosted_world:managed")]
+
+
+def test_hosted_build_source_admission_checks_saved_document_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import workspace_documents
+
+    async def owned_document(subject, document_id):
+        access._owned_world(subject, "managed")
+        return "managed"
+
+    calls = []
+
+    def admit(_root, document_id, *, expected_revision, expected_body_sha256, authorize_world):
+        authorize_world("foreign" if expected_revision == 2 else "managed")
+        calls.append(document_id)
+        raise workspace_documents.NativeWorldSourceAdmissionError(
+            "fixture", "fixture reached", status_code=409,
+        )
+
+    monkeypatch.setattr(access, "_owned_build_page", owned_document)
+    monkeypatch.setattr(workspace_documents, "admit_native_world_source", admit)
+    document_id = "00000000-0000-4000-8000-000000000001"
+    path = f"/api/live/workspace-documents/{document_id}/native-world-source"
+    body = {"expected_revision": 1, "expected_body_sha256": "a" * 64}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path + "?expected_revision=1", json=body).status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "expected_revision": 2}).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 409, result.text
+    assert calls == [document_id]

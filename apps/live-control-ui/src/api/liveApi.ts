@@ -481,6 +481,17 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     }
     return path === runbookRead[0] + expected;
   }
+  const nativeSource = /^\/api\/live\/workspace-documents\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/native-world-source/.exec(path);
+  if (nativeSource) {
+    const selectors = path.slice(nativeSource[0].length);
+    if (method === "GET" && init?.body == null) {
+      return selectors === "" || /^\?expected_revision=[1-9][0-9]*$/.test(selectors);
+    }
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && selectors === "" && typeof body?.expected_revision === "number"
+      && Number.isSafeInteger(body.expected_revision) && body.expected_revision > 0
+      && typeof body.expected_body_sha256 === "string" && /^[0-9a-f]{64}$/.test(body.expected_body_sha256);
+  }
   const planInventoryPage = "/api/live/workspace-documents/world-plans/page?";
   if (path.startsWith(planInventoryPage)) {
     const query = new URLSearchParams(path.slice(planInventoryPage.length));
@@ -1070,6 +1081,7 @@ function apiRequestTarget(
     || /^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:review-package|frozen-source-spans|worldbuilding-publication-coverage|evidence-corrections)$/.test(normalizedPath)
     || /^\/api\/live\/workspace-documents\/world-runbooks\/[^/]+(?:\/snapshot|\/committed-revision(?:\/[^/]+)?|\/tiptap\/(?:prepare|commit))?$/.test(normalizedPath)
     || (normalizedPath === "/api/live/workspace-documents/world-runbooks" && init?.method?.toUpperCase() === "POST")
+    || /^\/api\/live\/workspace-documents\/[^/]+\/native-world-source$/.test(normalizedPath)
     || normalizedPath === "/api/live/workspace-documents/world-plans/page"
     || /^\/api\/live\/graph-authoring\/(?:prepare|commit)$/.test(normalizedPath)
     || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/(?:progress|rebase)$/.test(normalizedPath)
