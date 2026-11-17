@@ -136,6 +136,9 @@ is enough. The GM can ask for concrete mechanics in the next turn.
 
 #### Score the conversation and the final statblock
 
+The [multi-turn Gold](meat-mind-brainstorm-gold.md) pins the observed turns,
+reference replies, and designed drafting and save fixtures.
+
 The end product is a distinct Meat Mind statblock. The primary capability
 under test is recognizing what the GM needs at each turn while carrying the
 design forward. The eventual artifact does not authorize drafting or saving
