@@ -104,3 +104,28 @@ def test_native_review_accepts_canonical_single_paragraph_terminal_newline(proof
     with pytest.raises(ValueError):
         fixture.review(action,{'operation':'save','expected_revision':saved['revision'],'markdown':'First.\n\nSecond.\n'})
     assert fixture.review(action)==saved
+
+
+def test_direct_legacy_history_codecs_reject_prose_records(proof):
+    """History uses the public legacy model directly, not the service fence."""
+    from pydantic import ValidationError
+    from application_state.build_proposal.types import BuildProposalRecord, BuildProseProposalRecord
+    from application_state.build_proposal.review import BuildProposalReview, BuildProseProposalReview
+    fixture, _, payload = proof
+    record = fixture.stage(payload)
+    review = fixture.review(record['action_id'], {'operation': 'open', 'expected_revision': 0})
+    for legacy, explicit, value in [
+        (BuildProposalRecord, BuildProseProposalRecord, record),
+        (BuildProposalReview, BuildProseProposalReview, review),
+    ]:
+        with pytest.raises(ValidationError):
+            legacy.model_validate(value)
+        with pytest.raises(ValidationError):
+            legacy.model_validate_json(json.dumps(value))
+        assert explicit.model_validate(value).model_dump(mode='json') == value
+        assert explicit.model_validate_json(json.dumps(value)).model_dump(mode='json') == value
+    # Merely relabeling a future record must not erase its target provenance.
+    with pytest.raises(ValidationError):
+        BuildProposalRecord.model_validate({**record, 'schema_version': 'dmb_build_document_proposal_v1'})
+    with pytest.raises(ValidationError):
+        BuildProposalReview.model_validate({**review, 'schema': 'dmb_build_proposal_review_v2'})

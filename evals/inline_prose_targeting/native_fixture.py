@@ -41,12 +41,27 @@ def catalog_for(doc):
         if node['type'] not in {'paragraph', 'heading'} or any(x['type'] != 'text' for x in children):
             offset += size
             continue
+        next_is_table = index + 1 < len(content) and content[index + 1].get('type') == 'table'
         if node['type'] == 'heading':
-            level = int(node.get('attrs', {}).get('level', 2))
+            attrs = node.get('attrs', {})
+            level = attrs.get('level')
+            plain_caption = (level == 2 and text.strip() and
+                all(key == 'level' or value is None for key, value in attrs.items()) and
+                all(not child.get('marks') for child in children))
+            if next_is_table and plain_caption:
+                offset += size
+                continue
+            if not isinstance(level, int) or isinstance(level, bool) or not 1 <= level <= 6:
+                offset += size
+                continue
             while headings and headings[-1][0] >= level: headings.pop()
             headings.append((level, text))
         elif text.strip() and all(all(mark['type'] in {'bold','italic','strike','code','underline'} for mark in child.get('marks', [])) for child in children):
             ordinal += 1
+            # Host aliases still count excluded caption paragraphs.
+            if next_is_table:
+                offset += size
+                continue
             section = ' / '.join(row[1] for row in headings) or 'Before the first heading'
             for operation, start, end in [('replace_paragraph',offset+1,offset+size-1),('insert_before',offset,offset),('insert_after',offset+size,offset+size)]:
                 alias = f'passage{ordinal}:{operation}'

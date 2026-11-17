@@ -90,7 +90,7 @@ class BuildProposalReview(StrictModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, serialize_by_alias=True
     )
-    schema_version: Literal["dmb_build_proposal_review_v2", "dmb_build_proposal_review_v3", "dmb_build_proposal_review_v4"] = Field(
+    schema_version: Literal["dmb_build_proposal_review_v2", "dmb_build_proposal_review_v3"] = Field(
         default="dmb_build_proposal_review_v2", alias="schema"
     )
     prose_target: BuildProseTarget | None = None
@@ -168,6 +168,14 @@ class BuildProposalReview(StrictModel):
         return self
 
 
+class BuildProseProposalReview(BuildProposalReview):
+    """Explicit proof codec; default review readers reject v4."""
+
+    schema_version: Literal["dmb_build_proposal_review_v4"] = Field(
+        default="dmb_build_proposal_review_v4", alias="schema"
+    )
+
+
 class BuildReviewCommand(StrictModel):
     prose_target: BuildProseTarget | None = None
     operation: Literal["open", "save", "move", "discard", "prepare", "confirm", "replace_placement"]
@@ -230,7 +238,8 @@ class BuildProposalReviewService:
     def _read_review(self, payload):
         if payload.get("schema") == "dmb_build_proposal_review_v4" and not self.allow_prose_targets:
             raise ApplicationStateConflictError("This prose review requires an updated reader")
-        return BuildProposalReview.model_validate(payload)
+        codec = BuildProseProposalReview if self.allow_prose_targets and payload.get("schema", payload.get("schema_version")) == "dmb_build_proposal_review_v4" else BuildProposalReview
+        return codec.model_validate(payload)
 
     def get(self, world_id, action_id):
         with unit_of_work(_ready_dsn()) as conn:
@@ -284,8 +293,8 @@ class BuildProposalReviewService:
             if command.operation == "open":
                 if proposal.inserted_in_draft:
                     raise ApplicationStateConflictError("Proposal was already inserted")
-                result = BuildProposalReview(
-                    schema="dmb_build_proposal_review_v4" if expected_prose else "dmb_build_proposal_review_v2",
+                codec = BuildProseProposalReview if self.allow_prose_targets and expected_prose else BuildProposalReview
+                result = codec(
                     prose_target=expected_prose,
                     world_id=world_id,
                     action_id=action_id,
@@ -442,7 +451,7 @@ class BuildProposalReviewService:
                 )
             else:
                 raise ApplicationStateConflictError("Unsupported review transition")
-            result = BuildProposalReview.model_validate(
+            result = self._read_review(
                 {**previous.model_dump(mode="python"), **update}
             )
             changed = conn.execute(

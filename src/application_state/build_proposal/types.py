@@ -276,7 +276,7 @@ class BuildProviderAuthorization(StrictModel):
 
 
 class BuildProposalRecord(StrictModel):
-    schema_version: Literal["dmb_build_document_proposal_v1", "dmb_build_document_proposal_v2"] = (
+    schema_version: Literal["dmb_build_document_proposal_v1"] = (
         "dmb_build_document_proposal_v1"
     )
     action_id: UUID
@@ -297,7 +297,7 @@ class BuildProposalRecord(StrictModel):
     updated_at: datetime
     claim_expires_at: datetime
     authorization: BuildProviderAuthorization | None = None
-    proposal: BuildGeneratedProposal | BuildProseGeneratedProposal | None = None
+    proposal: BuildGeneratedProposal | None = None
     failure_code: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{0,63}$")
     raw_response: str | None = Field(default=None, max_length=32_000)
     observation: dict | None = None
@@ -335,6 +335,13 @@ class BuildProposalRecord(StrictModel):
                 "Only a reviewed proposal can be reported inserted in the draft"
             )
         return self
+
+
+class BuildProseProposalRecord(BuildProposalRecord):
+    """Explicit proof codec; legacy/history readers remain v1-only."""
+
+    schema_version: Literal["dmb_build_document_proposal_v2"] = "dmb_build_document_proposal_v2"
+    proposal: BuildProseGeneratedProposal | None = None
 
 
 class BuildImageWriterProof(StrictModel):

@@ -7,7 +7,7 @@ from uuid import UUID, uuid5, NAMESPACE_URL
 from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.service import _lock_pointer, _ready_dsn
-from application_state.build_proposal.types import BuildProposalRecord, BuildProposalReservation, normalize_proposal_output, normalize_prose_proposal_output
+from application_state.build_proposal.types import BuildProseProposalRecord, BuildProposalRecord, BuildProposalReservation, normalize_proposal_output, normalize_prose_proposal_output
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 from application_state.unit_of_work import unit_of_work
 
@@ -26,12 +26,14 @@ def _load(row, *, allow_prose_targets=False) -> BuildProposalRecord:
     _require_supported_markdown_version(row[0], allow_prose_targets=allow_prose_targets)
     if row[0].get('schema_version') not in {'dmb_build_document_proposal_v1', 'dmb_build_document_proposal_v2'}:
         raise ApplicationStateNotFoundError('Markdown proposal unavailable')
-    return BuildProposalRecord.model_validate(row[0])
+    codec = BuildProseProposalRecord if allow_prose_targets and row[0].get("schema_version") == "dmb_build_document_proposal_v2" else BuildProposalRecord
+    return codec.model_validate(row[0])
 
 
 def _save(conn, previous, updated, *, allow_prose_targets=False):
     _require_supported_markdown_version(updated, allow_prose_targets=allow_prose_targets)
-    checked = BuildProposalRecord.model_validate(updated)
+    codec = BuildProseProposalRecord if allow_prose_targets and updated.get("schema_version") == "dmb_build_document_proposal_v2" else BuildProposalRecord
+    checked = codec.model_validate(updated)
     result = conn.execute("UPDATE agent.build_proposal SET payload=%s, revision=%s WHERE world_id=%s AND action_id=%s AND revision=%s",
         (Jsonb(checked.model_dump(mode="json")), checked.revision, checked.reservation.basis.world_id, checked.action_id, previous.revision))
     if result.rowcount != 1:
@@ -88,7 +90,8 @@ class BuildProposalService:
                 raise ApplicationStateNotFoundError("Active World conversation is unavailable")
             _require_origin_claim(conn, reservation)
             now = datetime.now(timezone.utc)
-            result = BuildProposalRecord(schema_version="dmb_build_document_proposal_v2" if reservation.prose_target else "dmb_build_document_proposal_v1", action_id=reservation.idempotency_key, reservation=reservation, request_fingerprint=reservation.fingerprint,
+            codec = BuildProseProposalRecord if self.allow_prose_targets and reservation.prose_target else BuildProposalRecord
+            result = codec(action_id=reservation.idempotency_key, reservation=reservation, request_fingerprint=reservation.fingerprint,
                 after_turn_sequence=conversation[0] - 1, revision=1, state="reserved", created_at=now, updated_at=now,
                 claim_expires_at=now + timedelta(seconds=180))
             conn.execute("INSERT INTO agent.build_proposal(action_id,world_id,conversation_id,idempotency_key,revision,payload) VALUES(%s,%s,%s,%s,1,%s)",
