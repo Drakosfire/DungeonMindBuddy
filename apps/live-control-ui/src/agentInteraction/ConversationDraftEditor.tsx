@@ -9,6 +9,7 @@ import {
   type ConversationDraftScope,
 } from "../api/conversationDraftApi";
 
+import { savedConversationVariantHref } from "../statblocks/savedStatblockLocation";
 import { StatblockRenderer } from "../statblocks/render/StatblockRenderer";
 
 export function ConversationDraftEditor({ scope }: { scope: ConversationDraftScope }) {
@@ -30,6 +31,7 @@ export function ConversationDraftEditor({ scope }: { scope: ConversationDraftSco
       const data = await openVariantReview(scope, reviewId);
       if (data.revision !== draft?.revision) throw new Error("Reopen the latest draft before reviewing.");
       setReview({ id: reviewId, data });
+      setSavedVariant(data.saved === true);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Could not open the variant review.");
     } finally {
@@ -108,7 +110,10 @@ export function ConversationDraftEditor({ scope }: { scope: ConversationDraftSco
               <button type="button" disabled={busy || savedVariant} onClick={() => void confirmVariant()}>
                 Confirm and save as new statblock
               </button>
-              {savedVariant && <p role="status">Statblock variant saved.</p>}
+              {savedVariant && <>
+                <p role="status">Statblock variant saved.</p>
+                <a href={savedConversationVariantHref({ ...scope, reviewId: review.id })}>Open saved variant</a>
+              </>}
             </section>
           )}
           {error && (

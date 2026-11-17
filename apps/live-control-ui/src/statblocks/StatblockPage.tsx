@@ -1,12 +1,14 @@
 import {createPortal} from "react-dom";
 import {useEffect,useState,useSyncExternalStore} from 'react';
+import {openSavedConversationVariant} from '../api/conversationDraftApi';
+import type {StatblockRevisionResourceV1} from '../contracts/dungeonbuddy-statblocks-v1/client';
 import {getThreatDraft,openSavedMechanicsVersion} from '../api/liveApi';
 import {AppChrome} from '../chrome/AppChrome';
 import {getAppLocationSnapshot,subscribeAppLocation} from '../chrome/appNavigation';
 import {useSelectedWorld} from '../selectedWorld/SelectedWorldContext';
 import type {OpenSavedMechanicsVersion} from './revision/savedMechanicsRevisionTypes';
 import {StatblockRenderer} from './render/StatblockRenderer';
-import {readSavedStatblockTarget,type SavedStatblockTarget} from './savedStatblockLocation';
+import {readSavedConversationVariantTarget,readSavedStatblockTarget,type SavedConversationVariantTarget,type SavedStatblockTarget} from './savedStatblockLocation';
 import './StatblockPage.css';
 import type {ThreatDraftV2} from '../api/types';
 import {NativeThreatCreationPanel} from './NativeThreatCreationPanel';
@@ -76,11 +78,33 @@ export function SavedStatblockFullView({target, toolbarHost}:{target:SavedStatbl
  </main>;
 }
 
+function SavedConversationVariantView({target}: {target: SavedConversationVariantTarget}) {
+ const [revision, setRevision] = useState<StatblockRevisionResourceV1>();
+ const [error, setError] = useState("");
+ useEffect(() => {
+  let active = true;
+  void openSavedConversationVariant(target, target.reviewId).then(result => {
+   if (active) setRevision(result.revision);
+  }).catch(failure => {
+   if (active) setError(failure instanceof Error ? failure.message : "The saved variant is unavailable.");
+  });
+  return () => { active = false; };
+ }, [target.worldId, target.conversationId, target.turnId, target.reviewId]);
+ return <main className="saved-statblock-page" aria-label="Saved conversation variant">
+  {error ? <p role="alert">{error}</p> : revision
+   ? <StatblockRenderer revision={revision} mode="full" chrome="campaign"/>
+   : <p role="status">Opening saved variant…</p>}
+ </main>;
+}
+
 export function StatblockPage() {
  const snapshot=useSyncExternalStore(subscribeAppLocation,getAppLocationSnapshot,getAppLocationSnapshot);
  const target=readSavedStatblockTarget(snapshot),world=useSelectedWorld();
+ const variant = readSavedConversationVariantTarget(snapshot);
  return <AppChrome activeRoute="statblock">
-  {target&&world.kind==='managed'&&world.worldId===target.worldId?<SavedStatblockFullView target={target}/>
+  {variant && world.kind === 'managed' && world.worldId === variant.worldId
+   ? <SavedConversationVariantView key={snapshot} target={variant}/>
+   : target&&world.kind==='managed' &&world.worldId===target.worldId?<SavedStatblockFullView target={target}/>
    :<main className="saved-statblock-page"><h1>Statblock unavailable</h1><p role="alert">Open a saved statblock link with its World, creature and revision.</p></main>}
  </AppChrome>;
 }

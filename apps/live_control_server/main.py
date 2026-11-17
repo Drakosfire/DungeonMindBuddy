@@ -234,6 +234,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): resolve_hosted_conversation_world,
     ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}/variant-reviews/{review_id}"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}/variant-reviews/{review_id}/saved"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}/variant-reviews/{review_id}/confirm"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/build-source-withdrawals"): resolve_hosted_conversation_world,
