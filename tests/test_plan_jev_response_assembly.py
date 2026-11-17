@@ -16,7 +16,7 @@ from tests.test_surface_native_execution import component, controller, decision_
 from tests.test_surface_native_writer import work_submission, with_work_selection
 
 
-def staged(surface, *, requested='discuss', rules=False, current_plan=False):
+def staged(surface, *, requested='discuss', rules=False, current_plan=False, dialogue=()):
     if surface == 'plan_current':
         surface, current_plan = 'plan', True
     context, record = component(surface, unavailable=True)
@@ -58,7 +58,7 @@ def staged(surface, *, requested='discuss', rules=False, current_plan=False):
                 _broker_execution=lambda: record)
     rule_owner = N(frame=lambda: N(ruleset='dnd_2024_srd_5_2_1', supports=(),
                                   lookups=(N(lookup=0, status='no_evidence'),) if rules else ()))
-    return PlanJevWriter(adapter, work['work_proof'], rule_owner), record
+    return PlanJevWriter(adapter, work['work_proof'], rule_owner, dialogue=dialogue), record
 
 
 @pytest.mark.parametrize('surface', ['plan', 'plan_current', 'build', 'play'])
@@ -211,3 +211,16 @@ def test_native_response_schema_does_not_advertise_image_preparation(surface):
     candidate['answer_segments'][0]['label'] = 'image_prompt'
     with pytest.raises(ValidationError):
         Draft202012Validator(schema).validate(candidate)
+
+def test_build_writer_keeps_prior_gm_decisions_in_provider_messages():
+    dialogue = (
+        {"role": "user", "content": "The creature wants freedom."},
+        {"role": "assistant", "content": "We could negotiate a truce."},
+        {"role": "user", "content": "Use the truce. Show them standing down first."},
+    )
+    writer, _ = staged("build", dialogue=dialogue)
+    baseline, _ = staged("build")
+    assert writer.messages[:3] == list(dialogue)
+    assert writer.messages[3:] == baseline.messages
+    assert all(set(message) == {"role", "content"} for message in writer.messages[:3])
+    assert "The creature wants freedom." not in json.dumps(writer.output_format)
