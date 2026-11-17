@@ -760,7 +760,13 @@ def post_connected_page_confirm(body: ConnectedPageConfirmation, request: Reques
 
 @router.get('/connected-pages/{operation_id}')
 def read_connected_page(operation_id: UUID, world_id: str, request: Request):
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     try:
         return get_connected_page(_managed_world_root(), operation_id, world_id)
     except _CONNECTED_ERRORS as exc:
