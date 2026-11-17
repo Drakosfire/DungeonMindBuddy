@@ -1620,6 +1620,15 @@ def _conversation_draft_access(request: Request, world_id: str) -> str:
     return _verified_world_id(world_id)
 
 
+@router.get("/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/variant-approval")
+def get_conversation_variant_approval(world_id: str, conversation_id: UUID, turn_id: UUID, request: Request):
+    verified = _conversation_draft_access(request, world_id)
+    try:
+        return _conversation_service(request).conversation_variant_approval(verified, conversation_id, turn_id)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
 @router.get(_CONVERSATION_DRAFT_PATH)
 def get_conversation_draft(world_id: str, conversation_id: UUID, turn_id: UUID, request: Request):
     verified = _conversation_draft_access(request, world_id)

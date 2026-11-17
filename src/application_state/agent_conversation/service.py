@@ -461,6 +461,33 @@ class AgentConversationService:
             return open_draft(conn, world_id=_world_id(world_id),
                               conversation_id=conversation_id, turn_id=turn_id)
 
+    def conversation_variant_approval(self, world_id: str, conversation_id: UUID, turn_id: UUID):
+        from .conversation_variant_save import approval_handoff
+        from .types import BuildRequestedWorkResolutionV1
+
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = repo.get_turn(conn, world_id, turn_id)
+            envelope = turn.envelope if isinstance(turn, MixedCompletedTurnV1) else turn
+            if envelope is None or envelope.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError("Approval turn not found")
+            primary = envelope.provenance.primary_work
+            if envelope.provenance.surface_id != "build" or primary.resolution != "resolved":
+                return {"status": "not_requested"}
+            execution = (
+                turn.base_projection.graph_context_execution
+                if isinstance(turn, MixedCompletedTurnV1) else getattr(turn, "graph_context_execution", None)
+            )
+            choices = [
+                event for event in execution.events if isinstance(event, BuildRequestedWorkResolutionV1)
+            ] if execution is not None else []
+            if len(choices) != 1 or choices[0].requested_work != "change_mechanics":
+                return {"status": "not_requested"}
+            return approval_handoff(
+                conn, world_id=world_id, conversation_id=conversation_id, prior_to=envelope.sequence,
+                page_id=primary.object_id, page_kind=primary.kind,
+            )
+
     def edit_conversation_draft(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, markdown: str,
