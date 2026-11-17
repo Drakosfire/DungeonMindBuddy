@@ -350,3 +350,16 @@ def test_current_page_navigation_refresh_preserves_identity_without_capability()
     assert first["capability_sha256"] is second["capability_sha256"] is None
     adapter.work=S(build_source=S(document_id="third",title="Newly created workshop"))
     assert freeze_interaction(adapter)["current_page"]=={"document_id":"third","title":"Newly created workshop"}
+
+
+def test_retained_selection_keeps_exact_probability_inventory():
+    retained_menu = c.digest(c.question(guidance=c._RETAINED_GUIDANCE, work_options=c._RETAINED_WORK))
+    probabilities = {name: float(name == "discuss") for name in c._RETAINED_WORK}
+    response = {"answers": {"requested_work": {"selected": "discuss", "probabilities": probabilities}}}
+    assert c.known_semantics(retained_menu, c._RETAINED_RESOLVER_DIGEST)
+    assert c.selected(response, menu=retained_menu) == "discuss"
+    with pytest.raises(ValueError, match="Invalid actual semantic selection"):
+        c.selected(response, menu=c.MENU_DIGEST)
+    probabilities["draft_in_conversation"] = 0.0
+    with pytest.raises(ValueError, match="Invalid actual semantic selection"):
+        c.selected(response, menu=retained_menu)

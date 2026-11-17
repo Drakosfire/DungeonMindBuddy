@@ -352,6 +352,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
+            ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace"): access.resolve_hosted_conversation_world,
@@ -2776,3 +2778,30 @@ def test_hosted_build_proposal_history_is_world_scoped(hosted, monkeypatch):
     assert response.headers["cache-control"] == "no-store"
     assert response.json()["records"] == []
     proposal_service.list.assert_called_once_with("managed", conversation_id)
+
+
+def test_hosted_conversation_draft_routes_require_world_owner_and_write_origin(hosted, monkeypatch):
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import agent
+
+    service = Mock()
+    service.open_conversation_draft.return_value = {"revision": 1, "markdown": "Saved"}
+    service.edit_conversation_draft.return_value = {"revision": 2, "markdown": "Edited"}
+    monkeypatch.setattr(agent, "_conversation_service", lambda _: service)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda value: value)
+    conversation_id, turn_id = uuid4(), uuid4()
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation_id}/drafts/{turn_id}"
+    body = {"expected_revision": 1, "markdown": "Edited"}
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("PUT", path, origin=None, json=body).status_code == 403
+    assert hosted.client.request("PUT", path, session="other-session", json=body).status_code == 403
+    assert not service.mock_calls
+    opened = hosted.client.request("GET", path)
+    assert opened.status_code == 200, opened.text
+    assert opened.headers["cache-control"] == "no-store"
+    saved = hosted.client.request("PUT", path, json=body)
+    assert saved.status_code == 200, saved.text
+    service.open_conversation_draft.assert_called_once_with("managed", conversation_id, turn_id)
+    service.edit_conversation_draft.assert_called_once_with(
+        "managed", conversation_id, turn_id, expected_revision=1, markdown="Edited",
+    )

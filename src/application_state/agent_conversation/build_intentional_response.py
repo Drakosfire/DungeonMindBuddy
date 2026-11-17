@@ -203,13 +203,14 @@ def question(*, guidance=None, work_options=None):
     }
 
 
-def selected(response):
+def selected(response, *, menu=None):
+    options = WORK if menu is None else _menu_work(menu)
     answer = response["answers"]["requested_work"]
     label, probabilities = answer["selected"], answer["probabilities"]
     if (
-        label not in WORK
+        label not in options
         or not isinstance(probabilities, dict)
-        or set(probabilities) != set(WORK)
+        or set(probabilities) != set(options)
         or any(
             isinstance(x, bool)
             or not isinstance(x, (int, float))
@@ -596,7 +597,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         raise ValueError("Semantic selection requires its exact producing proof")
     request = strict_json(proof["request_json"])
     raw_response = strict_json(proof["response_json"])
-    label = selected(raw_response)
+    label = selected(raw_response, menu=menu)
     response = DecisionResult.model_validate(raw_response)
     resolution = resolution_for(policy, label)
     prior = [
