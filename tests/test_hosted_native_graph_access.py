@@ -302,6 +302,9 @@ def hosted(monkeypatch, request):
 
     app.include_router(rules_lookup.router)
     app.include_router(conversation_library.router)
+    from apps.live_control_server.routes import conversation_work_plans
+
+    app.include_router(conversation_work_plans.router)
     from apps.live_control_server.routes import native_source_inspection
 
     app.include_router(native_source_inspection.router)
@@ -393,6 +396,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/retry-attempts"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}"): access.resolve_hosted_conversation_world,
@@ -3045,3 +3049,21 @@ def test_hosted_published_recap_requires_owned_world(hosted, monkeypatch):
     selector, principal = read.call_args.args
     assert selector.managed_world_id == principal.managed_world_id == "managed"
     assert (selector.campaign_id, selector.session_id) == ("campaign", "session")
+
+
+def test_hosted_saved_work_plan_reads_exact_turn(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import conversation_library, conversation_work_plans
+
+    read = Mock(return_value={"status": "review"})
+    monkeypatch.setattr(conversation_work_plans.work_plan, "read", read)
+    monkeypatch.setattr(conversation_library, "_verified_world_id", lambda world: world)
+    conversation, turn = uuid4(), uuid4()
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation}/work-plans/{turn}"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=foreign").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    read.assert_called_once_with("managed", conversation, turn)
