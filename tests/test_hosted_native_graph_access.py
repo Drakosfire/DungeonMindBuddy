@@ -2060,6 +2060,9 @@ def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_prepar
 
 
 def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_state_dsn, monkeypatch):
+    from application_state.content import pages
+
+    monkeypatch.setattr(pages, "get_world", hosted.get_world)
     documents = "/api/live/workspace-documents"
     editor = "/api/live/tiptap/markdown-write"
     create = {
