@@ -221,7 +221,7 @@ def _active_run_from_row(row: dict) -> PlayActiveRun:
     return PlayActiveRun.model_validate(row)
 
 
-def get_active_run(conn: psycopg.Connection) -> PlayActiveRun | None:
+def get_active_run(conn: psycopg.Connection, *, scope_key: str = LOCAL_ACTIVE_RUN_SCOPE) -> PlayActiveRun | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -229,13 +229,13 @@ def get_active_run(conn: psycopg.Connection) -> PlayActiveRun | None:
             FROM play.active_run
             WHERE scope_key = %s
             """,
-            (LOCAL_ACTIVE_RUN_SCOPE,),
+            (scope_key,),
         )
         row = cur.fetchone()
     return None if row is None else _active_run_from_row(row)
 
 
-def lock_active_run(conn: psycopg.Connection) -> PlayActiveRun | None:
+def lock_active_run(conn: psycopg.Connection, *, scope_key: str = LOCAL_ACTIVE_RUN_SCOPE) -> PlayActiveRun | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -244,7 +244,7 @@ def lock_active_run(conn: psycopg.Connection) -> PlayActiveRun | None:
             WHERE scope_key = %s
             FOR UPDATE
             """,
-            (LOCAL_ACTIVE_RUN_SCOPE,),
+            (scope_key,),
         )
         row = cur.fetchone()
     return None if row is None else _active_run_from_row(row)
@@ -255,6 +255,7 @@ def upsert_active_run(
     *,
     run_id: UUID,
     selected_at: datetime,
+    scope_key: str = LOCAL_ACTIVE_RUN_SCOPE,
 ) -> PlayActiveRun:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
@@ -267,7 +268,7 @@ def upsert_active_run(
             RETURNING {_ACTIVE_RUN_COLUMNS}
             """,
             {
-                "scope_key": LOCAL_ACTIVE_RUN_SCOPE,
+                "scope_key": scope_key,
                 "run_id": run_id,
                 "selected_at": selected_at,
             },

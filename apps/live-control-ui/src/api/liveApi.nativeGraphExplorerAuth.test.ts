@@ -707,3 +707,17 @@ it.each([
   await expect(api.authenticatedApiFetch(path + "&world_id=foreign", request)).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("selects a Play run through the exact hosted World route", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+  const path = "/api/live/world-play-runs/v2/active?world_id=managed";
+  const request = { method: "PUT", body: JSON.stringify({ run_id: "11111111-1111-4111-8111-111111111111" }) };
+  await api.authenticatedApiFetch(path, request);
+  expect(fetch.mock.calls[0]).toEqual([path, expect.objectContaining({
+    method: "PUT", credentials: "same-origin", mode: "same-origin",
+  })]);
+  await expect(api.authenticatedApiFetch(path + "&world_id=foreign", request)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

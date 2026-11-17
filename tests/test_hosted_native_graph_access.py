@@ -437,6 +437,7 @@ def hosted(monkeypatch, request):
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
+            ("PUT", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_command,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/reference-manifest"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals"): access.resolve_hosted_play_read,
@@ -2733,6 +2734,15 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert [record["run_id"] for record in listed["records"]] == [run_id]
     active = hosted.client.request("GET", f"{runs}/active?world_id=managed").json()
     assert active["world_id"] == "managed"
+    active_path = f"{runs}/active?world_id=managed"
+    selection = {"run_id": run_id}
+    assert hosted.client.request("PUT", active_path, json=selection, session="other-session").status_code == 403
+    assert hosted.client.request("PUT", active_path, json=selection, origin="https://outside.example").status_code == 403
+    selected = hosted.client.request("PUT", active_path, json=selection)
+    assert selected.status_code == 200, selected.text
+    assert selected.json()["run_id"] == run_id
+    assert hosted.client.request("GET", active_path).json() == selected.json()
+
 
     commit_plan(plan.document_id, V2_SOURCE_MARKDOWN + "\nA newer Plan revision.\n", expected_world_id="managed", expected_revision=record["object_revision"])
     manifest_path = f"{base}/reference-manifest?world_id=managed"
