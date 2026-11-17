@@ -371,7 +371,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/graph-preview\/build-recap-launches(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?$/i.test(pathname)) return true;
   if (pathname === "/api/live/graph-preview/extraction-runs") return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/recap-inspection$/.test(pathname)) return true;
-  if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)) return true;
+  if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/(?:candidate-projection|usage)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/(?:capabilities|prepare|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/first-world\/(?:prepare|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/runs\/[^/]+\/recap-evidence-corrections$/.test(pathname)) return true;
@@ -827,7 +827,15 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     if (method === "GET") return init?.body == null;
     return method === (combatEncounter[1] ? "PUT" : "POST") && !!requestBodyRecord(init?.body);
   }
-  const savedRecap = /^\/api\/live\/graph-preview\/extraction-runs(?:\/[^/?]+\/(recap-inspection|candidate-projection))?\?/.exec(path);
+  const recapRecovery = /^\/api\/live\/graph-preview\/build-recap-launches\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\?/.exec(path);
+  if (recapRecovery && method === "GET" && init?.body == null) {
+    const query = new URLSearchParams(path.slice(recapRecovery[0].length));
+    const documentId = query.get("document_id");
+    const worldId = query.get("managed_world_id");
+    return !!worldId && !!documentId && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(documentId)
+      && path === recapRecovery[0] + new URLSearchParams({ document_id: documentId, managed_world_id: worldId });
+  }
+  const savedRecap = /^\/api\/live\/graph-preview\/extraction-runs(?:\/[^/?]+\/(recap-inspection|candidate-projection|usage))?\?/.exec(path);
   if (savedRecap && method === "GET" && init?.body == null) {
     const query = new URLSearchParams(path.slice(savedRecap[0].length));
     const worldId = query.get("managed_world_id");
@@ -839,6 +847,10 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
         if (!revision || !source) return false;
         exactQuery.set("expected_run_revision", revision);
         exactQuery.set("source_revision_id", source);
+      } else if (savedRecap[1] === "usage") {
+        const revision = query.get("expected_run_revision");
+        if (!revision || !/^[1-9][0-9]*$/.test(revision)) return false;
+        exactQuery.set("expected_run_revision", revision);
       } else if (!savedRecap[1]) {
         const campaign = query.get("campaign_id");
         if (campaign) exactQuery.set("campaign_id", campaign);
@@ -1319,7 +1331,7 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     || /^\/api\/live\/world-session-evidence(?:\/[^/]+\/revisions\/\d+)?$/.test(pathname)
     || pathname === "/api/live/graph-preview/extraction-runs"
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/recap-inspection$/.test(pathname)
-    || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)
+    || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/(?:candidate-projection|usage)$/.test(pathname)
     || /^\/api\/live\/media\/images\/[^/]+\/metadata$/.test(pathname)
     || /^\/api\/live\/rules\/(?:catalog|query|passages\/[a-f0-9]{64})$/.test(pathname);
   if (method !== "POST" || typeof init?.body !== "string") return false;

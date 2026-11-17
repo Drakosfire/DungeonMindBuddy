@@ -775,3 +775,36 @@ it("checks recap names through the hosted World route", async () => {
   await expect(api.authenticatedApiFetch(path + "?world_id=foreign", request)).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it.each([
+  "/api/live/graph-preview/extraction-runs/saved-run/usage?managed_world_id=managed&expected_run_revision=2",
+  "/api/live/graph-preview/build-recap-launches/00000000-0000-4000-8000-000000000002?document_id=00000000-0000-4000-8000-000000000001&managed_world_id=managed",
+])("uses hosted transport for exact saved recap reads at %s", async path => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+  await api.authenticatedApiFetch(path);
+  expect(fetch).toHaveBeenCalledWith(path, expect.objectContaining({
+    credentials: "same-origin", mode: "same-origin",
+  }));
+  await expect(api.authenticatedApiFetch(path + "&managed_world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("reads exact World Threat mechanics through hosted transport", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+  const body = {
+    schema: "dmb_threat_query_hydration_request_v1" as const,
+    worldId: "managed", scopeMode: "world" as const, campaignId: null,
+    revisionPin: "rev:exact", queryText: "Threat",
+  };
+  await api.postThreatQueryHydration(body);
+  expect(fetch).toHaveBeenCalledWith("/api/live/threats/query-hydration", expect.objectContaining({
+    method: "POST", credentials: "same-origin", mode: "same-origin",
+  }));
+  await expect(api.postThreatQueryHydration({ ...body, scopeMode: "campaign", campaignId: "other" }))
+    .rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
