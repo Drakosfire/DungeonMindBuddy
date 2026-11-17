@@ -293,6 +293,30 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
             base['required'].append('collaboration')
             if definitions:
                 schema.setdefault('$defs',{}).update(definitions)
+    if work_frame.get('schema') == BUILD_WORK_SCHEMA:
+        from .native_build_work_view import variant_sources
+        sources = variant_sources(work_frame)
+        if sources:
+            from apps.live_control_server.integrations.dungeonmind_statblocks.generated import StatblockDefinitionV1Input
+
+            definition = StatblockDefinitionV1Input.model_json_schema(
+                ref_template="#/$defs/Variant_{model}",
+            )
+            definitions = definition.pop("$defs", {})
+            schema.setdefault("$defs", {}).update(
+                {f"Variant_{name}": entry for name, entry in definitions.items()}
+            )
+            base = schema["$defs"]["Base"] if rules.lookups else schema
+            base["properties"]["statblock_variant"] = {
+                "anyOf": [
+                    _object({
+                        "source": _enum(list(sources)),
+                        "definition": definition,
+                    }),
+                    {"type": "null"},
+                ],
+            }
+            base["required"].append("statblock_variant")
     if work_frame.get('schema')==PLAN_WORK_SCHEMA and work_frame.get('requested_work')=='review_connected_page':
         from .collaboration import ProposedConnectedPage
         rows=work_frame.get('related_authored_pages',{}).get('pages',[])

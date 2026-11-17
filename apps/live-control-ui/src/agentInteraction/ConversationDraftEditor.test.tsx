@@ -1,11 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { openConversationDraft, saveConversationDraft } from "../api/conversationDraftApi";
+import { confirmVariantReview, openConversationDraft, openVariantReview, saveConversationDraft } from "../api/conversationDraftApi";
 import { ConversationDraftEditor } from "./ConversationDraftEditor";
 
 vi.mock("../api/conversationDraftApi", () => ({
   openConversationDraft: vi.fn(),
   saveConversationDraft: vi.fn(),
+  openVariantReview: vi.fn(),
+  confirmVariantReview: vi.fn(),
 }));
 
 it("keeps unsaved Markdown visible when the revision changes", async () => {
@@ -26,4 +28,32 @@ it("keeps unsaved Markdown visible when the revision changes", async () => {
   expect(saveConversationDraft).toHaveBeenCalledWith(scope, 1, "My edits");
   fireEvent.click(screen.getByRole("button", { name: "Discard local edits and reopen" }));
   expect(await screen.findByDisplayValue("Saved elsewhere")).toBe(editor);
+});
+
+vi.mock("../statblocks/render/StatblockRenderer", () => ({
+  StatblockRenderer: () => <p>Reviewed mechanics</p>,
+}));
+
+it("requires explicit confirmation of the displayed review", async () => {
+  const scope = { worldId: "world", conversationId: "conversation", turnId: "turn" };
+  vi.mocked(openConversationDraft).mockResolvedValueOnce({
+    revision: 2, markdown: "Draft", variant_review_ids: ["review"],
+  });
+  vi.mocked(openVariantReview).mockResolvedValueOnce({
+    revision: 2, definition: {} as Awaited<ReturnType<typeof openVariantReview>>["definition"],
+  });
+  vi.mocked(confirmVariantReview).mockResolvedValueOnce({ revision_id: "saved" });
+  render(<ConversationDraftEditor scope={scope} />);
+  fireEvent.click(screen.getByRole("button", { name: "Open draft" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review statblock variant" }));
+  const confirm = { name: "Confirm and save as new statblock" };
+  await screen.findByRole("button", confirm);
+  expect(confirmVariantReview).not.toHaveBeenCalled();
+  const editor = screen.getByRole("textbox", { name: "Draft Markdown" });
+  fireEvent.change(editor, { target: { value: "Unsaved" } });
+  expect(screen.queryByRole("button", confirm)).not.toBeInTheDocument();
+  fireEvent.change(editor, { target: { value: "Draft" } });
+  fireEvent.click(screen.getByRole("button", confirm));
+  expect(await screen.findByRole("status")).toHaveTextContent("Statblock variant saved.");
+  expect(confirmVariantReview).toHaveBeenCalledExactlyOnceWith(scope, "review");
 });

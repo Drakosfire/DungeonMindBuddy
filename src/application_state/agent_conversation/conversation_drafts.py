@@ -12,14 +12,21 @@ def open_draft(conn, *, world_id, conversation_id, turn_id):
     with conn.cursor(row_factory=dict_row) as cursor:
         row = cursor.execute(
             """
-            SELECT revision, markdown FROM agent.conversation_draft_revision
-            WHERE world_id = %s AND conversation_id = %s AND turn_id = %s
-            ORDER BY revision DESC LIMIT 1
+            SELECT draft.revision, draft.markdown, (
+                SELECT array_agg(review.review_id ORDER BY review.review_id)
+                FROM agent.conversation_variant_review AS review
+                WHERE review.turn_id = draft.turn_id AND review.revision = draft.revision
+            ) AS variant_review_ids
+            FROM agent.conversation_draft_revision AS draft
+            WHERE draft.world_id = %s AND draft.conversation_id = %s AND draft.turn_id = %s
+            ORDER BY draft.revision DESC LIMIT 1
             """,
             (world_id, conversation_id, turn_id),
         ).fetchone()
     if row is None:
         raise ApplicationStateNotFoundError("Conversation draft not found")
+    if row["variant_review_ids"] is None:
+        del row["variant_review_ids"]
     return row
 
 
