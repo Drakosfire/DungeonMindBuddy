@@ -750,3 +750,17 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
     except Exception:
         raise _unavailable() from None
     return WorldContainersListResponse(records=permitted).model_dump(mode="json")
+
+
+async def resolve_hosted_recap_name_review(request: Request) -> str:
+    from apps.live_control_server.routes.recap_ingest import RecapIngestRequest
+
+    if request.query_params:
+        raise _denied()
+    body = RecapIngestRequest.model_validate(await request.json())
+    if (body.operation != "generate_recap_memory" or not body.managed_world_id
+            or not (body.raw_text or "").strip()):
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.managed_world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id

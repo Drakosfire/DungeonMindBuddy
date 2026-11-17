@@ -288,6 +288,9 @@ def hosted(monkeypatch, request):
     app.include_router(combat_encounters.router)
     app.include_router(threat_drafts.router)
     app.include_router(world_mechanics_associations.router)
+    from apps.live_control_server.routes import recap_ingest
+
+    app.include_router(recap_ingest.router)
     app.include_router(play_runs.router)
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
@@ -333,6 +336,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
+            ("POST", "/api/live/recap-name-review"): access.resolve_hosted_recap_name_review,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
@@ -2886,3 +2890,25 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_recap_name_review_requires_world_owner_and_origin(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import recap_ingest
+    from apps.live_control_server.services import recap_name_review
+
+    scope = SimpleNamespace(managed_world_id="managed", campaign_id="campaign")
+    monkeypatch.setattr(recap_ingest, "_request_recap_context", lambda _: scope)
+    review = Mock(return_value=(None, None, {"schema": "dmb_recap_name_review_v1"}))
+    monkeypatch.setattr(recap_name_review, "prepare_name_review", review)
+    path = "/api/live/recap-name-review"
+    body = {"operation": "generate_recap_memory", "managed_world_id": "managed",
+            "campaign_id": "campaign", "session": 22, "raw_text": "A keeper scouts Mireward."}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin="https://outside.example").status_code == 403
+    assert hosted.client.request("POST", path + "?world_id=foreign", json=body).status_code == 403
+    review.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    review.assert_called_once_with(body["raw_text"], scope, session_id="session-22")
