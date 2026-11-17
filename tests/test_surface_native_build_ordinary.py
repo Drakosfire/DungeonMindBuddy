@@ -60,7 +60,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -165,7 +165,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         )
         monkeypatch.setattr(associations, "list_current", lambda **kwargs: [record])
         monkeypatch.setattr(world_creature_selection, "catalog", lambda *args, **kwargs: SimpleNamespace(
-            managed_world_id=world, native_world_id=world, binding_version=1, revision_id=kwargs["revision_id"], head_revision_id=lane.repo.get_head(world).head_revision_id if saved_statblock == "by-name" else original_revision, targets=(target,),
+            managed_world_id=world, native_world_id=world, binding_version=1, revision_id=kwargs["revision_id"], head_revision_id=lane.repo.get_head(world).head_revision_id if saved_statblock == "by-name" or (dispatch and kwargs["revision_id"] != original_revision) else original_revision, targets=(target,),
         ))
         monkeypatch.setattr(statblock_saved_revision, "iter_saved_mechanics", lambda *args, **kwargs: [
             *([("Meat Mind", str(uuid4()), locator.model_copy(update={"revision_id": "rev_wrong"}))] if saved_statblock == "associated" else []),
@@ -354,7 +354,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 else:
                     assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
-            assert (handles or saved_statblock == "by-name" or authored_source=='source_only') and 'DISPLAY ONLY' not in str(frame)
+            assert (handles or saved_statblock in {"associated", "by-name"} or authored_source=='source_only') and 'DISPLAY ONLY' not in str(frame)
             if saved_statblock:
                 expected = {"mechanics": definition}
                 if saved_statblock in {"associated", "by-name"}:
@@ -764,7 +764,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert original==failed
         assert lane.repo.get_head(world).head_revision_id==current_revision
         return
-    response = client.post('/api/live/agent/turn', json=body)
+    response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
     if failure=='initial_context':
         assert response.status_code in {502,503},response.text
         assert not decisions.calls and not writer.calls
@@ -1696,6 +1696,34 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
         assert sources["support"] == [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture"}]
     else:
         assert sources is None
+
+
+def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monkeypatch):
+    from evals.buddy_benchmark import workflow
+
+    thread_id = str(uuid4())
+    template = {}
+
+    def first(client, world, body):
+        template.update((key, value) for key, value in body.items() if key != "message")
+        return workflow.capture_case(client, world, template, {"question": body["message"]},
+                                     tmp_path / "first-capture", build_thread_id=thread_id)
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Let's brainstorm a variant of this creature.",
+        requested_work="discuss", saved_statblock="associated", dispatch=first,
+    )
+    response = workflow.capture_case(
+        case.client, case.world, template, {"question": "Could it negotiate?"},
+        tmp_path / "follow-up-capture", build_thread_id=thread_id,
+        expected_conversation_id=str(case.turn.conversation_id),
+    )
+    assert response.status_code == 200, response.text
+    history = case.client.get(f"/api/live/agent/worlds/{case.world}/conversation").json()
+    turn = AgentConversationService().inspect_turn(world_id=case.world, turn_id=UUID(history["turns"][-1]["turn_id"]))
+    assert turn.conversation_id == case.turn.conversation_id
+    assert turn.sequence == case.turn.sequence + 1
 
 
 def test_followup_reoffers_only_the_bound_statblock_on_the_same_page(lane, tmp_path, monkeypatch):

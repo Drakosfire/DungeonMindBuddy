@@ -325,12 +325,17 @@ def capture_case(client, world, template, case, directory, *, context_only=False
             "expected_active_conversation_id": before["active_conversation_id"]}
         immutable_save(directory, "new-conversation-request", command)
         response = client.post(route + "/new", json=command)
-        save("new-conversation-response", response)
+        created = save("new-conversation-response", response)
         if response.status_code != 200:
             raise ValueError("New conversation CAS failed; no question dispatched")
         fresh = save("fresh-history", client.get(route))
         if fresh["turns"]:
             raise ValueError("Ordinary benchmark requires a fresh conversation")
+        if build_sequence and (
+            not created.get("active_conversation_id")
+            or fresh["active_conversation_id"] != created["active_conversation_id"]
+        ):
+            raise ValueError("Build conversation changed after creation; no turn dispatched")
     else:
         fresh = before
         if fresh["active_conversation_id"] != expected_conversation_id:
@@ -367,7 +372,18 @@ def capture_case(client, world, template, case, directory, *, context_only=False
             turns = [t for t in _request_turns(history, request, world) if t["turn_id"] not in prior_ids]
             if len(turns) != 1:
                 raise ValueError("Question has no unique durable turn; do not redispatch")
-            save("context-trace", client.get(route + "/turns/" + turns[0]["turn_id"] + "/context-trace"))
+            durable = turns[0]
+            trace_response = client.get(route + "/turns/" + durable["turn_id"] + "/context-trace")
+            trace = save("context-trace", trace_response)
+            if build_sequence and known_response and response.status_code == 200:
+                delivered = response.json()
+                if (durable.get("lifecycle_status") != "completed"
+                        or delivered.get("turn_id") != request["turn_id"]
+                        or delivered.get("client_thread_id") != request["client_thread_id"]
+                        or delivered.get("answer", {}).get("text") != durable.get("assistant_text")
+                        or trace_response.status_code != 200 or not isinstance(trace, dict)
+                        or trace.get("world_id") != world or trace.get("turn_id") != durable["turn_id"]):
+                    raise ValueError("Build turn delivery or trace could not be verified")
             if context_stop is not None:
                 from application_state.agent_conversation import AgentConversationService
                 observed = AgentConversationService().inspect_turn(world_id=world, turn_id=UUID(turns[0]["turn_id"]))

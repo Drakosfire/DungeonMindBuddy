@@ -400,22 +400,28 @@ def test_build_capture_preserves_page_thread_and_repeated_turns(tmp_path):
     class BuildClient(Client):
         conversation = "prev"
         turns = ()
+        trace_status = 200
 
         def post(self, route, *, json):
             response = super().post(route, json=json)
             if route.endswith("/new"):
                 self.conversation = "build-rehearsal"
+                return self.response({"active_conversation_id": self.conversation})
             else:
                 self.turn = str(uuid4())
                 from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
 
                 self.turns += ({"turn_id": self.turn, "user_text": json["message"],
-                                "idempotency_key": str(_turn_idempotency_key("world", json["turn_id"]))},)
+                                "idempotency_key": str(_turn_idempotency_key("world", json["turn_id"])),
+                                "lifecycle_status": "completed", "assistant_text": "Reply"},)
+                return self.response({"turn_id": json["turn_id"],
+                                      "client_thread_id": json["client_thread_id"],
+                                      "answer": {"text": "Reply"}})
             return response
 
         def get(self, route, **kwargs):
             if "context-trace" in route:
-                return super().get(route, **kwargs)
+                return self.response({"turn_id": self.turn, "world_id": "world"}, self.trace_status)
             return self.response({"pointer_revision": 3, "active_conversation_id": self.conversation,
                                   "turns": list(self.turns)})
 
@@ -434,6 +440,12 @@ def test_build_capture_preserves_page_thread_and_repeated_turns(tmp_path):
         w.capture_case(client, "world", request_template, case, tmp_path / "drift",
                        build_thread_id="thread", expected_conversation_id="wrong")
     assert len(client.posts) == 3
+    client.trace_status = 503
+    with pytest.raises(ValueError, match="delivery or trace"):
+        w.capture_case(client, "world", request_template, case, tmp_path / "trace-failure",
+                       build_thread_id="thread", expected_conversation_id=client.conversation)
+    assert json.loads((tmp_path / "trace-failure" / "context-trace.json").read_text())["http_status"] == 503
+
 
 
 def test_failed_cas_never_dispatches_question(tmp_path):
