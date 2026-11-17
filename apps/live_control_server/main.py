@@ -139,7 +139,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_combat_encounter,
     resolve_hosted_conversation_world,
     resolve_hosted_image_history,
-    resolve_hosted_image_capabilities,
+    resolve_hosted_image_world,
     resolve_hosted_chat_turn,
     resolve_hosted_build_page_create,
     resolve_hosted_build_page_inventory,
@@ -185,10 +185,11 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
-    ("GET", "/api/live/media/images/capabilities"): resolve_hosted_image_capabilities,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/prompt/{provider_attempt_id}"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/prompts"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/media/images/capabilities"): resolve_hosted_image_world,
+    ("POST", "/api/live/media/images/generate"): resolve_hosted_image_world,
     ("GET", "/api/live/connected-pages/{operation_id}"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/media/images/preparations/list"): resolve_hosted_image_history,
     ("POST", "/api/live/agent/turn"): resolve_hosted_chat_turn,
