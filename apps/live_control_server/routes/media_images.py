@@ -68,8 +68,13 @@ def _image_client() -> GenerationClient:
 
 
 @router.get("/capabilities")
-def image_capabilities(request: Request, response: Response):
-    enforce_native_graph_gm(request)
+def image_capabilities(request: Request, response: Response, world_id: str | None = None):
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    if world_id is None:
+        enforce_native_graph_gm(request)
+    else:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     response.headers["Cache-Control"] = "no-store"
     try:
         assert_at_head()
