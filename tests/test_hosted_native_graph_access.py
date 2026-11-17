@@ -344,6 +344,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/media/images/preparations/list"): access.resolve_hosted_image_history,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
+            ("POST", "/api/live/media/images/{asset_id}/save"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
@@ -2095,7 +2096,7 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert read.headers["cache-control"] == "no-store"
 
 
-def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn):
+def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn, monkeypatch):
     from io import BytesIO
 
     from PIL import Image
@@ -2117,6 +2118,26 @@ def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn):
     for suffix in ("metadata", "original"):
         assert hosted.client.request("GET", f"{path}/{suffix}", session="other-session").status_code == 403
         assert hosted.client.request("GET", f"{path}/{suffix}?world_id={world_id}").status_code == 403
+
+    from unittest.mock import AsyncMock
+    from uuid import UUID
+
+    from apps.live_control_server.routes import media_images
+    from tests.integration.test_build_images_postgres import ready
+
+    owner = access.hosted_world_media_owner(world_id)
+    save = AsyncMock(side_effect=lambda identifier, scope: ready(media.get_asset(identifier, scope)))
+    monkeypatch.setattr(media_images.media_storage, "save_asset", save)
+    save_path = f"{path}/save"
+    assert hosted.client.request("POST", save_path, json={}, session="other-session").status_code == 403
+    assert hosted.client.request("POST", save_path, json={}, origin=None).status_code == 403
+    assert hosted.client.request("POST", save_path, json={"unexpected": True}).status_code == 403
+    save.assert_not_called()
+    saved = hosted.client.request("POST", save_path, json={})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["state"] == "ready"
+    assert media.get_asset(asset["asset_id"], owner)["state"] == "ready"
+    save.assert_awaited_once_with(UUID(str(asset["asset_id"])), owner)
 
 
 def test_hosted_plan_context_requires_exact_owned_world(hosted):

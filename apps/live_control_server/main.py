@@ -224,6 +224,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): resolve_hosted_play_creation,
     ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): resolve_hosted_play_creation,
     ("GET", "/api/live/media/images/{asset_id}/metadata"): resolve_hosted_saved_artwork,
+    ("POST", "/api/live/media/images/{asset_id}/save"): resolve_hosted_saved_artwork,
     ("GET", "/api/live/media/images/{asset_id}/original"): resolve_hosted_saved_artwork,
     ("POST", FIRST_WORLD_PREPARE_PATH): resolve_hosted_first_world,
     ("POST", FIRST_WORLD_CONFIRM_PATH): resolve_hosted_first_world,

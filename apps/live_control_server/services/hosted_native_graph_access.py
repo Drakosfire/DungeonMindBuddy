@@ -605,7 +605,12 @@ async def resolve_hosted_saved_artwork(request: Request) -> str:
 
     subject = _hosted_subject(request)
     asset_id = getattr(request.state, "hosted_route_asset_id", None)
-    if not asset_id or request.query_params or await request.body():
+    if not asset_id or request.query_params:
+        raise _denied()
+    if request.method == "POST":
+        if await request.json() != {}:
+            raise _denied()
+    elif await request.body():
         raise _denied()
     try:
         if str(UUID(asset_id)) != asset_id:
