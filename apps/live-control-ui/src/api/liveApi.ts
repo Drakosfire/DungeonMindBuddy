@@ -460,6 +460,13 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "GET" && init?.body == null && query.size === keys.length
       && keys.every(key => query.getAll(key).length === 1 && !!query.get(key));
   }
+  const savedPlayRead = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]+\/(prepared-tables\/receipts|content\/(?:revisions\/\d+|commands\/[0-9a-f-]+))\?([^#]+)$/.exec(path);
+  if (savedPlayRead) {
+    const query = new URLSearchParams(savedPlayRead[2]);
+    const keys = savedPlayRead[1] === "prepared-tables/receipts" ? ["world_id", "before", "limit"] : ["world_id"];
+    return method === "GET" && init?.body == null && !!query.get("world_id")
+      && [...query.keys()].every(key => keys.includes(key) && query.getAll(key).length === 1);
+  }
   if (path === "/api/live/agent/turn") {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && isRecord(body?.owner_scope)
