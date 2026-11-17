@@ -1729,8 +1729,30 @@ def test_followup_reoffers_only_the_bound_statblock_on_the_same_page(lane, tmp_p
     )
     monkeypatch.setattr(driver, "_published_statblock_reference", lambda draft, locator: reference)
     assert driver._prior_bound_statblock() == (entry,)
-    assert calls == [(case.world, current.conversation_id, {"limit": 1, "before_sequence": current.sequence})]
+    assert calls == [(case.world, current.conversation_id, {"limit": 12, "before_sequence": current.sequence})]
 
+    execution = previous.graph_context_execution
+    discussion = previous.model_copy(update={
+        "sequence": current.sequence,
+        "graph_context_execution": execution.model_copy(update={
+            "events": tuple(event for event in execution.events
+                            if not isinstance(event, (BuildSavedStatblockReadV1, BuildAuthoredReferencesCapturedV1))),
+        }),
+    })
+    driver.adapter.fence.turn = current.model_copy(update={"sequence": current.sequence + 1})
+    driver.adapter.service.list_turns = lambda *_args, **_kwargs: [discussion, previous]
+    assert driver._prior_bound_statblock() == (entry,)
+
+    intervening_selection = discussion.model_copy(update={
+        "graph_context_execution": discussion.graph_context_execution.model_copy(update={
+            "events": (*discussion.graph_context_execution.events, capture),
+        }),
+    })
+    driver.adapter.service.list_turns = lambda *_args, **_kwargs: [intervening_selection, previous]
+    assert driver._prior_bound_statblock() == ()
+
+    driver.adapter.fence.turn = current
+    driver.adapter.service.list_turns = list_turns
     monkeypatch.setattr(driver, "_published_statblock_reference", lambda draft, locator: None)
     assert driver._prior_bound_statblock() == ()
 
