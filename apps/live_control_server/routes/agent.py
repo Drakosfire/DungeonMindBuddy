@@ -2134,7 +2134,9 @@ def _resolution_error(exc: ApplicationStateError) -> HTTPException:
 
 @router.post("/worlds/{world_id}/conversation/commands/{command_id}/resolve", response_model=AgentCommandResolutionResponseV1)
 def post_world_command_resolution(world_id: str, command_id: UUID, body: CommandResolutionRequestV1, request: Request) -> AgentCommandResolutionResponseV1:
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     if body.original_command.world_id != verified_world_id or body.original_command.command_id != command_id or request.query_params:
         raise HTTPException(status_code=422, detail="resolution path and original command must match")

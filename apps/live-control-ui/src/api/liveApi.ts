@@ -655,6 +655,10 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/conversation\/turns\/[0-9a-f-]+\/(?:related-pages|saved-sections\/\d+)\/[0-9a-f-]+$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  if (/^\/api\/live\/agent\/worlds\/[^/?#%]+\/conversation\/commands\/[0-9a-f-]+\/resolve$/.test(path)) {
+    return method === "POST"
+      && requestBodyRecord(init?.body)?.schema === "dmb_agent_new_conversation_resolution_request_v1";
+  }
   const resolution = /^\/api\/live\/agent\/worlds\/[^/?#%]+\/conversation\/commands\/[0-9a-f-]+\/resolutions\/[0-9a-f-]+\?([^#]+)$/.exec(path);
   if (resolution) {
     const query = new URLSearchParams(resolution[1]);

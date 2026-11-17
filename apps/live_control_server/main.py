@@ -218,6 +218,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/agent/worlds/{world_id}/conversation"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolutions/{operation_id}"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolve"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): resolve_hosted_conversation_world,

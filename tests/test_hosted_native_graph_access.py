@@ -267,6 +267,7 @@ def hosted(monkeypatch, request):
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/new", agent_routes.post_new_world_conversation, methods=["POST"])
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}", agent_routes.get_new_world_conversation_status, methods=["GET"])
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolutions/{operation_id}", agent_routes.get_world_command_resolution, methods=["GET"])
+    app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolve", agent_routes.post_world_command_resolution, methods=["POST"])
     app.add_api_route("/api/live/agent/turn", agent_routes.post_agent_turn, methods=["POST"])
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}",
@@ -472,6 +473,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversation"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolutions/{operation_id}"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolve"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
@@ -3287,6 +3289,37 @@ def test_hosted_resolution_read_checks_world_and_exact_coordinates(hosted, monke
     assert reads[0].original_command.world_id == "managed"
     assert reads[0].original_command.command_id == command
     assert reads[0].resolution_operation_id == operation
+
+
+def test_hosted_resolution_write_binds_authenticated_actor(hosted, monkeypatch):
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.routes import agent
+
+    command, operation = uuid4(), uuid4()
+    records = []
+
+    def resolve(body, *, actor):
+        records.append((body.original_command.world_id, body.original_command.command_id, actor))
+        raise ApplicationStateConflictError("Pointer changed.")
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: SimpleNamespace(resolve_new_conversation=resolve))
+    path = f"/api/live/agent/worlds/managed/conversation/commands/{command}/resolve"
+    body = {
+        "schema": "dmb_agent_new_conversation_resolution_request_v1",
+        "original_command": {"world_id": "managed", "command_id": str(command),
+                             "expected_pointer_revision": 0, "expected_active_conversation_id": None},
+        "resolution_operation_id": str(operation), "expected_current_pointer_revision": 1,
+        "expected_current_active_conversation_id": None,
+    }
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    mismatch = {**body, "original_command": {**body["original_command"], "command_id": str(uuid4())}}
+    assert hosted.client.request("POST", path, json=mismatch).status_code == 422
+    assert not records
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 409, response.text
+    assert records == [("managed", command, f"hosted_dms:{OWNER}")]
 
 
 def test_hosted_citation_read_binds_world_and_saved_turn(hosted, monkeypatch):
