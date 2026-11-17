@@ -2276,7 +2276,7 @@ def test_hosted_owner_creates_lists_and_reopens_plan(hosted, application_state_d
     assert snapshot.json()["record"]["title"] == body["title"]
 
 
-def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_state_dsn, tmp_path):
+def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_state_dsn, tmp_path, monkeypatch):
     from application_state.content.service import commit_plan
     from apps.live_control_server.services.workspace_document_registry import create_world_owned_plan_v2
     from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
@@ -2415,6 +2415,29 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     retry = hosted.client.request("POST", proposal_path, json=proposal_body)
     assert retry.status_code == 200, retry.text
     assert retry.json() == saved_proposal.json()
+
+    from apps.live_control_server import config
+    from apps.live_control_server.services import play_scene_edit_proposal
+    from tests.test_play_scene_edit_proposal import Generator
+
+    markdown = V2_SOURCE_MARKDOWN + "\n\n" + source()
+    start, end = play_scene_edit_proposal.scene_body_range(markdown, edit.scene_id)
+    generator = Generator(markdown[start:end] + "\nThe party sees an open gate and a watchful guard.\n")
+    monkeypatch.setattr(config, "managed_world_data_root", lambda: tmp_path)
+    monkeypatch.setattr(play_scene_edit_proposal.GenerationClient, "from_env", lambda: generator)
+    monkeypatch.setattr(play_scene_edit_proposal, "load_dungeonmindbuddy_dotenv", lambda: None)
+    monkeypatch.setattr(
+        play_scene_edit_proposal, "load_buddy_model_policy",
+        lambda **kwargs: {"actions": {"structured_generation": "writer"}, "models": {"writer": "test-model"}},
+    )
+    fresh_path = proposals + f"/{uuid4()}?world_id=managed"
+    assert hosted.client.request("POST", fresh_path, json=proposal_body, origin=None).status_code == 403
+    assert generator.calls == []
+    generated = hosted.client.request("POST", fresh_path, json=proposal_body)
+    assert generated.status_code == 200, generated.text
+    assert generated.json()["status"] == "ready", generated.text
+    assert hosted.client.request("POST", fresh_path, json=proposal_body).json() == generated.json()
+    assert len(generator.calls) == 1
 
 
     tables_path = f"{base}/prepared-tables?world_id=managed"
