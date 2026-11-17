@@ -182,7 +182,29 @@ this turn verbatim and preserve the preceding Buddy reply for each replay.
   premise, giving a statblock, or settling the residents' fate for the GM.
 - **Evidence:** Score carryover, relevant retrieval, and conversational
   fit separately. Capture elapsed time and provider usage for this turn
-  alone. The turn is in progress and has no scored result yet.
+  alone.
+
+**Observed turn-two baseline.** The turn completed in 413.25s. Jev selected
+`change_mechanics` at 6.8s. Buddy completed 56 retrieval actions, including
+23 document and 27 section reads. Sixteen completed reads matched turn one's
+exact recorded item IDs. Three more matched the same authored page and
+saved revision despite different turn-specific handles. Of the 40 distinct
+campaign/session recap labels recognized in turn two, 23 also appeared in
+turn one. This last measure includes new passages from previously opened
+recaps, so it is separate from exact repeat reads.
+
+Eight Jev calls used 202,890 input and 31,218 output tokens. One writer call
+used 16,208 input and 532 output tokens. Combined total was 250,848 tokens.
+Billed cost is unknown.
+
+The reply grounded the negotiation premise in Edge and cited useful new
+corroboration from The Old Bath House that the node was going rogue. It
+stayed in chat. It also introduced an irrelevant save-executor limitation
+and treated the GM's proposed NPC premise as missing source evidence.
+The trace does not establish that the remaining new reads contributed to
+the reply. Test carrying the two resolved references forward and opening
+one targeted source only when a new continuity question merits it.
+
 
 ## Full Plan, map, and improvised NPC checks
 
