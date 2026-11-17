@@ -281,6 +281,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/world-workspace/sessions/{run_id}/trash"): resolve_hosted_workspace_lifecycle,
     ("POST", "/api/live/world-workspace/sessions/{run_id}/restore"): resolve_hosted_workspace_lifecycle,
     ("GET", "/api/live/workspace-documents/world-plans"): resolve_hosted_plan_world_context,
+    ("GET", "/api/live/workspace-documents/world-runbooks"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/workspace-documents/world-plans/page"): resolve_hosted_plan_inventory_page,
     ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}"): resolve_hosted_runbook_read,
     ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/snapshot"): resolve_hosted_runbook_read,
