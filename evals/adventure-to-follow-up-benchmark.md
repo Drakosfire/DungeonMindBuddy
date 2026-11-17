@@ -134,6 +134,31 @@ is enough. The GM can ask for concrete mechanics in the next turn.
   tokens separately. Use the ordinary-turn comparison to measure the
   effect of the routing and retrieval changes on total latency.
 
+#### Score the conversation and the final statblock
+
+The end product is a distinct Meat Mind statblock. The primary capability
+under test is recognizing what the GM needs at each turn while carrying the
+design forward. The eventual artifact does not authorize drafting or saving
+it during an exploratory turn.
+
+Score these boundaries separately:
+
+1. **Brainstorm.** Acknowledge the idea and resolve the page and explicit
+   reference promptly. Match the amount of response to what the GM asked for.
+2. **Develop the premise.** Build on the GM's new ideas without restarting
+   broad retrieval or treating provisional choices as settled lore.
+3. **Draft on request.** When the GM asks for a statblock, present a reviewable
+   Markdown variant in chat. Preserve inherited mechanics unless the design
+   justifies a change. Make agreed changes concrete and playable, including
+   how negotiation and the struggle for control can affect the encounter.
+   Score grounding, mechanical coherence, and fidelity to prior decisions.
+4. **Save on request and confirmation.** Qualify persistence, linking, and
+   exact-revision Combat admission through the paired AW09 workflow.
+
+A usable final statblock cannot erase a premature action or a poor discussion
+turn. A good brainstorm cannot substitute for a usable statblock. Pin the
+actual drafting request when the conversation reaches that point.
+
 #### Turn two · Establish the NPC premise
 
 Continue in the same conversation with the same page and statblock. Submit
