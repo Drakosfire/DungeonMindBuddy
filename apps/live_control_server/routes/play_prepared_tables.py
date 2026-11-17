@@ -35,7 +35,7 @@ def get_tables(run_id: str, request: Request, world_id: Annotated[str, Query(min
 @router.get("/receipts")
 def get_receipts(run_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)],
                  before: Annotated[int | None, Query(ge=1)] = None, limit: Annotated[int, Query(ge=1, le=100)] = 20):
-    enforce_native_graph_gm(request)
+    authorize(request, world_id)
     return invoke(receipts, world_id=world_id, run_id=run_id, before=before, limit=limit)
 
 
