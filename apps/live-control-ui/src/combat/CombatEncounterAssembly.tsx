@@ -1,7 +1,8 @@
+import type {SavedConversationVariantTarget} from '../statblocks/savedStatblockLocation';
 import {worldCreatureChoiceKey} from '../api/worldMechanicsTypes';
 import { useEffect, useRef, useState } from 'react';
 import { listWorldMechanicsAssociations, listWorldCreatures } from '../api/liveApi';
-import { listAcceptedCombatMechanics, previewAcceptedCombatMechanics, previewWorldCombatMechanics } from './combatApi';
+import { listAcceptedCombatMechanics, previewAcceptedCombatMechanics, previewConversationVariantMechanics, previewWorldCombatMechanics } from './combatApi';
 import { CombatMechanicsInspection } from './CombatMechanicsInspection';
 import type { WorldMechanicsAssociation, WorldCreatureCatalog } from '../api/worldMechanicsTypes';
 import type { AcceptedCombatMechanicsChoice, CombatMechanicsSnapshot, CombatEntity, CombatGroup, CombatWorldIdentity } from './combatTypes';
@@ -9,13 +10,14 @@ import './combatAssembly.css';
 
 /** A Surface-owned draft editor. Loading identity never invents or loads mechanics. */
 type AssemblyProps = {
-  worldId: string; disabled: boolean; remainingSlots: number;
+  worldId: string; disabled: boolean; remainingSlots: number; variant?: SavedConversationVariantTarget;
   onAdd: (entities: CombatEntity[], group: CombatGroup | null) => string | void;
 };
 export function CombatEncounterAssembly(props:AssemblyProps) {
-  return <Assembly key={props.worldId} {...props}/>;
+  const targetKey = props.variant ? [props.variant.conversationId, props.variant.turnId, props.variant.reviewId] : [];
+  return <Assembly key={JSON.stringify([props.worldId, ...targetKey])} {...props}/>;
 }
-function Assembly({worldId,disabled,remainingSlots,onAdd}:AssemblyProps) {
+function Assembly({worldId,disabled,remainingSlots,onAdd,variant}:AssemblyProps) {
   const [world, setWorld] = useState<WorldCreatureCatalog | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +80,23 @@ function Assembly({worldId,disabled,remainingSlots,onAdd}:AssemblyProps) {
     } catch (caught) { if (alive.current && selectionGeneration.current === generation) setError(String(caught)); }
     finally { if (alive.current && selectionGeneration.current === generation) setPreviewing(false); }
   }
+  async function loadVariant() {
+    if (!variant || variant.worldId !== worldId) return;
+    discardPreview();
+    const generation = selectionGeneration.current;
+    setPreviewing(true); setError(null); setSelected(null); setName('');
+    try {
+      const result = await previewConversationVariantMechanics(worldId, {
+        conversation_id: variant.conversationId, turn_id: variant.turnId, review_id: variant.reviewId,
+      });
+      if (!alive.current || selectionGeneration.current !== generation) return;
+      if (result.origin !== 'conversation_variant_mechanics_v1' || result.managed_world_id !== worldId
+        || result.conversation_id !== variant.conversationId || result.turn_id !== variant.turnId
+        || result.review_id !== variant.reviewId) throw new Error('The preview differs from the selected saved variant.');
+      setSnapshot(result); setName(result.resource.definition.identity.name);
+    } catch (caught) { if (alive.current && selectionGeneration.current === generation) setError(String(caught)); }
+    finally { if (alive.current && selectionGeneration.current === generation) setPreviewing(false); }
+  }
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   async function loadWorld() {
@@ -124,6 +143,9 @@ function Assembly({worldId,disabled,remainingSlots,onAdd}:AssemblyProps) {
   }
   return <details className="combat-assembly"><summary>Add combatants</summary>
     <p>Choose a World creature, load saved mechanics, or enter a name. Enter the stats you want to track; World identity alone supplies no mechanics.</p>
+    {variant && <button type="button" disabled={disabled || previewing} onClick={() => void loadVariant()}>
+      Load saved statblock variant
+    </button>}
     <div className="combat-assembly__world">
       <button type="button" disabled={disabled || loading} onClick={() => void loadWorld()}>{loading ? 'Loading creatures…' : world ? 'Refresh World creatures' : 'Find World creatures'}</button>
       {world && <>

@@ -790,7 +790,7 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     }
     return method === "GET" && init?.body == null;
   }
-  const mechanicsPreview = /^\/api\/live\/combat\/encounters\/(?:saved-mechanics|accepted-mechanics|world-mechanics)\/preview\?/.exec(path);
+  const mechanicsPreview = /^\/api\/live\/combat\/encounters\/(?:saved-mechanics|accepted-mechanics|world-mechanics|conversation-variant)\/preview\?/.exec(path);
   if (mechanicsPreview) {
     const worldId = new URLSearchParams(path.slice(mechanicsPreview[0].length)).get("world_id");
     return method === "POST" && !!worldId && !!requestBodyRecord(init?.body)

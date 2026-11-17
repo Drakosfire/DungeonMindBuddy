@@ -193,6 +193,10 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path):
             return SimpleNamespace(locator=locator)
 
     monkeypatch.setattr(conversation_variant_save, "DungeonMindStatblockV1Client", StatblockStub)
+    from apps.live_control_server.routes import combat_encounters
+    monkeypatch.setattr(combat_encounters, "require_combat_encounter_access", lambda *_: None)
+    monkeypatch.setattr(combat_encounters, "_verified_world", lambda world_id: world_id)
+    app.include_router(combat_encounters.router)
     review_path = f"{draft_path}/variant-reviews/{review_id}"
     with TestClient(app) as client:
         assert client.get(draft_path).json()["variant_review_ids"] == [str(review_id)]
@@ -218,6 +222,30 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path):
         assert exact_reads == [(locator.statblock_id, locator.revision_id)]
         exact_response = exact.model_copy(update={"revision_id": "rev_foreign"})
         assert client.get(f"{review_path}/saved").status_code == 500
+        exact_response = exact
+        combat = "/api/live/combat/encounters"
+        world_query = f"?world_id={scope['world_id']}"
+        selection = {key: str(scope[key]) for key in ("conversation_id", "turn_id")}
+        selection["review_id"] = str(review_id)
+        preview = client.post(f"{combat}/conversation-variant/preview{world_query}", json=selection)
+        assert preview.status_code == 200, preview.text
+        snapshot = preview.json()
+        assert snapshot["locator"] == recovered.json()
+        foreign = dict(selection, conversation_id=str(uuid4()))
+        assert client.post(f"{combat}/conversation-variant/preview{world_query}", json=foreign).status_code == 404
+        created = client.post(f"{combat}{world_query}", json={"title": "Saved variant encounter"})
+        assert created.status_code == 200, created.text
+        encounter = created.json()
+        route = f"{combat}/{encounter['encounter_id']}{world_query}"
+        encounter["draft"]["entities"].append({
+            "id": str(uuid4()), "name": "Saved variant", "order": 1, "mechanics_snapshot": snapshot,
+        })
+        saved = client.put(route, json={"expected_revision": encounter["revision"], "draft": encounter["draft"]})
+        assert saved.status_code == 200, saved.text
+        reopened = client.get(route)
+        assert reopened.status_code == 200, reopened.text
+        assert reopened.json()["draft"]["entities"][0]["mechanics_snapshot"] == snapshot
+
 
 
         def unexpected_client():

@@ -249,6 +249,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 kinds = ({'Explicit admitted full-source read; metadata choice, not evidence', 'Exact source section'}
                     if scanned else {'Source lexical navigation; not evidence or semantic completeness'})
                 selected = {i for i,c in enumerate(candidates) if c['kind'] in kinds}
+            if saved_statblock and "operation" in body["questions"]:
+                from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+                events = writer.adapter._broker_execution().events
+                if any(isinstance(event, BuildSavedStatblockReadV1) for event in events):
+                    examined = body["state"]["examined_subjects"]
+                    assert any(row["kind"] == "Saved statblock: acquired exact mechanics in this turn"
+                               and row["label"] == "Meat Mind" for row in examined), examined
             for name, question in body['questions'].items():
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
@@ -1679,6 +1686,9 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
     assert len(references) == 1
     assert references[0]["name"] == "Meat Mind"
     assert references[0]["revision_id"] == "rev_meatmind"
+    from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+    read, = [event for event in case.turn.graph_context_execution.events if isinstance(event, BuildSavedStatblockReadV1)]
+    assert read.locator.revision_id == "rev_meatmind"
     sources = references[0]["pdf_sources"]
     if mode in {"associated", "by-name"}:
         assert "Hit Points 41" in response.json()["messages"][-1]["assistant_text"]
@@ -1686,6 +1696,96 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
         assert sources["support"] == [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture"}]
     else:
         assert sources is None
+
+
+def test_followup_reoffers_only_the_bound_statblock_on_the_same_page(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Let's brainstorm a variant of this creature.",
+        requested_work="discuss", saved_statblock="associated",
+    )
+    previous = case.turn
+    read, = [event for event in previous.graph_context_execution.events
+             if isinstance(event, BuildSavedStatblockReadV1)]
+    current = previous.model_copy(update={"sequence": previous.sequence + 1})
+    driver = object.__new__(PlanJevDriver)
+    driver.statblock_world = case.world
+    from application_state.agent_conversation.types import BuildAuthoredReferencesCapturedV1
+    capture, = [event for event in previous.graph_context_execution.events
+                if isinstance(event, BuildAuthoredReferencesCapturedV1)]
+    reference, = capture.references.references
+    entry = (reference.label, read.draft_id, read.locator, reference)
+    calls = []
+
+    def list_turns(world, conversation, **kwargs):
+        calls.append((world, conversation, kwargs))
+        return [previous]
+
+    driver.adapter = SimpleNamespace(
+        fence=SimpleNamespace(turn=current), service=SimpleNamespace(list_turns=list_turns),
+    )
+    monkeypatch.setattr(driver, "_published_statblock_reference", lambda draft, locator: reference)
+    assert driver._prior_bound_statblock() == (entry,)
+    assert calls == [(case.world, current.conversation_id, {"limit": 12, "before_sequence": current.sequence})]
+
+    execution = previous.graph_context_execution
+    action = execution.policy.action
+    unselected_action = action.model_copy(update={
+        "intent": action.intent.model_copy(update={"authored_references": None}),
+    })
+    discussion = previous.model_copy(update={
+        "sequence": current.sequence,
+        "graph_context_execution": execution.model_copy(update={
+            "policy": execution.policy.model_copy(update={"action": unselected_action}),
+            "events": tuple(event for event in execution.events
+                            if not isinstance(event, (BuildSavedStatblockReadV1, BuildAuthoredReferencesCapturedV1))),
+        }),
+    })
+    driver.adapter.fence.turn = current.model_copy(update={"sequence": current.sequence + 1})
+    driver.adapter.service.list_turns = lambda *_args, **_kwargs: [previous, discussion]
+    assert driver._prior_bound_statblock() == (entry,)
+
+    intervening_selection = discussion.model_copy(update={
+        "graph_context_execution": discussion.graph_context_execution.model_copy(update={
+            "events": (*discussion.graph_context_execution.events, capture),
+        }),
+    })
+    driver.adapter.service.list_turns = lambda *_args, **_kwargs: [previous, intervening_selection]
+    assert driver._prior_bound_statblock() == ()
+
+    empty_selection = action.intent.authored_references.model_copy(update={"references": ()})
+    empty_action = action.model_copy(update={
+        "intent": action.intent.model_copy(update={"authored_references": empty_selection}),
+    })
+    discussion_execution = discussion.graph_context_execution
+    cleared = discussion.model_copy(update={
+        "graph_context_execution": discussion_execution.model_copy(update={
+            "policy": execution.policy.model_copy(update={"action": empty_action}),
+        }),
+    })
+    driver.adapter.service.list_turns = lambda *_args, **_kwargs: [previous, cleared]
+    assert driver._prior_bound_statblock() == ()
+
+    driver.adapter.fence.turn = current
+    driver.adapter.service.list_turns = list_turns
+    monkeypatch.setattr(driver, "_published_statblock_reference", lambda draft, locator: None)
+    assert driver._prior_bound_statblock() == ()
+
+    from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
+    driver.adapter.service.list_turns = lambda *_args, **_kwargs: [MixedCompletedTurnV1.model_construct()]
+    assert driver._prior_bound_statblock() == ()
+    driver.adapter.service.list_turns = list_turns
+
+    work = current.graph_context_receipt.work_context
+    changed_basis = work.source_basis.model_copy(update={"source_revision": 99, "document_id": uuid4()})
+    changed_work = work.model_copy(update={"source_basis": changed_basis})
+    changed_receipt = current.graph_context_receipt.model_copy(update={"work_context": changed_work})
+    driver.adapter.fence.turn = current.model_copy(update={"graph_context_receipt": changed_receipt})
+    monkeypatch.setattr(driver, "_published_statblock_reference", lambda *_: pytest.fail("Changed page must not resolve mechanics"))
+    assert driver._prior_bound_statblock() == ()
 
 
 def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
