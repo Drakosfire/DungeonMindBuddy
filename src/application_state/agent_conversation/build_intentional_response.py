@@ -250,8 +250,9 @@ def _selected_choice(answer, options):
     return label
 
 
-def resolve(label, capabilities):
-    work = WORK[label]
+def resolve(label, capabilities, *, work_options=None):
+    work_options = WORK if work_options is None else work_options
+    work = work_options[label]
     barrier = None
     if label in UNAVAILABLE:
         barrier = "requested_executor_not_offered"
@@ -379,7 +380,7 @@ def resolve(label, capabilities):
         "contract_sha256": digest(
             {
                 "policy": POLICY,
-                "work": {k: asdict(v) for k, v in WORK.items()},
+                "work": {k: asdict(v) for k, v in work_options.items()},
                 "capabilities": asdict(capabilities),
             }
         ),
@@ -519,7 +520,7 @@ def resolution_for(policy, label, *, source_scope=None):
     caps,_,menu,resolver=_captured_semantics(policy)
     if not known_semantics(menu, resolver) or label not in _menu_work(menu):
         raise ValueError("Unknown semantic menu or resolver")
-    resolution = json.loads(canonical(resolve(label,caps)))
+    resolution = json.loads(canonical(resolve(label, caps, work_options=_menu_work(menu))))
     if source_scope is not None:
         if source_scope not in SOURCE_NEED_OPTIONS:
             raise ValueError("Invalid Build source scope")
