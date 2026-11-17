@@ -1485,10 +1485,15 @@ def get_world_conversation_history(
         action = getattr(getattr(execution, 'policy', None), 'action', None)
         return action.intent.plan_requested_operation if isinstance(action, NativePlanActionV1) and hasattr(action.intent, 'plan_requested_operation') else None
 
+    completed_build_turn_ids = [
+        turn.turn_id for turn in turns
+        if not isinstance(turn, MixedCompletedTurnV1)
+        and turn.status == "completed"
+        and turn.provenance.surface_id == "build"
+    ]
     draft_turn_ids = service.conversation_draft_turn_ids(
-        verified_world_id, conversation.conversation_id,
-        [turn.turn_id for turn in turns if turn.status == "completed" and turn.provenance.surface_id == "build"],
-    ) if any(turn.status == "completed" and turn.provenance.surface_id == "build" for turn in turns) else set()
+        verified_world_id, conversation.conversation_id, completed_build_turn_ids,
+    ) if completed_build_turn_ids else set()
     history_turns = []
     for turn in turns:
         if isinstance(turn, MixedCompletedTurnV1):
