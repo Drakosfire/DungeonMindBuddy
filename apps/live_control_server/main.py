@@ -390,7 +390,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/graph-preview/build-recap-launches/{request_id}"): resolve_hosted_build_recap_recovery,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/usage"): resolve_hosted_saved_recap,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): resolve_hosted_exact_extraction_read,
-    ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): resolve_hosted_build_extraction,
+    ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): resolve_hosted_exact_extraction_read,
     ("POST", "/api/live/recap-name-review"): resolve_hosted_recap_name_review,
     ("POST", "/api/live/extract-promote/runs/{run_id}/selection-context"): resolve_hosted_recap_selection,
     ("POST", "/api/live/extract-promote/runs/{run_id}/recap-evidence-corrections"): resolve_hosted_recap_correction,

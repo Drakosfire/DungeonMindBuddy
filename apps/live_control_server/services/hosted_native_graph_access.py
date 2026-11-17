@@ -904,6 +904,10 @@ async def resolve_hosted_exact_extraction_read(request: Request) -> str:
                 or (binding.native_world_id, binding.binding_version) != (scope.native_world_id, scope.binding_version)):
             raise _denied()
         world_id = world.world_id
+        if request.url.path.endswith("/build-context"):
+            document_world = await _owned_build_page(subject, artifact.workspace_document_id)
+            if document_world != world_id:
+                raise _denied()
     else:
         raise _denied()
     return world_id

@@ -498,7 +498,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/media/images/catalog"): access.resolve_hosted_image_world,
             ("POST", "/api/live/media/images/generate"): access.resolve_hosted_image_world,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
-            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_exact_extraction_read,
             ("POST", "/api/live/extract-promote/runs/{run_id}/selection-context"): access.resolve_hosted_recap_selection,
             ("POST", "/api/live/extract-promote/runs/{run_id}/recap-evidence-corrections"): access.resolve_hosted_recap_correction,
             ("POST", "/api/live/extract-promote/runs/{run_id}/semantic-disposition"): access.resolve_hosted_recap_correction,
@@ -5127,11 +5127,21 @@ def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch):
     scope = {"managed_world_id": "managed", "native_world_id": binding.native_world_id,
              "binding_version": binding.binding_version, "campaign_id": "campaign"}
     run = SimpleNamespace(
-        source_domain="recap", source_artifact_id="source", campaign_id="campaign",
+        run_id="saved", source_domain="recap", source_artifact_id="source", campaign_id="campaign",
         lineage={"world_campaign_ingest_context": scope},
         model_dump=lambda **_: {"run_id": "saved", "source_domain": "recap"},
     )
-    artifact = SimpleNamespace(source_domain="recap", world_id=binding.native_world_id, campaign_id="campaign")
+    artifact = SimpleNamespace(
+        source_domain="recap", world_id=binding.native_world_id, campaign_id="campaign",
+        workspace_document_id="document", workspace_document_revision=1,
+        content_sha256="a" * 64, source_artifact_id="source",
+    )
+
+    async def owned_document(subject, document_id):
+        assert subject == "synthetic-owner-alpha"
+        return "managed" if document_id == "document" else "foreign"
+
+    monkeypatch.setattr(access, "_owned_build_page", owned_document)
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _: run)
     monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _: artifact)
     path = "/api/live/graph-preview/extraction-runs/saved"
@@ -5140,6 +5150,14 @@ def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch):
     result = hosted.client.request("GET", path)
     assert result.status_code == 200, result.text
     assert result.json()["run_id"] == "saved"
+    context_path = path + "/build-context"
+    assert hosted.client.request("GET", context_path, session="other-session").status_code == 403
+    context = hosted.client.request("GET", context_path)
+    assert context.status_code == 200, context.text
+    assert context.json()["document_id"] == "document"
+    artifact.workspace_document_id = "other-document"
+    assert hosted.client.request("GET", context_path).status_code == 403
+    artifact.workspace_document_id = "document"
     calls = []
 
     def review(run_id):
