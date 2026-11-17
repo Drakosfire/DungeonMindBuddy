@@ -1688,6 +1688,51 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
         assert sources is None
 
 
+def test_followup_reoffers_only_the_bound_statblock_on_the_same_page(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Let's brainstorm a variant of this creature.",
+        requested_work="discuss", saved_statblock="associated",
+    )
+    previous = case.turn
+    read, = [event for event in previous.graph_context_execution.events
+             if isinstance(event, BuildSavedStatblockReadV1)]
+    current = previous.model_copy(update={"sequence": previous.sequence + 1})
+    driver = object.__new__(PlanJevDriver)
+    driver.statblock_world = case.world
+    from application_state.agent_conversation.types import BuildAuthoredReferencesCapturedV1
+    capture, = [event for event in previous.graph_context_execution.events
+                if isinstance(event, BuildAuthoredReferencesCapturedV1)]
+    reference, = capture.references.references
+    entry = (reference.label, read.draft_id, read.locator, reference)
+    calls = []
+
+    def list_turns(world, conversation, **kwargs):
+        calls.append((world, conversation, kwargs))
+        return [previous]
+
+    driver.adapter = SimpleNamespace(
+        fence=SimpleNamespace(turn=current), service=SimpleNamespace(list_turns=list_turns),
+    )
+    monkeypatch.setattr(driver, "_published_statblock_reference", lambda draft, locator: reference)
+    assert driver._prior_bound_statblock() == (entry,)
+    assert calls == [(case.world, current.conversation_id, {"limit": 1, "before_sequence": current.sequence})]
+
+    monkeypatch.setattr(driver, "_published_statblock_reference", lambda draft, locator: None)
+    assert driver._prior_bound_statblock() == ()
+
+    work = current.graph_context_receipt.work_context
+    changed_basis = work.source_basis.model_copy(update={"source_revision": 99, "document_id": uuid4()})
+    changed_work = work.model_copy(update={"source_basis": changed_basis})
+    changed_receipt = current.graph_context_receipt.model_copy(update={"work_context": changed_work})
+    driver.adapter.fence.turn = current.model_copy(update={"graph_context_receipt": changed_receipt})
+    monkeypatch.setattr(driver, "_published_statblock_reference", lambda *_: pytest.fail("Changed page must not resolve mechanics"))
+    assert driver._prior_bound_statblock() == ()
+
+
 def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
     from application_state.world_mechanics import service as associations
     from apps.live_control_server.services import world_creature_selection
