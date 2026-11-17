@@ -8,6 +8,24 @@ from application_state.errors import (
 )
 
 
+# The initial draft is written once. Before canonical rendering it copied
+# assistant_text verbatim. An edit creates a higher revision, never overwrites it.
+CANONICAL_REVIEWED_DRAFT = """
+EXISTS (
+    SELECT 1 FROM agent.conversation_draft_revision d
+    JOIN agent.conversation_variant_review r
+        ON r.turn_id = d.turn_id AND r.revision = d.revision
+    WHERE d.turn_id = t.turn_id AND d.world_id = t.world_id
+      AND d.conversation_id = t.conversation_id AND d.revision = 1
+      AND d.markdown IS DISTINCT FROM t.assistant_text
+      AND NOT EXISTS (
+          SELECT 1 FROM agent.conversation_draft_revision later
+          WHERE later.turn_id = d.turn_id AND later.revision > d.revision
+      )
+)
+"""
+
+
 def open_draft(conn, *, world_id, conversation_id, turn_id):
     with conn.cursor(row_factory=dict_row) as cursor:
         row = cursor.execute(

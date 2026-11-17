@@ -2000,6 +2000,13 @@ def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_
     assert markdown.startswith(f"# {definition['identity']['name']}\n")
     assert all(rule["rules_text"] in markdown for rule in definition["rule_elements"])
     assert markdown != case.turn.assistant_text
+    # Editing the draft invalidates the associated review and its chat projection.
+    edited = case.client.put(draft_path, json={"expected_revision": 1, "markdown": markdown + "\nEdited."})
+    assert edited.status_code == 200, edited.text
+    assert "variant_review_ids" not in edited.json()
+    reopened = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert reopened.status_code == 200, reopened.text
+    assert "variant_draft_reviewed" not in reopened.json()["messages"][-1]
 
 
 def test_requested_chat_draft_is_persisted_by_ordinary_build(lane, tmp_path, monkeypatch):

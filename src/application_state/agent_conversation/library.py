@@ -259,6 +259,7 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
     """Bounded message display; never load execution or a full context receipt."""
     from . import repository as repo
     from .authored_reference_preview import SELECT as reference_select, project as reference_preview
+    from .conversation_drafts import CANONICAL_REVIEWED_DRAFT
 
     presentation = (""",failure_code,completion,
         CASE WHEN jsonb_typeof(completion->'saved_source_citations')='array'
@@ -274,9 +275,8 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             WHERE work->>'kind' = 'build_requested_work_resolved_v1'
               AND work->>'requested_work' = 'review_variant_approval'
         )) AS variant_approval_requested,
-        EXISTS (SELECT 1 FROM agent.conversation_variant_review r
-            WHERE r.turn_id=t.turn_id AND t.status='completed' AND t.surface_id='build'
-        ) AS variant_draft_reviewed,
+        (t.status='completed' AND t.surface_id='build' AND
+        """ + CANONICAL_REVIEWED_DRAFT + """) AS variant_draft_reviewed,
         t.answer_composition_kind, """ + reference_select + ", " + repo._rules_summary_select("t")) if metadata else ""
     rows = conn.execute(
         f"""SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
