@@ -28,6 +28,10 @@ BASE = "/api/live/world-workspace"
 
 @pytest.fixture
 def api(tmp_path, monkeypatch, application_state_dsn):
+    from application_state.content import pages
+    from application_state.world_catalog import service as catalog
+
+    monkeypatch.setattr(pages, "get_world", catalog.get_world)
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", TOKEN)
@@ -90,15 +94,17 @@ def test_auth_owner_and_revision_reject_before_document_effects(api, tmp_path):
 def test_build_trash_restore_keeps_source_bytes_and_separately_owned_media(
     api, tmp_path
 ):
+    from application_state import media
+    from tests.integration.test_build_images_postgres import saved_image
+    from tests.page_fixtures import page_text, save_page
+
     doc = source(tmp_path)
     foreign = source(tmp_path, world="other-world")
-    target = tmp_path / doc.target_relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
-    exact = b"# Media acceptance\r\n\r\n![Map](dmb-media:73b40978-e638-4ab3-992d-5dc493e8d229)\r\n"
-    target.write_bytes(exact)
-    asset = tmp_path / "out" / "media" / "shared-sentinel.png"
-    asset.parent.mkdir(parents=True, exist_ok=True)
-    asset.write_bytes(b"owned independently")
+    asset = saved_image("local_operator")
+    asset_id = asset["asset_id"]
+    original = media.read_staged_bytes(asset_id, "local_operator")
+    exact = f"# Media acceptance\n\n![Map](dmb-media:{asset_id})\n"
+    doc = save_page(tmp_path, doc.document_id, exact)
     path = f"{BASE}/documents/{doc.document_id}"
     moved = api.post(
         path + "/trash",
@@ -118,8 +124,8 @@ def test_build_trash_restore_keeps_source_bytes_and_separately_owned_media(
         item.document_id for item in list_workspace_documents(tmp_path)
     ]
     assert get_workspace_document(tmp_path, foreign.document_id) == foreign
-    assert target.read_bytes() == exact
-    assert asset.read_bytes() == b"owned independently"
+    assert page_text(tmp_path, doc.document_id) == exact
+    assert media.read_staged_bytes(asset_id, "local_operator") == original
     restored = api.post(
         path + "/restore",
         params={"world_id": WORLD},
@@ -128,8 +134,8 @@ def test_build_trash_restore_keeps_source_bytes_and_separately_owned_media(
     )
     assert restored.status_code == 200, restored.text
     assert get_workspace_document(tmp_path, doc.document_id).status == "active"
-    assert target.read_bytes() == exact
-    assert asset.read_bytes() == b"owned independently"
+    assert page_text(tmp_path, doc.document_id) == exact
+    assert media.read_staged_bytes(asset_id, "local_operator") == original
     assert (
         api.get(BASE + "/trash", params={"world_id": WORLD}, headers=HEADERS).json()[
             "items"

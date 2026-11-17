@@ -532,6 +532,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && path === imageHistory + "world_id=" + encodeURIComponent(worldId)
         + "&conversation_id=" + conversationId;
   }
+  const workspaceLifecycle = /^\/api\/live\/world-workspace\/(?:documents|sessions)\/[0-9a-f-]+\/(?:trash|restore)\?([^#]+)$/.exec(path);
+  if (workspaceLifecycle) {
+    const query = new URLSearchParams(workspaceLifecycle[1]);
+    return method === "POST" && query.size === 1 && Boolean(query.get("world_id"))
+      && isRecord(requestBodyRecord(init?.body));
+  }
   const trashInventory = "/api/live/world-workspace/trash?";
   if (path.startsWith(trashInventory)) {
     const worldId = new URLSearchParams(path.slice(trashInventory.length)).get("world_id");

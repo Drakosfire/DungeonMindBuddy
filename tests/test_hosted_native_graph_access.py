@@ -298,9 +298,9 @@ def hosted(monkeypatch, request):
     app.add_api_route(replay_path + "/identities", agent_routes.get_world_replay_identities, methods=["GET"])
     authored_path = "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}"
     app.add_api_route(authored_path + "/related-pages/{read_id}", agent_routes.get_world_turn_related_page, methods=["GET"])
-    from apps.live_control_server.routes.workspace_lifecycle import get_world_trash
+    from apps.live_control_server.routes import workspace_lifecycle
 
-    app.add_api_route("/api/live/world-workspace/trash", get_world_trash, methods=["GET"])
+    app.include_router(workspace_lifecycle.router)
     from apps.live_control_server.routes import rules_lookup
 
     app.include_router(rules_lookup.router)
@@ -397,6 +397,10 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/connected-pages/confirm"): access.resolve_hosted_connected_page,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/world-workspace/trash"): access.resolve_hosted_plan_world_context,
+            ("POST", "/api/live/world-workspace/documents/{document_id}/trash"): access.resolve_hosted_workspace_lifecycle,
+            ("POST", "/api/live/world-workspace/documents/{document_id}/restore"): access.resolve_hosted_workspace_lifecycle,
+            ("POST", "/api/live/world-workspace/sessions/{run_id}/trash"): access.resolve_hosted_workspace_lifecycle,
+            ("POST", "/api/live/world-workspace/sessions/{run_id}/restore"): access.resolve_hosted_workspace_lifecycle,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_committed_plan,
@@ -2641,6 +2645,20 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert reopened_edition.status_code == 200, reopened_edition.text
     assert reopened_edition.json()["markdown"] == edition["markdown"]
 
+    session_path = f"/api/live/world-workspace/sessions/{run_id}"
+    lifecycle = {
+        "expected_revision": reopened_edition.json()["observed_run_revision"],
+        "expected_content_revision": reopened_edition.json()["edition_revision"],
+    }
+    moved = hosted.client.request("POST", f"{session_path}/trash?world_id=managed", json=lifecycle)
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["status"] == "trashed"
+    restore = {**lifecycle, "expected_revision": moved.json()["revision"]}
+    restored = hosted.client.request("POST", f"{session_path}/restore?world_id=managed", json=restore)
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["status"] == "active"
+    assert hosted.client.request("GET", content_path).json()["markdown"] == edition["markdown"]
+
 
 def test_hosted_statblock_picker_reads_only_owned_world(hosted, application_state_dsn, tmp_path, monkeypatch):
     from apps.live_control_server.models.threat_draft import CreateWorldThreatDraftRequest
@@ -3857,3 +3875,31 @@ def test_hosted_archives_exact_statblock_and_preserves_saved_revision(mechanics_
         assert after == []
         assert threat_draft_store.get_threat_draft(fixture.root, draft_id).accepted_mechanics_ref == fixture.draft.accepted_mechanics_ref
         assert hosted.client.request("DELETE", path).status_code == 204
+
+
+def test_hosted_document_trash_and_restore_preserve_identity(hosted, application_state_dsn, monkeypatch):
+    from application_state.content import pages
+
+    monkeypatch.setattr(pages, "get_world", hosted.get_world)
+    created = hosted.client.request("POST", "/api/live/workspace-documents", json={
+        "title": "Recoverable page", "kind": "worldbuilding_source",
+        "authority_state": "draft", "visibility_state": "internal",
+        "source_domain": "worldbuilding", "document_class": "lore",
+        "world_id": "managed", "campaign_id": "managed",
+    })
+    assert created.status_code == 200, created.text
+    record = created.json()
+    base = f"/api/live/world-workspace/documents/{record['document_id']}"
+    move = f"{base}/trash?world_id=managed"
+    body = {"expected_revision": record["revision"]}
+    assert hosted.client.request("POST", move, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", move, json=body, origin=None).status_code == 403
+    moved = hosted.client.request("POST", move, json=body)
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["status"] == "trashed"
+    restore = f"{base}/restore?world_id=managed"
+    assert hosted.client.request("POST", restore, json=body).status_code == 409
+    restored = hosted.client.request("POST", restore, json={"expected_revision": moved.json()["revision"]})
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["status"] == "active"
+    assert restored.json()["id"] == record["document_id"]

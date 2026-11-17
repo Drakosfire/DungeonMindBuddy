@@ -494,6 +494,10 @@ async def resolve_hosted_play_roll_receipts(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_workspace_lifecycle(request: Request) -> str:
+    return await _resolve_hosted_play_world(request)
+
+
 async def resolve_hosted_play_command(request: Request) -> str:
     return await _resolve_hosted_play_world(request)
 

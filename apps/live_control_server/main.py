@@ -158,6 +158,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_play_read,
     resolve_hosted_play_roll_receipts,
     resolve_hosted_play_command,
+    resolve_hosted_workspace_lifecycle,
     resolve_hosted_world_lookup,
 )
 from bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -242,6 +243,10 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}"): resolve_hosted_conversation_world,
     ("GET", "/api/live/plan-view"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/world-workspace/trash"): resolve_hosted_plan_world_context,
+    ("POST", "/api/live/world-workspace/documents/{document_id}/trash"): resolve_hosted_workspace_lifecycle,
+    ("POST", "/api/live/world-workspace/documents/{document_id}/restore"): resolve_hosted_workspace_lifecycle,
+    ("POST", "/api/live/world-workspace/sessions/{run_id}/trash"): resolve_hosted_workspace_lifecycle,
+    ("POST", "/api/live/world-workspace/sessions/{run_id}/restore"): resolve_hosted_workspace_lifecycle,
     ("GET", "/api/live/workspace-documents/world-plans"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): resolve_hosted_committed_plan,
     ("GET", "/api/live/workspace-documents/{document_id}/committed-revision/{revision_n}"): resolve_hosted_committed_plan,
