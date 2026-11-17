@@ -451,6 +451,7 @@ def hosted(monkeypatch, request):
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): access.resolve_hosted_play_command,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
+            ("GET", "/api/live/agent/readiness"): access.resolve_hosted_agent_readiness,
             ("GET", "/api/live/media/images/preparations/list"): access.resolve_hosted_image_history,
             ("GET", "/api/live/media/images/preparations/{action_id}"): access.resolve_hosted_image_world,
             ("POST", "/api/live/media/images/preparations/{action_id}/asset"): access.resolve_hosted_image_world,
@@ -3483,6 +3484,17 @@ def test_hosted_build_proposal_history_is_world_scoped(hosted, monkeypatch):
     assert response.headers["cache-control"] == "no-store"
     assert response.json()["records"] == []
     proposal_service.list.assert_called_once_with("managed", conversation_id)
+
+
+def test_hosted_agent_readiness_requires_exact_owned_world(hosted):
+    path = "/api/live/agent/readiness?surface=build&world_graph=true"
+    assert hosted.client.request("GET", path).status_code == 403
+    scoped = path + "&world_id=managed"
+    assert hosted.client.request("GET", scoped, session="other-session").status_code == 403
+    assert hosted.client.request("GET", scoped + "&world_id=foreign").status_code == 403
+    response = hosted.client.request("GET", scoped)
+    assert response.status_code == 200, response.text
+    assert response.json()["surface"] == "build"
 
 
 def test_hosted_image_history_passes_exact_owner(hosted, monkeypatch):
