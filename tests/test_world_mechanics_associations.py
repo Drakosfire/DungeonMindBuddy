@@ -27,9 +27,13 @@ FIXTURES=Path(__file__).parent/'fixtures/statblocks/v1'
 
 
 @pytest.fixture
-def prepared(application_state_dsn,monkeypatch,tmp_path):
+def prepared(application_state_dsn,monkeypatch,tmp_path,request):
     def fixture(name):return json.loads((FIXTURES/name).read_text())
     definition=fixture('create-request.json')['definition']
+    if getattr(request, "param", None) == "unspecified-source":
+        definition["ruleset"] = None
+        definition["movement"] = None
+        definition["challenge"]["proficiency_bonus"] = None
     digest=source_definition_digest_from_body(definition)
     exact=fixture('exact-revision-response.json')
     exact.update(definition=definition,canonical_definition=canonicalize_definition_dict(definition),definition_digest=digest)
