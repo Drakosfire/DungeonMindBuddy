@@ -1,10 +1,15 @@
 import { useId, useState } from "react";
 import {
   openConversationDraft,
+  openVariantReview,
+  confirmVariantReview,
+  type ConversationVariantReview,
   saveConversationDraft,
   type ConversationDraft,
   type ConversationDraftScope,
 } from "../api/conversationDraftApi";
+
+import { StatblockRenderer } from "../statblocks/render/StatblockRenderer";
 
 export function ConversationDraftEditor({ scope }: { scope: ConversationDraftScope }) {
   const id = useId();
@@ -13,7 +18,42 @@ export function ConversationDraftEditor({ scope }: { scope: ConversationDraftSco
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const [review, setReview] = useState<{ id: string; data: ConversationVariantReview } | null>(null);
+  const [savedVariant, setSavedVariant] = useState(false);
+
+  async function inspectVariant(reviewId: string) {
+    setBusy(true);
+    setError("");
+    setSavedVariant(false);
+    setReview(null);
+    try {
+      const data = await openVariantReview(scope, reviewId);
+      if (data.revision !== draft?.revision) throw new Error("Reopen the latest draft before reviewing.");
+      setReview({ id: reviewId, data });
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not open the variant review.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmVariant() {
+    if (!draft || !review || markdown !== draft.markdown) return;
+    setBusy(true);
+    setError("");
+    try {
+      await confirmVariantReview(scope, review.id);
+      setSavedVariant(true);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not save the variant.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function open() {
+    setReview(null);
+    setSavedVariant(false);
     setBusy(true);
     setError("");
     try {
@@ -29,6 +69,8 @@ export function ConversationDraftEditor({ scope }: { scope: ConversationDraftSco
 
   async function save() {
     if (!draft) return;
+    setReview(null);
+    setSavedVariant(false);
     setBusy(true);
     setError("");
     try {
@@ -51,6 +93,24 @@ export function ConversationDraftEditor({ scope }: { scope: ConversationDraftSco
           <button type="button" disabled={busy || markdown === draft.markdown} onClick={() => void save()}>
             Save draft
           </button>
+          {markdown === draft.markdown && draft.variant_review_ids?.map(reviewId => (
+            <button key={reviewId} type="button" disabled={busy} onClick={() => void inspectVariant(reviewId)}>
+              Review statblock variant
+            </button>
+          ))}
+          {review && markdown === draft.markdown && (
+            <section aria-label="Statblock variant review">
+              <StatblockRenderer chrome="campaign" draft={{
+                definition: review.data.definition,
+                hitPoints: summary => summary,
+                ruleEditor: () => null,
+              }} />
+              <button type="button" disabled={busy || savedVariant} onClick={() => void confirmVariant()}>
+                Confirm and save as new statblock
+              </button>
+              {savedVariant && <p role="status">Statblock variant saved.</p>}
+            </section>
+          )}
           {error && (
             <button type="button" disabled={busy} onClick={() => void open()}>
               Discard local edits and reopen

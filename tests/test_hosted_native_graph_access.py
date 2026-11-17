@@ -380,9 +380,13 @@ def hosted(monkeypatch, request):
         "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence",
         get_saved_plan_action_graph_evidence, methods=["GET"],
     )
+    from apps.live_control_server.main import HOSTED_WORLD_SCOPE_RESOLVERS
+
     install_hosted_request_boundary(
         app,
         world_scope_resolvers={
+            **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
+               if "/variant-reviews/{review_id}" in key[1]},
             **{
                 (
                     "POST",
@@ -4399,4 +4403,35 @@ def test_hosted_conversation_draft_routes_require_world_owner_and_write_origin(h
     service.open_conversation_draft.assert_called_once_with("managed", conversation_id, turn_id)
     service.edit_conversation_draft.assert_called_once_with(
         "managed", conversation_id, turn_id, expected_revision=1, markdown="Edited",
+    )
+
+
+def test_hosted_variant_review_requires_world_owner_and_write_origin(hosted, monkeypatch):
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import conversation_variant_save
+
+    service = Mock()
+    service.open_conversation_variant_review.return_value = {"revision": 1}
+    save = Mock(return_value={"revision_id": "rev_variant"})
+    monkeypatch.setattr(conversation_variant_save, "save_variant", save)
+    monkeypatch.setattr(agent, "_conversation_service", lambda _: service)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda value: value)
+    conversation_id, turn_id, review_id = uuid4(), uuid4(), uuid4()
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation_id}/drafts/{turn_id}/variant-reviews/{review_id}"
+    confirm = f"{path}/confirm"
+
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("POST", confirm, origin=None).status_code == 403
+    assert hosted.client.request("POST", confirm, session="other-session").status_code == 403
+    assert not service.mock_calls
+    save.assert_not_called()
+    assert hosted.client.request("GET", path).status_code == 200
+    assert hosted.client.request("POST", confirm).status_code == 200
+    service.open_conversation_variant_review.assert_called_once_with(
+        "managed", conversation_id, turn_id, review_id=review_id,
+    )
+    save.assert_called_once_with(
+        service, "managed", conversation_id, turn_id,
+        conversation_variant_save.ConfirmConversationVariant(review_id=review_id),
     )

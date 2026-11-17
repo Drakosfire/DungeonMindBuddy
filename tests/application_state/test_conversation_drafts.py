@@ -8,6 +8,7 @@ from application_state.agent_conversation import conversation_drafts
 from application_state.agent_conversation.service import AgentConversationService
 from application_state.agent_conversation.types import TurnResult, TurnSubmission
 from application_state.engine import connect
+from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 from tests.application_state.test_agent_conversation_service import _new, _provenance, _submitted_intent
 
 
@@ -72,6 +73,28 @@ def test_independent_conversation_draft_edits(application_state_dsn, monkeypatch
         assert client.get(second_path).json() == {"revision": 2, "markdown": "Second edited"}
         assert client.put(first_path, json={"expected_revision": 1, "markdown": "Stale"}).status_code == 409
         assert client.get(f"{base}/{uuid4()}/drafts/{first['turn_id']}").status_code == 404
+    _check_variant_response_loss(service, second, monkeypatch, app, second_path)
+
+    body = {"idempotency_key": "confirmed-key"}
+    receipt = {"revision_id": "saved-revision"}
+    with pytest.raises(ApplicationStateNotFoundError):
+        service.claim_conversation_variant_save(
+            **{**first, "conversation_id": uuid4()}, revision=2, create_request=body,
+        )
+    with pytest.raises(ApplicationStateConflictError):
+        service.claim_conversation_variant_save(**first, revision=1, create_request=body)
+    assert service.claim_conversation_variant_save(**first, revision=2, create_request=body) is None
+    assert service.claim_conversation_variant_save(**first, revision=2, create_request=body) is None
+    with pytest.raises(ApplicationStateConflictError):
+        service.claim_conversation_variant_save(
+            **first, revision=2, create_request={"idempotency_key": "different-key"},
+        )
+    assert service.record_conversation_variant_receipt(**first, revision=2, receipt=receipt) == receipt
+    assert service.claim_conversation_variant_save(**first, revision=2, create_request=body) == receipt
+    with pytest.raises(ApplicationStateConflictError):
+        service.record_conversation_variant_receipt(
+            **first, revision=2, receipt={"revision_id": "different-revision"},
+        )
     with connect(application_state_dsn) as conn:
         assert conn.execute(
             "SELECT assistant_text FROM agent.turn WHERE turn_id = %s", (first["turn_id"],)
@@ -96,4 +119,75 @@ def test_draft_route_checks_access_before_read_or_edit(monkeypatch):
     path = f"/agent/worlds/turn-world/conversations/{uuid4()}/drafts/{uuid4()}"
     with TestClient(app) as client:
         assert client.get(path).status_code == 403
+        review = f"{path}/variant-reviews/{uuid4()}"
+        assert client.get(review).status_code == 403
+        assert client.post(f"{review}/confirm").status_code == 403
         assert client.put(path, json={"expected_revision": 1, "markdown": "Edit"}).status_code == 403
+
+
+
+def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path):
+    from types import SimpleNamespace
+
+    from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import compute_definition_digest
+    from apps.live_control_server.integrations.dungeonmind_statblocks.errors import downstream_unavailable
+    from apps.live_control_server.services import conversation_variant_save
+    from tests.test_statblock_acceptance_reconciliation import _definition, _locator
+
+    definition = _definition()
+    digest = compute_definition_digest(definition)
+    locator = _locator().model_copy(update={"definition_digest": digest, "statblock_id": "sb_variant01"})
+    review_id = uuid4()
+    stale_review_id = uuid4()
+    for revision, identifier in [(2, review_id), (1, stale_review_id)]:
+        service.store_conversation_variant_review(
+            **scope, review_id=identifier, revision=revision,
+            definition=definition.model_dump(mode="json"),
+            base_locator=_locator().model_dump(mode="json"),
+        )
+    with pytest.raises(ApplicationStateConflictError, match="draft changed"):
+        conversation_variant_save.save_variant(
+            service, **scope,
+            confirmation=conversation_variant_save.ConfirmConversationVariant(review_id=stale_review_id),
+            client=object(),
+        )
+
+    create_bodies = []
+
+    class StatblockStub:
+        def close(self):
+            pass
+
+        def validate_definition(self, request):
+            assert not create_bodies
+            return SimpleNamespace(
+                definition_digest=digest,
+                validation_receipt=SimpleNamespace(definition_digest=digest, status="valid", issues=[]),
+            )
+
+        def create_statblock(self, body):
+            create_bodies.append(body)
+            if len(create_bodies) == 1:
+                raise downstream_unavailable("Lost response after remote commit")
+            assert create_bodies[0] == body
+            return SimpleNamespace(locator=locator)
+
+    monkeypatch.setattr(conversation_variant_save, "DungeonMindStatblockV1Client", StatblockStub)
+    review_path = f"{draft_path}/variant-reviews/{review_id}"
+    with TestClient(app) as client:
+        assert client.get(draft_path).json()["variant_review_ids"] == [str(review_id)]
+        review = client.get(review_path)
+        assert review.status_code == 200, review.text
+        assert review.json()["definition"] == definition.model_dump(mode="json")
+        assert client.get(review_path.replace(str(scope["conversation_id"]), str(uuid4()))).status_code == 404
+        assert client.post(f"{review_path}/confirm").status_code == 503
+        recovered = client.post(f"{review_path}/confirm")
+        assert recovered.status_code == 200, recovered.text
+        assert recovered.json() == locator.model_dump(mode="json")
+
+        def unexpected_client():
+            pytest.fail("Completed replay tried to open a downstream client")
+
+        monkeypatch.setattr(conversation_variant_save, "DungeonMindStatblockV1Client", unexpected_client)
+        assert client.post(f"{review_path}/confirm").json() == recovered.json()
+    assert len(create_bodies) == 2

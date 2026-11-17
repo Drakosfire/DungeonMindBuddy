@@ -352,6 +352,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 expected = {"mechanics": definition}
                 if saved_statblock in {"associated", "by-name"}:
                     expected["reviewed_pdf_excerpts"] = [{"source": "pdf0:0", "text": "Hit Points 41"}]
+                if requested_work == "draft_in_conversation":
+                    expected["variant_source"] = "statblock0"
+                    assert work.get("requested_work", {}).get("requested_work") == "draft_in_conversation", work.get("requested_work")
+                    assert "statblock_variant" in body["text"]["format"]["schema"]["properties"], (work["requested_work"], [list(row) for row in work["saved_statblocks"]])
                 assert work["saved_statblocks"] == [expected]
                 assert locator.revision_id not in req.content.decode()
             sections = work['saved_sections']
@@ -387,6 +391,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             if saved_statblock in {"associated", "by-name"}:
                 candidate["answer_segments"] = [dict(kind="statblock_pdf_claim",
                     source="pdf0:0", quote="Hit Points 41")]
+            if saved_statblock and requested_work == "draft_in_conversation":
+                from tests.test_statblock_acceptance_reconciliation import _definition
+                candidate["statblock_variant"] = {
+                    "source": "statblock0", "definition": _definition().model_dump(mode="json"),
+                }
             if native_body or authored_source:
                 from application_state.agent_conversation import native_corpus as corpus
                 acquired = corpus.acquired_body_reads(self.adapter._broker_execution())
@@ -1057,7 +1066,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     if saved_statblock in {"associated", "by-name"}:
         assert context['completion']['answer_context_status'] == 'source_grounded'
         assert context['completion']['native_assertion_citations'] == []
-        return SimpleNamespace(client=client, world=world)
+        return SimpleNamespace(client=client, world=world, turn=turn)
     citations = context['completion']['native_assertion_citations']
     assert citations and all(c['read_revision_id'] == current_revision for c in citations)
     opened = client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-assertion-sources/0')
@@ -1699,6 +1708,22 @@ def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
         graph_revision="rev:old", node_id="ent:fixture", label="Fixture",
     )
     assert driver._referenced_statblocks((reference,)) == []
+
+
+def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_path, monkeypatch):
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Draft the Meat Mind variant in this conversation for review.",
+        requested_work="draft_in_conversation", saved_statblock="associated",
+    )
+    root = f"/api/live/agent/worlds/{case.world}/conversations/{case.turn.conversation_id}"
+    draft_path = f"{root}/drafts/{case.turn.turn_id}"
+    draft = case.client.get(draft_path)
+    assert draft.status_code == 200, draft.text
+    review_id, = draft.json()["variant_review_ids"]
+    reviewed = case.client.get(f"{draft_path}/variant-reviews/{review_id}")
+    assert reviewed.status_code == 200, reviewed.text
+    assert reviewed.json()["base_locator"]["revision_id"] == "rev_meatmind"
 
 
 def test_requested_chat_draft_is_persisted_by_ordinary_build(lane, tmp_path, monkeypatch):

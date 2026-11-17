@@ -473,6 +473,66 @@ class AgentConversationService:
                 turn_id=turn_id, expected_revision=expected_revision, markdown=markdown,
             )
 
+    def store_conversation_variant_review(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        revision: int, review_id: UUID, definition: dict, base_locator: dict,
+    ) -> None:
+        from .conversation_variant_save import store_review
+
+        with unit_of_work(_ready_dsn()) as conn:
+            store_review(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, revision=revision, review_id=review_id,
+                definition=definition, base_locator=base_locator,
+            )
+
+    def open_conversation_variant_review(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *, review_id: UUID,
+    ):
+        from .conversation_variant_save import open_review
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return open_review(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id,
+            )
+
+    def find_conversation_variant_save(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        revision: int, create_request: dict,
+    ):
+        from .conversation_variant_save import find_save
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return find_save(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, revision=revision, create_request=create_request,
+            )
+
+    def claim_conversation_variant_save(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        revision: int, create_request: dict,
+    ):
+        from .conversation_variant_save import claim_save
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return claim_save(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, revision=revision, create_request=create_request,
+            )
+
+    def record_conversation_variant_receipt(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        revision: int, receipt: dict,
+    ):
+        from .conversation_variant_save import record_receipt
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return record_receipt(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, revision=revision, receipt=receipt,
+            )
+
     def get_world_pointer(self, world_id: str) -> WorldPointer:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -2804,6 +2864,7 @@ class AgentConversationService:
                     except (ValueError,TypeError,AttributeError,KeyError,UnicodeError) as exc:
                         raise ApplicationStateValidationError(str(exc)) from exc
                     native_output_verified = True
+            conversation_variant = None
             if native_output_proof is not None:
                 from .native_rules_output import NativeRulesOutputProofV1, normalize_unused_native_output
                 from .rules_authority_store import load_turn_rules_locked
@@ -2820,9 +2881,9 @@ class AgentConversationService:
                         completion,bindings,text=normalize_native_authoring(conn,turn,current.execution,native_output_proof,
                             trace=captured[0] if captured else None,work_proof=native_work_proof)
                     else:
-                        completion, bindings, text = normalize_unused_native_output(
-                            turn, current.execution, native_output_proof,work_proof=native_work_proof,
-                            trace=captured[0] if captured else None)
+                        completion, bindings, text, conversation_variant = normalize_unused_native_output(
+                            turn, current.execution, native_output_proof, work_proof=native_work_proof,
+                            trace=captured[0] if captured else None, include_variant=True)
                     if (completion != result.completion or bindings != result.claim_graph_event_ids
                             or text != result.assistant_text or result.producing_provider_attempt_id
                                 != (native_output_proof.producing_provider_attempt_id
@@ -2854,6 +2915,7 @@ class AgentConversationService:
                 )
             from .types import BuildIntentionalResponseCompletionV1, BuildRequestedWorkResolutionV1, SurfaceNativeCompletionV1
 
+            selected_draft = False
             if isinstance(result.completion, (BuildIntentionalResponseCompletionV1, SurfaceNativeCompletionV1)) and execution is not None:
                 selected_draft = any(
                     isinstance(event, BuildRequestedWorkResolutionV1)
@@ -2871,6 +2933,25 @@ class AgentConversationService:
                         conn, world_id=world_id, conversation_id=turn.conversation_id,
                         turn_id=turn.turn_id, markdown=result.assistant_text,
                     )
+            if conversation_variant is not None:
+                from .build_saved_statblock import BuildSavedStatblockReadV1
+                from .conversation_variant_save import store_review
+
+                if not selected_draft:
+                    raise ApplicationStateValidationError("Statblock review requires a conversation draft")
+                bases = [
+                    event for event in execution.events
+                    if isinstance(event, BuildSavedStatblockReadV1)
+                    and event.event_id == conversation_variant.base_event_id
+                ]
+                if len(bases) != 1:
+                    raise ApplicationStateValidationError("Statblock review requires an exact base read")
+                store_review(
+                    conn, world_id=world_id, conversation_id=turn.conversation_id,
+                    turn_id=turn.turn_id, revision=1, review_id=uuid4(),
+                    definition=conversation_variant.definition.model_dump(mode="json"),
+                    base_locator=bases[0].locator.model_dump(mode="json"),
+                )
             if action is not None:
                 actions.finish_authoring_result(conn,action,authoring_proposal,updated)
         return updated

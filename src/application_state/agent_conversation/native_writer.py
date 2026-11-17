@@ -133,6 +133,7 @@ class NativeWriterEvidence:
     native_assertions: tuple
     authored_local: bool = False
     build_local: bool = False
+    variant_format: bool = False
 
 
 def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_proof,
@@ -341,8 +342,10 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     play_local = semantic_play(work_frame)
     authored_local = semantic_work(work_frame) or play_local
     from .native_build_work_view import is_semantic_frame as semantic_build, semantic_frame as build_work_view
+    from .native_build_work_view import VARIANT_WRITER_FORMAT
     build_local = semantic_build(work_frame)
-    expected_wire_work = (build_work_view(expected_work,prefix) if build_local
+    variant_format = body.get("text", {}).get("format", {}).get("name") == VARIANT_WRITER_FORMAT
+    expected_wire_work = (build_work_view(expected_work,prefix,include_variant=variant_format) if build_local
         else play_work_view(expected_work) if play_local
         else plan_work_view(expected_work,prefix) if authored_local else expected_work)
     if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_wire_work):
@@ -387,7 +390,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             draft_record=context_record(prefix).record
     return NativeWriterEvidence(frame=schema_frame,work_frame=expected_work,output_work_frame=expected_work if build_local else expected_work | expected_wire_work,
         authored=authored,idempotency_key=idempotency_key,
-        authored_local=authored_local,build_local=build_local,
+        authored_local=authored_local,build_local=build_local,variant_format=variant_format,
         saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
         **read_evidence_records(prefix,expected,passages_only=prose_frame is not None))
 

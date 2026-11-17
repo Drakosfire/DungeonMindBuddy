@@ -1653,6 +1653,37 @@ def put_conversation_draft(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
+@router.get(_CONVERSATION_DRAFT_PATH + "/variant-reviews/{review_id}")
+def get_conversation_variant_review(
+    world_id: str, conversation_id: UUID, turn_id: UUID, review_id: UUID, request: Request,
+):
+    verified = _conversation_draft_access(request, world_id)
+    try:
+        return _conversation_service(request).open_conversation_variant_review(
+            verified, conversation_id, turn_id, review_id=review_id,
+        )
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.post(_CONVERSATION_DRAFT_PATH + "/variant-reviews/{review_id}/confirm")
+def confirm_conversation_variant_review(
+    world_id: str, conversation_id: UUID, turn_id: UUID, review_id: UUID, request: Request,
+):
+    from apps.live_control_server.services.conversation_variant_save import (
+        ConfirmConversationVariant, save_variant,
+    )
+
+    verified = _conversation_draft_access(request, world_id)
+    try:
+        return save_variant(
+            _conversation_service(request), verified, conversation_id, turn_id,
+            ConfirmConversationVariant(review_id=review_id),
+        )
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin")
 def get_world_turn_connected_page_origin(world_id: str, turn_id: UUID, request: Request):
     from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
