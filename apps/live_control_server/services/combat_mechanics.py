@@ -6,7 +6,7 @@ from application_state.errors import ApplicationStateIntegrityError
 from apps.live_control_server.config import artifact_data_root, repo_root
 from apps.live_control_server.services.threat_draft_store import get_threat_draft, locked_threat_drafts
 from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
-from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import source_definition_digest_from_body
+from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import matches_accepted_definition_digest
 from application_state.combat_encounters.types import CombatMechanicsSelection, CombatMechanicsSnapshot
 from application_state.errors import ApplicationStateConflictError
 from application_state.world_mechanics import service as associations
@@ -60,8 +60,10 @@ def prepare_accepted_snapshot(*, world_id: str, selection: AcceptedCombatMechani
         and op.source_draft_id == draft.draft_id
         and op.source_draft_version == accepted.accepted_from_draft_version
         and op.source_candidate_id == accepted.accepted_from_candidate_id
-        and op.validation_receipt_digest == accepted.definition_digest
-        and source_definition_digest_from_body(op.request_body['definition']) == accepted.definition_digest
+        and matches_accepted_definition_digest(
+            op.request_body["definition"], validation_digest=op.validation_receipt_digest,
+            accepted_digest=accepted.definition_digest,
+        )
         and op.locator is not None and same_mechanics_locator(op.locator, accepted.to_mechanics_locator())
     )]
     if len(matches) != 1:
