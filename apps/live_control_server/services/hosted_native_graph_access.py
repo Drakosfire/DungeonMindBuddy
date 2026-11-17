@@ -852,7 +852,7 @@ def manual_knowledge_actor(request: Request, *, world_id: str | None, run_id: st
     return f"hosted_dms:{subject}"
 
 
-async def _owned_worldbuilding_extraction(subject: str, run_id: str):
+async def _saved_extraction_source(run_id: str):
     from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError, get_extraction_run
     from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, get_source_artifact
 
@@ -863,12 +863,50 @@ async def _owned_worldbuilding_extraction(subject: str, run_id: str):
         if exc.status_code == 404:
             raise _denied() from None
         raise _unavailable() from None
+    return run, artifact
+
+
+async def _owned_worldbuilding_extraction(subject: str, run_id: str):
+    run, artifact = await _saved_extraction_source(run_id)
     if run.source_domain != "worldbuilding" or artifact.source_domain != "worldbuilding":
         raise _denied()
     world_id = await _owned_build_page(subject, artifact.workspace_document_id)
     if artifact.world_id != world_id:
         raise _denied()
     return world_id, artifact
+
+
+async def resolve_hosted_exact_extraction_read(request: Request) -> str:
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError, read_recap_source_scope,
+    )
+
+    run_id = getattr(request.state, "hosted_route_run_id", None)
+    if not run_id or request.query_params or await request.body():
+        raise _denied()
+    subject = _hosted_subject(request)
+    run, artifact = await _saved_extraction_source(run_id)
+    if run.source_domain == artifact.source_domain == "worldbuilding":
+        world_id = await _owned_build_page(subject, artifact.workspace_document_id)
+        if world_id != artifact.world_id:
+            raise _denied()
+    elif run.source_domain == artifact.source_domain == "recap":
+        frozen = run.lineage.get("world_campaign_ingest_context")
+        if not isinstance(frozen, dict):
+            raise _denied()
+        try:
+            scope = read_recap_source_scope(frozen, campaign_id=run.campaign_id)
+        except GraphRunRegistryError:
+            raise _denied() from None
+        world = await run_in_threadpool(_owned_world, subject, scope.managed_world_id)
+        binding = world.native_graph_binding
+        if (artifact.world_id != scope.native_world_id or artifact.campaign_id != scope.campaign_id
+                or (binding.native_world_id, binding.binding_version) != (scope.native_world_id, scope.binding_version)):
+            raise _denied()
+        world_id = world.world_id
+    else:
+        raise _denied()
+    return world_id
 
 
 async def resolve_hosted_build_extraction(request: Request) -> str:
