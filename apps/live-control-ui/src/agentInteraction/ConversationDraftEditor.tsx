@@ -34,8 +34,10 @@ export function ConversationDraftEditor({ scope, placement }: {
   const pendingPlacement = useRef<{ href: string; prepared: PreparedBuildProposal } | null>(null);
   const [linkedHref, setLinkedHref] = useState<string | null>(null);
 
-  async function saveVariantLink(href: string) {
-    if (!placement) return;
+  async function saveVariantLink(reviewId: string) {
+    if (!placement?.bridge.placeSavedVariantLink) return;
+    const variant = { ...scope, reviewId };
+    const href = savedConversationVariantHref(variant);
     const { bridge, documentId } = placement;
     setBusy(true);
     setError("");
@@ -50,14 +52,7 @@ export function ConversationDraftEditor({ scope, placement }: {
         if (captured.basis.document_id !== documentId || captured.basis.world_id !== scope.worldId) {
           throw new Error("Open the original Build page before linking the variant.");
         }
-        if (captured.basis.visibility !== "internal" || captured.basis.selection) {
-          throw new Error("Choose a single insertion point on the original GM page.");
-        }
-        if (captured.draftMarkdown.includes(`](${href})`)) {
-          throw new Error("The variant link is already in this draft. Use the page Save control if it has unsaved changes.");
-        }
-        prepared = await bridge.prepareProposal(captured, `[Open saved statblock variant](${href})`);
-        bridge.applyPrepared(prepared);
+        prepared = await bridge.placeSavedVariantLink!(captured, variant);
         pendingPlacement.current = { href, prepared };
       }
       await bridge.saveProposal(
@@ -163,8 +158,8 @@ export function ConversationDraftEditor({ scope, placement }: {
               {savedVariant && <>
                 <p role="status">Statblock variant saved.</p>
                 <a href={savedConversationVariantHref({ ...scope, reviewId: review.id })}>Open saved variant</a>
-                {placement && <button type="button" disabled={busy || linkedHref === savedConversationVariantHref({ ...scope, reviewId: review.id })}
-                  onClick={() => void saveVariantLink(savedConversationVariantHref({ ...scope, reviewId: review.id }))}>
+                {placement?.bridge.placeSavedVariantLink && <button type="button" disabled={busy || linkedHref === savedConversationVariantHref({ ...scope, reviewId: review.id })}
+                  onClick={() => void saveVariantLink(review.id)}>
                   Insert at cursor and save page
                 </button>}
                 {linkedHref === savedConversationVariantHref({ ...scope, reviewId: review.id }) &&

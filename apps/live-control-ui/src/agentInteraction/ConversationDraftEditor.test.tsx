@@ -94,8 +94,7 @@ it("retries saving a variant link without applying the insertion again", async (
   const captured = { basis: { document_id: "edge", world_id: "world", visibility: "internal" }, draftMarkdown: "Existing page" };
   const bridge = {
     capture: vi.fn().mockResolvedValue(captured),
-    prepareProposal: vi.fn().mockResolvedValue({ captured, afterEditorSha256: "editor", afterDraftSha256: "draft" }),
-    applyPrepared: vi.fn(),
+    placeSavedVariantLink: vi.fn().mockResolvedValue({ captured, afterEditorSha256: "editor", afterDraftSha256: "draft" }),
     saveProposal: vi.fn().mockRejectedValueOnce(new Error("Save interrupted")).mockResolvedValueOnce(undefined),
   };
   type Placement = NonNullable<Parameters<typeof ConversationDraftEditor>[0]["placement"]>;
@@ -107,9 +106,6 @@ it("retries saving a variant link without applying the insertion again", async (
   expect(await screen.findByRole("alert")).toHaveTextContent("Save interrupted");
   fireEvent.click(insert);
   expect(await screen.findByText("Variant link verified on the saved page.")).toBeInTheDocument();
-  expect(bridge.prepareProposal).toHaveBeenCalledExactlyOnceWith(
-    captured, expect.stringContaining("/statblock?world=world&conversation=conversation&turn=turn&variantReview=review"),
-  );
-  expect(bridge.applyPrepared).toHaveBeenCalledTimes(1);
+  expect(bridge.placeSavedVariantLink).toHaveBeenCalledExactlyOnceWith(captured, { ...scope, reviewId: "review" });
   expect(bridge.saveProposal).toHaveBeenCalledTimes(2);
 });

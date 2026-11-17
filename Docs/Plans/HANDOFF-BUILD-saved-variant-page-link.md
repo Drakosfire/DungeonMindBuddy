@@ -13,3 +13,8 @@ saved variant URL helper. Keep a successful save recoverable if placement
 or page persistence fails. Reject a foreign or changed page, preserve siblings,
 and prove zero duplicates on replay plus fresh exact readback. Test with the
 disposable AW environment. Keep primary state unchanged. Combat follows serially.
+
+Review expanded the write set to the Build compose bridge, saved variant URL
+helper, and shared document link admission. The generic generated proposal guard
+continues to reject root-relative links. Typed placement admits only the
+first-party variant destination and tests the actual editor serialization.
