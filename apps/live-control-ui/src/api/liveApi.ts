@@ -446,6 +446,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && path === imageHistory + "world_id=" + encodeURIComponent(worldId)
         + "&conversation_id=" + conversationId;
   }
+  const trashInventory = "/api/live/world-workspace/trash?";
+  if (path.startsWith(trashInventory)) {
+    const worldId = new URLSearchParams(path.slice(trashInventory.length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === trashInventory + "world_id=" + encodeURIComponent(worldId);
+  }
   if (path === "/api/live/agent/turn") {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && isRecord(body?.owner_scope)

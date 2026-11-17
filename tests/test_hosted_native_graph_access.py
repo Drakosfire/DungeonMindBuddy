@@ -295,6 +295,9 @@ def hosted(monkeypatch, request):
     app.add_api_route(replay_path + "/identities", agent_routes.get_world_replay_identities, methods=["GET"])
     authored_path = "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}"
     app.add_api_route(authored_path + "/related-pages/{read_id}", agent_routes.get_world_turn_related_page, methods=["GET"])
+    from apps.live_control_server.routes.workspace_lifecycle import get_world_trash
+
+    app.add_api_route("/api/live/world-workspace/trash", get_world_trash, methods=["GET"])
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -337,6 +340,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/world-workspace/trash"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_committed_plan,
@@ -2908,3 +2912,20 @@ def test_hosted_related_page_read_binds_saved_turn(hosted, monkeypatch):
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(service, "managed", turn, read_id)
+def test_hosted_trash_inventory_requires_world_owner(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import workspace_lifecycle
+
+    root = object()
+    inventory = Mock(return_value={"world_id": "managed", "documents": [], "sessions": []})
+    monkeypatch.setattr(workspace_lifecycle, "_root", lambda: root)
+    monkeypatch.setattr(workspace_lifecycle, "list_world_workspace_trash", inventory)
+    path = "/api/live/world-workspace/trash?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    inventory.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    inventory.assert_called_once_with(root, world_id="managed")
