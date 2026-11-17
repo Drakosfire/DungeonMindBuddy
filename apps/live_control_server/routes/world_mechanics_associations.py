@@ -2,14 +2,14 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from application_state.errors import ApplicationStateError
 from application_state.world_mechanics import service as state
 from application_state.world_mechanics.types import (
     AssociateWorldMechanicsRequest, AssociateWorldMechanicsResponse, WorldMechanicsAssociation,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
-from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal, native_graph_gm_dependency
+from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal, enforce_native_graph_gm
 from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
 from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
 from apps.live_control_server.services.statblock_acceptance_reconciliation import AcceptanceReconciliationError
@@ -70,8 +70,10 @@ def association_request(request_id: UUID, world_id: WorldId, request: Request):
 
 
 @router.post("", response_model=AssociateWorldMechanicsResponse)
-def associate_route(world_id: WorldId, body: AssociateWorldMechanicsRequest,
-                    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency)):
+def associate_route(world_id: WorldId, body: AssociateWorldMechanicsRequest, request: Request):
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     if body.target.managed_world_id != world_id:
         raise HTTPException(status_code=409, detail="Selected creature belongs to a different World")
     try:
