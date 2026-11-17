@@ -82,3 +82,56 @@ Safe ordinary integration needs an explicitly reviewed additive catalog-target
 contract with historical serialization and old-reader behavior, current snapshot
 and replay checks, single-paragraph output admission, composer-compatible reviewed
 application, and Save/cold-reopen proof. These remain gates, not assumed permissions.
+
+## Minimal additive provenance contract and reader-first gate
+Pinned design only; no new-format producer is authorized by this amendment.
+Main remains eecaf799.87 current open PR file inventories have no overlap for
+`src/application_state/build_proposal/service.py`; historical handoffs naming it
+are settled. Add that one service file to the exclusive reader-refusal lease;
+its new synthetic tests stay in the already-owned eval directory, not the
+#3824-owned review test or test-classification registry. #3864's harness is not
+needed to implement this refusal and remains untouched.
+
+Proposed next wire/persistence contract, requiring owning review before emission:
+- Legacy `dmb_build_document_proposal_v1`, its actual basis, optional field omission,
+  fingerprints, selection meanings and review v2/v3 serialization remain exact.
+- Proposed Markdown record v2 retains the current lifecycle/claim owner and adds
+  `prose_target` to the frozen reservation. This is distinct from `basis.selection`.
+  The basis still records the actual author caret/selection, managed World/document,
+  registry revision/content hash, editor/draft hashes, and draft/selection generations.
+- `prose_target` has a versioned schema tag, a frozen catalog digest, an opaque
+  turn-local selected alias, operation (replace_paragraph/insert_before/insert_after),
+  host-resolved from/to and exact before-text digest. The selected member must match
+  an offered host catalog bound to that same basis. Model output nominates an alias
+  or unavailable only; it never supplies offsets, hashes, identities or provenance.
+- Request admission uses existing authenticated World access and current document
+  authority; possession of a self-reported digest is not authentication. Match the
+  conversation pointer and durable turn claim, and recheck live editor instance,
+  scope, revision, draft generation and full document before staging or applying.
+  Discussion/read-only/foreign/stale/ambiguous/unknown target grants no mutation.
+- Persist the chosen target and catalog binding in the existing immutable proposal
+  reservation/fingerprint. Proposed review successor retains that same binding in
+  its apply receipt plus existing before/after hashes and apply id. Reopen validates
+  receipt-to-reservation equality; historical records gain no nomination authority.
+  A duplicate request is existing idempotency behavior, not a new target selection.
+  Replayed apply cannot acquire another live capture. No provider replay on uncertainty.
+- Keep editable suggestion, single-paragraph replacement admission, explicit native
+  Save/CAS and existing journal/recovery owner. Nomination, generation, review read
+  and receipt decoding do not apply or Save. Actual Save and cold reopen must be
+  proven separately; unsupported citation/paragraph structures remain unavailable.
+
+Reader-first implementation now: the real Markdown service explicitly refuses
+unknown versions in the Markdown record family before get/list/retry/advance can
+present them as absent or mutate them. Intentional image-record filtering stays
+unchanged. No new-version schema is accepted or written, no database is opened by
+the synthetic tests, and no APP migration slot is claimed.
+
+Rollout/rollback: current old code silently omits future Markdown versions from
+lists. This guard cannot fix already-running old processes. Do not emit v2 until
+all service/browser/history/review readers have an approved forward-reader fence
+and retired old writers are accounted for. Once v2 exists, rollback may use only
+a qualified fenced reader or must stop writes and retain the records unchanged;
+never downgrade to v1, strip the binding, treat unsupported history as empty, or
+reissue the provider request. Existing rows require no rewrite. The proposed exact
+new fields and review version still require owner review; this guard does not
+activate them or claim that schema compatibility is complete.

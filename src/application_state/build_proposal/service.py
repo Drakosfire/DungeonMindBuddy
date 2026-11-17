@@ -12,7 +12,17 @@ from application_state.errors import ApplicationStateConflictError, ApplicationS
 from application_state.unit_of_work import unit_of_work
 
 
+def _require_supported_markdown_version(payload):
+    """Reader-first fence: future prose records are retained, never hidden as absent."""
+    version = payload.get("schema_version")
+    if (isinstance(version, str)
+            and version.startswith("dmb_build_document_proposal_")
+            and version != "dmb_build_document_proposal_v1"):
+        raise ApplicationStateConflictError("This Build proposal requires an updated reader. Nothing was changed.")
+
+
 def _load(row) -> BuildProposalRecord:
+    _require_supported_markdown_version(row[0])
     if row[0].get('schema_version') != 'dmb_build_document_proposal_v1':
         raise ApplicationStateNotFoundError('Markdown proposal unavailable')
     return BuildProposalRecord.model_validate(row[0])
@@ -89,6 +99,10 @@ class BuildProposalService:
                 raise ApplicationStateNotFoundError("World conversation unavailable")
             rows = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND conversation_id=%s ORDER BY payload->>'created_at', action_id",
                 (world_id, conversation_id)).fetchall()
+        # Image preparations intentionally share this table. Future Markdown
+        # versions are different: omitting them could invite duplicate requests.
+        for row in rows:
+            _require_supported_markdown_version(row[0])
         return [_load(row) for row in rows if row[0].get("schema_version") == "dmb_build_document_proposal_v1"]
 
     def advance(self, world_id: str, action_id: UUID, *, expected_revision: int, state: str, **fields) -> BuildProposalRecord:
