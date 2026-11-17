@@ -314,6 +314,10 @@ def hosted(monkeypatch, request):
         "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review",
         agent_routes.get_plan_authoring_review, methods=["GET"],
     )
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review",
+        agent_routes.post_plan_authoring_review, methods=["POST"],
+    )
     app.include_router(conversation_library.router)
     from apps.live_control_server.routes import conversation_work_plans
 
@@ -447,6 +451,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin"): access.resolve_hosted_conversation_world,
@@ -3559,3 +3564,26 @@ def test_hosted_exact_proposal_read_binds_world(hosted, monkeypatch, surface):
     read.assert_not_called()
     assert hosted.client.request("GET", path).status_code == 404
     read.assert_called_once_with("managed", action)
+
+
+def test_hosted_plan_proposal_command_binds_exact_world_and_action(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from application_state.errors import ApplicationStateNotFoundError
+    from application_state.plan_action_dialogue import authoring_review
+    from apps.live_control_server.routes import agent
+
+    execute = Mock(side_effect=ApplicationStateNotFoundError("Proposal not found"))
+    monkeypatch.setattr(authoring_review, "execute_review_command", execute)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    action, command = uuid4(), uuid4()
+    path = f"/api/live/agent/worlds/managed/plan-proposals/{action}/review"
+    body = {"operation": "open", "command_id": str(command), "origin_sha256": "a" * 64, "expected_revision": 0}
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path + "?world_id=foreign", json=body).status_code == 403
+    execute.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 404, response.text
+    world, saved_action, submitted = execute.call_args.args
+    assert (world, saved_action, submitted.command_id) == ("managed", action, command)
