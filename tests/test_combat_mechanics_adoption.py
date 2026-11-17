@@ -13,10 +13,6 @@ from apps.live_control_server.services import combat_mechanics as mechanics
 @pytest.fixture
 def adoption_case(revision_case,monkeypatch):
     p=revision_case
-    from fastapi.testclient import TestClient
-    # Current local authentication requires an actual loopback peer, even when
-    # the Graph principal is supplied by the isolated fixture.
-    p.client=TestClient(p.app,client=('127.0.0.1',50000))
     from apps.live_control_server.routes import combat_encounters as routes
     monkeypatch.setattr(routes,'resolve_managed_world_binding',lambda world,**kw:SimpleNamespace(managed_world_id=world))
     monkeypatch.setattr(mechanics,'build_statblock_v1_client',lambda:p.manual)
