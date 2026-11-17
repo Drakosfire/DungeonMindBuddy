@@ -110,6 +110,26 @@ class AcceptedCombatMechanicsSnapshot(AcceptedCombatMechanicsSelection):
         return _snapshot_integrity(self)
 
 
+class ConversationVariantCombatSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    conversation_id: UUID
+    turn_id: UUID
+    review_id: UUID
+
+
+class ConversationVariantCombatSnapshot(ConversationVariantCombatSelection):
+    origin: Literal["conversation_variant_mechanics_v1"]
+    managed_world_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,62}$")
+    locator: MechanicsLocator
+    resource: dict
+    snapshot_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    digest_payload = staticmethod(CombatMechanicsSnapshot.digest_payload)
+
+    @model_validator(mode="after")
+    def integrity(self):
+        return _snapshot_integrity(self)
+
+
 class SavedCombatMechanicsSnapshot(BaseModel):
     """An explicit encounter override, not a replacement World association."""
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -188,10 +208,12 @@ class CombatEntity(BaseModel):
     corpus_fingerprint: str | None = Field(default=None, max_length=128)
     source: Literal["corpus", "generated_pending", "manual", "imported"] = "manual"
     world_identity: CombatWorldIdentity | None = None
-    mechanics_snapshot: CombatMechanicsSnapshot | AcceptedCombatMechanicsSnapshot | SavedCombatMechanicsSnapshot | None = None
+    mechanics_snapshot: CombatMechanicsSnapshot | AcceptedCombatMechanicsSnapshot | SavedCombatMechanicsSnapshot | ConversationVariantCombatSnapshot | None = None
 
     @model_validator(mode="after")
     def _mechanics_target(self):
+        if isinstance(self.mechanics_snapshot, ConversationVariantCombatSnapshot) and self.world_identity is not None:
+            raise ValueError("Conversation variant cannot claim a different World creature identity")
         if isinstance(self.mechanics_snapshot, CombatMechanicsSnapshot) and self.world_identity != self.mechanics_snapshot.target:
             raise ValueError("Combat mechanics require the same exact World identity")
         if isinstance(self.mechanics_snapshot, SavedCombatMechanicsSnapshot) and self.world_identity is not None and self.world_identity.managed_world_id != self.mechanics_snapshot.managed_world_id:
@@ -322,7 +344,7 @@ class CombatEncounterRecord(BaseModel):
 
     @model_validator(mode="after")
     def _scope_is_coherent(self) -> CombatEncounterRecord:
-        if any(isinstance(entity.mechanics_snapshot,SavedCombatMechanicsSnapshot) and entity.mechanics_snapshot.managed_world_id!=self.world_id for entity in self.draft.entities):
+        if any(isinstance(entity.mechanics_snapshot,(SavedCombatMechanicsSnapshot, ConversationVariantCombatSnapshot)) and entity.mechanics_snapshot.managed_world_id!=self.world_id for entity in self.draft.entities):
             raise ValueError("Saved mechanics override belongs to another World")
         if self.session is not None and self.campaign_id is None:
             raise ValueError("session metadata requires a campaign")

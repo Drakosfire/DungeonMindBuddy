@@ -220,10 +220,11 @@ def verify_native_work_input(execution, basis, raw):
     from .source_writer_output import responses_text_frame, strict_json
     from .rules_authority_types import canonical_bytes
     body=strict_json(raw)
-    from .native_build_work_view import frame_in_request, semantic_frame
+    from .native_build_work_view import VARIANT_WRITER_FORMAT, frame_in_request, semantic_frame
     frame=frame_in_request(body)
     host=native_work_frame(execution,basis)
-    expected=semantic_frame(host,execution) if frame is not None else host
+    variant_format = body.get("text", {}).get("format", {}).get("name") == VARIANT_WRITER_FORMAT
+    expected=semantic_frame(host,execution,include_variant=variant_format) if frame is not None else host
     if frame is None:
         frame=responses_text_frame(raw,schemas={NATIVE_WORK_SCHEMA},label='Native Build work')
     if (body.get('model') != execution.policy.provider_roles.writer.model

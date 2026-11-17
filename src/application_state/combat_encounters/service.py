@@ -137,8 +137,8 @@ def save_encounter(
                     raise ApplicationStateValidationError("Saved mechanics overrides require explicit adoption for an existing actor")
                 if (verified_mechanics_snapshots or {}).get(entity.id) != entity.mechanics_snapshot:
                     raise ApplicationStateValidationError("New mechanics snapshot must be independently verified")
-                from application_state.combat_encounters.types import AcceptedCombatMechanicsSnapshot
-                if isinstance(entity.mechanics_snapshot, AcceptedCombatMechanicsSnapshot):
+                from application_state.combat_encounters.types import AcceptedCombatMechanicsSnapshot, ConversationVariantCombatSnapshot
+                if isinstance(entity.mechanics_snapshot, (AcceptedCombatMechanicsSnapshot, ConversationVariantCombatSnapshot)):
                     if entity.mechanics_snapshot.managed_world_id != canonical_world_id:
                         raise ApplicationStateValidationError("Accepted mechanics belong to a different World")
                     if entity.source != "manual" or entity.provenance or entity.statblock_artifact_id or entity.statblock_path or entity.statblock_title or entity.corpus_fingerprint or entity.tags:

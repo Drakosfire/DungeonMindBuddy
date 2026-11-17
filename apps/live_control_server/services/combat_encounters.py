@@ -61,6 +61,7 @@ def save_world_combat_encounter(
     association_records = None
     from application_state.combat_encounters.types import (
         AcceptedCombatMechanicsSelection, AcceptedCombatMechanicsSnapshot, CombatMechanicsSnapshot,
+        ConversationVariantCombatSelection, ConversationVariantCombatSnapshot,
     )
     from apps.live_control_server.services import combat_mechanics
     # Read each distinct exact source once, before the final store lock. The
@@ -72,6 +73,7 @@ def save_world_combat_encounter(
         world_id=world_id, selection=AcceptedCombatMechanicsSelection(draft_id=key[0], draft_version=key[1]))
         for key in sorted(direct_selections)}
     direct_snapshots = {key: result[1] for key, result in prepared.items()}
+    variant_snapshots = {}
     for entity in request.draft.entities:
         identity = entity.world_identity
         if entity.id in prior_ids:
@@ -81,6 +83,19 @@ def save_world_combat_encounter(
             expected = direct_snapshots[(str(snapshot.draft_id), snapshot.draft_version)]
             if snapshot != expected:
                 raise ApplicationStateValidationError("Combat mechanics snapshot differs from verified accepted resource")
+            verified_snapshots[entity.id] = expected
+        if isinstance(entity.mechanics_snapshot, ConversationVariantCombatSnapshot):
+            snapshot = entity.mechanics_snapshot
+            selection = ConversationVariantCombatSelection(
+                conversation_id=snapshot.conversation_id, turn_id=snapshot.turn_id, review_id=snapshot.review_id,
+            )
+            if selection not in variant_snapshots:
+                variant_snapshots[selection] = combat_mechanics.preview_conversation_variant(
+                    world_id=world_id, selection=selection,
+                )
+            expected = variant_snapshots[selection]
+            if snapshot != expected:
+                raise ApplicationStateValidationError("Combat variant differs from its exact saved revision")
             verified_snapshots[entity.id] = expected
         if identity is None:
             continue

@@ -1609,6 +1609,7 @@ export type AgentConversationTurnLifecycleV1 =
   | "interrupted";
 
 export interface WorldAgentConversationHistoryTurnV1 {
+  conversation_draft_available?: true;
   plan_requested_operation?: "discuss" | "write_current_page";
   authored_references?: AuthoredReferenceInput;
   native_statement_context?: NativeStatementAnswerContextV1;

@@ -139,3 +139,24 @@ def adopt_saved_override(*,world_id,encounter_id,request,scope=None):
     draft,origin,snapshot=prepare_saved_override(world_id=world_id,draft_id=request.draft_id,locator=request.locator)
     with accepted_drafts_guard([draft]):
         return adoption.apply_verified(world_id=world_id,encounter_id=encounter_id,request=request,snapshot=snapshot,origin=origin,scope=scope)
+
+
+def preview_conversation_variant(*, world_id, selection):
+    from application_state.agent_conversation.service import AgentConversationService
+    from application_state.combat_encounters.types import ConversationVariantCombatSnapshot
+    from .conversation_variant_save import open_saved_variant
+
+    opened = open_saved_variant(
+        AgentConversationService(), world_id, selection.conversation_id, selection.turn_id,
+        review_id=selection.review_id,
+    )
+    payload = {
+        **selection.model_dump(mode="json"),
+        "origin": "conversation_variant_mechanics_v1",
+        "managed_world_id": world_id,
+        "locator": opened["locator"],
+        "resource": opened["revision"],
+    }
+    return ConversationVariantCombatSnapshot(
+        **payload, snapshot_digest=ConversationVariantCombatSnapshot.digest_payload(payload),
+    )
