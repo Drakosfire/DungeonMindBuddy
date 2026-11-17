@@ -888,7 +888,15 @@ async def resolve_hosted_build_extraction(request: Request) -> str:
 
 async def resolve_hosted_source_statement_proposal(request: Request) -> str:
     world_id = request.query_params.get("managed_world_id")
-    if not world_id or request.query_params.multi_items() != [("managed_world_id", world_id)] or await request.body():
+    if not world_id or request.query_params.multi_items() != [("managed_world_id", world_id)]:
+        raise _denied()
+    if request.method == "POST":
+        from apps.live_control_server.models.source_statement_proposals import ProposalReview
+
+        body = ProposalReview.model_validate(await request.json())
+        if body.selection.managed_world_id != world_id:
+            raise _denied()
+    elif await request.body():
         raise _denied()
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
     request.state.hosted_native_graph_world = world.world_id

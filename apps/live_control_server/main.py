@@ -391,6 +391,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/extract-promote/runs/{run_id}/worldbuilding-publication-coverage"): resolve_hosted_build_extraction,
     ("POST", "/api/live/extract-promote/native-worldbuilding-context"): resolve_hosted_worldbuilding_review_context,
     ("GET", "/api/live/source-statements/proposals/{operation_id}"): resolve_hosted_source_statement_proposal,
+    ("POST", "/api/live/source-statements/proposals/{operation_id}/review"): resolve_hosted_source_statement_proposal,
     ("POST", "/api/live/extract-promote/native-prepare"): resolve_hosted_native_publication,
     ("POST", "/api/live/extract-promote/native-confirm"): resolve_hosted_native_publication,
     ("POST", "/api/live/extract-promote/runs/{run_id}/evidence-corrections"): resolve_hosted_build_extraction,
