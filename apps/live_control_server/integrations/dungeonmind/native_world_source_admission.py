@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Callable, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -459,7 +459,8 @@ def _ensure_native_source_space(repository, world_id, native_world_id):
 
 
 def admit_native_world_source(
-    root, document_id: str, *, expected_revision: int, expected_body_sha256: str
+    root, document_id: str, *, expected_revision: int, expected_body_sha256: str,
+    authorize_world: Callable[[str], None] | None = None,
 ) -> NativeWorldSourceAdmissionStatus:
     snapshot, body_bytes, body_sha256, admission_id, sealed_world_binding = _load_exact_snapshot(
         root, document_id, expected_revision, expected_body_sha256
@@ -467,6 +468,8 @@ def admit_native_world_source(
     record = snapshot.record
     world_id = record.world_id
     assert world_id is not None
+    if authorize_world is not None:
+        authorize_world(world_id)
     native_world_id = sealed_world_binding.native_world_id
     repository = _repository()
     try:

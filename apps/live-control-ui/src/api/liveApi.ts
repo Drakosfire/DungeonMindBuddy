@@ -428,6 +428,17 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  const nativeSource = /^\/api\/live\/workspace-documents\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/native-world-source/.exec(path);
+  if (nativeSource) {
+    const selectors = path.slice(nativeSource[0].length);
+    if (method === "GET" && init?.body == null) {
+      return selectors === "" || /^\?expected_revision=[1-9][0-9]*$/.test(selectors);
+    }
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && selectors === "" && typeof body?.expected_revision === "number"
+      && Number.isSafeInteger(body.expected_revision) && body.expected_revision > 0
+      && typeof body.expected_body_sha256 === "string" && /^[0-9a-f]{64}$/.test(body.expected_body_sha256);
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);
@@ -615,7 +626,8 @@ function apiRequestTarget(
   const pageUrl = typeof window === "undefined" ? undefined : window.location.href;
   let normalizedPath = path;
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
-  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath);
+  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
+    || /^\/api\/live\/workspace-documents\/[^/]+\/native-world-source$/.test(normalizedPath);
   if (isLoopbackApiDestination(url)) return { url, localGraphRequest, hostedGraphRequest: false };
   if (localGraphRequest || graphSurface) {
     // Exact relative paths only: explicit API bases, URL credentials, queries,

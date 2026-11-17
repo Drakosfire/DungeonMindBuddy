@@ -539,3 +539,22 @@ it("reads earlier image directions with the exact hosted session route", async (
   await expect(api.authenticatedApiFetch(path + "&world_id=other")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("uses the hosted session for exact native Build source status and admission", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const id = "12345678-1234-1234-1234-123456789abc";
+  const path = "/api/live/workspace-documents/" + id + "/native-world-source";
+  await api.getNativeWorldSourceAdmissionStatus(id, 1);
+  await api.admitNativeWorldSource(id, 1, "a".repeat(64));
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual([path + "?expected_revision=1", path]);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", redirect: "error" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.admitNativeWorldSource(id, 1, "invalid")).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path + "?world_id=other")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});

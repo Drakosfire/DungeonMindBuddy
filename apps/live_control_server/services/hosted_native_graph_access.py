@@ -520,7 +520,13 @@ async def resolve_hosted_saved_statblock(request: Request) -> str:
 
 async def resolve_hosted_build_native_source(request: Request) -> str:
     selectors = request.query_params.multi_items()
-    if await request.body() or (selectors and (
+    if request.method == "POST":
+        from apps.live_control_server.routes.workspace_documents import NativeWorldSourceAdmissionRequest
+
+        if selectors:
+            raise _denied()
+        NativeWorldSourceAdmissionRequest.model_validate(await request.json())
+    elif await request.body() or (selectors and (
         len(selectors) != 1 or selectors[0][0] != "expected_revision"
     )):
         raise _denied()
