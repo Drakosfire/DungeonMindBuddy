@@ -255,7 +255,9 @@ def _preparation_record(record):
 
 @router.get('/preparations/list')
 def image_preparations(request: Request, response: Response, world_id: str, conversation_id: UUID):
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     response.headers['Cache-Control'] = 'no-store'
     try:
         return {'items': [_preparation_record(record) for record in BuildImageService().list(world_id, conversation_id, principal.subject)]}

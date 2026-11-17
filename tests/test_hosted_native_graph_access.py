@@ -277,6 +277,9 @@ def hosted(monkeypatch, request):
         "/api/live/agent/worlds/{world_id}/build-proposals",
         agent_routes.list_build_document_proposals, methods=["GET"],
     )
+    from apps.live_control_server.routes.media_images import image_preparations
+
+    app.add_api_route("/api/live/media/images/preparations/list", image_preparations, methods=["GET"])
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -338,6 +341,7 @@ def hosted(monkeypatch, request):
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): access.resolve_hosted_play_table_roll,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
+            ("GET", "/api/live/media/images/preparations/list"): access.resolve_hosted_image_history,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
@@ -2840,3 +2844,25 @@ def test_hosted_variant_review_requires_world_owner_and_write_origin(hosted, mon
         service, "managed", conversation_id, turn_id,
         conversation_variant_save.ConfirmConversationVariant(review_id=review_id),
     )
+
+
+def test_hosted_image_history_passes_exact_owner(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import media_images
+
+    service = Mock()
+    service.list.return_value = []
+    monkeypatch.setattr(media_images, "BuildImageService", lambda: service)
+    conversation_id = uuid4()
+    path = f"/api/live/media/images/preparations/list?world_id=managed&conversation_id={conversation_id}"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    service.list.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.json() == {"items": []}
+    assert response.headers["cache-control"] == "no-store"
+    world, conversation, subject = service.list.call_args.args
+    assert (world, conversation) == ("managed", conversation_id)
+    assert subject.startswith("hosted_dms:")
