@@ -351,5 +351,8 @@ def test_variant_writer_visible_reply_preserves_retained_edits_schema(monkeypatc
             edit = variant["properties"][field]["items"]
             assert list(edit["properties"]) == ["authored_quotes", "rule"]
             assert edit["properties"]["authored_quotes"].get("maxItems") == (None if has_draft else 0)
-            variant["properties"][field]["items"] = edit["properties"]["rule"]
+            rule = edit["properties"]["rule"]
+            assert "action → action" in edit["description"]
+            assert "special only with trait or regional_effect" in edit["description"]
+            variant["properties"][field]["items"] = rule
         assert witnessed["schema"] == native_output_format(evidence, rules(), witness_work, build_local=True, format_version=5)["schema"]

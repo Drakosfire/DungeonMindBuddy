@@ -322,6 +322,14 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                 if "working_draft_context" not in work_frame:
                     witnesses["maxItems"] = 0
                 mechanics = _object({"authored_quotes": witnesses, "rule": mechanics})
+                mechanics["description"] = (
+                    "Pair section and activation.kind as follows: action → action; "
+                    "bonus_action → bonus_action; reaction → reaction; "
+                    "legendary_action → legendary; lair_action → lair_initiative. "
+                    "Use passive, triggered, or special only with trait or regional_effect. "
+                    "A rule governed by an ongoing situation or a scene trigger does not "
+                    "consume a combat action unless its mechanics specify one."
+                )
             if format_version >= 4:
                 properties.update({
                     "add_rules": {"type": "array", "items": mechanics},
