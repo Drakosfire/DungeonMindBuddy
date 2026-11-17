@@ -318,7 +318,7 @@ class PlanJevDriver:
         self._read_new_sources(operations)
 
     def _prior_bound_statblock(self):
-        from application_state.agent_conversation.authored_graph_references import object_selections
+        from application_state.agent_conversation.authored_graph_references import native_references, object_selections
         from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
 
         adapter = self.adapter
@@ -326,21 +326,30 @@ class PlanJevDriver:
         if turn.sequence <= 1:
             return ()
         prior = adapter.service.list_turns(
-            self.statblock_world, turn.conversation_id, limit=1, before_sequence=turn.sequence,
+            self.statblock_world, turn.conversation_id, limit=12, before_sequence=turn.sequence,
         )
-        if not prior or not isinstance(prior[0], t.Turn) or prior[0].status != "completed":
-            return ()
-        previous = prior[0]
-        receipt = previous.graph_context_receipt
-        if (not isinstance(receipt, t.SurfaceNativeContextReceiptV1)
-                or receipt.work_context.surface_id != "build"
-                or receipt.work_context.source_basis != turn.graph_context_receipt.work_context.source_basis
-                or previous.graph_context_execution is None):
-            return ()
-        events = previous.graph_context_execution.events
-        reads = [event for event in events if isinstance(event, BuildSavedStatblockReadV1)]
-        captures = [event for event in events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
-        if len(reads) != 1 or len(captures) > 1:
+        for previous in reversed(prior):
+            if not isinstance(previous, t.Turn) or previous.status != "completed":
+                return ()
+            receipt = previous.graph_context_receipt
+            if (not isinstance(receipt, t.SurfaceNativeContextReceiptV1)
+                    or receipt.work_context.surface_id != "build"
+                    or receipt.work_context.source_basis != turn.graph_context_receipt.work_context.source_basis
+                    or previous.graph_context_execution is None):
+                return ()
+            events = previous.graph_context_execution.events
+            reads = [event for event in events if isinstance(event, BuildSavedStatblockReadV1)]
+            captures = [event for event in events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
+            if reads:
+                if len(reads) != 1 or len(captures) > 1:
+                    return ()
+                break
+            if captures or native_references(previous.graph_context_execution) is not None or not any(
+                isinstance(event, t.BuildRequestedWorkResolutionV1) and event.requested_work == "discuss"
+                for event in events
+            ):
+                return ()
+        else:
             return ()
         read = reads[0]
         reference = self._published_statblock_reference(read.draft_id, read.locator)
