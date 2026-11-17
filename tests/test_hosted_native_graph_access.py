@@ -305,6 +305,12 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes import conversation_work_plans
 
     app.include_router(conversation_work_plans.router)
+    from apps.live_control_server.routes.live import get_plan_action_terminal_diagnostic
+
+    app.add_api_route(
+        "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic",
+        get_plan_action_terminal_diagnostic, methods=["GET"],
+    )
     from apps.live_control_server.routes import native_source_inspection
 
     app.include_router(native_source_inspection.router)
@@ -396,6 +402,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/retry-attempts"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
@@ -3067,3 +3074,23 @@ def test_hosted_saved_work_plan_reads_exact_turn(hosted, monkeypatch):
     response = hosted.client.request("GET", path)
     assert response.status_code == 200, response.text
     read.assert_called_once_with("managed", conversation, turn)
+
+
+def test_hosted_plan_terminal_diagnostic_reads_owned_action(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import live
+    from apps.live_control_server.services import plan_action_terminal_diagnostic
+
+    read = Mock(return_value={"availability": "unavailable"})
+    monkeypatch.setattr(plan_action_terminal_diagnostic, "terminal_diagnostic", read)
+    monkeypatch.setattr(live, "get_world_container", lambda world: world)
+    action = uuid4()
+    path = f"/api/live/world-plan-edit/actions/{action}/terminal-diagnostic?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    read.assert_called_once_with("managed", action)

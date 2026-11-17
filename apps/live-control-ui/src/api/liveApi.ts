@@ -427,6 +427,11 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  const terminalDiagnostic = /^\/api\/live\/world-plan-edit\/actions\/[0-9a-f-]+\/terminal-diagnostic\?([^#]+)$/.exec(path);
+  if (terminalDiagnostic) {
+    const query = new URLSearchParams(terminalDiagnostic[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
   if (path.startsWith("/api/live/agent/readiness?")) {
     const query = new URLSearchParams(path.slice(path.indexOf("?") + 1));
     const surface = query.get("surface");
