@@ -132,3 +132,52 @@ and their contribution, repeated reads, citation reopening, elapsed time,
 and model tokens. Score conversational fit and artifact quality separately.
 An unsolicited proposal fails the discussion boundary even if dismissed.
 Correct final mechanics cannot compensate for failures in earlier turns.
+
+## Hill-climb goal
+
+Make Buddy an effective brainstorming partner from the first brief acknowledgment
+through a reviewed, playable statblock. On every turn, recognize what the GM
+is asking for now, carry forward the relevant material, and take only the
+action that turn warrants.
+
+1. **Freeze the baseline.** Preserve the two observed traces and answers, the
+   six-turn Gold, the exact Edge and Meat Mind revisions, and the paired AW09
+   explicit-write control. Record missing prompt bodies or receipts as unknown.
+   Use ordinary Buddy turns and the existing harness in isolated state. Keep
+   Gold out of product inputs and primary data unchanged.
+2. **Fix the opening decision.** Replay turns 1 and 2 through the ordinary
+   decision boundary. Explicit brainstorming and premise-building select
+   discussion. The paired drafting and write requests still select their
+   intended work. Verify an unsolicited proposal fails even if dismissed.
+3. **Fix reference use and carryover.** Resolve the current page and explicit
+   statblock before broad discovery. On continuation, reuse verified revisions
+   and reopen only when the request requires it or the binding is stale. Every
+   additional read must answer a specific material gap. Retain citation and
+   revision checks. Compare against the 41 and 56 completed-read baselines.
+4. **Tune the writer separately.** Replay the frozen writer contexts to compare
+   one bounded change at a time. The opener acknowledges the idea and confirms
+   resolved sources. The follow-up develops the negotiation tension without
+   treating the GM's premise as a missing source claim. Avoid unrelated
+   executor warnings and unnecessary Graph labels. Score how well each reply
+   serves the immediate request as well as grounding and citation resolution.
+5. **Prove the full arc.** Run all six turns on one build. Preserve the GM's
+   choice and unresolved lore. Draft the complete playable statblock in chat
+   on request, then verify one explicitly approved save, the Edge link, and
+   exact-revision Combat admission. Build missing capabilities at their owning
+   boundary in independently reviewable slices. Reuse the ordinary harness.
+
+**Acceptance.** Turns 1–4 stay in chat and issue zero page proposals or
+committed writes. For turns 1 and 2, require both bound references to remain
+available, zero repeated corpus reads without a recorded need, and a
+substantial latency reduction versus 386.27s and 413.25s. Use 30s per discussion
+turn as the initial wall-clock target and report controller time, writer time,
+read counts, input/output tokens, and cost separately. Run the same observed
+turns and one generic control for each intent boundary. Record thresholds
+before candidates run and keep failed results. Turns 5–6 pass only on a
+source-faithful, usable draft and verified saved revision, link, and Combat
+readback after approval. A manual bridge can qualify a component, with the
+ordinary joined boundary still open.
+
+**Done when** the ordinary six-turn rehearsal passes in isolation, the paired
+explicit-write control still passes, and the benchmark report identifies
+exactly what improved, what was shipped, and any remaining limitations.
