@@ -181,3 +181,23 @@ ordinary joined boundary still open.
 **Done when** the ordinary six-turn rehearsal passes in isolation, the paired
 explicit-write control still passes, and the benchmark report identifies
 exactly what improved, what was shipped, and any remaining limitations.
+
+### Initial opening-decision experiment
+
+The first controlled comparison used the ordinary Build choice request shape
+captured from a mounted synthetic fixture. It replaced the dialogue, page and
+attachment labels with invented material, kept the choice set fixed, and
+compared the current instructions with one candidate that clarifies how
+exploratory turns relate to future artifacts. Each arm used one Jev 1.14.0
+call per case. No writer or retrieval ran.
+
+| Synthetic control | Baseline | Candidate | Expected |
+| --- | --- | --- | --- |
+| Brainstorm a named statblock variant | change_mechanics | discuss | discuss |
+| Add an NPC premise in the same conversation | discuss | discuss | discuss |
+| Request a Markdown preview in chat | discuss | discuss | discuss |
+| Explicitly request saving a new revision | change_mechanics | change_mechanics | change_mechanics |
+
+This is classifier-only evidence from invented analogues. It leaves the two
+observed turns, save capability, and end-to-end latency open. The next
+comparison needs the observed opening context and the exact revision bindings.
