@@ -16,7 +16,8 @@ from apps.live_control_server.services.threat_query_hydration import (
     ThreatQueryHydrationError,
     query_threats_with_hydration,
 )
-from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+from apps.live_control_server.services import hosted_auth
+from apps.live_control_server.services.hosted_native_graph_access import require_threat_hydration_access
 
 
 router = APIRouter(prefix="/api/live/threats", tags=["threat-query-hydration"])
@@ -26,7 +27,7 @@ router = APIRouter(prefix="/api/live/threats", tags=["threat-query-hydration"])
 def post_threat_query_hydration(
     body: ThreatQueryHydrationRequestV1, request: Request
 ) -> JSONResponse:
-    enforce_native_graph_gm(request)
+    require_threat_hydration_access(request, body)
     root = world_graph_root()
     try:
         response = query_threats_with_hydration(body, root=root)
@@ -43,7 +44,8 @@ def post_threat_query_hydration(
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
 
-
+    if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        require_threat_hydration_access(request, body)
     return JSONResponse(
         status_code=200,
         content=response.model_dump(mode="json", by_alias=True),

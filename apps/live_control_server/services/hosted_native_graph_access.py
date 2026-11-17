@@ -50,7 +50,11 @@ WORLD_LOOKUP_PATH = f"{WORLD_COLLECTION_PATH}/lookup"
 BUILD_PDF_SOURCES_PATH = hosted_auth.BUILD_PDF_SOURCES_PATH
 BUILD_PAGE_INVENTORY_PATH = "/api/live/workspace-documents/pages/inventory"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
+from apps.live_control_server.models.threat_query_hydration import ThreatQueryHydrationRequestV1
+
+
 _REQUESTS = {
+    "/api/live/threats/query-hydration": TypeAdapter(ThreatQueryHydrationRequestV1),
     "/api/live/native-graph-inspection/authoring-identities": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-source-inspection/published-recap": TypeAdapter(PublishedRecapRead),
     "/api/live/native-source-inspection/published-recap/objects": TypeAdapter(PublishedRecapObjectsRead),
@@ -137,7 +141,11 @@ async def resolve_hosted_explorer_world(request: Request) -> str:
         if body.read.selection.kind != "source":
             raise _denied()
         body = body.read
-    if isinstance(body, NativeCompleteObjectRead):
+    if isinstance(body, ThreatQueryHydrationRequestV1):
+        if body.scope_mode != "world":
+            raise _denied()
+        managed_world_id = body.world_id
+    elif isinstance(body, NativeCompleteObjectRead):
         pin, selector = body.scope, body.request
         if (
             pin is None or pin.scope_mode != "world" or selector.scope_mode != "world"
@@ -157,6 +165,16 @@ async def resolve_hosted_explorer_world(request: Request) -> str:
     world = _owned_world(subject, managed_world_id)
     request.state.hosted_native_graph_world = world.world_id
     return world.world_id
+
+
+def require_threat_hydration_access(request: Request, body: ThreatQueryHydrationRequestV1) -> None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+        return
+    if body.scope_mode != "world" or getattr(request.state, "hosted_native_graph_world", None) != body.world_id:
+        raise _denied()
+    hosted_auth.require_hosted_write_origin(request)
+    _owned_world(_hosted_subject(request), body.world_id)
 
 
 async def native_graph_explorer_dependency(request: Request) -> NativeGraphPrincipal:

@@ -356,6 +356,9 @@ def hosted(monkeypatch, request):
     app.include_router(combat_run_encounters.router)
     app.include_router(combat_scene_templates.router)
     app.include_router(combat_encounters.router)
+    from apps.live_control_server.routes import threat_query_hydration
+
+    app.include_router(threat_query_hydration.router)
     app.include_router(threat_drafts.router)
     app.include_router(world_mechanics_associations.router)
     app.include_router(play_runs.router)
@@ -404,6 +407,7 @@ def hosted(monkeypatch, request):
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/complete-object"): access.resolve_hosted_explorer_world,
+            ("POST", "/api/live/threats/query-hydration"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-source-inspection/published-recap"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-source-inspection/published-recap/objects"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/recap-page"): access.resolve_hosted_explorer_world,
@@ -4618,3 +4622,28 @@ def test_hosted_build_recap_recovery_requires_owned_document(hosted, monkeypatch
     monkeypatch.setattr(graph_preview, "get_extraction_run_build_context",
                         lambda run_id: {"document_id": request_id, "run_id": run_id})
     assert hosted.client.request("GET", valid_path).status_code == 409
+
+
+def test_hosted_threat_hydration_requires_exact_owned_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import threat_query_hydration
+
+    calls = []
+
+    def hydrate(body, *, root):
+        calls.append((body.world_id, body.revision_pin))
+        return SimpleNamespace(model_dump=lambda **_: {"worldId": body.world_id})
+
+    monkeypatch.setattr(threat_query_hydration, "query_threats_with_hydration", hydrate)
+    path = "/api/live/threats/query-hydration"
+    body = {"worldId": "managed", "scopeMode": "world", "campaignId": None,
+            "revisionPin": "rev:exact", "queryText": "Threat"}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "worldId": "foreign"}).status_code == 403
+    assert hosted.client.request("POST", path, json={
+        **body, "scopeMode": "campaign", "campaignId": "campaign",
+    }).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 200, result.text
+    assert result.json() == {"worldId": "managed"}
+    assert calls == [("managed", "rev:exact")]
