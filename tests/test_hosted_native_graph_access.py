@@ -356,6 +356,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/retry-attempts"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace"): access.resolve_hosted_conversation_world,
@@ -2634,6 +2636,10 @@ def test_hosted_conversation_starts_and_reopens_in_exact_world(hosted, applicati
     response = hosted.client.request("POST", base + "/new", json=body)
     assert response.status_code == 200, response.text
     created = response.json()
+    conversation_path = f"{base}s/{created['conversation_id']}"
+    assert hosted.client.request("GET", conversation_path + "/name").status_code == 200
+    assert hosted.client.request("GET", conversation_path + "/name", session="other-session").status_code == 403
+    assert hosted.client.request("GET", conversation_path + f"/turns/{uuid4()}/retry-attempts").status_code == 404
     retry_context = f"{base}s/{created['conversation_id']}/retry-context"
     retry_query = f"?turn_ids={uuid4()}"
     assert hosted.client.request("GET", retry_context + retry_query, session="other-session").status_code == 403
