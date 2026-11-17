@@ -272,7 +272,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,ini
       <button type="button" disabled={!writer.recoverable||associationBusy||busy||!!pending||!!successorToOpen||!summary.trim()||validated!==fingerprintDefinition(editor.workingCopy)} onClick={()=>void save()}>Save new version</button>
       </div>
       {studioSource===studioKey&&<div className="saved-mechanics-portrait-studio" hidden={!showStudio}>
-        <DeferredMediaImageWizard key={studioKey!} selectionOnly requireSaved chooseLabel="Use as portrait"
+        <DeferredMediaImageWizard worldId={worldId} key={studioKey!} selectionOnly requireSaved chooseLabel="Use as portrait"
           initialPrompt={[`Portrait of ${editor.workingCopy.identity.name}.`,editor.workingCopy.flavor_text?.summary??editor.workingCopy.flavor_text?.description??''].filter(Boolean).join(' ')}
           onClose={()=>setStudioOpen(false)} onChoose={(image,_result,placement)=>{
             if(placement.signal.aborted)return;

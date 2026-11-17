@@ -8,16 +8,18 @@ export function PlaySessionImageStudio({
   identity,
   version,
   canEdit,
+  worldId,
   onClose,
 }: {
   editor: Editor;
   identity: string;
   version: string;
   canEdit: boolean;
+  worldId?: string;
   onClose: () => void;
 }) {
   const current = useRef<DocumentMediaState | null>(null);
   current.current = { editor, identity, version, canEdit };
   const bridge = useMemo(() => createDocumentMediaBridge(() => current.current), [identity]);
-  return <DocumentImageStudio bridge={bridge} targetLabel="session copy" onClose={onClose} />;
+  return <DocumentImageStudio worldId={worldId} bridge={bridge} targetLabel="session copy" onClose={onClose} />;
 }

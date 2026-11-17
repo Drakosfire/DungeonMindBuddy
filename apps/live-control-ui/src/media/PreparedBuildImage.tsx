@@ -76,7 +76,7 @@ export function PreparedBuildImage({record,bridge,active}: {record:PreparedImage
     {inserted ? <p role="status">Image inserted into your draft. Save the page when ready.</p>
       : <button type="button" disabled={!active || !bridge} onClick={()=>void showStudio()}>Open Image Studio</button>}
     {error&&<p role="alert">{error}</p>}
-    {open&&active&&<aside className="build-media-studio"><DeferredMediaImageWizard initialPrompt={prepared.prompt} initialPurpose={prepared.purpose??'illustration'} preparationId={prepared.action_id}
+    {open&&active&&<aside className="build-media-studio"><DeferredMediaImageWizard initialPrompt={prepared.prompt} initialPurpose={prepared.purpose??'illustration'} preparationId={prepared.action_id} worldId={prepared.reservation.basis.world_id}
       onClose={()=>{studioEpoch.current++;captured.current=null;setOpen(false);}} onChoose={(image,_result,placement)=>insert(image,placement)} /></aside>}
   </article>;
 }

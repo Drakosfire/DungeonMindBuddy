@@ -139,7 +139,7 @@ function BuildPresentableSourceView({
       </div>
     </section> : null}
     {mediaError&&<p role="alert">{mediaError}</p>}
-    {mediaOpen && <aside className="build-media-studio"><DeferredMediaImageWizard onClose={() => setMediaOpen(false)} onChoose={async(image,_result,placement)=>{
+    {mediaOpen && <aside className="build-media-studio"><DeferredMediaImageWizard worldId={mediaCapture.current?.basis.world_id} onClose={() => setMediaOpen(false)} onChoose={async(image,_result,placement)=>{
       const origin=mediaCapture.current;
       if (!origin || !['staged','ready'].includes(image.state) || !composeBridge.pickInsertion) throw new Error('Open a retained image and an editable page first.');
       const target=await composeBridge.pickInsertion({...placement,assetId:image.asset_id});

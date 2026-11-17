@@ -391,6 +391,9 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/media/images/preparations/list"): access.resolve_hosted_image_history,
             ("GET", "/api/live/media/images/preparations/{action_id}"): access.resolve_hosted_image_preparation,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
+            ("GET", "/api/live/media/images/{asset_id}"): access.resolve_hosted_saved_artwork,
+            ("GET", "/api/live/media/images/library"): access.resolve_hosted_media_library,
+            ("GET", "/api/live/media/images/capabilities"): access.resolve_hosted_image_preparation,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
@@ -2163,6 +2166,20 @@ def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn):
     payload = image.getvalue()
     asset = media.stage_image(payload, access.hosted_world_media_owner(world_id), {})
     path = f"/api/live/media/images/{asset['asset_id']}"
+    media.stage_image(payload, access.hosted_world_media_owner("foreign"), {})
+    library_path = f"/api/live/media/images/library?world_id={world_id}"
+    library = hosted.client.request("GET", library_path)
+    assert library.status_code == 200, library.text
+    assert [str(asset["asset_id"])] == [item["asset_id"] for item in library.json()["items"]]
+    assert hosted.client.request("GET", library_path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", library_path + "&world_id=foreign").status_code == 403
+    capabilities = hosted.client.request("GET", f"/api/live/media/images/capabilities?world_id={world_id}")
+    assert capabilities.status_code == 200, capabilities.text
+    assert capabilities.json()["library_ready"] is True
+    preview = hosted.client.request("GET", path)
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["data_url"].startswith("data:image/png;base64,")
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
     metadata = hosted.client.request("GET", f"{path}/metadata")
     assert metadata.status_code == 200, metadata.text
     assert metadata.json()["asset_id"] == str(asset["asset_id"])

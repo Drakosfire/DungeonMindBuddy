@@ -441,6 +441,21 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && ["build", "plan", "play"].includes(surface ?? "")
       && ["true", "false"].includes(worldGraph ?? "") && query.size === 3;
   }
+  const imageCapabilities = /^\/api\/live\/media\/images\/capabilities\?([^#]+)$/.exec(path);
+  if (imageCapabilities) {
+    const query = new URLSearchParams(imageCapabilities[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
+  const imageLibrary = /^\/api\/live\/media\/images\/library\?([^#]+)$/.exec(path);
+  if (imageLibrary) {
+    const query = new URLSearchParams(imageLibrary[1]);
+    const keys = query.size === 1 ? ["world_id"] : ["world_id", "before_time", "before_id"];
+    return method === "GET" && init?.body == null && query.size === keys.length
+      && keys.every(key => query.getAll(key).length === 1 && Boolean(query.get(key)));
+  }
+  if (/^\/api\/live\/media\/images\/[0-9a-f-]+$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
   const imagePreparation = /^\/api\/live\/media\/images\/preparations\/[0-9a-f-]+\?([^#]+)$/.exec(path);
   if (imagePreparation) {
     const query = new URLSearchParams(imagePreparation[1]);
