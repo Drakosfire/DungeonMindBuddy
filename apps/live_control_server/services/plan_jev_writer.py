@@ -362,6 +362,7 @@ class PlanJevWriter:
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
         single_variant_base = self.shared and variant_format and len(variant_sources(self.work_frame)) == 1
+        self.reasoning_effort = "medium" if single_variant_base else "low"
         if task is not None:
             from application_state.agent_conversation.response_prompt import compose_response_prompt
             prompt = compose_response_prompt(
@@ -448,7 +449,7 @@ class PlanJevWriter:
         from application_state.agent_conversation.native_writer import output_request_fields
         expected = {'model': self.model, 'input': self.messages, 'instructions': self.instructions,
             **output_request_fields(self.output_reserve), 'text': {'format': self.output_format},
-            'tools': [], 'stream': False, 'reasoning': {'effort': 'low'}, 'service_tier': 'fast'}
+            'tools': [], 'stream': False, 'reasoning': {'effort': self.reasoning_effort}, 'service_tier': 'fast'}
         if strict_json(prepared.body.decode()) != expected:
             raise ValueError('Plan writer actual request differs from staged evidence/instructions')
         projection = self.projection
@@ -575,7 +576,7 @@ class PlanJevWriter:
             usage['uncached_input_tokens'] = observation.input_tokens - observation.cached_input_tokens
         if all(v is not None for v in counts.values()): usage['total_tokens']=sum(counts.values())
         self.call.update(status=status,response_model=observation.response_model,usage=usage,
-            request_summary={'reasoning_effort': 'low'})
+            request_summary={'reasoning_effort': self.reasoning_effort})
 
     async def run(self, *, transport=None, api_key=None):
         from generationengine import GenerationClient, TextRequest
@@ -591,7 +592,7 @@ class PlanJevWriter:
         try:
             result = await client.generate_structured(TextRequest(provider='openai',model=self.model,
                 user_prompt=json.dumps(self.messages,ensure_ascii=False),system_prompt=self.instructions,
-                temperature=None,reasoning_effort='low',max_output_tokens=self.output_reserve or None,
+                temperature=None,reasoning_effort=self.reasoning_effort,max_output_tokens=self.output_reserve or None,
                 json_schema=self.output_format['schema'],schema_name=self.output_format['name'],
                 max_conformance_retries=0,max_transport_retries=0))
             self.observe(result.observation,status='ok')
