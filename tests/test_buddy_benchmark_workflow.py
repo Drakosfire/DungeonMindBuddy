@@ -705,6 +705,39 @@ def writer_replay(retained,monkeypatch):
         ledger_path=ledger_path,trace=trace,identity=identity,source=source,case=case)
 
 
+@pytest.mark.parametrize("matching_authorization", [True, False])
+def test_writer_replay_accepts_only_matching_build_authorization(writer_replay, matching_authorization):
+    replay = writer_replay
+    request_path = replay.root / "request.json"
+    request = json.loads(request_path.read_text())
+    request["surface"]["surface_id"] = "build"
+    put(request_path, request)
+    for name in ("history-after", "answer-http"):
+        path = replay.root / (name + ".json")
+        wrapped = json.loads(path.read_text())
+        owner = wrapped["body"]["turns"][0] if name == "history-after" else wrapped["body"]
+        if name == "history-after":
+            from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
+
+            owner["idempotency_key"] = str(_turn_idempotency_key(
+                wrapped["body"]["world_id"], request["turn_id"]))
+        owner["knowledge_context"] = owner.pop("plan_context")
+        put(path, wrapped)
+    ledger = deepcopy(replay.ledger)
+    if matching_authorization:
+        ledger["graph_context_execution"]["events"][0]["kind"] = "native_build_writer_authorized_v2"
+    case = replay.document["cases"][0] | {"ledger": put(replay.ledger_path, ledger)}
+    summary = w.report_case(replay.case, replay.root)
+    assert summary["delivery"]["status"] == "pass"
+    if matching_authorization:
+        packet, _, binding = w._writer_replay_request(case, replay.case, replay.root, summary, case_base=replay.root)
+        assert packet == replay.packet
+        assert binding["writer_attempt_id"] == replay.identity
+    else:
+        with pytest.raises(ValueError, match="different surface"):
+            w._writer_replay_request(case, replay.case, replay.root, summary, case_base=replay.root)
+
+
 def _writer_response(request,*,status='completed',text='{"answer":"Supported."}',refusal=False):
     import httpx
     return httpx.Response(200,request=request,json=dict(id='response-fixture',object='response',created_at=1,

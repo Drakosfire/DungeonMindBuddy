@@ -564,8 +564,14 @@ def _writer_replay_request(case, source, source_base, summary, *, case_base):
         raise ValueError("Replay requires the same completed ordinary question")
     directory = Path(source["capture_dir"])
     directory = directory if directory.is_absolute() else source_base / directory
-    if json.loads((directory / "request.json").read_text())["surface"].get("surface_id") != "plan":
-        raise ValueError("Replay currently supports retained ordinary Plan writers only")
+    surface = json.loads((directory / "request.json").read_text())["surface"].get("surface_id")
+    replay_contracts = {
+        "plan": ("plan_context", "native_writer_authorized_v1"),
+        "build": ("knowledge_context", "native_build_writer_authorized_v2"),
+    }
+    if surface not in replay_contracts:
+        raise ValueError("Replay requires a supported retained ordinary writer")
+    context_key, writer_kind = replay_contracts[surface]
     trace = _wrapped(directory / "context-trace.json")["body"]
     history = _wrapped(directory / "history-after.json")["body"]
     witnesses = [(attempt, event) for attempt in trace["attempts"] for event in attempt["observations"]
@@ -594,10 +600,12 @@ def _writer_replay_request(case, source, source_base, summary, *, case_base):
             or len(writers) != 1 or len(completions) != 1 or frame is None):
         raise ValueError("Replay requires its completed native writer binding")
     writer = writers[0]
+    if writer["kind"] != writer_kind:
+        raise ValueError("Replay writer authorization belongs to a different surface")
     turn = next(t for t in history["turns"] if t["turn_id"] == ledger["turn_id"])
-    completion = turn["plan_context"]["completion"]
-    receipt = turn["plan_context"]["receipt"]
-    delivered_context = _wrapped(directory / "answer-http.json")["body"].get("plan_context")
+    completion = turn[context_key]["completion"]
+    receipt = turn[context_key]["receipt"]
+    delivered_context = _wrapped(directory / "answer-http.json")["body"].get(context_key)
     if ((writer["provider_attempt_id"], writer["provider"], writer["api_mode"], writer["serializer_version"])
             != (identity, "openai", "responses", "openai-sdk-json-v1")
             or ledger["attempt"] != trace_attempt["attempt"]
