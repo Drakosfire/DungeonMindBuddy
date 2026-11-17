@@ -428,6 +428,19 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  const playableCollection = /^\/api\/live\/workspace-documents\/world-plans(?:\?|$)/.exec(path);
+  if (playableCollection) {
+    const prefix = playableCollection[0];
+    if (prefix.endsWith("?")) {
+      const worldId = new URLSearchParams(path.slice(prefix.length)).get("world_id");
+      return method === "GET" && init?.body == null && !!worldId
+        && path === prefix + new URLSearchParams({ world_id: worldId });
+    }
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body?.schema_version === "dmb_workspace_document_create_v2"
+      && body.scope_mode === "world" && typeof body.world_id === "string"
+      && Boolean(body.world_id) && typeof body.title === "string";
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);
@@ -615,7 +628,8 @@ function apiRequestTarget(
   const pageUrl = typeof window === "undefined" ? undefined : window.location.href;
   let normalizedPath = path;
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
-  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath);
+  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
+    || normalizedPath === "/api/live/workspace-documents/world-plans";
   if (isLoopbackApiDestination(url)) return { url, localGraphRequest, hostedGraphRequest: false };
   if (localGraphRequest || graphSurface) {
     // Exact relative paths only: explicit API bases, URL credentials, queries,
