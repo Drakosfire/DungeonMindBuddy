@@ -104,7 +104,7 @@ merchant, and tavern details within reach without forcing a town tour.
 
 | Open | What the GM needs | Jump to |
 | --- | --- | --- |
-| The Shacks and Nar | Lodging and gathering place. Nar can become an ally through goodwill, persuasion, or an appeal to her faith. | [4](#4--the-village-runs-out-of-patience) for wounded villagers, [5](#5--celebration-at-the-shacks) for celebration, [10](#10--the-child-and-the-helix) for care of the child. |
+| The Shacks and Narfi | Lodging and gathering place. Narfi can become an ally through goodwill, persuasion, or an appeal to her faith. | [4](#4--the-village-runs-out-of-patience) for wounded villagers, [5](#5--celebration-at-the-shacks) for celebration, [10](#10--the-child-and-the-helix) for care of the child. |
 | Morwin Blackwell | Runs the village store, sells basic gear and hemp, and is sour about Saladin's arrival. | Rough stones or **Improvise NPC** if the party escalates. |
 | Saladin's wagon | Trading and unusual wares, including the statue. | [10](#10--the-child-and-the-helix) if the party asks him to care for the child. |
 | Village diversions | Broken distillery repair, inspection of Morwin's rough stones, or the Shacks competition. | Return to the party's actual scene when finished. |
@@ -115,7 +115,7 @@ mechanics the GM can review, edit, and explicitly save, then let Combat load
 that exact revision. Treat invented mechanics as authored prep. In Play,
 return to the interrupted card and keep the encounter outcome in the run.
 
-Source: C06, C18–C23, C25. Printed pp. 7–11 and 12–13.
+Source: C06, C18–C23. Printed pp. 7–11 and 12–13.
 The improvisation is a benchmark action rather than module content.
 
 ## 3 · Jove home and the surface tree
@@ -139,7 +139,7 @@ homes. Villagers may try to fell it and get hurt.
 
 - Show the new danger to the Jove home and neighbors. At this stage,
   using fire risks igniting surrounding homes.
-- If the villagers attack, offer aid to the wounded and Nar's help.
+- If the villagers attack, offer aid to the wounded and Narfi's help.
 - Return to [3](#3--jove-home-and-the-surface-tree) when the party intervenes. Keep elapsed fictional time
   distinct from time spent browsing the deck.
 
@@ -208,7 +208,7 @@ Source: C13–C14, C24. Printed pp. 15–17.
 **At a glance.** Two independent decisions share this space. The party may
 free the child and may also choose how much metal resin to harvest.
 
-- **Child:** leave it, free it, or decide its care. Nar or Saladin can help.
+- **Child:** leave it, free it, or decide its care. Narfi or Saladin can help.
   A freed child needs metal and learns from those who raise it.
 - **Resin:** keep the safe amount and the warning about further damage
   visible together. Destroying the helix for additional resin can collapse
@@ -247,7 +247,7 @@ Source: C17. Printed p. 16.
    the selected outcomes. Publish the reviewed recap and use a fresh
    session to verify a cited departure from the Plan.
 
-Score coverage using C01–C25. Score table use separately by whether the GM
+Score coverage using C01–C24. Track C25 separately as an unqualified source witness. Score table use separately by whether the GM
 can find usable cues for the detour, preserve causal triggers, open exact
 references, and resume after interruption. An unavailable action is a
 capability gap. Record any manual bridge.

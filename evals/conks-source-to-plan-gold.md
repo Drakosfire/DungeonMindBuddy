@@ -62,8 +62,8 @@ statblock regions with the associated source block.
 | C02 | Core beat | 10, Area 4 | The tree threatens the Jove home. Mark and Torbin provide local context about the seed and its origin. |
 | C03 | Core choice | 11, Area 5 | Inspect and choose how to confront the tree. Preserve its proximity threat, encounter reference, and transition after the surface tree is destroyed. |
 | C04 | Core trigger | 13, Growth Spurt | Delay can trigger growth and damage to the Jove home and two neighbors. Fire at this stage can spread to surrounding houses. |
-| C05 | Core trigger | 13, Mount the Attack | Villagers may attack and be injured. They can ask for help carrying the wounded to Nar. |
-| C06 | Optional scene | 13, Nar's assistance | The party can seek Nar's help through persuasion, shared faith, or goodwill earned earlier. |
+| C05 | Core trigger | 13, Mount the Attack | Villagers may attack and be injured. They can ask for help carrying the wounded to Narfi. |
+| C06 | Optional scene | 13, Narfi's assistance | The party can seek Narfi's help through persuasion, shared faith, or goodwill earned earlier. |
 | C07 | Core branch | 14, A Premature Celebration | If the tree is destroyed without the village burning, villagers celebrate at the Shacks. |
 | C08 | Core branch | 14, Hempholm Caught Fire? | A village fire means firefighting or departure. Failed exertion can cause exhaustion. Homes can be lost and survivors relocate temporarily. |
 | C09 | Optional scene | 14, celebration subsections | Children may ask to reenact the fight with the party's weapons. Drinking and dispersed PCs are optional conditions. |
@@ -71,18 +71,18 @@ statblock regions with the associated source block.
 | C11 | Core encounter | 14, Rampage of the Caretakers | Caretakers attack villagers and structures in groups, avoid fire, and withdraw after time or sufficient losses. Link their twig blight mechanics. |
 | C12 | Core beat | 15, Down Into the Rabbit Hole | Openings lead into the root network. Hidden caretakers signal the guardian and retreat into inaccessible corridors when attacked. |
 | C13 | Core encounter | 15, The Marrow | Guardian and two caretakers attack at the root network's hub. Link the guardian statblock. |
-| C14 | Core reveal and choice | 15–16, The Marrow and The Fate of the Child | Discover the child in a cocoon protected by a helix. The party can leave it or cut it free and decide its care. Nar or Saladin can help. |
+| C14 | Core reveal and choice | 15–16, The Marrow and The Fate of the Child | Discover the child in a cocoon protected by a helix. The party can leave it or cut it free and decide its care. Narfi or Saladin can help. |
 | C15 | Core choice and consequence | 16, The Marrow continuation | A limited resin harvest is safe. Destroying the helix for more can bring down the roots and Hempholm, with an escape check. Keep this distinct from the choice about the child. |
 | C16 | Core consequence | 16, The Fate of the Child and Hempholm's Gratitude | A freed child needs metal and learns from its caretakers. The villagers' response and the party's reputation depend on what happened. |
 | C17 | Optional continuation | 16, An Agent of the Mages' Guild | Paelias Sian investigates, pays for silence, and seeks to erase evidence including the offspring. |
-| C18 | Reference | 7–8, Area 1 | The Shacks and Nar are independently accessible. Reuse the location for the celebration. |
+| C18 | Reference | 7–8, Area 1 | The Shacks and Narfi are independently accessible. Reuse the location for the celebration. |
 | C19 | Optional scene | 9, Area 2 | Morwin Blackwell's store, goods, and reaction to Saladin support an unplanned visit. |
 | C20 | Optional scene | 9–10, Area 3 | Saladin's wagon, trading, and the statue can be used during exploration. |
 | C21 | Optional scene | 12, A Broken Distillery | Repair the distillery as an optional skill interaction. |
 | C22 | Optional scene | 12, Diamonds In the Rough | Investigate Morwin's rough stones as an optional trade interaction. |
 | C23 | Optional scene | 12, Competition in the Shacks | Run the tavern competition as optional roleplay. |
 | C24 | Reference | 17, Appendix A | Open exact Grotesque Tree and Guardian statblock regions from their encounters. |
-| C25 | Reference | 11, Fig. 1 | Open the exact Shacks illustration. Keep it distinct from a playable map and from any generated map geometry. |
+| C25 | Unqualified reference | 9, Fig. 1 caption | The pinned PDF shows the caption but no usable illustration at that locator. Track separately and exclude from scored coverage until a usable source image is verified. |
 
 See the [GM card Gold](conks-gm-card-gold.md) for a playable grouping and
 out-of-order rehearsal.
