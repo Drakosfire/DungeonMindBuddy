@@ -750,3 +750,22 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
     except Exception:
         raise _unavailable() from None
     return WorldContainersListResponse(records=permitted).model_dump(mode="json")
+
+
+async def resolve_hosted_recap_correction(request: Request) -> str:
+    from apps.live_control_server.services.exact_run_candidate_projection import (
+        CandidateProjectionError, build_exact_run_candidate_projection,
+    )
+    from apps.live_control_server.config import repo_root
+
+    world_id = request.query_params.get("managed_world_id")
+    run_id = getattr(request.state, "hosted_route_run_id", None)
+    if not world_id or not run_id or request.query_params.multi_items() != [("managed_world_id", world_id)]:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    try:
+        await run_in_threadpool(build_exact_run_candidate_projection, repo_root(), run_id, world.world_id)
+    except CandidateProjectionError:
+        raise _denied() from None
+    request.state.hosted_saved_recap_world = world.world_id
+    return world.world_id

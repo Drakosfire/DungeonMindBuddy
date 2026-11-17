@@ -283,6 +283,12 @@ def post_recap_evidence_corrections(
     return response.model_dump(mode="json", by_alias=True)
 
 
+def recap_candidate_correction_access(request: Request, managed_world_id: str | None = None) -> None:
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+
+    require_saved_recap_access(request, managed_world_id or "")
+
+
 @router.post(
     "/runs/{run_id}/recap-candidate-corrections",
     response_model=(
@@ -303,11 +309,14 @@ def post_recap_candidate_corrections(
     request_context: Request,
     run_id: str,
     request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9 | RecapCandidateCorrectionRequestV10 | RecapCandidateCorrectionRequestV11,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    _access: None = Depends(recap_candidate_correction_access),
 ) -> dict[str, Any] | JSONResponse:
     """GM-only bounded semantic candidate child; no World publication."""
+    from apps.live_control_server.services import hosted_auth
+
     try:
-        _reject_selector_query(request_context)
+        if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+            _reject_selector_query(request_context)
         if run_id != request.parent_run_id:
             raise ExtractPromoteError(
                 "path run ID does not match parentRunId",

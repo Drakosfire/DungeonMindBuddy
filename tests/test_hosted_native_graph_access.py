@@ -333,6 +333,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
+            ("POST", "/api/live/extract-promote/runs/{run_id}/recap-candidate-corrections"): access.resolve_hosted_recap_correction,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
@@ -2886,3 +2887,26 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_recap_candidate_correction_checks_world_and_parent(hosted, monkeypatch):
+    from apps.live_control_server.routes import extract_promote
+    from apps.live_control_server.services import exact_run_candidate_projection
+
+    monkeypatch.setattr(exact_run_candidate_projection, "build_exact_run_candidate_projection", lambda *_: None)
+    calls = []
+
+    def correct(body):
+        calls.append(body.parent_run_id)
+        raise extract_promote.ExtractPromoteError("fixture reached", code="fixture", status_code=409)
+
+    monkeypatch.setattr(extract_promote, "correct_recap_candidate", correct)
+    path = "/api/live/extract-promote/runs/saved/recap-candidate-corrections?managed_world_id=managed"
+    body = {"parentRunId": "saved", "parentCandidateSha256": "a" * 64, "omittedEdgeIds": ["edge"]}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path.replace("=managed", "=foreign"), json=body).status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "parentRunId": "other"}).status_code == 422
+    assert calls == []
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 409, response.text
+    assert calls == ["saved"]
