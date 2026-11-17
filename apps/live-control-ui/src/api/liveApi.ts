@@ -465,6 +465,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "GET" && init?.body == null && query.size === keys.length
       && keys.every(key => query.getAll(key).length === 1 && !!query.get(key));
   }
+  const sessionEvidence = /^\/api\/live\/world-session-evidence(?:\/[0-9a-f-]+\/revisions\/\d+)?\?([^#]+)$/.exec(path);
+  if (sessionEvidence) {
+    const query = new URLSearchParams(sessionEvidence[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
   const savedPlayRead = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]+\/(review|prepared-tables\/receipts|content\/(?:revisions\/\d+|commands\/[0-9a-f-]+))\?([^#]+)$/.exec(path);
   if (savedPlayRead) {
     const query = new URLSearchParams(savedPlayRead[2]);
