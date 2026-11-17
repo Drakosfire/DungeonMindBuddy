@@ -504,6 +504,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/source-statements/proposals/{operation_id}/review"): access.resolve_hosted_source_statement_proposal,
             ("POST", "/api/live/source-statements/prepare"): access.resolve_hosted_source_statement_publication,
             ("POST", "/api/live/source-statements/confirm"): access.resolve_hosted_source_statement_publication,
+            ("POST", "/api/live/source-statements/extend-evidence"): access.resolve_hosted_source_statement_publication,
             ("POST", "/api/live/extract-promote/native-prepare"): access.resolve_hosted_native_publication,
             ("POST", "/api/live/extract-promote/native-confirm"): access.resolve_hosted_native_publication,
             ("POST", "/api/live/extract-promote/runs/{run_id}/evidence-corrections"): access.resolve_hosted_build_extraction,
@@ -4890,6 +4891,33 @@ def test_hosted_source_statement_confirm_binds_world_before_publication(hosted, 
     assert hosted.client.request("POST", path, json={
         **body, "envelope": {"binding": {"managed_world_id": "foreign"}},
     }).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 200, result.text
+    assert calls == [("managed", "hosted_dms:synthetic-owner-alpha")]
+
+
+def test_hosted_source_evidence_extension_checks_world_before_writing(hosted, monkeypatch):
+    from apps.live_control_server.routes import source_statements
+
+    calls = []
+
+    def extend(body, principal):
+        calls.append((body.managed_world_id, principal.subject))
+        return {"status": "committed"}
+
+    monkeypatch.setattr(source_statements.service, "extend_source_evidence", extend)
+    path = "/api/live/source-statements/extend-evidence"
+    body = {
+        "managed_world_id": "managed", "extension_id": "extension", "original_admission_id": "admission",
+        "source_artifact_id": "artifact", "source_revision_id": "source", "expected_body_sha256": "a" * 64,
+        "expected_parent_revision_id": "rev:head", "expected_source_authority_epoch": 1,
+        "created_at": "2026-11-17T00:00:00Z",
+        "spans": [{"client_ref": "scope", "evidence_role": "support", "start_byte": 0,
+                   "end_byte": 1, "expected_slice_sha256": "b" * 64}],
+    }
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "managed_world_id": "foreign"}).status_code == 403
     assert calls == []
     result = hosted.client.request("POST", path, json=body)
     assert result.status_code == 200, result.text

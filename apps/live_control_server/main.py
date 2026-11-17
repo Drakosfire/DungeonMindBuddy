@@ -395,6 +395,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/source-statements/proposals/{operation_id}/review"): resolve_hosted_source_statement_proposal,
     ("POST", "/api/live/source-statements/prepare"): resolve_hosted_source_statement_publication,
     ("POST", "/api/live/source-statements/confirm"): resolve_hosted_source_statement_publication,
+    ("POST", "/api/live/source-statements/extend-evidence"): resolve_hosted_source_statement_publication,
     ("POST", "/api/live/extract-promote/native-prepare"): resolve_hosted_native_publication,
     ("POST", "/api/live/extract-promote/native-confirm"): resolve_hosted_native_publication,
     ("POST", "/api/live/extract-promote/runs/{run_id}/evidence-corrections"): resolve_hosted_build_extraction,

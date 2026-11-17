@@ -887,7 +887,7 @@ async def resolve_hosted_build_extraction(request: Request) -> str:
 
 
 async def resolve_hosted_source_statement_publication(request: Request) -> str:
-    from apps.live_control_server.models.source_statements import ConfirmStatement, StatementSelection
+    from apps.live_control_server.models.source_statements import ConfirmStatement, ExtendSourceEvidence, StatementSelection
 
     if request.query_params:
         raise _denied()
@@ -896,6 +896,8 @@ async def resolve_hosted_source_statement_publication(request: Request) -> str:
     if request.url.path.endswith("/confirm"):
         binding = ConfirmStatement.model_validate(payload).envelope.get("binding")
         world_id = binding.get("managed_world_id") if isinstance(binding, dict) else None
+    elif request.url.path.endswith("/extend-evidence"):
+        world_id = ExtendSourceEvidence.model_validate(payload).managed_world_id
     else:
         world_id = StatementSelection.model_validate(payload).managed_world_id
     if not isinstance(world_id, str) or not world_id:

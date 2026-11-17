@@ -1,6 +1,5 @@
 """Authenticated selected source statements; no automatic corpus publication."""
 
-from typing import Annotated
 from uuid import UUID
 
 from dungeonmind.application.vnext.errors import KnowledgePublicationOutcomeUnknownError
@@ -162,8 +161,9 @@ router.add_api_route("/proposals/{operation_id}/review", review_proposal, method
 
 def extend_source_evidence(
     body: ExtendSourceEvidence,
-    principal: Annotated[NativeGraphPrincipal, Depends(native_graph_gm_dependency)],
+    request: Request,
 ):
+    principal = _statement_principal(request, body.managed_world_id)
     return _call(service.extend_source_evidence, body, principal)
 
 
