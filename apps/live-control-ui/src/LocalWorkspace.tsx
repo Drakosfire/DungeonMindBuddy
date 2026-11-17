@@ -30,6 +30,8 @@ export function LocalWorkspace({ route, pageAdmitted, children }: {
   const auth = useHostedAuthStatus();
   const worldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const graphOwner = auth.status === "authenticated" ? auth.subject : auth.status;
+  const graphWorldId = auth.status === "local_operator" || (auth.status === "authenticated" && auth.subject)
+    ? worldId : null;
   return (
     <AgentInteractionProvider>
       <AskPluginSlotProvider>
@@ -47,7 +49,7 @@ export function LocalWorkspace({ route, pageAdmitted, children }: {
               <SurfaceContextProvider>
                 <PeekRegionProvider key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}>
                   <DocumentReferenceSurfaceHost worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null} surface={pageAdmitted ? route : "pending"}>
-                  <WarmWorldGraphProvider key={JSON.stringify([graphOwner, worldId])} worldId={pageAdmitted ? worldId : null}>
+                  <WarmWorldGraphProvider key={JSON.stringify([graphOwner, worldId])} worldId={graphWorldId}>
                     <WorkspacePrimaryNavigation route={route}>{children}</WorkspacePrimaryNavigation>
                   </WarmWorldGraphProvider>
                   {pageAdmitted ? <>
