@@ -170,7 +170,7 @@ def lane(monkeypatch, tmp_path, request):
         app_body_sha256=digest, native_world_id=SPACE_ID, binding_version=3,
         evidence_ref_id=receipt.bindings[0].evidence_ref_id, admission_id=receipt.admission_id,
         source_artifact_id=receipt.source_artifact_id, source_revision_id=receipt.source_revision_id)
-    monkeypatch.setattr(service.config, "artifact_data_root", lambda: tmp_path)
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
     monkeypatch.setattr(service, "load_reviewable_extraction_data", lambda *_: data)
     monkeypatch.setattr(service.sources, "get_source_markdown", lambda **_: source)
     monkeypatch.setattr(service.admission, "inspect", lambda *_: admitted)
