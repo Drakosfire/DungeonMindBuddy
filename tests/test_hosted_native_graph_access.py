@@ -273,6 +273,10 @@ def hosted(monkeypatch, request):
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace",
         agent_routes.get_world_turn_context_trace, methods=["GET"],
     )
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/build-proposals",
+        agent_routes.list_build_document_proposals, methods=["GET"],
+    )
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -348,6 +352,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}"): access.resolve_hosted_conversation_world,
@@ -2749,3 +2754,25 @@ def test_hosted_saved_trace_requires_exact_world(hosted, monkeypatch):
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     service.list_context_trace_attempts.assert_called_once_with(world_id="managed", turn_id=turn_id)
+
+
+def test_hosted_build_proposal_history_is_world_scoped(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from application_state.build_proposal import service
+    from apps.live_control_server.routes import agent
+
+    proposal_service = Mock()
+    proposal_service.list.return_value = []
+    monkeypatch.setattr(service, "BuildProposalService", lambda: proposal_service)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
+    conversation_id = uuid4()
+    path = f"/api/live/agent/worlds/managed/build-proposals?conversation_id={conversation_id}"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&conversation_id=" + str(uuid4())).status_code == 422
+    proposal_service.list.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["records"] == []
+    proposal_service.list.assert_called_once_with("managed", conversation_id)
