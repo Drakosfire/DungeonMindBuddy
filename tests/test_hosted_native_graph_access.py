@@ -328,6 +328,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/workspace-documents/world-plans/page"): access.resolve_hosted_plan_inventory_page,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_committed_plan,
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
@@ -2886,3 +2887,24 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_plan_inventory_page_authorizes_world_and_cursor(hosted, monkeypatch):
+    from apps.live_control_server.routes import workspace_documents
+
+    calls = []
+
+    def inventory(_root, *, world_id, limit, before):
+        calls.append((world_id, limit, before))
+        return SimpleNamespace(world_id=world_id, records=[])
+
+    monkeypatch.setattr(workspace_documents, "list_world_owned_plans_v2", inventory)
+    path = "/api/live/workspace-documents/world-plans/page?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path.replace("=managed", "=foreign")).status_code == 403
+    assert hosted.client.request("GET", path + "&before_document_id=missing-time").status_code == 403
+    assert hosted.client.request("GET", path + "&limit=2&limit=3").status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", path + "&limit=2")
+    assert result.status_code == 200, result.text
+    assert calls == [("managed", 3, None)]
