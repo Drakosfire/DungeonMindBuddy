@@ -222,6 +222,26 @@ def first_world_authorizer(request: Request):
     return authorize
 
 
+async def resolve_hosted_conversation_world(request: Request) -> str:
+    world_id = getattr(request.state, "hosted_route_world_id", None)
+    if not world_id or (request.method == "GET" and await request.body()):
+        raise _denied()
+    if request.method == "POST" and request.query_params:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
+def require_conversation_access(request: Request, world_id: str) -> None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+        return
+    if getattr(request.state, "hosted_conversation_world", None) != world_id:
+        raise _denied()
+    _owned_world(_hosted_subject(request), world_id)
+
+
 async def resolve_hosted_build_pdf_world(request: Request) -> str:
     subject = _hosted_subject(request)
     world_id = getattr(request.state, "hosted_route_world_id", None)

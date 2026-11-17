@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from application_state.agent_conversation import library
 from application_state.errors import ApplicationStateError
 from application_state.agent_conversation.retry import AuthoringRetryRequiredError
-from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
 from apps.live_control_server.routes.agent import _verified_world_id, _conversation_service
 from application_state.agent_conversation.types import ReopenCommand, ConversationCommandReceipt, ConversationTrashCommand
 
@@ -19,7 +19,7 @@ router = APIRouter(
 
 
 def scope(request, world, allowed):
-    enforce_native_graph_gm(request)
+    require_conversation_access(request, world)
     if set(request.query_params) - set(allowed) or any(
         len(request.query_params.getlist(k)) != 1 for k in request.query_params
     ):
@@ -64,7 +64,7 @@ def active_messages(
     )
 
 
-@router.get("/{conversation_id}/messages")
+@router.get("/{conversation_id:uuid}/messages")
 def messages(
     world_id: str,
     conversation_id: UUID,

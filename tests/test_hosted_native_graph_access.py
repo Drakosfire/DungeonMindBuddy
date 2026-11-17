@@ -259,6 +259,12 @@ def hosted(monkeypatch, request):
     app.include_router(statblock_candidates.router)
     from apps.live_control_server.routes import combat_encounters
 
+    from apps.live_control_server.routes import agent as agent_routes, conversation_library
+
+    app.add_api_route("/api/live/agent/worlds/{world_id}/conversation", agent_routes.get_world_conversation_history, methods=["GET"])
+    app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/new", agent_routes.post_new_world_conversation, methods=["POST"])
+    app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}", agent_routes.get_new_world_conversation_status, methods=["GET"])
+    app.include_router(conversation_library.router)
     app.include_router(combat_encounters.router)
     app.include_router(threat_drafts.router)
     app.include_router(world_mechanics_associations.router)
@@ -320,6 +326,13 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
             ("GET", "/api/live/threat-drafts"): access.resolve_hosted_statblock_inventory,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters/saved-mechanics/preview"): access.resolve_hosted_combat_encounter,
@@ -2573,3 +2586,36 @@ def test_hosted_combat_adds_actor_from_exact_preview(combat, hosted, monkeypatch
     assert saved.status_code == 200, saved.text
     assert saved.json()["draft"]["entities"][0]["mechanics_snapshot"] == snapshot
     assert hosted.client.request("GET", p.url).json() == saved.json()
+
+
+def test_hosted_conversation_starts_and_reopens_in_exact_world(hosted, application_state_dsn, monkeypatch):
+    from apps.live_control_server.routes import agent, conversation_library
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
+    monkeypatch.setattr(conversation_library, "_verified_world_id", lambda world_id: world_id)
+    base = "/api/live/agent/worlds/managed/conversation"
+    command = str(uuid4())
+    body = {
+        "command_id": command, "expected_pointer_revision": 0,
+        "expected_active_conversation_id": None,
+    }
+    assert hosted.client.request("GET", base, session=None).status_code == 401
+    assert hosted.client.request("GET", base, session="other-session").status_code == 403
+    assert hosted.client.request("POST", base + "/new", origin=None, json=body).status_code == 403
+    assert hosted.client.request("POST", base + "/new", session="other-session", json=body).status_code == 403
+    response = hosted.client.request("POST", base + "/new", json=body)
+    assert response.status_code == 200, response.text
+    created = response.json()
+    assert created["world_id"] == "managed"
+    assert created["conversation_id"] == created["active_conversation_id"]
+    reopened = hosted.client.request("GET", base)
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.headers["cache-control"] == "no-store"
+    assert reopened.json()["conversation_id"] == created["conversation_id"]
+    status = hosted.client.request("GET", base + f"/commands/{command}?expected_pointer_revision=0&expected_active_conversation_id=null")
+    assert status.status_code == 200, status.text
+    for path in (base + "s", base + "s/active/messages", base + f"s/{created['conversation_id']}/messages"):
+        response = hosted.client.request("GET", path)
+        assert response.status_code == 200, response.text
+        assert response.headers["cache-control"] == "no-store"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403

@@ -481,3 +481,22 @@ it("uses the hosted session for both Combat actor previews", async () => {
     expect(new Headers(init?.headers).has("Authorization")).toBe(false);
   }
 });
+
+it("starts and reloads a hosted World conversation through the DungeonMind session", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const base = "/api/live/agent/worlds/managed/conversation";
+  await api.authenticatedApiFetch(base + "?limit=25");
+  await api.authenticatedApiFetch(base + "/new", { method: "POST", body: "{}" });
+  await api.authenticatedApiFetch(base + "s/active/messages?limit=25");
+  await expect(api.authenticatedApiFetch(base + "/new?world_id=foreign", {
+    method: "POST", body: "{}",
+  })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(3);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+});

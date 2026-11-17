@@ -429,6 +429,13 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(metadata|original)$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  const conversation = /^\/api\/live\/agent\/worlds\/[^/?]+\/(conversation(?:\/new|\/commands\/[0-9a-f-]+)?|conversations(?:\/active\/messages|\/[0-9a-f-]+\/(?:messages|turns))?)(?:\?([^#]*))?$/.exec(path);
+  if (conversation) {
+    if (conversation[1] === "conversation/new") {
+      return method === "POST" && conversation[2] === undefined && !!requestBodyRecord(init?.body);
+    }
+    return method === "GET" && init?.body == null;
+  }
   const mechanicsPreview = /^\/api\/live\/combat\/encounters\/(?:saved-mechanics|accepted-mechanics|world-mechanics)\/preview\?/.exec(path);
   if (mechanicsPreview) {
     const worldId = new URLSearchParams(path.slice(mechanicsPreview[0].length)).get("world_id");
