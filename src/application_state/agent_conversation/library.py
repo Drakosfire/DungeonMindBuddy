@@ -269,6 +269,11 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
         EXISTS (SELECT 1 FROM agent.conversation_draft_revision d
             WHERE d.turn_id=t.turn_id AND d.world_id=t.world_id
                 AND d.conversation_id=t.conversation_id AND d.revision=1) AS draft_available,
+        (t.status = 'completed' AND t.surface_id = 'build' AND EXISTS (
+            SELECT 1 FROM jsonb_array_elements(t.graph_context_execution->'events') AS work
+            WHERE work->>'kind' = 'build_requested_work_resolved_v1'
+              AND work->>'requested_work' = 'review_variant_approval'
+        )) AS variant_approval_requested,
         t.answer_composition_kind, """ + reference_select + ", " + repo._rules_summary_select("t")) if metadata else ""
     rows = conn.execute(
         f"""SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
@@ -293,6 +298,8 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             provenance=repo.turn_provenance(row,references[row["turn_id"]])
             if row["draft_available"]:
                 message["conversation_draft_available"] = True
+            if row["variant_approval_requested"]:
+                message["variant_approval_requested"] = True
             if row["saved_statblocks"]:
                 message["saved_statblocks"] = row["saved_statblocks"]
             message.update(
