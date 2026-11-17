@@ -116,6 +116,8 @@ const entityInspectionBody = {
   selection: { kind: "entity", entity_id: "entity-a" },
 };
 const hostedRoutes = [
+  ["connected-page prepare", "/api/live/connected-pages/prepare", { world_id: "managed-a", operation_id: "11111111-1111-4111-8111-111111111111" }],
+  ["connected-page confirm", "/api/live/connected-pages/confirm", { world_id: "managed-a", operation_id: "11111111-1111-4111-8111-111111111111", confirm_token: "fixture" }],
   ...routes,
   ["entity-inspection", "/api/live/native-graph-inspection/read", entityInspectionBody],
   ["chronology", "/api/live/native-graph-inspection/read", { ...entityInspectionBody, selection: { kind: "chronology" } }],
