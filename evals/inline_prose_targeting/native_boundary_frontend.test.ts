@@ -7,13 +7,13 @@ import {createBuildComposeBridge,type BuildComposeEditorState} from '../../apps/
 vi.stubGlobal('crypto',webcrypto);
 const p=(text:string,id?:string):JSONContent=>({type:'paragraph',attrs:{pageBlockId:id??null},content:[{type:'text',text}]});
 const h=(text:string,id:string):JSONContent=>({type:'heading',attrs:{level:2,pageBlockId:id},content:[{type:'text',text}]});
-function setup(enabled=true,missing=false,presented=true){
+function setup(enabled=true,missing=false,presented=true,replacement=false){
  const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],content:{type:'doc',content:[h('Overview','overview'),p('Keep opening.',missing?undefined:'opening'),h('Preparation','preparation'),p('The scouts returned silently.','target'),h('Rumours','rumours'),p('The scouts returned silently.','duplicate'),...(presented?[{type:'pageRow',attrs:{id:'row',min_height:0,line_mode:'clean'},content:[{type:'pageSlot',attrs:{id:'slot',width:12},content:[p('Untouched row.','row-text')]}]}]:[])]}});
  editor.commands.setTextSelection(1);
  const state:BuildComposeEditorState={editor,worldId:'synthetic',documentId:'boundary-proof',revision:1,contentSha256:'a'.repeat(64),visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true};
  editor.on('transaction',({transaction})=>{if(transaction.docChanged)state.draftGeneration++;});
  const changed=vi.fn(),save=vi.fn();
- const bridge=createBuildComposeBridge(()=>state,changed,save,{allowProseTargets:true,allowProseBoundaries:enabled});
+ const bridge=createBuildComposeBridge(()=>state,changed,save,{allowProseTargets:replacement,allowProseBoundaries:enabled});
  return {editor,state,bridge,changed,save};
 }
 async function capture(bridge:ReturnType<typeof createBuildComposeBridge>,operation:'insert_before'|'insert_after'){
@@ -38,8 +38,16 @@ describe('host-bound native paragraph boundary, no model',()=>{
    expect(()=>bridge.applyPrepared(prepared)).toThrow();
   }finally{editor.destroy();}
  });
+ it('boundary-only opt-in refuses a replacement nomination',async()=>{
+  const {editor,bridge}=setup();try{
+   const before=editor.getJSON();const catalog=await bridge.captureProseTargets!();
+   const choice=catalog.choices.find(row=>row.operation==='replace_paragraph'&&row.section==='Preparation')!;
+   await expect(bridge.captureProseInsertion!(catalog,choice.selector)).rejects.toThrow();
+   expect(editor.getJSON()).toEqual(before);
+  }finally{editor.destroy();}
+ });
  it('replacement-only opt-in refuses boundary capture and restored bytes',async()=>{
-  const {editor,bridge}=setup(false);try{
+  const {editor,bridge}=setup(false,false,true,true);try{
    const before=editor.getJSON();await expect(capture(bridge,'insert_after')).rejects.toThrow();expect(editor.getJSON()).toEqual(before);
   }finally{editor.destroy();}
  });

@@ -90,7 +90,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
       }catch(reason){if(active.current&&epoch.current===current)setError(reason instanceof Error?reason.message:'Suggestion unavailable');}
     })();
     return()=>{active.current=false;epoch.current++;picker.current?.abort();};
-  },[world,record.action_id,record.request_fingerprint,bridge,sourceKey,requestKey,allowProseTargets]);
+  },[world,record.action_id,record.request_fingerprint,bridge,sourceKey,requestKey,allowProseTargets,allowProseBoundaries]);
   function current(start:number){return active.current&&epoch.current===start;}
   async function checkSaved(start:number){
     const checked=await proposalReview(world,record.action_id);

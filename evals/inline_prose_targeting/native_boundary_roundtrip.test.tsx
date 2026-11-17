@@ -1,5 +1,5 @@
 import React from 'react';
-import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,expect,it,vi} from 'vitest';
 import {webcrypto} from 'node:crypto';
 import {Editor,type JSONContent} from '@tiptap/core';
@@ -10,13 +10,15 @@ import {tiptapJsonToSemanticMarkdown} from '../../apps/live-control-ui/src/tipta
 import {createBuildComposeBridge,type BuildComposeEditorState} from '../../apps/live-control-ui/src/buildSurface/buildComposeBridge';
 import {BuildPageProposal} from '../../apps/live-control-ui/src/buildSurface/BuildPageProposal';
 import type {BuildProposalRecord} from '../../apps/live-control-ui/src/api/buildDocumentProposalApi';
-const transport=vi.hoisted(()=>({fetch:globalThis.fetch,base:'http://127.0.0.1:15567'}));
+const transport=vi.hoisted(()=>({fetch:globalThis.fetch,base:'http://127.0.0.1:15567',holdPrepare:null as null|(()=>Promise<void>),prepareArrived:false}));
 vi.mock('../../apps/live-control-ui/src/api/liveApi',async importOriginal=>{
  const actual=await importOriginal<typeof import('../../apps/live-control-ui/src/api/liveApi')>();
  return {...actual,authenticatedApiFetch:async(url:string,init?:RequestInit)=>{
   const match=url.match(/^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals\/([^/]+)\/review$/);
   if(!match)throw new Error('Proof adapter refuses non-review route: '+url);
-  return {response:await transport.fetch(transport.base+'/review/'+match[1],{...init,headers:{'Content-Type':'application/json'}})};
+  const response=await transport.fetch(transport.base+'/review/'+match[1],{...init,headers:{'Content-Type':'application/json'}});
+  if(init?.body&&JSON.parse(String(init.body)).operation==='prepare'&&transport.holdPrepare){transport.prepareArrived=true;await transport.holdPrepare();}
+  return {response};
  }};
 });
 async function request(path:string,body?:unknown){
@@ -50,7 +52,7 @@ it('scripted paragraph-boundary alias -> native insertion review -> explicit Sav
   const projected=projectPresentation(editor.getJSON(),source.markdown,before);
   const saved=await request('/save',{basis,markdown:projected.markdown,page_presentation:projected.presentation});
   state.revision=saved.registry_revision;state.contentSha256=saved.content_sha256;saves++;
- },{allowProseTargets:true,allowProseBoundaries:true});
+ },{allowProseBoundaries:true});
  let catalog=await bridge.captureProseTargets!();
  const selected=catalog.choices.find(x=>x.section==='Preparation'&&x.operation==='insert_after')!;
  expect(catalog.choices.filter(x=>x.passage==='The scouts returned silently.'&&x.operation==='insert_after')).toHaveLength(2);
@@ -70,10 +72,22 @@ it('scripted paragraph-boundary alias -> native insertion review -> explicit Sav
  expect(record.schema_version).toBe('dmb_build_document_proposal_v3');
  expect((await request('/page')).markdown).toBe(source.markdown);
  const status=vi.fn(),complete=vi.fn();
- const view=render(<BuildPageProposal record={record} bridge={bridge} sourceKey="synthetic" requestKey={1} inspector={null} onStatus={status} onComplete={complete} allowProseTargets allowProseBoundaries/>);
+ const component=(enabled:boolean)=><BuildPageProposal record={record} bridge={bridge} sourceKey="synthetic" requestKey={1} inspector={null} onStatus={status} onComplete={complete} allowProseBoundaries={enabled}/>;
+ const view=render(component(false));
+ await screen.findByText(/requires an enabled proof reader/);expect(editor.getJSON()).toEqual(before);expect(saves).toBe(0);
+ view.rerender(component(true));
  await screen.findByRole('textbox',{name:'Suggestion text'});
  expect(editor.getJSON()).toEqual(before);expect(saves).toBe(0);
+ let release!:()=>void;const held=new Promise<void>(resolve=>{release=resolve;});
+ transport.holdPrepare=()=>held;transport.prepareArrived=false;
  fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+ await waitFor(()=>expect(transport.prepareArrived).toBe(true));
+ view.rerender(component(false));await screen.findByText(/requires an enabled proof reader/);
+ await act(async()=>{release();await held;});transport.holdPrepare=null;
+ expect(editor.getJSON()).toEqual(before);expect(saves).toBe(0);expect(complete).not.toHaveBeenCalled();
+ expect((await request('/page')).markdown).toBe(source.markdown);
+ view.rerender(component(true));
+ fireEvent.click(await screen.findByRole('button',{name:'Check insertion',exact:true}));
  await waitFor(()=>expect(complete).toHaveBeenCalledWith('applied'),{timeout:10000});
  const after=editor.getJSON();expect(saves).toBe(1);
  expect(after.content!.filter((_,i)=>i!==4)).toEqual(before.content);

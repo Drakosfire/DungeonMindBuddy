@@ -124,7 +124,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
   const boundProse = new WeakSet<CapturedBuildInsertion>();
   function target(captured:CapturedBuildInsertion) {
     if(captured.proseTarget){
-      if(!options.allowProseTargets||!boundProse.has(captured)||captured.basis.selection||captured.pageBodyTarget||captured.pageEndTarget)
+      if(!(captured.proseTarget.schema==='dmb_build_prose_boundary_target_v1'?options.allowProseBoundaries:options.allowProseTargets)||!boundProse.has(captured)||captured.basis.selection||captured.pageBodyTarget||captured.pageEndTarget)
         throw new Error('This prose target is not admitted by this editor.');
       return {from:captured.proseTarget.from,to:captured.proseTarget.to};
     }
