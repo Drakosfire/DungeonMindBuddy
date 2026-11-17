@@ -292,6 +292,9 @@ def hosted(monkeypatch, request):
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
+    from apps.live_control_server.routes import graph_authoring
+
+    app.include_router(graph_authoring.router)
     app.include_router(live.router)
     app.include_router(graph_preview.router)
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
@@ -306,7 +309,9 @@ def hosted(monkeypatch, request):
         app,
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
-               if "/variant-reviews/{review_id}" in key[1]},
+               if "/variant-reviews/{review_id}" in key[1]
+               or key[1] == "/api/live/graph-authoring/object-kinds"
+               or key[1].startswith("/api/live/graph-authoring/document-relationship/")},
             **{
                 (
                     "POST",
@@ -2927,3 +2932,28 @@ def test_hosted_authoring_identities_require_owned_world(hosted):
     assert response.headers["cache-control"] == "no-store"
     assert response.json()["scope"]["managed_world_id"] == "managed"
     assert isinstance(response.json()["identities"], list)
+
+
+def test_hosted_relationship_request_uses_owned_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import graph_authoring
+
+    calls = []
+    def build(root, request, principal):
+        calls.append((request.world_id, principal.subject))
+        return SimpleNamespace(model_dump=lambda **kwargs: {"worldId": request.world_id})
+
+    monkeypatch.setattr(graph_authoring, "relationship_request", build)
+    endpoint = {"node_id": None, "label": "Edge", "kind": "location"}
+    body = {
+        "world_id": "managed", "document_source": {"documentId": str(uuid4()), "revision": 1,
+                                                     "contentSha256": "a" * 64},
+        "source": endpoint, "target": {**endpoint, "label": "Mireward"},
+        "quote": "Edge is near Mireward.", "predicate": "located_in", "label": "Location", "context": "Recap",
+    }
+    path = "/api/live/graph-authoring/document-relationship/request"
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert not calls
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert calls == [("managed", f"hosted_dms:{OWNER}")]

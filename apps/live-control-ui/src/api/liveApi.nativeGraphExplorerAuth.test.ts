@@ -116,6 +116,9 @@ const entityInspectionBody = {
   selection: { kind: "entity", entity_id: "entity-a" },
 };
 const hostedRoutes = [
+  ["relationship request", "/api/live/graph-authoring/document-relationship/request", { world_id: "managed-a" }],
+  ["relationship preparation", "/api/live/graph-authoring/document-relationship/native-prepare", { review: { world_id: "managed-a" } }],
+  ["relationship confirmation", "/api/live/graph-authoring/document-relationship/native-confirm", { review: { world_id: "managed-a" } }],
   ["authoring identities", "/api/live/native-graph-inspection/authoring-identities", { managed_world_id: "managed-a", scope_mode: "world", campaign_id: null }],
   ...routes,
   ["entity-inspection", "/api/live/native-graph-inspection/read", entityInspectionBody],

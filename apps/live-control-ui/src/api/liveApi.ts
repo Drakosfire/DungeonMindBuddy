@@ -428,6 +428,22 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (path === "/api/live/graph-authoring/document-relationship/request") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.world_id === "string" && Boolean(body.world_id);
+  }
+  if (path === "/api/live/graph-authoring/document-relationship/native-prepare"
+    || path === "/api/live/graph-authoring/document-relationship/native-confirm") {
+    const review = requestBodyRecord(init?.body)?.review;
+    return method === "POST" && isRecord(review) && typeof review.world_id === "string"
+      && Boolean(review.world_id);
+  }
+  const objectKindsPath = "/api/live/graph-authoring/object-kinds";
+  if (path.startsWith(objectKindsPath + "?")) {
+    const worldId = new URLSearchParams(path.slice(objectKindsPath.length + 1)).get("world_id");
+    return method === "GET" && init?.body == null && worldId !== null && worldId !== ""
+      && path === objectKindsPath + "?world_id=" + encodeURIComponent(worldId);
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);
@@ -1895,8 +1911,8 @@ export interface GoldGraphProjectionQuery {
   sessionId: string;
 }
 
-export async function getGraphObjectAuthoringKinds(): Promise<{objectKinds: string[]}> {
-  return apiFetch<{objectKinds: string[]}>("/api/live/graph-authoring/object-kinds");
+export async function getGraphObjectAuthoringKinds(worldId?: string): Promise<{objectKinds: string[]}> {
+  return apiFetch<{objectKinds: string[]}>("/api/live/graph-authoring/object-kinds" + (worldId ? `?world_id=${encodeURIComponent(worldId)}` : ""));
 }
 
 export async function prepareGraphObjectAuthoringWrite(
