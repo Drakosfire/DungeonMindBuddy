@@ -277,3 +277,41 @@ def test_variant_format_with_visible_reply_rejects_empty_segments_at_completion(
     }
     with pytest.raises(ValueError, match="requires a visible reply"):
         normalize_candidate(candidate, None, execution, None, evidence)
+
+
+@pytest.mark.parametrize(
+    ("source", "excerpt", "rule_key", "valid"),
+    [
+        ("current_draft", "Only after the bell.", "truce", True),
+        ("other_draft", "Only after the bell.", "truce", False),
+        ("current_draft", "Only before the bell.", "truce", False),
+        ("current_draft", "bell", "truce", False),
+        ("current_draft", "Only after the bell.", "other", False),
+    ],
+)
+def test_variant_witness_binds_unique_authored_clause_to_edited_rule(source, excerpt, rule_key, valid):
+    from application_state.agent_conversation.native_completion import normalize_statblock_variant
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    work = {
+        "response_contract": {"requested_work": "draft_in_conversation", "operation": "answer_from_sources"},
+        "saved_statblocks": [{"event_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857", "definition": base}],
+        "working_draft_context": {"draft_markdown": "Only after the bell. The bell falls silent."},
+    }
+    added = base["rule_elements"][0] | {"key": "truce"}
+    proposal = {
+        "source": "statblock0",
+        "add_rules": [added],
+        "replace_rules": [],
+        "authored_rule_witnesses": [{"source": source, "excerpt": excerpt, "rule_key": rule_key}],
+    }
+    if not valid:
+        with pytest.raises(ValueError, match="witness must identify exact authored text"):
+            normalize_statblock_variant({"statblock_variant": proposal}, work,
+                                        variant_edits=True, variant_witnesses=True)
+    else:
+        result = normalize_statblock_variant({"statblock_variant": proposal}, work,
+                                             variant_edits=True, variant_witnesses=True)
+        assert result.definition.model_dump()["rule_elements"][-1]["key"] == "truce"
+        assert "authored_rule_witnesses" not in result.definition.model_dump()

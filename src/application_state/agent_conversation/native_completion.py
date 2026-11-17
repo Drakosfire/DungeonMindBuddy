@@ -193,7 +193,7 @@ def normalize_output(receipt, execution, authorization, *, prepared_request_json
     return normalize_candidate(strict_json(raw_output_json),receipt,execution,authorization,evidence)
 
 
-def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False):
+def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False, variant_witnesses=False):
     from .native_build_work_view import variant_sources
 
     proposal = candidate.get("statblock_variant")
@@ -201,6 +201,8 @@ def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False):
         return None
     sources = variant_sources(work_frame)
     keys = {"source", "add_rules", "replace_rules"} if variant_edits else {"source", "definition"}
+    if variant_witnesses:
+        keys.add("authored_rule_witnesses")
     if not isinstance(proposal, dict) or set(proposal) != keys:
         raise ValueError("Statblock variant does not match its producing format")
     source = proposal["source"]
@@ -213,6 +215,19 @@ def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False):
         _apply_statblock_rule_edits(base["definition"], proposal)
         if variant_edits else proposal["definition"]
     )
+    if variant_witnesses:
+        markdown = work_frame.get("working_draft_context", {}).get("draft_markdown", "")
+        edited_keys = {row["key"] for field in ("add_rules", "replace_rules") for row in proposal[field]}
+        for witness in proposal["authored_rule_witnesses"]:
+            excerpt = witness["excerpt"]
+            if (
+                witness["source"] != "current_draft"
+                or witness["rule_key"] not in edited_keys
+                or not excerpt.strip()
+                or markdown.find(excerpt) < 0
+                or markdown.find(excerpt, markdown.find(excerpt) + 1) >= 0
+            ):
+                raise ValueError("Statblock rule witness must identify exact authored text and an edited rule")
     return ConversationVariantDraft(base_event_id=base["event_id"], definition=definition)
 
 
@@ -274,7 +289,8 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     if evidence.variant_visible_reply and not candidate['answer_segments']:
         raise ValueError('Native variant completion requires a visible reply')
     if evidence.variant_format:
-        normalize_statblock_variant(candidate, evidence.work_frame, variant_edits=evidence.variant_edits)
+        normalize_statblock_variant(candidate, evidence.work_frame, variant_edits=evidence.variant_edits,
+            variant_witnesses=evidence.variant_witnesses)
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()
