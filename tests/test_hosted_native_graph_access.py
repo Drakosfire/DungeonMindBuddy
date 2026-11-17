@@ -346,7 +346,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
-            ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_exact_extraction_read,
             ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
@@ -2889,6 +2889,8 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
 
 
 def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch):
+    from apps.live_control_server.models.extract_promote import ExactRunReviewPackage
+    from apps.live_control_server.routes import extract_promote
     from apps.live_control_server.services import graph_run_registry, source_artifact_registry
 
     owned = access._owned_world("synthetic-owner-alpha", "managed")
@@ -2910,5 +2912,24 @@ def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch):
     assert result.status_code == 200, result.text
     assert result.headers["cache-control"] == "no-store"
     assert result.json()["run_id"] == "saved"
+    calls = []
+
+    def review(run_id):
+        calls.append(run_id)
+        return ExactRunReviewPackage(
+            run_id=run_id, source_domain="recap", source_artifact_id="source",
+            source_revision_id="revision", source_prose="Saved recap.",
+        )
+
+    monkeypatch.setattr(extract_promote, "get_exact_run_review_package", review)
+    review_path = "/api/live/extract-promote/runs/saved/review-package"
+    assert hosted.client.request("GET", review_path, session="other-session").status_code == 403
+    assert calls == []
+    response = hosted.client.request("GET", review_path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["sourceProse"] == "Saved recap."
     scope["binding_version"] += 1
+    assert hosted.client.request("GET", review_path).status_code == 403
+    assert calls == ["saved"]
     assert hosted.client.request("GET", path).status_code == 403
