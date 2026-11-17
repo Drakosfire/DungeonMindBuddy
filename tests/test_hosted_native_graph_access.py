@@ -362,6 +362,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/rules/catalog"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/rules/query"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/rules/passages/{citation_id}"): access.resolve_hosted_rules_lookup,
+            ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/world-workspace/trash"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
@@ -3412,3 +3413,22 @@ def test_hosted_prepared_image_association_uses_world_asset_owner(hosted, monkey
     _, owner = service.get.call_args.args
     assert owner.startswith("hosted_dms:")
     service.associate.assert_called_once_with(action, asset, owner, 1, asset_owner="hosted_world:managed")
+
+
+def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, tmp_path):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import workspace_documents
+
+    read = Mock(return_value={"phase": "complete"})
+    monkeypatch.setattr(workspace_documents, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(workspace_documents, "get_connected_page", read)
+    operation = uuid4()
+    path = f"/api/live/connected-pages/{operation}?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    read.assert_called_once_with(tmp_path, operation, "managed")

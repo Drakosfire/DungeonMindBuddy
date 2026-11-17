@@ -450,6 +450,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && body !== null && Object.keys(body).length === 0;
   }
+  const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f-]+\?([^#]+)$/.exec(path);
+  if (connectedPage) {
+    const query = new URLSearchParams(connectedPage[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
   const imageGeneration = /^\/api\/live\/media\/images\/generate\?([^#]+)$/.exec(path);
   if (imageGeneration) {
     const query = new URLSearchParams(imageGeneration[1]);
