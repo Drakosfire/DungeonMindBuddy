@@ -546,7 +546,13 @@ async def put_world_session_review(run_id: str, command_id: str, request: Reques
     from application_state.play.session_review import ReviewCommand, commit_review
     from application_state.errors import ApplicationStateError
     from pydantic import ValidationError
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     raw = bytearray()
     async for chunk in request.stream():
         if len(raw) + len(chunk) > 1100000:

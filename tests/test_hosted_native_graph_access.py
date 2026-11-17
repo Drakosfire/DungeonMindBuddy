@@ -334,6 +334,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/review/commands/{command_id}"): access.resolve_hosted_play_command,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
@@ -2319,6 +2320,34 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert recorded.status_code == 200, recorded.text
     assert recorded.json()["receipt"]["outcome"] == "Dry"
     assert hosted.client.request("PUT", roll_path, json=roll).json()["receipt"] == recorded.json()["receipt"]
+
+    from apps.live_control_server.services.play_run_edition import read_content
+
+    content = read_content(run_id=run_id, world_id="managed")
+    basis = {
+        "expected_run_revision": content.observed_run_revision,
+        "expected_content_sha256": content.content_sha256,
+    }
+    end_path = f"{base}/review/commands/{uuid4()}?world_id=managed"
+    end = {**basis, "action": "end", "expected_revision": 0, "final_thoughts": "The gate was open."}
+    assert hosted.client.request("PUT", end_path, json=end, origin=None).status_code == 403
+    assert hosted.client.request("PUT", end_path, json=end, session="other-session").status_code == 403
+    ended = hosted.client.request("PUT", end_path, json=end)
+    assert ended.status_code == 200, ended.text
+    assert hosted.client.request("PUT", end_path, json=end).json() == ended.json()
+
+    save_path = f"{base}/review/commands/{uuid4()}?world_id=managed"
+    save = {**basis, "action": "save", "expected_revision": 1, "draft_markdown": "# Session notes"}
+    saved = hosted.client.request("PUT", save_path, json=save)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["draft_markdown"] == save["draft_markdown"]
+
+    reopen_path = f"{base}/review/commands/{uuid4()}?world_id=managed"
+    reopen = {**basis, "action": "reopen", "expected_revision": 2}
+    reopened = hosted.client.request("PUT", reopen_path, json=reopen)
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["status"] == "playing"
+    assert reopened.json()["draft_markdown"] == save["draft_markdown"]
 
 
 def test_hosted_statblock_picker_reads_only_owned_world(hosted, application_state_dsn, tmp_path, monkeypatch):
