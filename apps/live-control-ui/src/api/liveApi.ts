@@ -426,8 +426,14 @@ const HOSTED_EXPLORER_PATHS = new Set([
 
 const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
+const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\?admission_id=[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (HOSTED_PDF_UPLOAD_PATH.test(path)) {
+    return method === "POST" && init?.body instanceof Blob && init.body.size > 0
+      && new Headers(init.headers).get("Content-Type") === "application/pdf";
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);
@@ -638,11 +644,12 @@ function apiRequestTarget(
   return { url, localGraphRequest, hostedGraphRequest: false };
 }
 
-function hostedGraphHeaders(headers: Record<string, string>): Record<string, string> {
+function hostedGraphHeaders(path: string, headers: Record<string, string>): Record<string, string> {
   // Do not allow local bearer/session credentials or caller identity headers into
   // this cookie-authenticated request. Ownership comes only from the server.
   return Object.fromEntries(Object.entries(headers).filter(([key]) =>
-    ["accept", "content-type"].includes(key.toLowerCase())));
+    ["accept", "content-type"].includes(key.toLowerCase())
+      || (key.toLowerCase() === "x-pdf-created-at" && HOSTED_PDF_UPLOAD_PATH.test(path))));
 }
 
 function headerRecord(headers: HeadersInit | undefined): Record<string, string> {
@@ -883,7 +890,7 @@ async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Prom
       ...(target.localGraphRequest || target.hostedGraphRequest
         ? { redirect: "error" as const, credentials: "same-origin" as const } : {}),
       ...(target.hostedGraphRequest ? { cache: "no-store" as const, mode: "same-origin" as const } : {}),
-      headers: target.hostedGraphRequest ? hostedGraphHeaders({ "Content-Type": "application/json", ...frozenInit.headers }) : nativeGraphHeaders(path, frozenInit.body, {
+      headers: target.hostedGraphRequest ? hostedGraphHeaders(path, { "Content-Type": "application/json", ...frozenInit.headers }) : nativeGraphHeaders(path, frozenInit.body, {
         "Content-Type": "application/json", ...frozenInit.headers,
         ...(csrf && (frozenInit.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
       }),

@@ -539,3 +539,28 @@ it("reads earlier image directions with the exact hosted session route", async (
   await expect(api.authenticatedApiFetch(path + "&world_id=other")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("uses the hosted session for binary PDF admission to the selected World", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const path = "/api/live/agent/worlds/elderwyld/build-pdf-sources?admission_id=12345678-1234-1234-1234-123456789abc";
+  const body = new File(["%PDF-1.7"], "fixture.pdf", { type: "application/pdf" });
+  const upload = {
+    method: "POST", body,
+    headers: { "Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-15T00:00:00Z" },
+  };
+  await api.authenticatedApiFetch(path, upload);
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toBe(path);
+  expect(init?.body).toBe(body);
+  expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+  const headers = new Headers(init?.headers);
+  expect(headers.has("Authorization")).toBe(false);
+  expect(headers.get("Content-Type")).toBe("application/pdf");
+  expect(headers.get("X-Pdf-Created-At")).toBe(upload.headers["X-Pdf-Created-At"]);
+  await expect(api.authenticatedApiFetch(path + "&world_id=foreign", upload)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path, { ...upload, body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
