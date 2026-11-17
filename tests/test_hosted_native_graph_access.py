@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from application_state import pdf_statblock_review
 from apps.live_control_server.routes.agent import (
     _pdf_review_creature_draft_id, get_pdf_statblock_publication, get_pdf_statblock_review,
-    get_published_pdf_statblock, post_accept_pdf_statblock_review, post_append_pdf_statblock_review,
+    get_saved_turn_graph_evidence, get_published_pdf_statblock, post_accept_pdf_statblock_review, post_append_pdf_statblock_review,
     post_pdf_statblock_creature_draft, post_pdf_statblock_publication,
 )
 from application_state.errors import ApplicationStateUnavailableError
@@ -365,6 +365,10 @@ def hosted(monkeypatch, request):
     app.add_api_route(f"{PDF_REVIEW}/creature-draft", post_pdf_statblock_creature_draft, methods=["POST"])
     app.add_api_route(f"{PDF_REVIEW}/accept/{{draft_id}}", post_accept_pdf_statblock_review, methods=["POST"])
     app.add_api_route(f"{PDF_REVIEW}/append/{{draft_id}}", post_append_pdf_statblock_review, methods=["POST"])
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence",
+        get_saved_turn_graph_evidence, methods=["GET"],
+    )
     install_hosted_request_boundary(
         app,
         world_scope_resolvers={
@@ -487,6 +491,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/native-steps/{sequence}/assertion"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters/saved-mechanics/preview"): access.resolve_hosted_combat_encounter,
@@ -2136,6 +2141,28 @@ def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_prepar
     assert hosted.client.request("POST", route, json=payload, origin="https://untrusted.example").status_code == 403
     assert hosted.client.request("POST", route, json={**payload, "runId": "changed"}).status_code == 403
     assert prepared == ["owned"]
+
+
+def test_hosted_turn_evidence_checks_owner_and_exact_selectors(hosted, monkeypatch):
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import agent_source_passages as passages
+
+    turn_id = uuid4()
+    calls = []
+
+    def read(*, world_id, turn_id, claim_id, anchor_id, service):
+        calls.append((world_id, turn_id, claim_id, anchor_id))
+        raise passages.SourcePassageOpenError("source_passage_not_found", 404)
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(passages, "open_saved_turn_graph_evidence", read)
+    path = f"/api/live/agent/worlds/managed/conversation/turns/{turn_id}/graph-evidence?claim_id=claim&anchor_id=anchor"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&anchor_id=foreign").status_code in (403, 422)
+    assert not calls
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 404, result.text
+    assert calls == [("managed", turn_id, "claim", "anchor")]
 
 
 def test_hosted_recap_selection_requires_world_owner_and_origin(hosted, monkeypatch):

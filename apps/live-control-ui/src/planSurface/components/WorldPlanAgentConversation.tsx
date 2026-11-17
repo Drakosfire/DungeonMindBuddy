@@ -5171,7 +5171,7 @@ export function WorldPlanAgentConversation({
           schema: "dmb_world_graph_source_anchor_read_request_v1",
           worldId: target.native_world_id, campaignId: "", scopeMode: "world", focus,
           admissibility: "gm", revisionPin: target.graph_revision, anchorId: target.anchor_id,
-        });
+        }, { worldId: target.managed_world_id, turnId: turn.turn_id, claimId: target.claim_id });
         if (result.schema === "dmb_world_graph_source_anchor_read_v1"
           && ["enough", "partial", "truncated"].includes(result.outcome)
           && sourceReadMatchesAuthority(target, result.snapshot)
