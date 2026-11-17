@@ -136,6 +136,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_combat_encounter,
     resolve_hosted_conversation_world,
     resolve_hosted_agent_readiness,
+    resolve_hosted_image_history,
     resolve_hosted_chat_turn,
     resolve_hosted_build_page_create,
     resolve_hosted_build_page_inventory,
@@ -182,6 +183,7 @@ PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/agent/readiness"): resolve_hosted_agent_readiness,
+    ("GET", "/api/live/media/images/preparations/list"): resolve_hosted_image_history,
     ("POST", "/api/live/agent/turn"): resolve_hosted_chat_turn,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): resolve_hosted_conversation_world,
