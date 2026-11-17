@@ -443,6 +443,30 @@ def require_hosted_build_native_source(request: Request | None, world_id: str) -
     _owned_world(_hosted_subject(request), world_id)
 
 
+async def resolve_hosted_saved_recap(request: Request) -> str:
+    selectors = request.query_params.multi_items()
+    keys = {key for key, _ in selectors}
+    world_id = request.query_params.get("managed_world_id")
+    if request.url.path.endswith("/recap-inspection"):
+        valid_keys = keys == {"managed_world_id", "expected_run_revision", "source_revision_id"}
+    else:
+        valid_keys = keys <= {"managed_world_id", "campaign_id"}
+    if not world_id or not valid_keys or len(keys) != len(selectors) or await request.body():
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_saved_recap_world = world.world_id
+    return world.world_id
+
+
+def require_saved_recap_access(request: Request, world_id: str) -> None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+        return
+    if getattr(request.state, "hosted_saved_recap_world", None) != world_id:
+        raise _denied()
+    _owned_world(_hosted_subject(request), world_id)
+
+
 async def resolve_hosted_build_extraction(request: Request) -> str:
     from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError, get_extraction_run
     from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, get_source_artifact

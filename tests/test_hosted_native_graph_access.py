@@ -284,6 +284,8 @@ def hosted(monkeypatch, request):
             ("POST", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
             ("POST", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_saved_recap,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
@@ -2311,3 +2313,54 @@ def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(hos
     assert response.headers["cache-control"] == "no-store"
     assert response.json()["pdf_portrait"] == "portrait"
     assert calls == [{"world_id": "managed", "draft_id": draft, "revision_id": revision}]
+
+
+def test_hosted_ingest_lists_and_reopens_saved_source_in_owned_world(hosted, monkeypatch):
+    from uuid import UUID
+    from apps.live_control_server.models.saved_recap_runs import (
+        SavedRecapRun, SavedRecapRunsResponse, SavedRecapSourceResponse,
+    )
+    from apps.live_control_server.services import ingest_run_catalog
+
+    source = UUID("12345678-1234-1234-1234-123456789abc")
+    scope = {"managed_world_id": "managed", "native_world_id": "world:managed", "binding_version": 1}
+    run = SavedRecapRun(
+        run_id="recap-run", run_revision=2, run_status="reviewable", source_artifact_id="recap",
+        campaign_id="campaign", session_id=None, profile_id=None, created_at=None, updated_at=None,
+        source_revision_id=source, source_sha256="a" * 64,
+    )
+    calls = []
+
+    def list_runs(*, root, **selectors):
+        calls.append(selectors)
+        return SavedRecapRunsResponse(**scope, runs=[run])
+
+    def read_source(*, root, **selectors):
+        calls.append(selectors)
+        return SavedRecapSourceResponse(**scope, run=run, source_prose="Frozen recap.")
+
+    monkeypatch.setattr(ingest_run_catalog, "list_saved_recap_runs", list_runs)
+    monkeypatch.setattr(ingest_run_catalog, "read_saved_recap_source", read_source)
+    base = "/api/live/graph-preview/extraction-runs"
+    catalog = f"{base}?managed_world_id=managed&campaign_id=campaign"
+    inspection = (
+        f"{base}/{run.run_id}/recap-inspection?managed_world_id=managed"
+        f"&expected_run_revision=2&source_revision_id={source}"
+    )
+    for path in (catalog, inspection):
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+        assert hosted.client.request("GET", path + "&unexpected=1").status_code == 403
+        assert hosted.client.request("GET", path + "&managed_world_id=managed").status_code == 403
+    assert calls == []
+    response = hosted.client.request("GET", catalog)
+    assert response.status_code == 200, response.text
+    assert response.json()["runs"][0]["sourceRevisionId"] == str(source)
+    response = hosted.client.request("GET", inspection)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["sourceProse"] == "Frozen recap."
+    assert calls == [
+        {"managed_world_id": "managed", "campaign_id": "campaign"},
+        {"managed_world_id": "managed", "run_id": run.run_id,
+         "expected_run_revision": 2, "source_revision_id": source},
+    ]

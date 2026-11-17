@@ -429,6 +429,25 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(metadata|original)$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  const savedRecap = /^\/api\/live\/graph-preview\/extraction-runs(\/[^/?]+\/recap-inspection)?\?/.exec(path);
+  if (savedRecap && method === "GET" && init?.body == null) {
+    const query = new URLSearchParams(path.slice(savedRecap[0].length));
+    const worldId = query.get("managed_world_id");
+    if (worldId) {
+      const exactQuery = new URLSearchParams({ managed_world_id: worldId });
+      if (savedRecap[1]) {
+        const revision = query.get("expected_run_revision");
+        const source = query.get("source_revision_id");
+        if (!revision || !source) return false;
+        exactQuery.set("expected_run_revision", revision);
+        exactQuery.set("source_revision_id", source);
+      } else {
+        const campaign = query.get("campaign_id");
+        if (campaign) exactQuery.set("campaign_id", campaign);
+      }
+      return path === savedRecap[0] + exactQuery;
+    }
+  }
   const exactStatblock = /^\/api\/live\/threat-drafts\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-revisions\/rev_[a-z0-9]+\?/.exec(path);
   if (exactStatblock) {
     const worldId = new URLSearchParams(path.slice(exactStatblock[0].length)).get("world_id");
