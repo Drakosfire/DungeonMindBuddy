@@ -455,6 +455,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && typeof body?.world_id === "string" && Boolean(body.world_id)
       && typeof body.operation_id === "string" && Boolean(body.operation_id);
   }
+  if (path === "/api/live/graph-authoring/document-relationship/native-prepare"
+    || path === "/api/live/graph-authoring/document-relationship/native-confirm") {
+    const review = requestBodyRecord(init?.body)?.review;
+    return method === "POST" && isRecord(review) && typeof review.world_id === "string"
+      && Boolean(review.world_id);
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f-]+\?([^#]+)$/.exec(path);
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);
@@ -2020,8 +2026,8 @@ export interface GoldGraphProjectionQuery {
   sessionId: string;
 }
 
-export async function getGraphObjectAuthoringKinds(): Promise<{objectKinds: string[]}> {
-  return apiFetch<{objectKinds: string[]}>("/api/live/graph-authoring/object-kinds");
+export async function getGraphObjectAuthoringKinds(worldId?: string): Promise<{objectKinds: string[]}> {
+  return apiFetch<{objectKinds: string[]}>("/api/live/graph-authoring/object-kinds" + (worldId ? `?world_id=${encodeURIComponent(worldId)}` : ""));
 }
 
 export async function prepareGraphObjectAuthoringWrite(

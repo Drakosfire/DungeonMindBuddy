@@ -1,3 +1,4 @@
+from tests.test_hosted_native_graph_access import hosted, recap_lane  # noqa: F401
 """Saved selection adapter through the real governed HTTP boundary; isolated native port."""
 from tests.test_graph_document_source import case as case
 from tests.page_fixtures import page_text, save_page
@@ -227,7 +228,22 @@ def test_native_relationship_intent_retains_reviewed_passage_and_text(case):
     }
 
 
-def test_signed_native_review_publishes_once(case, graph, monkeypatch):
+@pytest.mark.parametrize("hosted_mode", [False, True], ids=["local", "hosted"])
+def test_signed_native_review_publishes_once(case, graph, monkeypatch, hosted_mode, request):
+    post = case.client.post
+    if hosted_mode:
+        import json
+
+        from tests.test_hosted_native_graph_access import HOSTED_WORLD_ACCESS_ENV, OWNER, _record
+
+        hosted = request.getfixturevalue("hosted")
+        world = case.record.world_id
+        hosted.records[world] = _record(world, OWNER, case.binding.native_world_id)
+        monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+        post = lambda path, **kwargs: hosted.client.request("POST", path, **kwargs)
+        kinds = hosted.client.request("GET", f"/api/live/graph-authoring/object-kinds?world_id={world}")
+        assert kinds.status_code == 200, kinds.text
+        assert kinds.json()["objectKinds"]
     from datetime import UTC, datetime
 
     from dungeonmind.application.vnext import (
@@ -285,7 +301,12 @@ def test_signed_native_review_publishes_once(case, graph, monkeypatch):
     epoch = repo.open_native_source_view(space).epoch
     prefix = '/api/live/graph-authoring/document-relationship'
     operation = str(uuid4())
-    preview = case.client.post(f'{prefix}/native-prepare', json={'review': review, 'operation_id': operation})
+    if hosted_mode:
+        forbidden = hosted.client.request(
+            "POST", f"{prefix}/native-prepare", json={"review": review, "operation_id": operation}, origin=None,
+        )
+        assert forbidden.status_code == 403
+    preview = post(f'{prefix}/native-prepare', json={'review': review, 'operation_id': operation})
     assert preview.status_code == 200, preview.text
     assert repo.get_head(space) == head
     assert repo.open_native_source_view(space).epoch == epoch
@@ -295,18 +316,18 @@ def test_signed_native_review_publishes_once(case, graph, monkeypatch):
 
     tampered = deepcopy(confirmed)
     tampered['prepared']['extension']['spans'][0]['start_byte'] += 1
-    rejected = case.client.post(f'{prefix}/native-confirm', json=tampered)
+    rejected = post(f'{prefix}/native-confirm', json=tampered)
     assert rejected.status_code == 409, rejected.text
     assert rejected.json()['detail']['code'] == 'confirmation_invalid'
     assert repo.get_head(space) == head
     assert repo.open_native_source_view(space).epoch == epoch
 
-    receipt = case.client.post(f'{prefix}/native-confirm', json=confirmed)
+    receipt = post(f'{prefix}/native-confirm', json=confirmed)
     assert receipt.status_code == 200, receipt.text
     child = repo.get_revision(space, receipt.json()['child_revision_id'])
     assert child.revision.parent_revision_id == head.head_revision_id
     assert repo.open_native_source_view(space).epoch == epoch + 1
-    retry = case.client.post(f'{prefix}/native-confirm', json=confirmed)
+    retry = post(f'{prefix}/native-confirm', json=confirmed)
     assert retry.status_code == 200, retry.text
     assert retry.json() == receipt.json()
     assert repo.get_head(space).head_revision_id == child.revision.revision_id

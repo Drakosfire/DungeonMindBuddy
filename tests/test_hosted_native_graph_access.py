@@ -325,6 +325,11 @@ def hosted(monkeypatch, request):
     app.include_router(play_runs.router)
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
+    from apps.live_control_server.routes import graph_authoring
+
+    app.add_api_route("/api/live/graph-authoring/object-kinds", graph_authoring.get_graph_object_authoring_kinds, methods=["GET"])
+    app.add_api_route("/api/live/graph-authoring/document-relationship/native-prepare", graph_authoring.post_native_relationship_prepare, methods=["POST"])
+    app.add_api_route("/api/live/graph-authoring/document-relationship/native-confirm", graph_authoring.post_native_relationship_confirm, methods=["POST"])
     app.include_router(extract_promote.router)
     app.include_router(live.router)
     app.include_router(graph_preview.router)
@@ -364,6 +369,9 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/rules/query"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/rules/passages/{citation_id}"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_connected_page,
+            ("GET", "/api/live/graph-authoring/object-kinds"): access.resolve_hosted_plan_world_context,
+            ("POST", "/api/live/graph-authoring/document-relationship/native-prepare"): access.resolve_hosted_native_relationship,
+            ("POST", "/api/live/graph-authoring/document-relationship/native-confirm"): access.resolve_hosted_native_relationship,
             ("POST", "/api/live/connected-pages/prepare"): access.resolve_hosted_connected_page,
             ("POST", "/api/live/connected-pages/confirm"): access.resolve_hosted_connected_page,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,

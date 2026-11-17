@@ -274,6 +274,19 @@ async def resolve_hosted_image_history(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_native_relationship(request: Request) -> str:
+    if request.query_params:
+        raise _denied()
+    body = await request.json()
+    review = body.get("review") if isinstance(body, dict) else None
+    world_id = review.get("world_id") if isinstance(review, dict) else None
+    if not isinstance(world_id, str) or not world_id:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_connected_page(request: Request) -> str:
     if request.method == "GET":
         world_id = request.query_params.get("world_id")

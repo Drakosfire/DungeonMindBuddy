@@ -137,6 +137,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_combat_encounter,
     resolve_hosted_conversation_world,
     resolve_hosted_connected_page,
+    resolve_hosted_native_relationship,
     resolve_hosted_agent_readiness,
     resolve_hosted_image_history,
     resolve_hosted_image_world,
@@ -188,6 +189,9 @@ PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/connected-pages/{operation_id}"): resolve_hosted_connected_page,
+    ("GET", "/api/live/graph-authoring/object-kinds"): resolve_hosted_plan_world_context,
+    ("POST", "/api/live/graph-authoring/document-relationship/native-prepare"): resolve_hosted_native_relationship,
+    ("POST", "/api/live/graph-authoring/document-relationship/native-confirm"): resolve_hosted_native_relationship,
     ("POST", "/api/live/connected-pages/prepare"): resolve_hosted_connected_page,
     ("POST", "/api/live/connected-pages/confirm"): resolve_hosted_connected_page,
     ("GET", "/api/live/world-session-evidence"): resolve_hosted_plan_world_context,
