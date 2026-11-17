@@ -249,6 +249,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 kinds = ({'Explicit admitted full-source read; metadata choice, not evidence', 'Exact source section'}
                     if scanned else {'Source lexical navigation; not evidence or semantic completeness'})
                 selected = {i for i,c in enumerate(candidates) if c['kind'] in kinds}
+            if saved_statblock and "operation" in body["questions"]:
+                from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+                events = writer.adapter._broker_execution().events
+                if any(isinstance(event, BuildSavedStatblockReadV1) for event in events):
+                    examined = body["state"]["examined_subjects"]
+                    assert any(row["kind"] == "Saved statblock: acquired exact mechanics in this turn"
+                               and row["label"] == "Meat Mind" for row in examined), examined
             for name, question in body['questions'].items():
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
@@ -1679,6 +1686,9 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
     assert len(references) == 1
     assert references[0]["name"] == "Meat Mind"
     assert references[0]["revision_id"] == "rev_meatmind"
+    from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+    read, = [event for event in case.turn.graph_context_execution.events if isinstance(event, BuildSavedStatblockReadV1)]
+    assert read.locator.revision_id == "rev_meatmind"
     sources = references[0]["pdf_sources"]
     if mode in {"associated", "by-name"}:
         assert "Hit Points 41" in response.json()["messages"][-1]["assistant_text"]
