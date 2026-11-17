@@ -794,3 +794,20 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
     except Exception:
         raise _unavailable() from None
     return WorldContainersListResponse(records=permitted).model_dump(mode="json")
+
+
+async def resolve_hosted_worldbuilding_evidence_correction(request: Request) -> str:
+    from apps.live_control_server.models.extract_promote import WorldbuildingEvidenceCorrectionRequest
+
+    run_id = getattr(request.state, "hosted_route_run_id", None)
+    if not run_id or request.query_params:
+        raise _denied()
+    body = WorldbuildingEvidenceCorrectionRequest.model_validate(await request.json())
+    if body.parent_run_id != run_id:
+        raise _denied()
+    world_id, artifact = await _owned_worldbuilding_extraction(_hosted_subject(request), run_id)
+    if (body.world_id != world_id or body.source_artifact_id != artifact.source_artifact_id
+            or body.source_sha256 != artifact.content_sha256):
+        raise _denied()
+    request.state.hosted_build_page_world = world_id
+    return world_id
