@@ -489,6 +489,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/threat-drafts/{draft_id}/native-creature/prepare"): access.resolve_hosted_native_creature,
             ("POST", "/api/live/threat-drafts/{draft_id}/native-creature/confirm"): access.resolve_hosted_native_creature,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_saved_statblock,
+            ("DELETE", "/api/live/threat-drafts/{draft_id}/saved-statblock"): access.resolve_hosted_saved_statblock,
             ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_statblock_revision_save,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}"): access.resolve_hosted_saved_statblock,
             ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover"): access.resolve_hosted_saved_statblock,
@@ -3829,3 +3830,30 @@ def test_hosted_image_catalog_binds_world_and_cursor(hosted, monkeypatch):
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     provider.list_image_models.assert_awaited_once_with(category="text-to-image", cursor="next", limit=7)
+
+
+def test_hosted_archives_exact_statblock_and_preserves_saved_revision(mechanics_prepared, hosted):
+    from apps.live_control_server.services import threat_draft_store
+
+    fixture = mechanics_prepared
+    world = "elderwyld"
+    hosted.records[world] = _record(world, OWNER, fixture.view.native_world_id)
+    from apps.live_control_server.services import hosted_auth
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setenv(hosted_auth.HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+        draft_id = fixture.draft.draft_id
+        version = fixture.draft.version
+        base = f"/api/live/threat-drafts/{draft_id}/saved-statblock?world_id={world}"
+        path = f"{base}&expected_version={version}"
+        assert hosted.client.request("DELETE", path, session="other-session").status_code == 403
+        assert hosted.client.request("DELETE", path, origin=None).status_code == 403
+        assert hosted.client.request("DELETE", f"{base}&expected_version={version + 1}").status_code == 409
+        before, _ = threat_draft_store.list_threat_drafts(fixture.root, world_id=world)
+        assert len(before) == 1
+        archived = hosted.client.request("DELETE", path)
+        assert archived.status_code == 204, archived.text
+        after, _ = threat_draft_store.list_threat_drafts(fixture.root, world_id=world)
+        assert after == []
+        assert threat_draft_store.get_threat_draft(fixture.root, draft_id).accepted_mechanics_ref == fixture.draft.accepted_mechanics_ref
+        assert hosted.client.request("DELETE", path).status_code == 204

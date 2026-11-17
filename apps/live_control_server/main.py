@@ -314,6 +314,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/threat-drafts/{draft_id}/native-creature/prepare"): resolve_hosted_native_creature,
     ("POST", "/api/live/threat-drafts/{draft_id}/native-creature/confirm"): resolve_hosted_native_creature,
     ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): resolve_hosted_saved_statblock,
+    ("DELETE", "/api/live/threat-drafts/{draft_id}/saved-statblock"): resolve_hosted_saved_statblock,
     ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): resolve_hosted_statblock_revision_save,
     ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}"): resolve_hosted_saved_statblock,
     ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover"): resolve_hosted_saved_statblock,
