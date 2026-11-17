@@ -245,12 +245,17 @@ def test_corrupted_producer_result_never_applies(adoption_case,damage):
     assert p.client.get(p.encounter_url).json()==p.before
 
 
-def test_adoption_routes_require_native_gm(adoption_case):
-    from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal,NativeGraphPrincipal
-    p=adoption_case;p.app.dependency_overrides.clear()
-    p.app.dependency_overrides[authenticate_native_graph_principal]=lambda:NativeGraphPrincipal('player-test','player','local_session')
-    assert apply(p).status_code==403
-    assert p.client.post(p.cancel_url,json=p.intent).status_code==403
+def test_adoption_routes_require_native_gm(adoption_case, monkeypatch):
+    from apps.live_control_server.services import agent_graph_auth
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+
+    p = adoption_case
+    monkeypatch.setattr(
+        agent_graph_auth, "authenticate_native_graph_principal",
+        lambda _request: NativeGraphPrincipal("player-test", "player", "local_session"),
+    )
+    assert apply(p).status_code == 403
+    assert p.client.post(p.cancel_url, json=p.intent).status_code == 403
 
 
 def test_multi_actor_adoption_reads_exact_source_once_and_replay_reads_none(adoption_case,monkeypatch):

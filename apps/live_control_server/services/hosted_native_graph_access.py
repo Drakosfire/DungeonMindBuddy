@@ -413,7 +413,12 @@ async def resolve_hosted_statblock_inventory(request: Request) -> str:
 
 async def resolve_hosted_combat_encounter(request: Request) -> str:
     world_id = request.query_params.get("world_id")
-    if not world_id or request.query_params.multi_items() != [("world_id", world_id)]:
+    selectors = request.query_params.multi_items()
+    keys = {key for key, _ in selectors}
+    allowed = {"world_id"}
+    if request.method == "GET" and request.url.path.endswith("/mechanics-adoptions"):
+        allowed.update(("before_operation_id", "limit"))
+    if not world_id or len(keys) != len(selectors) or not keys <= allowed:
         raise _denied()
     if request.method == "GET" and await request.body():
         raise _denied()

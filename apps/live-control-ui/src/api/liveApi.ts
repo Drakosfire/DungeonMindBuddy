@@ -443,6 +443,21 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "GET" && init?.body == null && !!worldId && offset !== null && /^\d+$/.test(offset)
       && path === savedRevisionList[0] + new URLSearchParams({ world_id: worldId, offset });
   }
+  const combatAdoption = /^\/api\/live\/combat\/encounters\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-adoptions(:cancel|\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
+  if (combatAdoption) {
+    const query = new URLSearchParams(path.slice(combatAdoption[0].length));
+    const worldId = query.get("world_id");
+    if (!worldId) return false;
+    const exact = new URLSearchParams({ world_id: worldId });
+    const suffix = combatAdoption[1];
+    if (method === "GET" && suffix !== ":cancel" && init?.body == null) {
+      const before = query.get("before_operation_id");
+      if (!suffix && before) exact.set("before_operation_id", before);
+      return path === combatAdoption[0] + exact;
+    }
+    return method === "POST" && (!suffix || suffix === ":cancel") && !!requestBodyRecord(init?.body)
+      && path === combatAdoption[0] + exact;
+  }
   const combatEncounter = /^\/api\/live\/combat\/encounters(\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
   if (combatEncounter) {
     const worldId = new URLSearchParams(path.slice(combatEncounter[0].length)).get("world_id");
