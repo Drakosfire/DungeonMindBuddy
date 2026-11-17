@@ -837,3 +837,22 @@ it("reads the managed graph projection on the exact hosted route", async () => {
   await expect(api.authenticatedApiFetch(path + "?world_id=foreign", init)).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it.each([
+  "/api/live/graph-preview/extraction-runs/saved-run",
+  "/api/live/graph-preview/extraction-runs/saved-run/build-context",
+  "/api/live/extract-promote/runs/saved-run/review-package",
+  "/api/live/extract-promote/runs/saved-run/frozen-source-spans",
+  "/api/live/extract-promote/runs/saved-run/worldbuilding-publication-coverage",
+])("uses the hosted session for exact saved extraction reads at %s", async path => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+  await api.authenticatedApiFetch(path, { headers: { Authorization: "Bearer local-only-fixture" } });
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toBe(path);
+  expect(init).toMatchObject({ credentials: "same-origin", mode: "same-origin" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "?world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
