@@ -441,6 +441,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && ["build", "plan", "play"].includes(surface ?? "")
       && ["true", "false"].includes(worldGraph ?? "") && query.size === 3;
   }
+  if (/^\/api\/live\/tiptap\/markdown-write\/(prepare|commit)$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.document_id === "string" && Boolean(body.document_id)
+      && typeof body.markdown === "string" && body.markdown.includes("dmb-media:");
+  }
   const imageGeneration = /^\/api\/live\/media\/images\/generate\?([^#]+)$/.exec(path);
   if (imageGeneration) {
     const query = new URLSearchParams(imageGeneration[1]);

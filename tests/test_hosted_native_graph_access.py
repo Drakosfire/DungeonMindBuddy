@@ -2054,7 +2054,16 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert created.status_code == 200, created.text
     record = created.json()
     document = f"{documents}/{record['document_id']}"
-    markdown = "# First source\n\nThe pilot town has a well.\n"
+    from io import BytesIO
+
+    from PIL import Image
+    from application_state import media
+
+    image = BytesIO()
+    Image.new("RGB", (2, 2)).save(image, format="PNG")
+    asset = media.stage_image(image.getvalue(), access.hosted_world_media_owner("managed"), {})
+    foreign = media.stage_image(image.getvalue(), access.hosted_world_media_owner("foreign"), {})
+    markdown = f"# First source\n\nThe pilot town has a well.\n\n![The well](dmb-media:{asset['asset_id']})\n"
     request = {
         "document_id": record["document_id"], "markdown": markdown,
         "expected_revision": record["revision"],
@@ -2063,6 +2072,9 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert hosted.client.request("GET", document, session="other-session").status_code == 403
     assert hosted.client.request("GET", f"{document}/snapshot?world_id=foreign").status_code == 403
     assert hosted.client.request("POST", f"{editor}/prepare", json=request, session="other-session").status_code == 403
+    foreign_request = {**request, "markdown": markdown.replace(str(asset["asset_id"]), str(foreign["asset_id"]))}
+    denied = hosted.client.request("POST", f"{editor}/prepare", json=foreign_request)
+    assert denied.status_code == 422, denied.text
     prepared = hosted.client.request("POST", f"{editor}/prepare", json=request)
     assert prepared.status_code == 200, prepared.text
     token = prepared.json()["writer_confirm_token"]
@@ -2074,6 +2086,7 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert reopened.status_code == 200, reopened.text
     assert reopened.headers["cache-control"] == "no-store"
     assert "The pilot town has a well." in reopened.json()["markdown"]
+    assert f"dmb-media:{asset['asset_id']}" in reopened.json()["markdown"]
 
 
     from apps.live_control_server.services import graph_preview_runner, graph_run_registry
