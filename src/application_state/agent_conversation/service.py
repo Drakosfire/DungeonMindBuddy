@@ -2945,6 +2945,10 @@ class AgentConversationService:
                         turn_id=turn.turn_id, markdown=result.assistant_text,
                     )
             if conversation_variant is not None:
+                from apps.live_control_server.services.conversation_variant_save import variant_review_is_valid
+                if not variant_review_is_valid(conversation_variant.definition, native_output_proof.variant_validation):
+                    conversation_variant = None
+            if conversation_variant is not None:
                 from .build_saved_statblock import BuildSavedStatblockReadV1
                 from .conversation_variant_save import store_review
 

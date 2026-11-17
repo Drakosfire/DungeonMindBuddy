@@ -60,7 +60,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid"):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -154,6 +154,24 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         native_world_id=world, binding_version=1, graph_revision=original_revision,
         node_id=lane.ids['B'], label='DISPLAY ONLY: never evidence'),))
     if saved_statblock in {"associated", "by-name"}:
+        from apps.live_control_server.services import statblock_definition_validation
+        from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import compute_definition_digest
+        from apps.live_control_server.integrations.dungeonmind_statblocks.generated import ValidationReceiptV1
+
+        def validate_variant(*, definition, client=None):
+            if variant_validation is None:
+                return SimpleNamespace(validation_receipt=None)
+            if variant_validation == "malformed":
+                raise ValueError("validation digest mismatch between response and receipt")
+            digest = "sha256:" + "0" * 64 if variant_validation == "mismatched" else compute_definition_digest(definition)
+            status = "valid" if variant_validation == "mismatched" else variant_validation
+            receipt = ValidationReceiptV1.model_validate(dict(definition_digest=digest,
+                status=status, issues=[], mode="editor_preview",
+                canonicalizer_version="statblock-canonicalizer-v1",
+                validator_version="statblock-validator-v1.2", validated_at="2026-01-01T00:00:00Z"))
+            return SimpleNamespace(definition_digest=digest, validation_receipt=receipt)
+
+        monkeypatch.setattr(statblock_definition_validation, "validate_definition", validate_variant)
         from application_state.world_mechanics import service as associations
         from application_state.world_mechanics.types import WorldMechanicsTarget
         from apps.live_control_server.services import world_creature_selection
@@ -1950,16 +1968,22 @@ def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
     assert driver._referenced_statblocks((reference,)) == []
 
 
-def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_path, monkeypatch):
+@pytest.mark.parametrize("variant_validation", ["valid", "warnings", "invalid", None, "malformed", "mismatched"])
+def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_path, monkeypatch, variant_validation):
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Draft the Meat Mind variant in this conversation for review.",
         requested_work="draft_in_conversation", saved_statblock="associated",
+        variant_validation=variant_validation,
     )
     root = f"/api/live/agent/worlds/{case.world}/conversations/{case.turn.conversation_id}"
     draft_path = f"{root}/drafts/{case.turn.turn_id}"
     draft = case.client.get(draft_path)
     assert draft.status_code == 200, draft.text
+    if variant_validation not in {"valid", "warnings"}:
+        assert draft.json()["markdown"]
+        assert not draft.json().get("variant_review_ids")
+        return
     review_id, = draft.json()["variant_review_ids"]
     reviewed = case.client.get(f"{draft_path}/variant-reviews/{review_id}")
     assert reviewed.status_code == 200, reviewed.text

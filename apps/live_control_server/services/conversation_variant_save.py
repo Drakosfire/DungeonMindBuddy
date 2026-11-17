@@ -1,6 +1,7 @@
 """Create a distinct statblock for an explicitly confirmed conversation revision."""
 
 import json
+import logging
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -50,6 +51,37 @@ class ConfirmConversationVariant(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     review_id: UUID
+
+
+logger = logging.getLogger(__name__)
+
+
+def validate_variant_review(definition, *, client=None):
+    """Obtain an owner receipt before presenting generated mechanics for confirmation."""
+    from .statblock_definition_validation import validate_definition
+
+    try:
+        result = validate_definition(definition=definition, client=client)
+    except ValueError:
+        logger.warning("Statblock owner returned a malformed validation receipt.")
+        return None
+    receipt = result.validation_receipt
+    if receipt is None:
+        return None
+    if result.definition_digest != compute_definition_digest(definition) or receipt.definition_digest != result.definition_digest:
+        logger.warning("Statblock validation did not match the submitted draft definition.")
+        return None
+    return receipt
+
+
+def variant_review_is_valid(definition, receipt):
+    if receipt is None:
+        return False
+    if receipt.definition_digest != compute_definition_digest(definition):
+        raise ApplicationStateIntegrityError("Statblock validation does not bind to the draft.")
+    return receipt.status != ValidationStatus.invalid and not any(
+        issue.severity == ValidationSeverity.error for issue in receipt.issues or []
+    )
 
 
 def save_variant(
