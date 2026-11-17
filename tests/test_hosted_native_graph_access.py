@@ -286,6 +286,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): access.resolve_hosted_saved_recap,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
@@ -2364,3 +2365,29 @@ def test_hosted_ingest_lists_and_reopens_saved_source_in_owned_world(hosted, mon
         {"managed_world_id": "managed", "run_id": run.run_id,
          "expected_run_revision": 2, "source_revision_id": source},
     ]
+
+
+def test_hosted_ingest_candidate_projection_is_owned_and_exact(hosted, monkeypatch):
+    from apps.live_control_server.services import exact_run_candidate_projection
+
+    calls = []
+
+    def read_candidate(_root, run_id, world_id):
+        calls.append((run_id, world_id))
+        return SavedCandidate()
+
+    class SavedCandidate:
+        def model_dump(self, *, mode, by_alias):
+            return {"runId": "recap-run", "managedWorldId": "managed"}
+
+    monkeypatch.setattr(exact_run_candidate_projection, "build_exact_run_candidate_projection", read_candidate)
+    path = "/api/live/graph-preview/extraction-runs/recap-run/candidate-projection?managed_world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&campaign_id=foreign").status_code == 403
+    assert hosted.client.request("GET", path + "&managed_world_id=foreign").status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 200, result.text
+    assert result.headers["cache-control"] == "no-store"
+    assert result.json() == {"runId": "recap-run", "managedWorldId": "managed"}
+    assert calls == [("recap-run", "managed")]
