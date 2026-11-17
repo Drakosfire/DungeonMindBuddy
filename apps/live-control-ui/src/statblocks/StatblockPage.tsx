@@ -8,7 +8,7 @@ import {getAppLocationSnapshot,subscribeAppLocation} from '../chrome/appNavigati
 import {useSelectedWorld} from '../selectedWorld/SelectedWorldContext';
 import type {OpenSavedMechanicsVersion} from './revision/savedMechanicsRevisionTypes';
 import {StatblockRenderer} from './render/StatblockRenderer';
-import {readSavedConversationVariantTarget,readSavedStatblockTarget,type SavedConversationVariantTarget,type SavedStatblockTarget} from './savedStatblockLocation';
+import {savedConversationVariantHref,readSavedConversationVariantTarget,readSavedStatblockTarget,type SavedConversationVariantTarget,type SavedStatblockTarget} from './savedStatblockLocation';
 import './StatblockPage.css';
 import type {ThreatDraftV2} from '../api/types';
 import {NativeThreatCreationPanel} from './NativeThreatCreationPanel';
@@ -92,7 +92,10 @@ function SavedConversationVariantView({target}: {target: SavedConversationVarian
  }, [target.worldId, target.conversationId, target.turnId, target.reviewId]);
  return <main className="saved-statblock-page" aria-label="Saved conversation variant">
   {error ? <p role="alert">{error}</p> : revision
-   ? <StatblockRenderer revision={revision} mode="full" chrome="campaign"/>
+   ? <>
+      <a href={savedConversationVariantHref(target).replace(/^\/statblock\?/, '/combat?')}>Open in Combat</a>
+      <StatblockRenderer revision={revision} mode="full" chrome="campaign"/>
+     </>
    : <p role="status">Opening saved variant…</p>}
  </main>;
 }
