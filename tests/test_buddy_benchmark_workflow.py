@@ -666,6 +666,29 @@ def test_relative_capture_output_qualifies_absolute_owned_paths(tmp_path, monkey
     assert report["cases"][0]["capture_status"] == "not_started"
 
 
+def test_capture_rejects_changed_editor_snapshot_before_startup(tmp_path, monkeypatch):
+    monkeypatch.delenv("DMB_AGENT_GRAPH_LOCAL_PROFILE", raising=False)
+    monkeypatch.setattr(w, "verify_runtime", lambda *args: None)
+    snapshot = tmp_path / "editor.json"
+    pin = put(snapshot, {"draft_markdown": "Saved text"})
+    put(snapshot, {"draft_markdown": "Changed text"})
+    manifest = tmp_path / "capture.json"
+    put(manifest, {"schema": "dmb_ordinary_benchmark_v1", "world": "world",
+        "cases": [{"id": "first", "question": "Discuss."}], "pins": [put(tmp_path / "runtime.json", {})],
+        "runtime": {}, "conversation_mode": "build_sequence", "build_editor_snapshot": pin,
+        "request_template": template() | {
+            "surface": {"surface_id": "build", "instance_id": "page"},
+            "primary_work": {"kind": "build", "object_id": "page",
+                             "expected_revision": 1, "expected_content_sha256": "a" * 64},
+            "graph_request": {"mode": "world", "world_id": "world"},
+            "client_work_state": "saved_clean",
+        }})
+    output = tmp_path / "output"
+    with pytest.raises(ValueError, match="(?i)pin|digest|sha256"):
+        w.capture(manifest, output)
+    assert not output.exists()
+
+
 @pytest.fixture
 def writer_replay(retained,monkeypatch):
     from application_state.agent_conversation.types import canonical_sha256

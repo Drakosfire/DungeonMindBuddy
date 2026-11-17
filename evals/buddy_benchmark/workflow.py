@@ -466,6 +466,13 @@ def capture(manifest_path, output, *, context_only=False):
         raise ValueError("Unknown benchmark conversation mode")
     build_sequence = mode == "build_sequence"
     validate_template(template, manifest["world"], context_only=context_only, build_sequence=build_sequence)
+    editor_snapshot = None
+    if "build_editor_snapshot" in manifest:
+        if not build_sequence:
+            raise ValueError("Editor snapshots require a Build sequence")
+        editor_snapshot = json.loads(read_pin(manifest["build_editor_snapshot"], base))
+        if not isinstance(editor_snapshot, dict):
+            raise ValueError("Build editor snapshot pin must contain a snapshot object")
     output = Path(output).resolve()
     output.mkdir(mode=0o700, parents=True, exist_ok=False)
     # The application must be configured against explicitly qualified test state.
@@ -508,6 +515,9 @@ def capture(manifest_path, output, *, context_only=False):
     (output / "runtime-artifacts").mkdir(mode=0o700)
     from fastapi.testclient import TestClient
     retained = dict(manifest)
+    if editor_snapshot is not None:
+        pin = manifest["build_editor_snapshot"]
+        retained["build_editor_snapshot"] = dict(pin, path=str((base / pin["path"]).resolve()))
     retained["cases"] = []
     for case in manifest["cases"]:
         # A new capture never inherits an old semantic assessment.
@@ -551,7 +561,7 @@ def capture(manifest_path, output, *, context_only=False):
                 directory = output / case["id"]
                 response = capture_case(client, manifest["world"], template, case, directory,
                     context_only=context_only, build_thread_id=build_thread_id,
-                    expected_conversation_id=conversation_id)
+                    expected_conversation_id=conversation_id, build_editor_snapshot=editor_snapshot)
                 if build_sequence:
                     if response.status_code != 200:
                         raise ValueError("Build turn failed; later turns not dispatched")
