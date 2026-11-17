@@ -88,6 +88,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             contract_version="1.0.0", definition_digest="sha256:" + "a" * 64)
         draft_id = str(uuid4())
         definition = {"identity": {"name": "Meat Mind"}, "vitality": {"hit_points": 41}}
+        if dispatch or requested_work == "draft_in_conversation":
+            from tests.test_statblock_acceptance_reconciliation import _definition
+
+            definition = _definition().model_dump(mode="json")
         monkeypatch.setattr(statblock_saved_revision, "iter_saved_mechanics",
             lambda root, *, world_id: [("Meat Mind", draft_id, locator)] if world_id == world else [])
         pdf_support = {"scope": {"managed_world_id": world, "native_world_id": world,
@@ -358,7 +362,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert (handles or saved_statblock in {"associated", "by-name"} or authored_source=='source_only') and 'DISPLAY ONLY' not in str(frame)
             current_work = requested_work(self.adapter.request.message) if callable(requested_work) else requested_work
             if saved_statblock:
-                expected = {"mechanics": definition}
+                expected = {"mechanics": definition if current_work == "draft_in_conversation"
+                            else {key: value for key, value in definition.items() if key != "ruleset"}}
                 if saved_statblock in {"associated", "by-name"}:
                     expected["reviewed_pdf_excerpts"] = [{"source": "pdf0:0", "text": "Hit Points 41"}]
                 if current_work == "draft_in_conversation":
@@ -401,9 +406,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 candidate["answer_segments"] = [dict(kind="statblock_pdf_claim",
                     source="pdf0:0", quote="Hit Points 41")]
             if saved_statblock and current_work == "draft_in_conversation":
-                from tests.test_statblock_acceptance_reconciliation import _definition
+                new_rule = definition["rule_elements"][0] | {"key": "truce", "name": "Terms of Truce"}
                 candidate["statblock_variant"] = {
-                    "source": "statblock0", "definition": _definition().model_dump(mode="json"),
+                    "source": "statblock0", "add_rules": [new_rule], "replace_rules": [],
                 }
             if native_body or authored_source:
                 from application_state.agent_conversation import native_corpus as corpus
@@ -1743,13 +1748,18 @@ def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monk
     review_id, = draft.json()["variant_review_ids"]
     review = case.client.get(f"{draft_path}/variant-reviews/{review_id}").json()
     assert review["base_locator"]["revision_id"] == "rev_meatmind"
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    new_rule = base["rule_elements"][0] | {"key": "truce", "name": "Terms of Truce"}
+    assert review["definition"] == base | {"rule_elements": [*base["rule_elements"], new_rule]}
     assert review["saved"] is False
     from tests.application_state.test_conversation_drafts import _check_variant_response_loss
 
     _check_variant_response_loss(
         service, {"world_id": case.world, "conversation_id": case.turn.conversation_id,
                   "turn_id": turns[-1].turn_id}, monkeypatch, case.client.app, draft_path,
-        existing_review=UUID(review_id), mounted_client=case.client,
+        existing_review=UUID(review_id), existing_definition=review["definition"], mounted_client=case.client,
     )
     from apps.live_control_server.services.workspace_document_registry import get_workspace_document
     from tests.test_authored_page_database_cutover import save

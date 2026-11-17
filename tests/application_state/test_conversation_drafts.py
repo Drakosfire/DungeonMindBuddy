@@ -126,7 +126,7 @@ def test_draft_route_checks_access_before_read_or_edit(monkeypatch):
 
 
 
-def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *, existing_review=None, mounted_client=None):
+def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *, existing_review=None, existing_definition=None, mounted_client=None):
     from contextlib import nullcontext
     import json
     from pathlib import Path
@@ -137,11 +137,12 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *
     )
     from apps.live_control_server.integrations.dungeonmind_statblocks.errors import downstream_unavailable
     from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import locator_from_exact_revision
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import StatblockDefinitionV1Input
     from apps.live_control_server.integrations.dungeonmind_statblocks.models import ExactRevisionResourceV1
     from apps.live_control_server.services import conversation_variant_save
     from tests.test_statblock_acceptance_reconciliation import _definition, _locator
 
-    definition = _definition()
+    definition = _definition() if existing_definition is None else StatblockDefinitionV1Input.model_validate(existing_definition)
     digest = compute_definition_digest(definition)
     fixture = Path(__file__).parents[1] / "fixtures/statblocks/v1/exact-revision-response.json"
     raw = json.loads(fixture.read_text())

@@ -50,9 +50,10 @@ def is_semantic_frame(value):
 
 
 VARIANT_WRITER_FORMAT = "surface_native_evidence_selectors_v3"
+VARIANT_EDITS_FORMAT = "surface_native_evidence_selectors_v4"
 
 
-def semantic_frame(host, execution, *, include_variant=False):
+def semantic_frame(host, execution, *, include_variant=False, variant_edits=False):
     from .build_primary_context import NATIVE_WORK_SCHEMA
     if (host.get('schema') != NATIVE_WORK_SCHEMA
             or set(host) - ({'schema', 'source_basis', 'artifact_under_edit'} | _OPTIONAL)):
@@ -137,6 +138,13 @@ def semantic_frame(host, execution, *, include_variant=False):
                 "asked for a change. Include the agreed traits and mechanics in the definition itself. "
                 "Keep the conversation draft consistent with that definition. Use null when the "
                 "requested draft is unrelated to a statblock."
+            )
+        if sources and variant_edits:
+            work["statblock_variant_guidance"] = (
+                "Choose the verified variant_source. Return new rule elements in add_rules. "
+                "Use replace_rules only for explicitly requested changes to existing rules, "
+                "and keep each replaced rule's key. Buddy carries forward all other mechanics. "
+                "Use null when a statblock variant was not requested."
             )
         for statblock_index, row in enumerate(host['saved_statblocks']):
             statblock = {'mechanics': {key: deepcopy(row['definition'][key])
