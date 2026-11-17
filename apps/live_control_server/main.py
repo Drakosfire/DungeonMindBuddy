@@ -134,6 +134,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_saved_statblock,
     resolve_hosted_combat_encounter,
     resolve_hosted_conversation_world,
+    resolve_hosted_chat_turn,
     resolve_hosted_build_page_create,
     resolve_hosted_build_page_inventory,
     resolve_hosted_explorer_world,
@@ -178,6 +179,7 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", "/api/live/agent/turn"): resolve_hosted_chat_turn,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}"): resolve_hosted_conversation_world,

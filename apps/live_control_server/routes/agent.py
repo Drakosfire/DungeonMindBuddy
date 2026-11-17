@@ -2114,12 +2114,20 @@ def post_new_world_conversation(
 @router.post("/turn", response_model=None)
 def post_agent_turn(body: AgentTurnRequest, request: Request):
     if request.headers.get("accept") == "text/event-stream":
-        enforce_native_graph_gm(request)
+        _chat_turn_principal(body, request)
         if getattr(body.primary_work, "kind", None) != "build":
             raise HTTPException(422, detail="Construction streaming requires Build work")
         from apps.live_control_server.services.build_construction_stream import turn_stream
         return turn_stream(lambda: _execute_agent_turn(body, request), body.turn_id)
     return _execute_agent_turn(body, request)
+
+
+def _chat_turn_principal(body: AgentTurnRequest, request: Request):
+    from apps.live_control_server.services.hosted_native_graph_access import chat_turn_principal
+
+    owner = body.owner_scope
+    world_id = owner.world_id if owner is not None and owner.kind == "world" else ""
+    return chat_turn_principal(request, world_id, authorize_local=enforce_native_graph_gm)
 
 
 def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
@@ -2135,7 +2143,7 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
     auth_span = trace.start_phase("route_auth")
     try:
         try:
-            principal = enforce_native_graph_gm(request)
+            principal = _chat_turn_principal(body, request)
         except Exception:
             trace.complete_phase(auth_span, status="error")
             raise
