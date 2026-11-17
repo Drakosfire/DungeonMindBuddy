@@ -484,7 +484,13 @@ async def put_world_run_content_command(
 @router.get("/world-play-runs/v2/{run_id}/content/proposals")
 def list_world_run_scene_proposals(run_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     from application_state.play_scene_edit.service import PlaySceneEditProposalService
     from apps.live_control_server.services.play_scene_edit_proposal import public_record
     from application_state.errors import ApplicationStateError
@@ -500,7 +506,13 @@ def list_world_run_scene_proposals(run_id: str, request: Request, world_id: Anno
 @router.get("/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}")
 def get_world_run_scene_proposal(run_id: str, proposal_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     from application_state.play_scene_edit.service import PlaySceneEditProposalService
     from apps.live_control_server.services.play_scene_edit_proposal import public_record
     from application_state.errors import ApplicationStateError

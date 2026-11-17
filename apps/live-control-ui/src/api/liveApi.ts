@@ -470,7 +470,7 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const query = new URLSearchParams(sessionEvidence[1]);
     return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
   }
-  const savedPlayRead = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]+\/(review|prepared-tables\/receipts|content\/(?:revisions\/\d+|commands\/[0-9a-f-]+))\?([^#]+)$/.exec(path);
+  const savedPlayRead = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]+\/(review|prepared-tables\/receipts|content\/(?:revisions\/\d+|commands\/[0-9a-f-]+|proposals(?:\/[0-9a-f-]+)?))\?([^#]+)$/.exec(path);
   if (savedPlayRead) {
     const query = new URLSearchParams(savedPlayRead[2]);
     const keys = savedPlayRead[1] === "prepared-tables/receipts" ? ["world_id", "before", "limit"] : ["world_id"];

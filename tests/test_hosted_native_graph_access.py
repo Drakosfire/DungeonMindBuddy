@@ -373,6 +373,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/reference-manifest"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-session-evidence"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/world-session-evidence/{run_id}/revisions/{revision}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/review"): access.resolve_hosted_play_read,
@@ -2359,6 +2361,15 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert hosted.client.request("GET", revision_path + "&world_id=foreign").status_code == 403
     missing_revision = hosted.client.request("GET", revision_path)
     assert missing_revision.status_code == 404, missing_revision.text
+    proposals = f"{base}/content/proposals"
+    inventory = hosted.client.request("GET", proposals + "?world_id=managed")
+    assert inventory.status_code == 200, inventory.text
+    assert inventory.json() == {"proposals": []}
+    exact_proposal = proposals + f"/{uuid4()}?world_id=managed"
+    assert hosted.client.request("GET", exact_proposal, session="other-session").status_code == 403
+    assert hosted.client.request("GET", exact_proposal + "&world_id=foreign").status_code == 403
+    missing_proposal = hosted.client.request("GET", exact_proposal)
+    assert missing_proposal.status_code == 404, missing_proposal.text
     manifest = hosted.client.request("GET", manifest_path).json()
     assert manifest["playable_content_sha256"] == body["expected_playable_content_sha256"]
     pinned = hosted.client.request("GET", pinned_path).json()
