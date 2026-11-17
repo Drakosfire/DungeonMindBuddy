@@ -321,7 +321,6 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                 "anyOf": [_object(properties), {"type": "null"}],
             }
             schema["required"].append("statblock_variant")
-            schema["properties"]["answer_segments"]["minItems"] = 1
     if work_frame.get('schema')==PLAN_WORK_SCHEMA and work_frame.get('requested_work')=='review_connected_page':
         from .collaboration import ProposedConnectedPage
         rows=work_frame.get('related_authored_pages',{}).get('pages',[])
