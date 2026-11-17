@@ -46,6 +46,8 @@ One row per product idea. These rows are pointers, not separate status records. 
 
 | Idea | Next useful slice or decision |
 | --- | --- |
+| [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | Design the first view and its entry points into the shared workspace. |
+| [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Audit every surface and identify the right empty canvas and next action. |
 | [Shared snapping page grid](#idea-high-priority--shared-grid-page-constructor) | Move and resize one image in Build; preserve writing and reading order. |
 | [Layered map editor](Docs/Backlog/IDEA-layered-map-editor.md) | One durable map with editable overlays. Share coordinates where justified, not a single UI with page layout. |
 | [Composable spatial workspace and themes](#deferred-composable-spatial-workspace-and-selectable-themes) | Select either saved canvas arrangements or a reversible theme, not both in one slice. |
@@ -58,6 +60,18 @@ One row per product idea. These rows are pointers, not separate status records. 
 | [Background relationship suggestions](#deferred-background-suggestions-for-missing-world-graph-relationships) | One opt-in, source-backed suggested relationship with duplicate suppression. |
 | [Create a campaign inside an existing World](#deferred-create-a-campaign-inside-an-existing-world) | Define membership ownership and prove ordinary scoped creation. |
 | [Propose edits to a related page](#deferred-propose-edits-to-an-existing-related-page-from-the-current-workspace) | Target one existing passage without leaving or corrupting the current draft. |
+
+## [IDEA] Delightful Buddy landing page — captured 2026-11-16
+
+**Context:** Hosted Buddy sign-in dogfood surfaced the need for a welcoming first view.
+**Action:** Design a landing page that feels like Buddy and gives users clear entry points into the shared workspace. Check the first visit and the return visit with an existing World.
+**Surfaces when:** Revisiting Buddy Home, hosted entry, or onboarding.
+
+## [IDEA] Inviting canvases with no graph loaded — captured 2026-11-16
+
+**Context:** Hosted dogfood reached Buddy with no graph available to load.
+**Action:** Audit Home, Graph, Plan, Play, Ingest, Build, and Combat Tracker without a loaded graph. For each surface, check that the canvas feels open and inviting and offers the next action appropriate to that surface. Where a graph is optional, check that users can still start working. Check loading, access denial, and failure separately so those states remain understandable.
+**Surfaces when:** Reviewing shared navigation, World selection, or empty states across Buddy.
 
 ## Research held for evidence or selection
 
