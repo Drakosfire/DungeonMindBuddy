@@ -348,6 +348,9 @@ def hosted(monkeypatch, request):
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
         agent_routes.get_world_turn_native_source_section, methods=["GET"],
     )
+    from apps.live_control_server.routes import combat_scene_templates
+
+    app.include_router(combat_scene_templates.router)
     app.include_router(combat_encounters.router)
     app.include_router(threat_drafts.router)
     app.include_router(world_mechanics_associations.router)
@@ -386,7 +389,8 @@ def hosted(monkeypatch, request):
         app,
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
-               if "/variant-reviews/{review_id}" in key[1]},
+               if "/variant-reviews/{review_id}" in key[1]
+               or key[1].startswith("/api/live/combat/scene-templates")},
             **{
                 (
                     "POST",
@@ -4478,3 +4482,41 @@ def test_hosted_play_update_binds_world_run_and_origin(hosted, monkeypatch, oper
     assert write.call_args.kwargs["world_id"] == "managed"
     assert write.call_args.kwargs["run_id"] == run_id
     assert write.call_args.kwargs["expected_run_revision"] == 2
+
+def test_hosted_scene_template_reads_exact_owned_scene(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import combat_scene_templates
+
+    monkeypatch.setattr(combat_scene_templates, "_verified_world", lambda world: world)
+    read = Mock(return_value=None)
+    monkeypatch.setattr(combat_scene_templates.service, "read", read)
+    document_id = uuid4()
+    path = f"/api/live/combat/scene-templates/{document_id}/scenes/scene%3Agate?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    read.assert_not_called()
+    assert hosted.client.request("GET", path).status_code == 200
+    read.assert_called_once_with(world_id="managed", document_id=document_id, scene_id="scene:gate")
+
+
+def test_hosted_scene_template_command_requires_world_owner_and_origin(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import combat_scene_templates
+
+    monkeypatch.setattr(combat_scene_templates, "_verified_world", lambda world: world)
+    cancel = Mock(return_value={"state": "canceled"})
+    monkeypatch.setattr(combat_scene_templates.service, "cancel", cancel)
+    path = "/api/live/combat/scene-templates/cancel?world_id=managed"
+    body = {"schema_version": "dmb_scene_template_create_v1", "operation_id": str(uuid4()),
+            "pin": {"document_id": str(uuid4()), "scene_id": "scene:gate", "revision_n": 1,
+                    "work_revision_id": str(uuid4()), "content_sha256": "a" * 64},
+            "encounter": {"title": "Gate"}}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin="https://outside.example").status_code == 403
+    cancel.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert cancel.call_args.kwargs["world_id"] == "managed"
+    assert cancel.call_args.kwargs["request"].pin.scene_id == "scene:gate"

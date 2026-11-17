@@ -615,6 +615,15 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const action = requestBodyRecord(init?.body)?.action;
     return query.size === 1 && Boolean(query.get("world_id")) && (action === "end" || action === "save" || action === "reopen");
   }
+  const sceneTemplate = /^\/api\/live\/combat\/scene-templates(\/cancel|\/operations\/[0-9a-f-]+|\/[0-9a-f-]+\/scenes\/[^/?#]+(?:\/versions\/[1-9][0-9]*)?)?\?([^#]+)$/.exec(path);
+  if (sceneTemplate) {
+    const query = new URLSearchParams(sceneTemplate[2]);
+    if (query.size !== 1 || !query.get("world_id")) return false;
+    if (!sceneTemplate[1] || sceneTemplate[1] === "/cancel") {
+      return method === "POST" && requestBodyRecord(init?.body)?.schema_version === "dmb_scene_template_create_v1";
+    }
+    return method === "GET" && init?.body == null;
+  }
   const activePlayRun = /^\/api\/live\/world-play-runs\/v2\/active\?([^#]+)$/.exec(path);
   if (activePlayRun && method === "PUT") {
     const query = new URLSearchParams(activePlayRun[1]);
