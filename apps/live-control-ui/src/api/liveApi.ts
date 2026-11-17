@@ -2333,6 +2333,29 @@ export async function postNativeWorldGraphCompleteObject(
 export async function postWorldGraphCompleteObject(
   request: WorldGraphObjectProjectionRequest,
 ): Promise<WorldGraphObjectProjectionResult> {
+  if (!isLoopbackApiDestination(`${baseUrl}/api/live`) && request.scopeMode === "world"
+    && request.campaignId === "" && request.revisionPin && request.admissibility === "gm") {
+    const bound = await postManagedWorldGraphProjection({
+      schema: "dmb_managed_world_graph_projection_request_v1",
+      managedWorldId: request.worldId,
+      revisionPin: request.revisionPin,
+    });
+    const snapshot = bound.projection?.snapshot;
+    if (bound.managedWorldId !== request.worldId || !bound.nativeWorldId
+      || !Number.isSafeInteger(bound.bindingVersion) || bound.bindingVersion < 1
+      || snapshot?.worldId !== bound.nativeWorldId || snapshot.revisionId !== request.revisionPin
+      || snapshot.scopeMode !== "world" || snapshot.campaignId !== "") {
+      throw new LiveApiError("The pinned World Graph binding could not be verified.", 0);
+    }
+    return postNativeWorldGraphCompleteObject(request, {
+      managed_world_id: request.worldId,
+      native_world_id: bound.nativeWorldId,
+      binding_version: bound.bindingVersion,
+      revision_id: request.revisionPin,
+      scope_mode: "world",
+      campaign_id: null,
+    });
+  }
   return apiFetch<WorldGraphObjectProjectionResult>(
     "/api/live/world-graph/retrieval/complete-object",
     {

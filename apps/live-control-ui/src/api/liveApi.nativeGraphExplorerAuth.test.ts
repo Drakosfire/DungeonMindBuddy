@@ -902,3 +902,33 @@ it("opens World Runbook inventory with the hosted session", async () => {
   await expect(api.authenticatedApiFetch(String(url) + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it.each(["rev:exact", "rev:foreign"])("verifies the native binding before opening an object at %s", async revisionId => {
+  const api = await setup();
+  hostedOrigin();
+  window.addEventListener = vi.fn();
+  const request = {
+    schema: "dmb_world_graph_object_projection_request_v1",
+    worldId: "managed", scopeMode: "world", campaignId: "",
+    revisionPin: "rev:exact", nodeId: "ent:fixture", admissibility: "gm",
+  } as const;
+  const fetch = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({
+      managedWorldId: "managed", nativeWorldId: "native", bindingVersion: 3,
+      projection: { snapshot: { worldId: "native", campaignId: "", scopeMode: "world", revisionId } },
+    }))
+    .mockResolvedValueOnce(Response.json({ found: true }));
+  if (revisionId !== request.revisionPin) {
+    await expect(api.postWorldGraphCompleteObject(request)).rejects.toThrow(/binding could not be verified/);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    return;
+  }
+  await expect(api.postWorldGraphCompleteObject(request)).resolves.toEqual({ found: true });
+  const [url, options] = fetch.mock.calls[1]!;
+  expect(url).toBe("/api/live/native-graph-inspection/complete-object");
+  expect(JSON.parse(String(options?.body))).toEqual({
+    request,
+    scope: { managed_world_id: "managed", native_world_id: "native", binding_version: 3,
+      revision_id: "rev:exact", scope_mode: "world", campaign_id: null },
+  });
+});
