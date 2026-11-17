@@ -700,6 +700,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return isRecord(scope) && scope.scope_mode === "world" && scope.campaign_id === null
       && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id);
   }
+  if (path === "/api/live/native-graph-inspection/authoring-identities") {
+    const scope = requestBodyRecord(init?.body);
+    return method === "POST" && scope?.scope_mode === "world" && scope.campaign_id === null
+      && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id);
+  }
   if (path === "/api/live/native-graph-inspection/complete-object") {
     const body = requestBodyRecord(init?.body);
     const scope = body?.scope;

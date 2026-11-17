@@ -51,6 +51,7 @@ BUILD_PDF_SOURCES_PATH = hosted_auth.BUILD_PDF_SOURCES_PATH
 BUILD_PAGE_INVENTORY_PATH = "/api/live/workspace-documents/pages/inventory"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
 _REQUESTS = {
+    "/api/live/native-graph-inspection/authoring-identities": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-source-inspection/published-recap": TypeAdapter(PublishedRecapRead),
     "/api/live/native-graph-inspection/complete-object": TypeAdapter(NativeCompleteObjectRead),
     "/api/live/native-graph-inspection/recap-page": TypeAdapter(NativeRecapPageRequest),

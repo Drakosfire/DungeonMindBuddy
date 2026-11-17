@@ -348,6 +348,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/native-graph-inspection/complete-object"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-source-inspection/published-recap"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/recap-page"): access.resolve_hosted_explorer_world,
+            ("POST", "/api/live/native-graph-inspection/authoring-identities"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/related-recaps"): access.resolve_hosted_explorer_world,
             ("POST", access.FIRST_WORLD_PREPARE_PATH): access.resolve_hosted_first_world,
             ("POST", access.FIRST_WORLD_CONFIRM_PATH): access.resolve_hosted_first_world,
@@ -3471,3 +3472,16 @@ def test_hosted_connected_page_writes_use_same_world_principal(hosted, monkeypat
     assert principals[0] == principals[1]
     assert principals[0].managed_world_id == "managed"
     assert principals[0].subject.startswith("hosted_dms:")
+
+
+def test_hosted_authoring_identities_require_owned_world(hosted):
+    path = "/api/live/native-graph-inspection/authoring-identities"
+    scope = {"managed_world_id": "managed", "scope_mode": "world", "campaign_id": None}
+    assert hosted.client.request("POST", path, json=scope, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=scope, origin=None).status_code == 403
+    assert hosted.client.request("POST", path, json={**scope, "scope_mode": "campaign", "campaign_id": "other"}).status_code == 403
+    response = hosted.client.request("POST", path, json=scope)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["scope"]["managed_world_id"] == "managed"
+    assert isinstance(response.json()["identities"], list)

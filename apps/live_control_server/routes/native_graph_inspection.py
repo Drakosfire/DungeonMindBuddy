@@ -12,9 +12,6 @@ from apps.live_control_server.models.native_graph_inspection import (
     NativeRelatedRecapsRequest,
 )
 from apps.live_control_server.services import native_graph_inspection as service
-from apps.live_control_server.services.agent_graph_auth import (
-    native_graph_gm_dependency,
-)
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
 from apps.live_control_server.services.hosted_native_graph_access import (
     native_graph_explorer_dependency,
@@ -52,9 +49,10 @@ def catalog(body: InspectionPin | InspectionScope, principal=Depends(native_grap
 @router.post("/authoring-identities")
 def authoring_identities(
     body: InspectionPin | InspectionScope,
-    principal=Depends(native_graph_gm_dependency),
+    principal=Depends(native_graph_explorer_dependency),
 ):
-    return _call(service.authoring_identities, body, principal)
+    with hosted_response_binding(principal, body.managed_world_id):
+        return _call(service.authoring_identities, body, principal)
 
 
 @router.post("/read")
