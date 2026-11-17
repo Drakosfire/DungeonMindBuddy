@@ -22,6 +22,7 @@ from apps.live_control_server.integrations.dungeonmind.native_world_source_admis
 )
 from apps.live_control_server.services.hosted_native_graph_access import (
     require_hosted_build_page_inventory,
+    require_hosted_build_native_source,
     require_hosted_plan_world_context,
 )
 from apps.live_control_server.services.workspace_document_registry import (
@@ -685,11 +686,14 @@ def post_workspace_document_source_artifact(
 def get_native_world_source_status(
     document_id: str,
     expected_revision: Annotated[int | None, Query(ge=1)] = None,
+    request: Request = None,
 ) -> dict[str, Any]:
     try:
-        return read_native_world_source_status(
+        status = read_native_world_source_status(
             repo_root(), document_id, expected_revision=expected_revision
-        ).model_dump(mode="json")
+        )
+        require_hosted_build_native_source(request, status.world_id)
+        return status.model_dump(mode="json")
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(
             status_code=exc.status_code,

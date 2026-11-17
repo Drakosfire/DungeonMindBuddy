@@ -399,6 +399,27 @@ async def _owned_build_page(
     return record.world_id
 
 
+async def resolve_hosted_build_native_source(request: Request) -> str:
+    selectors = request.query_params.multi_items()
+    if await request.body() or (selectors and (
+        len(selectors) != 1 or selectors[0][0] != "expected_revision"
+    )):
+        raise _denied()
+    world_id = await _owned_build_page(
+        _hosted_subject(request), getattr(request.state, "hosted_route_document_id", None),
+    )
+    request.state.hosted_build_page_world = world_id
+    return world_id
+
+
+def require_hosted_build_native_source(request: Request | None, world_id: str) -> None:
+    if hosted_auth.deployment_environment() != hosted_auth.PRODUCTION_ENVIRONMENT:
+        return
+    if request is None or getattr(request.state, "hosted_build_page_world", None) != world_id:
+        raise _denied()
+    _owned_world(_hosted_subject(request), world_id)
+
+
 async def resolve_hosted_build_extraction(request: Request) -> str:
     from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError, get_extraction_run
     from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, get_source_artifact
