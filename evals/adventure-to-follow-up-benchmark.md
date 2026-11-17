@@ -86,9 +86,24 @@ explicitly attached through its mention selector.
   promptly with usable ideas and leaves any proposed mechanics in chat. No
   page proposal, editable page draft, page creation, link insertion, or save
   is attempted. An unsolicited proposal fails even if dismissed.
-- **Observed:** The operator reported 41 search steps with the turn still
-  running. This is a lower bound. Final intent, outcome, and elapsed time
-  remain unverified until the trace is recovered.
+- **Observed:** The retained trace closed after **386.27 seconds**. At 5.1s
+  the opening Jev result selected `change_mechanics`. Edge revision 33 was
+  retrieved by 14.0s and an older Corrupted Edge source by 51.2s. The export
+  confirms Meat Mind mechanics in the final answer but does not establish
+  when the explicit attachment first reached the controller. The controller
+  recorded `controller_finished_with_gaps` at 332.6s. The validated reply at
+  379.8s was a chat response with no collaboration payload.
+- **Baseline:** 41 retrieval completions (four related pages, two assertion
+  reads, eight document reads, 26 section reads, one corpus search). The 37
+  expansion observations are progress events for those reads. Ten Jev calls
+  used 213,586 input and 40,869 output tokens. The OpenAI writer used 12,357
+  input and 461 output tokens. Combined total: **267,273 tokens**. Billed
+  cost is unknown.
+- **First hypothesis:** Routing an explicit brainstorming request as discussion
+  will let Buddy use the current page and bound statblock before broad
+  discovery. Test intent first. Then check that any later expansion answers
+  a specific unmet question, that both inputs still ground the response,
+  and that the paired explicit-write turn still offers review.
 - **Measure:** Record wall time, controller rounds and retrieval actions
   separately. Record when each bound input becomes available, which later
   reads add relevant evidence, when the controller hands off to the writer,
