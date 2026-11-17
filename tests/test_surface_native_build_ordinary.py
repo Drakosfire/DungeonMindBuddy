@@ -1699,3 +1699,13 @@ def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
         graph_revision="rev:old", node_id="ent:fixture", label="Fixture",
     )
     assert driver._referenced_statblocks((reference,)) == []
+
+
+def test_selected_mechanics_are_available_without_repeating_the_artifact_name(lane, tmp_path, monkeypatch):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Let's brainstorm why it wants freedom and whether the party could negotiate.",
+        saved_statblock="associated")
+    response = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert response.status_code == 200
+    references = response.json()["messages"][-1]["saved_statblocks"]
+    assert [(ref["name"], ref["revision_id"]) for ref in references] == [("Meat Mind", "rev_meatmind")]
