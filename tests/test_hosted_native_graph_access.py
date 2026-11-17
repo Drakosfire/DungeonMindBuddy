@@ -3649,7 +3649,11 @@ def test_hosted_recap_objects_checks_source_pin_and_admitted_evidence(hosted, mo
                 "value": {"kind": "literal", "value": identity.title()},
                 "metadata": {"evidence_ref_ids": [evidence]}}
 
-    monkeypatch.setattr(source, "published_recap", lambda request, principal: recap)
+    def pinned_recap(request, principal, expected_pin):
+        assert expected_pin.model_dump(mode="json") == pin
+        return recap
+
+    monkeypatch.setattr(source, "_published_recap_at_pin", pinned_recap)
     def catalog(scope, principal):
         assert scope.scope_mode == "campaign" and scope.campaign_id == "campaign"
         return {"catalogue": {"entities": [{"entity_id": "included"}, {"entity_id": "unrelated"}],

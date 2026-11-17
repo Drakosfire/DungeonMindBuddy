@@ -101,18 +101,25 @@ def inspect(request, principal):
     )
 
 def published_recap(request, principal):
+    return _published_recap_at_pin(request, principal)
+
+
+def _published_recap_at_pin(request, principal, expected_pin=None):
     world = request.managed_world_id
     binding = native.binding(world)
-    repo = native.read_repository()
-    head = repo.get_head(binding["native_world_id"])
-    if head is None:
-        raise SourceInspectionUnavailable("native_published_recap_head_unavailable")
-    context, pin = _pinned(InspectionPin(
-        managed_world_id=world,
-        native_world_id=binding["native_world_id"],
-        binding_version=binding["binding_version"],
-        revision_id=head.head_revision_id,
-    ), principal)
+    if expected_pin is None:
+        head = native.read_repository().get_head(binding["native_world_id"])
+        if head is None:
+            raise SourceInspectionUnavailable("native_published_recap_head_unavailable")
+        expected_pin = InspectionPin(
+            managed_world_id=world,
+            native_world_id=binding["native_world_id"],
+            binding_version=binding["binding_version"],
+            revision_id=head.head_revision_id,
+        )
+    elif expected_pin.managed_world_id != world:
+        raise SourceInspectionUnavailable("native_published_recap_binding_changed")
+    context, pin = _pinned(expected_pin, principal)
     catalogue = list_admitted_native_text_sources(context.access)
     if not catalogue.complete:
         raise SourceInspectionUnavailable("native_published_recap_catalog_incomplete")
@@ -146,7 +153,7 @@ def published_recap_objects(request, principal):
     from apps.live_control_server.models.native_graph_inspection import InspectionRead, NativeCompleteObjectRead
     from apps.live_control_server.services import native_graph_inspection as graph
 
-    recap = published_recap(request, principal)
+    recap = _published_recap_at_pin(request, principal, request.scope)
     source = recap["source"]
     if (
         recap["scope"] != request.scope.model_dump(mode="json")
