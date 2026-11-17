@@ -539,3 +539,17 @@ it("reads earlier image directions with the exact hosted session route", async (
   await expect(api.authenticatedApiFetch(path + "&world_id=other")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("reads saved turn evidence with hosted cookies and exact citation selectors", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ fixture: true }));
+  const path = "/api/live/agent/worlds/managed/conversation/turns/11111111-1111-4111-8111-111111111111/graph-evidence?claim_id=claim&anchor_id=anchor";
+  await api.authenticatedApiFetch(path);
+  const [, init] = fetch.mock.calls[0];
+  expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "&anchor_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
