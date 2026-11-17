@@ -343,6 +343,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}"): access.resolve_hosted_conversation_world,
@@ -2619,6 +2620,12 @@ def test_hosted_conversation_starts_and_reopens_in_exact_world(hosted, applicati
     response = hosted.client.request("POST", base + "/new", json=body)
     assert response.status_code == 200, response.text
     created = response.json()
+    retry_context = f"{base}s/{created['conversation_id']}/retry-context"
+    retry_query = f"?turn_ids={uuid4()}"
+    assert hosted.client.request("GET", retry_context + retry_query, session="other-session").status_code == 403
+    missing_turn = hosted.client.request("GET", retry_context + retry_query)
+    assert missing_turn.status_code == 404, missing_turn.text
+    assert missing_turn.headers["cache-control"] == "no-store"
     assert created["world_id"] == "managed"
     assert created["conversation_id"] == created["active_conversation_id"]
     reopened = hosted.client.request("GET", base)
