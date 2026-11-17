@@ -334,6 +334,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/extract-promote/runs/{run_id}/recap-candidate-corrections"): access.resolve_hosted_recap_correction,
+            ("POST", "/api/live/extract-promote/runs/{run_id}/semantic-disposition"): access.resolve_hosted_recap_correction,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
@@ -2910,3 +2911,26 @@ def test_hosted_recap_candidate_correction_checks_world_and_parent(hosted, monke
     response = hosted.client.request("POST", path, json=body)
     assert response.status_code == 409, response.text
     assert calls == ["saved"]
+
+
+def test_hosted_recap_semantic_decision_uses_world_owner(hosted, monkeypatch):
+    from apps.live_control_server.routes import extract_promote
+    from apps.live_control_server.services import exact_run_candidate_projection
+
+    monkeypatch.setattr(exact_run_candidate_projection, "build_exact_run_candidate_projection", lambda *_: None)
+    calls = []
+
+    def decide(run_id, request, *, reviewer_id):
+        calls.append((run_id, request.decision, reviewer_id))
+        raise extract_promote.ExtractPromoteError("fixture reached", code="fixture", status_code=409)
+
+    monkeypatch.setattr(extract_promote, "decide_recap_semantic_disposition", decide)
+    path = "/api/live/extract-promote/runs/saved/semantic-disposition?managed_world_id=managed"
+    body = {"expectedRevision": 1, "candidateSha256": "a" * 64, "decision": "accepted",
+            "reviewDecisionRef": "review"}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path.replace("=managed", "=foreign"), json=body).status_code == 403
+    assert calls == []
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 409, response.text
+    assert calls == [("saved", "accepted", "hosted_dms:synthetic-owner-alpha")]

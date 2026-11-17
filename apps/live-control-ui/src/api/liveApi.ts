@@ -372,7 +372,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/(?:capabilities|prepare|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/first-world\/(?:prepare|confirm)$/.test(pathname)) return true;
-  if (/^\/api\/live\/extract-promote\/runs\/[^/]+\/recap-evidence-corrections$/.test(pathname)) return true;
+  if (/^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:recap-evidence-corrections|semantic-disposition)$/.test(pathname)) return true;
   if (/^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname)) {
     return true;
   }
@@ -428,6 +428,9 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (/^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/semantic-disposition\?managed_world_id=[a-z][a-z0-9_-]{0,62}$/.test(path)) {
+    return method === "POST" && requestBodyRecord(init?.body) !== null;
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);

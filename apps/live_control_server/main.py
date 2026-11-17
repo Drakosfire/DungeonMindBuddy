@@ -186,6 +186,7 @@ PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/extract-promote/runs/{run_id}/recap-candidate-corrections"): resolve_hosted_recap_correction,
+    ("POST", "/api/live/extract-promote/runs/{run_id}/semantic-disposition"): resolve_hosted_recap_correction,
     ("GET", "/api/live/connected-pages/{operation_id}"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/media/images/preparations/list"): resolve_hosted_image_history,
     ("POST", "/api/live/agent/turn"): resolve_hosted_chat_turn,

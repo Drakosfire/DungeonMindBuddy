@@ -83,6 +83,9 @@ from apps.live_control_server.services.exact_run_evidence_correction import (
     correct_recap_run_evidence,
 )
 from apps.live_control_server.services.recap_semantic_candidate_correction import correct_recap_candidate
+from apps.live_control_server.services.hosted_native_graph_access import (
+    HostedOwnerGraphPrincipal, native_graph_explorer_dependency, require_explorer_access,
+)
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
     native_graph_gm_dependency,
@@ -342,11 +345,14 @@ def post_recap_semantic_disposition(
     request_context: Request,
     run_id: str,
     request: RecapSemanticDecisionRequest,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """GM-only exact-child decision; caller cannot supply reviewer or time."""
+    if isinstance(principal, HostedOwnerGraphPrincipal):
+        require_explorer_access(principal, request_context.query_params.get("managed_world_id", ""))
     try:
-        _reject_selector_query(request_context)
+        if not isinstance(principal, HostedOwnerGraphPrincipal):
+            _reject_selector_query(request_context)
         response = decide_recap_semantic_disposition(
             run_id, request, reviewer_id=principal.subject
         )
