@@ -638,12 +638,12 @@ def test_confirmation_refuses_invalid_authority_without_publication(lane, monkey
 
 
 def test_confirmation_authentication_precedes_owner_io(lane, monkeypatch):
-    from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency, NativeGraphPrincipal
+    from apps.live_control_server.services import agent_graph_auth
     packet = confirmation(lane)
     monkeypatch.setattr(service.native, "repository", lambda: pytest.fail("unauthorized owner access"))
     assert lane.client.post("/api/live/extract-promote/native-confirm", json=packet).status_code == 401
-    lane.app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
-        subject="player", role="player", auth_method="local_operator")
+    monkeypatch.setattr(agent_graph_auth, "authenticate_native_graph_principal", lambda _: agent_graph_auth.NativeGraphPrincipal(
+        subject="player", role="player", auth_method="local_operator"))
     assert confirm(lane, packet).status_code == 403
 
 
