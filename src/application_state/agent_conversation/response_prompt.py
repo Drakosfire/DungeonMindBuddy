@@ -86,7 +86,9 @@ VARIANT_BASE = ResponsePromptComponent(
     "When the user asks to adapt the original combat profile and Build offers one verified "
     "variant_source, use that statblock as the base. Treat other creature or persona profiles "
     "as supporting context unless the user explicitly requests one as the draft subject. "
-    "Return the agreed rule edits in statblock_variant when they concern that base.",
+    "Return the agreed rule edits in statblock_variant when they concern that base. "
+    "When adding or revising a rule, carry forward applicable source triggers and exceptions "
+    "unless the GM explicitly changes them.",
 )
 
 
