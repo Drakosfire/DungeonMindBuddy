@@ -428,6 +428,12 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (path === "/api/live/extract-promote/worldbuilding/prepare"
+    || path === "/api/live/extract-promote/worldbuilding/confirm") {
+    const body = requestBodyRecord(init?.body);
+    const plan = path.endsWith("/confirm") ? body?.plan : body;
+    return method === "POST" && isRecord(plan) && typeof plan.runId === "string" && Boolean(plan.runId);
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);

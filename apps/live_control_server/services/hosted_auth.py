@@ -380,7 +380,7 @@ def _query_world_ids(request: Request) -> frozenset[str]:
     )
 
 
-async def request_world_ids(request: Request) -> frozenset[str]:
+async def request_world_ids(request: Request, *, collect_body_worlds: bool = True) -> frozenset[str]:
     found = set(_query_world_ids(request))
     body = await _read_bounded_request_body(request)
     if not body:
@@ -416,7 +416,8 @@ async def request_world_ids(request: Request) -> frozenset[str]:
         raise _invalid_world_request_body() from exc
     if not isinstance(payload, (Mapping, list)):
         raise _invalid_world_request_body()
-    found.update(_collect_world_ids(payload))
+    if collect_body_worlds:
+        found.update(_collect_world_ids(payload))
     return frozenset(found)
 
 
@@ -621,7 +622,14 @@ def install_hosted_request_boundary(
             if (method, route_path) == ("POST", BUILD_PDF_SOURCES_PATH):
                 requested_world_ids = _query_world_ids(request)
             else:
-                requested_world_ids = await request_world_ids(request)
+                # Sealed Worldbuilding plans include both managed and native IDs.
+                # The exact resolver validates both against the saved run and World binding.
+                requested_world_ids = await request_world_ids(
+                    request,
+                    collect_body_worlds=(method, route_path) != (
+                        "POST", "/api/live/extract-promote/worldbuilding/confirm",
+                    ),
+                )
             resolved_world_id = await _resolve_authoritative_world_id(request, resolver)
             if requested_world_ids and requested_world_ids != frozenset({resolved_world_id}):
                 raise HTTPException(

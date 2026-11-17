@@ -333,6 +333,8 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
+            ("POST", "/api/live/extract-promote/worldbuilding/prepare"): access.resolve_hosted_worldbuilding_write_plan,
+            ("POST", "/api/live/extract-promote/worldbuilding/confirm"): access.resolve_hosted_worldbuilding_write_plan,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
@@ -2912,3 +2914,69 @@ def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch):
     assert result.json()["run_id"] == "saved"
     scope["binding_version"] += 1
     assert hosted.client.request("GET", path).status_code == 403
+
+
+
+def test_hosted_worldbuilding_plan_prepare_checks_exact_run(hosted, monkeypatch):
+    from apps.live_control_server.routes import extract_promote
+
+    async def owned_extraction(subject, run_id):
+        world = "managed" if run_id == "owned" else "foreign"
+        access._owned_world(subject, world)
+        return world, SimpleNamespace(source_artifact_id="saved-source")
+
+    calls = []
+
+    def prepare(body):
+        calls.append(body.run_id)
+        raise extract_promote.ExtractPromoteError("fixture reached", code="fixture", status_code=409)
+
+    monkeypatch.setattr(access, "_owned_worldbuilding_extraction", owned_extraction)
+    monkeypatch.setattr(extract_promote, "prepare_worldbuilding", prepare)
+    path = "/api/live/extract-promote/worldbuilding/prepare"
+    body = {"runId": "owned", "expectedParentRevisionId": "rev:head",
+            "dispositions": [{"assertionId": "candidate", "decision": "defer"}]}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "runId": "foreign"}).status_code == 403
+    assert calls == []
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 409, response.text
+    assert calls == ["owned"]
+
+
+def test_hosted_worldbuilding_plan_confirm_checks_native_and_managed_ids(hosted, monkeypatch):
+    from apps.live_control_server.models.extract_promote import WorldbuildingWritePlanResponse
+    from apps.live_control_server.routes import extract_promote
+
+    native_id = access._owned_world("synthetic-owner-alpha", "managed").native_graph_binding.native_world_id
+    publication_binding = {
+        "managed_world_id": "managed", "native_world_id": native_id, "binding_version": 3,
+        "document_id": "document", "document_revision": 1, "source_artifact_id": "source", "source_sha256": "a" * 64,
+    }
+    plan = WorldbuildingWritePlanResponse(
+        plan_id="plan", plan_digest="digest", decision_digest="decisions", world_id=native_id,
+        parent_revision_id="parent", run_id="run", source_artifact_id="source", source_revision_id="revision",
+        candidate_preview_id="preview", candidate_schema="schema", candidate_version="1", summary={},
+        effect={"contribution_meta": {"source_artifact_id": "source", "source_revision_id": "revision",
+                                      "extraction_profile": "fixture"}},
+        publication_binding=publication_binding,
+    ).model_dump(mode="json", by_alias=True)
+    calls = []
+
+    async def owned_extraction(subject, run_id):
+        access._owned_world(subject, "managed")
+        return "managed", SimpleNamespace(source_artifact_id="source")
+
+    def confirm(body):
+        calls.append(body.plan.world_id)
+        raise extract_promote.ExtractPromoteError("fixture reached", code="fixture", status_code=409)
+
+    monkeypatch.setattr(access, "_owned_worldbuilding_extraction", owned_extraction)
+    monkeypatch.setattr(extract_promote, "confirm_worldbuilding", confirm)
+    path = "/api/live/extract-promote/worldbuilding/confirm"
+    assert hosted.client.request("POST", path, json={"plan": plan}, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={"plan": {**plan, "worldId": "another-native"}}).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json={"plan": plan})
+    assert result.status_code == 409, result.text
+    assert calls == [native_id]

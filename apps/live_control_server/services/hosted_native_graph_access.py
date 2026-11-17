@@ -794,3 +794,33 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
     except Exception:
         raise _unavailable() from None
     return WorldContainersListResponse(records=permitted).model_dump(mode="json")
+
+
+async def resolve_hosted_worldbuilding_write_plan(request: Request) -> str:
+    from apps.live_control_server.models.extract_promote import (
+        WorldbuildingWritePlanConfirmRequest, WorldbuildingWritePlanPrepareRequest,
+    )
+
+    if request.query_params:
+        raise _denied()
+    subject = _hosted_subject(request)
+    payload = await request.json()
+    if request.url.path.endswith("/confirm"):
+        plan = WorldbuildingWritePlanConfirmRequest.model_validate(payload).plan
+        binding = plan.publication_binding
+        if binding is None:
+            raise _denied()
+        world_id, artifact = await _owned_worldbuilding_extraction(subject, plan.run_id)
+        world = await run_in_threadpool(_owned_world, subject, world_id)
+        if world.native_graph_binding is None:
+            raise _denied()
+        native_id = world.native_graph_binding.native_world_id
+        if (binding.managed_world_id != world_id or binding.native_world_id != native_id
+                or plan.world_id != native_id or plan.source_artifact_id != artifact.source_artifact_id
+                or binding.source_artifact_id != artifact.source_artifact_id):
+            raise _denied()
+    else:
+        body = WorldbuildingWritePlanPrepareRequest.model_validate(payload)
+        world_id, _ = await _owned_worldbuilding_extraction(subject, body.run_id)
+    request.state.hosted_build_page_world = world_id
+    return world_id
