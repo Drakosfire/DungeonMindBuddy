@@ -224,3 +224,12 @@ def test_build_writer_keeps_prior_gm_decisions_in_provider_messages():
     assert writer.messages[3:] == baseline.messages
     assert all(set(message) == {"role", "content"} for message in writer.messages[:3])
     assert "The creature wants freedom." not in json.dumps(writer.output_format)
+    from apps.live_control_server.services.plan_jev_writer import PlanWriterProvider
+
+    call = N(model=writer.model, user_prompt=json.dumps(writer.messages),
+             system_prompt=writer.instructions, temperature=None,
+             max_output_tokens=None, reasoning_effort=None, json_object=False,
+             json_schema=writer.output_format["schema"],
+             schema_name=writer.output_format["name"])
+    provider = object.__new__(PlanWriterProvider)
+    assert provider._request_kwargs(call)["input"] == writer.messages
