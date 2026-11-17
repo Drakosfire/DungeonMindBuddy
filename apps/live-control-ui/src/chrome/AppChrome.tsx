@@ -16,6 +16,7 @@ import {
 import { PeekRegionSlot, usePeekRegionState } from "../surfaceInteraction/peekHost";
 import type { AppRouteKey } from "./appChromeConfig";
 import { CompactAppNavigation } from "./CompactAppNavigation";
+import { useWorkspacePrimaryNavigation } from "./WorkspacePrimaryNavigation";
 
 const callbackIdentityKeys = new WeakMap<() => void, number>();
 let nextCallbackIdentityKey = 1;
@@ -146,6 +147,13 @@ export function AppChrome({
   const savedNarrowScrollYRef = useRef<number | null>(null);
   const centerRef = useRef<HTMLDivElement | null>(null);
   const chromeHeaderRef = useRef<HTMLElement | null>(null);
+  const attachWorkspaceNavigation = useWorkspacePrimaryNavigation();
+  useLayoutEffect(() => {
+    const header = chromeHeaderRef.current;
+    if (header && attachWorkspaceNavigation && !localOnlyNavigation) {
+      return attachWorkspaceNavigation(header, primaryActionsRef);
+    }
+  }, [attachWorkspaceNavigation, localOnlyNavigation, primaryActionsRef]);
   const savedCenterScrollRef = useRef<{ element: HTMLElement; top: number } | null>(null);
 
   // Fixed Edit/Tool/inspector hosts share the actual wrapped navigation edge.
@@ -375,7 +383,9 @@ export function AppChrome({
       <div className="app-shell-layout">
         {editToolboxLayout === "dock" ? editHost : null}
         <header ref={chromeHeaderRef} className="app-chrome-header" data-testid="app-chrome-header">
-          <CompactAppNavigation activeRoute={activeRoute} localOnly={localOnlyNavigation} primaryActionsRef={primaryActionsRef} />
+          {(!attachWorkspaceNavigation || localOnlyNavigation) && (
+            <CompactAppNavigation activeRoute={activeRoute} localOnly={localOnlyNavigation} primaryActionsRef={primaryActionsRef} />
+          )}
           <SurfaceContextHost />
           {contextToolbarRef && <div ref={contextToolbarRef} />}
         </header>
