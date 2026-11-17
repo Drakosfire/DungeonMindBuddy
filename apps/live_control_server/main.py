@@ -396,7 +396,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/extract-promote/runs/{run_id}/recap-evidence-corrections"): resolve_hosted_recap_correction,
     ("POST", "/api/live/extract-promote/runs/{run_id}/semantic-disposition"): resolve_hosted_recap_correction,
     ("POST", "/api/live/extract-promote/runs/{run_id}/recap-candidate-corrections"): resolve_hosted_recap_correction,
-    ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): resolve_hosted_build_extraction,
+    ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): resolve_hosted_exact_extraction_read,
     ("GET", "/api/live/extract-promote/runs/{run_id}/frozen-source-spans"): resolve_hosted_build_extraction,
     ("GET", "/api/live/extract-promote/runs/{run_id}/worldbuilding-publication-coverage"): resolve_hosted_build_extraction,
     ("POST", "/api/live/extract-promote/native-worldbuilding-context"): resolve_hosted_worldbuilding_review_context,

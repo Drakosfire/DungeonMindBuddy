@@ -503,7 +503,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/extract-promote/runs/{run_id}/recap-evidence-corrections"): access.resolve_hosted_recap_correction,
             ("POST", "/api/live/extract-promote/runs/{run_id}/semantic-disposition"): access.resolve_hosted_recap_correction,
             ("POST", "/api/live/extract-promote/runs/{run_id}/recap-candidate-corrections"): access.resolve_hosted_recap_correction,
-            ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_exact_extraction_read,
             ("GET", "/api/live/extract-promote/runs/{run_id}/frozen-source-spans"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/worldbuilding-publication-coverage"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/extract-promote/native-worldbuilding-context"): access.resolve_hosted_worldbuilding_review_context,
@@ -5118,6 +5118,8 @@ def test_hosted_historical_recap_projection_rejects_foreign_result(hosted, monke
 
 
 def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch):
+    from apps.live_control_server.models.extract_promote import ExactRunReviewPackage
+    from apps.live_control_server.routes import extract_promote
     from apps.live_control_server.services import graph_run_registry, source_artifact_registry
 
     owned = access._owned_world("synthetic-owner-alpha", "managed")
@@ -5138,5 +5140,23 @@ def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch):
     result = hosted.client.request("GET", path)
     assert result.status_code == 200, result.text
     assert result.json()["run_id"] == "saved"
+    calls = []
+
+    def review(run_id):
+        calls.append(run_id)
+        return ExactRunReviewPackage(
+            run_id=run_id, source_domain="recap", source_artifact_id="source",
+            source_revision_id="revision", source_prose="Saved recap.",
+        )
+
+    monkeypatch.setattr(extract_promote, "get_exact_run_review_package", review)
+    review_path = "/api/live/extract-promote/runs/saved/review-package"
+    assert hosted.client.request("GET", review_path, session="other-session").status_code == 403
+    assert calls == []
+    response = hosted.client.request("GET", review_path)
+    assert response.status_code == 200, response.text
+    assert response.json()["sourceProse"] == "Saved recap."
     scope["binding_version"] += 1
+    assert hosted.client.request("GET", review_path).status_code == 403
+    assert calls == ["saved"]
     assert hosted.client.request("GET", path).status_code == 403
