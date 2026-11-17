@@ -126,7 +126,7 @@ class PlanWriterProvider(CapturedWriterProvider):
         options = super()._request_kwargs(call, streaming=streaming)
         messages = strict_json(call.user_prompt)
         if not isinstance(messages, list) or any(set(row) != {"role", "content"}
-                or row['role'] != 'user' or not isinstance(row['content'], str) for row in messages):
+                or row['role'] not in ('user', 'assistant') or not isinstance(row['content'], str) for row in messages):
             raise ValueError("Plan writer requires exact text evidence messages")
         options['input'] = messages
         options['service_tier'] = 'fast'
