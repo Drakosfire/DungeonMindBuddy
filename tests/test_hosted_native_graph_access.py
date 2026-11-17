@@ -306,7 +306,7 @@ def hosted(monkeypatch, request):
         app,
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
-               if "/variant-reviews/{review_id}" in key[1]},
+               if "/variant-reviews/{review_id}" in key[1] or key[1] == "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"},
             **{
                 (
                     "POST",
@@ -2886,3 +2886,23 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_plan_terminal_diagnostic_reads_owned_action(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import live
+    from apps.live_control_server.services import plan_action_terminal_diagnostic
+
+    read = Mock(return_value={"availability": "unavailable"})
+    monkeypatch.setattr(plan_action_terminal_diagnostic, "terminal_diagnostic", read)
+    monkeypatch.setattr(live, "get_world_container", lambda world: world)
+    action = uuid4()
+    path = f"/api/live/world-plan-edit/actions/{action}/terminal-diagnostic?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    read.assert_called_once_with("managed", action)
