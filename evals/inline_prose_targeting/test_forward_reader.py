@@ -74,3 +74,11 @@ def test_mixed_history_does_not_silently_hide_future_markdown(monkeypatch):
     raw = legacy(); future = deepcopy(raw); future['schema_version'] = 'dmb_build_document_proposal_v2'
     bind(monkeypatch, [raw, {'schema_version': 'dmb_build_image_preparation_v2'}, future])
     with pytest.raises(ApplicationStateConflictError): service.BuildProposalService().list('synthetic', ID)
+
+@pytest.mark.parametrize('field', ['prose_catalog', 'prose_target'])
+def test_legacy_reservation_does_not_silently_accept_new_provenance(field):
+    from pydantic import ValidationError
+    raw = legacy()['reservation']
+    raw[field] = {'schema': 'future-prose-provenance'}
+    with pytest.raises(ValidationError):
+        BuildProposalReservation.model_validate(raw)

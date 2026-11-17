@@ -135,3 +135,32 @@ never downgrade to v1, strip the binding, treat unsupported history as empty, or
 reissue the provider request. Existing rows require no rewrite. The proposed exact
 new fields and review version still require owner review; this guard does not
 activate them or claim that schema compatibility is complete.
+
+### Proposed field placement (not accepted by this reader prerequisite)
+The next contract review must accept or revise these concrete additive shapes:
+1. Future write capability adds `prose_catalog` with
+   `schema: dmb_build_prose_catalog_v1`, `catalog_sha256`, and `entries` containing
+   `alias`, `operation`, `from`, `to`, `before_text_sha256`, `section`, `passage`.
+   Its existing actual `basis.editor_sha256` binds the entire catalog snapshot.
+   Digest uses the existing canonical owner convention, not a second identity store.
+   Only alias/operation/section/passage project to model context.
+2. Existing `propose_build_insertion` tool gains optional `target_alias` for this
+   capability. The parent resolves that alias against the authenticated frozen
+   catalog before reserving work; no new requested-work/action enum is proposed.
+   Missing/unknown/ambiguous alias must not fall back to actual caret. Ordinary
+   clarification/discussion remains non-mutating.
+3. Only after that admission, proposed record v2 freezes `reservation.prose_target`:
+   `schema: dmb_build_prose_target_v1`, `catalog_sha256`, `alias`, `operation`, `from`,
+   `to`, `before_text_sha256`. Reservation fingerprint includes it. Generated
+   proposal uses `target: prose_target`; it cannot change the admitted binding.
+   Actual author `basis.selection` stays absent for this no-selection path.
+4. Proposed review v4 carries `prose_target` at review and apply receipt levels,
+   equal to its immutable reservation binding. Existing source/editor/draft and
+   reviewed-output hashes, CAS revision, apply id and disposition checks remain.
+   Current v1 proposal/v2-v3 review readers do not accept these additions.
+
+These names are a pinned design proposal, not permission to allocate a migration,
+write a new record, call providers or relax existing strict parsing. Authenticated
+route validation, mixed-version rollout, hosted history and review consumers need
+an explicit owner review before activation. The current tests verify rejection by
+the actual legacy owner, not merely an invented compatibility model.
