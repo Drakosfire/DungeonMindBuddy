@@ -539,3 +539,21 @@ it("reads earlier image directions with the exact hosted session route", async (
   await expect(api.authenticatedApiFetch(path + "&world_id=other")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("sends hosted work-plan commands through exact same-origin routes", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const id = "12345678-1234-1234-1234-123456789abc";
+  const path = `/api/live/agent/worlds/managed/conversations/${id}/work-plans/${id}`;
+  for (const [url, method] of [[path, "GET"], [path, "PUT"], [path + "/continue", "POST"]]) {
+    await api.authenticatedApiFetch(url, { method, body: method === "GET" ? undefined : "{}" });
+    const [sent, init] = fetch.mock.calls.at(-1)!;
+    expect(sent).toBe(url);
+    expect(init).toMatchObject({ method, credentials: "same-origin", redirect: "error" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(path + "/continue", { method: "PUT", body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(3);
+});

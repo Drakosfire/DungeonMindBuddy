@@ -292,6 +292,9 @@ def hosted(monkeypatch, request):
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
+    from apps.live_control_server.routes import conversation_work_plans
+
+    app.include_router(conversation_work_plans.router)
     app.include_router(live.router)
     app.include_router(graph_preview.router)
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
@@ -306,7 +309,7 @@ def hosted(monkeypatch, request):
         app,
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
-               if "/variant-reviews/{review_id}" in key[1]},
+               if "/variant-reviews/{review_id}" in key[1] or "/work-plans/{source_turn_id}" in key[1]},
             **{
                 (
                     "POST",
@@ -2886,3 +2889,44 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_saved_work_plan_reads_exact_turn(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import conversation_library, conversation_work_plans
+
+    read = Mock(return_value={"status": "review"})
+    monkeypatch.setattr(conversation_work_plans.work_plan, "read", read)
+    monkeypatch.setattr(conversation_library, "_verified_world_id", lambda world: world)
+    conversation, turn = uuid4(), uuid4()
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation}/work-plans/{turn}"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=foreign").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    read.assert_called_once_with("managed", conversation, turn)
+
+
+def test_hosted_saved_work_plan_writes_exact_turn(hosted, monkeypatch):
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import conversation_library, conversation_work_plans
+
+    save = Mock(return_value={"status": "saved"})
+    resume = Mock(return_value={"status": "recorded"})
+    monkeypatch.setattr(conversation_work_plans.work_plan, "save", save)
+    monkeypatch.setattr(conversation_work_plans.work_plan, "continue_step", resume)
+    monkeypatch.setattr(conversation_library, "_verified_world_id", lambda world: world)
+    conversation, turn, step, command = uuid4(), uuid4(), uuid4(), uuid4()
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation}/work-plans/{turn}"
+    for method, route, body, service in (
+        ("PUT", path, {"expected_revision": 0, "steps": [{"step_id": str(step), "text": "Review", "selected": True}]}, save),
+        ("POST", path + "/continue", {"expected_revision": 1, "step_id": str(step), "command_id": str(command)}, resume),
+    ):
+        assert hosted.client.request(method, route, json=body, session="other-session").status_code == 403
+        assert hosted.client.request(method, route, json=body, origin=None).status_code == 403
+        service.assert_not_called()
+        response = hosted.client.request(method, route, json=body)
+        assert response.status_code == 200, response.text
+        assert service.call_args.args[:3] == ("managed", conversation, turn)
