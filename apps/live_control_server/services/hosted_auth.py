@@ -609,6 +609,7 @@ def install_hosted_request_boundary(
                 request.state.hosted_route_document_id = params.get("document_id")
                 request.state.hosted_route_run_id = params.get("run_id")
                 request.state.hosted_route_asset_id = params.get("asset_id")
+                request.state.hosted_route_draft_id = params.get("draft_id")
         if resolver is None:
             return JSONResponse(
                 status_code=403,

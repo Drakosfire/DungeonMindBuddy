@@ -483,6 +483,9 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions"): access.resolve_hosted_combat_encounter,
             ("PUT", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): access.resolve_hosted_saved_statblock,
+            ("GET", "/api/live/threat-drafts/{draft_id}/native-creature"): access.resolve_hosted_native_creature,
+            ("POST", "/api/live/threat-drafts/{draft_id}/native-creature/prepare"): access.resolve_hosted_native_creature,
+            ("POST", "/api/live/threat-drafts/{draft_id}/native-creature/confirm"): access.resolve_hosted_native_creature,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_saved_statblock,
             ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_statblock_revision_save,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}"): access.resolve_hosted_saved_statblock,
@@ -3741,3 +3744,47 @@ def test_hosted_portrait_revision_recovers_exact_save(revision_case, hosted, mon
     opened = hosted.client.request("GET", f"{fixture.url}/{revision_id}?world_id={world}")
     assert opened.status_code == 200, opened.text
     assert opened.json()["resource"]["provenance"]["accepted_through"]["buddy_portrait_asset_id"] == str(asset["asset_id"])
+
+
+def test_hosted_native_creature_routes_bind_exact_draft_and_principal(hosted, monkeypatch, tmp_path):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import native_threat_creation as routes
+
+    status = Mock(return_value=None)
+    prepare = Mock(return_value={"status": "prepared"})
+    confirm = Mock(return_value={"status": "published"})
+    monkeypatch.setattr(routes, "statblock_data_root", lambda root: tmp_path)
+    for name, handler in (("status", status), ("prepare", prepare), ("confirm", confirm)):
+        monkeypatch.setattr(routes.service, name, handler)
+    draft_id = uuid4()
+    path = f"/api/live/threat-drafts/{draft_id}/native-creature"
+    preparation = {"world_id": "managed", "expected_draft_version": 1}
+    review = {
+        "world_id": "managed", "draft_id": str(draft_id), "draft_version": 1,
+        "label": "Keeper", "body_sha256": "a" * 64, "binding": {},
+        "publication_id": "fixture", "source_evidence_id": "evidence",
+        "source_artifact_id": "source", "source_revision_id": "revision",
+        "prepared_digest": "b" * 64, "principal": f"hosted_dms:{OWNER}",
+        "expires_at": "2027-01-01T00:00:00Z",
+    }
+    confirmation = {"review": review, "prepared": {}, "token": "fixture"}
+    assert hosted.client.request("GET", path + "?world_id=managed", session="other-session").status_code == 403
+    assert hosted.client.request("POST", path + "/prepare", json=preparation, origin=None).status_code == 403
+    wrong_draft = {**confirmation, "review": {**review, "draft_id": str(uuid4())}}
+    assert hosted.client.request("POST", path + "/confirm", json=wrong_draft).status_code == 403
+    for handler in (status, prepare, confirm):
+        handler.assert_not_called()
+    for method, suffix, body in (
+        ("GET", "?world_id=managed", None),
+        ("POST", "/prepare", preparation),
+        ("POST", "/confirm", confirmation),
+    ):
+        response = hosted.client.request(method, path + suffix, **({"json": body} if body else {}))
+        assert response.status_code == 200, response.text
+        assert response.headers["cache-control"] == "no-store"
+    for handler in (status, prepare, confirm):
+        root, draft, _, principal = handler.call_args.args
+        assert (root, draft) == (tmp_path, draft_id)
+        assert principal.managed_world_id == "managed"
+        assert principal.subject == f"hosted_dms:{OWNER}"
