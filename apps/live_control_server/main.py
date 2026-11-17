@@ -272,6 +272,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/media/images/{asset_id}"): resolve_hosted_saved_artwork,
     ("GET", "/api/live/media/images/library"): resolve_hosted_media_library,
     ("GET", "/api/live/media/images/capabilities"): resolve_hosted_image_world,
+    ("GET", "/api/live/media/images/catalog"): resolve_hosted_image_world,
     ("POST", "/api/live/media/images/generate"): resolve_hosted_image_world,
     ("POST", FIRST_WORLD_PREPARE_PATH): resolve_hosted_first_world,
     ("POST", FIRST_WORLD_CONFIRM_PATH): resolve_hosted_first_world,

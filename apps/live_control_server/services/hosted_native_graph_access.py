@@ -253,8 +253,10 @@ def first_world_authorizer(request: Request):
 
 
 async def resolve_hosted_image_world(request: Request) -> str:
-    world_id = request.query_params.get("world_id")
-    if (not world_id or request.query_params.multi_items() != [("world_id", world_id)]
+    query = request.query_params
+    world_id = query.get("world_id")
+    allowed = {"world_id", "cursor", "limit"} if request.url.path.endswith("/catalog") else {"world_id"}
+    if (not world_id or set(query) - allowed or len(query.multi_items()) != len(query)
         or (request.method == "GET" and await request.body())):
         raise _denied()
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)

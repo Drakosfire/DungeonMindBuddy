@@ -431,6 +431,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/media/images/{asset_id}"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/library"): access.resolve_hosted_media_library,
             ("GET", "/api/live/media/images/capabilities"): access.resolve_hosted_image_world,
+            ("GET", "/api/live/media/images/catalog"): access.resolve_hosted_image_world,
             ("POST", "/api/live/media/images/generate"): access.resolve_hosted_image_world,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
@@ -3788,3 +3789,24 @@ def test_hosted_native_creature_routes_bind_exact_draft_and_principal(hosted, mo
         assert (root, draft) == (tmp_path, draft_id)
         assert principal.managed_world_id == "managed"
         assert principal.subject == f"hosted_dms:{OWNER}"
+
+
+def test_hosted_image_catalog_binds_world_and_cursor(hosted, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from apps.live_control_server.routes import media_images
+
+    provider = SimpleNamespace(
+        list_image_models=AsyncMock(return_value=SimpleNamespace(model_dump=lambda **kwargs: {"models": []})),
+        aclose=AsyncMock(),
+    )
+    monkeypatch.setattr(media_images, "_image_client", lambda: provider)
+    monkeypatch.setattr(media_images, "_fal_key", lambda: "fixture")
+    path = "/api/live/media/images/catalog?world_id=managed&cursor=next&limit=7"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&cursor=foreign").status_code == 403
+    provider.list_image_models.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    provider.list_image_models.assert_awaited_once_with(category="text-to-image", cursor="next", limit=7)

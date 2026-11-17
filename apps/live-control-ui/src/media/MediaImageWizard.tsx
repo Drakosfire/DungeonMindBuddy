@@ -125,7 +125,12 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
     if (!port.catalog || catalogInFlight.current) return;
     catalogInFlight.current = true; setCatalogBusy(true); setCatalogError('');
     try {
-      const page = await port.catalog(more ? catalog?.next_cursor ?? undefined : undefined);
+      const cursor = more ? catalog?.next_cursor ?? undefined : undefined;
+      const query = new URLSearchParams(worldId ? { world_id: worldId } : {});
+      if (cursor) query.set("cursor", cursor);
+      const page: CatalogPage = worldId && port === livePort
+        ? await request(`catalog?${query}`)
+        : await port.catalog(cursor);
       setCatalog(old => more && old ? { ...page, models: [...new Map([...old.models, ...page.models].map(item => [item.endpoint_id, item])).values()] } : page);
     } catch (error) { setCatalogError(error instanceof Error ? error.message : 'The model catalog is unavailable.'); }
     finally { catalogInFlight.current = false; setCatalogBusy(false); }
