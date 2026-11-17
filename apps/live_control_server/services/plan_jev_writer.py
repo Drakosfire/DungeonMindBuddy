@@ -271,6 +271,8 @@ def _conversation_response_task(execution):
             return 'explain_capability'
         if contract['purpose'] == 'clarify':
             return 'clarify'
+        if contract['requested_work'] == 'review_variant_approval':
+            return 'variant_approval'
         if contract['purpose'] == 'fulfill' and contract['requested_work'] == 'discuss':
             return 'build_discussion'
     return None
