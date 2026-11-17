@@ -1759,7 +1759,9 @@ def get_world_historical_source_passage(world_id: str, turn_id: str, trace_id: s
     from fastapi.responses import Response
     from application_state.agent_conversation.context_trace import TraceHistoricalSourceReferenceV1
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     selectors = list(request.query_params.multi_items())
     expected = {"conversation_id", "attempt", "source_read_id", "content_sha256"}
@@ -1800,7 +1802,9 @@ def get_world_historical_rules_passage(world_id: str, turn_id: str, support_id: 
     )
     from application_state.agent_conversation.rules_authority_types import canonical_bytes
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     try:
         selectors = list(request.query_params.multi_items())

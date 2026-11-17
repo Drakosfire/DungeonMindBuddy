@@ -468,6 +468,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/conversations\/[0-9a-f-]+\/(?:name|turns\/[0-9a-f-]+\/retry-attempts(?:\?[^#]*)?)$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/conversation\/turns\/[0-9a-f-]+\/(?:context-trace\/[0-9a-f-]+\/source-passages|rules-passages)\/[0-9a-f-]+\?[^#]+$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
   const conversation = /^\/api\/live\/agent\/worlds\/[^/?]+\/(conversation(?:\/new|\/commands\/[0-9a-f-]+)?|conversations(?:\/active\/messages|\/[0-9a-f-]+\/(?:messages|turns|retry-context))?)(?:\?([^#]*))?$/.exec(path);
   if (conversation) {
     if (conversation[1] === "conversation/new") {
