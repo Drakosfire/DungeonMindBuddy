@@ -6,7 +6,7 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -85,7 +85,6 @@ from apps.live_control_server.services.exact_run_evidence_correction import (
 from apps.live_control_server.services.recap_semantic_candidate_correction import correct_recap_candidate
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
-    native_graph_gm_dependency,
 )
 
 logger = logging.getLogger(__name__)
@@ -320,11 +319,13 @@ def post_recap_candidate_corrections(
     request_context: Request,
     run_id: str,
     request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9 | RecapCandidateCorrectionRequestV10 | RecapCandidateCorrectionRequestV11,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    managed_world_id: str | None = None,
 ) -> dict[str, Any] | JSONResponse:
     """GM-only bounded semantic candidate child; no World publication."""
+    _native_publication_principal(request_context, managed_world_id or "")
     try:
-        _reject_selector_query(request_context)
+        if request_context.query_params.multi_items() != [("managed_world_id", managed_world_id)]:
+            _reject_selector_query(request_context)
         if run_id != request.parent_run_id:
             raise ExtractPromoteError(
                 "path run ID does not match parentRunId",
