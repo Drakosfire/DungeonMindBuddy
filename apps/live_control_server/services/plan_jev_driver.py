@@ -43,7 +43,6 @@ class PlanJevDriver:
         self.attempted_statblocks = set()
         if (adapter.request.surface.surface_id == "build"
                 and adapter.fence is not None
-                and re.search(r"\b(?:stat[ -]?blocks?|saved mechanics)\b", adapter.request.message, re.IGNORECASE)
                 and isinstance(adapter.fence.turn.graph_context_receipt, t.SurfaceNativeContextReceiptV1)
                 and getattr(getattr(adapter, "native_principal", None), "role", None) == "gm"):
             from apps.live_control_server.routes.statblock_storage import statblock_data_root
@@ -54,7 +53,9 @@ class PlanJevDriver:
             references = object_selections(adapter.request.build_authored_references)
             entries = self._referenced_statblocks(references) if references else None
             if entries is None:
-                entries = iter_saved_mechanics(self.statblock_root, world_id=self.statblock_world)
+                entries = (iter_saved_mechanics(self.statblock_root, world_id=self.statblock_world)
+                           if re.search(r"\b(?:stat[ -]?blocks?|saved mechanics)\b", adapter.request.message, re.IGNORECASE)
+                           else ())
             self.saved_statblocks = {
                 f"saved-statblock:{index}": entry for index, entry in enumerate(entries)
             }
