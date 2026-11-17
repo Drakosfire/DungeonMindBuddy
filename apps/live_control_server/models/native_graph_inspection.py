@@ -3,6 +3,8 @@
 from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from apps.live_control_server.models.world_graph_object_projection import WorldGraphObjectProjectionRequest
+
 Text = Annotated[str, Field(min_length=1, pattern=r"\S")]
 
 
@@ -28,6 +30,11 @@ class InspectionPin(InspectionScope):
     native_world_id: Text
     binding_version: int = Field(gt=0)
     revision_id: Text
+
+
+class NativeCompleteObjectRead(Closed):
+    scope: InspectionPin | None = None
+    request: WorldGraphObjectProjectionRequest
 
 
 class EntitySelection(Closed):

@@ -622,6 +622,18 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return isRecord(scope) && scope.scope_mode === "world" && scope.campaign_id === null
       && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id);
   }
+  if (path === "/api/live/native-graph-inspection/complete-object") {
+    const body = requestBodyRecord(init?.body);
+    const scope = body?.scope;
+    const selector = body?.request;
+    return method === "POST" && isRecord(scope) && isRecord(selector)
+      && scope.scope_mode === "world" && scope.campaign_id === null
+      && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id)
+      && typeof scope.revision_id === "string" && Boolean(scope.revision_id)
+      && selector.worldId === scope.managed_world_id && selector.scopeMode === "world"
+      && selector.revisionPin === scope.revision_id && selector.campaignId === ""
+      && selector.admissibility === "gm";
+  }
   if (path === "/api/live/native-graph-inspection/related-recaps" || path === "/api/live/native-graph-inspection/recap-page") {
     const body = requestBodyRecord(init?.body);
     const read = path.endsWith("/recap-page") ? body?.read : body;

@@ -332,6 +332,7 @@ def hosted(monkeypatch, request):
                 for operation in OPERATIONS
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
+            ("POST", "/api/live/native-graph-inspection/complete-object"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/recap-page"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/related-recaps"): access.resolve_hosted_explorer_world,
             ("POST", access.FIRST_WORLD_PREPARE_PATH): access.resolve_hosted_first_world,
@@ -2980,3 +2981,43 @@ def test_hosted_related_recaps_bind_pinned_world(hosted, monkeypatch):
     assert pin.managed_world_id == principal.managed_world_id == "managed"
     assert pin.revision_id == "rev_exact"
     assert assertion == "assertion:1"
+
+
+def test_hosted_complete_object_requires_exact_world_pin(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.services import native_graph_inspection
+
+    read = Mock(return_value={"found": True})
+    monkeypatch.setattr(native_graph_inspection, "complete_object", read)
+    path = "/api/live/native-graph-inspection/complete-object"
+    scope = {
+        "managed_world_id": "managed",
+        "native_world_id": "native",
+        "binding_version": 1,
+        "revision_id": "rev_exact",
+        "scope_mode": "world",
+        "campaign_id": None,
+    }
+    selector = {
+        "schema": "dmb_world_graph_object_projection_request_v1",
+        "worldId": "managed",
+        "scopeMode": "world",
+        "campaignId": "",
+        "revisionPin": "rev_exact",
+        "nodeId": "object:1",
+        "admissibility": "gm",
+    }
+    body = {"scope": scope, "request": selector}
+    assert hosted.client.request("POST", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", path, origin=None, json=body).status_code == 403
+    for changes in ({"worldId": "foreign"}, {"revisionPin": "other"}, {"campaignId": "campaign"}):
+        invalid = {**body, "request": {**selector, **changes}}
+        assert hosted.client.request("POST", path, json=invalid).status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    request, principal = read.call_args.args
+    assert request.scope.revision_id == request.request.revision_pin == "rev_exact"
+    assert request.request.world_id == principal.managed_world_id == "managed"

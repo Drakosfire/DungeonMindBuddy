@@ -24,7 +24,8 @@ from apps.live_control_server.models.native_graph_explorer import (
     NativeGraphExplorerPrepareRequest,
 )
 from apps.live_control_server.models.native_graph_inspection import (
-    InspectionPin, InspectionRead, InspectionScope, NativeRecapPageRequest, NativeRelatedRecapsRequest,
+    InspectionPin, InspectionRead, InspectionScope, NativeCompleteObjectRead,
+    NativeRecapPageRequest, NativeRelatedRecapsRequest,
 )
 from apps.live_control_server.models.native_source_inspection import NativeSourceRead
 from apps.live_control_server.services import hosted_auth
@@ -50,6 +51,7 @@ BUILD_PDF_SOURCES_PATH = hosted_auth.BUILD_PDF_SOURCES_PATH
 BUILD_PAGE_INVENTORY_PATH = "/api/live/workspace-documents/pages/inventory"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
 _REQUESTS = {
+    "/api/live/native-graph-inspection/complete-object": TypeAdapter(NativeCompleteObjectRead),
     "/api/live/native-graph-inspection/recap-page": TypeAdapter(NativeRecapPageRequest),
     "/api/live/native-graph-inspection/related-recaps": TypeAdapter(NativeRelatedRecapsRequest),
     "/api/live/native-graph-inspection/catalog": TypeAdapter(InspectionPin | InspectionScope),
@@ -132,7 +134,16 @@ async def resolve_hosted_explorer_world(request: Request) -> str:
         if body.read.selection.kind != "source":
             raise _denied()
         body = body.read
-    if isinstance(body, (InspectionRead, NativeSourceRead, NativeRelatedRecapsRequest)):
+    if isinstance(body, NativeCompleteObjectRead):
+        pin, selector = body.scope, body.request
+        if (
+            pin is None or pin.scope_mode != "world" or selector.scope_mode != "world"
+            or selector.world_id != pin.managed_world_id or selector.campaign_id
+            or selector.revision_pin != pin.revision_id or selector.admissibility != "gm"
+        ):
+            raise _denied()
+        managed_world_id = pin.managed_world_id
+    elif isinstance(body, (InspectionRead, NativeSourceRead, NativeRelatedRecapsRequest)):
         if body.scope.scope_mode != "world":
             raise _denied()
         managed_world_id = body.scope.managed_world_id

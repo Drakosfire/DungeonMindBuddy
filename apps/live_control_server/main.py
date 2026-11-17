@@ -285,6 +285,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): resolve_hosted_build_extraction,
     ("GET", WORLD_LOOKUP_PATH): resolve_hosted_world_lookup,
     ("POST", INSPECTION_READ_PATH): resolve_hosted_explorer_world,
+    ("POST", "/api/live/native-graph-inspection/complete-object"): resolve_hosted_explorer_world,
     ("POST", "/api/live/native-graph-inspection/recap-page"): resolve_hosted_explorer_world,
     ("POST", "/api/live/native-graph-inspection/related-recaps"): resolve_hosted_explorer_world,
     ("POST", "/api/live/native-graph-inspection/catalog"): resolve_hosted_explorer_world,

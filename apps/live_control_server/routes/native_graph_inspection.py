@@ -7,6 +7,7 @@ from apps.live_control_server.models.native_graph_inspection import (
     InspectionPin,
     InspectionRead,
     InspectionScope,
+    NativeCompleteObjectRead,
     NativeRecapPageRequest,
     NativeRelatedRecapsRequest,
 )
@@ -73,10 +74,11 @@ def inspect(body: InspectionRead, principal=Depends(native_graph_explorer_depend
 
 @router.post("/complete-object")
 def complete_object(
-    body: service.NativeCompleteObjectRead,
-    principal=Depends(native_graph_gm_dependency),
+    body: NativeCompleteObjectRead,
+    principal=Depends(native_graph_explorer_dependency),
 ):
-    return _call(service.complete_object, body, principal)
+    with hosted_response_binding(principal, body.request.world_id):
+        return _call(service.complete_object, body, principal)
 
 
 @router.post("/recap-page")
