@@ -52,6 +52,8 @@ class PlanJevDriver:
             from application_state.agent_conversation.authored_graph_references import object_selections
             references = object_selections(adapter.request.build_authored_references)
             entries = self._referenced_statblocks(references) if references else None
+            if adapter.request.build_authored_references is None:
+                entries = self._prior_bound_statblock() or entries
             if entries is None:
                 entries = (iter_saved_mechanics(self.statblock_root, world_id=self.statblock_world)
                            if re.search(r"\b(?:stat[ -]?blocks?|saved mechanics)\b", adapter.request.message, re.IGNORECASE)
@@ -314,6 +316,43 @@ class PlanJevDriver:
                 self.finished = True
             return
         self._read_new_sources(operations)
+
+    def _prior_bound_statblock(self):
+        from application_state.agent_conversation.authored_graph_references import object_selections
+        from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+
+        adapter = self.adapter
+        turn = adapter.fence.turn
+        if turn.sequence <= 1:
+            return ()
+        prior = adapter.service.list_turns(
+            self.statblock_world, turn.conversation_id, limit=1, before_sequence=turn.sequence,
+        )
+        if not prior or not isinstance(prior[0], t.Turn) or prior[0].status != "completed":
+            return ()
+        previous = prior[0]
+        receipt = previous.graph_context_receipt
+        if (not isinstance(receipt, t.SurfaceNativeContextReceiptV1)
+                or receipt.work_context.surface_id != "build"
+                or receipt.work_context.source_basis != turn.graph_context_receipt.work_context.source_basis
+                or previous.graph_context_execution is None):
+            return ()
+        events = previous.graph_context_execution.events
+        reads = [event for event in events if isinstance(event, BuildSavedStatblockReadV1)]
+        captures = [event for event in events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
+        if len(reads) != 1 or len(captures) > 1:
+            return ()
+        read = reads[0]
+        reference = self._published_statblock_reference(read.draft_id, read.locator)
+        if reference is None:
+            return ()
+        if captures and not any(
+            (selected.managed_world_id, selected.native_world_id, selected.binding_version, selected.node_id)
+            == (reference.managed_world_id, reference.native_world_id, reference.binding_version, reference.node_id)
+            for selected in object_selections(captures[0].references)
+        ):
+            return ()
+        return ((reference.label, read.draft_id, read.locator, reference),)
 
     def _referenced_statblocks(self, references):
         from application_state.world_mechanics.service import list_current
