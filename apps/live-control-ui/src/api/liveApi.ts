@@ -427,6 +427,15 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (path.startsWith("/api/live/agent/readiness?")) {
+    const query = new URLSearchParams(path.slice(path.indexOf("?") + 1));
+    const surface = query.get("surface");
+    const worldGraph = query.get("world_graph");
+    const worldId = query.get("world_id");
+    return method === "GET" && init?.body == null && Boolean(worldId)
+      && ["build", "plan", "play"].includes(surface ?? "")
+      && ["true", "false"].includes(worldGraph ?? "") && query.size === 3;
+  }
   if (path === "/api/live/agent/turn") {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && isRecord(body?.owner_scope)
@@ -3458,8 +3467,8 @@ export interface BuddyReadinessResponse {
   configured: boolean;
   issues: string[];
 }
-export function getBuddyReadiness(surface: BuddyReadinessResponse["surface"], worldGraph: boolean): Promise<BuddyReadinessResponse> {
-  return apiFetch(`/api/live/agent/readiness?${new URLSearchParams({surface, world_graph: String(worldGraph)})}`);
+export function getBuddyReadiness(surface: BuddyReadinessResponse["surface"], worldGraph: boolean, worldId?: string): Promise<BuddyReadinessResponse> {
+  return apiFetch(`/api/live/agent/readiness?${new URLSearchParams({surface, world_graph: String(worldGraph), ...(worldId ? {world_id: worldId} : {})})}`);
 }
 
 /** Exact turn-bound related authoring context; never a latest-page substitute. */
