@@ -2972,3 +2972,35 @@ def test_hosted_action_evidence_checks_owner_and_exact_selectors(hosted, monkeyp
     response = hosted.client.request("GET", path)
     assert response.status_code == 404, response.text
     assert calls == [dict(world_id="managed", action_id=action_id, claim_id="claim", anchor_id="anchor")]
+
+
+def test_saved_action_evidence_resolves_target_from_exact_plan_action(monkeypatch):
+    from unittest.mock import Mock
+
+    from application_state.plan_action_dialogue.service import PlanActionDialogueService
+    from apps.live_control_server.models.agent_turn import AgentEvidenceAnchorOpenTargetV1
+    from apps.live_control_server.services import agent_source_passages as passages
+    from apps.live_control_server.services import plan_action_consultation
+
+    action_id = uuid4()
+    action = object()
+    target = AgentEvidenceAnchorOpenTargetV1(
+        claim_id="claim", anchor_id="anchor", managed_world_id="managed",
+        native_world_id="native", binding_version=3, graph_revision="saved-revision",
+        source_revision_id="source-revision", source_artifact_id="artifact", evidence_ref_id="reference",
+    )
+    read = Mock(return_value=action)
+    project = Mock(return_value=[target.model_dump(by_alias=True)])
+    open_anchor = Mock()
+    monkeypatch.setattr(PlanActionDialogueService, "read_prompt_action", read)
+    monkeypatch.setattr(plan_action_consultation, "project_plan_action_source_targets", project)
+    monkeypatch.setattr(passages, "_open_pinned_evidence_anchor", open_anchor)
+    selectors = dict(world_id="managed", action_id=action_id, anchor_id="anchor")
+
+    assert passages.open_saved_plan_action_graph_evidence(**selectors, claim_id="claim") is open_anchor.return_value
+    read.assert_called_once_with(world_id="managed", action_id=action_id)
+    project.assert_called_once_with(action)
+    open_anchor.assert_called_once_with(target)
+    with pytest.raises(passages.SourcePassageOpenError, match="source_passage_not_found"):
+        passages.open_saved_plan_action_graph_evidence(**selectors, claim_id="other")
+    open_anchor.assert_called_once_with(target)
