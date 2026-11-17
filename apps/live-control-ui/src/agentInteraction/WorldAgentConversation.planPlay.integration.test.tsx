@@ -2478,12 +2478,19 @@ describe("one App-level World conversation host across Plan and Play", () => {
       status: "authenticated", refreshWarning: false, subject: "owner", displayName: "Owner",
     });
     try {
+      vi.mocked(postWorldPlayAgentTurn).mockRejectedValueOnce(new LiveApiError("Unauthorized", 401));
       render(<Harness initial="play" />);
       fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-      await screen.findByLabelText("Message DungeonBuddy");
+      const input = await screen.findByLabelText("Message DungeonBuddy");
+      await waitFor(() => expect(input).toBeEnabled());
       fireEvent.click(screen.getByTitle("Conversation options"));
       expect(screen.queryByRole("button", { name: "Settings", exact: true })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Connect local session" })).not.toBeInTheDocument();
+      fireEvent.change(input, { target: { value: "Help with this page" } });
+      fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+      const signIn = await screen.findByRole("link", { name: "Sign in to DungeonMind" });
+      expect(signIn.getAttribute("href")).toContain("/api/auth/login?return_to=");
+      expect(screen.queryByRole("button", { name: "Open Settings" })).not.toBeInTheDocument();
     } finally {
       auth.mockRestore();
     }
