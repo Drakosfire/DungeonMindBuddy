@@ -52,6 +52,29 @@ class ConfirmConversationVariant(BaseModel):
     review_id: UUID
 
 
+def validate_variant_review(definition, *, client=None):
+    """Obtain an owner receipt before presenting generated mechanics for confirmation."""
+    from .statblock_definition_validation import validate_definition
+
+    result = validate_definition(definition=definition, client=client)
+    receipt = result.validation_receipt
+    if receipt is None:
+        return None
+    if compute_definition_digest(definition) != result.definition_digest:
+        raise ApplicationStateIntegrityError("Statblock validation returned different mechanics.")
+    return receipt
+
+
+def variant_review_is_valid(definition, receipt):
+    if receipt is None:
+        return False
+    if receipt.definition_digest != compute_definition_digest(definition):
+        raise ApplicationStateIntegrityError("Statblock validation does not bind to the draft.")
+    return receipt.status != ValidationStatus.invalid and not any(
+        issue.severity == ValidationSeverity.error for issue in receipt.issues or []
+    )
+
+
 def save_variant(
     service, world_id: str, conversation_id: UUID, turn_id: UUID,
     confirmation: ConfirmConversationVariant, *, client: StatblockV1Client | None = None,

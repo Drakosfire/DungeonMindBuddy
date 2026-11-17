@@ -15,6 +15,8 @@ from uuid import UUID
 
 from pydantic import Field
 
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated import ValidationReceiptV1
+
 from .rules_authority_events import (
     RulesBuildProviderAuthorizedV1,
     RulesBuildProviderIncludedV1,
@@ -52,7 +54,6 @@ if TYPE_CHECKING:
 
 MAX_NATIVE_OUTPUT_BYTES = 262144
 
-
 class NativeRulesOutputProofV1(ClosedRulesModel):
     """Transient proof input. ``raw_output_json`` is never written to history."""
 
@@ -70,6 +71,7 @@ class NativeRulesOutputProofV1(ClosedRulesModel):
     raw_output_utf8_bytes: int = Field(ge=1, le=MAX_NATIVE_OUTPUT_BYTES)
 
     graph_packets: dict[UUID, str] = Field(default_factory=dict, max_length=64)
+    variant_validation: ValidationReceiptV1 | None = None
 
     @classmethod
     def from_capture(
