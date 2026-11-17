@@ -1724,6 +1724,11 @@ def test_followup_reoffers_only_the_bound_statblock_on_the_same_page(lane, tmp_p
     monkeypatch.setattr(driver, "_published_statblock_reference", lambda draft, locator: None)
     assert driver._prior_bound_statblock() == ()
 
+    from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
+    driver.adapter.service.list_turns = lambda *_args, **_kwargs: [MixedCompletedTurnV1.model_construct()]
+    assert driver._prior_bound_statblock() == ()
+    driver.adapter.service.list_turns = list_turns
+
     work = current.graph_context_receipt.work_context
     changed_basis = work.source_basis.model_copy(update={"source_revision": 99, "document_id": uuid4()})
     changed_work = work.model_copy(update={"source_basis": changed_basis})

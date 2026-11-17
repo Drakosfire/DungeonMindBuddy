@@ -12,3 +12,7 @@ publication association, World ownership and exact mechanics locator. Keep the
 read in the ordinary selection and verified opener. Test stale page/locator,
 different conversation and explicit-reference controls. Keep Gold local and
 primary data unchanged. Conditional early finish follows this slice.
+
+A mixed Rules predecessor does not donate a Build statblock binding. An explicit
+empty reference selection suppresses carryover. Ordinary statblock keyword
+discovery is still available for a new request.

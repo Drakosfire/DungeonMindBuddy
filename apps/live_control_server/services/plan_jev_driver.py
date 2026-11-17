@@ -328,7 +328,7 @@ class PlanJevDriver:
         prior = adapter.service.list_turns(
             self.statblock_world, turn.conversation_id, limit=1, before_sequence=turn.sequence,
         )
-        if not prior or prior[0].status != "completed":
+        if not prior or not isinstance(prior[0], t.Turn) or prior[0].status != "completed":
             return ()
         previous = prior[0]
         receipt = previous.graph_context_receipt
