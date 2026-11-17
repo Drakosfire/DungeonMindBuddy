@@ -145,8 +145,13 @@ def add_generated_statblock_route(
         raise HTTPException(status_code=getattr(exc, "status_code", 422), detail=str(exc)) from exc
 
 
-@router.post("/world-mechanics/preview", response_model=CombatMechanicsSnapshot, dependencies=_LOCAL_GM)
-def preview_mechanics(world_id: Annotated[str, Query(min_length=1, max_length=63)], body: CombatMechanicsSelection):
+@router.post("/world-mechanics/preview", response_model=CombatMechanicsSnapshot)
+def preview_mechanics(
+    world_id: Annotated[str, Query(min_length=1, max_length=63)],
+    body: CombatMechanicsSelection,
+    request: Request,
+):
+    require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
     try:
         return combat_mechanics.preview(world_id=owner, selection=body)
@@ -160,8 +165,13 @@ def preview_mechanics(world_id: Annotated[str, Query(min_length=1, max_length=63
         raise HTTPException(status_code=503, detail="Exact accepted mechanics are unavailable") from exc
 
 
-@router.post("/accepted-mechanics/preview", response_model=AcceptedCombatMechanicsSnapshot, dependencies=_LOCAL_GM)
-def preview_accepted_mechanics(world_id: Annotated[str, Query(min_length=1, max_length=63)], body: AcceptedCombatMechanicsSelection):
+@router.post("/accepted-mechanics/preview", response_model=AcceptedCombatMechanicsSnapshot)
+def preview_accepted_mechanics(
+    world_id: Annotated[str, Query(min_length=1, max_length=63)],
+    body: AcceptedCombatMechanicsSelection,
+    request: Request,
+):
+    require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
     try:
         return combat_mechanics.preview_accepted(world_id=owner, selection=body)

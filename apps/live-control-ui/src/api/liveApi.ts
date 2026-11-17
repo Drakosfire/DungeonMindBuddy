@@ -429,11 +429,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(metadata|original)$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
-  const savedMechanicsPreview = "/api/live/combat/encounters/saved-mechanics/preview?";
-  if (path.startsWith(savedMechanicsPreview)) {
-    const worldId = new URLSearchParams(path.slice(savedMechanicsPreview.length)).get("world_id");
+  const mechanicsPreview = /^\/api\/live\/combat\/encounters\/(?:saved-mechanics|accepted-mechanics|world-mechanics)\/preview\?/.exec(path);
+  if (mechanicsPreview) {
+    const worldId = new URLSearchParams(path.slice(mechanicsPreview[0].length)).get("world_id");
     return method === "POST" && !!worldId && !!requestBodyRecord(init?.body)
-      && path === savedMechanicsPreview + new URLSearchParams({ world_id: worldId });
+      && path === mechanicsPreview[0] + new URLSearchParams({ world_id: worldId });
   }
   const savedRevisionList = /^\/api\/live\/threat-drafts\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-revisions\?/.exec(path);
   if (savedRevisionList) {
