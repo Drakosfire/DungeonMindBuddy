@@ -123,6 +123,11 @@ def project(execution):
             "pages": [{"read_id": str(e.read_id), "page": e.page.model_dump(mode="json"),
                 "markdown": e.markdown} for e in records(execution)]}
     choices = [e for e in execution.events if isinstance(e, RelatedPagesSelection)]
+    from .build_intentional_response import is_anchored_discussion
+    if any(is_anchored_discussion(event) for event in execution.events):
+        if choices or records(execution):
+            raise ValueError("Anchored discussion cannot acquire optional related pages")
+        return None
     from .types import BuildReviewedActionSelectionV1
     empty_reviewed = not catalog(execution.policy) and not choices and any(isinstance(e, BuildReviewedActionSelectionV1) for e in execution.events)
     if not empty_reviewed and (len(choices) != 1 or set(choices[0].document_ids) != {
