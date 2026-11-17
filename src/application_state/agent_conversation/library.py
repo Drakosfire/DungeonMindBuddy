@@ -274,6 +274,9 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             WHERE work->>'kind' = 'build_requested_work_resolved_v1'
               AND work->>'requested_work' = 'review_variant_approval'
         )) AS variant_approval_requested,
+        EXISTS (SELECT 1 FROM agent.conversation_variant_review r
+            WHERE r.turn_id=t.turn_id AND t.status='completed' AND t.surface_id='build'
+        ) AS variant_draft_reviewed,
         t.answer_composition_kind, """ + reference_select + ", " + repo._rules_summary_select("t")) if metadata else ""
     rows = conn.execute(
         f"""SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
@@ -298,6 +301,8 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             provenance=repo.turn_provenance(row,references[row["turn_id"]])
             if row["draft_available"]:
                 message["conversation_draft_available"] = True
+            if row["variant_draft_reviewed"]:
+                message["variant_draft_reviewed"] = True
             if row["variant_approval_requested"]:
                 message["variant_approval_requested"] = True
             if row["saved_statblocks"]:

@@ -1610,6 +1610,7 @@ export type AgentConversationTurnLifecycleV1 =
 
 export interface WorldAgentConversationHistoryTurnV1 {
   conversation_draft_available?: true;
+  variant_draft_reviewed?: true;
   variant_approval_requested?: true;
   plan_requested_operation?: "discuss" | "write_current_page";
   authored_references?: AuthoredReferenceInput;
