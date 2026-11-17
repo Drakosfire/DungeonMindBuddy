@@ -609,6 +609,17 @@ class PlanJevDriver:
         if self.rules is not None and self.rules.selected:
             examined.append(rules_candidate())
         examined.extend(self.saved_page_catalog[h][0] for h in sorted(self.attempted_saved_pages))
+        if self.attempted_statblocks:
+            from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+
+            examined.extend(
+                RetrievalCandidate(
+                    handle=event.handle, label=self.saved_statblocks[event.handle][0],
+                    kind="Saved statblock: acquired exact mechanics in this turn",
+                )
+                for event in self.adapter._broker_execution().events
+                if isinstance(event, BuildSavedStatblockReadV1) and event.handle in self.saved_statblocks
+            )
         examined.extend(self.native_sources.examined())
         from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
         if isinstance(getattr(self.adapter, 'native_query', None), NativeGraphQueryV4):
