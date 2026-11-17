@@ -306,10 +306,23 @@ def report(manifest_path, *, oracle=None, citation_readback=None):
 
 
 def capture_case(client, world, template, case, directory, *, context_only=False,
-                 build_thread_id=None, expected_conversation_id=None):
+                 build_thread_id=None, expected_conversation_id=None, build_editor_snapshot=None):
     """The single ordinary route sequence, shared by all question fixtures."""
     build_sequence = build_thread_id is not None
     validate_template(template, world, context_only=context_only, build_sequence=build_sequence)
+    if build_editor_snapshot is not None:
+        from application_state.agent_conversation.build_draft_context import (
+            BuildDraftContextRequestV1, BuildDraftSnapshotV1,
+        )
+        snapshot = BuildDraftSnapshotV1.model_validate(build_editor_snapshot)
+        work = template["primary_work"]
+        if (not build_sequence or snapshot.world_id != world
+                or str(snapshot.document_id) != work["object_id"]
+                or snapshot.registry_revision != work["expected_revision"]
+                or snapshot.content_sha256 != work["expected_content_sha256"]
+                or snapshot.draft_sha256 != snapshot.content_sha256
+                or sha256(snapshot.draft_markdown.encode()).hexdigest() != snapshot.content_sha256):
+            raise ValueError("Build benchmark editor snapshot must match the exact saved page")
     if directory.exists() and any(directory.iterdir()):
         raise ValueError("Case output already exists; do not redispatch")
     route = "/api/live/agent/worlds/" + world + "/conversation"
@@ -346,6 +359,11 @@ def capture_case(client, world, template, case, directory, *, context_only=False
         request.pop("build_authored_references", None)
     if not build_sequence:
         request["surface"]["instance_id"] = request["client_thread_id"]
+    if build_editor_snapshot is not None:
+        request["build_draft_context"] = BuildDraftContextRequestV1(
+            snapshot=snapshot, conversation_id=fresh["active_conversation_id"],
+            expected_pointer_revision=fresh["pointer_revision"],
+        ).model_dump(mode="json", by_alias=True)
     immutable_save(directory, "request", request)
     immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
     started = time.monotonic()
