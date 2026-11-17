@@ -222,3 +222,17 @@ pool after the page and explicit reference resolve. Offer additional reads
 when a concrete unanswered detail requires them. Preserve the fallback
 semantics for real evidence-seeking turns and test a control that needs a
 specific external passage.
+
+### Save and Combat component evidence
+
+Four provider-free owner checks passed on Buddy main `b23aaa15a` in the
+disposable evaluator. Manual revision save and exact retry preserved the
+previous revision, including recovery after a simulated producer timeout.
+Combat admitted a verified saved snapshot, reopened it offline with independent
+tracking, and refused unavailable exact mechanics without a substitute.
+
+The manual revision path appends to an existing draft identity. Turn six
+requires a distinct variant. The bench still needs an ordinary review receipt
+binding the visible draft to validated structured mechanics, creation of the
+separate variant after approval, and one Edge link to that exact saved result.
+Score the existing Save and Combat checks as component evidence.
