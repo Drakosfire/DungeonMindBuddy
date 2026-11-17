@@ -259,3 +259,18 @@ this lease. Boundary admission refuses plain pages and any project/hydrate JSON
 normalization before mutation. It never adds a wrapper to force persistence.
 New IDs respect the existing80-character bound. This is an isolated coverage gap,
 not completion of ordinary contextual placement.
+
+### Frozen Build placement benchmark correction (2026-11-17)
+
+ACTIVE serial continuation from `758690683e1f86804f65b0fc890d0a4be7899474`,
+explicitly assigned by coordinating root. Fetched main remains eecaf799; all157
+open PR file lists plus expanded #3824 have no overlap with this eval-only scope.
+Write lease: this handoff and evals/inline_prose_targeting/** only. Replace the
+shared Build routing page with separately authored frozen dev/holdout pages and
+add semantic insertion requests using actual before/after paragraph aliases.
+Private acceptable sets must resolve to the same physical boundary; plausible
+opening and wrong-section nominations must fail. No model runs, runtime, Save,
+plain-page coverage repair, shared harness, migration, merge or deployment.
+Validate artifacts and scorer together, independent review, exact hosted verifier;
+retain prior full-discovered diagnostic as the meaningful integrated checkpoint,
+not as a green result for this new head. Publish only to the existing draft #3867.

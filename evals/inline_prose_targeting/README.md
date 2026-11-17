@@ -139,3 +139,19 @@ content. Broad plain-page support needs the existing Page presentation/Save
 contract to define and retain identities without visual wrappers. That owner is
 outside this slice; no product acceptance or ordinary contextual routing claim
 is made. Production migration/rollback qualification remains absent.
+
+### Build semantic placement coverage correction
+
+The routing export now uses `routing_build.dev.json` and independently authored
+`routing_build.holdout.json`, not the shared historical scouts page. The original
+cases files remain historical baseline inputs; Plan controls keep that fixture.
+Build development covers a river crossing, while held-out Build covers telescope
+safety with no reused passage/context. Each includes an unrelated opening,
+duplicate passage in a different section, contextual rewrite, ambiguity,
+contextual insertion between two adjacent paragraphs and discussion-only request.
+The actual Build catalog supplies every before/after choice; private answer sets
+accept both aliases resolving to the same physical boundary. Export tests invoke
+the real replay scorer with each equivalent alias and reject top/opening/wrong-
+section nominations. These are scorer controls, not held-out model evaluations.
+No producer has run or received evaluator answers. Set `PROSE_PYTHON` to the
+existing Python environment if `python3` cannot import the scorer dependencies.
