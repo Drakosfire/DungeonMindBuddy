@@ -375,6 +375,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/world-mechanics/associations"): resolve_hosted_statblock_inventory,
     ("POST", "/api/live/world-mechanics/associations"): resolve_hosted_mechanics_association,
     ("GET", "/api/live/world-mechanics/associations/creatures"): resolve_hosted_plan_world_context,
+    ("GET", "/api/live/extract-promote/worldbuilding/capabilities"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/world-mechanics/associations/requests/{request_id}"): resolve_hosted_plan_world_context,
     ("POST", "/api/live/tiptap/markdown-write/prepare"): resolve_hosted_build_page,
     ("POST", "/api/live/tiptap/markdown-write/commit"): resolve_hosted_build_page,

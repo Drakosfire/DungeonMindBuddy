@@ -582,6 +582,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/world-mechanics/associations"): access.resolve_hosted_mechanics_association,
             ("GET", "/api/live/world-mechanics/associations/creatures"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/extract-promote/worldbuilding/capabilities"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/world-mechanics/associations/requests/{request_id}"): access.resolve_hosted_plan_world_context,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
@@ -4969,3 +4970,14 @@ def test_hosted_managed_projection_reaches_only_owned_world(hosted, monkeypatch)
     result = hosted.client.request("POST", path, json=body)
     assert result.status_code == 409, result.text
     assert calls == [("managed", "rev:exact")]
+
+
+def test_hosted_worldbuilding_capabilities_requires_owned_world(hosted):
+    path = "/api/live/extract-promote/worldbuilding/capabilities"
+    assert hosted.client.request("GET", path).status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=managed", session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=foreign").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=managed&world_id=managed").status_code == 403
+    response = hosted.client.request("GET", path + "?world_id=managed")
+    assert response.status_code == 200, response.text
+    assert response.json()["confirmationSupported"] is True

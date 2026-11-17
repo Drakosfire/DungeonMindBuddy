@@ -131,7 +131,7 @@ function Publication({review, managedWorldId, onConfirmInFlightChange, onReset, 
         if (saved.error) throw new Error(saved.error);
         if (saved.recovery) assertWorldbuildingPlan(saved.recovery.plan, review, managedWorldId, p);
         setProjection(p);
-        const capability = await getWorldbuildingCapabilities();
+        const capability = await getWorldbuildingCapabilities(managedWorldId);
         if (cancelled) return;
         if (capability.schema !== "dmb_worldbuilding_publication_capabilities_v1" || !capability.configured
           || capability.confirmationSupported !== true) throw new Error("World publication is not configured.");
