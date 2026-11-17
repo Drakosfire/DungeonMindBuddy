@@ -338,6 +338,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): resolve_hosted_build_extraction,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): resolve_hosted_build_extraction,
     ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): resolve_hosted_build_extraction,
+    ("GET", "/api/live/extract-promote/runs/{run_id}/frozen-source-spans"): resolve_hosted_build_extraction,
     ("GET", WORLD_LOOKUP_PATH): resolve_hosted_world_lookup,
     ("POST", INSPECTION_READ_PATH): resolve_hosted_explorer_world,
     ("POST", "/api/live/native-graph-inspection/complete-object"): resolve_hosted_explorer_world,
