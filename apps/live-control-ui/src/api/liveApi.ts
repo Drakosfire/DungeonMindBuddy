@@ -428,6 +428,19 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  const resolution = /^\/api\/live\/agent\/worlds\/([a-z0-9][a-z0-9_-]{0,62})\/conversation\/commands\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/(resolve|resolutions\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(?:\?([^#]+))?$/.exec(path);
+  if (resolution) {
+    if (resolution[3] === "resolve") {
+      const command = requestBodyRecord(init?.body)?.original_command;
+      return method === "POST" && !resolution[4] && isRecord(command)
+        && command.world_id === resolution[1] && command.command_id === resolution[2];
+    }
+    if (method !== "GET" || init?.body != null || !resolution[4]) return false;
+    const selectors = new URLSearchParams(resolution[4]);
+    const expected = ["original_pointer_revision", "original_active_conversation_id",
+      "current_pointer_revision", "current_active_conversation_id"];
+    return selectors.size === expected.length && expected.every(key => selectors.getAll(key).length === 1 && !!selectors.get(key));
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);
