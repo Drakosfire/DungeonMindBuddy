@@ -54,3 +54,58 @@ and serves only one synthetic World/page. Start a fresh adapter for each roundtr
 run. `native_contract_test.py` runs the actual backend-owner cases with the same
 disposable test fixture. Never substitute a live database or enable this owner in
 production. A stopped/older reader is not made compatible by this proof.
+
+## Offline nomination scoring (no model or writes)
+
+`routing_artifacts.test.ts` exports the actual Build paragraph and Plan placement
+catalogs for the frozen development and held-out requests. It leaves the collapsed
+caret at the unrelated top and never changes the document. Plan's captured-caret
+distractor is retained; equivalent section boundaries are both accepted. The
+intra-paragraph Plan request is a capability miss, not a missing model prediction.
+
+With the dependency setup above and a **new external directory**, run under the
+same global lock:
+
+```sh
+PROSE_ROUTING_EXPORT="$TASK/routing-export" node node_modules/vitest/vitest.mjs run \
+  --config evals/inline_prose_targeting/vitest.config.mts \
+  evals/inline_prose_targeting/routing_artifacts.test.ts
+python -m pytest evals/inline_prose_targeting/test_replay_score.py -q
+```
+
+The export writes separate `producer/dev.json`, `producer/holdout.json` and
+`evaluator-private/{dev,holdout}.json` files. Give a future output producer **only**
+the selected producer file, not this checkout, answer files, tests, or evaluator
+manifest. Expected answers, original case labels, host selectors/offsets, and
+snapshot identities never enter producer inputs. Only requests and opaque
+choice aliases with meaningful passage/location labels are exposed. Keep held-out
+answers private and do not tune the producer on held-out scores. Files are
+write-once; use a new directory for a different snapshot/source.
+
+A supplied replay has the following shape (digest is SHA256 of exact input bytes):
+
+```json
+{"schema":"prose_routing_replay_v1","inputs_sha256":"<digest>","provenance":"scripted","decisions":[{"id":"case1","decision":{"clarify":true}}]}
+```
+
+Each decision is exactly one of `{"alias":"choice1"}`, `{"clarify":true}` or
+`{"discuss":true}`. No offsets or write actions are accepted. Missing cases remain
+unscored. Duplicate cases, extra fields, stale input digests and malformed
+responses reject the replay; unknown and semantically wrong target aliases are
+hard failures. Run the evaluator separately from the output producer:
+
+```sh
+python -m evals.inline_prose_targeting.replay_score \
+  --inputs "$TASK/routing-export/producer/dev.json" \
+  --manifest "$TASK/routing-export/evaluator-private/dev.json" \
+  --decisions "$TASK/dev-decisions.json" --output "$TASK/dev-score.json"
+```
+
+Exit 2 means a wrong/unknown target nomination, 1 means missing coverage or other
+misses, and 0 means supplied decisions match these control cases. None means
+ordinary routing is qualified. `scripted` and `external_unverified` provenance
+never claim model evidence. Clarification recall and overuse, intentional non-edit,
+capability misses, and offered-alias membership are reported separately. This
+membership check is **not** live snapshot/read-only admission; the native bridge
+negative tests own that. No application, Undo, Save or reopen is performed by the
+scorer. A wrong nomination is not reported as an observed wrong-target write.

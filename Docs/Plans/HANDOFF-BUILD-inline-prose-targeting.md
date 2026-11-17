@@ -209,3 +209,16 @@ Never alter the session template, production migrations/version, original databa
 default activation or any running product service. This is a labeled test-only
 schema difference, not proof of production migration/rollout compatibility.
 Default/no-opt-in and old-reader refusal evidence remains separately required.
+
+### Additive offline nomination scoring (2026-11-17)
+
+After isolated native proof at `50609174ff6199344dc31ac1f63fd54c592e85a6`,
+the coordinating owner authorized an eval-only continuation within this same
+lease/PR. Add only files under `evals/inline_prose_targeting` and this handoff.
+Export actual Build/Plan host catalogs and natural requests separately from
+private expected answers; score supplied replay decisions offline. Preserve
+held-out inputs/answers, missing-coverage accounting, clarification recall and
+overuse, intentional non-edit, and wrong-target nomination as the hardest failure.
+Deterministic snapshot admission is separate from language understanding. No
+provider, runtime writes, shared harness/controller, migration or activation.
+Scripted replay verifies scorer correctness, not ordinary routing quality.
