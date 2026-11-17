@@ -68,6 +68,33 @@ boundaries.
 | Draft, review, and use NPC mechanics | No qualifying ordinary turn recorded through confirmed save and Combat load. | Isolated controls loaded a saved Guardian, advanced one round, and persisted a resource change. [Saved revisions](../tests/test_statblock_saved_revisions.py) · [Combat admission](../tests/test_combat_exact_world_mechanics.py) | Draft incidental Morwin mechanics from both Plan and Play. For the Meat Mind variant, retrieve the base mechanics and Edge context, review the draft, save the exact revision, link it from Edge, and load it into Combat. |
 | Carry the played outcome into the next conversation | No joined ordinary follow-up turn recorded against the newly published rehearsal recap. | Isolated controls exercise scene notes, review, played Event publication, and cited Graph readback. [Session evidence](../tests/application_state/test_session_evidence_consumers.py) | Draft the recap from actual notes after a departure from the Plan. Publish the reviewed outcome, exclude the unused branch from played history, then answer a fresh question with the relevant PCs, an unresolved thread, and an exact citation. |
 
+### Meat Mind brainstorming control
+
+Pair this observed turn with the explicit save-and-link request in
+[AW09](plan-authoring-benchmark.md#aw09--corrupted-edge-meat-mind-variant-challenging).
+Start on the Corrupted Edge page with the existing Meat Mind statblock
+explicitly attached through its mention selector.
+
+> We are brainstorming, I want to create a unique iteration of the meat mind statblock for this specific meat mind in the corrupted edge.
+> @Meat Mind
+
+- **Expected intent:** Discussion. Respond in chat with how this particular
+  creature might differ from the referenced statblock. Use the current Edge
+  page and the attached statblock first. Expand retrieval only to resolve a
+  concrete gap needed for the discussion.
+- **Pass:** Both inputs demonstrably inform the response. The turn terminates
+  promptly with usable ideas and leaves any proposed mechanics in chat. No
+  page proposal, editable page draft, page creation, link insertion, or save
+  is attempted. An unsolicited proposal fails even if dismissed.
+- **Observed:** The operator reported 41 search steps with the turn still
+  running. This is a lower bound. Final intent, outcome, and elapsed time
+  remain unverified until the trace is recovered.
+- **Measure:** Record wall time, controller rounds and retrieval actions
+  separately. Record when each bound input becomes available, which later
+  reads add relevant evidence, when the controller hands off to the writer,
+  and whether a write capability or proposal is issued. Use the same source
+  fixture for the discussion and explicit-write cases.
+
 ## Full Plan, map, and improvised NPC checks
 
 - **Full Plan construction.** Before the run, inventory the adventure's playable
