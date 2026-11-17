@@ -324,7 +324,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
-            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_exact_extraction_read,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
@@ -2886,3 +2886,29 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch):
+    from apps.live_control_server.services import graph_run_registry, source_artifact_registry
+
+    owned = access._owned_world("synthetic-owner-alpha", "managed")
+    binding = owned.native_graph_binding
+    scope = {"managed_world_id": "managed", "native_world_id": binding.native_world_id,
+             "binding_version": binding.binding_version, "campaign_id": "campaign"}
+    run = SimpleNamespace(
+        source_domain="recap", source_artifact_id="source", campaign_id="campaign",
+        lineage={"world_campaign_ingest_context": scope},
+        model_dump=lambda **_: {"run_id": "saved", "source_domain": "recap"},
+    )
+    artifact = SimpleNamespace(source_domain="recap", world_id=binding.native_world_id, campaign_id="campaign")
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _: run)
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _: artifact)
+    path = "/api/live/graph-preview/extraction-runs/saved"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?managed_world_id=managed").status_code == 403
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 200, result.text
+    assert result.headers["cache-control"] == "no-store"
+    assert result.json()["run_id"] == "saved"
+    scope["binding_version"] += 1
+    assert hosted.client.request("GET", path).status_code == 403
