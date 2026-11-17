@@ -134,6 +134,31 @@ is enough. The GM can ask for concrete mechanics in the next turn.
   tokens separately. Use the ordinary-turn comparison to measure the
   effect of the routing and retrieval changes on total latency.
 
+#### Turn two · Establish the NPC premise
+
+Continue in the same conversation with the same page and statblock. Submit
+this turn verbatim and preserve the preceding Buddy reply for each replay.
+
+> The additional nuance is that this is a potential NPC, this is an escaped meat mind node. It doesn't want to be a part of the overall Maelthor project. It isn't good, it isn't exactly evil. It does want freedom. And it likes this simulation of a town game it is playing. It is confused and it is competing with the Dust Walker persona for control. If it had control, it would basically be peaceful. Sure it still ate the town, but the people sorta kinda still exists and are sorta kinda happy? The experience I want to cultivate is that maybe the players could negotiate with this thing.
+
+- **Retrieval pass:** Carry forward the resolved Edge page and Meat Mind
+  statblock at their known revisions. Treat Maelthor, the escape, and the
+  competing persona as the GM's supplied premise. Search only if resolving
+  a specific unanswered continuity question serves the response. Record
+  any reopened references, new reads, and what each new read contributed.
+- **Writer pass:** Reflect the intended player experience. The creature
+  wants freedom and enjoys its town simulation. Its potential peacefulness
+  makes negotiation plausible while its consumption of the town and the
+  Dust Walker's competing control keep it unsettling. Preserve uncertainty
+  about what remains of the residents and how they feel. A short reflection
+  with one optional idea or useful question is sufficient.
+- **Restraint pass:** Keep the exchange in chat. Leave mechanics, definitive
+  lore, and page changes for explicit requests. Avoid repeating the full
+  premise, giving a statblock, or settling the residents' fate for the GM.
+- **Evidence:** Score carryover, relevant retrieval, and conversational
+  fit separately. Capture elapsed time and provider usage for this turn
+  alone. The turn is in progress and has no scored result yet.
+
 ## Full Plan, map, and improvised NPC checks
 
 - **Full Plan construction.** Before the run, inventory the adventure's playable
