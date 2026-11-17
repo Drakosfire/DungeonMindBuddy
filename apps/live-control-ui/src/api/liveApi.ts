@@ -427,6 +427,10 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (isRecapSelectionContextPath(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.expected_world_id === "string" && Boolean(body.expected_world_id);
+  }
   const terminalDiagnostic = /^\/api\/live\/world-plan-edit\/actions\/[0-9a-f-]+\/terminal-diagnostic\?([^#]+)$/.exec(path);
   if (terminalDiagnostic) {
     const query = new URLSearchParams(terminalDiagnostic[1]);

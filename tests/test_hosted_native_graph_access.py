@@ -445,6 +445,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/media/images/generate"): access.resolve_hosted_image_world,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
+            ("POST", "/api/live/extract-promote/runs/{run_id}/selection-context"): access.resolve_hosted_recap_selection,
             ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/frozen-source-spans"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/extract-promote/runs/{run_id}/evidence-corrections"): access.resolve_hosted_build_extraction,
@@ -2134,6 +2135,32 @@ def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_prepar
     assert hosted.client.request("POST", route, json=payload, origin="https://untrusted.example").status_code == 403
     assert hosted.client.request("POST", route, json={**payload, "runId": "changed"}).status_code == 403
     assert prepared == ["owned"]
+
+
+def test_hosted_recap_selection_requires_world_owner_and_origin(hosted, monkeypatch):
+    from apps.live_control_server.services import ingest_selection_context
+
+    run_id = str(uuid4())
+    calls = []
+
+    def select(run, request, *, operator_subject):
+        calls.append((run, request.expected_world_id, operator_subject))
+        return {"run_id": run}
+
+    monkeypatch.setattr(ingest_selection_context, "resolve_ingest_selection_context", select)
+    path = f"/api/live/extract-promote/runs/{run_id}/selection-context"
+    body = {
+        "schema": "dmb_ingest_native_review_request_v2", "expected_run_revision": 1,
+        "expected_candidate_sha256": "a" * 64, "expected_source_sha256": "b" * 64,
+        "expected_span_index_sha256": "c" * 64, "expected_world_id": "managed",
+        "node_ids": ["node"], "edge_ids": [], "inspect_source_support": True,
+    }
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert not calls
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 200, result.text
+    assert calls == [(run_id, "managed", f"hosted_dms:{OWNER}")]
 
 
 def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_state_dsn, monkeypatch):
