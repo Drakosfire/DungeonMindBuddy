@@ -362,6 +362,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/native-graph-inspection/catalog"): resolve_hosted_explorer_world,
     ("POST", "/api/live/native-source-inspection/catalog"): resolve_hosted_explorer_world,
     ("POST", "/api/live/native-source-inspection/published-recap"): resolve_hosted_explorer_world,
+    ("POST", "/api/live/native-source-inspection/published-recap/objects"): resolve_hosted_explorer_world,
     ("POST", "/api/live/native-source-inspection/read"): resolve_hosted_explorer_world,
     ("POST", f"{EXPLORER_PREFIX}/graph"): resolve_hosted_explorer_world,
 }

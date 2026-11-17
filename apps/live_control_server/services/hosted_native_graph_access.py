@@ -27,7 +27,7 @@ from apps.live_control_server.models.native_graph_inspection import (
     InspectionPin, InspectionRead, InspectionScope, NativeCompleteObjectRead,
     NativeRecapPageRequest, NativeRelatedRecapsRequest,
 )
-from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapRead
+from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapObjectsRead, PublishedRecapRead
 from apps.live_control_server.services import hosted_auth
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
@@ -53,6 +53,7 @@ INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
 _REQUESTS = {
     "/api/live/native-graph-inspection/authoring-identities": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-source-inspection/published-recap": TypeAdapter(PublishedRecapRead),
+    "/api/live/native-source-inspection/published-recap/objects": TypeAdapter(PublishedRecapObjectsRead),
     "/api/live/native-graph-inspection/complete-object": TypeAdapter(NativeCompleteObjectRead),
     "/api/live/native-graph-inspection/recap-page": TypeAdapter(NativeRecapPageRequest),
     "/api/live/native-graph-inspection/related-recaps": TypeAdapter(NativeRelatedRecapsRequest),

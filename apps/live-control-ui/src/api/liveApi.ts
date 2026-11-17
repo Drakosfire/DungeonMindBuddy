@@ -326,6 +326,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     "/api/live/native-graph-inspection/complete-object",
     "/api/live/native-graph-inspection/authoring-identities",
     "/api/live/native-source-inspection/published-recap",
+    "/api/live/native-source-inspection/published-recap/objects",
     "/api/live/native-graph-explorer/graph",
     "/api/live/native-graph-explorer/prepare",
     "/api/live/native-graph-explorer/confirm",
@@ -843,6 +844,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const scope = isRecord(read) ? read.scope : null;
     return isRecord(scope) && scope.scope_mode === "world" && scope.campaign_id === null
       && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id);
+  }
+  if (path === "/api/live/native-source-inspection/published-recap/objects") {
+    const body = requestBodyRecord(init?.body);
+    const scope = body?.scope;
+    return method === "POST" && isRecord(scope) && scope.managed_world_id === body?.managed_world_id
+      && scope.scope_mode === "world" && scope.campaign_id === null;
   }
   if (path === "/api/live/native-source-inspection/published-recap") {
     const body = requestBodyRecord(init?.body);
@@ -3887,6 +3894,21 @@ export async function readPublishedNativeRecap(
     throw new Error("The published recap did not match the selected World and session.");
   }
   return packet;
+}
+
+
+export function readPublishedRecapObjects(recap: PublishedNativeRecap, entityId?: string, signal?: AbortSignal) {
+  return apiFetch<
+    { scope: InspectionPin; objects: { id: string; label: string; ambiguous: boolean }[]; partial: boolean }
+    | { kind: "entity"; detail: NativeGraphEntity }
+    | { kind: "complete"; detail: WorldGraphObjectProjectionResult }
+  >("/api/live/native-source-inspection/published-recap/objects", {
+    method: "POST", signal, body: JSON.stringify({
+      managed_world_id: recap.scope.managed_world_id, campaign_id: recap.campaign_id,
+      session_id: recap.session_id, scope: recap.scope, source_artifact_id: recap.source.source_artifact_id,
+      source_revision_id: recap.source.source_revision_id, entity_id: entityId,
+    }),
+  });
 }
 
 
