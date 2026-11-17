@@ -62,6 +62,8 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
     """
     if principal is None or principal.role != "gm":
         raise ValueError("GM authority is required for cross-campaign source inspection")
+    if getattr(principal, 'managed_world_id', managed_world_id) != managed_world_id:
+        raise ValueError('Native source World differs from principal World')
     if resolve_identity is None:
         from ...services.managed_world_graph_projection import resolve_managed_source_identity
         resolve_identity = resolve_managed_source_identity

@@ -89,6 +89,11 @@ def graph_operation_observation(
     discovery = [identity for identity in execution_event.discovery_relationship_ids
                  if identity in endpoints and endpoints[identity]["source_node_id"] in node_ids
                  and endpoints[identity]["target_node_id"] in node_ids]
+    neighborhood = execution_event.neighborhood_replay
+    if neighborhood is not None:
+        neighborhood = neighborhood.model_copy(update={
+            "hops": [hop for hop in neighborhood.hops if hop.relationship_id in discovery],
+        })
     totals = {"nodes": len(all_nodes), "relationships": len(relationships),
               "claims": len(assertions), "evidence_refs": len(evidence)}
     returned = {key: len(value) for key, value in projected.items()}
@@ -108,6 +113,7 @@ def graph_operation_observation(
             "nodes": projected["nodes"], "relationship_ids": projected["relationships"],
             "relationships": [endpoints[identity] for identity in projected["relationships"]],
             "discovery_relationship_ids": discovery,
+            "neighborhood_replay": neighborhood.model_dump(mode="json") if neighborhood is not None else None,
             "claim_ids": projected["claims"], "evidence_ref_ids": projected["evidence_refs"],
             "returned_counts": returned, "total_counts": totals, "omission_codes": omissions,
         },

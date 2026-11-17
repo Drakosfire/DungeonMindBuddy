@@ -768,7 +768,12 @@ def _plan_context_resolver(
                 code='native_graph_query_rejected',status_code=409,provider_dispatched=False) from exc
         if type(frozen_query) is NativePlanQueryV1 and isinstance(query, NativePlanQueryV1):
             from dataclasses import replace
-            query = NativePlanQueryV1.model_validate(query.model_dump(mode='json', by_alias=True, exclude={'assertion_matches','authored_targets','object_matches'}) | {'schema': 'dmb_native_plan_query_v1'})
+            query = NativePlanQueryV1.model_validate(query.model_dump(mode='json', by_alias=True, exclude={'assertion_matches','authored_targets','object_matches','discovery_hops'}) | {'schema': 'dmb_native_plan_query_v1'})
+            context = replace(context, query=query)
+        elif hasattr(query, 'discovery_hops') and isinstance(frozen_query, NativePlanQueryV1):
+            from dataclasses import replace
+            # Retry reopens the original retrieval rather than recording a new discovery.
+            query = query.model_copy(update={'discovery_hops': getattr(frozen_query, 'discovery_hops', ())})
             context = replace(context, query=query)
         return context, query
 
@@ -1382,7 +1387,9 @@ def get_world_conversation_history(
     | AgentConversationHistoryResponseV4
 ):
     # Authenticate before managed World lookup and every APP-STATE read.
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     service = _conversation_service(request)
     try:
@@ -1641,7 +1648,9 @@ def get_world_turn_saved_section(world_id: str, turn_id: UUID, segment_index: in
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-source-clauses/{citation_index}")
 def get_world_turn_native_source_clause(world_id: str, turn_id: UUID, citation_index: int, request: Request):
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world = _verified_world_id(world_id)
     if request.query_params or citation_index < 0:
         raise HTTPException(status_code=422, detail={"code": "native_clause_selector_invalid"})
@@ -1658,7 +1667,9 @@ def get_world_turn_native_source_clause(world_id: str, turn_id: UUID, citation_i
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-assertion-sources/{citation_index}")
 def get_world_turn_native_assertion_source(world_id: str, turn_id: UUID, citation_index: int, request: Request):
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     world = _verified_world_id(world_id)
     if request.query_params or citation_index < 0:
         raise HTTPException(status_code=422, detail={"code": "native_assertion_selector_invalid"})
@@ -1675,7 +1686,9 @@ def get_world_turn_native_assertion_source(world_id: str, turn_id: UUID, citatio
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}")
 def get_world_turn_native_body_excerpt(world_id: str, turn_id: UUID, citation_index: int, request: Request):
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     world = _verified_world_id(world_id)
     if request.query_params or not 0 <= citation_index <= 16383:
         raise HTTPException(status_code=422, detail={"code": "native_body_selector_invalid"})
@@ -1692,7 +1705,9 @@ def get_world_turn_native_body_excerpt(world_id: str, turn_id: UUID, citation_in
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}")
 def get_world_turn_native_source_section(world_id: str, turn_id: UUID, citation_index: int,request: Request):
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     if request.query_params or not 0 <= citation_index <= 16383:
         raise HTTPException(status_code=422,detail={"code":"source_section_selector_invalid"})
@@ -1713,7 +1728,9 @@ def get_world_turn_native_source_section(world_id: str, turn_id: UUID, citation_
 def get_world_turn_source_passage(world_id: str, turn_id: UUID, citation_index: int,
         request: Request):
     """Explicit authenticated historical source read, separate from Graph claims."""
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     if request.query_params or not 0 <= citation_index <= 16383:
         raise HTTPException(status_code=422, detail={"code": "source_passage_selector_invalid"})
@@ -1994,7 +2011,9 @@ def get_new_world_conversation_status(
     expected_pointer_revision: int = Query(ge=0),
     expected_active_conversation_id: str = Query(),
 ) -> AgentNewConversationStatusV1:
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     allowed = {"expected_pointer_revision", "expected_active_conversation_id"}
     if set(request.query_params) != allowed or any(len(request.query_params.getlist(key)) != 1 for key in allowed):
@@ -2071,7 +2090,9 @@ def post_new_world_conversation(
     body: AgentNewConversationRequest,
     request: Request,
 ) -> AgentNewConversationResponse:
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     service = _conversation_service(request)
     try:
@@ -2099,12 +2120,20 @@ def post_new_world_conversation(
 @router.post("/turn", response_model=None)
 def post_agent_turn(body: AgentTurnRequest, request: Request):
     if request.headers.get("accept") == "text/event-stream":
-        enforce_native_graph_gm(request)
+        _chat_turn_principal(body, request)
         if getattr(body.primary_work, "kind", None) != "build":
             raise HTTPException(422, detail="Construction streaming requires Build work")
         from apps.live_control_server.services.build_construction_stream import turn_stream
         return turn_stream(lambda: _execute_agent_turn(body, request), body.turn_id)
     return _execute_agent_turn(body, request)
+
+
+def _chat_turn_principal(body: AgentTurnRequest, request: Request):
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    owner = body.owner_scope
+    world_id = owner.world_id if owner is not None and owner.kind == "world" else ""
+    return conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
 
 
 def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
@@ -2120,7 +2149,7 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
     auth_span = trace.start_phase("route_auth")
     try:
         try:
-            principal = enforce_native_graph_gm(request)
+            principal = _chat_turn_principal(body, request)
         except Exception:
             trace.complete_phase(auth_span, status="error")
             raise

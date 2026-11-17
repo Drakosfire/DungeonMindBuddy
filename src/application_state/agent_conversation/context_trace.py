@@ -12,9 +12,11 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
+from .neighborhood_replay import NeighborhoodReplay, ReplayExclusionStep
+
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
-from .native_replay import NativeReplayAssertionStep
+from .native_replay import NativeReplayAssertionStep, NativeDiscoveryReplay
 
 MAX_CONTEXT_TRACE_BYTES = 1_048_576
 CONTEXT_TRACE_TERMINAL_RESERVE_BYTES = 4096
@@ -222,6 +224,7 @@ class TraceGraphResultProjection(TraceModel):
     relationship_ids: list[str] = Field(max_length=128)
     relationships: list[TraceGraphRelationship] = Field(default_factory=list, max_length=128)
     discovery_relationship_ids: list[str] = Field(default_factory=list, max_length=128, exclude_if=lambda value: not value)
+    neighborhood_replay: NeighborhoodReplay | None = Field(default=None, exclude_if=lambda value: value is None)
     claim_ids: list[str] = Field(max_length=128)
     evidence_ref_ids: list[str] = Field(max_length=128)
     returned_counts: TraceGraphResultCounts
@@ -265,6 +268,16 @@ class TraceGraphResultProjection(TraceModel):
                          if edge.source_node_id in visible and edge.target_node_id in visible}
         if len(set(discovery)) != len(discovery) or not set(discovery).issubset(visible_edges):
             raise ValueError("discovery edges must have projected endpoints")
+        if self.neighborhood_replay is not None:
+            relationships = {edge.relationship_id: edge for edge in self.relationships}
+            if [hop.relationship_id for hop in self.neighborhood_replay.hops] != discovery:
+                raise ValueError("directed hops differ from projected discovery edges")
+            if visible.intersection(self.neighborhood_replay.object_limit_pruned_ids):
+                raise ValueError("pruned objects were also returned")
+            for hop in self.neighborhood_replay.hops:
+                edge = relationships[hop.relationship_id]
+                if {hop.from_node_id, hop.to_node_id} != {edge.source_node_id, edge.target_node_id}:
+                    raise ValueError("discovery hop endpoints differ from the examined relationship")
         if len(node_ids) != len(set(node_ids)):
             raise ValueError("node projection IDs must be unique")
         if self.outcome in {"partial", "truncated"} and self.coverage_status != "incomplete":
@@ -289,7 +302,7 @@ class TraceGraphTool(TraceEvent):
 
     @model_validator(mode="after")
     def validate_graph_revision(self) -> TraceGraphTool:
-        if self.result.discovery_relationship_ids and not isinstance(self.request, TraceGraphNeighborhoodRequest):
+        if (self.result.discovery_relationship_ids or self.result.neighborhood_replay is not None) and not isinstance(self.request, TraceGraphNeighborhoodRequest):
             raise ValueError("only neighborhood reads can record discovery edges")
         if self.revision_pin != self.result.graph_revision:
             raise ValueError("graph result revision differs from its request pin")
@@ -435,6 +448,8 @@ class TurnContextTraceV1(TraceModel):
     observations: list[ContextTraceObservation] = Field(max_length=2048)
     writer_evidence_sequences: list[int] | None = Field(default=None, max_length=2048)
     native_assertion_steps: list[NativeReplayAssertionStep] | None = Field(default=None, max_length=2048)
+    native_discovery_replay: NativeDiscoveryReplay | None = Field(default=None, exclude_if=lambda value: value is None)
+    retrieval_exclusion_steps: list[ReplayExclusionStep] | None = Field(default=None, max_length=2048, exclude_if=lambda value: value is None)
     graph_replay_order: dict[int, int] | None = Field(default=None, max_length=2048)
 
     @model_validator(mode="after")

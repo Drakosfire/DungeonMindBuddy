@@ -427,7 +427,6 @@ def get_native_world_source_status(
 
 def retain_pdf_in_bound_world(world_id, binding, command, raw):
     repository = _repository()
-    config.managed_world_data_root(None)
     _require_source_binding(None, world_id, binding)
     _ensure_native_source_space(repository, world_id, binding.native_world_id)
     _require_source_binding(None, world_id, binding)

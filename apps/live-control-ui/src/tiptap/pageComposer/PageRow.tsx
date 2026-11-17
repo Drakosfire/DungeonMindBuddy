@@ -1,9 +1,11 @@
-import { PAGE_IMAGE_TEXT_EXTENSIONS, PageImageTextTools } from './PageImageText';
+import { PAGE_IMAGE_TEXT_EXTENSIONS, PageImageTextTools, stackAtSelection, wrapPageImageText } from './PageImageText';
 import { Extension, Node, mergeAttributes, type Editor } from '@tiptap/core';
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
 import { Plugin, Selection } from '@tiptap/pm/state';
 import { closeHistory } from '@tiptap/pm/history';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { layoutHandle, layoutEditabilityPlugin, LAYOUT_EDITABILITY_EVENT, LAYOUT_CONTROLS_EVENT, type LayoutRequest } from './contextualLayout';
 import './PageRow.css';
 
 const BLOCKS = ['paragraph', 'heading', 'blockquote', 'bulletList', 'orderedList', 'table', 'callout', 'horizontalRule'];
@@ -29,7 +31,7 @@ function replaceRow(editor: Editor, pos: number, row: PMNode, replacement: Fragm
 
 /** Wrap only adjacent top-level blocks. Never move a nested table cell or callout paragraph. */
 export function wrapPageRow(editor: Editor, dryRun = false, columns: 1 | 2 | 3 = 2): boolean {
-  if (!editor.isEditable || rowAtSelection(editor)) return false;
+  if (editor.isDestroyed || !editor.isEditable || rowAtSelection(editor)) return false;
   const { $from } = editor.state.selection;
   const index = $from.index(0);
   if (![1, 2, 3].includes(columns)) return false;
@@ -50,8 +52,9 @@ export function wrapPageRow(editor: Editor, dryRun = false, columns: 1 | 2 | 3 =
 }
 
 export function unwrapPageRow(editor: Editor): boolean {
+  if (editor.isDestroyed || !editor.isEditable) return false;
   const found = rowAtSelection(editor);
-  if (!found || !editor.isEditable) return false;
+  if (editor.isDestroyed || !found || !editor.isEditable) return false;
   const blocks: PMNode[] = [];
   found.row.forEach(slot => slot.forEach(block => blocks.push(block)));
   return replaceRow(editor, found.pos, found.row, Fragment.fromArray(blocks));
@@ -59,8 +62,9 @@ export function unwrapPageRow(editor: Editor): boolean {
 
 /** Explicitly exchange adjacent blocks in reading order, retaining nonempty slots. */
 export function movePageBlock(editor: Editor, direction: -1 | 1, dryRun = false): boolean {
+  if (editor.isDestroyed || !editor.isEditable) return false;
   const found = rowAtSelection(editor);
-  if (!found || !editor.isEditable) return false;
+  if (editor.isDestroyed || !found || !editor.isEditable) return false;
   const { $from } = editor.state.selection;
   if ($from.depth < found.depth + 2) return false;
   const slotIndex = $from.index(found.depth);
@@ -106,8 +110,9 @@ function validRow(row: PMNode | null | undefined): row is PMNode {
 }
 
 export function resizePageRow(editor: Editor, pos: number, width: number, dividerIndex = 0): boolean {
+  if (editor.isDestroyed || !editor.isEditable) return false;
   const row = editor.state.doc.nodeAt(pos);
-  if (!editor.isEditable || !validRow(row) || !Number.isFinite(width)
+  if (editor.isDestroyed || !editor.isEditable || !validRow(row) || !Number.isFinite(width)
     || !Number.isInteger(dividerIndex) || dividerIndex < 0 || dividerIndex >= row.childCount - 1) return false;
   const total = row.child(dividerIndex).attrs.width + row.child(dividerIndex + 1).attrs.width;
   const left = clampWidth(width, total);
@@ -122,8 +127,9 @@ export function resizePageRow(editor: Editor, pos: number, width: number, divide
 }
 
 export function updatePageRowPresentation(editor: Editor, pos: number, attrs: { min_height?: number; line_mode?: 'guide' | 'border' | 'clean' }): boolean {
+  if (editor.isDestroyed || !editor.isEditable) return false;
   const row = editor.state.doc.nodeAt(pos);
-  if (!editor.isEditable || !validRow(row) || Object.keys(attrs).some(key => key !== 'min_height' && key !== 'line_mode')) return false;
+  if (editor.isDestroyed || !editor.isEditable || !validRow(row) || Object.keys(attrs).some(key => key !== 'min_height' && key !== 'line_mode')) return false;
   const next = { ...row.attrs, ...attrs };
   if (typeof next.min_height !== 'number' || !Number.isInteger(next.min_height) || next.min_height < 0 || next.min_height > 640 || next.min_height % 8 !== 0
     || typeof next.line_mode !== 'string' || !['guide', 'border', 'clean'].includes(next.line_mode)) return false;
@@ -170,26 +176,31 @@ export const PageSlot = Node.create({
 });
 
 export const PageRow = Node.create({
+  addProseMirrorPlugins() { return [layoutEditabilityPlugin()]; },
   name: 'pageRow', group: 'block', content: 'pageSlot{1,3}', defining: true, isolating: true,
   addAttributes() { return { id: { default: null }, min_height: { default: 0 }, line_mode: { default: 'guide' } }; },
   parseHTML() { return [{ tag: 'div[data-page-row]' }]; },
   renderHTML({ HTMLAttributes }) { return ['div', mergeAttributes(HTMLAttributes, { 'data-page-row': '', class: 'page-composer-row' }), 0]; },
   addNodeView() {
-    return ({ node: initial, editor, getPos }) => {
+    return ({ node: initial, editor, getPos, view }) => {
       let node = initial;
       const dom = document.createElement('div'); dom.className = 'page-composer-row'; dom.dataset.pageRow = '';
       const contentDOM = document.createElement('div'); contentDOM.className = 'page-composer-row__slots';
       dom.append(contentDOM);
+      const handle = layoutHandle(editor, getPos, 'pageRow'); dom.append(handle);
       const controls: HTMLButtonElement[] = [];
       let drag: { index: number; width: number; rect: DOMRect; height?: number; startY?: number; baseHeight?: number } | null = null;
       const widths = () => { const values: number[] = []; node.forEach(slot => values.push(Number(slot.attrs.width))); return values; };
+      let editable = editor.options.editable;
       const paint = (values = widths(), height = node.attrs.min_height) => {
         contentDOM.style.gridTemplateColumns = values.map(width => `minmax(0, ${width}fr)`).join(' ');
         contentDOM.style.setProperty('--page-min-height', `${height}px`);
         dom.dataset.lineMode = node.attrs.line_mode;
+        handle.hidden = editor.isDestroyed || !editable;
         let left = 0;
         controls.forEach((control, index) => {
-          control.disabled = !editor.isEditable || !validRow(node);
+          control.disabled = editor.isDestroyed || !editable || !validRow(node);
+          control.hidden = !editable;
           if (index < values.length - 1) {
             left += values[index]; control.style.left = `${left / 12 * 100}%`;
             control.setAttribute('aria-valuenow', String(values[index]));
@@ -223,7 +234,7 @@ export const PageRow = Node.create({
         divider.title = horizontal ? 'Drag row height; arrow keys adjust by 8 pixels. Home resets to Auto.' : 'Drag to resize columns. Arrow keys resize; Home and End set limits.';
         controls.push(divider); dom.append(divider);
         divider.addEventListener('pointerdown', event => {
-          if (!editor.isEditable || !validRow(node) || event.button !== 0) return;
+          if (editor.isDestroyed || !editor.isEditable || !validRow(node) || event.button !== 0) return;
           event.preventDefault();
           drag = { index, width: Number(node.child(Math.min(index, node.childCount - 1)).attrs.width), rect: contentDOM.getBoundingClientRect(),
             ...(horizontal ? { height: node.attrs.min_height, startY: event.clientY, baseHeight: Math.max(node.attrs.min_height, contentDOM.getBoundingClientRect().height) } : {}) };
@@ -257,12 +268,19 @@ export const PageRow = Node.create({
           }
         };
       }
+      const editorDOM = view.dom;
+      const editableChanged = (event: Event) => {
+        editable = (event as CustomEvent<boolean>).detail;
+        if (!editable) drag = null;
+        paint();
+      };
+      editorDOM.addEventListener(LAYOUT_EDITABILITY_EVENT, editableChanged);
       paint();
       return { dom, contentDOM,
         update(next) { if (next.type !== node.type || next.childCount !== node.childCount) return false; node = next; if (!drag) paint(); return true; },
-        stopEvent(event) { return controls.some(control => control.contains(event.target as globalThis.Node)); },
-        ignoreMutation(mutation) { return mutation.type !== 'selection' && (mutation.target === dom || (mutation.target === contentDOM && mutation.type === 'attributes') || controls.some(control => control.contains(mutation.target))); },
-        destroy() { drag = null; },
+        stopEvent(event) { return handle.contains(event.target as globalThis.Node) || controls.some(control => control.contains(event.target as globalThis.Node)); },
+        ignoreMutation(mutation) { return mutation.type !== 'selection' && (handle.contains(mutation.target) || mutation.target === dom || (mutation.target === contentDOM && mutation.type === 'attributes') || controls.some(control => control.contains(mutation.target))); },
+        destroy() { drag = null; editorDOM.removeEventListener(LAYOUT_EDITABILITY_EVENT, editableChanged); },
       };
     };
   },
@@ -270,41 +288,99 @@ export const PageRow = Node.create({
 
 export const PAGE_COMPOSER_EXTENSIONS = [PageBlockIdentity, PageSlot, PageRow, ...PAGE_IMAGE_TEXT_EXTENSIONS];
 
+/** Shared Edit discovery; each action rechecks the current selection at invocation. */
+export function pageComposerActions(editor: Editor) {
+  const safe = !editor.isDestroyed && editor.isEditable;
+  return [
+    ...([1, 2, 3] as const).map(columns => ({ id: `row-${columns}`, label: `${['One', 'Two', 'Three'][columns - 1]}-column row`,
+      enabled: safe && wrapPageRow(editor, true, columns), invoke: () => wrapPageRow(editor, false, columns) })),
+    { id: 'image-text', label: 'Text on image', enabled: safe && wrapPageImageText(editor, true), invoke: () => wrapPageImageText(editor) },
+  ];
+}
+
 export function PageComposerTools({ editor, disabledReason }: { editor: Editor | null; disabledReason?: string | null }) {
   const [, refresh] = useState(0);
+  const [request, setRequest] = useState<LayoutRequest | null>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const cancelHeightCommit = useRef(false);
+  const [placement, setPlacement] = useState({ left: 8, top: 8 });
   useEffect(() => {
     if (!editor) return;
     const update = () => refresh(value => value + 1);
-    editor.on('transaction', update); editor.on('selectionUpdate', update);
-    return () => { editor.off('transaction', update); editor.off('selectionUpdate', update); };
-  }, [editor]);
-  const row = editor ? rowAtSelection(editor) : null;
+    const open = (event: Event) => { if (!editor.isDestroyed && editor.isEditable && !disabledReason) setRequest((event as CustomEvent<LayoutRequest>).detail); };
+    const editorDOM = editor.view.dom;
+    editorDOM.addEventListener(LAYOUT_CONTROLS_EVENT, open);
+    const editableChanged = () => { if (!editor.isEditable) setRequest(null); update(); };
+    editorDOM.addEventListener(LAYOUT_EDITABILITY_EVENT, editableChanged);
+    editor.on('transaction', update); editor.on('selectionUpdate', update); editor.on('update', update); editor.on('destroy', update);
+    return () => { editorDOM.removeEventListener(LAYOUT_EDITABILITY_EVENT, editableChanged); editorDOM.removeEventListener(LAYOUT_CONTROLS_EVENT, open); editor.off('transaction', update); editor.off('selectionUpdate', update); editor.off('update', update); editor.off('destroy', update); setRequest(null); };
+  }, [editor, disabledReason]);
+  const liveEditor = editor && !editor.isDestroyed && editor.isEditable && !disabledReason ? editor : null;
+  const row = liveEditor ? rowAtSelection(liveEditor) : null;
+  const stack = liveEditor ? stackAtSelection(liveEditor) : null;
+  const valid = !!request && !!liveEditor && request.trigger.isConnected && (request.kind === 'pageRow' ? row?.row.attrs.id : stack?.node.attrs.id) === request.id;
+  useLayoutEffect(() => {
+    if (!request || !valid) { if (request) setRequest(null); return; }
+    const trigger = request.trigger;
+    const owner = trigger.parentElement;
+    cancelHeightCommit.current = false;
+    trigger.setAttribute('aria-expanded', 'true'); owner?.setAttribute('data-layout-selected', 'true');
+    const place = () => {
+      const anchor = trigger.getBoundingClientRect(); const rect = panel.current?.getBoundingClientRect();
+      const height = rect?.height ?? 220; const width = rect?.width ?? 300;
+      setPlacement({ left: Math.max(8, Math.min(anchor.left, (document.documentElement.clientWidth || window.innerWidth) - width - 8)),
+        top: Math.max(8, anchor.bottom + height + 8 <= window.innerHeight ? anchor.bottom + 4 : anchor.top - height - 4) });
+    };
+    place(); panel.current?.querySelector<HTMLElement>('button, select, input')?.focus({ preventScroll: true });
+    const outside = (event: Event) => {
+      const target = event.target as HTMLElement;
+      if (panel.current?.contains(target) || trigger.contains(target) || (owner?.contains(target) && target.closest('[role=separator]'))) return;
+      setRequest(null); // Never restore focus on an outside click or native text selection.
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault(); event.stopPropagation(); cancelHeightCommit.current = true; setRequest(null); trigger.focus({ preventScroll: true });
+    };
+    document.addEventListener('pointerdown', outside, true); document.addEventListener('focusin', outside);
+    document.addEventListener('keydown', escape, true);
+    window.addEventListener('resize', place); window.addEventListener('scroll', place, true);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+    if (panel.current) observer?.observe(panel.current);
+    return () => {
+      trigger.setAttribute('aria-expanded', 'false'); owner?.removeAttribute('data-layout-selected');
+      document.removeEventListener('pointerdown', outside, true); document.removeEventListener('focusin', outside); document.removeEventListener('keydown', escape, true);
+      window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); observer?.disconnect();
+    };
+  }, [request, valid]);
   const [heightDraft, setHeightDraft] = useState('0');
   const rowHeight = row?.row.attrs.min_height ?? 0;
   const rowId = row?.row.attrs.id ?? null;
   useEffect(() => { setHeightDraft(String(rowHeight)); }, [rowHeight, rowId]);
+  const currentRow = () => !!liveEditor && !liveEditor.isDestroyed && liveEditor.isEditable && !!row
+    && rowAtSelection(liveEditor)?.row.attrs.id === row.row.attrs.id
+    && liveEditor.state.doc.nodeAt(row.pos)?.attrs.id === row.row.attrs.id;
   const commitHeight = () => {
-    if (!editor || !row || heightDraft.trim() === '' || !updatePageRowPresentation(editor, row.pos, { min_height: Number(heightDraft) })) setHeightDraft(String(rowHeight));
+    if (cancelHeightCommit.current) { setHeightDraft(String(rowHeight)); return; }
+    if (!currentRow() || !liveEditor || !row || heightDraft.trim() === '' || !updatePageRowPresentation(liveEditor, row.pos, { min_height: Number(heightDraft) })) setHeightDraft(String(rowHeight));
   };
-  const disabled = !editor?.isEditable || !!disabledReason;
-  return <div className="page-composer-tools" role="group" aria-label="Page layout">
-    <button type="button" disabled={disabled || !editor || !wrapPageRow(editor, true, 1)} onClick={() => editor && wrapPageRow(editor, false, 1)}>One-column row</button>
-    <button type="button" disabled={disabled || !editor || !wrapPageRow(editor, true)} title={disabledReason ?? 'Place this block and the next block side by side'} onClick={() => editor && wrapPageRow(editor)}>Two-column row</button>
-    <button type="button" disabled={disabled || !editor || !wrapPageRow(editor, true, 3)} onClick={() => editor && wrapPageRow(editor, false, 3)}>Three-column row</button>
-    <button type="button" disabled={!editor?.isEditable || !row} onClick={() => editor && unwrapPageRow(editor)}>Unwrap row</button>
-    <button type="button" disabled={!editor?.isEditable || !editor || !movePageBlock(editor, -1, true)} onClick={() => editor && movePageBlock(editor, -1)}>Move block earlier</button>
-    <button type="button" disabled={!editor?.isEditable || !editor || !movePageBlock(editor, 1, true)} onClick={() => editor && movePageBlock(editor, 1)}>Move block later</button>
-    <button type="button" disabled={!editor?.isEditable || !editor.can().undo()} onClick={() => editor?.chain().focus().undo().run()}>Undo</button>
-    <button type="button" disabled={!editor?.isEditable || !editor.can().redo()} onClick={() => editor?.chain().focus().redo().run()}>Redo</button>
-    <label>Minimum row height <input type="number" min={0} max={640} step={8} value={heightDraft} disabled={!editor?.isEditable || !row}
+  if (!valid || !liveEditor) return null;
+  return createPortal(<div ref={panel} className="page-composer-tools page-layout-popover" role="dialog" aria-label={request.kind === 'pageRow' ? 'Row layout' : 'Image and text layout'}
+    style={{ left: placement.left, top: placement.top }}>
+    <header><strong>{request.kind === 'pageRow' ? 'Row layout' : 'Image and text'}</strong><button type="button" aria-label="Close layout options" onClick={() => { setRequest(null); request.trigger.focus({ preventScroll: true }); }}>×</button></header>
+    {request.kind === 'pageRow' ? <>
+    <button type="button" disabled={!editor?.isEditable || !row} onClick={() => currentRow() && editor && unwrapPageRow(editor)}>Unwrap row</button>
+    <button type="button" disabled={!editor?.isEditable || !editor || !movePageBlock(editor, -1, true)} onClick={() => currentRow() && editor && movePageBlock(editor, -1)}>Move block earlier</button>
+    <button type="button" disabled={!editor?.isEditable || !editor || !movePageBlock(editor, 1, true)} onClick={() => currentRow() && editor && movePageBlock(editor, 1)}>Move block later</button>
+    <button type="button" disabled={!editor?.isEditable || !editor.can().undo()} onClick={() => currentRow() && editor?.commands.undo()}>Undo</button>
+    <button type="button" disabled={!editor?.isEditable || !editor.can().redo()} onClick={() => currentRow() && editor?.commands.redo()}>Redo</button>
+    <details><summary>Row settings</summary><label>Minimum row height <input type="number" min={0} max={640} step={8} value={heightDraft} disabled={!editor?.isEditable || !row}
       onChange={event => setHeightDraft(event.target.value)} onBlur={commitHeight}
       onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); commitHeight(); } if (event.key === 'Escape') { setHeightDraft(String(rowHeight)); } }} /></label>
-    <button type="button" disabled={!editor?.isEditable || !row} onClick={() => { if (editor && row) updatePageRowPresentation(editor, row.pos, { min_height: 0 }); }}>Auto height</button>
+    <button type="button" disabled={!editor?.isEditable || !row} onClick={() => { if (currentRow() && editor && row) updatePageRowPresentation(editor, row.pos, { min_height: 0 }); }}>Auto height</button>
     <label>Row lines <select value={row?.row.attrs.line_mode ?? 'guide'} disabled={!editor?.isEditable || !row}
-      onChange={event => { if (editor && row) updatePageRowPresentation(editor, row.pos, { line_mode: event.target.value as 'guide' | 'border' | 'clean' }); }}>
+      onChange={event => { if (currentRow() && editor && row) updatePageRowPresentation(editor, row.pos, { line_mode: event.target.value as 'guide' | 'border' | 'clean' }); }}>
       <option value="guide">Dotted guide</option><option value="border">Bordered</option><option value="clean">Clean</option>
-    </select></label>
-    <PageImageTextTools editor={editor} disabledReason={disabledReason} />
-    {disabledReason ? <span role="status">{disabledReason}</span> : null}
-  </div>;
+    </select></label></details>
+    </> : <PageImageTextTools editor={liveEditor} />}
+  </div>, document.body);
 }

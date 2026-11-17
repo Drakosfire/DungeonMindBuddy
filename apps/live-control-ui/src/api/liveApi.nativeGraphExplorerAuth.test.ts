@@ -302,3 +302,201 @@ it("shares pending catalog reads within an account and fences an account switch"
   await api.listWorldContainers();
   expect(fetch).toHaveBeenCalledTimes(3);
 });
+
+it("admits the exact hosted Start Play preview without a local bearer", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const path = "/api/live/world-play-runs/v2/preparation?world_id=managed&entry_scene_id=scene%3Agate";
+  const init = { method: "POST", body: JSON.stringify({ playable_artifact_id: "plan" }) };
+  await api.authenticatedApiFetch(path, init);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "&world_id=foreign", init)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("sends exact hosted run creation and recovery through the session cookie transport", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const base = "/api/live/world-play-runs/v2/12345678-1234-1234-1234-123456789abc";
+  const body = JSON.stringify({ schema_version: "dmb_world_session_create_v1" });
+  await api.authenticatedApiFetch(base + "?world_id=managed", { method: "PUT", body });
+  await api.authenticatedApiFetch(base + "/creation?world_id=managed");
+  await api.authenticatedApiFetch(base + "/creation:cancel?world_id=managed", { method: "POST", body });
+  expect(fetch).toHaveBeenCalledTimes(3);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(base + "/creation?world_id=managed&scope=extra")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(3);
+});
+
+it("reads effective hosted run content with the session cookie and one World selector", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const path = "/api/live/world-play-runs/v2/12345678-1234-1234-1234-123456789abc/content?world_id=managed";
+  await api.authenticatedApiFetch(path);
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("lists hosted World mechanics from the exact picker route using session cookies", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json([]));
+  await api.listWorldMechanicsAssociations("managed");
+  expect(fetch.mock.calls[0][0]).toBe("/api/live/world-mechanics/associations?world_id=managed");
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch("/api/live/world-mechanics/associations?world_id=managed", {
+    method: "POST", body: "{}",
+  })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("opens an exact hosted statblock revision using session cookies", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const path = "/api/live/threat-drafts/12345678-1234-1234-1234-123456789abc/mechanics-revisions/rev_exact?world_id=managed";
+  await api.authenticatedApiFetch(path);
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path, { method: "POST", body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("reads the hosted Ingest catalog and exact source using session cookies", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const base = "/api/live/graph-preview/extraction-runs";
+  const catalog = base + "?managed_world_id=managed&campaign_id=campaign";
+  const inspection = base + "/recap-run/recap-inspection?managed_world_id=managed&expected_run_revision=2&source_revision_id=12345678-1234-1234-1234-123456789abc";
+  const candidate = base + "/recap-run/candidate-projection?managed_world_id=managed";
+  for (const [index, path] of [catalog, inspection, candidate].entries()) {
+    await api.authenticatedApiFetch(path);
+    expect(fetch.mock.calls[index][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+    expect(new Headers(fetch.mock.calls[index][1]?.headers).has("Authorization")).toBe(false);
+    await expect(api.authenticatedApiFetch(path + "&managed_world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  }
+  expect(fetch).toHaveBeenCalledTimes(3);
+});
+
+it("reads and saves hosted Combat Tracker encounters with the session", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const base = "/api/live/combat/encounters";
+  for (const [index, suffix] of ["", "/12345678-1234-1234-1234-123456789abc"].entries()) {
+    const path = base + suffix + "?world_id=managed";
+    await api.authenticatedApiFetch(path);
+    expect(fetch.mock.calls[index][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+    expect(new Headers(fetch.mock.calls[index][1]?.headers).has("Authorization")).toBe(false);
+    await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+    const method = suffix ? "PUT" : "POST";
+    await expect(api.authenticatedApiFetch(path, { method: suffix ? "POST" : "PUT", body: "{}" })).rejects.toThrow(/exact same-origin/);
+    await expect(api.authenticatedApiFetch(path, { method })).rejects.toThrow(/exact same-origin/);
+  }
+  await api.authenticatedApiFetch(base + "?world_id=managed", { method: "POST", body: "{}" });
+  await api.authenticatedApiFetch(base + "/12345678-1234-1234-1234-123456789abc?world_id=managed", { method: "PUT", body: "{}" });
+  expect(fetch).toHaveBeenCalledTimes(4);
+  for (const [, init] of fetch.mock.calls.slice(2)) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+});
+
+it("reads hosted saved-version history and previews exact Combat mechanics", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const draft = "12345678-1234-1234-1234-123456789abc";
+  const history = `/api/live/threat-drafts/${draft}/mechanics-revisions?world_id=managed&offset=0`;
+  const preview = "/api/live/combat/encounters/saved-mechanics/preview?world_id=managed";
+  await api.authenticatedApiFetch(history);
+  await api.authenticatedApiFetch(preview, { method: "POST", body: "{}" });
+  await expect(api.authenticatedApiFetch(history + "&offset=1")).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(preview)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+});
+
+it("routes hosted Combat adoption and recovery through same-origin session transport", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const base = "/api/live/combat/encounters/12345678-1234-1234-1234-123456789abc/mechanics-adoptions";
+  const operation = "87654321-1234-1234-1234-123456789abc";
+  const world = "?world_id=managed";
+  await api.authenticatedApiFetch(base + world, { method: "POST", body: "{}" });
+  await api.authenticatedApiFetch(base + ":cancel" + world, { method: "POST", body: "{}" });
+  await api.authenticatedApiFetch(base + "/" + operation + world);
+  await api.authenticatedApiFetch(base + world + "&before_operation_id=" + operation);
+  await expect(api.authenticatedApiFetch(base + ":cancel" + world)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(base + world + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(4);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+});
+
+it("uses the hosted session for both Combat actor previews", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  for (const kind of ["accepted-mechanics", "world-mechanics"]) {
+    const path = `/api/live/combat/encounters/${kind}/preview?world_id=managed`;
+    await api.authenticatedApiFetch(path, { method: "POST", body: "{}" });
+    await expect(api.authenticatedApiFetch(path)).rejects.toThrow(/exact same-origin/);
+    await expect(api.authenticatedApiFetch(path + "&world_id=foreign", {
+      method: "POST", body: "{}",
+    })).rejects.toThrow(/exact same-origin/);
+  }
+  expect(fetch).toHaveBeenCalledTimes(2);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store", method: "POST" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+});
+
+it("starts and reloads a hosted World conversation through the DungeonMind session", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const base = "/api/live/agent/worlds/managed/conversation";
+  await api.authenticatedApiFetch(base + "?limit=25");
+  await api.authenticatedApiFetch(base + "/new", { method: "POST", body: "{}" });
+  await api.authenticatedApiFetch(base + "s/active/messages?limit=25");
+  await expect(api.authenticatedApiFetch(base + "/new?world_id=foreign", {
+    method: "POST", body: "{}",
+  })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(3);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+});

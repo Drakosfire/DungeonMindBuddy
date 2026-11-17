@@ -4,6 +4,8 @@ import json
 
 from pydantic import BaseModel, Field
 
+from .neighborhood_replay import NeighborhoodReplayHop
+
 ASSERTION_READ_KINDS = frozenset({
     "native_plan_assertion_read_observed_v1",
     "native_plan_assertion_read_observed_v2",
@@ -15,10 +17,42 @@ class NativeReplayAssertionStep(BaseModel):
     revision_id: str
     assertion_ids: list[str]
     subject_ids: list[str]
+    assertion_ids_by_subject: dict[str, list[str]] = Field(default_factory=dict)
     subject_labels: dict[str, str] = Field(default_factory=dict)
     subject_kinds: dict[str, str] = Field(default_factory=dict)
+    related_labels: dict[str, str] = Field(default_factory=dict)
     unavailable_count: int
     writer_evidence: bool
+
+
+
+class NativeDiscoveryReplay(BaseModel):
+    revision_id: str
+    seed_ids: list[str]
+    labels: dict[str, str]
+    hops: list[NeighborhoodReplayHop]
+
+
+def native_discovery_replay(receipt):
+    query = receipt.get("native_query") if isinstance(receipt, dict) else None
+    if not isinstance(query, dict) or not query.get("discovery_hops"):
+        return None
+    hops = [NeighborhoodReplayHop.model_validate(hop) for hop in query["discovery_hops"]]
+    sources = {hop.from_node_id for hop in hops}
+    destinations = {hop.to_node_id for hop in hops}
+    labels = {item["entity_id"]: item["label"][:256] for item in query["object_matches"]
+              if item["entity_id"] in sources}
+    labels.update({item["statement_id"]: item["label"][:256] for item in query["matches"]
+                   if item["statement_id"] in destinations})
+    for item in query.get("assertion_matches", []):
+        identity = item["subject_entity_id"]
+        if identity in destinations:
+            labels.setdefault(identity, item["label"].rsplit(" · ", 1)[0][:256])
+    return NativeDiscoveryReplay(
+        revision_id=query["authority"]["revision_id"],
+        seed_ids=[item["entity_id"] for item in query["object_matches"] if item["entity_id"] in sources],
+        labels=labels, hops=hops,
+    )
 
 
 def load_native_replay_read(*, world_id, turn_id, trace_id, sequence, assertion_id):
@@ -119,19 +153,41 @@ def native_assertion_steps(execution, receipt, *, start: int, stop: int | None):
         assertions = [read["assertion"] for read in event["reads"]]
         subjects = list(dict.fromkeys(assertion["subject_entity_id"] for assertion in assertions))
         classifications: dict[str, set[str]] = {}
+        assertion_ids_by_subject: dict[str, list[str]] = {}
         for assertion in assertions:
+            assertion_ids_by_subject.setdefault(assertion["subject_entity_id"], []).append(assertion["assertion_id"])
             value = assertion.get("value", {})
             if assertion.get("predicate") == "dnd5e:classification" and value.get("kind") == "term_ref":
                 term = value.get("term")
                 if isinstance(term, str) and term.startswith("dnd5e:"):
                     classifications.setdefault(assertion["subject_entity_id"], set()).add(term.removeprefix("dnd5e:"))
+        related_labels = {
+            target: labels[target]
+            for assertion in assertions
+            if assertion.get("value", {}).get("kind") == "entity_ref"
+            and (target := assertion["value"].get("entity_id")) in labels
+        }
+        summary_order = {
+            assertion["assertion_id"]: (
+                0 if assertion.get("predicate") == "dungeonbuddy:summary"
+                else 1 if assertion.get("value", {}).get("kind") == "entity_ref"
+                and assertion["value"].get("entity_id") in related_labels
+                else 2 if assertion.get("value", {}).get("kind") == "entity_ref"
+                else 3
+            )
+            for assertion in assertions
+        }
+        for ids in assertion_ids_by_subject.values():
+            ids.sort(key=summary_order.__getitem__)
         steps.append(NativeReplayAssertionStep(
             sequence=event["sequence"],
             revision_id=revision,
             assertion_ids=[assertion["assertion_id"] for assertion in assertions],
             subject_ids=subjects,
+            assertion_ids_by_subject=assertion_ids_by_subject,
             subject_labels={identity: labels[identity] for identity in subjects if identity in labels},
             subject_kinds={identity: next(iter(kinds)) for identity, kinds in classifications.items() if len(kinds) == 1},
+            related_labels=related_labels,
             unavailable_count=len(event["unavailable_assertion_ids"]),
             writer_evidence=event["event_id"] in included,
         ))

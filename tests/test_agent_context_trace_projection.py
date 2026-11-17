@@ -138,6 +138,15 @@ def test_neighborhood_replay_keeps_only_recorded_discovery_with_visible_endpoint
         ).encode()).hexdigest(),
         "relationship_ids": sorted(identity for identity, _ in edges),
         "discovery_relationship_ids": list(result._discovery_relationship_ids),
+        "truncated": True,
+        "neighborhood_replay": {
+            "hops": [
+                {"relationship_id": "discovery", "from_node_id": "node:1", "to_node_id": "node:0"},
+                {"relationship_id": "omitted", "from_node_id": "node:0", "to_node_id": "node:64"},
+            ],
+            "object_limit_pruned_ids": ["discarded"],
+            "object_limit_pruned_count": 1,
+        },
     })
     from application_state.agent_conversation.context_trace import TraceGraphTool
 
@@ -146,3 +155,40 @@ def test_neighborhood_replay_keeps_only_recorded_discovery_with_visible_endpoint
         sequence=0, elapsed_ms=0, duration_ms=1,
     ))
     assert trace.result.discovery_relationship_ids == ["discovery"]
+    assert trace.result.neighborhood_replay.hops[0].from_node_id == "node:1"
+    assert trace.result.neighborhood_replay.object_limit_pruned_ids == ["discarded"]
+    from application_state.agent_conversation.context_trace_store import _validate_graph_tool_observation
+
+    _validate_graph_tool_observation(trace, {"events": [event.model_dump(mode="json")]})
+
+
+def test_replay_exclusions_use_applicable_explicit_votes_and_attempt_boundaries():
+    from types import SimpleNamespace
+
+    from application_state.agent_conversation.jev_retrieval_contract import (
+        KEYWORD_KIND,
+        RetrievalCandidate,
+        retrieval_exclusions_for_replay,
+    )
+    from application_state.agent_conversation.neighborhood_replay import replay_exclusion_steps
+
+    request = SimpleNamespace(candidates=(
+        RetrievalCandidate(handle="kept", label="Kept", kind="object"),
+        RetrievalCandidate(handle="dropped", label="Dropped", kind="object"),
+        RetrievalCandidate(handle="saved-authored-page:outside", label="Outside", kind="page"),
+        RetrievalCandidate(handle="hint", label="Hint", kind=KEYWORD_KIND),
+    ))
+    result = SimpleNamespace(answers={
+        f"candidate_{index}": SimpleNamespace(selected=vote)
+        for index, vote in enumerate(("include", "exclude", "exclude", "exclude"))
+    })
+    excluded = retrieval_exclusions_for_replay(request, result, requested_work="clarify")
+    assert [candidate.handle for candidate in excluded.candidates] == ["dropped"]
+    assert excluded.total == 1
+    assert retrieval_exclusions_for_replay(request, result, requested_work="write_current_page") is None
+    events = [
+        {"kind": "native_plan_opening_selected_v1", "sequence": sequence,
+         "exclusion_replay": excluded.model_dump()}
+        for sequence in (1, 3, 5)
+    ]
+    assert [step.sequence for step in replay_exclusion_steps({"events": events}, start=2, stop=5)] == [3]

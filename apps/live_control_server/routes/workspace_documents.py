@@ -20,7 +20,11 @@ from apps.live_control_server.integrations.dungeonmind.native_world_source_admis
     admit_native_world_source,
     get_native_world_source_status as read_native_world_source_status,
 )
-from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_page_inventory
+from apps.live_control_server.services.hosted_native_graph_access import (
+    require_hosted_build_page_inventory,
+    require_hosted_build_native_source,
+    require_hosted_plan_world_context,
+)
 from apps.live_control_server.services.workspace_document_registry import (
     CreateWorkspaceDocumentRequest,
     UpdateWorkspaceDocumentMetadataRequest,
@@ -198,6 +202,7 @@ def get_world_owned_plans(
     world_id: Annotated[str, Query(min_length=1)],
     request: Request,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, world_id)
     unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
     if unsupported:
         raise HTTPException(
@@ -248,7 +253,8 @@ def get_world_plan_inventory_page(
 
 
 @router.post("/workspace-documents/world-plans", response_model=WorldOwnedPlanRecordV2)
-def post_world_owned_plan(body: CreateWorldOwnedPlanRequestV2) -> dict[str, Any]:
+def post_world_owned_plan(body: CreateWorldOwnedPlanRequestV2, request: Request) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, body.world_id)
     try:
         record = create_world_owned_plan_v2(
             _managed_world_root(), world_id=body.world_id, title=body.title
@@ -505,7 +511,7 @@ def get_workspace_document_route(document_id: str) -> dict[str, Any]:
     response_model=WorkspaceDocumentSnapshotAny,
 )
 def get_workspace_document_snapshot_route(
-    document_id: str, view: Literal["editor", "committed"] = "editor"
+    document_id: str, view: Literal["editor", "committed"] = "editor", request: Request = None
 ) -> dict[str, Any]:
     try:
         reader = get_committed_page_snapshot if view == "committed" else get_workspace_document_snapshot
@@ -517,6 +523,8 @@ def get_workspace_document_snapshot_route(
             status_code=404,
             detail="World-owned Runbooks require the World-scoped V2 route",
         )
+    if isinstance(snapshot.record, WorldOwnedPlanRecordV2):
+        require_hosted_plan_world_context(request, snapshot.record.world_id)
     return snapshot.model_dump(mode="json")
 
 
@@ -525,12 +533,15 @@ def get_workspace_document_snapshot_route(
     response_model=WorkspaceCommittedRevisionAny,
 )
 def get_workspace_document_current_committed_revision(
-    document_id: str,
+    document_id: str, request: Request = None,
 ) -> dict[str, Any]:
     try:
         committed = get_committed_playable_revision(document_id)
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_hosted_plan_world_context(
+        request, getattr(committed, "world_id", None) if committed.kind == "plan" else None
+    )
     return committed.model_dump(mode="json")
 
 
@@ -539,12 +550,15 @@ def get_workspace_document_current_committed_revision(
     response_model=WorkspaceCommittedRevisionAny,
 )
 def get_workspace_document_exact_committed_revision(
-    document_id: str, revision_n: int
+    document_id: str, revision_n: int, request: Request = None
 ) -> dict[str, Any]:
     try:
         committed = get_committed_playable_revision(document_id, revision_n=revision_n)
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_hosted_plan_world_context(
+        request, getattr(committed, "world_id", None) if committed.kind == "plan" else None
+    )
     return committed.model_dump(mode="json")
 
 
@@ -672,11 +686,14 @@ def post_workspace_document_source_artifact(
 def get_native_world_source_status(
     document_id: str,
     expected_revision: Annotated[int | None, Query(ge=1)] = None,
+    request: Request = None,
 ) -> dict[str, Any]:
     try:
-        return read_native_world_source_status(
+        status = read_native_world_source_status(
             repo_root(), document_id, expected_revision=expected_revision
-        ).model_dump(mode="json")
+        )
+        require_hosted_build_native_source(request, status.world_id)
+        return status.model_dump(mode="json")
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(
             status_code=exc.status_code,
