@@ -241,3 +241,24 @@ def test_pdf_snapshot_survives_browser_round_trip_and_preserves_original_proof(d
         pytest.fail(f"Save returned HTTP {saved.status_code}: {detail}")
     assert saved.json()["draft"]["entities"][0]["mechanics_snapshot"] == snapshot
     assert p.client.get(p.url).json() == saved.json()
+
+
+def test_combat_adds_exact_revision_from_legacy_create_projection(direct, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import (
+        source_definition_digest_from_body,
+    )
+
+    p = direct
+    operations = mechanics.list_acceptance_operations_for_draft(p.root, draft_id=p.draft.draft_id)
+    original = copy.deepcopy(operations[0].request_body["definition"])
+    original["rule_elements"][0]["explains"] = []
+    operations[0].request_body["definition"] = original
+    operations[0].validation_receipt_digest = source_definition_digest_from_body(original)
+    assert operations[0].validation_receipt_digest != p.revision.definition_digest
+    monkeypatch.setattr(mechanics, "list_acceptance_operations_for_draft", lambda *args, **kwargs: operations)
+    snapshot = preview(p)
+    assert snapshot["locator"]["definition_digest"] == p.revision.definition_digest
+    saved = p.client.put(p.url, json=body(p, snapshot, count=1))
+    assert saved.status_code == 200, saved.text
+    assert p.client.get(p.url).json() == saved.json()
+    assert saved.json()["draft"]["entities"][0]["mechanics_snapshot"] == snapshot
