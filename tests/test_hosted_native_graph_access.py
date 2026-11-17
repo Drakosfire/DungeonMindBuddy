@@ -460,6 +460,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/world-plans/page"): access.resolve_hosted_plan_inventory_page,
             ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}"): access.resolve_hosted_runbook_read,
             ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/snapshot"): access.resolve_hosted_runbook_read,
+            ("POST", "/api/live/workspace-documents/world-runbooks/{document_id}/tiptap/prepare"): access.resolve_hosted_runbook_write,
+            ("POST", "/api/live/workspace-documents/world-runbooks/{document_id}/tiptap/commit"): access.resolve_hosted_runbook_write,
             ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/committed-revision"): access.resolve_hosted_runbook_read,
             ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_runbook_read,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
@@ -5248,3 +5250,29 @@ def test_hosted_runbook_creation_uses_only_owned_world(hosted, monkeypatch):
     result = hosted.client.request("POST", path, json=body)
     assert result.status_code == 409, result.text
     assert calls == [("managed", "Session Runbook")]
+
+
+@pytest.mark.parametrize("phase", ["prepare", "commit"])
+def test_hosted_runbook_edit_uses_world_media_owner(hosted, monkeypatch, phase):
+    from apps.live_control_server.routes import workspace_documents
+
+    calls = []
+
+    def write(*, root, request, media_owner):
+        calls.append((request.world_id, request.document_id, media_owner))
+        raise workspace_documents.WorkspaceDocumentRegistryError("fixture reached", status_code=409)
+
+    monkeypatch.setattr(workspace_documents, "get_world_owned_runbook_v2", lambda *_, **__: None)
+    monkeypatch.setattr(workspace_documents, f"{phase}_tiptap_markdown_write", write)
+    document_id = "00000000-0000-4000-8000-000000000001"
+    path = f"/api/live/workspace-documents/world-runbooks/{document_id}/tiptap/{phase}?world_id=managed"
+    body = {"schema_version": f"dmb_tiptap_markdown_write_{phase}_v2", "scope_mode": "world",
+            "world_id": "managed", "document_id": document_id, "markdown": "Saved text."}
+    if phase == "commit":
+        body["writer_confirm_token"] = "fixture"
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "document_id": "foreign-document"}).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 409, result.text
+    assert calls == [("managed", document_id, "hosted_world:managed")]
