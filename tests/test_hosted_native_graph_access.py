@@ -418,6 +418,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/usage"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/rules/catalog"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/rules/query"): access.resolve_hosted_rules_lookup,
@@ -4563,3 +4564,24 @@ def test_hosted_recap_name_review_requires_world_owner_and_origin(hosted, monkey
     response = hosted.client.request("POST", path, json=body)
     assert response.status_code == 200, response.text
     review.assert_called_once_with(body["raw_text"], scope, session_id="session-22")
+
+
+def test_hosted_recap_usage_requires_owned_world_and_exact_revision(hosted, monkeypatch):
+    from apps.live_control_server.services import extraction_usage
+
+    calls = []
+
+    def read_usage(*, root, managed_world_id, run_id, expected_run_revision):
+        calls.append((managed_world_id, run_id, expected_run_revision))
+        return SimpleNamespace(model_dump=lambda **kwargs: {"runRevision": expected_run_revision})
+
+    monkeypatch.setattr(extraction_usage, "read_extraction_usage", read_usage)
+    path = "/api/live/graph-preview/extraction-runs/recap-run/usage"
+    query = "?managed_world_id=managed&expected_run_revision=2"
+    assert hosted.client.request("GET", path + query, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + query + "&expected_run_revision=3").status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", path + query)
+    assert result.status_code == 200, result.text
+    assert result.json() == {"runRevision": 2}
+    assert calls == [("managed", "recap-run", 2)]
