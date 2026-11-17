@@ -387,6 +387,55 @@ def test_capture_uses_fresh_cas_question_only_and_durable_identity(tmp_path):
     assert json.loads((tmp_path / "history-after.json").read_text())["body"]["turns"][0]["turn_id"] == client.turn
 
 
+def test_build_capture_preserves_page_thread_and_repeated_turns(tmp_path):
+    request_template = template() | {
+        "surface": {"surface_id": "build", "instance_id": "saved-page"},
+        "primary_work": {"kind": "build", "object_id": "saved-page",
+                         "expected_revision": 1, "expected_content_sha256": "a" * 64},
+        "graph_request": {"mode": "world", "world_id": "world"},
+        "client_work_state": "saved_clean",
+        "build_authored_references": {"references": ["fixture"]},
+    }
+
+    class BuildClient(Client):
+        conversation = "prev"
+        turns = ()
+
+        def post(self, route, *, json):
+            response = super().post(route, json=json)
+            if route.endswith("/new"):
+                self.conversation = "build-rehearsal"
+            else:
+                self.turn = str(uuid4())
+                from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
+
+                self.turns += ({"turn_id": self.turn, "user_text": json["message"],
+                                "idempotency_key": str(_turn_idempotency_key("world", json["turn_id"]))},)
+            return response
+
+        def get(self, route, **kwargs):
+            if "context-trace" in route:
+                return super().get(route, **kwargs)
+            return self.response({"pointer_revision": 3, "active_conversation_id": self.conversation,
+                                  "turns": list(self.turns)})
+
+    client = BuildClient("A repeated question")
+    case = {"question": client.question, "gold_answer": "DO NOT SEND"}
+    w.capture_case(client, "world", request_template, case, tmp_path / "first", build_thread_id="thread")
+    w.capture_case(client, "world", request_template, case, tmp_path / "second",
+                   build_thread_id="thread", expected_conversation_id=client.conversation)
+    _, first, second = [body for _, body in client.posts]
+    assert first["client_thread_id"] == second["client_thread_id"] == "thread"
+    assert first["surface"] == second["surface"] == request_template["surface"]
+    assert "build_authored_references" in first and "build_authored_references" not in second
+    assert first["turn_id"] != second["turn_id"]
+    assert "DO NOT SEND" not in json.dumps(client.posts)
+    with pytest.raises(ValueError, match="conversation changed"):
+        w.capture_case(client, "world", request_template, case, tmp_path / "drift",
+                       build_thread_id="thread", expected_conversation_id="wrong")
+    assert len(client.posts) == 3
+
+
 def test_failed_cas_never_dispatches_question(tmp_path):
     client = Client("Explain the route.", fail_cas=True)
     with pytest.raises(ValueError, match="CAS failed"):
