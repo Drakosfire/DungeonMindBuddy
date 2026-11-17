@@ -2538,6 +2538,28 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert denied.status_code == 403
     assert reflections not in denied.text
 
+    save_review_path = f"{base}/review/commands/{uuid4()}?world_id=managed"
+    review_basis = {
+        "expected_run_revision": content.observed_run_revision,
+        "expected_content_sha256": content.content_sha256,
+    }
+    save_review = {
+        **review_basis, "action": "save", "expected_revision": 1,
+        "draft_markdown": "# Session notes\n\nThe gate was open.",
+    }
+    saved_review = hosted.client.request("PUT", save_review_path, json=save_review)
+    assert saved_review.status_code == 200, saved_review.text
+    assert saved_review.json()["checkpoint"] == ended.json()["checkpoint"]
+    assert saved_review.json()["draft_markdown"] == save_review["draft_markdown"]
+    reopen_path = f"{base}/review/commands/{uuid4()}?world_id=managed"
+    reopen_review = {**review_basis, "action": "reopen", "expected_revision": 2}
+    assert hosted.client.request("PUT", reopen_path, json=reopen_review, origin=None).status_code == 403
+    reopened_review = hosted.client.request("PUT", reopen_path, json=reopen_review)
+    assert reopened_review.status_code == 200, reopened_review.text
+    assert reopened_review.json()["status"] == "playing"
+    assert reopened_review.json()["draft_markdown"] == save_review["draft_markdown"]
+    assert hosted.client.request("GET", revision_path).json() == packet
+
     from tests.integration.test_build_images_postgres import saved_image
 
     artwork = saved_image(access.hosted_world_media_owner("managed"))
