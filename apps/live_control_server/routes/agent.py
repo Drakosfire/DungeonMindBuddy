@@ -1740,6 +1740,32 @@ def get_world_turn_native_source_section(world_id: str, turn_id: UUID, citation_
         raise HTTPException(status_code=409,detail={"code":"source_section_binding_invalid"}) from exc
 
 
+@router.get("/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence")
+def get_saved_plan_action_graph_evidence(world_id: str, action_id: UUID, request: Request):
+    from apps.live_control_server.services.agent_source_passages import (
+        SourcePassageOpenError, open_saved_plan_action_graph_evidence,
+    )
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    selectors = request.query_params.multi_items()
+    claim_id = request.query_params.get("claim_id")
+    anchor_id = request.query_params.get("anchor_id")
+    if (len(selectors) != 2 or {key for key, _ in selectors} != {"claim_id", "anchor_id"}
+            or not claim_id or not anchor_id or max(len(claim_id), len(anchor_id)) > 256):
+        raise HTTPException(status_code=422, detail={"code": "source_passage_selector_invalid"})
+    try:
+        result = open_saved_plan_action_graph_evidence(
+            world_id=_verified_world_id(world_id), action_id=action_id, claim_id=claim_id, anchor_id=anchor_id,
+        )
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+        return result.model_dump(mode="json", by_alias=True)
+    except SourcePassageOpenError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "source_passage_action_unavailable"}) from exc
+
+
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence")
 def get_saved_turn_graph_evidence(world_id: str, turn_id: UUID, request: Request):
     """Open an evidence anchor admitted by a saved turn at its recorded pin."""

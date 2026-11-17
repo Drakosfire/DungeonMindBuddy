@@ -5262,7 +5262,7 @@ export function WorldPlanAgentConversation({
         worldId: target.native_world_id, campaignId: "", scopeMode: "world",
         focus: { kind: "none", sessionId: null, campaignId: null },
         admissibility: "gm", revisionPin: target.graph_revision, anchorId: target.anchor_id,
-      });
+      }, { worldId: target.managed_world_id, actionId: action.action_id, claimId: target.claim_id });
       if (sourceReadEpochRef.current !== epoch || latestRef.current.verifiedWorldId !== target.managed_world_id
         || historySnapshotRef.current?.conversation_id !== action.consultation?.receipt.origin_conversation_id
         || historySnapshotRef.current?.pointer_revision !== action.consultation?.receipt.origin_pointer_revision

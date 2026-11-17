@@ -376,7 +376,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     return true;
   }
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+(?:\/resolve|\/resolutions\/[^/]+)?)?$/.test(pathname)
-    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/graph-evidence$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/(?:conversation\/turns|plan-proposals)\/[^/]+\/graph-evidence$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace(?:\/[^/]+\/prompt\/[^/]+)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:identities|(?:native-)?steps\/\d+\/assertion)$/.test(pathname)
@@ -434,12 +434,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && typeof body?.expected_world_id === "string" && Boolean(body.expected_world_id);
   }
-  const savedEvidence = /^\/api\/live\/agent\/worlds\/[^/?#%]+\/conversation\/turns\/[0-9a-f-]+\/graph-evidence\?([^#]+)$/.exec(path);
+  const savedEvidence = /^\/api\/live\/agent\/worlds\/[^/?#%]+\/(conversation\/turns|plan-proposals)\/[0-9a-f-]+\/graph-evidence\?([^#]+)$/.exec(path);
   if (savedEvidence) {
-    const query = new URLSearchParams(savedEvidence[1]);
+    const query = new URLSearchParams(savedEvidence[2]);
     const anchor = query.get("anchor_id");
     return method === "GET" && init?.body == null && Boolean(query.get("claim_id")) && Boolean(anchor)
-      && (query.size === 2 || (query.size === 3 && Boolean(anchor?.startsWith("dm-context-anchor:v2:"))
+      && (query.size === 2 || (query.size === 3 && savedEvidence[1] === "conversation/turns" && Boolean(anchor?.startsWith("dm-context-anchor:v2:"))
         && Boolean(query.get("continuation"))));
   }
   const terminalDiagnostic = /^\/api\/live\/world-plan-edit\/actions\/[0-9a-f-]+\/terminal-diagnostic\?([^#]+)$/.exec(path);
@@ -2228,12 +2228,14 @@ export async function postCitationFreshness(
 
 export async function postWorldGraphSourceAnchorRead(
   request: WorldGraphSourceAnchorReadRequest,
-  saved?: { worldId: string; turnId: string; claimId: string },
+  saved?: { worldId: string; claimId: string } & ({ turnId: string } | { actionId: string }),
 ): Promise<WorldGraphSourceAnchorReadResponse> {
   if (saved && !isLoopbackApiDestination(`${baseUrl}/api/live`)) {
     const query = new URLSearchParams({ claim_id: saved.claimId, anchor_id: request.anchorId });
+    const subject = "actionId" in saved ? `plan-proposals/${encodeURIComponent(saved.actionId)}`
+      : `conversation/turns/${encodeURIComponent(saved.turnId)}`;
     return apiFetch<WorldGraphSourceAnchorReadResponse>(
-      `/api/live/agent/worlds/${encodeURIComponent(saved.worldId)}/conversation/turns/${encodeURIComponent(saved.turnId)}/graph-evidence?${query}`,
+      `/api/live/agent/worlds/${encodeURIComponent(saved.worldId)}/${subject}/graph-evidence?${query}`,
     );
   }
   return apiFetch<WorldGraphSourceAnchorReadResponse>(

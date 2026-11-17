@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from application_state import pdf_statblock_review
 from apps.live_control_server.routes.agent import (
     _pdf_review_creature_draft_id, get_pdf_statblock_publication, get_pdf_statblock_review,
-    get_saved_turn_graph_evidence, get_published_pdf_statblock, post_accept_pdf_statblock_review, post_append_pdf_statblock_review,
+    get_saved_plan_action_graph_evidence, get_saved_turn_graph_evidence, get_published_pdf_statblock, post_accept_pdf_statblock_review, post_append_pdf_statblock_review,
     post_pdf_statblock_creature_draft, post_pdf_statblock_publication,
 )
 from application_state.errors import ApplicationStateUnavailableError
@@ -369,6 +369,10 @@ def hosted(monkeypatch, request):
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence",
         get_saved_turn_graph_evidence, methods=["GET"],
     )
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence",
+        get_saved_plan_action_graph_evidence, methods=["GET"],
+    )
     install_hosted_request_boundary(
         app,
         world_scope_resolvers={
@@ -492,6 +496,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters/saved-mechanics/preview"): access.resolve_hosted_combat_encounter,
@@ -2176,6 +2181,28 @@ def test_hosted_turn_evidence_checks_owner_and_exact_selectors(hosted, monkeypat
     result = hosted.client.request("GET", recap_path)
     assert result.status_code == 404, result.text
     assert calls[-1] == ("dm-context-anchor:v2:recap", "recap-page:v2:second")
+
+def test_hosted_action_evidence_checks_owner_and_exact_selectors(hosted, monkeypatch):
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import agent_source_passages as passages
+
+    action_id = uuid4()
+    calls = []
+
+    def read(**coordinates):
+        calls.append(coordinates)
+        raise passages.SourcePassageOpenError("source_passage_not_found", 404)
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(passages, "open_saved_plan_action_graph_evidence", read)
+    path = f"/api/live/agent/worlds/managed/plan-proposals/{action_id}/graph-evidence?claim_id=claim&anchor_id=anchor"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&continuation=invalid").status_code == 422
+    assert not calls
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 404, response.text
+    assert calls == [dict(world_id="managed", action_id=action_id, claim_id="claim", anchor_id="anchor")]
+
 
 def test_hosted_recap_selection_requires_world_owner_and_origin(hosted, monkeypatch):
     from apps.live_control_server.services import ingest_selection_context
