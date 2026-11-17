@@ -333,6 +333,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
@@ -2886,3 +2887,29 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_play_progress_binds_world_run_and_origin(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import play_runs
+
+    write = Mock(side_effect=play_runs.PlayRunRegistryError("stale revision", status_code=409))
+    monkeypatch.setattr(play_runs, "replace_world_play_run_progress", write)
+    run_id = str(uuid4())
+    path = f"/api/live/world-play-runs/v2/{run_id}/progress?world_id=managed"
+    body = {"expected_run_revision": 2, "progress": {
+        "current_scene_id": None, "current_beat_id": None, "resolved_beat_ids": [],
+        "selections": {}, "notes_by_element_id": {},
+    }}
+    assert hosted.client.request("PUT", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("PUT", path, origin="https://outside.example", json=body).status_code == 403
+    assert hosted.client.request("PUT", path + "&world_id=foreign", json=body).status_code == 403
+    write.assert_not_called()
+
+    response = hosted.client.request("PUT", path, json=body)
+    assert response.status_code == 409, response.text
+    write.assert_called_once()
+    assert write.call_args.kwargs["world_id"] == "managed"
+    assert write.call_args.kwargs["run_id"] == run_id
+    assert write.call_args.kwargs["expected_run_revision"] == 2
