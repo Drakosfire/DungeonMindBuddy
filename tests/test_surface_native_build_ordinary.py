@@ -1740,17 +1740,28 @@ def test_anchored_discussion_only_offers_current_page_and_saved_mechanics(lane, 
                for request in retrieval)
 
 
-def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monkeypatch):
+@pytest.mark.parametrize("editor_mounted", [False, True])
+def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monkeypatch, editor_mounted):
     from evals.buddy_benchmark import workflow
 
     thread_id = str(uuid4())
     draft_request = "Draft a playable variant in this conversation for review."
     template = {}
+    snapshot = None
 
     def first(client, world, body):
+        nonlocal snapshot
         template.update((key, value) for key, value in body.items() if key != "message")
+        if editor_mounted:
+            from application_state.agent_conversation.build_draft_context import BuildDraftSnapshotV1
+            work = body["primary_work"]
+            page = get_workspace_document_snapshot(tmp_path, work["object_id"])
+            snapshot = BuildDraftSnapshotV1(world_id=world, document_id=work["object_id"],
+                registry_revision=page.loaded_revision, content_sha256=page.content_sha256,
+                visibility=page.record.visibility_state, draft_markdown=page.markdown,
+                draft_sha256=page.content_sha256, editor_sha256="c" * 64, draft_generation=0)
         return workflow.capture_case(client, world, template, {"question": body["message"]},
-                                     tmp_path / "first-capture", build_thread_id=thread_id)
+                                     tmp_path / "first-capture", build_thread_id=thread_id, build_editor_snapshot=snapshot)
 
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
@@ -1767,11 +1778,19 @@ def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monk
         response = workflow.capture_case(
             case.client, case.world, template, {"question": question},
             tmp_path / f"capture-{index}", build_thread_id=thread_id,
-            expected_conversation_id=str(case.turn.conversation_id),
+            expected_conversation_id=str(case.turn.conversation_id), build_editor_snapshot=snapshot,
         )
         assert response.status_code == 200, response.text
     history = case.client.get(f"/api/live/agent/worlds/{case.world}/conversation").json()
     assert len(history["turns"]) == 5
+    if editor_mounted:
+        for capture in (tmp_path / "first-capture", tmp_path / "capture-5"):
+            request = json.loads((capture / "request.json").read_text())
+            before_name = "fresh-history" if capture.name == "first-capture" else "history-before"
+            before = json.loads((capture / f"{before_name}.json").read_text())["body"]
+            assert request["build_draft_context"]["expected_pointer_revision"] == before["pointer_revision"]
+            assert request["build_draft_context"]["conversation_id"] == before["active_conversation_id"]
+            assert request["build_draft_context"]["snapshot"]["draft_markdown"] == snapshot.draft_markdown
     service = AgentConversationService()
     turns = [service.inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"])) for row in history["turns"]]
     assert all(turn.conversation_id == case.turn.conversation_id for turn in turns)
