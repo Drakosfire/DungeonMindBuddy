@@ -221,6 +221,8 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/combat/encounters"): resolve_hosted_combat_encounter,
     ("POST", "/api/live/combat/encounters"): resolve_hosted_combat_encounter,
     ("POST", "/api/live/combat/encounters/saved-mechanics/preview"): resolve_hosted_combat_encounter,
+    ("POST", "/api/live/combat/encounters/accepted-mechanics/preview"): resolve_hosted_combat_encounter,
+    ("POST", "/api/live/combat/encounters/world-mechanics/preview"): resolve_hosted_combat_encounter,
     ("GET", "/api/live/combat/encounters/{encounter_id}"): resolve_hosted_combat_encounter,
     ("POST", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions"): resolve_hosted_combat_encounter,
     ("POST", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions:cancel"): resolve_hosted_combat_encounter,

@@ -461,3 +461,23 @@ it("routes hosted Combat adoption and recovery through same-origin session trans
     expect(new Headers(init?.headers).has("Authorization")).toBe(false);
   }
 });
+
+it("uses the hosted session for both Combat actor previews", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  for (const kind of ["accepted-mechanics", "world-mechanics"]) {
+    const path = `/api/live/combat/encounters/${kind}/preview?world_id=managed`;
+    await api.authenticatedApiFetch(path, { method: "POST", body: "{}" });
+    await expect(api.authenticatedApiFetch(path)).rejects.toThrow(/exact same-origin/);
+    await expect(api.authenticatedApiFetch(path + "&world_id=foreign", {
+      method: "POST", body: "{}",
+    })).rejects.toThrow(/exact same-origin/);
+  }
+  expect(fetch).toHaveBeenCalledTimes(2);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store", method: "POST" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+});

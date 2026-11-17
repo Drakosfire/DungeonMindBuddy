@@ -62,6 +62,7 @@ from apps.live_control_server.services.hosted_auth import (
 from tests.test_native_graph_explorer import InMemoryExplorerStore, _snapshot
 from tests.test_native_recap_preparation import TOKEN, lane as recap_lane  # noqa: F401
 from tests.test_combat_mechanics_adoption import adoption_case  # noqa: F401
+from tests.test_combat_exact_world_mechanics import combat  # noqa: F401
 from tests.test_statblock_saved_revisions import revision_case  # noqa: F401
 from tests.test_world_mechanics_associations import prepared  # noqa: F401
 
@@ -322,6 +323,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters/saved-mechanics/preview"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/encounters/accepted-mechanics/preview"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/encounters/world-mechanics/preview"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions:cancel"): access.resolve_hosted_combat_encounter,
@@ -2533,3 +2536,40 @@ def test_hosted_combat_adoption_applies_and_reopens_exact_receipt(
     assert hosted.client.request("GET", history).json()["receipts"] == [outcome["receipt"]]
     assert hosted.client.request("GET", history + f"&before_operation_id={operation}").json()["receipts"] == []
     assert hosted.client.request("POST", p.cancel_url, json=p.intent).json() == outcome
+
+
+@pytest.mark.parametrize("preview_kind", ["accepted-mechanics", "world-mechanics"])
+def test_hosted_combat_adds_actor_from_exact_preview(combat, hosted, monkeypatch, preview_kind):
+    from apps.live_control_server.routes import combat_encounters
+    from tests.test_combat_direct_mechanics import body as direct_body
+    from tests.test_combat_exact_world_mechanics import body as linked_body
+
+    p = combat
+    record = _record("elderwyld", OWNER, p.binding.native_world_id)
+    hosted.records["elderwyld"] = record.model_copy(update={
+        "native_graph_binding": record.native_graph_binding.model_copy(
+            update={"binding_version": p.binding.binding_version},
+        ),
+    })
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({"elderwyld": [OWNER, OTHER_OWNER]}))
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(p.root))
+    monkeypatch.setattr(combat_encounters, "_verified_world", lambda world_id: world_id)
+    path = f"/api/live/combat/encounters/{preview_kind}/preview?world_id=elderwyld"
+    if preview_kind == "accepted-mechanics":
+        selection = {"draft_id": p.draft.draft_id, "draft_version": p.draft.version}
+        build_save = direct_body
+    else:
+        selection = p.selection
+        build_save = linked_body
+    assert hosted.client.request("POST", path, origin=None, json=selection).status_code == 403
+    assert hosted.client.request("POST", path, session="other-session", json=selection).status_code == 403
+    assert hosted.client.request("POST", path + "&world_id=foreign", json=selection).status_code == 403
+    result = hosted.client.request("POST", path, json=selection)
+    assert result.status_code == 200, result.text
+    assert result.headers["cache-control"] == "no-store"
+    snapshot = result.json()
+    assert snapshot["locator"]["revision_id"] == p.revision.revision_id
+    saved = hosted.client.request("PUT", p.url, json=build_save(p, snapshot, count=1))
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["draft"]["entities"][0]["mechanics_snapshot"] == snapshot
+    assert hosted.client.request("GET", p.url).json() == saved.json()
