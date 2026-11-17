@@ -15,7 +15,9 @@ router = APIRouter()
 def scope(world_id, request):
     from .agent import _verified_world_id
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(422, detail="Review accepts no query selectors")
