@@ -28,6 +28,7 @@ from apps.live_control_server.models.native_graph_inspection import (
     NativeRecapPageRequest, NativeRelatedRecapsRequest,
 )
 from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapObjectsRead, PublishedRecapRead
+from apps.live_control_server.models.threat_query_hydration import ThreatQueryHydrationRequestV1
 from apps.live_control_server.services import hosted_auth
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
@@ -50,7 +51,6 @@ WORLD_LOOKUP_PATH = f"{WORLD_COLLECTION_PATH}/lookup"
 BUILD_PDF_SOURCES_PATH = hosted_auth.BUILD_PDF_SOURCES_PATH
 BUILD_PAGE_INVENTORY_PATH = "/api/live/workspace-documents/pages/inventory"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
-from apps.live_control_server.models.threat_query_hydration import ThreatQueryHydrationRequestV1
 
 
 _REQUESTS = {
