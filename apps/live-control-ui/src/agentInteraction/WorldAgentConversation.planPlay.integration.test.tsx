@@ -1,3 +1,4 @@
+import * as hostedAuth from "../auth/HostedAuthGate";
 import nativeBuildWire from '../test/surface-native-build-http.json';
 import {WorldGuidedTour} from '../guidedTour/WorldGuidedTour';
 import {useGuidedTour} from '../guidedTour/GuidedTour';
@@ -2470,6 +2471,22 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(screen.getByRole("button", { name: "Check saved request" }));
     await waitFor(() => expect(readiness.querySelector("summary")).toBeVisible());
     expect(composer).toHaveValue("Keep this next thought");
+  });
+
+  it("keeps local session settings out of hosted Conversation options", async () => {
+    const auth = vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+      status: "authenticated", refreshWarning: false, subject: "owner", displayName: "Owner",
+    });
+    try {
+      render(<Harness initial="play" />);
+      fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+      await screen.findByLabelText("Message DungeonBuddy");
+      fireEvent.click(screen.getByTitle("Conversation options"));
+      expect(screen.queryByRole("button", { name: "Settings", exact: true })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Connect local session" })).not.toBeInTheDocument();
+    } finally {
+      auth.mockRestore();
+    }
   });
 
   it("keeps recovery controls out of Build while saved history shows a running turn", async () => {
