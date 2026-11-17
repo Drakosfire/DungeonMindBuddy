@@ -449,6 +449,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const plan = path.endsWith("/confirm") ? body?.plan : body;
     return method === "POST" && isRecord(plan) && typeof plan.runId === "string" && Boolean(plan.runId);
   }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-proposals\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\/inserted\?expected_revision=[1-9][0-9]*$/.test(path)) {
+    return method === "POST" && init?.body == null;
+  }
   const capabilityPath = "/api/live/extract-promote/worldbuilding/capabilities?";
   if (path.startsWith(capabilityPath)) {
     const worldId = new URLSearchParams(path.slice(capabilityPath.length)).get("world_id");

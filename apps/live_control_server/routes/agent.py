@@ -3263,7 +3263,9 @@ def get_build_document_proposal_prompt(world_id: str, action_id: UUID, request: 
 def report_build_document_proposal_inserted(world_id: str, action_id: UUID, request: Request, expected_revision: int = Query(ge=1)):
     from application_state.build_proposal.service import BuildProposalService
     from apps.live_control_server.services.build_document_proposal import _public
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if set(request.query_params) != {"expected_revision"} or len(request.query_params.getlist("expected_revision")) != 1:
         raise HTTPException(status_code=422, detail="one exact revision selector is required")

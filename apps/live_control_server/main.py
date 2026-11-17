@@ -254,6 +254,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/inserted"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): resolve_hosted_conversation_world,

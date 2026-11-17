@@ -328,6 +328,10 @@ def hosted(monkeypatch, request):
 
     app.include_router(build_proposal_reviews.router, prefix="/api/live/agent")
     app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/inserted",
+        agent_routes.report_build_document_proposal_inserted, methods=["POST"],
+    )
+    app.add_api_route(
         "/api/live/agent/worlds/{world_id}/build-source-withdrawals",
         agent_routes.withdraw_build_source, methods=["POST"], status_code=204,
     )
@@ -557,6 +561,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/inserted"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
@@ -5307,3 +5312,26 @@ def test_hosted_build_source_admission_checks_saved_document_world(hosted, monke
     result = hosted.client.request("POST", path, json=body)
     assert result.status_code == 409, result.text
     assert calls == [document_id]
+
+
+def test_hosted_build_insertion_ack_requires_owned_world_and_exact_revision(hosted, monkeypatch):
+    from application_state.build_proposal import service
+    from apps.live_control_server.services import build_document_proposal
+
+    calls = []
+
+    def report(self, world, action, *, expected_revision):
+        calls.append((world, str(action), expected_revision))
+        return {"inserted_in_draft": True}
+
+    monkeypatch.setattr(service.BuildProposalService, "report_inserted", report)
+    monkeypatch.setattr(build_document_proposal, "_public", lambda value: value)
+    action = "00000000-0000-4000-8000-000000000001"
+    path = f"/api/live/agent/worlds/managed/build-proposals/{action}/inserted?expected_revision=3"
+    assert hosted.client.request("POST", path, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path + "&expected_revision=4").status_code == 403
+    assert hosted.client.request("POST", path, json={"extra": True}).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path)
+    assert result.status_code == 200, result.text
+    assert calls == [("managed", action, 3)]
