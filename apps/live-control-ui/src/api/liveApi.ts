@@ -429,6 +429,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(metadata|original)$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  const exactStatblock = /^\/api\/live\/threat-drafts\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-revisions\/rev_[a-z0-9]+\?/.exec(path);
+  if (exactStatblock) {
+    const worldId = new URLSearchParams(path.slice(exactStatblock[0].length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === exactStatblock[0] + "world_id=" + encodeURIComponent(worldId);
+  }
   const mechanicsInventory = "/api/live/world-mechanics/associations?";
   if (path.startsWith(mechanicsInventory)) {
     const worldId = new URLSearchParams(path.slice(mechanicsInventory.length)).get("world_id");

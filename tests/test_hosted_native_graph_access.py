@@ -250,8 +250,9 @@ def hosted(monkeypatch, request):
 
     from apps.live_control_server.routes import play_prepared_tables, play_runs
 
-    from apps.live_control_server.routes import threat_drafts, world_mechanics_associations
+    from apps.live_control_server.routes import statblock_candidates, threat_drafts, world_mechanics_associations
 
+    app.include_router(statblock_candidates.router)
     app.include_router(threat_drafts.router)
     app.include_router(world_mechanics_associations.router)
     app.include_router(play_runs.router)
@@ -309,6 +310,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
             ("GET", "/api/live/threat-drafts"): access.resolve_hosted_statblock_inventory,
+            ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
@@ -2272,3 +2274,40 @@ def test_hosted_statblock_picker_reads_only_owned_world(hosted, application_stat
         assert hosted.client.request("GET", path, session="other-session").status_code == 403
         assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
     assert [row["world_id"] for row in hosted.client.request("GET", drafts).json()["drafts"]] == ["managed"]
+
+
+def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(hosted, monkeypatch):
+    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+    from apps.live_control_server.routes import agent, statblock_candidates
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    draft = "12345678-1234-1234-1234-123456789abc"
+    revision = "rev_exact"
+    review = "87654321-1234-1234-1234-123456789abc"
+    regions = [{"page": 2}]
+    calls = []
+
+    def read_exact(_root, **selectors):
+        calls.append(selectors)
+        return {"resource": {"provenance": {"accepted_through": {PDF_REVIEW_PROVENANCE: {
+            "world_id": "managed", "review_id": review, "regions": regions,
+        }}}}}
+
+    def read_review(world_id, review_id, request):
+        require_build_pdf_access(request, world_id)
+        assert str(review_id) == review
+        return {"regions": regions, "artwork": {"jpeg_base64": "portrait"}}
+
+    monkeypatch.setattr(statblock_candidates, "statblock_data_root", lambda root: root)
+    monkeypatch.setattr(statblock_candidates.saved_versions, "open_version", read_exact)
+    monkeypatch.setattr(agent, "get_pdf_statblock_review", read_review)
+    path = f"/api/live/threat-drafts/{draft}/mechanics-revisions/{revision}?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    assert hosted.client.request("GET", path + "&other=selector").status_code == 403
+    assert calls == []
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["pdf_portrait"] == "portrait"
+    assert calls == [{"world_id": "managed", "draft_id": draft, "revision_id": revision}]
