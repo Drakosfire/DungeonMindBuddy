@@ -536,3 +536,25 @@ it("opens saved World citations with session cookies and exact selectors", async
   await expect(api.authenticatedApiFetch(turn + evidence + "&anchor_id=another")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(3);
 });
+
+it("reads exact hosted conversation recovery without the local bearer", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ status: "absent" }));
+  const commandId = "12345678-1234-1234-1234-123456789abc";
+  const operationId = "22345678-1234-1234-1234-123456789abc";
+  await api.getWorldCommandResolution({
+    schema: "dmb_agent_new_conversation_resolution_request_v1",
+    original_command: { world_id: "managed", command_id: commandId,
+      expected_pointer_revision: 0, expected_active_conversation_id: null },
+    resolution_operation_id: operationId, expected_current_pointer_revision: 1,
+    expected_current_active_conversation_id: null,
+  });
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toBe(`/api/live/agent/worlds/managed/conversation/commands/${commandId}/resolutions/${operationId}?original_pointer_revision=0&original_active_conversation_id=null&current_pointer_revision=1&current_active_conversation_id=null`);
+  expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store", redirect: "error" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(String(url) + "&current_pointer_revision=2")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
