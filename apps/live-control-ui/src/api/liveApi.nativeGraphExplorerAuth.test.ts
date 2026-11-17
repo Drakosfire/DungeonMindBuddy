@@ -349,3 +349,18 @@ it("reads effective hosted run content with the session cookie and one World sel
   await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("lists hosted World mechanics from the exact picker route using session cookies", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json([]));
+  await api.listWorldMechanicsAssociations("managed");
+  expect(fetch.mock.calls[0][0]).toBe("/api/live/world-mechanics/associations?world_id=managed");
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch("/api/live/world-mechanics/associations?world_id=managed", {
+    method: "POST", body: "{}",
+  })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

@@ -250,6 +250,10 @@ def hosted(monkeypatch, request):
 
     from apps.live_control_server.routes import play_prepared_tables, play_runs
 
+    from apps.live_control_server.routes import threat_drafts, world_mechanics_associations
+
+    app.include_router(threat_drafts.router)
+    app.include_router(world_mechanics_associations.router)
     app.include_router(play_runs.router)
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
@@ -304,6 +308,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
+            ("GET", "/api/live/threat-drafts"): access.resolve_hosted_statblock_inventory,
+            ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
@@ -2240,3 +2246,29 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert recorded.status_code == 200, recorded.text
     assert recorded.json()["receipt"]["outcome"] == "Dry"
     assert hosted.client.request("PUT", roll_path, json=roll).json()["receipt"] == recorded.json()["receipt"]
+
+
+def test_hosted_statblock_picker_reads_only_owned_world(hosted, application_state_dsn, tmp_path, monkeypatch):
+    from apps.live_control_server.models.threat_draft import CreateWorldThreatDraftRequest
+    from apps.live_control_server.routes import threat_drafts, world_mechanics_associations
+    from apps.live_control_server.services.threat_draft_store import create_threat_draft
+
+    monkeypatch.setattr(threat_drafts, "statblock_data_root", lambda _root: tmp_path)
+    monkeypatch.setattr(world_mechanics_associations, "resolve_managed_world_binding", lambda _world: None)
+    for world_id in ("managed", "foreign"):
+        create_threat_draft(tmp_path, CreateWorldThreatDraftRequest(
+            scope_mode="world", world_id=world_id, campaign_id=None,
+            name=f"{world_id} creature", description="An authored creature.",
+            threat_kind="creature", created_by="gm",
+            generation_intent={"ruleset": {"system": "dnd5e", "edition": "2024"}},
+            graph_context_snapshot={"graph_revision_id": None},
+        ))
+    drafts = "/api/live/threat-drafts?world_id=managed&limit=100&offset=0"
+    associations = "/api/live/world-mechanics/associations?world_id=managed"
+    for path in (drafts, associations):
+        result = hosted.client.request("GET", path)
+        assert result.status_code == 200, result.text
+        assert result.headers["cache-control"] == "no-store"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+        assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    assert [row["world_id"] for row in hosted.client.request("GET", drafts).json()["drafts"]] == ["managed"]

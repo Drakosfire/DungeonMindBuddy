@@ -90,7 +90,11 @@ def get_threat_drafts(
     world_id: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=MAX_LIST_LIMIT)] = DEFAULT_LIST_LIMIT,
     offset: Annotated[int, Query(ge=0)] = 0,
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     try:
         drafts, total = list_threat_drafts(
             statblock_data_root(repo_root()),
