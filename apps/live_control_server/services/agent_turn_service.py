@@ -3686,7 +3686,18 @@ class _PolicyExecutionAdapter:
                 if isinstance(self._broker_execution(), (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1))
                 else graph_types.ValidatedGraphOperationEventV1
             )
+            neighborhood_replay = None
+            if request.operation == "neighborhood":
+                neighborhood_replay = {
+                    "hops": [
+                        {"relationship_id": edge, "from_node_id": start, "to_node_id": end}
+                        for edge, start, end in result._discovery_hops
+                    ],
+                    "object_limit_pruned_ids": list(result._object_limit_pruned_ids),
+                    "object_limit_pruned_count": result._object_limit_pruned_count,
+                }
             event_fields = dict(
+                neighborhood_replay=neighborhood_replay,
                 event_id=event_id,
                 sequence=len(self._broker_execution().events),
                 operation_id=uuid4(), operation="expand_graph_retrieval",
@@ -3695,6 +3706,9 @@ class _PolicyExecutionAdapter:
                 result_packet_sha256=_canonical_sha256(result_payload),
                 assertion_ids=assertion_ids,
                 relationship_ids=relationship_ids,
+                discovery_relationship_ids=(
+                    list(result._discovery_relationship_ids) if request.operation == "neighborhood" else []
+                ),
                 evidence_ref_ids=evidence_ids,
                 evidence_sufficiency_status=(
                     "sufficient" if sufficient else "insufficient"

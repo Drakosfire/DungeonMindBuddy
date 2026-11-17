@@ -16,6 +16,7 @@ from apps.live_control_server.integrations.dungeonmind.native_recap_source_admis
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import NativeWorldSourceAdmissionError
 from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest, NativeRecapConfirmRequest, NativeWorldbuildingContextRequest
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
+from apps.live_control_server.services.hosted_native_graph_access import first_world_authorizer
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
 from apps.live_control_server.models.worldbuilding_publication_coverage import WorldbuildingPublicationCoverage
@@ -521,13 +522,14 @@ def post_worldbuilding_write_plan_confirm(
 def post_first_world_prepare(
     request_context: Request,
     request: FirstWorldGraphPrepareRequest,
-    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_selector_query(request_context)
-        response = prepare_first_world(request)
+        response = prepare_first_world(request, authorize_world=first_world_authorizer(request_context))
     except ExtractPromoteError as exc:
         return _error_response(exc)
+    except HTTPException:
+        raise
     except Exception:
         correlation_id = uuid.uuid4().hex[:12]
         logger.exception(
@@ -558,13 +560,14 @@ def post_first_world_prepare(
 def post_first_world_confirm(
     request_context: Request,
     request: FirstWorldGraphConfirmRequest,
-    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_selector_query(request_context)
-        response = confirm_first_world(request)
+        response = confirm_first_world(request, authorize_world=first_world_authorizer(request_context))
     except ExtractPromoteError as exc:
         return _error_response(exc)
+    except HTTPException:
+        raise
     except Exception:
         correlation_id = uuid.uuid4().hex[:12]
         logger.exception(

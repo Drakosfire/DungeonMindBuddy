@@ -2847,7 +2847,6 @@ describe("World Plan conversation consumer", () => {
     const citation = await screen.findByRole("button",{name:"Open source 1"});
     expect(citation).toHaveAttribute("title","Session 29 recap");
     expect(read).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('tab',{name:'The Prompt'}));
     fireEvent.click(citation);
     const passage=await screen.findByLabelText("Evidence passage");
     expect(passage).toHaveTextContent("Exact inline source passage");expect(passage).toBeVisible();
@@ -5163,14 +5162,8 @@ describe("World Plan conversation consumer", () => {
     }
     if(change==='unavailable'){await screen.findByText(answer);expect(open).not.toHaveBeenCalled();return;}
     await screen.findByText(answer);
-    const recordDetails=await screen.findByRole('region',{name:'Graph record details'});
-    const details=screen.getByText('Details',{selector:'summary'}).closest('details')!;
-    expect(details).toContainElement(recordDetails);
     expect(screen.getAllByText('Details',{selector:'summary'})).toHaveLength(1);
-    expect(screen.queryByText('Graph record details',{selector:'summary'})).toBeNull();
-    const nativeClaim=context.completion!.answer_segments.find(segment=>segment.kind==='native_assertion_claim')!;
-    expect(recordDetails.querySelector('pre')?.textContent).toBe(JSON.stringify(nativeClaim.qualifications,null,2));
-    expect(screen.getByText(answer).closest('.world-plan-agent-conversation__message--assistant')).not.toContainElement(recordDetails);
+    expect(screen.queryByText('Graph record details')).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button',{name:'Read Graph assertion source'}));
     await screen.findByRole('region',{name:'Opened source section'});
     expect(open).toHaveBeenCalledWith(worldId,turnId,0);
@@ -5248,7 +5241,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(within(screen.getByText("Details", {selector: "summary"}).closest("details")!).getByRole("button", {name: named ? "Read River Watch — synthetic source · lines 1–1" : "Read passage 1"}));
     await screen.findByRole("region", {name: "Opened source passage"});
     expect(open).toHaveBeenCalledWith(worldId, turnId, 0);
-    expect(screen.getByRole("tab", {name: "The Prompt"})).toBeInTheDocument();
+    expect(screen.queryByRole("tab", {name: "The Prompt"})).not.toBeInTheDocument();
   });
 
   it("renders retained Build suggestion content in Plan without exposing page-write controls", async () => {
@@ -5493,10 +5486,10 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByText(/Provider-reported usage: 42 input · 7 output/)).toBeInTheDocument();
     expect(loadTrace).toHaveBeenCalledWith(worldId, "turn-trace", expect.any(AbortSignal));
     openLatestTurnDetails();
-    fireEvent.click(screen.getByRole("tab", { name: "The Prompt" }));
+    fireEvent.click(screen.getByText("Diagnostics", { selector: "summary" }));
+    fireEvent.click(screen.getByText("The Prompt", { selector: "summary" }));
     await screen.findByText(/No complete request was captured for this call/);
     expect(loadTrace).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("tab", { name: "Evidence Trail" }));
     fireEvent.click(screen.getByText("Details"));
     fireEvent.click(screen.getByText("Details"));
     expect(loadTrace).toHaveBeenCalledTimes(1);

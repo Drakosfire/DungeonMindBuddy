@@ -1,6 +1,8 @@
 # BUILD Page composer Slice A
 
-Status: ACTIVE. Alan authorized Build it, reviews and merge; latest direction is local only, no server deployment. Root assigned this serial successor after persistence #3689 merged as dd98d40af4d48e92bc49337cc9296f904186bf7f.
+Status: COMPLETE. Implementation merged in #3690 at 26bfa85d5e822902766977297832474b8033c246. Its UI lease is superseded by [contextual layout controls](HANDOFF-BUILD-contextual-layout-controls.md); original scope and evidence below are historical.
+
+Original authorization: Alan authorized Build it, reviews and merge; latest direction is local only, no server deployment. Root assigned this serial successor after persistence #3689 merged as dd98d40af4d48e92bc49337cc9296f904186bf7f.
 
 Authority: design at 56507b4cc47241be61a1d27fbd53a87e5d3a7421:Docs/Backlog/DESIGN-build-page-composer.md. Base fetched main dd98d40af4d48e92bc49337cc9296f904186bf7f; branch codex/build-composer-row-20261115; isolated Projects build-composer-ui-20261115/source. No active runtime/DB reuse, especially existing port8000. Draft PR separate from docs #3683. Root coordinates merge/rollout.
 

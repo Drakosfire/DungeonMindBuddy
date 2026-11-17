@@ -51,7 +51,6 @@ import { ConversationRecovery } from "../../agentInteraction/ConversationRecover
 import { ConversationDock } from "../../ui/ConversationDock";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
-import { ResponseEvidenceTabs } from "./ResponseEvidenceTabs";
 import { ConversationWorkbook } from "./ConversationWorkbook";
 import { BuddyActivity } from "./BuddyActivity";
 import { BuddyContextTraceLoader } from "./BuddyContextTraceLoader";
@@ -2439,7 +2438,22 @@ async function validateWorldPlanResponse(
 
   if(hasProposal){
     const proposal=value.plan_proposal,capture=request.plan_authoring_capture;
-    if(!isPlanAuthoredProposal(proposal)||!capture||canonicalJson(proposal.capture)!==canonicalJson(capture)
+    if (!isPlanAuthoredProposal(proposal) || !capture) return {ok:false,message:RESPONSE_MISMATCH};
+    const originalCapture = canonicalJson(capture);
+    const returnedCapture = canonicalJson(proposal.capture);
+    const offeredPlacement = request.plan_placement_catalog?.entries.some(entry =>
+      entry.kind !== "captured_target" && entry.position !== null && entry.root_boundary !== null
+      && entry.target_capture_sha256 === proposal.origin.capture_sha256
+      && returnedCapture === canonicalJson({
+        ...capture,
+        schema: "dmb_plan_authoring_boundary_capture_v1",
+        target_kind: "insert_at_boundary",
+        root_boundary: entry.root_boundary,
+        from: entry.position,
+        to: entry.position,
+      }),
+    );
+    if((returnedCapture !== originalCapture && !offeredPlacement)
       ||proposal.capture.world_id!==request.owner_scope.world_id||proposal.capture.document_id!==request.primary_work.object_id
       ||proposal.capture.base_revision!==request.primary_work.expected_revision
       ||proposal.origin.basis.revision_n!==request.primary_work.expected_revision_n
@@ -5430,20 +5444,13 @@ export function WorldPlanAgentConversation({
       ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
           sourceName={planContext.saved_source_name}
           segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
-    if(planContext?.completion?.schema==='dmb_surface_native_completion_v1') return <section className="world-plan-agent-conversation__evidence-trail">
-      <h4>Source information</h4><ResponseEvidenceTabs evidence={<p>{planContext.completion.native_body_citations.length+planContext.completion.native_clause_citations.length+planContext.completion.native_assertion_citations.length} inline citations.{(planContext.completion.native_body_citations.length || planContext.completion.native_clause_citations.length || planContext.completion.native_assertion_citations.length) ? " Open the numbered citations beside the statements in this reply." : ""}{planContext.completion.answer_segments.some(segment => segment.kind === "statblock_pdf_claim") ? " Open Reviewed statblock PDF sources in the reply to inspect the cited crop." : ""}</p>}
-        prompt={verifiedWorldId&&history?.conversation_id?<BuddyContextTraceLoader enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}/>:<p>The saved request is unavailable.</p>}/>
-    </section>;
+    if (planContext?.completion?.schema === 'dmb_surface_native_completion_v1') return null;
     if ((planContext?.completion?.schema === "dmb_build_intentional_response_completion_v1" || (planContext?.completion?.schema==="dmb_build_intentional_response_completion_v2"||planContext?.completion?.schema==="dmb_build_intentional_response_completion_v3")) || (planContext?.completion?.schema === "dmb_build_relationship_review_completion_v1" || (planContext?.completion?.schema==="dmb_build_relationship_review_completion_v2"||planContext?.completion?.schema==="dmb_build_relationship_review_completion_v3")) || planContext?.completion?.schema === "dmb_build_connected_page_review_completion_v1" || planContext?.completion?.schema === "dmb_build_collaboration_completion_v1" || planContext?.completion?.schema === "dmb_build_related_page_completion_v1" || planContext?.completion?.schema === "dmb_build_draft_context_completion_v1" || planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_build_graph_completion_v3" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v3" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v4" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v5" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v6"||planContext?.completion?.schema === "dmb_surface_evidence_completion_v7"))))) {
       return <section className="world-plan-agent-conversation__evidence-trail">
         <h4>Source information</h4>
-        <ResponseEvidenceTabs evidence={verifiedWorldId
+        {verifiedWorldId
           ? <>{savedEvidence}<BuildSourcePassageEvidence completion={planContext.completion} worldId={verifiedWorldId} turnId={turn.turn_id} /></>
           : <p>Select the original World to open these source passages.</p>}
-          prompt={verifiedWorldId && history?.conversation_id
-            ? <BuddyContextTraceLoader enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id}
-              conversationId={history.conversation_id} />
-            : <p>The saved request is unavailable.</p>} />
       </section>;
     }
     const playEvidence = turn.provenance.surface_id === "play" && verifiedWorldId
@@ -5502,7 +5509,7 @@ export function WorldPlanAgentConversation({
 
     return <section id={`buddy-evidence-${turn.turn_id}`} className="world-plan-agent-conversation__evidence-trail">
       <h4>Source information</h4><p>{summary}</p>
-      <ResponseEvidenceTabs evidence={<div className="world-plan-agent-conversation__evidence-trail-content">
+      <div className="world-plan-agent-conversation__evidence-trail-content">
         {savedEvidence}
         {playEvidence}
         {!hasEvidence && !savedEvidence && !playEvidence ? <p>No Graph citations were saved with this answer.</p> : null}
@@ -5563,9 +5570,7 @@ export function WorldPlanAgentConversation({
             </section> : null}
           </div>;
         })}
-      </div>} prompt={verifiedWorldId && history?.conversation_id ? <BuddyContextTraceLoader
-        enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}
-      /> : <p>No complete request was captured for this response.</p>} />
+      </div>
     </section>;
   }
 
@@ -5576,7 +5581,7 @@ export function WorldPlanAgentConversation({
     const terminalFailureConfirmed = isHistoryTurnFailureConfirmed(turn.turn_id);
     const terminalFailureRecorded = isWorldHistoryTurnFailed(turn.turn_id);
     const claims = completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
-    const nativeClaims = completion?.answer_segments.filter((segment) => segment.kind === "native_assertion_claim") ?? [];
+    if (completion?.schema === 'dmb_surface_native_completion_v1' && turn.lifecycle_status === 'completed') return null;
     const citations = completion && "citation_map" in completion ? completion.citation_map?.entries ?? [] : [];
     const citationByClaim = new Map(citations.map((entry) => [entry.claim_id, entry]));
     return (
@@ -5586,13 +5591,6 @@ export function WorldPlanAgentConversation({
           : terminalFailureRecorded
             ? "This World history turn failed; no final Graph-context completion was recorded."
             : "No final Graph-context completion has been recorded for this turn yet."}</p>
-        {nativeClaims.length > 0 && <section aria-label="Graph record details">
-          <h4>Graph record details</h4>
-          {nativeClaims.map((claim, index) => <div key={`${turn.turn_id}-native-claim-${index}`}>
-            <p>Graph statement {index + 1}</p>
-            <pre>{JSON.stringify(claim.qualifications, null, 2)}</pre>
-          </div>)}
-        </section>}
         {claims.map((claim, index) => {
           const citation = citationByClaim.get(claim.claim_id);
           if (!citation) return null;
@@ -6459,9 +6457,9 @@ export function WorldPlanAgentConversation({
       loaded={loaded} load={signal => inspectSavedMessage(turn, signal)} reviewLabel={savedReview ? 'Review new page' : undefined}
       showSources={Boolean(!previewReady && turn.assistant_text && turn.lifecycle_status === 'completed' && !buildCompose.items.some(item => item.originTurnId === turn.turn_id))}>
       {open && buildCompose.items.find(item => item.originTurnId === turn.turn_id)?.details}
-      {content}
-      {verifiedWorldId && history?.conversation_id && <BuddyContextTraceLoader enabled={open}
+      {verifiedWorldId && history?.conversation_id && <BuddyContextTraceLoader enabled={open} replyDetails
         worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}/>}
+      {content}
     </ConversationReplyDetails>;
   };
   const renderConversationEvent = (event: WorldConversationDisplayEvent,

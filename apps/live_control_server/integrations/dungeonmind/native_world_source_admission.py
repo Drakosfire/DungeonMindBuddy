@@ -425,6 +425,39 @@ def get_native_world_source_status(
         )
 
 
+def retain_pdf_in_bound_world(world_id, binding, command, raw):
+    repository = _repository()
+    _require_source_binding(None, world_id, binding)
+    _ensure_native_source_space(repository, world_id, binding.native_world_id)
+    _require_source_binding(None, world_id, binding)
+    revision = repository.retain_native_pdf_source(command, raw)
+    _require_source_binding(None, world_id, binding)
+    return revision
+
+
+def _ensure_native_source_space(repository, world_id, native_world_id):
+    try:
+        existing_head = repository.get_head(native_world_id)
+    except Exception as exc:
+        raise _authority_failure(exc, default_code="native_status_failed") from exc
+    if existing_head is None:
+        domain, profile = _genesis_descriptors()
+        created_at = _parse_timestamp(
+            get_world_container(world_id).created_at,
+            field="managed World created_at",
+        )
+        initialization_id = _stable_id("dmb-world-genesis", native_world_id)
+        try:
+            initialize_empty_knowledge_space(
+                repository=repository, space_id=native_world_id,
+                initialization_id=initialization_id, created_at=created_at,
+                domain_contract=domain, semantic_profile=profile,
+            )
+        except Exception as exc:
+            raise _authority_failure(exc, default_code="native_genesis_failed") from exc
+
+
+
 def admit_native_world_source(
     root, document_id: str, *, expected_revision: int, expected_body_sha256: str
 ) -> NativeWorldSourceAdmissionStatus:
@@ -453,26 +486,8 @@ def admit_native_world_source(
         )
 
     _require_source_binding(root, world_id, sealed_world_binding)
-    try:
-        existing_head = repository.get_head(native_world_id)
-    except Exception as exc:
-        raise _authority_failure(exc, default_code="native_status_failed") from exc
-    if existing_head is None:
-        domain, profile = _genesis_descriptors()
-        config.managed_world_data_root(root)
-        created_at = _parse_timestamp(
-            get_world_container(world_id).created_at,
-            field="managed World created_at",
-        )
-        initialization_id = _stable_id("dmb-world-genesis", native_world_id)
-        try:
-            initialize_empty_knowledge_space(
-                repository=repository, space_id=native_world_id,
-                initialization_id=initialization_id, created_at=created_at,
-                domain_contract=domain, semantic_profile=profile,
-            )
-        except Exception as exc:
-            raise _authority_failure(exc, default_code="native_genesis_failed") from exc
+    config.managed_world_data_root(root)
+    _ensure_native_source_space(repository, world_id, native_world_id)
 
     expected_origin = _origin(snapshot)
     for attempt in range(MAX_ADMISSION_ATTEMPTS):

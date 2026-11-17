@@ -558,11 +558,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
             ? <PdfPages key={regionSelection} file={source.file} restored={region} readOnly navigationHost={navigationHost} />
             : region && <p role="status">Opening source PDF…</p>}
       </>}>
-      {editor && !mechanicsResolved && <ul aria-label="Fields needed for combat adoption">
-        {!editor.workingCopy.movement && <li>Movement is unspecified. Enter a speed if the source supports it.</li>}
-        {editor.workingCopy.challenge.proficiency_bonus == null &&
-          <li>Proficiency bonus is unspecified. A bonus is needed for combat adoption.</li>}
-      </ul>}
       {editor && !editor.workingCopy.movement && <form onSubmit={event => {
         event.preventDefault();
         if (pending) return;

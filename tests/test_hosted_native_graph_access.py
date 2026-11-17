@@ -37,7 +37,7 @@ from application_state.world_catalog.types import (
 from apps.live_control_server.routes.native_graph_explorer import (
     router as explorer_router,
 )
-from apps.live_control_server.routes import workspace_documents
+from apps.live_control_server.routes import extract_promote, graph_preview, live, workspace_documents
 from apps.live_control_server.routes.world_containers import router as worlds_router
 from apps.live_control_server.routes.native_graph_inspection import (
     router as inspection_router,
@@ -61,6 +61,10 @@ from apps.live_control_server.services.hosted_auth import (
 )
 from tests.test_native_graph_explorer import InMemoryExplorerStore, _snapshot
 from tests.test_native_recap_preparation import TOKEN, lane as recap_lane  # noqa: F401
+from tests.test_combat_mechanics_adoption import adoption_case  # noqa: F401
+from tests.test_combat_exact_world_mechanics import combat  # noqa: F401
+from tests.test_statblock_saved_revisions import revision_case  # noqa: F401
+from tests.test_world_mechanics_associations import prepared  # noqa: F401
 
 
 FRONTEND_ORIGIN = "https://buddy.dungeonmind.net"
@@ -235,7 +239,10 @@ def hosted(monkeypatch, request):
     allowlist = {world_id: subjects for world_id in ("managed", "foreign", "unowned")}
     monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps(allowlist))
 
+    from apps.live_control_server.routes.media_images import router as media_router
+
     app = FastAPI()
+    app.include_router(media_router)
     app.include_router(explorer_router)
     app.include_router(worlds_router)
     app.include_router(inspection_router)
@@ -245,7 +252,37 @@ def hosted(monkeypatch, request):
     app.add_api_route(access.BUILD_PDF_SOURCES_PATH, get_build_pdf_sources, methods=["GET"])
     app.add_api_route(access.BUILD_PDF_SOURCES_PATH, post_build_pdf_source, methods=["POST"])
 
+    from apps.live_control_server.routes import play_prepared_tables, play_runs
+
+    from apps.live_control_server.routes import statblock_candidates, threat_drafts, world_mechanics_associations
+
+    app.include_router(statblock_candidates.router)
+    from apps.live_control_server.routes import combat_encounters
+
+    from apps.live_control_server.routes import agent as agent_routes, conversation_library
+
+    app.add_api_route("/api/live/agent/worlds/{world_id}/conversation", agent_routes.get_world_conversation_history, methods=["GET"])
+    app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/new", agent_routes.post_new_world_conversation, methods=["POST"])
+    app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}", agent_routes.get_new_world_conversation_status, methods=["GET"])
+    app.add_api_route("/api/live/agent/turn", agent_routes.post_agent_turn, methods=["POST"])
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}",
+        agent_routes.get_world_turn_native_body_excerpt, methods=["GET"],
+    )
+    app.include_router(conversation_library.router)
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
+        agent_routes.get_world_turn_native_source_section, methods=["GET"],
+    )
+    app.include_router(combat_encounters.router)
+    app.include_router(threat_drafts.router)
+    app.include_router(world_mechanics_associations.router)
+    app.include_router(play_runs.router)
+    app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
+    app.include_router(extract_promote.router)
+    app.include_router(live.router)
+    app.include_router(graph_preview.router)
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", get_pdf_statblock_publication, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", post_pdf_statblock_publication, methods=["POST"])
@@ -263,9 +300,68 @@ def hosted(monkeypatch, request):
                 for operation in OPERATIONS
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
+            ("POST", access.FIRST_WORLD_PREPARE_PATH): access.resolve_hosted_first_world,
+            ("POST", access.FIRST_WORLD_CONFIRM_PATH): access.resolve_hosted_first_world,
             ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("POST", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
             ("GET", access.BUILD_PAGE_INVENTORY_PATH): access.resolve_hosted_build_page_inventory,
+            ("POST", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_saved_recap,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): access.resolve_hosted_saved_recap,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
+            ("GET", "/api/live/workspace-documents/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_committed_plan,
+            ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
+            ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
+            ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/reference-manifest"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/content"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables"): access.resolve_hosted_play_read,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): access.resolve_hosted_play_table_roll,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
+            ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
+            ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
+            ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
+            ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
+            ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
+            ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
+            ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
+            ("GET", "/api/live/threat-drafts"): access.resolve_hosted_statblock_inventory,
+            ("POST", "/api/live/agent/turn"): access.resolve_hosted_chat_turn,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/encounters/saved-mechanics/preview"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/encounters/accepted-mechanics/preview"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/encounters/world-mechanics/preview"): access.resolve_hosted_combat_encounter,
+            ("GET", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions:cancel"): access.resolve_hosted_combat_encounter,
+            ("GET", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions/{operation_id}"): access.resolve_hosted_combat_encounter,
+            ("GET", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions"): access.resolve_hosted_combat_encounter,
+            ("PUT", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
+            ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): access.resolve_hosted_saved_statblock,
+            ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_saved_statblock,
+            ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
+            ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
+            ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/accept/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
             ("GET", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
@@ -1832,3 +1928,792 @@ def test_hosted_build_reads_only_exact_published_statblock(hosted, monkeypatch, 
         assert response.json() == {"pdf_portrait": "retained-artwork"}
     else:
         assert "retained-artwork" not in response.text
+
+
+def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_preparing(hosted, monkeypatch):
+    from apps.live_control_server.services import promotable_ingest_run
+
+    monkeypatch.setattr(
+        promotable_ingest_run, "resolve_promotable_ingest_run",
+        lambda run_id, *, root: SimpleNamespace(world_id="managed" if run_id in {"owned", "changed"} else "foreign"),
+    )
+    prepared = []
+
+    def prepare(payload, *, authorize_world):
+        authorize_world("foreign" if payload.run_id == "changed" else "managed")
+        prepared.append(payload.run_id)
+        raise extract_promote.ExtractPromoteError("probe reached", code="probe_reached", status_code=409)
+
+    monkeypatch.setattr(extract_promote, "prepare_first_world", prepare)
+    payload = {"runId": "owned", "decisions": [{"assertionId": "source-assertion", "decision": "create_new"}]}
+    route = access.FIRST_WORLD_PREPARE_PATH
+
+    assert hosted.client.request("POST", route, json=payload).status_code == 409
+    assert hosted.client.request("POST", route, json=payload, session="other-session").status_code == 403
+    assert hosted.client.request("POST", route, json={**payload, "runId": "foreign"}).status_code == 403
+    assert hosted.client.request("POST", route, json=payload, origin="https://untrusted.example").status_code == 403
+    assert hosted.client.request("POST", route, json={**payload, "runId": "changed"}).status_code == 403
+    assert prepared == ["owned"]
+
+
+def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_state_dsn, monkeypatch):
+    documents = "/api/live/workspace-documents"
+    editor = "/api/live/tiptap/markdown-write"
+    create = {
+        "title": "First source", "kind": "worldbuilding_source",
+        "authority_state": "draft", "visibility_state": "internal",
+        "source_domain": "worldbuilding", "document_class": "lore",
+        "world_id": "managed", "campaign_id": "managed",
+    }
+    assert hosted.client.request("POST", documents, json=create, session="other-session").status_code == 403
+    assert hosted.client.request("POST", documents, json={**create, "campaign_id": "foreign"}).status_code == 403
+    created = hosted.client.request("POST", documents, json=create)
+    assert created.status_code == 200, created.text
+    record = created.json()
+    document = f"{documents}/{record['document_id']}"
+    markdown = "# First source\n\nThe pilot town has a well.\n"
+    request = {
+        "document_id": record["document_id"], "markdown": markdown,
+        "expected_revision": record["revision"],
+    }
+
+    assert hosted.client.request("GET", document, session="other-session").status_code == 403
+    assert hosted.client.request("GET", f"{document}/snapshot?world_id=foreign").status_code == 403
+    assert hosted.client.request("POST", f"{editor}/prepare", json=request, session="other-session").status_code == 403
+    prepared = hosted.client.request("POST", f"{editor}/prepare", json=request)
+    assert prepared.status_code == 200, prepared.text
+    token = prepared.json()["writer_confirm_token"]
+    commit = {**request, "writer_confirm_token": token}
+    assert hosted.client.request("POST", f"{editor}/commit", json=commit, session="other-session").status_code == 403
+    committed = hosted.client.request("POST", f"{editor}/commit", json=commit)
+    assert committed.status_code == 200, committed.text
+    reopened = hosted.client.request("GET", f"{document}/snapshot")
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.headers["cache-control"] == "no-store"
+    assert "The pilot town has a well." in reopened.json()["markdown"]
+
+
+    from apps.live_control_server.services import graph_preview_runner, graph_run_registry
+
+    runs = {}
+
+    def run_extraction(*, source_artifact_id, **kwargs):
+        run_id = str(uuid4())
+        run = SimpleNamespace(
+            run_id=run_id, source_artifact_id=source_artifact_id, source_domain="worldbuilding",
+            model_dump=lambda **kwargs: {"run_id": run_id},
+        )
+        runs[run_id] = run
+        return SimpleNamespace(run=run, failure_kind=None, diagnostics=[])
+
+    monkeypatch.setattr(graph_preview_runner, "run_worldbuilding_production_extraction", run_extraction)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", runs.__getitem__)
+    launch = "/api/live/graph-preview/extraction-runs"
+    snapshot = reopened.json()
+    extraction = {
+        "document_id": record["document_id"],
+        "expected_revision": snapshot["record"]["revision"],
+        "expected_content_sha256": snapshot["content_sha256"],
+    }
+    native_source = f"{document}/native-world-source"
+    revision = snapshot["record"]["revision"]
+    native_reads = []
+
+    def read_native_source(_root, document_id, *, expected_revision):
+        native_reads.append((document_id, expected_revision))
+        return workspace_documents.NativeWorldSourceAdmissionStatus(
+            state="pending", world_id="managed", document_id=document_id,
+            loaded_revision=revision, body_sha256=snapshot["content_sha256"],
+            admission_id="test-admission", space_id="native-managed",
+        )
+
+    monkeypatch.setattr(workspace_documents, "read_native_world_source_status", read_native_source)
+    assert hosted.client.request("GET", native_source, session="other-session").status_code == 403
+    assert hosted.client.request("GET", native_source + "?world_id=managed").status_code == 403
+    assert hosted.client.request("GET", native_source + "?expected_revision=1&expected_revision=2").status_code == 403
+    assert not native_reads
+    for query, expected in (("", None), (f"?expected_revision={revision}", revision)):
+        status = hosted.client.request("GET", native_source + query)
+        assert status.status_code == 200, status.text
+        assert status.json()["document_id"] == record["document_id"]
+        assert status.json()["loaded_revision"] == revision
+        assert status.headers["cache-control"] == "no-store"
+        assert native_reads[-1] == (record["document_id"], expected)
+
+    assert snapshot["record"]["target_relpath"] is None
+    assert hosted.client.request("POST", launch, json=extraction, session="other-session").status_code == 403
+    assert not runs
+    started = hosted.client.request("POST", launch, json=extraction)
+    assert started.status_code == 200, started.text
+    exact_run = f"{launch}/{started.json()['run']['run_id']}"
+    for route in (exact_run, f"{exact_run}/build-context"):
+        assert hosted.client.request("GET", route, session="other-session").status_code == 403
+        read = hosted.client.request("GET", route)
+        assert read.status_code == 200, read.text
+        assert read.headers["cache-control"] == "no-store"
+
+    reviewed_runs = []
+
+    def read_review_package(run_id):
+        reviewed_runs.append(run_id)
+        raise extract_promote.ExtractPromoteError(
+            "Review package is still being prepared.",
+            code="review_package_pending",
+            status_code=409,
+        )
+
+    monkeypatch.setattr(extract_promote, "get_exact_run_review_package", read_review_package)
+    run_id = started.json()["run"]["run_id"]
+    review_route = f"/api/live/extract-promote/runs/{run_id}/review-package"
+    assert hosted.client.request("GET", review_route, session="other-session").status_code == 403
+    assert not reviewed_runs
+    read = hosted.client.request("GET", review_route)
+    assert read.status_code == 409, read.text
+    assert reviewed_runs == [run_id]
+    assert read.headers["cache-control"] == "no-store"
+
+
+def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn):
+    from io import BytesIO
+
+    from PIL import Image
+    from application_state import media
+
+    world_id = next(iter(access.hosted_auth.hosted_world_access()))
+    image = BytesIO()
+    Image.new("RGB", (2, 2)).save(image, format="PNG")
+    payload = image.getvalue()
+    asset = media.stage_image(payload, access.hosted_world_media_owner(world_id), {})
+    path = f"/api/live/media/images/{asset['asset_id']}"
+    metadata = hosted.client.request("GET", f"{path}/metadata")
+    assert metadata.status_code == 200, metadata.text
+    assert metadata.json()["asset_id"] == str(asset["asset_id"])
+    original = hosted.client.request("GET", f"{path}/original")
+    assert original.status_code == 200, original.text
+    assert original.content == payload
+    assert original.headers["cache-control"] == "no-store"
+    for suffix in ("metadata", "original"):
+        assert hosted.client.request("GET", f"{path}/{suffix}", session="other-session").status_code == 403
+        assert hosted.client.request("GET", f"{path}/{suffix}?world_id={world_id}").status_code == 403
+
+
+def test_hosted_plan_context_requires_exact_owned_world(hosted):
+    world_id = next(iter(access.hosted_auth.hosted_world_access()))
+    for query, version in ((f"world_id={world_id}", "v1"), (f"scope_mode=world&world_id={world_id}", "v2")):
+        path = f"/api/live/plan-view?{query}"
+        response = hosted.client.request("GET", path)
+        assert response.status_code == 200, response.text
+        assert response.json()["world_id"] == world_id
+        assert response.json()["schema_version"] == f"dmb_managed_world_plan_context_{version}"
+        assert response.headers["cache-control"] == "no-store"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    for query in ("", f"?world_id={world_id}&world_id={world_id}", f"?world_id={world_id}&campaign_id=other"):
+        assert hosted.client.request("GET", f"/api/live/plan-view{query}").status_code == 403
+
+
+def test_hosted_plan_inventory_reopens_an_exact_owned_plan(hosted, application_state_dsn, tmp_path):
+    from apps.live_control_server.services.workspace_document_registry import create_world_owned_plan_v2
+
+    plan = create_world_owned_plan_v2(tmp_path, world_id="managed", title="Hosted session plan")
+    base = "/api/live/workspace-documents"
+    inventory = f"{base}/world-plans?world_id=managed"
+    snapshot = f"{base}/{plan.document_id}/snapshot"
+    listed = hosted.client.request("GET", inventory)
+    assert listed.status_code == 200, listed.text
+    assert [r["document_id"] for r in listed.json()["records"]] == [plan.document_id]
+    read = hosted.client.request("GET", snapshot)
+    assert read.status_code == 200, read.text
+    assert read.json()["record"]["document_id"] == plan.document_id
+    assert read.json()["record"]["world_id"] == "managed"
+    for path in (inventory, snapshot):
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    for path in (inventory + "&scope_mode=world", snapshot + "?view=committed", f"{base}/{plan.document_id}"):
+        assert hosted.client.request("GET", path).status_code == 403
+
+
+def test_hosted_owner_saves_exact_world_plan(hosted, application_state_dsn, tmp_path):
+    from apps.live_control_server.services.workspace_document_registry import create_world_owned_plan_v2
+
+    plan = create_world_owned_plan_v2(tmp_path, world_id="managed", title="Before")
+    editor = "/api/live/tiptap/markdown-write"
+    body = {
+        "schema_version": "dmb_tiptap_markdown_write_prepare_v2",
+        "scope_mode": "world",
+        "world_id": "managed",
+        "document_id": plan.document_id,
+        "title": "After",
+        "markdown": "# After\n\nA saved Plan.\n",
+        "expected_revision": plan.revision,
+    }
+    assert hosted.client.request("POST", f"{editor}/prepare", json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", f"{editor}/prepare", json={**body, "world_id": "foreign"}).status_code == 403
+    prepared = hosted.client.request("POST", f"{editor}/prepare", json=body)
+    assert prepared.status_code == 200, prepared.text
+    commit = {
+        **body,
+        "schema_version": "dmb_tiptap_markdown_write_commit_v2",
+        "expected_revision": prepared.json()["registry_revision"],
+        "writer_confirm_token": prepared.json()["writer_confirm_token"],
+    }
+    assert hosted.client.request("POST", f"{editor}/commit", json=commit, session="other-session").status_code == 403
+    saved = hosted.client.request("POST", f"{editor}/commit", json=commit)
+    assert saved.status_code == 200, saved.text
+    snapshot = hosted.client.request("GET", f"/api/live/workspace-documents/{plan.document_id}/snapshot")
+    assert snapshot.status_code == 200, snapshot.text
+    assert snapshot.json()["record"]["title"] == "After"
+    assert snapshot.json()["markdown"] == body["markdown"]
+    path = f"/api/live/workspace-documents/{plan.document_id}/committed-revision"
+    committed = hosted.client.request("GET", path)
+    assert committed.status_code == 200, committed.text
+    assert committed.json()["world_id"] == "managed"
+    assert committed.json()["document_id"] == plan.document_id
+    assert committed.json()["markdown"] == body["markdown"]
+    assert committed.json()["content_sha256"] == saved.json()["normalized_content_sha256"]
+    assert committed.headers["cache-control"] == "no-store"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=managed").status_code == 403
+
+
+def test_hosted_owner_creates_lists_and_reopens_plan(hosted, application_state_dsn):
+    base = "/api/live/workspace-documents"
+    create = f"{base}/world-plans"
+    body = {
+        "schema_version": "dmb_workspace_document_create_v2",
+        "scope_mode": "world",
+        "world_id": "managed",
+        "title": "New hosted Plan",
+    }
+    assert hosted.client.request("POST", create, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", create, json={**body, "world_id": "foreign"}).status_code == 403
+    assert hosted.client.request("POST", create + "?world_id=managed", json=body).status_code == 403
+    created = hosted.client.request("POST", create, json=body)
+    assert created.status_code == 200, created.text
+    record = created.json()
+    assert record["world_id"] == "managed"
+    assert record["campaign_id"] is None
+    assert created.headers["cache-control"] == "no-store"
+    listed = hosted.client.request("GET", create + "?world_id=managed")
+    assert listed.status_code == 200, listed.text
+    assert [row["document_id"] for row in listed.json()["records"]] == [record["document_id"]]
+    snapshot = hosted.client.request("GET", f"{base}/{record['document_id']}/snapshot")
+    assert snapshot.status_code == 200, snapshot.text
+    assert snapshot.json()["record"]["title"] == body["title"]
+
+
+def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_state_dsn, tmp_path):
+    from application_state.content.service import commit_plan
+    from apps.live_control_server.services.workspace_document_registry import create_world_owned_plan_v2
+    from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
+
+    from tests.test_prepared_tables import source
+
+    plan = create_world_owned_plan_v2(tmp_path, world_id="managed", title="Play source")
+    commit_plan(plan.document_id, V2_SOURCE_MARKDOWN + "\n\n" + source(), expected_world_id="managed", expected_revision=plan.revision)
+    saved = hosted.client.request("GET", f"/api/live/workspace-documents/{plan.document_id}/committed-revision")
+    assert saved.status_code == 200, saved.text
+    record = saved.json()
+    body = {
+        "playable_artifact_id": plan.document_id,
+        "expected_playable_revision": record["revision_n"],
+        "expected_playable_work_revision_id": record["work_revision_id"],
+        "expected_playable_content_sha256": record["content_sha256"],
+    }
+    path = "/api/live/world-play-runs/v2/preparation?world_id=managed"
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path + "&world_id=managed", json=body).status_code == 403
+    assert hosted.client.request("POST", path.replace("managed", "foreign"), json=body).status_code == 403
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 200, result.text
+    assert {k: result.json()["request"][k] for k in body} == body
+    assert result.json()["scenes"]
+    assert result.headers["cache-control"] == "no-store"
+    from uuid import uuid4
+
+    run_id = str(uuid4())
+    base = f"/api/live/world-play-runs/v2/{run_id}"
+    run_path = f"{base}?world_id=managed"
+    receipt_path = f"{base}/creation?world_id=managed"
+    intent = result.json()["request"]
+    assert hosted.client.request("PUT", run_path, json=intent, session="other-session").status_code == 403
+    assert hosted.client.request("PUT", run_path.replace("managed", "foreign"), json=intent).status_code == 403
+    created = hosted.client.request("PUT", run_path, json=intent)
+    assert created.status_code == 200, created.text
+    receipt = created.json()
+    assert receipt["run"]["run_id"] == run_id
+    assert receipt["run"]["playable_work_revision_id"] == body["expected_playable_work_revision_id"]
+    assert hosted.client.request("PUT", run_path, json=intent).json() == receipt
+    assert hosted.client.request("GET", receipt_path).json() == receipt
+    assert hosted.client.request("GET", receipt_path, session="other-session").status_code == 403
+    assert hosted.client.request("POST", f"{base}/creation:cancel?world_id=managed", json=intent).json() == receipt
+
+    runs = "/api/live/world-play-runs/v2"
+    for path in (f"{runs}?world_id=managed", f"{runs}/active?world_id=managed", run_path):
+        response = hosted.client.request("GET", path)
+        assert response.status_code == 200, response.text
+        assert response.headers["cache-control"] == "no-store"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+        assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    opened = hosted.client.request("GET", run_path).json()
+    assert opened["run_id"] == run_id
+    assert opened["playable_work_revision_id"] == body["expected_playable_work_revision_id"]
+    listed = hosted.client.request("GET", f"{runs}?world_id=managed").json()
+    assert [record["run_id"] for record in listed["records"]] == [run_id]
+    active = hosted.client.request("GET", f"{runs}/active?world_id=managed").json()
+    assert active["world_id"] == "managed"
+
+    commit_plan(plan.document_id, V2_SOURCE_MARKDOWN + "\nA newer Plan revision.\n", expected_world_id="managed", expected_revision=record["object_revision"])
+    manifest_path = f"{base}/reference-manifest?world_id=managed"
+    content_path = f"{base}/content?world_id=managed"
+    pinned_path = f"/api/live/workspace-documents/{plan.document_id}/committed-revision/{record['revision_n']}"
+    for path in (manifest_path, content_path, pinned_path):
+        response = hosted.client.request("GET", path)
+        assert response.status_code == 200, response.text
+        assert response.headers["cache-control"] == "no-store"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    manifest = hosted.client.request("GET", manifest_path).json()
+    assert manifest["playable_content_sha256"] == body["expected_playable_content_sha256"]
+    pinned = hosted.client.request("GET", pinned_path).json()
+    assert pinned["markdown"] == record["markdown"]
+    assert pinned["work_revision_id"] == body["expected_playable_work_revision_id"]
+
+    tables_path = f"{base}/prepared-tables?world_id=managed"
+    table_response = hosted.client.request("GET", tables_path)
+    assert table_response.status_code == 200, table_response.text
+    inventory = table_response.json()
+    table = inventory["tables"][0]
+    assert table["title"] == "Weather"
+    assert hosted.client.request("GET", tables_path, session="other-session").status_code == 403
+    roll_path = f"{base}/prepared-tables/commands/{uuid4()}?world_id=managed"
+    roll = {
+        "expected_run_revision": inventory["run"]["run_revision"],
+        **inventory["source"],
+        "table_id": table["table_id"],
+        "table_sha256": table["table_sha256"],
+        "physical_value": 2,
+    }
+    assert hosted.client.request("PUT", roll_path, json=roll, session="other-session").status_code == 403
+    recorded = hosted.client.request("PUT", roll_path, json=roll)
+    assert recorded.status_code == 200, recorded.text
+    assert recorded.json()["receipt"]["outcome"] == "Dry"
+    assert hosted.client.request("PUT", roll_path, json=roll).json()["receipt"] == recorded.json()["receipt"]
+
+
+def test_hosted_statblock_picker_reads_only_owned_world(hosted, application_state_dsn, tmp_path, monkeypatch):
+    from apps.live_control_server.models.threat_draft import CreateWorldThreatDraftRequest
+    from apps.live_control_server.routes import threat_drafts, world_mechanics_associations
+    from apps.live_control_server.services.threat_draft_store import create_threat_draft
+
+    monkeypatch.setattr(threat_drafts, "statblock_data_root", lambda _root: tmp_path)
+    monkeypatch.setattr(world_mechanics_associations, "resolve_managed_world_binding", lambda _world: None)
+    for world_id in ("managed", "foreign"):
+        create_threat_draft(tmp_path, CreateWorldThreatDraftRequest(
+            scope_mode="world", world_id=world_id, campaign_id=None,
+            name=f"{world_id} creature", description="An authored creature.",
+            threat_kind="creature", created_by="gm",
+            generation_intent={"ruleset": {"system": "dnd5e", "edition": "2024"}},
+            graph_context_snapshot={"graph_revision_id": None},
+        ))
+    drafts = "/api/live/threat-drafts?world_id=managed&limit=100&offset=0"
+    associations = "/api/live/world-mechanics/associations?world_id=managed"
+    for path in (drafts, associations):
+        result = hosted.client.request("GET", path)
+        assert result.status_code == 200, result.text
+        assert result.headers["cache-control"] == "no-store"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+        assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    assert [row["world_id"] for row in hosted.client.request("GET", drafts).json()["drafts"]] == ["managed"]
+
+
+def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(hosted, monkeypatch):
+    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+    from apps.live_control_server.routes import agent, statblock_candidates
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    draft = "12345678-1234-1234-1234-123456789abc"
+    revision = "rev_exact"
+    review = "87654321-1234-1234-1234-123456789abc"
+    regions = [{"page": 2}]
+    calls = []
+
+    def read_exact(_root, **selectors):
+        calls.append(selectors)
+        return {"resource": {"provenance": {"accepted_through": {PDF_REVIEW_PROVENANCE: {
+            "world_id": "managed", "review_id": review, "regions": regions,
+        }}}}}
+
+    def read_review(world_id, review_id, request):
+        require_build_pdf_access(request, world_id)
+        assert str(review_id) == review
+        return {"regions": regions, "artwork": {"jpeg_base64": "portrait"}}
+
+    monkeypatch.setattr(statblock_candidates, "statblock_data_root", lambda root: root)
+    monkeypatch.setattr(statblock_candidates.saved_versions, "open_version", read_exact)
+    monkeypatch.setattr(agent, "get_pdf_statblock_review", read_review)
+    path = f"/api/live/threat-drafts/{draft}/mechanics-revisions/{revision}?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    assert hosted.client.request("GET", path + "&other=selector").status_code == 403
+    assert calls == []
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["pdf_portrait"] == "portrait"
+    assert calls == [{"world_id": "managed", "draft_id": draft, "revision_id": revision}]
+
+
+def test_hosted_ingest_lists_and_reopens_saved_source_in_owned_world(hosted, monkeypatch):
+    from uuid import UUID
+    from apps.live_control_server.models.saved_recap_runs import (
+        SavedRecapRun, SavedRecapRunsResponse, SavedRecapSourceResponse,
+    )
+    from apps.live_control_server.services import ingest_run_catalog
+
+    source = UUID("12345678-1234-1234-1234-123456789abc")
+    scope = {"managed_world_id": "managed", "native_world_id": "world:managed", "binding_version": 1}
+    run = SavedRecapRun(
+        run_id="recap-run", run_revision=2, run_status="reviewable", source_artifact_id="recap",
+        campaign_id="campaign", session_id=None, profile_id=None, created_at=None, updated_at=None,
+        source_revision_id=source, source_sha256="a" * 64,
+    )
+    calls = []
+
+    def list_runs(*, root, **selectors):
+        calls.append(selectors)
+        return SavedRecapRunsResponse(**scope, runs=[run])
+
+    def read_source(*, root, **selectors):
+        calls.append(selectors)
+        return SavedRecapSourceResponse(**scope, run=run, source_prose="Frozen recap.")
+
+    monkeypatch.setattr(ingest_run_catalog, "list_saved_recap_runs", list_runs)
+    monkeypatch.setattr(ingest_run_catalog, "read_saved_recap_source", read_source)
+    base = "/api/live/graph-preview/extraction-runs"
+    catalog = f"{base}?managed_world_id=managed&campaign_id=campaign"
+    inspection = (
+        f"{base}/{run.run_id}/recap-inspection?managed_world_id=managed"
+        f"&expected_run_revision=2&source_revision_id={source}"
+    )
+    for path in (catalog, inspection):
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+        assert hosted.client.request("GET", path + "&unexpected=1").status_code == 403
+        assert hosted.client.request("GET", path + "&managed_world_id=managed").status_code == 403
+    assert calls == []
+    response = hosted.client.request("GET", catalog)
+    assert response.status_code == 200, response.text
+    assert response.json()["runs"][0]["sourceRevisionId"] == str(source)
+    response = hosted.client.request("GET", inspection)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["sourceProse"] == "Frozen recap."
+    assert calls == [
+        {"managed_world_id": "managed", "campaign_id": "campaign"},
+        {"managed_world_id": "managed", "run_id": run.run_id,
+         "expected_run_revision": 2, "source_revision_id": source},
+    ]
+
+
+def test_hosted_ingest_candidate_projection_is_owned_and_exact(hosted, monkeypatch):
+    from apps.live_control_server.services import exact_run_candidate_projection
+
+    calls = []
+
+    def read_candidate(_root, run_id, world_id):
+        calls.append((run_id, world_id))
+        return SavedCandidate()
+
+    class SavedCandidate:
+        def model_dump(self, *, mode, by_alias):
+            return {"runId": "recap-run", "managedWorldId": "managed"}
+
+    monkeypatch.setattr(exact_run_candidate_projection, "build_exact_run_candidate_projection", read_candidate)
+    path = "/api/live/graph-preview/extraction-runs/recap-run/candidate-projection?managed_world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&campaign_id=foreign").status_code == 403
+    assert hosted.client.request("GET", path + "&managed_world_id=foreign").status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 200, result.text
+    assert result.headers["cache-control"] == "no-store"
+    assert result.json() == {"runId": "recap-run", "managedWorldId": "managed"}
+    assert calls == [("recap-run", "managed")]
+
+
+def test_hosted_combat_lists_and_reopens_only_owned_encounters(hosted, application_state_dsn, monkeypatch):
+    from application_state.combat_encounters.service import create_encounter
+    from application_state.combat_encounters.types import CreateCombatEncounterRequest
+    from apps.live_control_server.routes import combat_encounters
+
+    monkeypatch.setattr(combat_encounters, "_verified_world", lambda world_id: world_id)
+    owned = create_encounter(world_id="managed", request=CreateCombatEncounterRequest(title="Owned encounter"))
+    foreign = create_encounter(world_id="foreign", request=CreateCombatEncounterRequest(title="Foreign encounter"))
+    base = "/api/live/combat/encounters"
+    catalog = f"{base}?world_id=managed"
+    detail = f"{base}/{owned.encounter_id}?world_id=managed"
+    for path in (catalog, detail):
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+        assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    result = hosted.client.request("GET", catalog)
+    assert result.status_code == 200, result.text
+    assert result.json() == [owned.model_dump(mode="json", by_alias=True)]
+    result = hosted.client.request("GET", detail)
+    assert result.status_code == 200, result.text
+    assert result.headers["cache-control"] == "no-store"
+    assert result.json() == owned.model_dump(mode="json", by_alias=True)
+    assert hosted.client.request("GET", f"{base}/{foreign.encounter_id}?world_id=managed").status_code == 404
+    assert hosted.client.request("POST", catalog, origin=None, json={"title": "Denied"}).status_code == 403
+
+
+def test_hosted_combat_create_save_and_reload_require_owned_world_and_origin(
+    hosted, application_state_dsn, monkeypatch,
+):
+    from application_state.combat_encounters.service import create_encounter
+    from application_state.combat_encounters.types import CreateCombatEncounterRequest
+    from apps.live_control_server.routes import combat_encounters
+
+    monkeypatch.setattr(combat_encounters, "_verified_world", lambda world_id: world_id)
+    base = "/api/live/combat/encounters"
+    catalog = f"{base}?world_id=managed"
+    create = {"title": "Hosted rehearsal"}
+    assert hosted.client.request("POST", catalog, origin=None, json=create).status_code == 403
+    assert hosted.client.request("POST", catalog, session="other-session", json=create).status_code == 403
+    assert hosted.client.request("GET", catalog).json() == []
+    result = hosted.client.request("POST", catalog, json=create)
+    assert result.status_code == 200, result.text
+    created = result.json()
+    detail = f"{base}/{created['encounter_id']}?world_id=managed"
+    save = {"expected_revision": 1, "draft": {**created["draft"], "title": "Saved rehearsal"}}
+    assert hosted.client.request("PUT", detail, origin=None, json=save).status_code == 403
+    foreign = create_encounter(world_id="foreign", request=CreateCombatEncounterRequest(title="Foreign"))
+    assert hosted.client.request("PUT", f"{base}/{foreign.encounter_id}?world_id=managed", json=save).status_code == 404
+    result = hosted.client.request("PUT", detail, json=save)
+    assert result.status_code == 200, result.text
+    assert result.json()["revision"] == 2
+    assert result.json()["draft"]["title"] == "Saved rehearsal"
+    assert hosted.client.request("GET", detail).json() == result.json()
+    assert hosted.client.request("PUT", detail, json=save).status_code == 409
+
+
+def test_hosted_combat_saved_revision_selection_and_preview(hosted, monkeypatch):
+    from apps.live_control_server.routes import combat_encounters, statblock_candidates
+    from application_state.errors import ApplicationStateConflictError
+
+    draft = "12345678-1234-1234-1234-123456789abc"
+    history = f"/api/live/threat-drafts/{draft}/mechanics-revisions?world_id=managed&offset=0"
+    preview = "/api/live/combat/encounters/saved-mechanics/preview?world_id=managed"
+    locator = {
+        "provider": "dungeonmind", "contract": "dungeonmind.dungeonbuddy-statblocks",
+        "contract_version": "1.0.0", "statblock_id": "sb_example", "revision_id": "rev_example",
+        "definition_digest": "sha256:" + "a" * 64,
+    }
+    body = {"draft_id": draft, "locator": locator}
+    calls = []
+
+    def list_versions(_root, **selectors):
+        calls.append(selectors)
+        return {"original": locator, "operations": []}
+
+    def read_preview(*, world_id, draft_id, locator):
+        calls.append((world_id, str(draft_id), locator.revision_id))
+        raise ApplicationStateConflictError("No exact proof for that revision")
+
+    monkeypatch.setattr(statblock_candidates, "statblock_data_root", lambda root: root)
+    monkeypatch.setattr(statblock_candidates.saved_versions, "list_versions", list_versions)
+    monkeypatch.setattr(combat_encounters, "_verified_world", lambda world_id: world_id)
+    monkeypatch.setattr(combat_encounters.combat_mechanics, "preview_saved_override", read_preview)
+    assert hosted.client.request("GET", history, session="other-session").status_code == 403
+    assert hosted.client.request("GET", history + "&offset=1").status_code == 403
+    assert hosted.client.request("POST", preview, origin=None, json=body).status_code == 403
+    assert hosted.client.request("POST", preview, session="other-session", json=body).status_code == 403
+    assert calls == []
+    listed = hosted.client.request("GET", history)
+    assert listed.status_code == 200, listed.text
+    assert listed.headers["cache-control"] == "no-store"
+    assert listed.json()["original"] == locator
+    refused = hosted.client.request("POST", preview, json=body)
+    assert refused.status_code == 409, refused.text
+    assert calls == [
+        {"world_id": "managed", "draft_id": draft, "limit": 50, "offset": 0},
+        ("managed", draft, "rev_example"),
+    ]
+
+
+def test_hosted_combat_adoption_applies_and_reopens_exact_receipt(
+    adoption_case, hosted, monkeypatch,
+):
+    p = adoption_case
+    hosted.records["elderwyld"] = _record("elderwyld", OWNER, p.binding.native_world_id)
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({"elderwyld": [OWNER, OTHER_OWNER]}))
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(p.root))
+    history = p.adopt_url
+    operation = p.intent["operation_id"]
+    inspect = history.replace("mechanics-adoptions?", f"mechanics-adoptions/{operation}?")
+    assert hosted.client.request("POST", history, origin=None, json=p.intent).status_code == 403
+    assert hosted.client.request("POST", history, session="other-session", json=p.intent).status_code == 403
+    assert hosted.client.request("GET", history).json()["receipts"] == []
+    result = hosted.client.request("POST", history, json=p.intent)
+    assert result.status_code == 200, result.text
+    outcome = result.json()
+    assert outcome["receipt"]["operation_id"] == operation
+    assert outcome["receipt"]["committed_revision"] == 3
+    assert outcome["encounter"]["draft"]["entities"][0]["mechanics_snapshot"]["locator"] == p.locator
+    assert hosted.client.request("GET", p.encounter_url).json() == outcome["encounter"]
+    assert hosted.client.request("GET", inspect, session="other-session").status_code == 403
+    assert hosted.client.request("GET", inspect).json() == outcome
+    assert hosted.client.request("GET", history).json()["receipts"] == [outcome["receipt"]]
+    assert hosted.client.request("GET", history + f"&before_operation_id={operation}").json()["receipts"] == []
+    assert hosted.client.request("POST", p.cancel_url, json=p.intent).json() == outcome
+
+
+@pytest.mark.parametrize("preview_kind", ["accepted-mechanics", "world-mechanics"])
+def test_hosted_combat_adds_actor_from_exact_preview(combat, hosted, monkeypatch, preview_kind):
+    from apps.live_control_server.routes import combat_encounters
+    from tests.test_combat_direct_mechanics import body as direct_body
+    from tests.test_combat_exact_world_mechanics import body as linked_body
+
+    p = combat
+    record = _record("elderwyld", OWNER, p.binding.native_world_id)
+    hosted.records["elderwyld"] = record.model_copy(update={
+        "native_graph_binding": record.native_graph_binding.model_copy(
+            update={"binding_version": p.binding.binding_version},
+        ),
+    })
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({"elderwyld": [OWNER, OTHER_OWNER]}))
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(p.root))
+    monkeypatch.setattr(combat_encounters, "_verified_world", lambda world_id: world_id)
+    path = f"/api/live/combat/encounters/{preview_kind}/preview?world_id=elderwyld"
+    if preview_kind == "accepted-mechanics":
+        selection = {"draft_id": p.draft.draft_id, "draft_version": p.draft.version}
+        build_save = direct_body
+    else:
+        selection = p.selection
+        build_save = linked_body
+    assert hosted.client.request("POST", path, origin=None, json=selection).status_code == 403
+    assert hosted.client.request("POST", path, session="other-session", json=selection).status_code == 403
+    assert hosted.client.request("POST", path + "&world_id=foreign", json=selection).status_code == 403
+    result = hosted.client.request("POST", path, json=selection)
+    assert result.status_code == 200, result.text
+    assert result.headers["cache-control"] == "no-store"
+    snapshot = result.json()
+    assert snapshot["locator"]["revision_id"] == p.revision.revision_id
+    saved = hosted.client.request("PUT", p.url, json=build_save(p, snapshot, count=1))
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["draft"]["entities"][0]["mechanics_snapshot"] == snapshot
+    assert hosted.client.request("GET", p.url).json() == saved.json()
+
+
+def test_hosted_conversation_starts_and_reopens_in_exact_world(hosted, application_state_dsn, monkeypatch):
+    from apps.live_control_server.routes import agent, conversation_library
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
+    monkeypatch.setattr(conversation_library, "_verified_world_id", lambda world_id: world_id)
+    base = "/api/live/agent/worlds/managed/conversation"
+    command = str(uuid4())
+    body = {
+        "command_id": command, "expected_pointer_revision": 0,
+        "expected_active_conversation_id": None,
+    }
+    assert hosted.client.request("GET", base, session=None).status_code == 401
+    assert hosted.client.request("GET", base, session="other-session").status_code == 403
+    assert hosted.client.request("POST", base + "/new", origin=None, json=body).status_code == 403
+    assert hosted.client.request("POST", base + "/new", session="other-session", json=body).status_code == 403
+    response = hosted.client.request("POST", base + "/new", json=body)
+    assert response.status_code == 200, response.text
+    created = response.json()
+    assert created["world_id"] == "managed"
+    assert created["conversation_id"] == created["active_conversation_id"]
+    reopened = hosted.client.request("GET", base)
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.headers["cache-control"] == "no-store"
+    assert reopened.json()["conversation_id"] == created["conversation_id"]
+    status = hosted.client.request("GET", base + f"/commands/{command}?expected_pointer_revision=0&expected_active_conversation_id=null")
+    assert status.status_code == 200, status.text
+    for path in (base + "s", base + "s/active/messages", base + f"s/{created['conversation_id']}/messages"):
+        response = hosted.client.request("GET", path)
+        assert response.status_code == 200, response.text
+        assert response.headers["cache-control"] == "no-store"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+
+
+def test_hosted_citation_read_binds_world_and_saved_turn(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import agent_native_source_sections
+
+    turn_id = uuid4()
+    conversation_service = object()
+    opened = Mock()
+    opened.return_value.model_dump.return_value = {"text": "Saved passage"}
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: conversation_service)
+    monkeypatch.setattr(agent_native_source_sections, "open_native_source_section", opened)
+    path = f"/api/live/agent/worlds/managed/conversation/turns/{turn_id}/native-source-sections/0"
+    assert hosted.client.request("GET", path, session=None).status_code == 401
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?source_id=other").status_code == 422
+    opened.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json() == {"text": "Saved passage"}
+    opened.assert_called_once_with(
+        world_id="managed", turn_id=turn_id, citation_index=0, service=conversation_service,
+    )
+
+
+def test_hosted_chat_turn_reaches_executor_with_exact_world_principal(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import agent
+
+    execute = Mock()
+    execute.return_value.model_dump.return_value = {"status": "completed"}
+    monkeypatch.setattr(agent, "execute_agent_turn", execute)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: None)
+    path = "/api/live/agent/turn"
+    body = {
+        "schema": "dmb_agent_turn_request_v1",
+        "client_thread_id": "thread", "turn_id": "turn",
+        "surface": {"surface_id": "build", "instance_id": "build"},
+        "owner_scope": {"kind": "world", "world_id": "managed"},
+        "primary_work": None, "client_work_state": "none",
+        "graph_request": {"mode": "none"}, "graph_selection": None,
+        "message": "Open the saved source",
+    }
+    assert hosted.client.request("POST", path, session=None, json=body).status_code == 401
+    assert hosted.client.request("POST", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", path, origin=None, json=body).status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "owner_scope": None}).status_code == 403
+    execute.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json() == {"status": "completed"}
+    assert execute.call_count == 1
+    principal = execute.call_args.kwargs["native_principal"]
+    assert principal.managed_world_id == "managed"
+    assert principal.subject == execute.call_args.kwargs["operator_subject"]
+
+
+def test_hosted_native_excerpt_passes_exact_world_principal(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import agent_native_source_sections
+
+    opened = Mock()
+    opened.return_value.model_dump.return_value = {"content": "Saved excerpt"}
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: None)
+    monkeypatch.setattr(agent_native_source_sections, "open_native_body_excerpt", opened)
+    turn_id = uuid4()
+    path = f"/api/live/agent/worlds/managed/conversation/turns/{turn_id}/native-body-excerpts/0"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    opened.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.json() == {"content": "Saved excerpt"}
+    assert response.headers["cache-control"] == "no-store"
+    params = opened.call_args.kwargs
+    assert params["world_id"] == params["principal"].managed_world_id == "managed"
+    assert params["turn_id"] == turn_id

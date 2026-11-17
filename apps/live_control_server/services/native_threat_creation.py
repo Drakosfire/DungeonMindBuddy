@@ -10,9 +10,6 @@ from dungeonmind.application.vnext import (
     get_prospective_publication, open_admitted_native_text,
     publish_native_text_source_evidence,
 )
-from dungeonmind.application.vnext.native_pdf_access import (
-    bind_native_pdf_evidence, register_native_pdf_evidence,
-)
 from dungeonmind.contracts.vnext.common import LabelsAllVisibility
 from dungeonmind.contracts.vnext.native_source import (
     NativeTextEvidenceSpanRequestV1, NativeTextSourceAdmissionV1, NativeTextSourceOriginV1,
@@ -20,7 +17,7 @@ from dungeonmind.contracts.vnext.native_source import (
 from worldkeeper.application import contracts as wk
 
 from application_state.mechanics_revisions import service as revision_operations
-from .native_pdf_evidence import reviewed_pdf_regions
+from .native_pdf_evidence import register_pdf_regions, reviewed_pdf_regions
 from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
 from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
@@ -107,38 +104,6 @@ def source_matches(access, review):
             and opened.span_start_byte == 0 and opened.span_sha256 == review.body_sha256
             and opened.span_end_byte == len(opened.body_text.encode()),
             "The exact proposed creature source is unavailable")
-
-
-def register_pdf_regions(repo, space_id, regions, context, access, created_at):
-    evidence_ids = []
-    reviewed_regions = []
-    for region in regions:
-        source_access = dict(
-            authorized_space_id=space_id, audience=frozenset(),
-            declared_labels=frozenset(), load=repo.get_native_pdf_source,
-        )
-        evidence = bind_native_pdf_evidence(region, **source_access)
-        require(evidence is not None, "The selected PDF region is unavailable")
-        if evidence.evidence_ref_id in evidence_ids:
-            continue
-        existing_ref = access.parsed.get_evidence(evidence.evidence_ref_id)
-        if existing_ref is None:
-            parent = context["revision_id"]
-            register_native_pdf_evidence(
-                region, **source_access, repository=repo,
-                expected_parent_revision_id=parent,
-                publication_id=f"{evidence.evidence_ref_id}:{parent}", created_at=created_at,
-            )
-            context, access = native.access_context(repo, space_id)
-            existing_ref = access.parsed.get_evidence(evidence.evidence_ref_id)
-        require(existing_ref is not None and
-                existing_ref.source_artifact_id == evidence.source_artifact_id and
-                existing_ref.source_revision_id == evidence.source_revision_id and
-                existing_ref.source_locator == evidence.source_locator,
-                "The registered PDF evidence differs from the selected region")
-        evidence_ids.append(evidence.evidence_ref_id)
-        reviewed_regions.append(region)
-    return context, access, tuple(evidence_ids), tuple(reviewed_regions)
 
 
 def review_payload(review):

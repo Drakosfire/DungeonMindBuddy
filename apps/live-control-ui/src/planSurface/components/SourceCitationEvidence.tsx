@@ -4,7 +4,7 @@ import {WorldPlanAgentAnswer} from './WorldPlanAgentAnswer';
 
 export type CitationChoice={key:string;number:number;buttonText?:string;savedReferenceMarkdown?:string;segmentIndex?:number;title:string;label:string;kind:'passage'|'section';load:()=>Promise<string|{content:string;title:string}|{pngBase64:string;title:string}>};
 /** One disclosure owner; transport adapters must verify the exact cited bytes. */
-export function SourceCitationEvidence({identity,statements,answer,displaySegments,allowedInternalLinks=[]}:{identity:string;statements:{text?:string;choices:CitationChoice[]}[];answer?:string;displaySegments?:readonly string[];allowedInternalLinks?:readonly string[]}) {
+export function SourceCitationEvidence({identity,statements,answer,displaySegments,allowedInternalLinks=[],inlineProse=false}:{identity:string;statements:{text?:string;choices:CitationChoice[]}[];answer?:string;displaySegments?:readonly string[];allowedInternalLinks?:readonly string[];inlineProse?:boolean}) {
   const panel=useId(),epoch=useRef(0);
   const [opened,setOpened]=useState<{choice:CitationChoice;status:'loading'|'ready'|'unavailable';content?:string;title?:string;pngBase64?:string}|null>(null);
   const [copyStatus,setCopyStatus]=useState<string|null>(null);
@@ -27,7 +27,9 @@ export function SourceCitationEvidence({identity,statements,answer,displaySegmen
         expanded:opened?.choice.key===c.key,controls:opened?.choice.key===c.key ? panel : undefined,onOpen:()=>{void open(c);},
       })) : []}/>
       {!aligned&&choices.length>0 ? <span aria-label="Sources for this reply">{markers(choices)}</span> : null}
-    </> : statements.map(({text,choices},i)=>text!==undefined
+    </> : inlineProse ? <p>{statements.map(({text, choices}, i) =>
+      <span key={i}>{i > 0 ? " " : ""}{text}{markers(choices)}</span>
+    )}</p> : statements.map(({text,choices},i)=>text!==undefined
       ? <WorldPlanAgentAnswer key={i} answer={text} displaySegments={[text]} inlineCitations={choices.map(c=>({
           segmentIndex:0,label:String(c.number),title:c.title,ariaLabel:c.label,
           expanded:opened?.choice.key===c.key,controls:opened?.choice.key===c.key ? panel : undefined,

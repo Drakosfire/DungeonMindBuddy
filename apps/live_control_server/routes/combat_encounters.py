@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from application_state.combat_encounters.types import (
     AddGeneratedStatblockRequest,
@@ -32,8 +32,10 @@ from apps.live_control_server.services.threat_draft_store import ThreatDraftStor
 
 from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
 
-router = APIRouter(prefix="/api/live/combat/encounters", tags=["combat-encounters"],
-                   dependencies=[Depends(native_graph_gm_dependency)])
+from apps.live_control_server.services.hosted_native_graph_access import require_combat_encounter_access
+
+router = APIRouter(prefix="/api/live/combat/encounters", tags=["combat-encounters"])
+_LOCAL_GM = [Depends(native_graph_gm_dependency)]
 
 
 def _verified_world(world_id: str) -> str:
@@ -50,7 +52,8 @@ def _raise_state_error(exc: ApplicationStateError) -> None:
 
 
 @router.get("", response_model=list[CombatEncounterRecord])
-def list_encounters(world_id: Annotated[str, Query(min_length=1, max_length=63)]) -> list[dict]:
+def list_encounters(world_id: Annotated[str, Query(min_length=1, max_length=63)], request: Request) -> list[dict]:
+    require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
     try:
         return [record.model_dump(mode="json") for record in combat_encounters.list_world_combat_encounters(world_id=owner)]
@@ -62,7 +65,9 @@ def list_encounters(world_id: Annotated[str, Query(min_length=1, max_length=63)]
 def create_encounter_route(
     world_id: Annotated[str, Query(min_length=1, max_length=63)],
     body: CreateCombatEncounterRequest,
+    request: Request,
 ) -> dict:
+    require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
     try:
         return combat_encounters.create_world_combat_encounter(
@@ -76,7 +81,9 @@ def create_encounter_route(
 def get_encounter_route(
     encounter_id: str,
     world_id: Annotated[str, Query(min_length=1, max_length=63)],
+    request: Request,
 ) -> dict:
+    require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
     try:
         return combat_encounters.get_world_combat_encounter(
@@ -91,7 +98,9 @@ def save_encounter_route(
     encounter_id: str,
     world_id: Annotated[str, Query(min_length=1, max_length=63)],
     body: SaveCombatEncounterRequest,
+    request: Request,
 ) -> dict:
+    require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
     try:
         return combat_encounters.save_world_combat_encounter(
@@ -109,8 +118,7 @@ def save_encounter_route(
 
 @router.post(
     "/{encounter_id}/statblocks/{artifact_id}",
-    response_model=AddGeneratedStatblockResponse,
-)
+    response_model=AddGeneratedStatblockResponse, dependencies=_LOCAL_GM)
 def add_generated_statblock_route(
     encounter_id: str,
     artifact_id: str,
@@ -138,7 +146,12 @@ def add_generated_statblock_route(
 
 
 @router.post("/world-mechanics/preview", response_model=CombatMechanicsSnapshot)
-def preview_mechanics(world_id: Annotated[str, Query(min_length=1, max_length=63)], body: CombatMechanicsSelection):
+def preview_mechanics(
+    world_id: Annotated[str, Query(min_length=1, max_length=63)],
+    body: CombatMechanicsSelection,
+    request: Request,
+):
+    require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
     try:
         return combat_mechanics.preview(world_id=owner, selection=body)
@@ -153,7 +166,12 @@ def preview_mechanics(world_id: Annotated[str, Query(min_length=1, max_length=63
 
 
 @router.post("/accepted-mechanics/preview", response_model=AcceptedCombatMechanicsSnapshot)
-def preview_accepted_mechanics(world_id: Annotated[str, Query(min_length=1, max_length=63)], body: AcceptedCombatMechanicsSelection):
+def preview_accepted_mechanics(
+    world_id: Annotated[str, Query(min_length=1, max_length=63)],
+    body: AcceptedCombatMechanicsSelection,
+    request: Request,
+):
+    require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
     try:
         return combat_mechanics.preview_accepted(world_id=owner, selection=body)
@@ -177,31 +195,46 @@ def _adoption_call(action):
     except StatblockIntegrationError as exc:raise HTTPException(status_code=503,detail='Exact saved mechanics are unavailable') from exc
 
 
-@router.post('/saved-mechanics/preview',response_model=AdoptionPreview)
-def preview_saved_mechanics_route(world_id:Annotated[str,Query(min_length=1,max_length=63)],body:SavedMechanicsPreviewRequest):
+@router.post('/saved-mechanics/preview', response_model=AdoptionPreview)
+def preview_saved_mechanics_route(
+    world_id: Annotated[str, Query(min_length=1, max_length=63)],
+    body: SavedMechanicsPreviewRequest,
+    request: Request,
+):
+    require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
     return _adoption_call(lambda:combat_mechanics.preview_saved_override(world_id=owner,draft_id=body.draft_id,locator=body.locator))
 
 
 @router.post('/{encounter_id}/mechanics-adoptions',response_model=AdoptionOutcome)
-def adopt_mechanics_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest):
+def adopt_mechanics_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest,request:Request):
+    require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
     return _adoption_call(lambda:combat_mechanics.adopt_saved_override(world_id=owner,encounter_id=encounter_id,request=body))
 
 
 @router.post('/{encounter_id}/mechanics-adoptions:cancel',response_model=AdoptionOutcome)
-def cancel_mechanics_adoption_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest):
+def cancel_mechanics_adoption_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest,request:Request):
+    require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
     return _adoption_call(lambda:adoption.cancel(world_id=owner,encounter_id=encounter_id,request=body))
 
 
 @router.get('/{encounter_id}/mechanics-adoptions/{operation_id}',response_model=AdoptionOutcome|None)
-def inspect_mechanics_adoption_route(encounter_id:UUID,operation_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)]):
+def inspect_mechanics_adoption_route(encounter_id:UUID,operation_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],request:Request):
+    require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
     return _adoption_call(lambda:adoption.inspect(world_id=owner,encounter_id=encounter_id,operation_id=operation_id))
 
 
 @router.get('/{encounter_id}/mechanics-adoptions',response_model=AdoptionHistoryPage)
-def mechanics_adoption_history_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],before_operation_id:UUID|None=None,limit:int=Query(default=20,ge=1,le=100)):
+def mechanics_adoption_history_route(
+    encounter_id: UUID,
+    world_id: Annotated[str, Query(min_length=1, max_length=63)],
+    request: Request,
+    before_operation_id: UUID | None = None,
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
     return _adoption_call(lambda:adoption.history(world_id=owner,encounter_id=encounter_id,before_operation_id=before_operation_id,limit=limit))

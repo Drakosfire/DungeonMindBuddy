@@ -6,7 +6,7 @@ import json
 from uuid import UUID
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from apps.live_control_server.config import repo_root
@@ -193,7 +193,11 @@ def get_play_run_route(
 def get_world_play_runs_v2(
     world_id: Annotated[str, Query(min_length=1)],
     playable_artifact_id: Annotated[str | None, Query()] = None,
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     try:
         response = list_world_play_runs(
             world_id=world_id,
@@ -209,7 +213,11 @@ def get_world_play_runs_v2(
 )
 def get_world_play_active_run_v2(
     world_id: Annotated[str, Query(min_length=1)],
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     try:
         state = get_world_play_active_run(world_id=world_id)
     except PlayActiveRunError as exc:
@@ -235,32 +243,55 @@ def put_world_play_active_run_v2(
 
 from application_state.play.session_encounter_types import WorldSessionCreateRequest, WorldSessionSourceRequest
 from application_state.play import session_encounters
-from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
 from apps.live_control_server.routes.combat_encounters import _verified_world
 from apps.live_control_server.routes.combat_scene_templates import call
 from apps.live_control_server.services.play_run_registry import world_session_outcome
 
 
-@router.post("/world-play-runs/v2/preparation", dependencies=[Depends(native_graph_gm_dependency)])
-def preview_world_session(body: WorldSessionSourceRequest, world_id: str = Query(min_length=1), entry_scene_id: str | None = None):
+def _authorize_world_session(request: Request, world_id: str) -> bool:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+        return True
+    enforce_native_graph_gm(request)
+    return False
+
+
+@router.post("/world-play-runs/v2/preparation")
+def preview_world_session(
+    body: WorldSessionSourceRequest, request: Request,
+    world_id: str = Query(min_length=1), entry_scene_id: str | None = None,
+):
+    _authorize_world_session(request, world_id)
     return call(session_encounters.preparation_preview, world_id=_verified_world(world_id), request=body, entry_scene_id=entry_scene_id)
 
 
-@router.put("/world-play-runs/v2/{run_id}", dependencies=[Depends(native_graph_gm_dependency)])
-def put_world_play_run_v2(run_id: str, body: WorldSessionCreateRequest, world_id: str = Query(min_length=1)):
+@router.put("/world-play-runs/v2/{run_id}")
+def put_world_play_run_v2(run_id: str, body: WorldSessionCreateRequest, request: Request, world_id: str = Query(min_length=1)):
+    _authorize_world_session(request, world_id)
     try:
         return create_or_replay_world_play_run(world_id=_verified_world(world_id), run_id=run_id, request=body)
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
-@router.get("/world-play-runs/v2/{run_id}/creation", dependencies=[Depends(native_graph_gm_dependency)])
-def inspect_world_session(run_id: UUID, world_id: str = Query(min_length=1)):
-    return world_session_outcome(call(session_encounters.inspect_creation, world_id=_verified_world(world_id), run_id=run_id))
+@router.get("/world-play-runs/v2/{run_id}/creation")
+def inspect_world_session(run_id: UUID, request: Request, world_id: str = Query(min_length=1)):
+    hosted = _authorize_world_session(request, world_id)
+    try:
+        return world_session_outcome(call(session_encounters.inspect_creation, world_id=_verified_world(world_id), run_id=run_id))
+    except HTTPException as exc:
+        if hosted and exc.status_code == 409:
+            return None
+        raise
 
 
-@router.post("/world-play-runs/v2/{run_id}/creation:cancel", dependencies=[Depends(native_graph_gm_dependency)])
-def cancel_world_session(run_id: UUID, body: WorldSessionCreateRequest, world_id: str = Query(min_length=1)):
+@router.post("/world-play-runs/v2/{run_id}/creation:cancel")
+def cancel_world_session(run_id: UUID, body: WorldSessionCreateRequest, request: Request, world_id: str = Query(min_length=1)):
+    _authorize_world_session(request, world_id)
     return world_session_outcome(call(session_encounters.cancel_creation, world_id=_verified_world(world_id), run_id=run_id, request=body))
 
 
@@ -268,7 +299,11 @@ def cancel_world_session(run_id: UUID, body: WorldSessionCreateRequest, world_id
 def get_world_play_run_v2(
     run_id: str,
     world_id: Annotated[str, Query(min_length=1)],
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     try:
         record = get_world_play_run(world_id=world_id, run_id=run_id)
     except PlayRunRegistryError as exc:
@@ -327,7 +362,11 @@ def put_world_play_run_rebase_v2(
 def get_world_play_run_reference_manifest_v2(
     run_id: str,
     world_id: Annotated[str, Query(min_length=1)],
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     try:
         manifest = get_world_play_run_reference_manifest(
             world_id=world_id, run_id=run_id
@@ -344,15 +383,12 @@ def get_world_play_run_reference_manifest_v2(
 def get_world_run_content(
     run_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]
 ):
-    from apps.live_control_server.services.agent_graph_auth import (
-        enforce_native_graph_gm,
-    )
     from apps.live_control_server.services.play_run_edition import (
         edition_response,
         read_content,
     )
 
-    enforce_native_graph_gm(request)
+    _authorize_world_session(request, world_id)
     return edition_response(read_content, run_id=run_id, world_id=world_id)
 
 

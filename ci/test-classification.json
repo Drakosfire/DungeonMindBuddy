@@ -3,6 +3,8 @@
   "classification_basis": "Conservative file-level inventory, not measured speed or authorization to run opt-in/provider/live-data tests. No PR selection consumes these lanes in stage 1. Frontend Vitest and contract guards are fast candidates; current auth/ownership Python modules are domain integration; all other discovered Python/browser files require qualification review.",
   "lanes": {
     "fast": [
+      "apps/live-control-ui/src/ingestion/RecapNameReview.test.tsx",
+      "apps/live-control-ui/src/planSurface/components/BuddyRetrievalReplay.test.tsx",
       "apps/live-control-ui/src/App.commandAccepted.test.tsx",
       "apps/live-control-ui/src/App.guestEntry.test.tsx",
       "apps/live-control-ui/src/App.surfaceInteraction.test.tsx",
@@ -86,6 +88,7 @@
       "apps/live-control-ui/src/buildSurface/BuildManualKnowledge.test.tsx",
       "apps/live-control-ui/src/buildSurface/BuildPageProposal.test.tsx",
       "apps/live-control-ui/src/buildSurface/BuildPdfCaptureReview.test.tsx",
+      "apps/live-control-ui/src/buildSurface/PdfAdventureEventReview.test.tsx",
       "apps/live-control-ui/src/buildSurface/BuildPdfStatblockReview.test.tsx",
       "apps/live-control-ui/src/buildSurface/publishPdfStatblock.test.ts",
       "apps/live-control-ui/src/buildSurface/BuildRecapConfiguration.test.tsx",
@@ -652,10 +655,12 @@
       "tests/test_native_plan_statements.py",
       "tests/test_native_recap_preparation.py",
       "tests/test_native_recap_source_admission.py",
+      "tests/test_reserved_world_pdf_admission.py",
       "tests/test_native_recap_source_identity.py",
       "tests/test_native_reference_navigation.py",
       "tests/test_native_source_inspection.py",
       "tests/test_native_threat_creation.py",
+      "tests/test_pdf_adventure_event_review.py",
       "tests/test_native_world_creature_selection.py",
       "tests/test_native_writer_projection.py",
       "tests/test_native_writer_token_accounting.py",
@@ -688,6 +693,9 @@
       "tests/test_world_mechanics_associations.py"
     ],
     "qualification": [
+      "tests/test_known_character_context.py",
+      "tests/test_recap_name_review.py",
+      "tests/test_retire_buddy_release.py",
       "apps/live-control-ui/tests/ui-visual.pw.ts",
       "tests/application_state/test_agent_controller_writer_policy.py",
       "tests/application_state/test_agent_conversation_ask_projection_postgres.py",

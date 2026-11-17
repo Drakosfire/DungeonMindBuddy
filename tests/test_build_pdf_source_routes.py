@@ -9,9 +9,20 @@ from dungeonmind.application.vnext.native_source_admission import build_native_p
 
 
 def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
+    from dungeonmind.application.vnext import native_source_admission
+
     records = {}
 
+    def validate(body):
+        if body != b"%PDF-1.7\n":
+            raise ValueError("Invalid structure")
+
+    monkeypatch.setattr(native_source_admission, "validate_native_pdf_body", validate)
+
     class Repository:
+        def get_head(self, space):
+            return object()
+
         def retain_native_pdf_source(self, command, body):
             artifact, revision = build_native_pdf_source_records(command, body)
             records[command.space_id, revision.source_revision_id] = (artifact, revision, 1, body)
@@ -34,6 +45,8 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
             raise HTTPException(status_code=401)
 
     monkeypatch.setattr(agent, "enforce_native_graph_gm", authorize)
+    from apps.live_control_server.services import hosted_native_graph_access
+    monkeypatch.setattr(hosted_native_graph_access, "require_build_pdf_access", lambda request, *args, **kwargs: authorize(request))
     monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
     monkeypatch.setattr(native_world_source_admission, "_repository", Repository)
     monkeypatch.setattr(
@@ -48,6 +61,11 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
     auth = {"Authorization": "Bearer fixture"}
     with TestClient(app) as client:
         assert client.post(upload, content=body).status_code == 401
+        rejected = client.post(upload, content=body + b"invalid", headers={
+            **auth, "Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-11T00:00:00Z",
+        })
+        assert rejected.status_code == 422
+        assert records == {}
         admitted = client.post(upload, content=body, headers={
             **auth, "Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-11T00:00:00Z",
         })
@@ -237,6 +255,8 @@ def test_saved_pdf_review_creature_draft_replays_at_exact_revision(monkeypatch, 
             raise HTTPException(status_code=401)
 
     monkeypatch.setattr(agent, "enforce_native_graph_gm", authorize)
+    from apps.live_control_server.services import hosted_native_graph_access
+    monkeypatch.setattr(hosted_native_graph_access, "require_build_pdf_access", lambda request, *args, **kwargs: authorize(request))
     monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
     monkeypatch.setattr(statblock_storage, "statblock_data_root", lambda _: tmp_path)
     review = {"revision": 2, "regions": [], "definition": {

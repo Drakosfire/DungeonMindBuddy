@@ -331,6 +331,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     "/api/live/native-graph-explorer/confirm",
     "/api/live/native-graph-explorer/operations/read",
   ].includes(pathname)) return true;
+  if (/^\/api\/live\/worlds\/[^/]+\/pdf-adventure-events\/(?:prepare|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/threat-drafts\/[^/]+\/saved-statblock$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-source-withdrawals$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|ocr|review|statblock-reviews|statblock:validate))?$/.test(pathname)) return true;
@@ -377,7 +378,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+(?:\/resolve|\/resolutions\/[^/]+)?)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace(?:\/[^/]+\/prompt\/[^/]+)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
-    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:native-)?steps\/\d+\/assertion$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:identities|(?:native-)?steps\/\d+\/assertion)$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/prompts$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/source-passages\/\d+$/.test(pathname)
@@ -426,6 +427,127 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (path === "/api/live/agent/turn") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && isRecord(body?.owner_scope)
+      && body.owner_scope.kind === "world" && typeof body.owner_scope.world_id === "string"
+      && Boolean(body.owner_scope.world_id.trim())
+      && typeof body.client_thread_id === "string" && typeof body.turn_id === "string";
+  }
+  if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(metadata|original)$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/turns\/[0-9a-f-]+\/(?:native-source-sections|source-passages|native-body-excerpts|native-assertion-sources|native-source-clauses)\/\d+$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  const conversation = /^\/api\/live\/agent\/worlds\/[^/?]+\/(conversation(?:\/new|\/commands\/[0-9a-f-]+)?|conversations(?:\/active\/messages|\/[0-9a-f-]+\/(?:messages|turns))?)(?:\?([^#]*))?$/.exec(path);
+  if (conversation) {
+    if (conversation[1] === "conversation/new") {
+      return method === "POST" && conversation[2] === undefined && !!requestBodyRecord(init?.body);
+    }
+    return method === "GET" && init?.body == null;
+  }
+  const mechanicsPreview = /^\/api\/live\/combat\/encounters\/(?:saved-mechanics|accepted-mechanics|world-mechanics)\/preview\?/.exec(path);
+  if (mechanicsPreview) {
+    const worldId = new URLSearchParams(path.slice(mechanicsPreview[0].length)).get("world_id");
+    return method === "POST" && !!worldId && !!requestBodyRecord(init?.body)
+      && path === mechanicsPreview[0] + new URLSearchParams({ world_id: worldId });
+  }
+  const savedRevisionList = /^\/api\/live\/threat-drafts\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-revisions\?/.exec(path);
+  if (savedRevisionList) {
+    const query = new URLSearchParams(path.slice(savedRevisionList[0].length));
+    const worldId = query.get("world_id");
+    const offset = query.get("offset");
+    return method === "GET" && init?.body == null && !!worldId && offset !== null && /^\d+$/.test(offset)
+      && path === savedRevisionList[0] + new URLSearchParams({ world_id: worldId, offset });
+  }
+  const combatAdoption = /^\/api\/live\/combat\/encounters\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-adoptions(:cancel|\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
+  if (combatAdoption) {
+    const query = new URLSearchParams(path.slice(combatAdoption[0].length));
+    const worldId = query.get("world_id");
+    if (!worldId) return false;
+    const exact = new URLSearchParams({ world_id: worldId });
+    const suffix = combatAdoption[1];
+    if (method === "GET" && suffix !== ":cancel" && init?.body == null) {
+      const before = query.get("before_operation_id");
+      if (!suffix && before) exact.set("before_operation_id", before);
+      return path === combatAdoption[0] + exact;
+    }
+    return method === "POST" && (!suffix || suffix === ":cancel") && !!requestBodyRecord(init?.body)
+      && path === combatAdoption[0] + exact;
+  }
+  const combatEncounter = /^\/api\/live\/combat\/encounters(\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
+  if (combatEncounter) {
+    const worldId = new URLSearchParams(path.slice(combatEncounter[0].length)).get("world_id");
+    if (!worldId || path !== combatEncounter[0] + new URLSearchParams({ world_id: worldId })) return false;
+    if (method === "GET") return init?.body == null;
+    return method === (combatEncounter[1] ? "PUT" : "POST") && !!requestBodyRecord(init?.body);
+  }
+  const savedRecap = /^\/api\/live\/graph-preview\/extraction-runs(?:\/[^/?]+\/(recap-inspection|candidate-projection))?\?/.exec(path);
+  if (savedRecap && method === "GET" && init?.body == null) {
+    const query = new URLSearchParams(path.slice(savedRecap[0].length));
+    const worldId = query.get("managed_world_id");
+    if (worldId) {
+      const exactQuery = new URLSearchParams({ managed_world_id: worldId });
+      if (savedRecap[1] === "recap-inspection") {
+        const revision = query.get("expected_run_revision");
+        const source = query.get("source_revision_id");
+        if (!revision || !source) return false;
+        exactQuery.set("expected_run_revision", revision);
+        exactQuery.set("source_revision_id", source);
+      } else if (!savedRecap[1]) {
+        const campaign = query.get("campaign_id");
+        if (campaign) exactQuery.set("campaign_id", campaign);
+      }
+      return path === savedRecap[0] + exactQuery;
+    }
+  }
+  const exactStatblock = /^\/api\/live\/threat-drafts\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-revisions\/rev_[a-z0-9]+\?/.exec(path);
+  if (exactStatblock) {
+    const worldId = new URLSearchParams(path.slice(exactStatblock[0].length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === exactStatblock[0] + "world_id=" + encodeURIComponent(worldId);
+  }
+  const mechanicsInventory = "/api/live/world-mechanics/associations?";
+  if (path.startsWith(mechanicsInventory)) {
+    const worldId = new URLSearchParams(path.slice(mechanicsInventory.length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === mechanicsInventory + "world_id=" + encodeURIComponent(worldId);
+  }
+  const creation = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/creation(?::cancel)?)?\?/.exec(path);
+  if (creation) {
+    const query = new URLSearchParams(path.slice(creation[0].length));
+    const worldId = query.get("world_id");
+    const suffix = creation[1];
+    if (!worldId || path !== creation[0] + new URLSearchParams({ world_id: worldId })) return false;
+    if (suffix === "/creation") return method === "GET" && init?.body == null;
+    return method === (suffix ? "POST" : "PUT")
+      && requestBodyRecord(init?.body)?.schema_version === "dmb_world_session_create_v1";
+  }
+  const preparedTables = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/prepared-tables(\/commands\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
+  if (preparedTables) {
+    const worldId = new URLSearchParams(path.slice(preparedTables[0].length)).get("world_id");
+    if (!worldId || path !== preparedTables[0] + new URLSearchParams({ world_id: worldId })) return false;
+    return preparedTables[1]
+      ? method === "PUT" && !!requestBodyRecord(init?.body)
+      : method === "GET" && init?.body == null;
+  }
+  const runContent = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\?/.exec(path);
+  if (runContent) {
+    const worldId = new URLSearchParams(path.slice(runContent[0].length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === runContent[0] + new URLSearchParams({ world_id: worldId });
+  }
+  const preparationPath = "/api/live/world-play-runs/v2/preparation";
+  if (path.startsWith(preparationPath + "?")) {
+    const selectors = new URLSearchParams(path.slice(preparationPath.length + 1));
+    const worldId = selectors.get("world_id");
+    const entryScene = selectors.get("entry_scene_id");
+    if (method !== "POST" || !worldId || !requestBodyRecord(init?.body)) return false;
+    const expected = new URLSearchParams({ world_id: worldId });
+    if (entryScene) expected.set("entry_scene_id", entryScene);
+    return path === `${preparationPath}?${expected}`;
+  }
   if (path === "/api/live/world-containers") return method === "GET" && init?.body == null;
   if (path.startsWith(HOSTED_WORLD_LOOKUP_PATH + "?")) {
     const query = new URLSearchParams(path.slice(HOSTED_WORLD_LOOKUP_PATH.length + 1));
@@ -793,7 +915,7 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/prompt\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
-    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:native-)?steps\/\d+\/assertion$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:identities|(?:native-)?steps\/\d+\/assertion)$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/prompts$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
     || /^\/api\/live\/world-session-evidence(?:\/[^/]+\/revisions\/\d+)?$/.test(pathname)
@@ -1907,6 +2029,16 @@ export function getWorldAgentReplayAssertion(worldId: string, turnId: string, tr
   const query = new URLSearchParams({ assertion_id: assertionId });
   return apiFetch<import('./buddyContextTraceTypes').BuddyReplayAssertionResponse>(
     `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/steps/${sequence}/assertion?${query}`,
+    { signal, cache: 'no-store' },
+  );
+}
+
+export function getWorldAgentReplayIdentities(worldId: string, turnId: string, traceId: string, signal: AbortSignal) {
+  return apiFetch<{
+    world_id: string; turn_id: string; trace_id: string
+    identities: { node_id: string; label: string; kind: string }[]
+  }>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/identities`,
     { signal, cache: 'no-store' },
   );
 }
