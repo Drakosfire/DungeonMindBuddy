@@ -461,16 +461,18 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "GET" && init?.body == null && !!worldId
       && path === capabilityPath + new URLSearchParams({ world_id: worldId });
   }
-  if (path === "/api/live/workspace-documents/world-runbooks" && method === "POST") {
+  const playableCollection = /^\/api\/live\/workspace-documents\/world-(?:plans|runbooks)(?:\?|$)/.exec(path);
+  if (playableCollection) {
+    const prefix = playableCollection[0];
+    if (prefix.endsWith("?")) {
+      const worldId = new URLSearchParams(path.slice(prefix.length)).get("world_id");
+      return method === "GET" && init?.body == null && !!worldId
+        && path === prefix + new URLSearchParams({ world_id: worldId });
+    }
     const body = requestBodyRecord(init?.body);
-    return body?.schema_version === "dmb_workspace_document_create_v2" && body.scope_mode === "world"
-      && typeof body.world_id === "string" && Boolean(body.world_id) && typeof body.title === "string";
-  }
-  const runbookInventory = "/api/live/workspace-documents/world-runbooks?";
-  if (path.startsWith(runbookInventory)) {
-    const worldId = new URLSearchParams(path.slice(runbookInventory.length)).get("world_id");
-    return method === "GET" && init?.body == null && !!worldId
-      && path === runbookInventory + new URLSearchParams({ world_id: worldId });
+    return method === "POST" && body?.schema_version === "dmb_workspace_document_create_v2"
+      && body.scope_mode === "world" && typeof body.world_id === "string"
+      && Boolean(body.world_id) && typeof body.title === "string";
   }
   const runbookWrite = /^\/api\/live\/workspace-documents\/world-runbooks\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/tiptap\/(prepare|commit)\?/.exec(path);
   if (runbookWrite) {
@@ -1093,7 +1095,7 @@ function apiRequestTarget(
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+(?:\/(?:build-context|recap-projection))?$/.test(normalizedPath)
     || /^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:review-package|frozen-source-spans|worldbuilding-publication-coverage|evidence-corrections)$/.test(normalizedPath)
     || /^\/api\/live\/workspace-documents\/world-runbooks\/[^/]+(?:\/snapshot|\/committed-revision(?:\/[^/]+)?|\/tiptap\/(?:prepare|commit))?$/.test(normalizedPath)
-    || normalizedPath === "/api/live/workspace-documents/world-runbooks"
+    || /^\/api\/live\/workspace-documents\/world-(?:plans|runbooks)$/.test(normalizedPath)
     || /^\/api\/live\/workspace-documents\/[^/]+\/native-world-source$/.test(normalizedPath)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[^/]+\/turns\/[^/]+\/discussion-retry-input$/.test(normalizedPath)
     || normalizedPath === "/api/live/workspace-documents/world-plans/page"

@@ -932,3 +932,24 @@ it.each(["rev:exact", "rev:foreign"])("verifies the native binding before openin
       revision_id: "rev:exact", scope_mode: "world", campaign_id: null },
   });
 });
+
+it("uses the hosted session for World Plan inventory and creation", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const path = "/api/live/workspace-documents/world-plans";
+  const init = { method: "POST", body: JSON.stringify({
+    schema_version: "dmb_workspace_document_create_v2", scope_mode: "world",
+    world_id: "managed", title: "Plan",
+  }) };
+  await api.listWorldOwnedPlans("managed");
+  await api.authenticatedApiFetch(path, init);
+  expect(fetch).toHaveBeenNthCalledWith(1, path + "?world_id=managed", expect.objectContaining({
+    credentials: "same-origin", mode: "same-origin",
+  }));
+  expect(fetch).toHaveBeenNthCalledWith(2, path, expect.objectContaining({
+    method: "POST", credentials: "same-origin", mode: "same-origin",
+  }));
+  await expect(api.authenticatedApiFetch(path + "?world_id=foreign", init)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
