@@ -49,7 +49,10 @@ def is_semantic_frame(value):
         and {'source_class', 'saved_sections'} <= set(value['build_work']))
 
 
-def semantic_frame(host, execution):
+VARIANT_WRITER_FORMAT = "surface_native_evidence_selectors_v3"
+
+
+def semantic_frame(host, execution, *, include_variant=False):
     from .build_primary_context import NATIVE_WORK_SCHEMA
     if (host.get('schema') != NATIVE_WORK_SCHEMA
             or set(host) - ({'schema', 'source_basis', 'artifact_under_edit'} | _OPTIONAL)):
@@ -126,7 +129,7 @@ def semantic_frame(host, execution):
             'resources', 'rule_elements', 'senses', 'vitality',
         )
         work['saved_statblocks'] = []
-        sources = variant_sources(host)
+        sources = variant_sources(host) if include_variant else {}
         if sources:
             work["statblock_variant_guidance"] = (
                 "For a requested statblock variant, choose its variant_source and return the complete "
