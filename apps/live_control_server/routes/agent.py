@@ -1389,7 +1389,7 @@ def get_world_conversation_history(
     # Authenticate before managed World lookup and every APP-STATE read.
     from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
 
-    require_conversation_access(request, world_id)
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     service = _conversation_service(request)
     try:
@@ -2003,7 +2003,7 @@ def get_new_world_conversation_status(
 ) -> AgentNewConversationStatusV1:
     from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
 
-    require_conversation_access(request, world_id)
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     allowed = {"expected_pointer_revision", "expected_active_conversation_id"}
     if set(request.query_params) != allowed or any(len(request.query_params.getlist(key)) != 1 for key in allowed):
@@ -2082,7 +2082,7 @@ def post_new_world_conversation(
 ) -> AgentNewConversationResponse:
     from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
 
-    require_conversation_access(request, world_id)
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     service = _conversation_service(request)
     try:

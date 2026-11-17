@@ -7,6 +7,8 @@ promoted by this first hosted capability.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -233,9 +235,11 @@ async def resolve_hosted_conversation_world(request: Request) -> str:
     return world.world_id
 
 
-def require_conversation_access(request: Request, world_id: str) -> None:
+def require_conversation_access(
+    request: Request, world_id: str, *, authorize_local: Callable[[Request], object],
+) -> None:
     if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
-        enforce_native_graph_gm(request)
+        authorize_local(request)
         return
     if getattr(request.state, "hosted_conversation_world", None) != world_id:
         raise _denied()
