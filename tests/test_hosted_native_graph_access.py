@@ -483,6 +483,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
+            ("POST", "/api/live/world-mechanics/associations"): access.resolve_hosted_mechanics_association,
             ("GET", "/api/live/world-mechanics/associations/creatures"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/world-mechanics/associations/requests/{request_id}"): access.resolve_hosted_plan_world_context,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
@@ -3643,3 +3644,36 @@ def test_hosted_creature_catalog_and_association_read_are_world_scoped(hosted, m
         assert response.headers["cache-control"] == "no-store"
     catalog.assert_called_once_with("managed")
     find.assert_called_once_with(world_id="managed", request_id=request_id)
+
+
+def test_hosted_mechanics_association_binds_actor_and_world(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from application_state.errors import ApplicationStateNotFoundError
+    from apps.live_control_server.routes import world_mechanics_associations as routes
+
+    write = Mock(side_effect=ApplicationStateNotFoundError("Saved mechanics not found"))
+    monkeypatch.setattr(routes, "associate", write)
+    path = "/api/live/world-mechanics/associations?world_id=managed"
+    body = {
+        "request_id": str(uuid4()), "draft_id": str(uuid4()),
+        "expected_draft_version": 1, "expected_version": 0,
+        "target": {
+            "managed_world_id": "managed", "native_world_id": "native",
+            "binding_version": 3, "graph_revision_id": "revision", "node_id": "creature",
+            "label": "Creature", "kind": "creature", "role": "npc", "campaign_scope": None,
+        },
+        "locator": {
+            "provider": "dungeonmind", "statblock_id": "sb_fixture", "revision_id": "rev_fixture",
+            "contract": "dungeonmind.dungeonbuddy-statblocks", "contract_version": "1.0.0",
+            "definition_digest": "sha256:" + "a" * 64,
+        },
+    }
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path.replace("managed", "foreign"), json=body).status_code == 403
+    write.assert_not_called()
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 404, result.text
+    assert write.call_args.kwargs["actor"] == f"hosted_dms:{OWNER}"
+    assert write.call_args.kwargs["request"].model_dump(mode="json") == body

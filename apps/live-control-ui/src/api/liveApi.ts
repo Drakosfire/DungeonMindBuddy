@@ -466,6 +466,13 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const query = new URLSearchParams(connectedPage[1]);
     return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
   }
+  const associateMechanics = /^\/api\/live\/world-mechanics\/associations\?([^#]+)$/.exec(path);
+  if (method === "POST" && associateMechanics) {
+    const query = new URLSearchParams(associateMechanics[1]);
+    const target = requestBodyRecord(init?.body)?.target;
+    const world = query.get("world_id");
+    return query.size === 1 && Boolean(world) && isRecord(target) && target.managed_world_id === world;
+  }
   const mechanicsRead = /^\/api\/live\/world-mechanics\/associations\/(?:creatures|requests\/[0-9a-f-]+)\?([^#]+)$/.exec(path);
   if (mechanicsRead) {
     const query = new URLSearchParams(mechanicsRead[1]);

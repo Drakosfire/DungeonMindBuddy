@@ -274,6 +274,18 @@ async def resolve_hosted_image_history(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_mechanics_association(request: Request) -> str:
+    from application_state.world_mechanics.types import AssociateWorldMechanicsRequest
+
+    body = AssociateWorldMechanicsRequest.model_validate(await request.json())
+    world_id = body.target.managed_world_id
+    if request.query_params.multi_items() != [("world_id", world_id)]:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_native_relationship(request: Request) -> str:
     if request.query_params:
         raise _denied()
