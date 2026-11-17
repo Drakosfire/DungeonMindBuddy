@@ -58,3 +58,27 @@ saves or routes model output. Replacement of partial sentences remains unsupport
 Resolution requires the exact live editable snapshot/scope and an issued catalog.
 No arbitrary returned offsets or first-match substring resolution. Model selection
 and integration with reviewed proposals remain blocked on bounded owner splits.
+
+## Prose-only bridge split, November 17
+Coordinating root explicitly transferred prose-only additions in
+`buildSurface/buildComposeBridge.ts` and `.test.ts`, and
+`planSurface/components/BuildComposeProposal.tsx` and `.test.ts`. Image capture,
+apply and result portions remain exclusively image-owned; its task is paused and
+its heads must remain untouched. No shared controller or other lane is transferred.
+Fresh main remains eecaf799. External inventories show no overlap on these four
+paths; #3864 owns build_jev_harness.py and #3824 owns the shared proposal-review
+backend test. Neither is leased here.
+
+Immediate sub-slice: bridge-issued read-only catalogs and explicit host nomination
+provenance, retaining the actual author caret/selection basis unchanged. This does
+not alter request/response schemas, durable reservations, review receipts, routing,
+application or Save. Nonempty author selection stays with the existing path.
+Hook writes are permitted only for this provenance scope; no need to change it
+until a safe wire consumer exists. Existing author-selected selection metadata
+must never impersonate an agent-nominated passage.
+
+Current server reservation/output/review models are strict closed grammars.
+Safe ordinary integration needs an explicitly reviewed additive catalog-target
+contract with historical serialization and old-reader behavior, current snapshot
+and replay checks, single-paragraph output admission, composer-compatible reviewed
+application, and Save/cold-reopen proof. These remain gates, not assumed permissions.

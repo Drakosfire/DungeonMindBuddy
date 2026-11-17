@@ -1,3 +1,4 @@
+import {captureProseTargetCatalog, resolveProseTarget, type ProseTargetCatalog, type ResolvedProseTarget} from '../documentEditing/proseTargetCatalog';
 import {readSavedConversationVariantTarget,savedConversationVariantHref,type SavedConversationVariantTarget} from "../statblocks/savedStatblockLocation";
 import {workPlanFence,workPlanBelongsTo,parseWorkPlanFence,workPlanIdentity,type WorkPlanReference} from '../surface/workPlans/workPlanReference';
 import { pickMediaInsertion,pickDocumentInsertion } from '../documentEditing/pickMediaInsertion';
@@ -35,7 +36,15 @@ export interface ProposalInspection {
   state:'before'|'after'|'changed';
   savedProjection?:SavedProposalProjection;
 }
+export interface BuildProseNomination {
+  readonly provenance: 'host_catalog_nomination';
+  /** The actual author capture is not rewritten to impersonate a selection. */
+  readonly actualBasis: Readonly<BuildProposalBasis>;
+  readonly target: Readonly<ResolvedProseTarget>;
+}
 export interface BuildComposeBridge {
+  captureProseTargets?: () => Promise<ProseTargetCatalog>;
+  nominateProseTarget?: (catalog: ProseTargetCatalog, selector: string) => BuildProseNomination;
   pickWorkPlanInsertion?: (options:{signal:AbortSignal;operationId:string})=>Promise<CapturedBuildInsertion>;
   observeWorkPlan?: (reference:WorkPlanReference,onPresence:(present:boolean)=>void)=>()=>void;
   prepareWorkPlan?: (captured:CapturedBuildInsertion,reference:WorkPlanReference)=>Promise<PreparedWorkPlanPlacement>;
@@ -128,8 +137,30 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     }
     return basis.selection ? {from:basis.caret,to:basis.selection.end} : basis.caret;
   }
+  const proseCaptures = new WeakMap<ProseTargetCatalog, CapturedBuildInsertion>();
+  const proseState = () => {
+    const now = getCurrent();
+    return now ? {editor: now.editor, canEdit: now.canEdit, draftGeneration: now.draftGeneration,
+      scopeKey: JSON.stringify([now.worldId, now.documentId, now.revision, now.contentSha256, now.visibility])} : null;
+  };
   const applied = new WeakSet<CapturedBuildInsertion>();
   const bridge: BuildComposeBridge = {
+    async captureProseTargets() {
+      const captured = await bridge.capture();
+      if (captured.basis.selection) throw new Error('Keep the explicitly selected passage as the target.');
+      const catalog = captureProseTargetCatalog(proseState);
+      assertSame(captured, true);
+      proseCaptures.set(catalog, captured);
+      return catalog;
+    },
+    nominateProseTarget(catalog, selector) {
+      const captured = proseCaptures.get(catalog);
+      if (!captured) throw new Error('This prose catalog belongs to another page capture.');
+      assertSame(captured, true);
+      const target = resolveProseTarget(catalog, selector, proseState);
+      return Object.freeze({provenance: 'host_catalog_nomination' as const,
+        actualBasis: Object.freeze({...captured.basis}), target});
+    },
     observeWorkPlan(reference,onPresence){
       const now=getCurrent();if(!now||!workPlanBelongsTo(reference,{worldId:now.worldId,documentId:now.documentId}))return ()=>{};
       const editor=now.editor;
