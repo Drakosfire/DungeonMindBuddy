@@ -350,11 +350,19 @@ def post_recap_semantic_disposition(
     request_context: Request,
     run_id: str,
     request: RecapSemanticDecisionRequest,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    managed_world_id: str | None = None,
 ) -> dict[str, Any] | JSONResponse:
     """GM-only exact-child decision; caller cannot supply reviewer or time."""
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        principal = enforce_native_graph_gm(request_context)
+    else:
+        principal = _native_publication_principal(request_context, managed_world_id or "")
     try:
-        _reject_selector_query(request_context)
+        if request_context.query_params.multi_items() != [("managed_world_id", managed_world_id)]:
+            _reject_selector_query(request_context)
         response = decide_recap_semantic_disposition(
             run_id, request, reviewer_id=principal.subject
         )

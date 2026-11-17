@@ -374,7 +374,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/(?:candidate-projection|usage)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/(?:capabilities|prepare|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/first-world\/(?:prepare|confirm)$/.test(pathname)) return true;
-  if (/^\/api\/live\/extract-promote\/runs\/[^/]+\/recap-evidence-corrections$/.test(pathname)) return true;
+  if (/^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:recap-evidence-corrections|semantic-disposition)$/.test(pathname)) return true;
   if (/^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname)) {
     return true;
   }
@@ -455,7 +455,7 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "GET" && init?.body == null && !!worldId
       && path === capabilityPath + new URLSearchParams({ world_id: worldId });
   }
-  const recapCorrection = /^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/recap-evidence-corrections\?managed_world_id=([a-z][a-z0-9_-]{0,62})$/.exec(path);
+  const recapCorrection = /^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/(?:recap-evidence-corrections|semantic-disposition)\?managed_world_id=([a-z][a-z0-9_-]{0,62})$/.exec(path);
   if (recapCorrection) return method === "POST" && requestBodyRecord(init?.body) !== null;
   if (path === "/api/live/graph-authoring/prepare" || path === "/api/live/graph-authoring/commit") {
     const body = requestBodyRecord(init?.body);
