@@ -502,6 +502,8 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/extract-promote/native-worldbuilding-context"): access.resolve_hosted_worldbuilding_review_context,
             ("GET", "/api/live/source-statements/proposals/{operation_id}"): access.resolve_hosted_source_statement_proposal,
             ("POST", "/api/live/source-statements/proposals/{operation_id}/review"): access.resolve_hosted_source_statement_proposal,
+            ("POST", "/api/live/source-statements/prepare"): access.resolve_hosted_source_statement_publication,
+            ("POST", "/api/live/source-statements/confirm"): access.resolve_hosted_source_statement_publication,
             ("POST", "/api/live/extract-promote/native-prepare"): access.resolve_hosted_native_publication,
             ("POST", "/api/live/extract-promote/native-confirm"): access.resolve_hosted_native_publication,
             ("POST", "/api/live/extract-promote/runs/{run_id}/evidence-corrections"): access.resolve_hosted_build_extraction,
@@ -4870,3 +4872,25 @@ def test_hosted_source_statement_review_checks_the_saved_world(hosted, monkeypat
     assert result.status_code == 200, result.text
     assert result.json() == {"reviewed": True}
     assert calls == [("managed", "managed", "hosted_dms:synthetic-owner-alpha")]
+
+
+def test_hosted_source_statement_confirm_binds_world_before_publication(hosted, monkeypatch):
+    from apps.live_control_server.routes import source_statements
+
+    calls = []
+
+    def confirm(body, principal):
+        calls.append((body.envelope["binding"]["managed_world_id"], principal.subject))
+        return {"confirmed": True}
+
+    monkeypatch.setattr(source_statements.service, "confirm", confirm)
+    path = "/api/live/source-statements/confirm"
+    body = {"envelope": {"binding": {"managed_world_id": "managed"}}, "prepared": {}, "token": "fixture"}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={
+        **body, "envelope": {"binding": {"managed_world_id": "foreign"}},
+    }).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 200, result.text
+    assert calls == [("managed", "hosted_dms:synthetic-owner-alpha")]

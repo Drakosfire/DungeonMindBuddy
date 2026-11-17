@@ -73,17 +73,15 @@ def _call(fn, *args, **kwargs):
 
 
 
-def prepare(
-    body: StatementSelection,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
-):
+def prepare(body: StatementSelection, request: Request):
+    principal = _statement_principal(request, body.managed_world_id)
     return _call(service.prepare, body, principal)
 
 
-def confirm(
-    body: ConfirmStatement,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
-):
+def confirm(body: ConfirmStatement, request: Request):
+    binding = body.envelope.get("binding")
+    world_id = binding.get("managed_world_id") if isinstance(binding, dict) else None
+    principal = _statement_principal(request, world_id)
     return _call(service.confirm, body, principal)
 
 
@@ -132,7 +130,7 @@ async def produce_proposals(body: ProposalRequest, principal=Depends(native_grap
         raise HTTPException(409, detail={"code": "proposal_source_refused", "message": str(exc)}) from exc
 
 
-def _proposal_principal(request: Request, managed_world_id: str) -> NativeGraphPrincipal:
+def _statement_principal(request: Request, managed_world_id: str | None) -> NativeGraphPrincipal:
     from apps.live_control_server.services import hosted_auth
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
     from apps.live_control_server.services.hosted_native_graph_access import (
@@ -143,19 +141,19 @@ def _proposal_principal(request: Request, managed_world_id: str) -> NativeGraphP
         principal = enforce_native_graph_gm(request)
     else:
         principal = hosted_explorer_principal(request)
-    require_explorer_access(principal, managed_world_id)
+    require_explorer_access(principal, managed_world_id or "")
     return principal
 
 
 @router.get("/proposals/{operation_id}")
 def read_proposals(operation_id: UUID, managed_world_id: str, request: Request):
-    principal = _proposal_principal(request, managed_world_id)
+    principal = _statement_principal(request, managed_world_id)
     return _proposal_call(proposals.get, operation_id, managed_world_id, principal)
 
 
 def review_proposal(operation_id: UUID, managed_world_id: str, body: ProposalReview,
                     request: Request):
-    principal = _proposal_principal(request, managed_world_id)
+    principal = _statement_principal(request, managed_world_id)
     return _proposal_call(proposals.review, operation_id, managed_world_id, body, principal)
 
 router.add_api_route("/proposals", produce_proposals, methods=["POST"], route_class_override=StrictJSONRoute)

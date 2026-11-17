@@ -886,6 +886,25 @@ async def resolve_hosted_build_extraction(request: Request) -> str:
     return world_id
 
 
+async def resolve_hosted_source_statement_publication(request: Request) -> str:
+    from apps.live_control_server.models.source_statements import ConfirmStatement, StatementSelection
+
+    if request.query_params:
+        raise _denied()
+    subject = _hosted_subject(request)
+    payload = await request.json()
+    if request.url.path.endswith("/confirm"):
+        binding = ConfirmStatement.model_validate(payload).envelope.get("binding")
+        world_id = binding.get("managed_world_id") if isinstance(binding, dict) else None
+    else:
+        world_id = StatementSelection.model_validate(payload).managed_world_id
+    if not isinstance(world_id, str) or not world_id:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, subject, world_id)
+    request.state.hosted_native_graph_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_source_statement_proposal(request: Request) -> str:
     world_id = request.query_params.get("managed_world_id")
     if not world_id or request.query_params.multi_items() != [("managed_world_id", world_id)]:

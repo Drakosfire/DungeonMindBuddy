@@ -339,7 +339,10 @@ def test_incomplete_discovered_bundle_is_partial_not_flattened(lane, monkeypatch
     assert output["gap_codes"] == ["statement_bundle_unavailable"]
 
 
-def test_authenticated_routes_and_strict_selection(lane):
+def test_authenticated_routes_and_strict_selection(lane, monkeypatch):
+    from apps.live_control_server.services import agent_graph_auth
+
+    monkeypatch.setattr(agent_graph_auth, "enforce_native_graph_gm", lambda _: GM)
     from apps.live_control_server.routes.source_statements import router
     from apps.live_control_server.services.agent_graph_auth import (
         authenticate_native_graph_principal,
@@ -686,10 +689,13 @@ def extension_client(principal=GM):
     return TestClient(app, client=("127.0.0.1", 50000))
 
 
-def test_http_extension_prepare_confirm_read_and_replay(extension_lane):
+def test_http_extension_prepare_confirm_read_and_replay(extension_lane, monkeypatch):
+    from apps.live_control_server.services import agent_graph_auth
+
     lane = extension_lane
     request = extension_request(lane)
     with extension_client() as client:
+        monkeypatch.setattr(agent_graph_auth, "enforce_native_graph_gm", lambda _: GM)
         url = "/api/live/source-statements/extend-evidence"
         reply = client.post(url, json=request.model_dump())
         assert reply.status_code == 200, reply.text
