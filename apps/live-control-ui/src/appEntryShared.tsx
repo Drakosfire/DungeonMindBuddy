@@ -23,24 +23,22 @@ export function WarmWorldGraphProvider({ worldId, children }: {
     if (!worldId) return;
     const owned = createManagedNativeGraphApi(worldId);
     const lifetime = new AbortController();
-    let warmRead: ReturnType<GraphClient["readGraph"]> | undefined;
-    let generation = 0;
+    type GraphRead = ReturnType<GraphClient["readGraph"]>;
+    let warmRead: { result: GraphRead; signal?: AbortSignal } | undefined;
     const readGraph: GraphClient["readGraph"] = signal => {
-      const request = ++generation;
-      const reading = owned.api.readGraph(signal
+      const result = owned.api.readGraph(signal
         ? AbortSignal.any([lifetime.signal, signal]) : lifetime.signal);
-      void reading.then(graph => {
-        if (request === generation && !lifetime.signal.aborted) warmRead = Promise.resolve(graph);
+      warmRead = { result, signal };
+      void result.then(graph => {
+        if (warmRead?.result === result) warmRead = { result: Promise.resolve(graph) };
       }, () => {
-        if (warmRead === reading) warmRead = undefined;
+        if (warmRead?.result === result) warmRead = undefined;
       });
-      return reading;
+      return result;
     };
-    const readInitialGraph = () => warmRead ?? (warmRead = readGraph());
-    const rememberGraph = (graph: Awaited<ReturnType<GraphClient["readGraph"]>>) => {
-      if (lifetime.signal.aborted) return;
-      generation += 1;
-      warmRead = Promise.resolve(graph);
+    const readInitialGraph = () => warmRead && !warmRead.signal?.aborted ? warmRead.result : readGraph();
+    const rememberGraph = (graph: Awaited<GraphRead>) => {
+      if (!lifetime.signal.aborted) warmRead = { result: Promise.resolve(graph) };
     };
     readInitialGraph();
     setCurrent({ worldId, api: {
