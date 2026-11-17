@@ -256,7 +256,7 @@ def _answer_schema(variants, policy, rules, prose, *, proposal_labels=("invented
 
 def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
-    if type(format_version) is not int or format_version not in {1, 2}:
+    if type(format_version) is not int or format_version not in {1, 2, 3}:
         raise ValueError('Unknown native writer output format version')
     if (frame.get('schema') not in {SCHEMA, LEGACY_SCHEMA} or frame.get('answer_policy') != ASSERTION_POLICY
             or not isinstance(rules, (PlanRulesEvidenceFrameV1, ModelRulesFrame))):
@@ -293,6 +293,32 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
             base['required'].append('collaboration')
             if definitions:
                 schema.setdefault('$defs',{}).update(definitions)
+    if format_version == 3:
+        from .native_build_work_view import variant_sources
+        sources = variant_sources(work_frame)
+        if rules.lookups or work_frame.get("schema") != BUILD_WORK_SCHEMA or not sources:
+            raise ValueError("Variant writer format requires a grounded draft without Rules lookups")
+        if sources:
+            from apps.live_control_server.integrations.dungeonmind_statblocks.generated import StatblockDefinitionV1Input
+
+            definition = StatblockDefinitionV1Input.model_json_schema(
+                ref_template="#/$defs/Variant_{model}",
+            )
+            definitions = definition.pop("$defs", {})
+            schema.setdefault("$defs", {}).update(
+                {f"Variant_{name}": entry for name, entry in definitions.items()}
+            )
+            base = schema["$defs"]["Base"] if rules.lookups else schema
+            base["properties"]["statblock_variant"] = {
+                "anyOf": [
+                    _object({
+                        "source": _enum(list(sources)),
+                        "definition": definition,
+                    }),
+                    {"type": "null"},
+                ],
+            }
+            base["required"].append("statblock_variant")
     if work_frame.get('schema')==PLAN_WORK_SCHEMA and work_frame.get('requested_work')=='review_connected_page':
         from .collaboration import ProposedConnectedPage
         rows=work_frame.get('related_authored_pages',{}).get('pages',[])
