@@ -44,3 +44,17 @@ provider or end-to-end Save/reopen claim. Preserve raw output and source pin.
 Runtime integration and ordinary synthetic provider exercise remain explicit gates.
 Affected checks, exact-source repo verifier and independent review precede any
 completion claim; push/draft PR is authorized, not merge/deploy.
+
+## Baseline and bounded catalog adoption
+Four real-editor baseline checks pass at179521171: Build lacks named prose offers;
+Plan heading boundary+Undo already works; intra-paragraph sentence boundary is not
+offered; stale/read-only guards refuse. Ordinary routing and Save remain unscored.
+75 open PR file inventories checked: no overlap for this handoff, eval directory or
+`apps/live-control-ui/src/documentEditing/proseTargetCatalog.ts`. This one new
+runtime helper is now added to the exclusive lease, plus tests in the eval dir.
+It offers immutable root prose-paragraph occurrences and adjacent legal root
+boundaries with heading context, no incidental caret. It never selects, applies,
+saves or routes model output. Replacement of partial sentences remains unsupported.
+Resolution requires the exact live editable snapshot/scope and an issued catalog.
+No arbitrary returned offsets or first-match substring resolution. Model selection
+and integration with reviewed proposals remain blocked on bounded owner splits.
