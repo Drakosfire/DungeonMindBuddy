@@ -562,6 +562,14 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && path === hostedWorldLookupPath(worldId);
   }
   if (method !== "POST") return false;
+  if (path === "/api/live/native-graph-inspection/catalog" ||
+      path === "/api/live/native-source-inspection/catalog" ||
+      path === "/api/live/native-source-inspection/read") {
+    const body = requestBodyRecord(init?.body);
+    const scope = path.endsWith("/read") ? body?.scope : body;
+    return isRecord(scope) && scope.scope_mode === "world" && scope.campaign_id === null
+      && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id);
+  }
   if (HOSTED_EXPLORER_PATHS.has(path)) return true;
   if (path !== "/api/live/native-graph-inspection/read") return false;
   const body = requestBodyRecord(init?.body);

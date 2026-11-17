@@ -23,7 +23,8 @@ from apps.live_control_server.models.native_graph_explorer import (
     NativeGraphExplorerOperationRequest,
     NativeGraphExplorerPrepareRequest,
 )
-from apps.live_control_server.models.native_graph_inspection import InspectionRead
+from apps.live_control_server.models.native_graph_inspection import InspectionPin, InspectionRead, InspectionScope
+from apps.live_control_server.models.native_source_inspection import NativeSourceRead
 from apps.live_control_server.services import hosted_auth
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
@@ -47,6 +48,10 @@ BUILD_PDF_SOURCES_PATH = hosted_auth.BUILD_PDF_SOURCES_PATH
 BUILD_PAGE_INVENTORY_PATH = "/api/live/workspace-documents/pages/inventory"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
 _REQUESTS = {
+    "/api/live/native-graph-inspection/catalog": TypeAdapter(InspectionPin | InspectionScope),
+    "/api/live/native-source-inspection/catalog": TypeAdapter(InspectionScope),
+    "/api/live/native-source-inspection/read": TypeAdapter(NativeSourceRead),
+
     INSPECTION_READ_PATH: TypeAdapter(InspectionRead),
     f"{EXPLORER_PREFIX}/graph": TypeAdapter(NativeGraphExplorerGraphRequest),
     f"{EXPLORER_PREFIX}/prepare": TypeAdapter(NativeGraphExplorerPrepareRequest),
@@ -119,11 +124,13 @@ async def resolve_hosted_explorer_world(request: Request) -> str:
     # The hosted middleware already bounds bytes and rejects duplicate keys and
     # conflicting selectors before invoking this exact code-owned resolver.
     body = _REQUESTS[request.url.path].validate_python(await request.json())
-    if isinstance(body, InspectionRead):
+    if isinstance(body, (InspectionRead, NativeSourceRead)):
         if body.scope.scope_mode != "world":
             raise _denied()
         managed_world_id = body.scope.managed_world_id
     else:
+        if isinstance(body, (InspectionPin, InspectionScope)) and body.scope_mode != "world":
+            raise _denied()
         managed_world_id = body.managed_world_id
     world = _owned_world(subject, managed_world_id)
     request.state.hosted_native_graph_world = world.world_id
