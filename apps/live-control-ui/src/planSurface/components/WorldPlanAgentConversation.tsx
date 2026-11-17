@@ -5197,7 +5197,7 @@ export function WorldPlanAgentConversation({
           worldId: target.native_world_id, campaignId: "", scopeMode: "world", focus,
           admissibility: "gm", revisionPin: target.graph_revision, contextAnchorId: target.context_anchor_id,
           maxChars: 12000, continuation: previous?.page?.nextContinuation ?? null,
-        });
+        }, { worldId: target.managed_world_id, turnId: turn.turn_id, claimId: target.claim_id });
         const descriptor = result.context;
         if (result.schema === "dmb_recap_context_read_v2"
           && ["enough", "truncated"].includes(result.outcome)

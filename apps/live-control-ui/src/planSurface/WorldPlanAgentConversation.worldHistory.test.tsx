@@ -2912,26 +2912,26 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByText("Partial passage. More source text may be available.")).toBeInTheDocument();
     expect(recapRead).toHaveBeenCalledWith(expect.objectContaining({
       revisionPin: "graph-revision-test", contextAnchorId: "dm-context-anchor:v2:test",
-    }));
+    }), expect.objectContaining({ worldId, turnId: expect.any(String) }));
     const firstPage = await recapRead.mock.results[0]!.value;
     recapRead.mockResolvedValue({ ...firstPage, outcome: "enough", content: " — final Ω beat", offsetChars: [...firstPage.content!].length,
       truncated: false, nextContinuation: null });
     fireEvent.click(screen.getByRole("button", { name: "Load more context" }));
     await waitFor(() => expect(screen.getByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage — final Ω beat"));
-    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: firstPage.nextContinuation, maxChars: 12000}));
+    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: firstPage.nextContinuation, maxChars: 12000}), expect.objectContaining({ worldId }));
     expect(screen.queryByRole("button", {name: "Load more context"})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close passage" }));
     expect(screen.queryByLabelText("Related recap context passage")).not.toBeInTheDocument();
     recapRead.mockResolvedValue(firstPage);
     fireEvent.click(screen.getByRole("button", {name: "Open related recap context"}));
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
-    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}));
+    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}), expect.objectContaining({ worldId }));
     mounted.unmount();
     render(conversationElement());
     await expandAnswerEvidence();
     fireEvent.click(await screen.findByRole("button", {name: "Open related recap context"}));
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
-    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}));
+    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}), expect.objectContaining({ worldId }));
     expect(ask).not.toHaveBeenCalled();
   });
 
