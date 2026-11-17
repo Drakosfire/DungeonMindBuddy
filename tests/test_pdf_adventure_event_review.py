@@ -119,7 +119,8 @@ def test_pdf_event_preserves_review_and_reopens_citation(
             with monkeypatch.context() as failure:
                 failure.setattr(world_graph_binding, "_save_binding_record", interrupt_catalog)
                 interrupted = client.post(events + "/confirm", json=packet, headers=auth)
-                assert interrupted.status_code == 409, interrupted.text
+                assert interrupted.status_code == 503, interrupted.text
+                assert interrupted.json()["detail"]["code"] == "event_publication_outcome_unknown"
             saved_head = repo.get_head(space).head_revision_id
             assert saved_head != before
             assert catalog_owner.get_world(world.world_id).record.native_graph_binding.status == "provisioning"

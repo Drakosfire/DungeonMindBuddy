@@ -10,7 +10,11 @@ from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
 from pydantic import BaseModel, ConfigDict, Field
 from worldkeeper.application import contracts as wk
 
-from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
+from application_state.errors import (
+    ApplicationStateConflictError,
+    ApplicationStateIntegrityError,
+    ApplicationStateUnavailableError,
+)
 from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
 from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
 from apps.live_control_server.services.graph_object_authoring_prepare import (
@@ -27,6 +31,13 @@ from apps.live_control_server.services.world_graph_binding import (
 from graph_memory.vnext.domain_runtime import GM_LABEL
 
 PRODUCER = "dungeonbuddy:pdf-adventure-event-v1"
+
+
+class EventPublicationRecoveryRequired(ApplicationStateUnavailableError):
+    code = "event_publication_outcome_unknown"
+
+    def __init__(self):
+        super().__init__("Retry the exact confirmation to recover publication.")
 
 
 class EventDraft(BaseModel):
@@ -150,7 +161,7 @@ def confirm(world_id, request, principal):
     ).commit_prepared_change(prepared, confirmed_by=principal.subject)
     aggregate = get_prospective_publication(space, publication_id, repository=repo)
     if aggregate is None or resolve_managed_source_identity(world_id) != identity:
-        raise ApplicationStateConflictError("Publication needs recovery. Retry the same confirmation.")
+        raise EventPublicationRecoveryRequired()
     result = aggregate.prospective_result
     if get_world_container(world_id).native_graph_binding.status == "provisioning":
         try:
@@ -159,7 +170,9 @@ def confirm(world_id, request, principal):
                 published_revision_id=result.published_revision_id,
             )
         except WorldGraphBindingError as exc:
-            raise ApplicationStateConflictError(str(exc)) from exc
+            raise EventPublicationRecoveryRequired() from exc
+    if resolve_managed_source_identity(world_id) != identity:
+        raise EventPublicationRecoveryRequired()
     native.binding(world_id)
     entities = [entry for entry in result.results if entry.result_kind == "entity"]
     if len(entities) != 1 or entities[0].client_op_id != "event":
