@@ -164,3 +164,36 @@ write a new record, call providers or relax existing strict parsing. Authenticat
 route validation, mixed-version rollout, hosted history and review consumers need
 an explicit owner review before activation. The current tests verify rejection by
 the actual legacy owner, not merely an invented compatibility model.
+
+## Isolated vertical proof activation, November 17
+Root relayed Alan's explicit “Continue building it” and authorized a runnable
+isolated opt-in native review/apply/Save/reopen proof. Main is still eecaf799.
+Current open PR inventories show no overlap for the owners below; shared harness,
+controller, #3824 test and APP migrations remain excluded. The image lane's exact
+capture/apply/result code and heads stay reserved/unchanged.
+
+Added exclusive paths: `src/application_state/build_proposal/{types,review,service}.py`;
+`apps/live-control-ui/src/api/{buildDocumentProposalApi,buildProposalReviewApi}.ts`;
+`buildSurface/BuildPageProposal.tsx` and the already-transferred bridge/tests;
+`documentEditing/markdownInsertion.ts` for schema-faithful simulation only. Tests,
+fixture scripts and disposable adapters remain in evals/inline_prose_targeting/**.
+No edits to shared harness/controller, public routing or any migration slot.
+
+Only the first replacement operation is activated in a disposable test owner:
+one host-catalog-nominated root prose paragraph, with actual author selection empty
+and caret elsewhere. The production service constructors retain default denial;
+explicit in-process proof opt-in is required for v2 record and v4 review reads and
+writes. No environment flag or route exposes that opt-in. Default readers keep
+refusing unsupported prose records. New-format bytes exist only in uniquely owned
+disposable fixture databases, never operator Worlds or browser profiles.
+
+A scripted choice nominates the alias, not an ordinary provider. Prove selected
+paragraph occurrence despite duplicate text in another section, snapshot/admission,
+exact unrelated-node preservation, native Undo, explicit Save and fresh reopen.
+Keep persisted owner tests, mounted adapter tests, cross-boundary roundtrip and
+model-routing evidence separate. No model/provider evidence is implied.
+
+Proof database may use the already-installed pgvector Postgres image on a newly
+checked loopback port with uniquely owned Projects-backed data. Do not start,
+stop or reuse54329/5202/8001 or any existing runtime. Retain commands and cleanup.
+Any missing lease or unsupported owning contract is reported rather than bypassed.
