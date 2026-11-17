@@ -326,6 +326,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_committed_plan,
@@ -2866,3 +2867,22 @@ def test_hosted_image_history_passes_exact_owner(hosted, monkeypatch):
     world, conversation, subject = service.list.call_args.args
     assert (world, conversation) == ("managed", conversation_id)
     assert subject.startswith("hosted_dms:")
+
+
+def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, tmp_path):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import workspace_documents
+
+    read = Mock(return_value={"phase": "complete"})
+    monkeypatch.setattr(workspace_documents, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(workspace_documents, "get_connected_page", read)
+    operation = uuid4()
+    path = f"/api/live/connected-pages/{operation}?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    read.assert_called_once_with(tmp_path, operation, "managed")

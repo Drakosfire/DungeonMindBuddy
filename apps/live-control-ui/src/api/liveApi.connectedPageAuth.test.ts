@@ -65,3 +65,22 @@ it.each(['publication_id','published_revision_id','native_world_id'] as const)('
  vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(value));
  await expect(pages.recoverConnectedPage(request)).rejects.toThrow('native publication receipt');
 });
+
+it('loads the exact connected page with the hosted session and rejects duplicate World selectors', async () => {
+  const { live, pages } = await modules();
+  vi.stubGlobal('window', { location: { href: 'https://buddy.example/build' }, dispatchEvent: vi.fn() });
+  try {
+    live.setNativeGraphAccessToken('synthetic-local-credential');
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json(result()));
+    const path = `/api/live/connected-pages/${id}?world_id=world-a`;
+    await expect(pages.readConnectedPageForPage(id, 'world-a', page)).resolves.toMatchObject({ operation_id: id });
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch.mock.calls[0][0]).toBe(path);
+    expect(fetch.mock.calls[0][1]).toMatchObject({ cache: 'no-store', credentials: 'same-origin', redirect: 'error' });
+    expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false);
+    await expect(live.authenticatedApiFetch(path + '&world_id=world-b')).rejects.toThrow(/exact same-origin/);
+    expect(fetch).toHaveBeenCalledOnce();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
