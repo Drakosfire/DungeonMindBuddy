@@ -126,7 +126,8 @@ def test_draft_route_checks_access_before_read_or_edit(monkeypatch):
 
 
 
-def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path):
+def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *, existing_review=None, mounted_client=None):
+    from contextlib import nullcontext
     import json
     from pathlib import Path
     from types import SimpleNamespace
@@ -153,20 +154,21 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path):
     exact_reads = []
     exact_response = exact
 
-    review_id = uuid4()
-    stale_review_id = uuid4()
-    for revision, identifier in [(2, review_id), (1, stale_review_id)]:
-        service.store_conversation_variant_review(
-            **scope, review_id=identifier, revision=revision,
-            definition=definition.model_dump(mode="json"),
-            base_locator=_locator().model_dump(mode="json"),
-        )
-    with pytest.raises(ApplicationStateConflictError, match="draft changed"):
-        conversation_variant_save.save_variant(
-            service, **scope,
-            confirmation=conversation_variant_save.ConfirmConversationVariant(review_id=stale_review_id),
-            client=object(),
-        )
+    review_id = existing_review or uuid4()
+    if existing_review is None:
+        stale_review_id = uuid4()
+        for revision, identifier in [(2, review_id), (1, stale_review_id)]:
+            service.store_conversation_variant_review(
+                **scope, review_id=identifier, revision=revision,
+                definition=definition.model_dump(mode="json"),
+                base_locator=_locator().model_dump(mode="json"),
+            )
+        with pytest.raises(ApplicationStateConflictError, match="draft changed"):
+            conversation_variant_save.save_variant(
+                service, **scope,
+                confirmation=conversation_variant_save.ConfirmConversationVariant(review_id=stale_review_id),
+                client=object(),
+            )
 
     create_bodies = []
 
@@ -198,7 +200,7 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path):
     monkeypatch.setattr(combat_encounters, "_verified_world", lambda world_id: world_id)
     app.include_router(combat_encounters.router)
     review_path = f"{draft_path}/variant-reviews/{review_id}"
-    with TestClient(app) as client:
+    with (nullcontext(mounted_client) if mounted_client is not None else TestClient(app)) as client:
         assert client.get(draft_path).json()["variant_review_ids"] == [str(review_id)]
         review = client.get(review_path)
         assert review.status_code == 200, review.text
@@ -251,6 +253,7 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path):
         def unexpected_client():
             pytest.fail("Completed replay tried to open a downstream client")
 
-        monkeypatch.setattr(conversation_variant_save, "DungeonMindStatblockV1Client", unexpected_client)
-        assert client.post(f"{review_path}/confirm").json() == recovered.json()
+        with monkeypatch.context() as replay:
+            replay.setattr(conversation_variant_save, "DungeonMindStatblockV1Client", unexpected_client)
+            assert client.post(f"{review_path}/confirm").json() == recovered.json()
     assert len(create_bodies) == 2
