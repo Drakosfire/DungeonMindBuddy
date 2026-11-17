@@ -272,7 +272,7 @@ def _conversation_response_task(execution):
         if contract['purpose'] == 'clarify':
             return 'clarify'
         if contract['purpose'] == 'fulfill' and contract['requested_work'] == 'discuss':
-            return 'answer'
+            return 'build_discussion'
     return None
 
 
