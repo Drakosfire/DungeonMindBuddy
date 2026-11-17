@@ -293,8 +293,9 @@ def get_world_owned_runbooks(
     response_model=WorldOwnedRunbookRecordV2,
 )
 def post_world_owned_runbook(
-    body: CreateWorldOwnedRunbookRequestV2,
+    body: CreateWorldOwnedRunbookRequestV2, request: Request = None,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, body.world_id)
     try:
         record = create_world_owned_runbook_v2(
             _managed_world_root(), world_id=body.world_id, title=body.title

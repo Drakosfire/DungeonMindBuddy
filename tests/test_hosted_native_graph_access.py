@@ -464,7 +464,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_runbook_read,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_committed_plan,
-            ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
+            ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_playable_create,
+            ("POST", "/api/live/workspace-documents/world-runbooks"): access.resolve_hosted_playable_create,
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
@@ -5225,3 +5226,25 @@ def test_hosted_runbook_read_checks_world_before_document_lookup(hosted, monkeyp
     result = hosted.client.request("GET", path)
     assert result.status_code == 404, result.text
     assert calls == [("managed", document_id)]
+
+
+def test_hosted_runbook_creation_uses_only_owned_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import workspace_documents
+
+    calls = []
+
+    def create(_root, *, world_id, title):
+        calls.append((world_id, title))
+        raise workspace_documents.WorkspaceDocumentRegistryError("fixture reached", status_code=409)
+
+    monkeypatch.setattr(workspace_documents, "create_world_owned_runbook_v2", create)
+    path = "/api/live/workspace-documents/world-runbooks"
+    body = {"schema_version": "dmb_workspace_document_create_v2", "scope_mode": "world",
+            "world_id": "managed", "title": "Session Runbook"}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "world_id": "foreign"}).status_code == 403
+    assert hosted.client.request("POST", path + "?world_id=managed", json=body).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 409, result.text
+    assert calls == [("managed", "Session Runbook")]
