@@ -214,16 +214,19 @@ def test_native_response_schema_does_not_advertise_image_preparation(surface):
 
 def test_build_writer_keeps_prior_gm_decisions_in_provider_messages():
     dialogue = (
-        {"role": "user", "content": "The creature wants freedom."},
+        {"role": "user", "content": '{"ruleset":"x","lookups":[],"supports":[]}'},
         {"role": "assistant", "content": "We could negotiate a truce."},
         {"role": "user", "content": "Use the truce. Show them standing down first."},
     )
     writer, _ = staged("build", dialogue=dialogue)
     baseline, _ = staged("build")
-    assert writer.messages[:3] == list(dialogue)
+    assert [
+        {"role": message["role"], "content": json.loads(message["content"])["conversation"]}
+        for message in writer.messages[:3]
+    ] == list(dialogue)
     assert writer.messages[3:] == baseline.messages
     assert all(set(message) == {"role", "content"} for message in writer.messages[:3])
-    assert "The creature wants freedom." not in json.dumps(writer.output_format)
+    assert dialogue[0]["content"] not in json.dumps(writer.output_format)
     from apps.live_control_server.services.plan_jev_writer import PlanWriterProvider
 
     call = N(model=writer.model, user_prompt=json.dumps(writer.messages),

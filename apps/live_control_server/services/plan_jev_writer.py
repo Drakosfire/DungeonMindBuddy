@@ -352,7 +352,10 @@ class PlanJevWriter:
                 ) + [{'role': 'user', 'content': render_plan_evidence(self.provider_frame, self.provider_work)}]
         if not self.shared:
             self.messages.append({'role':'user','content':'Return JSON.'})
-        self.messages = [dict(role=item['role'], content=item['content']) for item in dialogue] + self.messages
+        self.messages = [
+            {"role": item["role"], "content": canonical_bytes({"conversation": item["content"]}).decode()}
+            for item in dialogue
+        ] + self.messages
         self.prompt_components = None
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
