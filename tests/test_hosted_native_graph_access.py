@@ -315,6 +315,7 @@ def hosted(monkeypatch, request):
                 for operation in OPERATIONS
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
+            ("POST", "/api/live/native-graph-inspection/authoring-identities"): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", "/api/live/native-graph-inspection/authoring-identities")],
             ("POST", access.COMPLETE_OBJECT_PATH): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", access.COMPLETE_OBJECT_PATH)],
             ("POST", access.FIRST_WORLD_PREPARE_PATH): access.resolve_hosted_first_world,
             ("POST", access.FIRST_WORLD_CONFIRM_PATH): access.resolve_hosted_first_world,
@@ -2913,3 +2914,16 @@ def test_hosted_complete_object_reads_exact_pinned_world(hosted):
             "POST", path, json={**body, "request": {**projection, **change}}
         )
         assert denied.status_code == 403, denied.text
+
+
+def test_hosted_authoring_identities_require_owned_world(hosted):
+    path = "/api/live/native-graph-inspection/authoring-identities"
+    scope = {"managed_world_id": "managed", "scope_mode": "world", "campaign_id": None}
+    assert hosted.client.request("POST", path, json=scope, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=scope, origin=None).status_code == 403
+    assert hosted.client.request("POST", path, json={**scope, "scope_mode": "campaign", "campaign_id": "other"}).status_code == 403
+    response = hosted.client.request("POST", path, json=scope)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["scope"]["managed_world_id"] == "managed"
+    assert isinstance(response.json()["identities"], list)

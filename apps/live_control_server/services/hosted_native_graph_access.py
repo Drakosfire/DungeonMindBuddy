@@ -50,6 +50,7 @@ INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
 COMPLETE_OBJECT_PATH = "/api/live/native-graph-inspection/complete-object"
 _REQUESTS = {
     COMPLETE_OBJECT_PATH: TypeAdapter(NativeCompleteObjectRead),
+    "/api/live/native-graph-inspection/authoring-identities": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-graph-inspection/catalog": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-source-inspection/catalog": TypeAdapter(InspectionScope),
     "/api/live/native-source-inspection/read": TypeAdapter(NativeSourceRead),

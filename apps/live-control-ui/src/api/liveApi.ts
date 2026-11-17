@@ -586,7 +586,8 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && path === hostedWorldLookupPath(worldId);
   }
   if (method !== "POST") return false;
-  if (path === "/api/live/native-graph-inspection/catalog" ||
+  if (path === "/api/live/native-graph-inspection/authoring-identities" ||
+      path === "/api/live/native-graph-inspection/catalog" ||
       path === "/api/live/native-source-inspection/catalog" ||
       path === "/api/live/native-source-inspection/read") {
     const body = requestBodyRecord(init?.body);

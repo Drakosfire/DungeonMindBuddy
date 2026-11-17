@@ -116,6 +116,7 @@ const entityInspectionBody = {
   selection: { kind: "entity", entity_id: "entity-a" },
 };
 const hostedRoutes = [
+  ["authoring identities", "/api/live/native-graph-inspection/authoring-identities", { managed_world_id: "managed-a", scope_mode: "world", campaign_id: null }],
   ...routes,
   ["entity-inspection", "/api/live/native-graph-inspection/read", entityInspectionBody],
   ["chronology", "/api/live/native-graph-inspection/read", { ...entityInspectionBody, selection: { kind: "chronology" } }],
