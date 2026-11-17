@@ -440,3 +440,24 @@ it("reads hosted saved-version history and previews exact Combat mechanics", asy
     expect(new Headers(init?.headers).has("Authorization")).toBe(false);
   }
 });
+
+it("routes hosted Combat adoption and recovery through same-origin session transport", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const base = "/api/live/combat/encounters/12345678-1234-1234-1234-123456789abc/mechanics-adoptions";
+  const operation = "87654321-1234-1234-1234-123456789abc";
+  const world = "?world_id=managed";
+  await api.authenticatedApiFetch(base + world, { method: "POST", body: "{}" });
+  await api.authenticatedApiFetch(base + ":cancel" + world, { method: "POST", body: "{}" });
+  await api.authenticatedApiFetch(base + "/" + operation + world);
+  await api.authenticatedApiFetch(base + world + "&before_operation_id=" + operation);
+  await expect(api.authenticatedApiFetch(base + ":cancel" + world)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(base + world + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(4);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+});

@@ -196,25 +196,35 @@ def preview_saved_mechanics_route(
     return _adoption_call(lambda:combat_mechanics.preview_saved_override(world_id=owner,draft_id=body.draft_id,locator=body.locator))
 
 
-@router.post('/{encounter_id}/mechanics-adoptions',response_model=AdoptionOutcome, dependencies=_LOCAL_GM)
-def adopt_mechanics_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest):
+@router.post('/{encounter_id}/mechanics-adoptions',response_model=AdoptionOutcome)
+def adopt_mechanics_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest,request:Request):
+    require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
     return _adoption_call(lambda:combat_mechanics.adopt_saved_override(world_id=owner,encounter_id=encounter_id,request=body))
 
 
-@router.post('/{encounter_id}/mechanics-adoptions:cancel',response_model=AdoptionOutcome, dependencies=_LOCAL_GM)
-def cancel_mechanics_adoption_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest):
+@router.post('/{encounter_id}/mechanics-adoptions:cancel',response_model=AdoptionOutcome)
+def cancel_mechanics_adoption_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest,request:Request):
+    require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
     return _adoption_call(lambda:adoption.cancel(world_id=owner,encounter_id=encounter_id,request=body))
 
 
-@router.get('/{encounter_id}/mechanics-adoptions/{operation_id}',response_model=AdoptionOutcome|None, dependencies=_LOCAL_GM)
-def inspect_mechanics_adoption_route(encounter_id:UUID,operation_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)]):
+@router.get('/{encounter_id}/mechanics-adoptions/{operation_id}',response_model=AdoptionOutcome|None)
+def inspect_mechanics_adoption_route(encounter_id:UUID,operation_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],request:Request):
+    require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
     return _adoption_call(lambda:adoption.inspect(world_id=owner,encounter_id=encounter_id,operation_id=operation_id))
 
 
-@router.get('/{encounter_id}/mechanics-adoptions',response_model=AdoptionHistoryPage, dependencies=_LOCAL_GM)
-def mechanics_adoption_history_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],before_operation_id:UUID|None=None,limit:int=Query(default=20,ge=1,le=100)):
+@router.get('/{encounter_id}/mechanics-adoptions',response_model=AdoptionHistoryPage)
+def mechanics_adoption_history_route(
+    encounter_id: UUID,
+    world_id: Annotated[str, Query(min_length=1, max_length=63)],
+    request: Request,
+    before_operation_id: UUID | None = None,
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
     return _adoption_call(lambda:adoption.history(world_id=owner,encounter_id=encounter_id,before_operation_id=before_operation_id,limit=limit))

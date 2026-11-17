@@ -61,6 +61,9 @@ from apps.live_control_server.services.hosted_auth import (
 )
 from tests.test_native_graph_explorer import InMemoryExplorerStore, _snapshot
 from tests.test_native_recap_preparation import TOKEN, lane as recap_lane  # noqa: F401
+from tests.test_combat_mechanics_adoption import adoption_case  # noqa: F401
+from tests.test_statblock_saved_revisions import revision_case  # noqa: F401
+from tests.test_world_mechanics_associations import prepared  # noqa: F401
 
 
 FRONTEND_ORIGIN = "https://buddy.dungeonmind.net"
@@ -320,6 +323,10 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters/saved-mechanics/preview"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions:cancel"): access.resolve_hosted_combat_encounter,
+            ("GET", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions/{operation_id}"): access.resolve_hosted_combat_encounter,
+            ("GET", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions"): access.resolve_hosted_combat_encounter,
             ("PUT", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_saved_statblock,
@@ -2499,3 +2506,30 @@ def test_hosted_combat_saved_revision_selection_and_preview(hosted, monkeypatch)
         {"world_id": "managed", "draft_id": draft, "limit": 50, "offset": 0},
         ("managed", draft, "rev_example"),
     ]
+
+
+def test_hosted_combat_adoption_applies_and_reopens_exact_receipt(
+    adoption_case, hosted, monkeypatch,
+):
+    p = adoption_case
+    hosted.records["elderwyld"] = _record("elderwyld", OWNER, p.binding.native_world_id)
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({"elderwyld": [OWNER, OTHER_OWNER]}))
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(p.root))
+    history = p.adopt_url
+    operation = p.intent["operation_id"]
+    inspect = history.replace("mechanics-adoptions?", f"mechanics-adoptions/{operation}?")
+    assert hosted.client.request("POST", history, origin=None, json=p.intent).status_code == 403
+    assert hosted.client.request("POST", history, session="other-session", json=p.intent).status_code == 403
+    assert hosted.client.request("GET", history).json()["receipts"] == []
+    result = hosted.client.request("POST", history, json=p.intent)
+    assert result.status_code == 200, result.text
+    outcome = result.json()
+    assert outcome["receipt"]["operation_id"] == operation
+    assert outcome["receipt"]["committed_revision"] == 3
+    assert outcome["encounter"]["draft"]["entities"][0]["mechanics_snapshot"]["locator"] == p.locator
+    assert hosted.client.request("GET", p.encounter_url).json() == outcome["encounter"]
+    assert hosted.client.request("GET", inspect, session="other-session").status_code == 403
+    assert hosted.client.request("GET", inspect).json() == outcome
+    assert hosted.client.request("GET", history).json()["receipts"] == [outcome["receipt"]]
+    assert hosted.client.request("GET", history + f"&before_operation_id={operation}").json()["receipts"] == []
+    assert hosted.client.request("POST", p.cancel_url, json=p.intent).json() == outcome
