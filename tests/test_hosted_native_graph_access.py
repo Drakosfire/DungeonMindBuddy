@@ -334,6 +334,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): access.resolve_hosted_play_command,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
@@ -2319,6 +2320,37 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert recorded.status_code == 200, recorded.text
     assert recorded.json()["receipt"]["outcome"] == "Dry"
     assert hosted.client.request("PUT", roll_path, json=roll).json()["receipt"] == recorded.json()["receipt"]
+
+
+    from apps.live_control_server.services.play_run_edition import read_content
+
+    content = read_content(run_id=run_id, world_id="managed")
+    from tests.integration.test_build_images_postgres import saved_image
+
+    artwork = saved_image(access.hosted_world_media_owner("managed"))
+    foreign_artwork = saved_image(access.hosted_world_media_owner("foreign"))
+    edition_path = f"{base}/content/commands/{uuid4()}?world_id=managed"
+    edition = {
+        "schema_version": "dmb_world_play_run_content_commit_v1",
+        "expected_origin": content.origin.model_dump(mode="json"),
+        "expected_edition_revision": content.edition_revision,
+        "expected_content_sha256": content.content_sha256,
+        "markdown": content.markdown + f"\n\n![Gate](dmb-media:{artwork['asset_id']})\n",
+    }
+    assert hosted.client.request("PUT", edition_path, json=edition, session="other-session").status_code == 403
+    assert hosted.client.request("PUT", edition_path, json=edition, origin=None).status_code == 403
+    foreign_edition = {
+        **edition,
+        "markdown": edition["markdown"].replace(str(artwork["asset_id"]), str(foreign_artwork["asset_id"])),
+    }
+    denied = hosted.client.request("PUT", edition_path, json=foreign_edition)
+    assert denied.status_code == 422, denied.text
+    committed_edition = hosted.client.request("PUT", edition_path, json=edition)
+    assert committed_edition.status_code == 200, committed_edition.text
+    assert hosted.client.request("PUT", edition_path, json=edition).json() == committed_edition.json()
+    reopened_edition = hosted.client.request("GET", content_path)
+    assert reopened_edition.status_code == 200, reopened_edition.text
+    assert reopened_edition.json()["markdown"] == edition["markdown"]
 
 
 def test_hosted_statblock_picker_reads_only_owned_world(hosted, application_state_dsn, tmp_path, monkeypatch):

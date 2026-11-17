@@ -450,7 +450,17 @@ async def put_world_run_content_command(
         commit_content,
     )
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        hosted_world_media_owner, require_hosted_plan_world_context,
+    )
+
+    media_owner = None
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        require_hosted_plan_world_context(request, world_id)
+        media_owner = hosted_world_media_owner(world_id)
+    else:
+        enforce_native_graph_gm(request)
     # Bound the streamed request before allocating an unbounded body buffer.
     raw = bytearray()
     async for chunk in request.stream():
@@ -466,6 +476,7 @@ async def put_world_run_content_command(
         world_id=world_id,
         command_id=command_id,
         request=body,
+        media_owner=media_owner,
     )
 
 
