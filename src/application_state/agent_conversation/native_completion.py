@@ -201,8 +201,6 @@ def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False, v
         return None
     sources = variant_sources(work_frame)
     keys = {"source", "add_rules", "replace_rules"} if variant_edits else {"source", "definition"}
-    if variant_witnesses:
-        keys.add("authored_rule_witnesses")
     if not isinstance(proposal, dict) or set(proposal) != keys:
         raise ValueError("Statblock variant does not match its producing format")
     source = proposal["source"]
@@ -211,24 +209,35 @@ def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False, v
     from apps.live_control_server.services.conversation_variant_save import ConversationVariantDraft
 
     base = sources[source]
+    if variant_witnesses:
+        markdown = work_frame.get("working_draft_context", {}).get("draft_markdown", "")
+        proposal = {
+            field: _unwrap_witnessed_edits(proposal[field], markdown)
+            for field in ("add_rules", "replace_rules")
+        }
     definition = (
         _apply_statblock_rule_edits(base["definition"], proposal)
         if variant_edits else proposal["definition"]
     )
-    if variant_witnesses:
-        markdown = work_frame.get("working_draft_context", {}).get("draft_markdown", "")
-        edited_keys = {row["key"] for field in ("add_rules", "replace_rules") for row in proposal[field]}
-        for witness in proposal["authored_rule_witnesses"]:
-            excerpt = witness["excerpt"]
-            if (
-                witness["source"] != "current_draft"
-                or witness["rule_key"] not in edited_keys
-                or not excerpt.strip()
-                or markdown.find(excerpt) < 0
-                or markdown.find(excerpt, markdown.find(excerpt) + 1) >= 0
-            ):
-                raise ValueError("Statblock rule witness must identify exact authored text and an edited rule")
     return ConversationVariantDraft(base_event_id=base["event_id"], definition=definition)
+
+
+def _unwrap_witnessed_edits(edits, markdown):
+    if not isinstance(edits, list):
+        raise ValueError("Witnessed statblock rule edits must be arrays")
+    rules = []
+    for edit in edits:
+        if not isinstance(edit, dict) or set(edit) != {"authored_quotes", "rule"}:
+            raise ValueError("Each witnessed edit must contain its quotes and rule")
+        quotes = edit["authored_quotes"]
+        if not isinstance(quotes, list):
+            raise ValueError("Authored rule quotes must be an array")
+        for quote in quotes:
+            start = markdown.find(quote) if isinstance(quote, str) and quote.strip() else -1
+            if start < 0 or markdown.find(quote, start + 1) >= 0:
+                raise ValueError("Statblock rule witness must identify exact authored text")
+        rules.append(edit["rule"])
+    return rules
 
 
 def _apply_statblock_rule_edits(base, proposal):

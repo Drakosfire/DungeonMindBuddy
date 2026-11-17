@@ -347,8 +347,9 @@ def test_variant_writer_visible_reply_preserves_retained_edits_schema(monkeypatc
         witnessed = native_output_format(evidence, rules(), witness_work, build_local=True, format_version=6)
         assert witnessed["name"] == native_build_work_view.VARIANT_WITNESS_FORMAT
         variant = witnessed["schema"]["properties"]["statblock_variant"]
-        assert next(iter(variant["properties"])) == "authored_rule_witnesses"
-        assert variant["properties"]["authored_rule_witnesses"].get("maxItems") == (None if has_draft else 0)
-        del variant["properties"]["authored_rule_witnesses"]
-        variant["required"].remove("authored_rule_witnesses")
+        for field in ("add_rules", "replace_rules"):
+            edit = variant["properties"][field]["items"]
+            assert list(edit["properties"]) == ["authored_quotes", "rule"]
+            assert edit["properties"]["authored_quotes"].get("maxItems") == (None if has_draft else 0)
+            variant["properties"][field]["items"] = edit["properties"]["rule"]
         assert witnessed["schema"] == native_output_format(evidence, rules(), witness_work, build_local=True, format_version=5)["schema"]

@@ -309,24 +309,19 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
             schema.setdefault("$defs", {}).update(
                 {f"Variant_{name}": entry for name, entry in definitions.items()}
             )
-            properties = {}
+            properties = {"source": _enum(list(sources))}
             if format_version == 6:
-                witnesses = _array(_object({
-                    "source": _literal("current_draft"),
-                    "excerpt": {
-                        **prose,
-                        "description": "Quote the exact authored condition, including any exception.",
-                    },
-                    "rule_key": prose,
-                }))
+                witnesses = _array({
+                    **prose,
+                    "description": "Quote the exact authored condition, including any exception.",
+                })
                 witnesses["description"] = (
-                    "Select exact conditions from current_draft before drafting the rule edits. "
+                    "Select exact conditions from current_draft for this rule before drafting it. "
                     "Use an empty list for original design without authored conditions."
                 )
                 if "working_draft_context" not in work_frame:
                     witnesses["maxItems"] = 0
-                properties["authored_rule_witnesses"] = witnesses
-            properties["source"] = _enum(list(sources))
+                mechanics = _object({"authored_quotes": witnesses, "rule": mechanics})
             if format_version >= 4:
                 properties.update({
                     "add_rules": {"type": "array", "items": mechanics},

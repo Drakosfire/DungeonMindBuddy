@@ -280,16 +280,15 @@ def test_variant_format_with_visible_reply_rejects_empty_segments_at_completion(
 
 
 @pytest.mark.parametrize(
-    ("source", "excerpt", "rule_key", "valid"),
+    ("quotes", "valid"),
     [
-        ("current_draft", "Only after the bell.", "truce", True),
-        ("other_draft", "Only after the bell.", "truce", False),
-        ("current_draft", "Only before the bell.", "truce", False),
-        ("current_draft", "bell", "truce", False),
-        ("current_draft", "Only after the bell.", "other", False),
+        (["Only after the bell."], True),
+        ([], True),
+        (["Only before the bell."], False),
+        (["bell"], False),
     ],
 )
-def test_variant_witness_binds_unique_authored_clause_to_edited_rule(source, excerpt, rule_key, valid):
+def test_variant_witness_binds_unique_authored_clause_to_containing_rule(quotes, valid):
     from application_state.agent_conversation.native_completion import normalize_statblock_variant
     from tests.test_statblock_acceptance_reconciliation import _definition
 
@@ -302,9 +301,8 @@ def test_variant_witness_binds_unique_authored_clause_to_edited_rule(source, exc
     added = base["rule_elements"][0] | {"key": "truce"}
     proposal = {
         "source": "statblock0",
-        "add_rules": [added],
+        "add_rules": [{"authored_quotes": quotes, "rule": added}],
         "replace_rules": [],
-        "authored_rule_witnesses": [{"source": source, "excerpt": excerpt, "rule_key": rule_key}],
     }
     if not valid:
         with pytest.raises(ValueError, match="witness must identify exact authored text"):
@@ -313,5 +311,4 @@ def test_variant_witness_binds_unique_authored_clause_to_edited_rule(source, exc
     else:
         result = normalize_statblock_variant({"statblock_variant": proposal}, work,
                                              variant_edits=True, variant_witnesses=True)
-        assert result.definition.model_dump()["rule_elements"][-1]["key"] == "truce"
-        assert "authored_rule_witnesses" not in result.definition.model_dump()
+        assert result.definition.model_dump()["rule_elements"][-1] == added
