@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.models.native_graph_inspection import InspectionScope
-from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapRead
+from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapObjectsRead, PublishedRecapRead
 from apps.live_control_server.services import native_source_inspection as service
 from apps.live_control_server.services.native_graph_explorer import NativeGraphExplorerError, hosted_response_binding
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
@@ -45,5 +45,14 @@ def published_recap(body: PublishedRecapRead, principal=Depends(native_graph_exp
     try:
         with hosted_response_binding(principal, body.managed_world_id):
             return _call(service.published_recap, body, principal)
+    except NativeGraphExplorerError as exc:
+        raise HTTPException(status_code=exc.status, detail={"code": exc.code}) from None
+
+
+@router.post("/published-recap/objects")
+def published_recap_objects(body: PublishedRecapObjectsRead, principal=Depends(native_graph_explorer_dependency)):
+    try:
+        with hosted_response_binding(principal, body.managed_world_id):
+            return _call(service.published_recap_objects, body, principal)
     except NativeGraphExplorerError as exc:
         raise HTTPException(status_code=exc.status, detail={"code": exc.code}) from None
