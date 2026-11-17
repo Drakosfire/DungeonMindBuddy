@@ -1,5 +1,6 @@
 """Mounted APP page recovery plus actual Core/WorldKeeper native publication."""
 from tests.page_fixtures import page_text, save_page
+from tests.test_hosted_native_graph_access import hosted, recap_lane  # noqa: F401
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 import hashlib
 import json
@@ -754,3 +755,34 @@ def test_hosted_operation_is_bound_to_reserving_principal(case):
         case.root, intent.operation_id, intent.world_id, prepared["prepared"]["confirm_token"], principal=creator,
     )
     assert completed["phase"] == "complete"
+
+
+def test_hosted_http_prepares_confirms_and_recovers_connected_page(case, hosted, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
+    from tests.test_hosted_native_graph_access import HOSTED_WORLD_ACCESS_ENV, OWNER, _record
+
+    world = case.record.world_id
+    hosted.records[world] = _record(world, OWNER, case.bound["native_world_id"])
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+    monkeypatch.setattr(native, "binding", lambda world_id: deepcopy(case.bound))
+    monkeypatch.setattr(native, "repository", lambda: case.repo)
+    monkeypatch.setattr(native, "read_repository", lambda: case.repo)
+    base = "/api/live/connected-pages"
+    prepared = hosted.client.request("POST", f"{base}/prepare", json=case.request)
+    assert prepared.status_code == 200, prepared.text
+    operation = prepared.json()
+    assert operation["phase"] == "prepared"
+    confirm_body = {
+        "operation_id": operation["operation_id"], "world_id": world,
+        "confirm_token": operation["prepared"]["confirm_token"],
+    }
+    assert hosted.client.request("POST", f"{base}/confirm", json=confirm_body, origin=None).status_code == 403
+    confirmed = hosted.client.request("POST", f"{base}/confirm", json=confirm_body)
+    assert confirmed.status_code == 200, confirmed.text
+    completed = confirmed.json()
+    assert completed["phase"] == "complete"
+    status_path = f"{base}/{operation['operation_id']}?world_id={world}"
+    assert hosted.client.request("GET", status_path).json() == completed
+    assert hosted.client.request("GET", status_path, session="other-session").status_code == 403
+    assert hosted.client.request("POST", f"{base}/confirm", json=confirm_body).json() == completed
+    assert case.authority.publish_calls == 1
