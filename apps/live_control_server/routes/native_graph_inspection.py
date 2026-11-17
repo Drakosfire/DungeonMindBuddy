@@ -44,7 +44,7 @@ def _call(fn, body, principal):
 
 
 @router.post("/catalog")
-def catalog(body: InspectionPin | InspectionScope, principal=Depends(native_graph_gm_dependency)):
+def catalog(body: InspectionPin | InspectionScope, principal=Depends(native_graph_explorer_dependency)):
     return _call(service.catalog, body, principal)
 
 
