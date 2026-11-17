@@ -230,3 +230,31 @@ def test_statblock_rule_edits_preserve_unmentioned_mechanics():
         _apply_statblock_rule_edits(base, {"add_rules": [], "replace_rules": [addition]})
     with pytest.raises(ValueError, match="key conflicts"):
         _apply_statblock_rule_edits(base, {"add_rules": [addition, addition], "replace_rules": []})
+
+
+@pytest.mark.parametrize("usage_kind", ["manual", "once"])
+def test_only_manual_single_self_reference_is_normalized_in_new_rules(usage_kind):
+    from application_state.agent_conversation.native_completion import _apply_statblock_rule_edits
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    first = base["rule_elements"][0]
+    manual = first | {
+        "key": "manual_truce", "automation_support": "manual",
+        "usage": first["usage"] | {"kind": usage_kind, "uses": 1 if usage_kind == "once" else None},
+        "mechanic": {"kind": "multiattack", "sequences": [
+            {"element_key": "manual_truce", "count": 1, "choice_group": None},
+        ]},
+    }
+    sequence = manual | {"key": "sequence", "mechanic": {
+        "kind": "multiattack", "sequences": [
+            {"element_key": first["key"], "count": 2, "choice_group": None},
+        ],
+    }}
+    result = _apply_statblock_rule_edits(base, {"add_rules": [manual, sequence], "replace_rules": []})
+    assert result == base | {"rule_elements": [
+        *base["rule_elements"],
+        manual | {"mechanic": {"kind": "human_adjudicated", "adjudication_tags": None}},
+        sequence,
+    ]}
+    assert manual["mechanic"]["kind"] == "multiattack"
