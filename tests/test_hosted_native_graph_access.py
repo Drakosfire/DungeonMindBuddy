@@ -302,6 +302,10 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes import rules_lookup
 
     app.include_router(rules_lookup.router)
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin",
+        agent_routes.get_world_turn_connected_page_origin, methods=["GET"],
+    )
     app.include_router(conversation_library.router)
     from apps.live_control_server.routes import conversation_work_plans
 
@@ -435,6 +439,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/saved-sections/{segment_index}/{section_event_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/source-passages/{source_read_event_id}"): access.resolve_hosted_conversation_world,
@@ -3493,3 +3498,25 @@ def test_hosted_authoring_identities_require_owned_world(hosted):
     assert response.headers["cache-control"] == "no-store"
     assert response.json()["scope"]["managed_world_id"] == "managed"
     assert isinstance(response.json()["identities"], list)
+
+
+def test_hosted_connected_page_origin_reads_exact_saved_turn(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import agent_connected_page_origin
+
+    service = Mock()
+    read = Mock(return_value={"kind": "saved_page_excerpt"})
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: service)
+    monkeypatch.setattr(agent_connected_page_origin, "open_origin", read)
+    turn = uuid4()
+    path = f"/api/live/agent/worlds/managed/conversation/turns/{turn}/connected-page-origin"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=foreign").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    read.assert_called_once_with(service, "managed", turn)

@@ -579,6 +579,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/conversation\/turns\/[0-9a-f-]+\/context-trace\/[0-9a-f-]+\/(?:identities|(?:native-)?steps\/\d+\/assertion\?assertion_id=[^&#]+)$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/conversation\/turns\/[0-9a-f-]+\/connected-page-origin$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
   if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/conversation\/turns\/[0-9a-f-]+\/(?:related-pages|saved-sections\/\d+)\/[0-9a-f-]+$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
