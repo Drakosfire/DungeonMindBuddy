@@ -478,6 +478,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const query = new URLSearchParams(mechanicsRead[1]);
     return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
   }
+  if (/^\/api\/live\/media\/images\/[0-9a-f-]+\/regenerate$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && (body?.mode === "new" || body?.mode === "image_to_image")
+      && typeof body.expected_content_sha256 === "string" && /^[0-9a-f]{64}$/.test(body.expected_content_sha256)
+      && typeof body.instructions === "string" && Boolean(body.instructions.trim());
+  }
   const imageGeneration = /^\/api\/live\/media\/images\/generate\?([^#]+)$/.exec(path);
   if (imageGeneration) {
     const query = new URLSearchParams(imageGeneration[1]);

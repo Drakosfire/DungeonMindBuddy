@@ -744,7 +744,7 @@ async def resolve_hosted_saved_artwork(request: Request) -> str:
     if not asset_id or request.query_params:
         raise _denied()
     if request.method == "POST":
-        if await request.json() != {}:
+        if request.url.path.endswith("/save") and await request.json() != {}:
             raise _denied()
     elif await request.body():
         raise _denied()

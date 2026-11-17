@@ -428,6 +428,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/media/images/preparations/{action_id}/asset"): access.resolve_hosted_image_world,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("POST", "/api/live/media/images/{asset_id}/save"): access.resolve_hosted_saved_artwork,
+            ("POST", "/api/live/media/images/{asset_id}/regenerate"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/library"): access.resolve_hosted_media_library,
             ("GET", "/api/live/media/images/capabilities"): access.resolve_hosted_image_world,
@@ -3436,6 +3437,24 @@ def test_hosted_generated_artwork_is_readable_in_its_world(hosted, application_s
     assert saved.json()["state"] == "ready"
     assert media.get_asset(asset_id, owner)["state"] == "ready"
     save.assert_awaited_once_with(UUID(asset_id), owner)
+
+    provider.generate_image.reset_mock()
+    parent = media.get_asset(asset_id, owner)
+    edit_path = f"/api/live/media/images/{asset_id}/regenerate"
+    edit = {"mode": "new", "instructions": "Paint the gate at dawn.", "expected_content_sha256": parent["content_sha256"]}
+    assert hosted.client.request("POST", edit_path, json=edit, session="other-session").status_code == 403
+    assert hosted.client.request("POST", edit_path, json=edit, origin=None).status_code == 403
+    assert hosted.client.request("POST", edit_path, json={**edit, "expected_content_sha256": "0" * 64}).status_code == 409
+    provider.generate_image.assert_not_called()
+    regenerated = hosted.client.request("POST", edit_path, json=edit)
+    assert regenerated.status_code == 200, regenerated.text
+    child = regenerated.json()["asset_id"]
+    assert child != asset_id
+    assert regenerated.json()["parent_asset_id"] == asset_id
+    assert media.get_asset(child, owner)["state"] == "staged"
+    assert media.get_asset(asset_id, owner) == parent
+    assert hosted.client.request("GET", f"/api/live/media/images/{child}/original").content == payload
+    provider.generate_image.assert_awaited_once()
 
 
 def test_hosted_prepared_image_association_uses_world_asset_owner(hosted, monkeypatch):
