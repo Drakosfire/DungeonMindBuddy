@@ -1,6 +1,7 @@
 # Inline prose targeting without an incidental caret
 
-Status: ACTIVE, baseline-only disjoint sub-slice. Root explicitly assigned design
+Status: ACTIVE, isolated opt-in native replacement proof. The baseline/catalog
+sections below record predecessors; the latest scoped amendments govern execution. Root explicitly assigned design
 and implementation on November 17, then authorized this baseline-only split.
 Base: eecaf7991bebd58c6ae625cad194cb962ebfa132.
 Branch: codex/inline-prose-targeting-20261117.
@@ -197,3 +198,14 @@ Proof database may use the already-installed pgvector Postgres image on a newly
 checked loopback port with uniquely owned Projects-backed data. Do not start,
 stop or reuse54329/5202/8001 or any existing runtime. Retain commands and cleanup.
 Any missing lease or unsupported owning contract is reported rather than bypassed.
+
+### Explicit disposable schema adaptation approval
+Actual migrated fixture checks reject proposal v2 and review v4. Root explicitly
+authorized extending only record-format CHECKs on our uniquely owned empty test
+clone on55467, after verifying server/database identity. Retain every complete
+legacy predicate as the first OR arm and add narrow prose-format arms; exercise
+legacy and new rows and retain exact original/installed definitions externally.
+Never alter the session template, production migrations/version, original database,
+default activation or any running product service. This is a labeled test-only
+schema difference, not proof of production migration/rollout compatibility.
+Default/no-opt-in and old-reader refusal evidence remains separately required.
