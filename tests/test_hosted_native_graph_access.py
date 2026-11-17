@@ -375,6 +375,9 @@ def hosted(monkeypatch, request):
     app.add_api_route("/api/live/graph-authoring/document-relationship/native-prepare", graph_authoring.post_native_relationship_prepare, methods=["POST"])
     app.add_api_route("/api/live/graph-authoring/document-relationship/request", graph_authoring.post_document_relationship_request, methods=["POST"])
     app.add_api_route("/api/live/graph-authoring/document-relationship/native-confirm", graph_authoring.post_native_relationship_confirm, methods=["POST"])
+    from apps.live_control_server.routes import source_statements
+
+    app.include_router(source_statements.router)
     app.include_router(extract_promote.router)
     app.include_router(live.router)
     app.include_router(graph_preview.router)
@@ -497,6 +500,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/extract-promote/runs/{run_id}/frozen-source-spans"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/worldbuilding-publication-coverage"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/extract-promote/native-worldbuilding-context"): access.resolve_hosted_worldbuilding_review_context,
+            ("GET", "/api/live/source-statements/proposals/{operation_id}"): access.resolve_hosted_source_statement_proposal,
             ("POST", "/api/live/extract-promote/native-prepare"): access.resolve_hosted_native_publication,
             ("POST", "/api/live/extract-promote/native-confirm"): access.resolve_hosted_native_publication,
             ("POST", "/api/live/extract-promote/runs/{run_id}/evidence-corrections"): access.resolve_hosted_build_extraction,
@@ -4813,3 +4817,24 @@ def test_hosted_native_publication_uses_world_owner_for_both_steps(hosted, monke
         result = hosted.client.request("POST", path, json=body)
         assert result.status_code == 200, result.text
     assert calls == [(step, "managed", "hosted_dms:synthetic-owner-alpha") for step in ("prepare", "confirm")]
+
+
+def test_hosted_source_statement_proposal_reads_as_exact_reviewer(hosted, monkeypatch):
+    from apps.live_control_server.routes import source_statements
+
+    calls = []
+
+    def read(operation_id, world, principal):
+        calls.append((str(operation_id), world, principal.subject))
+        return {"state": "verified"}
+
+    monkeypatch.setattr(source_statements.proposals, "get", read)
+    operation_id = "00000000-0000-4000-8000-000000000001"
+    path = f"/api/live/source-statements/proposals/{operation_id}?managed_world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&managed_world_id=foreign").status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 200, result.text
+    assert result.json() == {"state": "verified"}
+    assert calls == [(operation_id, "managed", "hosted_dms:synthetic-owner-alpha")]

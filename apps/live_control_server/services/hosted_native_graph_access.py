@@ -886,6 +886,15 @@ async def resolve_hosted_build_extraction(request: Request) -> str:
     return world_id
 
 
+async def resolve_hosted_source_statement_proposal(request: Request) -> str:
+    world_id = request.query_params.get("managed_world_id")
+    if not world_id or request.query_params.multi_items() != [("managed_world_id", world_id)] or await request.body():
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_native_graph_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_native_publication(request: Request) -> str:
     from apps.live_control_server.models.native_recap_preparation import (
         NativeRecapConfirmRequest, NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest,
