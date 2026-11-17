@@ -258,3 +258,22 @@ def test_only_manual_single_self_reference_is_normalized_in_new_rules(usage_kind
         sequence,
     ]}
     assert manual["mechanic"]["kind"] == "multiattack"
+
+
+def test_variant_format_with_visible_reply_rejects_empty_segments_at_completion(monkeypatch):
+    from application_state.agent_conversation.native_completion import normalize_candidate
+
+    from application_state.agent_conversation import build_intentional_response
+
+    monkeypatch.setattr(build_intentional_response, "native_review_enabled", lambda _: True)
+    execution = SimpleNamespace(policy=SimpleNamespace(action=SimpleNamespace(surface_id="build")))
+    evidence = SimpleNamespace(
+        variant_format=True, variant_visible_reply=True, frame={"answer_policy": "fixture"},
+        work_frame={},
+    )
+    candidate = {
+        "schema": "fixture", "answer_segments": [], "limitations": [],
+        "requested_detail_gaps": [], "statblock_variant": None, "collaboration": {},
+    }
+    with pytest.raises(ValueError, match="requires a visible reply"):
+        normalize_candidate(candidate, None, execution, None, evidence)

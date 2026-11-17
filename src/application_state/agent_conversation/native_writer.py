@@ -135,6 +135,7 @@ class NativeWriterEvidence:
     build_local: bool = False
     variant_format: bool = False
     variant_edits: bool = False
+    variant_visible_reply: bool = False
 
 
 def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_proof,
@@ -395,6 +396,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     return NativeWriterEvidence(frame=schema_frame,work_frame=expected_work,output_work_frame=expected_work if build_local else expected_work | expected_wire_work,
         authored=authored,idempotency_key=idempotency_key,
         authored_local=authored_local,build_local=build_local,variant_format=variant_format,variant_edits=variant_edits,
+        variant_visible_reply=format_name == VARIANT_VISIBLE_REPLY_FORMAT,
         saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
         **read_evidence_records(prefix,expected,passages_only=prose_frame is not None))
 
