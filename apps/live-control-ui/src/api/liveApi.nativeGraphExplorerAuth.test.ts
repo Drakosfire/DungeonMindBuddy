@@ -397,7 +397,7 @@ it("reads the hosted Ingest catalog and exact source using session cookies", asy
   expect(fetch).toHaveBeenCalledTimes(3);
 });
 
-it("reads hosted Combat Tracker inventory and one exact encounter with the session", async () => {
+it("reads and saves hosted Combat Tracker encounters with the session", async () => {
   const api = await setup();
   hostedOrigin();
   api.setNativeGraphAccessToken("local-bearer");
@@ -409,7 +409,15 @@ it("reads hosted Combat Tracker inventory and one exact encounter with the sessi
     expect(fetch.mock.calls[index][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
     expect(new Headers(fetch.mock.calls[index][1]?.headers).has("Authorization")).toBe(false);
     await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
-    await expect(api.authenticatedApiFetch(path, { method: "POST", body: "{}" })).rejects.toThrow(/exact same-origin/);
+    const method = suffix ? "PUT" : "POST";
+    await expect(api.authenticatedApiFetch(path, { method: suffix ? "POST" : "PUT", body: "{}" })).rejects.toThrow(/exact same-origin/);
+    await expect(api.authenticatedApiFetch(path, { method })).rejects.toThrow(/exact same-origin/);
   }
-  expect(fetch).toHaveBeenCalledTimes(2);
+  await api.authenticatedApiFetch(base + "?world_id=managed", { method: "POST", body: "{}" });
+  await api.authenticatedApiFetch(base + "/12345678-1234-1234-1234-123456789abc?world_id=managed", { method: "PUT", body: "{}" });
+  expect(fetch).toHaveBeenCalledTimes(4);
+  for (const [, init] of fetch.mock.calls.slice(2)) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
 });

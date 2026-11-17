@@ -429,11 +429,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(metadata|original)$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
-  const combatEncounter = /^\/api\/live\/combat\/encounters(?:\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
+  const combatEncounter = /^\/api\/live\/combat\/encounters(\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
   if (combatEncounter) {
     const worldId = new URLSearchParams(path.slice(combatEncounter[0].length)).get("world_id");
-    return method === "GET" && init?.body == null && !!worldId
-      && path === combatEncounter[0] + new URLSearchParams({ world_id: worldId });
+    if (!worldId || path !== combatEncounter[0] + new URLSearchParams({ world_id: worldId })) return false;
+    if (method === "GET") return init?.body == null;
+    return method === (combatEncounter[1] ? "PUT" : "POST") && !!requestBodyRecord(init?.body);
   }
   const savedRecap = /^\/api\/live\/graph-preview\/extraction-runs(?:\/[^/?]+\/(recap-inspection|candidate-projection))?\?/.exec(path);
   if (savedRecap && method === "GET" && init?.body == null) {

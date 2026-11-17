@@ -32,7 +32,7 @@ from apps.live_control_server.services.threat_draft_store import ThreatDraftStor
 
 from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
 
-from apps.live_control_server.services.hosted_native_graph_access import require_combat_encounter_read
+from apps.live_control_server.services.hosted_native_graph_access import require_combat_encounter_access
 
 router = APIRouter(prefix="/api/live/combat/encounters", tags=["combat-encounters"])
 _LOCAL_GM = [Depends(native_graph_gm_dependency)]
@@ -53,7 +53,7 @@ def _raise_state_error(exc: ApplicationStateError) -> None:
 
 @router.get("", response_model=list[CombatEncounterRecord])
 def list_encounters(world_id: Annotated[str, Query(min_length=1, max_length=63)], request: Request) -> list[dict]:
-    require_combat_encounter_read(request, world_id)
+    require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
     try:
         return [record.model_dump(mode="json") for record in combat_encounters.list_world_combat_encounters(world_id=owner)]
@@ -61,11 +61,13 @@ def list_encounters(world_id: Annotated[str, Query(min_length=1, max_length=63)]
         _raise_state_error(exc)
 
 
-@router.post("", response_model=CombatEncounterRecord, dependencies=_LOCAL_GM)
+@router.post("", response_model=CombatEncounterRecord)
 def create_encounter_route(
     world_id: Annotated[str, Query(min_length=1, max_length=63)],
     body: CreateCombatEncounterRequest,
+    request: Request,
 ) -> dict:
+    require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
     try:
         return combat_encounters.create_world_combat_encounter(
@@ -81,7 +83,7 @@ def get_encounter_route(
     world_id: Annotated[str, Query(min_length=1, max_length=63)],
     request: Request,
 ) -> dict:
-    require_combat_encounter_read(request, world_id)
+    require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
     try:
         return combat_encounters.get_world_combat_encounter(
@@ -91,12 +93,14 @@ def get_encounter_route(
         _raise_state_error(exc)
 
 
-@router.put("/{encounter_id}", response_model=CombatEncounterRecord, dependencies=_LOCAL_GM)
+@router.put("/{encounter_id}", response_model=CombatEncounterRecord)
 def save_encounter_route(
     encounter_id: str,
     world_id: Annotated[str, Query(min_length=1, max_length=63)],
     body: SaveCombatEncounterRequest,
+    request: Request,
 ) -> dict:
+    require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
     try:
         return combat_encounters.save_world_combat_encounter(
