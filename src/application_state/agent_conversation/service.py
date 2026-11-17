@@ -497,6 +497,17 @@ class AgentConversationService:
                 turn_id=turn_id, review_id=review_id,
             )
 
+    def open_saved_conversation_variant_receipt(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *, review_id: UUID,
+    ):
+        from .conversation_variant_save import open_saved_receipt
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return open_saved_receipt(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id,
+            )
+
     def find_conversation_variant_save(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         revision: int, create_request: dict,

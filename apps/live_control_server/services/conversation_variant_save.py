@@ -1,5 +1,6 @@
 """Create a distinct statblock for an explicitly confirmed conversation revision."""
 
+import json
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -14,6 +15,7 @@ from application_state.errors import (
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import (
     DungeonMindStatblockV1Client,
     StatblockV1Client,
+    verify_exact_revision_mechanics_integrity,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import (
     compute_definition_digest,
@@ -30,6 +32,8 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.generated impo
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
     MechanicsLocatorV1,
+    locator_from_exact_revision,
+    same_mechanics_locator,
 )
 
 
@@ -115,6 +119,33 @@ def save_variant(
         raise ApplicationStateUnavailableError(
             "Statblock service could not confirm the save. Retry the same reviewed revision."
         ) from exc
+    finally:
+        if owned_client is not None:
+            owned_client.close()
+
+
+def open_saved_variant(
+    service, world_id: str, conversation_id: UUID, turn_id: UUID,
+    *, review_id: UUID, client: StatblockV1Client | None = None,
+):
+    locator = MechanicsLocatorV1.model_validate(
+        service.open_saved_conversation_variant_receipt(
+            world_id, conversation_id, turn_id, review_id=review_id,
+        ),
+    )
+    owned_client = None
+    try:
+        if client is None:
+            owned_client = client = DungeonMindStatblockV1Client()
+        revision = client.get_exact_revision(locator.statblock_id, locator.revision_id)
+        verify_exact_revision_mechanics_integrity(revision)
+        if not same_mechanics_locator(locator_from_exact_revision(revision), locator):
+            raise ApplicationStateIntegrityError("Opened statblock differs from the saved variant.")
+        resource = revision.model_dump(mode="json")
+        resource["definition"] = json.loads(revision.canonical_definition)
+        return {"locator": locator.model_dump(mode="json"), "revision": resource}
+    except StatblockIntegrationError as exc:
+        raise ApplicationStateUnavailableError("Could not reopen the saved variant.") from exc
     finally:
         if owned_client is not None:
             owned_client.close()

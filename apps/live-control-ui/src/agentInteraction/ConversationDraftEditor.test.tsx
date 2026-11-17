@@ -1,3 +1,4 @@
+import { readSavedConversationVariantTarget } from "../statblocks/savedStatblockLocation";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { confirmVariantReview, openConversationDraft, openVariantReview, saveConversationDraft } from "../api/conversationDraftApi";
@@ -56,4 +57,27 @@ it("requires explicit confirmation of the displayed review", async () => {
   fireEvent.click(screen.getByRole("button", confirm));
   expect(await screen.findByRole("status")).toHaveTextContent("Statblock variant saved.");
   expect(confirmVariantReview).toHaveBeenCalledExactlyOnceWith(scope, "review");
+  const href = screen.getByRole("link", { name: "Open saved variant" }).getAttribute("href");
+  expect(readSavedConversationVariantTarget(href!)).toEqual({ ...scope, reviewId: "review" });
+  expect(readSavedConversationVariantTarget(href + "&variantReview=other")).toBeNull();
+});
+
+it("reopens the link for a previously saved variant without confirming again", async () => {
+  const scope = { worldId: "world", conversationId: "conversation", turnId: "turn" };
+  vi.mocked(confirmVariantReview).mockClear();
+  vi.mocked(openConversationDraft).mockResolvedValueOnce({
+    revision: 2, markdown: "Draft", variant_review_ids: ["review"],
+  });
+  vi.mocked(openVariantReview).mockResolvedValueOnce({
+    revision: 2, saved: true,
+    definition: {} as Awaited<ReturnType<typeof openVariantReview>>["definition"],
+  });
+
+  render(<ConversationDraftEditor scope={scope} />);
+  fireEvent.click(screen.getByRole("button", { name: "Open draft" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review statblock variant" }));
+
+  expect(await screen.findByRole("link", { name: "Open saved variant" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Confirm and save as new statblock" })).toBeDisabled();
+  expect(confirmVariantReview).not.toHaveBeenCalled();
 });
