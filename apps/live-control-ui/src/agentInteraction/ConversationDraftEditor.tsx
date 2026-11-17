@@ -1,9 +1,12 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   openConversationDraft,
   openConversationVariantApproval,
   openVariantReview,
   confirmVariantReview,
+  correctVariantReview,
+  type VariantTextReplacement,
+  type VariantRuleField,
   type ConversationVariantReview,
   saveConversationDraft,
   type ConversationDraft,
@@ -63,12 +66,59 @@ export function ConversationVariantApproval({ scope, placement }: {
     </section>;
 }
 
+function VariantCorrectionFields({ rules, busy, onStage, onDirty }: {
+  rules: ConversationVariantReview["definition"]["rule_elements"];
+  busy: boolean;
+  onStage: (replacements: VariantTextReplacement[]) => void;
+  onDirty: (dirty: boolean) => void;
+}) {
+  const [selected, setSelected] = useState(rules[0]?.key ?? "");
+  const [edits, setEdits] = useState<Record<string, VariantTextReplacement>>({});
+  const dirty = Object.keys(edits).length > 0;
+  useEffect(() => { onDirty(dirty); return () => onDirty(false); }, [dirty, onDirty]);
+  const rule = rules.find(item => item.key === selected);
+  if (!rule) return null;
+
+  const slots: [VariantRuleField, string, string | null | undefined][] = [
+    ["rules_text", "Rule text", rule.rules_text],
+    ["timing_text", "Timing", rule.activation.timing_text],
+    ["condition_text", "Trigger condition", rule.activation.trigger?.condition_text],
+  ];
+  return <details>
+    <summary>Correct reviewed rules</summary>
+    <label>Rule <select value={selected} disabled={busy} onChange={event => setSelected(event.target.value)}>
+      {rules.map(item => <option key={item.key} value={item.key}>{item.name}</option>)}
+    </select></label>
+    {slots.map(([field, label, value]) => {
+      if (!value) return null;
+      const key = rule.key + ":" + field;
+      return <label key={key}>{label}
+        <textarea disabled={busy} value={edits[key]?.with_text ?? value} onChange={event => {
+          const revised = event.target.value;
+          setEdits(previous => {
+            const next = { ...previous };
+            if (revised === value) delete next[key];
+            else next[key] = { rule_key: rule.key, field, replace_exact: value, with_text: revised };
+            return next;
+          });
+        }} />
+      </label>;
+    })}
+    <button type="button"
+      disabled={busy || !dirty || Object.values(edits).some(edit => !edit.with_text.trim())}
+      onClick={() => onStage(Object.values(edits))}>Stage corrected review</button>
+    {dirty && <button type="button" disabled={busy} onClick={() => setEdits({})}>Discard corrections</button>}
+  </details>;
+}
+
 export function ConversationDraftEditor({ scope, placement, initialReview }: {
   scope: ConversationDraftScope;
   placement?: VariantPagePlacement;
   initialReview?: Awaited<ReturnType<typeof loadReviewedDraft>> & { target: ApprovalTarget };
 }) {
   const id = useId();
+  const [correctionDirty, setCorrectionDirty] = useState(false);
+  const [approvalTarget, setApprovalTarget] = useState(initialReview?.target);
   const [draft, setDraft] = useState<ConversationDraft | null>(initialReview?.draft ?? null);
   const [markdown, setMarkdown] = useState(initialReview?.draft.markdown ?? "");
   const [busy, setBusy] = useState(false);
@@ -130,8 +180,29 @@ export function ConversationDraftEditor({ scope, placement, initialReview }: {
     }
   }
 
+  async function correctVariant(replacements: VariantTextReplacement[]) {
+    if (!draft || !review || savedVariant || markdown !== draft.markdown) return;
+    setBusy(true);
+    setError("");
+    try {
+      const corrected = await correctVariantReview(scope, review.id, draft.revision, replacements);
+      setReview(null);
+      const target = { scope, reviewId: corrected.review_id, revision: corrected.revision };
+      if (approvalTarget) setApprovalTarget(target);
+      const next = await loadReviewedDraft(target);
+      setDraft(next.draft);
+      setMarkdown(next.draft.markdown);
+      setReview(next.review);
+      setSavedVariant(next.review.data.saved === true);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not stage the corrected review.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function confirmVariant() {
-    if (!draft || !review || markdown !== draft.markdown) return;
+    if (!draft || !review || correctionDirty || markdown !== draft.markdown) return;
     setBusy(true);
     setError("");
     try {
@@ -150,8 +221,8 @@ export function ConversationDraftEditor({ scope, placement, initialReview }: {
     setBusy(true);
     setError("");
     try {
-      if (initialReview) {
-        const latest = await loadReviewedDraft(initialReview.target);
+      if (approvalTarget) {
+        const latest = await loadReviewedDraft(approvalTarget);
         setDraft(latest.draft);
         setMarkdown(latest.draft.markdown);
         setReview(latest.review);
@@ -206,7 +277,10 @@ export function ConversationDraftEditor({ scope, placement, initialReview }: {
                 hitPoints: summary => summary,
                 ruleEditor: () => null,
               }} />
-              <button type="button" disabled={busy || savedVariant} onClick={() => void confirmVariant()}>
+              {!savedVariant && review.data.definition.rule_elements?.length > 0 &&
+                <VariantCorrectionFields key={review.id} rules={review.data.definition.rule_elements}
+                  busy={busy} onDirty={setCorrectionDirty} onStage={replacements => void correctVariant(replacements)} />}
+              <button type="button" disabled={busy || savedVariant || correctionDirty} onClick={() => void confirmVariant()}>
                 Confirm and save as new statblock
               </button>
               {savedVariant && <>
