@@ -207,3 +207,37 @@ def test_distinct_assets_use_one_final_store_lock_with_no_external_io(direct, mo
     assert saved.status_code == 200, saved.text
     assert len(final_batches) == 1
     assert len({e['mechanics_snapshot']['draft_id'] for e in saved.json()['draft']['entities']}) == 2
+
+
+def test_pdf_snapshot_survives_browser_round_trip_and_preserves_original_proof(direct, monkeypatch):
+    p = direct
+    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+
+    crop = {"page": 1, "top": 0.0, "left": 0.0, "right": 1.0, "bottom": 1.0}
+    provenance = {"accepted_through": {PDF_REVIEW_PROVENANCE: {
+        "world_id": "elderwyld", "review_id": str(uuid4()), "revision": 1, "regions": [crop],
+    }}}
+    enriched = p.revision.model_copy(update={"provenance": provenance})
+    read = p.dms.get_exact_revision
+
+    def read_pdf_revision(*args):
+        read(*args)
+        return enriched
+
+    monkeypatch.setattr(p.dms, "get_exact_revision", read_pdf_revision)
+    snapshot = preview(p)
+    browser_snapshot = copy.deepcopy(snapshot)
+    browser_crop = browser_snapshot["resource"]["provenance"]["accepted_through"][PDF_REVIEW_PROVENANCE]["regions"][0]
+    browser_crop.update(top=0, left=0, right=1, bottom=1)
+
+    tampered = copy.deepcopy(browser_snapshot)
+    tampered["resource"]["provenance"]["accepted_through"][PDF_REVIEW_PROVENANCE]["regions"][0]["right"] = 0.5
+    assert p.client.put(p.url, json=body(p, tampered, count=1)).status_code == 422
+    saved = p.client.put(p.url, json=body(p, browser_snapshot, count=1))
+    if saved.status_code != 200:
+        detail = saved.json().get("detail")
+        if isinstance(detail, list):
+            detail = [(issue["loc"], issue["msg"]) for issue in detail]
+        pytest.fail(f"Save returned HTTP {saved.status_code}: {detail}")
+    assert saved.json()["draft"]["entities"][0]["mechanics_snapshot"] == snapshot
+    assert p.client.get(p.url).json() == saved.json()
