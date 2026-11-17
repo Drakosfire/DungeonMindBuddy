@@ -921,6 +921,7 @@ async def resolve_hosted_exact_extraction_read(request: Request) -> str:
                 raise _denied()
     else:
         raise _denied()
+    request.state.hosted_build_page_world = world_id
     return world_id
 
 
