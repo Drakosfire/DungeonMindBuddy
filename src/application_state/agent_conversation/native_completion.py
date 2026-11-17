@@ -193,23 +193,54 @@ def normalize_output(receipt, execution, authorization, *, prepared_request_json
     return normalize_candidate(strict_json(raw_output_json),receipt,execution,authorization,evidence)
 
 
-def normalize_statblock_variant(candidate, work_frame):
+def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False):
     from .native_build_work_view import variant_sources
 
     proposal = candidate.get("statblock_variant")
     if proposal is None:
         return None
     sources = variant_sources(work_frame)
-    if not isinstance(proposal, dict) or set(proposal) != {"source", "definition"}:
-        raise ValueError("Statblock variant requires a source and definition")
+    keys = {"source", "add_rules", "replace_rules"} if variant_edits else {"source", "definition"}
+    if not isinstance(proposal, dict) or set(proposal) != keys:
+        raise ValueError("Statblock variant does not match its producing format")
     source = proposal["source"]
     if not isinstance(source, str) or source not in sources:
         raise ValueError("Statblock variant base was not admitted")
     from apps.live_control_server.services.conversation_variant_save import ConversationVariantDraft
 
-    return ConversationVariantDraft(
-        base_event_id=sources[source]["event_id"], definition=proposal["definition"],
+    base = sources[source]
+    definition = (
+        _apply_statblock_rule_edits(base["definition"], proposal)
+        if variant_edits else proposal["definition"]
     )
+    return ConversationVariantDraft(base_event_id=base["event_id"], definition=definition)
+
+
+def _apply_statblock_rule_edits(base, proposal):
+    from copy import deepcopy
+
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import RuleElementInput
+
+    definition = deepcopy(base)
+    rules = definition["rule_elements"]
+    inherited = {rule["key"]: index for index, rule in enumerate(rules)}
+    edited = set()
+    for field in ("replace_rules", "add_rules"):
+        if not isinstance(proposal[field], list):
+            raise ValueError("Statblock rule edits must be arrays")
+        for raw in proposal[field]:
+            rule = RuleElementInput.model_validate(raw).model_dump(mode="json")
+            key = rule["key"]
+            if key in edited or (key in inherited) != (field == "replace_rules"):
+                raise ValueError("Statblock rule edit key conflicts with the saved base")
+            edited.add(key)
+            if field == "replace_rules":
+                rules[inherited[key]] = rule
+            else:
+                rules.append(rule)
+    if not edited:
+        raise ValueError("Statblock variant must propose at least one rule edit")
+    return definition
 
 
 def normalize_candidate(candidate, receipt, execution, authorization, evidence):
@@ -229,7 +260,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
         raise ValueError('Native completion requires its exact producing answer policy')
     if evidence.variant_format:
-        normalize_statblock_variant(candidate, evidence.work_frame)
+        normalize_statblock_variant(candidate, evidence.work_frame, variant_edits=evidence.variant_edits)
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()

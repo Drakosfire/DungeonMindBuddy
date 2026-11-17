@@ -183,7 +183,11 @@ def test_reopens_historical_draft_with_statblock_in_original_writer_format(monke
         })
 
     old_name = "surface_native_evidence_selectors_v2"
-    for wire, name in [(historical, old_name), (current, VARIANT_WRITER_FORMAT)]:
+    from application_state.agent_conversation.native_build_work_view import VARIANT_EDITS_FORMAT
+
+    edits = semantic_frame(host, execution, include_variant=True, variant_edits=True)
+    assert "add_rules" in edits["build_work"]["statblock_variant_guidance"]
+    for wire, name in [(historical, old_name), (current, VARIANT_WRITER_FORMAT), (edits, VARIANT_EDITS_FORMAT)]:
         raw = body(wire, name)
         assert build_primary_context.verify_native_work_input(
             execution, None, raw,
@@ -205,3 +209,24 @@ def test_variant_field_must_match_the_producing_writer_format(variant_format, of
         candidate["statblock_variant"] = None
     with pytest.raises(ValueError, match="exact producing answer policy"):
         normalize_candidate(candidate, None, execution, None, evidence)
+
+
+def test_statblock_rule_edits_preserve_unmentioned_mechanics():
+    from application_state.agent_conversation.native_completion import _apply_statblock_rule_edits
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    first = base["rule_elements"][0]
+    addition = first | {"key": "new_rule"}
+    replacement = first | {"summary": "Explicit replacement"}
+    assembled = _apply_statblock_rule_edits(base, {
+        "add_rules": [addition], "replace_rules": [replacement],
+    })
+    assert assembled == base | {"rule_elements": [replacement, *base["rule_elements"][1:], addition]}
+    assert base == _definition().model_dump(mode="json")
+    with pytest.raises(ValueError, match="key conflicts"):
+        _apply_statblock_rule_edits(base, {"add_rules": [replacement], "replace_rules": []})
+    with pytest.raises(ValueError, match="key conflicts"):
+        _apply_statblock_rule_edits(base, {"add_rules": [], "replace_rules": [addition]})
+    with pytest.raises(ValueError, match="key conflicts"):
+        _apply_statblock_rule_edits(base, {"add_rules": [addition, addition], "replace_rules": []})

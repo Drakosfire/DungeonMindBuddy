@@ -341,13 +341,18 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         # Historical grammar is read-only: fresh admission never opts into it.
         retained = (allow_retained_format and body.get('text', {}).get('format', {}).get('name')
             == 'surface_native_evidence_selectors_v1')
-        from .native_build_work_view import VARIANT_WRITER_FORMAT, variant_sources
+        from .native_build_work_view import VARIANT_EDITS_FORMAT, VARIANT_WRITER_FORMAT, variant_sources
 
         actual_format = body.get("text", {}).get("format", {}).get("name")
         needs_variant_format = evidence.build_local and not frame.lookups and variant_sources(evidence.work_frame)
-        variant = needs_variant_format and (not allow_retained_format or actual_format == VARIANT_WRITER_FORMAT)
+        version = 1 if retained else 2
+        if needs_variant_format:
+            if not allow_retained_format or actual_format == VARIANT_EDITS_FORMAT:
+                version = 4
+            elif actual_format == VARIANT_WRITER_FORMAT:
+                version = 3
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
-            build_local=evidence.build_local,format_version=3 if variant else 1 if retained else 2)
+            build_local=evidence.build_local,format_version=version)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs

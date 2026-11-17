@@ -324,12 +324,12 @@ class PlanJevWriter:
                 )
                 variant_format = bool(not rule_frame.lookups and variant_sources(self.work_frame))
                 self.provider_work=build_work_view(
-                    self.work_frame, turn.graph_context_execution, include_variant=variant_format,
+                    self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work if self.work_frame.get('schema') in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA} else self.work_frame,
                 build_local=self.work_frame.get('schema') not in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA},
-                format_version=3 if variant_format else 2)
+                format_version=4 if variant_format else 2)
             # Discussion ends with current evidence rather than prior assistant
             # prose. Keep the exact frames; authoring keeps its current draft last.
             frames=((self.provider_work,rule_frame,self.provider_frame)
