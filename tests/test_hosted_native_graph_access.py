@@ -303,6 +303,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
+            ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
@@ -1958,6 +1959,31 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
         "expected_revision": snapshot["record"]["revision"],
         "expected_content_sha256": snapshot["content_sha256"],
     }
+    native_source = f"{document}/native-world-source"
+    revision = snapshot["record"]["revision"]
+    native_reads = []
+
+    def read_native_source(_root, document_id, *, expected_revision):
+        native_reads.append((document_id, expected_revision))
+        return workspace_documents.NativeWorldSourceAdmissionStatus(
+            state="pending", world_id="managed", document_id=document_id,
+            loaded_revision=revision, body_sha256=snapshot["content_sha256"],
+            admission_id="test-admission", space_id="native-managed",
+        )
+
+    monkeypatch.setattr(workspace_documents, "read_native_world_source_status", read_native_source)
+    assert hosted.client.request("GET", native_source, session="other-session").status_code == 403
+    assert hosted.client.request("GET", native_source + "?world_id=managed").status_code == 403
+    assert hosted.client.request("GET", native_source + "?expected_revision=1&expected_revision=2").status_code == 403
+    assert not native_reads
+    for query, expected in (("", None), (f"?expected_revision={revision}", revision)):
+        status = hosted.client.request("GET", native_source + query)
+        assert status.status_code == 200, status.text
+        assert status.json()["document_id"] == record["document_id"]
+        assert status.json()["loaded_revision"] == revision
+        assert status.headers["cache-control"] == "no-store"
+        assert native_reads[-1] == (record["document_id"], expected)
+
     assert snapshot["record"]["target_relpath"] is None
     assert hosted.client.request("POST", launch, json=extraction, session="other-session").status_code == 403
     assert not runs
