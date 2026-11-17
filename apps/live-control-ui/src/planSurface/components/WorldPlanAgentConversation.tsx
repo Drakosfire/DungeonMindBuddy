@@ -1900,7 +1900,6 @@ function sameSavedMessage(a: WorldAgentConversationHistoryTurn, b: WorldAgentCon
   return a.turn_id === b.turn_id && a.sequence === b.sequence && a.lifecycle_status === b.lifecycle_status && a.user_text === b.user_text
     && a.assistant_text === b.assistant_text && 'idempotency_key' in a && 'idempotency_key' in b && a.idempotency_key === b.idempotency_key
     && a.conversation_draft_available === b.conversation_draft_available
-    && a.variant_approval_requested === b.variant_approval_requested
     && canonicalJson(a.provenance) === canonicalJson(b.provenance);
 }
 
@@ -6525,7 +6524,7 @@ export function WorldPlanAgentConversation({
           {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : selectPassage ? null : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : 'This reply did not finish.'}</p>}
           {savedStatblockLinks}
           {draftEditor}
-            {variantApproval}
+          {variantApproval}
           {!historicalAttempt && (isBuild || !isReadOnly) && !turn.assistant_text
             && ['failed','interrupted'].includes(turn.lifecycle_status)
             && (isBuild ? turn.provenance.surface_id === 'build'

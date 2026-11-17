@@ -148,7 +148,8 @@ def approval_handoff(conn, *, world_id, conversation_id, prior_to, page_id, page
     with conn.cursor(row_factory=dict_row) as cursor:
         candidates = cursor.execute(
             """
-            SELECT review.turn_id, review.review_id, review.revision
+            SELECT review.turn_id, review.review_id, review.revision,
+                   current_draft.revision = review.revision AS is_current
             FROM agent.conversation_variant_review AS review
             JOIN agent.turn AS producer USING (turn_id)
             JOIN agent.turn_reference AS origin ON origin.turn_id = producer.turn_id
@@ -158,7 +159,7 @@ def approval_handoff(conn, *, world_id, conversation_id, prior_to, page_id, page
                   AND draft.conversation_id = producer.conversation_id
                   AND draft.turn_id = producer.turn_id
                 ORDER BY revision DESC LIMIT 1
-            ) AS current_draft ON current_draft.revision = review.revision
+            ) AS current_draft ON true
             WHERE producer.world_id = %s AND producer.conversation_id = %s
               AND producer.sequence < %s AND producer.status = 'completed'
               AND producer.surface_id = 'build'
@@ -168,9 +169,14 @@ def approval_handoff(conn, *, world_id, conversation_id, prior_to, page_id, page
             """,
             (world_id, conversation_id, prior_to, page_id, page_kind),
         ).fetchall()
-    if len(candidates) == 1:
-        return {"status": "ready", **candidates[0]}
-    return {"status": "ambiguous" if candidates else "unavailable"}
+    if len(candidates) > 1:
+        return {"status": "ambiguous"}
+    if not candidates:
+        return {"status": "unavailable"}
+    candidate, = candidates
+    if not candidate.pop("is_current"):
+        return {"status": "stale"}
+    return {"status": "ready", **candidate}
 
 
 def requested_approval(turn):
