@@ -222,3 +222,32 @@ overuse, intentional non-edit, and wrong-target nomination as the hardest failur
 Deterministic snapshot admission is separate from language understanding. No
 provider, runtime writes, shared harness/controller, migration or activation.
 Scripted replay verifies scorer correctness, not ordinary routing quality.
+
+### Serial isolated paragraph-boundary insertion (2026-11-17)
+
+The coordinating owner authorized this continuation from published
+`7c08bc2bcdd14c61396ab85bc68119cc26ba1482`. It reuses the existing immutable
+before/after paragraph catalog, not an additional catalog or ordinary router.
+Write scope: the existing Build proposal/review API codecs, Build compose bridge,
+BuildPageProposal, native build_proposal types/service/review, this handoff and
+`evals/inline_prose_targeting` only. No shared conversation/controller/harness,
+image operation, Plan runtime or migration paths. Fresh main/open-PR file checks
+found no external overlap in this bounded write set; #3864 and #3824 remain
+separate owners.
+
+Explicit insertion provenance uses `dmb_build_prose_boundary_target_v1`, operation
+`insert_before` or `insert_after`, equal nonnegative `from`/`to` at a host-admitted
+root boundary, catalog digest/alias and the anchor paragraph's text digest. The
+snapshot identity is still the actual editor/document basis. New proof-only
+proposal v3/review v5 codecs distinguish it from replacement v2/v4; default legacy
+codecs remain closed. The actual authored caret and selection are never rewritten;
+Move stays unavailable for host-targeted proof. One new plain paragraph may be
+added, with every existing node/ID/mark/row unchanged byte-for-byte. Native Undo,
+explicit existing Save and fresh editor reopen remain required witnesses.
+
+Test-only DDL is authorized only on fresh uniquely owned synthetic clones on the
+same isolated PostgreSQL55467, preserving all original legacy CHECK clauses. No
+production schema, reader drain, runtime activation, provider or private data.
+Use duplicate passages across headings and unrelated caret; prove exact before/
+after placement, semantic order, stale/readonly/foreign/ambiguous refusal and
+missing-ID normalization refusal. Scripted target choice is not model quality.
