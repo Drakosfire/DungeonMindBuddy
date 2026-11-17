@@ -617,3 +617,18 @@ it("uses hosted transport only for recap object requests with a matching World p
   })).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("lists saved PDF reviews on hosted Buddy without a local bearer", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ reviews: [] }));
+  const signal = new AbortController().signal;
+  await expect(api.listPdfStatblockReviews("elderwyld", signal)).resolves.toEqual([]);
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toBe("/api/live/agent/worlds/elderwyld/build-pdf-sources/statblock-reviews");
+  expect(init).toMatchObject({ signal, credentials: "same-origin", cache: "no-store", redirect: "error" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(String(url), { method: "POST", body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
