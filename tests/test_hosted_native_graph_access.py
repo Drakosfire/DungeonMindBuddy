@@ -62,6 +62,7 @@ from apps.live_control_server.services.hosted_auth import (
 from tests.test_native_graph_explorer import InMemoryExplorerStore, _snapshot
 from tests.test_native_recap_preparation import TOKEN, lane as recap_lane  # noqa: F401
 from tests.test_combat_mechanics_adoption import adoption_case  # noqa: F401
+from tests.test_world_mechanics_associations import prepared as mechanics_prepared  # noqa: F401
 from tests.test_combat_exact_world_mechanics import combat  # noqa: F401
 from tests.test_statblock_saved_revisions import revision_case  # noqa: F401
 from tests.test_world_mechanics_associations import prepared  # noqa: F401
@@ -3677,3 +3678,30 @@ def test_hosted_mechanics_association_binds_actor_and_world(hosted, monkeypatch)
     assert result.status_code == 404, result.text
     assert write.call_args.kwargs["actor"] == f"hosted_dms:{OWNER}"
     assert write.call_args.kwargs["request"].model_dump(mode="json") == body
+
+
+def test_hosted_persists_and_reopens_exact_mechanics_association(mechanics_prepared, hosted, monkeypatch):
+    from apps.live_control_server.services import statblock_saved_revision, world_creature_selection
+
+    fixture = mechanics_prepared
+    world = "elderwyld"
+    hosted.records[world] = _record(world, OWNER, fixture.view.native_world_id)
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+    monkeypatch.setattr(world_creature_selection.native, "binding", lambda world_id: vars(fixture.binding).copy())
+    base = "/api/live/world-mechanics/associations"
+    path = f"{base}?world_id={world}"
+    assert hosted.client.request("POST", path, json=fixture.body, origin=None).status_code == 403
+    first = hosted.client.request("POST", path, json=fixture.body)
+    assert first.status_code == 200, first.text
+    record = first.json()["association"]
+    assert record["actor"] == f"hosted_dms:{OWNER}"
+    assert record["proof"]["locator"] == fixture.body["locator"]
+    assert first.json()["replayed"] is False
+    assert fixture.dms.calls == 1
+    monkeypatch.setattr(statblock_saved_revision, "get_threat_draft", lambda *args: pytest.fail("Replay read external state"))
+    retry = hosted.client.request("POST", path, json=fixture.body)
+    assert retry.json() == {"association": record, "replayed": True}
+    assert fixture.dms.calls == 1
+    status = f"{base}/requests/{fixture.body['request_id']}?world_id={world}"
+    assert hosted.client.request("GET", status).json() == record
+    assert hosted.client.request("GET", status, session="other-session").status_code == 403
