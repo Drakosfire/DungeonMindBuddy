@@ -230,7 +230,9 @@ def get_world_plan_inventory_page(
     limit: Annotated[int, Query(ge=1, le=100)] = 100,
     before_updated_at: datetime | None = None,
     before_document_id: UUID | None = None,
+    request: Request = None,
 ) -> WorldPlanInventoryPage:
+    require_hosted_plan_world_context(request, world_id)
     before = None
     if before_updated_at is not None or before_document_id is not None:
         if before_updated_at is None or before_document_id is None or before_updated_at.utcoffset() is None:

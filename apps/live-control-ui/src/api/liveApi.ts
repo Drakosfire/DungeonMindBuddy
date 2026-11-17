@@ -455,6 +455,22 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "GET" && init?.body == null && !!worldId
       && path === capabilityPath + new URLSearchParams({ world_id: worldId });
   }
+  const planInventoryPage = "/api/live/workspace-documents/world-plans/page?";
+  if (path.startsWith(planInventoryPage)) {
+    const query = new URLSearchParams(path.slice(planInventoryPage.length));
+    const worldId = query.get("world_id");
+    const beforeUpdatedAt = query.get("before_updated_at");
+    const beforeDocumentId = query.get("before_document_id");
+    if (method !== "GET" || init?.body != null || !worldId || Boolean(beforeUpdatedAt) !== Boolean(beforeDocumentId)) return false;
+    const expected = new URLSearchParams({ world_id: worldId });
+    if (beforeUpdatedAt && beforeDocumentId) {
+      expected.set("before_updated_at", beforeUpdatedAt);
+      expected.set("before_document_id", beforeDocumentId);
+    }
+    const limit = query.get("limit");
+    if (limit) expected.set("limit", limit);
+    return path === planInventoryPage + expected;
+  }
   const recapCorrection = /^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/(?:recap-evidence-corrections|recap-candidate-corrections|semantic-disposition)\?managed_world_id=([a-z][a-z0-9_-]{0,62})$/.exec(path);
   if (recapCorrection) return method === "POST" && requestBodyRecord(init?.body) !== null;
   if (path === "/api/live/graph-authoring/prepare" || path === "/api/live/graph-authoring/commit") {
@@ -1026,6 +1042,7 @@ function apiRequestTarget(
   const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+(?:\/(?:build-context|recap-projection))?$/.test(normalizedPath)
     || /^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:review-package|frozen-source-spans|worldbuilding-publication-coverage|evidence-corrections)$/.test(normalizedPath)
+    || normalizedPath === "/api/live/workspace-documents/world-plans/page"
     || /^\/api\/live\/graph-authoring\/(?:prepare|commit)$/.test(normalizedPath)
     || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/(?:progress|rebase)$/.test(normalizedPath)
     || (normalizedPath === "/api/live/world-play-runs/v2/active" && init?.method?.toUpperCase() === "PUT");

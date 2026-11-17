@@ -1151,6 +1151,20 @@ async def resolve_hosted_rules_lookup(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_plan_inventory_page(request: Request) -> str:
+    selectors = request.query_params.multi_items()
+    keys = {key for key, _ in selectors}
+    world_id = request.query_params.get("world_id")
+    cursor = {"before_updated_at", "before_document_id"}
+    if (not world_id or len(keys) != len(selectors)
+            or not keys <= {"world_id", "limit"} | cursor
+            or (keys & cursor and not cursor <= keys) or await request.body()):
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_plan_world_context(request: Request) -> str:
     selectors = request.query_params.multi_items()
     world_id = request.query_params.get("world_id")
