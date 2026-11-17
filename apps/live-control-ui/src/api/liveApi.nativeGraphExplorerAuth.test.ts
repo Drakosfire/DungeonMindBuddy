@@ -641,3 +641,23 @@ it("reads saved PDF reviews on hosted Buddy without a local bearer", async () =>
   await expect(api.authenticatedApiFetch(detail + "?world_id=foreign")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(3);
 });
+
+it("opens and checks saved PDF regions through hosted session transport", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const root = "/api/live/agent/worlds/elderwyld/build-pdf-sources";
+  const request = { method: "POST", body: JSON.stringify({ source_revision_id: "retained-revision" }) };
+  for (const route of ["open", "region:validate"]) {
+    await api.authenticatedApiFetch(`${root}/${route}`, request);
+    const [url, init] = fetch.mock.calls.at(-1)!;
+    expect(url).toBe(`${root}/${route}`);
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store", redirect: "error" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  for (const route of ["ocr", "review"]) {
+    await expect(api.authenticatedApiFetch(`${root}/${route}`, request)).rejects.toThrow(/exact same-origin/);
+  }
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
