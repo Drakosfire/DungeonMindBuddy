@@ -3338,9 +3338,9 @@ export function WorldPlanAgentConversation({
       historySnapshotRef.current = null;
       setHistory(null);
       messagePageRef.current = null; setMessagePage(null);
+      setHistoryError(null);
     }
     setOlderLoading(false);
-    setHistoryError(null);
     const reconcilingPendingPlay = sharedConversation?.pendingTurn?.surface === "play" || sharedConversation?.pendingTurn?.surface === "build";
     if (((!isReadOnly && (!scopeMatches || !documentId)) && !reconcilingPendingPlay)
       || verifiedWorldId !== worldId || (!visible && !reconcilingPendingPlay) || !historyRequested) {
@@ -3402,6 +3402,7 @@ export function WorldPlanAgentConversation({
         if (!active || generation !== historyGenerationRef.current) return;
         sharedConversation?.setPendingTurn((current) => current && current.surface !== "plan" && page.turns.some((turn) =>
           turn.turn_id === current.turnId && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status)) ? null : current);
+        setHistoryError(null);
         const readOnlyConfirmed = pendingPlayTurn && await confirmedReadOnlyTurn(page, pendingPlayTurn);
         if (!active || generation !== historyGenerationRef.current) return;
         if (pendingPlayTurn && readOnlyConfirmed && clearSavedPlayTurn(pendingPlayTurn, true)) {
