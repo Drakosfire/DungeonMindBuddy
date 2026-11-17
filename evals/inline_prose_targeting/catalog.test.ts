@@ -1,5 +1,6 @@
 import {Editor,type JSONContent} from '@tiptap/core';
 import {describe,it,expect} from 'vitest';
+import {PAGE_COMPOSER_EXTENSIONS} from '../../apps/live-control-ui/src/tiptap/pageComposer/PageRow';
 import {DEFAULT_MARKDOWN_EDITOR_EXTENSIONS} from '../../apps/live-control-ui/src/tiptap/MarkdownEditorCore';
 import {captureProseTargetCatalog,resolveProseTarget,type ProseTargetState} from '../../apps/live-control-ui/src/documentEditing/proseTargetCatalog';
 import {insertReviewedMarkdownAtAnchor} from '../../apps/live-control-ui/src/documentEditing/markdownInsertion';
@@ -56,6 +57,26 @@ describe('prose target host catalog (no model selector or Save integration)',()=
    const before=editor.getJSON();
    expect(()=>resolveProseTarget(kind==='forged'?{choices:catalog.choices}:catalog,kind==='unknown'?'offset:17':selector,get)).toThrow();
    expect(editor.getJSON()).toEqual(before);
+  }finally{editor.destroy();}
+ });
+ it('resolves text extent inside the real composer paragraph without replacing its identity',()=>{
+  const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],content:{type:'doc',content:[{...p('Original text.'),attrs:{pageBlockId:'original-occurrence'}}]}});
+  const state:ProseTargetState={editor,scopeKey:'synthetic',draftGeneration:0,canEdit:true};
+  try{
+   const before=editor.getJSON(),catalog=captureProseTargetCatalog(()=>state);
+   const option=catalog.choices.find(x=>x.operation==='replace_paragraph')!;
+   const target=resolveProseTarget(catalog,option.selector,()=>state);
+   expect(target.from).toBe(1);expect(target.to).toBe(editor.state.doc.child(0).nodeSize-1);
+   editor.view.dispatch(editor.state.tr.insertText('Revised text.',target.from,target.to));
+   expect(editor.getJSON().content![0]!.attrs).toEqual(before.content![0]!.attrs);
+   editor.commands.undo();expect(editor.getJSON()).toEqual(before);
+  }finally{editor.destroy();}
+ });
+ it('does not mistake a table caption for the containing section',()=>{
+  const {editor,get}=setup();try{
+   editor.commands.setContent({type:'doc',content:[h('Preparation'),h('Named table'),{type:'table',content:[{type:'tableRow',content:[{type:'tableCell',content:[p('Cue')]}]}]},p('Trailing preparation prose.')]});
+   const options=captureProseTargetCatalog(get).choices;
+   expect(options).toHaveLength(3);expect(options.every(x=>x.section==='Preparation')).toBe(true);
   }finally{editor.destroy();}
  });
  it('does not offer nested list paragraphs, marked links or table-adjacent caption paragraphs',()=>{

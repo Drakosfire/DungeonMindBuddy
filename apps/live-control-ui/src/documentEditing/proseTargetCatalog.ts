@@ -1,4 +1,5 @@
 import type {Editor} from '@tiptap/core';
+import {isTableCaptionAt} from '../tiptap/markdown/tableCaption';
 
 /** Host-only authority supplied by the existing surface owner, never model input. */
 export interface ProseTargetState {
@@ -43,12 +44,14 @@ export function captureProseTargetCatalog(getCurrent: () => ProseTargetState | n
   if (!editable(current)) throw new Error('Open an editable page before choosing a prose target.');
   const state = {...current}, doc = state.editor.state.doc;
   const editorJson = JSON.stringify(state.editor.getJSON());
+  const content = state.editor.getJSON().content ?? [];
   const choices: Readonly<ProseTargetChoice>[] = [];
   const targets = new Map<string, Readonly<ResolvedProseTarget>>();
   const headings: {level: number; text: string}[] = [];
   let occurrence = 0;
   doc.forEach((node, position, index) => {
     if (node.type.name === 'heading') {
+      if (isTableCaptionAt(content, index)) return;
       const level = Number(node.attrs.level);
       if (!Number.isInteger(level) || level < 1 || level > 6) return;
       while (headings.length && headings[headings.length - 1]!.level >= level) headings.pop();
@@ -69,8 +72,9 @@ export function captureProseTargetCatalog(getCurrent: () => ProseTargetState | n
       choices.push(Object.freeze({selector, operation, section, passage: node.textContent}));
       targets.set(selector, Object.freeze({operation, from, to, editorJson}));
     };
-    // Root block extents preserve unrelated paragraphs and their marks exactly.
-    add('replace_paragraph', position, position + node.nodeSize);
+    // Text-content extent retains the owning paragraph identity/attributes.
+    // The integration owner must restrict replacement output to one paragraph.
+    add('replace_paragraph', position + 1, position + node.nodeSize - 1);
     add('insert_before', position, position);
     const next = index + 1 < doc.childCount ? doc.child(index + 1) : null;
     // Conservative: an adjacent table may own its preceding caption paragraph.
