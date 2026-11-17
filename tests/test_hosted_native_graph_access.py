@@ -373,6 +373,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/reference-manifest"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/review"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/receipts"): access.resolve_hosted_play_roll_receipts,
@@ -2340,6 +2341,12 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
         assert response.status_code == 200, response.text
         assert response.headers["cache-control"] == "no-store"
         assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    review_path = f"{base}/review?world_id=managed"
+    review = hosted.client.request("GET", review_path)
+    assert review.status_code == 200, review.text
+    assert review.headers["cache-control"] == "no-store"
+    assert hosted.client.request("GET", review_path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", review_path + "&world_id=foreign").status_code == 403
     manifest = hosted.client.request("GET", manifest_path).json()
     assert manifest["playable_content_sha256"] == body["expected_playable_content_sha256"]
     pinned = hosted.client.request("GET", pinned_path).json()
