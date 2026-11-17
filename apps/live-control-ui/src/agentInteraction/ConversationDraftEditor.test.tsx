@@ -81,3 +81,35 @@ it("reopens the link for a previously saved variant without confirming again", a
   expect(screen.getByRole("button", { name: "Confirm and save as new statblock" })).toBeDisabled();
   expect(confirmVariantReview).not.toHaveBeenCalled();
 });
+
+it("retries saving a variant link without applying the insertion again", async () => {
+  const scope = { worldId: "world", conversationId: "conversation", turnId: "turn" };
+  vi.mocked(openConversationDraft).mockResolvedValueOnce({
+    revision: 2, markdown: "Draft", variant_review_ids: ["review"],
+  });
+  vi.mocked(openVariantReview).mockResolvedValueOnce({
+    revision: 2, saved: true,
+    definition: {} as Awaited<ReturnType<typeof openVariantReview>>["definition"],
+  });
+  const captured = { basis: { document_id: "edge", world_id: "world", visibility: "internal" }, draftMarkdown: "Existing page" };
+  const bridge = {
+    capture: vi.fn().mockResolvedValue(captured),
+    prepareProposal: vi.fn().mockResolvedValue({ captured, afterEditorSha256: "editor", afterDraftSha256: "draft" }),
+    applyPrepared: vi.fn(),
+    saveProposal: vi.fn().mockRejectedValueOnce(new Error("Save interrupted")).mockResolvedValueOnce(undefined),
+  };
+  type Placement = NonNullable<Parameters<typeof ConversationDraftEditor>[0]["placement"]>;
+  render(<ConversationDraftEditor scope={scope} placement={{ documentId: "edge", bridge: bridge as unknown as Placement["bridge"] }}/>);
+  fireEvent.click(screen.getByRole("button", { name: "Open draft" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review statblock variant" }));
+  const insert = await screen.findByRole("button", { name: "Insert at cursor and save page" });
+  fireEvent.click(insert);
+  expect(await screen.findByRole("alert")).toHaveTextContent("Save interrupted");
+  fireEvent.click(insert);
+  expect(await screen.findByText("Variant link verified on the saved page.")).toBeInTheDocument();
+  expect(bridge.prepareProposal).toHaveBeenCalledExactlyOnceWith(
+    captured, expect.stringContaining("/statblock?world=world&conversation=conversation&turn=turn&variantReview=review"),
+  );
+  expect(bridge.applyPrepared).toHaveBeenCalledTimes(1);
+  expect(bridge.saveProposal).toHaveBeenCalledTimes(2);
+});
