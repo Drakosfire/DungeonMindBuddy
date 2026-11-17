@@ -362,6 +362,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert (handles or saved_statblock in {"associated", "by-name"} or authored_source=='source_only') and 'DISPLAY ONLY' not in str(frame)
             current_work = requested_work(self.adapter.request.message) if callable(requested_work) else requested_work
             if saved_statblock:
+                from application_state.agent_conversation.response_prompt import VARIANT_BASE
+
+                assert (VARIANT_BASE.text in body["instructions"]) == (current_work == "draft_in_conversation")
                 expected = {"mechanics": definition if current_work == "draft_in_conversation"
                             else {key: value for key, value in definition.items() if key != "ruleset"}}
                 if saved_statblock in {"associated", "by-name"}:
