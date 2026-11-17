@@ -274,3 +274,26 @@ def test_local_selected_saved_revision_can_preview(adoption_case):
     assert response.status_code == 200, response.text
     assert response.json()['snapshot']['locator'] == p.locator
     assert response.json()['hit_points'] == 28
+
+
+@pytest.mark.parametrize("prepared", ["unspecified-source"], indirect=True)
+def test_combat_adopts_saved_version_with_unspecified_source_fields(adoption_case):
+    p = adoption_case
+    locator = p.locator
+    preview = p.client.post(
+        "/api/live/combat/encounters/saved-mechanics/preview?world_id=elderwyld",
+        json={"draft_id": p.draft.draft_id, "locator": locator},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["armor_class"] == 20
+    assert preview.json()["hit_points"] == 28
+    applied = apply(p, {**p.intent, "locator": locator})
+    assert applied.status_code == 200, applied.text
+    reopened = p.client.get(p.encounter_url).json()
+    assert reopened == applied.json()["encounter"]
+    snapshot = reopened["draft"]["entities"][0]["mechanics_snapshot"]
+    assert snapshot["locator"] == locator
+    saved_definition = snapshot["resource"]["definition"]
+    assert saved_definition["ruleset"] is None
+    assert saved_definition["movement"] is None
+    assert saved_definition["challenge"]["proficiency_bonus"] is None
