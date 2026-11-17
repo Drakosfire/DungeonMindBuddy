@@ -1613,7 +1613,9 @@ def get_world_turn_connected_page_origin(world_id: str, turn_id: UUID, request: 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}")
 def get_world_turn_related_page(world_id: str, turn_id: UUID, read_id: UUID, request: Request):
     """Read the immutable authored page captured for this completed answer."""
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified=_verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422,detail={"code":"related_page_selector_invalid"})
@@ -1630,7 +1632,9 @@ def get_world_turn_related_page(world_id: str, turn_id: UUID, read_id: UUID, req
 def get_world_turn_saved_section(world_id: str, turn_id: UUID, segment_index: int,
         section_event_id: UUID, request: Request):
     """Open persisted authored evidence; never substitute a current source."""
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params or not 0 <= segment_index <= 127:
         raise HTTPException(status_code=422, detail={"code": "saved_section_selector_invalid"})
