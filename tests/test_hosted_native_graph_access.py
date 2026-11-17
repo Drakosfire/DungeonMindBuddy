@@ -418,6 +418,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
+            ("GET", "/api/live/graph-preview/build-recap-launches/{request_id}"): access.resolve_hosted_build_recap_recovery,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/usage"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/rules/catalog"): access.resolve_hosted_rules_lookup,
@@ -4585,3 +4586,35 @@ def test_hosted_recap_usage_requires_owned_world_and_exact_revision(hosted, monk
     assert result.status_code == 200, result.text
     assert result.json() == {"runRevision": 2}
     assert calls == [("managed", "recap-run", 2)]
+
+
+def test_hosted_build_recap_recovery_requires_owned_document(hosted, monkeypatch):
+    from apps.live_control_server.routes import graph_preview
+    from apps.live_control_server.services import build_recap_launch, workspace_document_registry
+
+    document_id = "00000000-0000-4000-8000-000000000001"
+    request_id = "00000000-0000-4000-8000-000000000002"
+    monkeypatch.setattr(workspace_document_registry, "get_workspace_document",
+                        lambda *_: SimpleNamespace(kind="worldbuilding_source", world_id="managed"))
+    calls = []
+
+    def recover(_root, **selectors):
+        calls.append(selectors)
+        return SimpleNamespace(run_id="saved-run")
+
+    monkeypatch.setattr(build_recap_launch, "recover_build_recap_launch", recover)
+    monkeypatch.setattr(graph_preview, "get_extraction_run_build_context",
+                        lambda run_id: {"document_id": document_id, "run_id": run_id})
+    path = f"/api/live/graph-preview/build-recap-launches/{request_id}?document_id={document_id}"
+    valid_path = path + "&managed_world_id=managed"
+    assert hosted.client.request("GET", valid_path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&managed_world_id=foreign").status_code == 403
+    assert hosted.client.request("GET", valid_path + "&document_id=" + document_id).status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", valid_path)
+    assert result.status_code == 200, result.text
+    assert result.json() == {"document_id": document_id, "run_id": "saved-run"}
+    assert len(calls) == 1
+    monkeypatch.setattr(graph_preview, "get_extraction_run_build_context",
+                        lambda run_id: {"document_id": request_id, "run_id": run_id})
+    assert hosted.client.request("GET", valid_path).status_code == 409
