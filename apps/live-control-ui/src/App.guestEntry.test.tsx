@@ -635,7 +635,11 @@ describe("canonical local guest entry", () => {
         ? new Promise<Response>(() => {})
         : Response.json(managedGraphEnvelope(world, count === 1 ? "Aster" : "Updated Aster")),
     });
-    vi.stubGlobal("fetch", fetchMock);
+    const documentId = "792026bc-6600-4c2d-ae55-05c045d1502f";
+    let finishDocumentRead!: (response: Response) => void;
+    const pendingDocument = new Promise<Response>(resolve => { finishDocumentRead = resolve; });
+    vi.stubGlobal("fetch", (path: RequestInfo | URL, init?: RequestInit) =>
+      String(path) === `/api/live/workspace-documents/${documentId}` ? pendingDocument : fetchMock(path, init));
     const user = userEvent.setup();
     const reads = () => fetchMock.mock.calls.filter(([path]) => path === "/api/live/native-graph-explorer/graph");
     const navigate = (path: string) => act(() => {
@@ -645,7 +649,10 @@ describe("canonical local guest entry", () => {
 
     render(<App />);
     await waitFor(() => expect(reads()).toHaveLength(1));
+    navigate(`/build?world=world-a&documentId=${documentId}`);
+    expect(await screen.findByText("Verifying page selection…")).toBeInTheDocument();
     navigate("/graph?world=world-a");
+    await act(async () => finishDocumentRead(Response.json({}, { status: 404 })));
     expect(await revealIsolatedObject(user, "Aster")).toBeInTheDocument();
     navigate("/build?world=world-a");
     await waitFor(() => expect(screen.queryByText("World · World A")).not.toBeInTheDocument());
