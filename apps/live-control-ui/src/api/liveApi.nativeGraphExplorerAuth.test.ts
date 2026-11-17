@@ -631,7 +631,8 @@ it("reads saved PDF reviews on hosted Buddy without a local bearer", async () =>
   expect(new Headers(init?.headers).has("Authorization")).toBe(false);
   await expect(api.authenticatedApiFetch(String(url), { method: "POST", body: "{}" })).rejects.toThrow(/exact same-origin/);
   const detail = String(url) + "/12345678-1234-1234-1234-123456789abc";
-  for (const path of [detail, detail + "/publication"]) {
+  const published = detail + "/publication/statblock?draft_id=12345678-1234-1234-1234-123456789abc&revision_id=rev_saved";
+  for (const path of [detail, detail + "/publication", published]) {
     await api.authenticatedApiFetch(path);
     const [sent, options] = fetch.mock.calls.at(-1)!;
     expect(sent).toBe(path);
@@ -639,7 +640,8 @@ it("reads saved PDF reviews on hosted Buddy without a local bearer", async () =>
     expect(new Headers(options?.headers).has("Authorization")).toBe(false);
   }
   await expect(api.authenticatedApiFetch(detail + "?world_id=foreign")).rejects.toThrow(/exact same-origin/);
-  expect(fetch).toHaveBeenCalledTimes(3);
+  await expect(api.authenticatedApiFetch(published + "&revision_id=another")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(4);
 });
 
 it("opens and checks saved PDF regions through hosted session transport", async () => {
