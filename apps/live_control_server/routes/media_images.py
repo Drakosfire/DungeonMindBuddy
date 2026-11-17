@@ -308,14 +308,34 @@ class ImageAssociationRequest(BaseModel):
 
 
 @router.post('/preparations/{action_id}/asset')
-def associate_image(action_id: UUID, body: ImageAssociationRequest, request: Request, response: Response):
-    principal = enforce_native_graph_gm(request)
+def associate_image(
+    action_id: UUID, body: ImageAssociationRequest, request: Request, response: Response,
+    world_id: str | None = None,
+):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        conversation_graph_principal, hosted_world_media_owner,
+    )
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted and world_id is None:
+        raise HTTPException(403, detail="Select a World before placing artwork.")
+    principal = (
+        conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+        if world_id is not None else enforce_native_graph_gm(request)
+    )
     response.headers['Cache-Control'] = 'no-store'
     try:
-        preparation = BuildImageService().get(action_id, principal.subject)
+        service = BuildImageService()
+        preparation = service.get(action_id, principal.subject)
+        if world_id is not None and preparation.reservation.basis.world_id != world_id:
+            raise HTTPException(404, detail="Image preparation unavailable.")
         from apps.live_control_server.services.build_document_proposal import _source
         _source(preparation.reservation)
-        return _preparation_record(BuildImageService().associate(action_id, body.asset_id, principal.subject, body.expected_revision))
+        return _preparation_record(service.associate(
+            action_id, body.asset_id, principal.subject, body.expected_revision,
+            asset_owner=hosted_world_media_owner(world_id) if hosted else None,
+        ))
     except ApplicationStateError as error:
         raise HTTPException(error.status_code, detail=str(error)) from error
 
