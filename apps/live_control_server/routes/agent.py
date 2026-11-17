@@ -1648,7 +1648,9 @@ def get_world_turn_saved_section(world_id: str, turn_id: UUID, segment_index: in
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-source-clauses/{citation_index}")
 def get_world_turn_native_source_clause(world_id: str, turn_id: UUID, citation_index: int, request: Request):
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world = _verified_world_id(world_id)
     if request.query_params or citation_index < 0:
         raise HTTPException(status_code=422, detail={"code": "native_clause_selector_invalid"})
@@ -1665,7 +1667,9 @@ def get_world_turn_native_source_clause(world_id: str, turn_id: UUID, citation_i
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-assertion-sources/{citation_index}")
 def get_world_turn_native_assertion_source(world_id: str, turn_id: UUID, citation_index: int, request: Request):
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     world = _verified_world_id(world_id)
     if request.query_params or citation_index < 0:
         raise HTTPException(status_code=422, detail={"code": "native_assertion_selector_invalid"})
@@ -1682,7 +1686,9 @@ def get_world_turn_native_assertion_source(world_id: str, turn_id: UUID, citatio
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}")
 def get_world_turn_native_body_excerpt(world_id: str, turn_id: UUID, citation_index: int, request: Request):
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     world = _verified_world_id(world_id)
     if request.query_params or not 0 <= citation_index <= 16383:
         raise HTTPException(status_code=422, detail={"code": "native_body_selector_invalid"})
@@ -2123,11 +2129,11 @@ def post_agent_turn(body: AgentTurnRequest, request: Request):
 
 
 def _chat_turn_principal(body: AgentTurnRequest, request: Request):
-    from apps.live_control_server.services.hosted_native_graph_access import chat_turn_principal
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
 
     owner = body.owner_scope
     world_id = owner.world_id if owner is not None and owner.kind == "world" else ""
-    return chat_turn_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+    return conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
 
 
 def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:

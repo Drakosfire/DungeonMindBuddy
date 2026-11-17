@@ -248,7 +248,7 @@ async def resolve_hosted_chat_turn(request: Request) -> str:
     return world.world_id
 
 
-def chat_turn_principal(
+def conversation_graph_principal(
     request: Request, world_id: str, *, authorize_local: Callable[[Request], NativeGraphPrincipal],
 ) -> NativeGraphPrincipal:
     if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:

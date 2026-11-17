@@ -523,6 +523,8 @@ def reopen_context(query, principal):
     """Current access to a retained query's original R, without re-running search."""
     _require_gm(principal)
     authority = query.authority
+    if getattr(principal, 'managed_world_id', authority.managed_world_id) != authority.managed_world_id:
+        raise ValueError('Historical native query World differs from principal World')
     bound = resolve_managed_world_binding(authority.managed_world_id)
     if (bound.native_world_id, bound.binding_version) != (authority.native_world_id, authority.binding_version):
         raise ValueError('Historical native query binding changed')

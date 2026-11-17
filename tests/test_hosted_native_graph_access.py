@@ -265,6 +265,10 @@ def hosted(monkeypatch, request):
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/new", agent_routes.post_new_world_conversation, methods=["POST"])
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}", agent_routes.get_new_world_conversation_status, methods=["GET"])
     app.add_api_route("/api/live/agent/turn", agent_routes.post_agent_turn, methods=["POST"])
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}",
+        agent_routes.get_world_turn_native_body_excerpt, methods=["GET"],
+    )
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -340,6 +344,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter,
@@ -2688,3 +2693,27 @@ def test_hosted_chat_turn_reaches_executor_with_exact_world_principal(hosted, mo
     principal = execute.call_args.kwargs["native_principal"]
     assert principal.managed_world_id == "managed"
     assert principal.subject == execute.call_args.kwargs["operator_subject"]
+
+
+def test_hosted_native_excerpt_passes_exact_world_principal(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import agent_native_source_sections
+
+    opened = Mock()
+    opened.return_value.model_dump.return_value = {"content": "Saved excerpt"}
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: None)
+    monkeypatch.setattr(agent_native_source_sections, "open_native_body_excerpt", opened)
+    turn_id = uuid4()
+    path = f"/api/live/agent/worlds/managed/conversation/turns/{turn_id}/native-body-excerpts/0"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    opened.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.json() == {"content": "Saved excerpt"}
+    assert response.headers["cache-control"] == "no-store"
+    params = opened.call_args.kwargs
+    assert params["world_id"] == params["principal"].managed_world_id == "managed"
+    assert params["turn_id"] == turn_id
