@@ -437,6 +437,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && typeof body.run_id === "string" && typeof body.source_artifact_id === "string"
       && typeof body.source_sha256 === "string";
   }
+  if (path === "/api/live/extract-promote/native-prepare" || path === "/api/live/extract-promote/native-confirm") {
+    const body = requestBodyRecord(init?.body);
+    const review = path.endsWith("/native-confirm") && isRecord(body?.envelope) ? body.envelope.review : body;
+    return method === "POST" && isRecord(review) && typeof review.managed_world_id === "string"
+      && Boolean(review.managed_world_id) && typeof review.run_id === "string" && Boolean(review.run_id);
+  }
   const recapCorrection = /^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/recap-evidence-corrections\?managed_world_id=([a-z][a-z0-9_-]{0,62})$/.exec(path);
   if (recapCorrection) return method === "POST" && requestBodyRecord(init?.body) !== null;
   if (path === "/api/live/graph-authoring/prepare" || path === "/api/live/graph-authoring/commit") {
