@@ -1123,10 +1123,12 @@ class AgentConversationHistoryPlayTurnV3(AgentConversationHistoryTurnV3):
 
 
 class AgentConversationHistoryBuildTurnV2(AgentConversationHistoryTurn):
+    conversation_draft_available: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
     knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
 
 
 class AgentConversationHistoryBuildTurnV3(AgentConversationHistoryTurnV3):
+    conversation_draft_available: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
     knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
 
 

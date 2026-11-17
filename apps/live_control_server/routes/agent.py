@@ -1495,6 +1495,15 @@ def get_world_conversation_history(
         action = getattr(getattr(execution, 'policy', None), 'action', None)
         return action.intent.plan_requested_operation if isinstance(action, NativePlanActionV1) and hasattr(action.intent, 'plan_requested_operation') else None
 
+    completed_build_turn_ids = [
+        turn.turn_id for turn in turns
+        if not isinstance(turn, MixedCompletedTurnV1)
+        and turn.status == "completed"
+        and turn.provenance.surface_id == "build"
+    ]
+    draft_turn_ids = service.conversation_draft_turn_ids(
+        verified_world_id, conversation.conversation_id, completed_build_turn_ids,
+    ) if completed_build_turn_ids else set()
     history_turns = []
     for turn in turns:
         if isinstance(turn, MixedCompletedTurnV1):
@@ -1546,6 +1555,7 @@ def get_world_conversation_history(
         ):
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
             history_turns.append(build_model(**values,
+                conversation_draft_available=True if turn.turn_id in draft_turn_ids else None,
                 knowledge_context=project_plan_turn_context(turn, delivery_replay=True, source_names=source_names)))
         elif has_play_context(turn):
             play_model = (
@@ -1601,6 +1611,46 @@ def get_world_conversation_history(
             if len(turns) == limit and turns else None
         ),
     )
+
+
+class ConversationDraftEdit(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = Field(gt=0)
+    markdown: str
+
+
+_CONVERSATION_DRAFT_PATH = "/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"
+
+
+def _conversation_draft_access(request: Request, world_id: str) -> str:
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    return _verified_world_id(world_id)
+
+
+@router.get(_CONVERSATION_DRAFT_PATH)
+def get_conversation_draft(world_id: str, conversation_id: UUID, turn_id: UUID, request: Request):
+    verified = _conversation_draft_access(request, world_id)
+    try:
+        return _conversation_service(request).open_conversation_draft(verified, conversation_id, turn_id)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.put(_CONVERSATION_DRAFT_PATH)
+def put_conversation_draft(
+    world_id: str, conversation_id: UUID, turn_id: UUID, body: ConversationDraftEdit, request: Request,
+):
+    verified = _conversation_draft_access(request, world_id)
+    try:
+        return _conversation_service(request).edit_conversation_draft(
+            verified, conversation_id, turn_id,
+            expected_revision=body.expected_revision, markdown=body.markdown,
+        )
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin")

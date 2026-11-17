@@ -668,3 +668,24 @@ it("opens and checks saved PDF regions through hosted session transport", async 
   }
   expect(fetch).toHaveBeenCalledTimes(2);
 });
+
+it("uses hosted same-origin credentials for exactly the draft read and edit routes", async () => {
+  await setup();
+  hostedOrigin();
+  const { openConversationDraft, saveConversationDraft } = await import("./conversationDraftApi");
+  const fetch = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ revision: 1, markdown: "Original" }))
+    .mockResolvedValueOnce(Response.json({ revision: 2, markdown: "Edited" }));
+  const scope = {
+    worldId: "managed",
+    conversationId: "11111111-1111-4111-8111-111111111111",
+    turnId: "22222222-2222-4222-8222-222222222222",
+  };
+  await expect(openConversationDraft(scope)).resolves.toEqual({ revision: 1, markdown: "Original" });
+  await expect(saveConversationDraft(scope, 1, "Edited")).resolves.toEqual({ revision: 2, markdown: "Edited" });
+  const path = `/api/live/agent/worlds/managed/conversations/${scope.conversationId}/drafts/${scope.turnId}`;
+  expect(fetch.mock.calls.map(call => call[0])).toEqual([path, path]);
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", mode: "same-origin" });
+  expect(fetch.mock.calls[1][1]).toMatchObject({ method: "PUT", credentials: "same-origin", mode: "same-origin" });
+  expect(JSON.parse(String(fetch.mock.calls[1][1]?.body))).toEqual({ expected_revision: 1, markdown: "Edited" });
+});

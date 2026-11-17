@@ -489,6 +489,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): access.resolve_hosted_conversation_world,
             ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}/continue"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
+            ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/build-source-withdrawals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}"): access.resolve_hosted_conversation_world,
@@ -4355,3 +4357,28 @@ def test_hosted_source_withdrawal_binds_exact_world_revision(hosted, monkeypatch
     if kind == "text":
         scope, principal = catalog.call_args.args
         assert scope.managed_world_id == principal.managed_world_id == "managed"
+def test_hosted_conversation_draft_routes_require_world_owner_and_write_origin(hosted, monkeypatch):
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import agent
+
+    service = Mock()
+    service.open_conversation_draft.return_value = {"revision": 1, "markdown": "Saved"}
+    service.edit_conversation_draft.return_value = {"revision": 2, "markdown": "Edited"}
+    monkeypatch.setattr(agent, "_conversation_service", lambda _: service)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda value: value)
+    conversation_id, turn_id = uuid4(), uuid4()
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation_id}/drafts/{turn_id}"
+    body = {"expected_revision": 1, "markdown": "Edited"}
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("PUT", path, origin=None, json=body).status_code == 403
+    assert hosted.client.request("PUT", path, session="other-session", json=body).status_code == 403
+    assert not service.mock_calls
+    opened = hosted.client.request("GET", path)
+    assert opened.status_code == 200, opened.text
+    assert opened.headers["cache-control"] == "no-store"
+    saved = hosted.client.request("PUT", path, json=body)
+    assert saved.status_code == 200, saved.text
+    service.open_conversation_draft.assert_called_once_with("managed", conversation_id, turn_id)
+    service.edit_conversation_draft.assert_called_once_with(
+        "managed", conversation_id, turn_id, expected_revision=1, markdown="Edited",
+    )
