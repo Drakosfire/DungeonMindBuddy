@@ -1866,7 +1866,9 @@ def get_world_replay_identities(world_id: str, turn_id: UUID, trace_id: UUID, re
     from apps.live_control_server.services.agent_replay_identities import replay_identities
     from apps.live_control_server.services.native_graph_inspection import InspectionUnavailable
 
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     world = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422, detail={"code": "replay_identity_selector_invalid"})
@@ -1898,7 +1900,9 @@ def _read_replay_assertion(world_id, turn_id, trace_id, sequence, request, opene
     from apps.live_control_server.services.native_graph_inspection import InspectionUnavailable
     from fastapi.responses import JSONResponse
 
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     world = _verified_world_id(world_id)
     selectors = list(request.query_params.multi_items())
     if not 0 <= sequence < 2048 or len(selectors) != 1 or selectors[0][0] != "assertion_id" or not 0 < len(selectors[0][1].strip()) <= 256:
