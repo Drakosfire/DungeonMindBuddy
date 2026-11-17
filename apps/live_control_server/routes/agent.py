@@ -1836,7 +1836,9 @@ def get_world_historical_rules_passage(world_id: str, turn_id: str, support_id: 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/context-trace", response_model=AgentTurnContextTraceResponseV1)
 def get_world_turn_context_trace(world_id: str, turn_id: UUID, request: Request) -> AgentTurnContextTraceResponseV1:
     """Explicit authenticated read; normal history never includes passage bytes."""
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422, detail="context trace read does not accept query selectors")
