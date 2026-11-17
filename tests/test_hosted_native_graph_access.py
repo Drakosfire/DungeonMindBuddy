@@ -350,6 +350,9 @@ def hosted(monkeypatch, request):
     )
     from apps.live_control_server.routes import combat_run_encounters, combat_scene_templates
 
+    from apps.live_control_server.routes import recap_ingest
+
+    app.include_router(recap_ingest.router)
     app.include_router(combat_run_encounters.router)
     app.include_router(combat_scene_templates.router)
     app.include_router(combat_encounters.router)
@@ -390,7 +393,7 @@ def hosted(monkeypatch, request):
         app,
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
-               if "/variant-reviews/{review_id}" in key[1]
+               if key[1] == "/api/live/recap-name-review" or "/variant-reviews/{review_id}" in key[1]
                or key[1].startswith(("/api/live/combat/scene-templates", "/api/live/combat/run-encounters/"))},
             **{
                 (
@@ -4538,3 +4541,25 @@ def test_hosted_run_encounter_read_binds_exact_world_run_and_scene(hosted, monke
     read.assert_not_called()
     assert hosted.client.request("GET", path).status_code == 200
     read.assert_called_once_with(world_id="managed", run_id=run_id, scene_id="scene:gate")
+
+def test_hosted_recap_name_review_requires_world_owner_and_origin(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import recap_ingest
+    from apps.live_control_server.services import recap_name_review
+
+    scope = SimpleNamespace(managed_world_id="managed", campaign_id="campaign")
+    monkeypatch.setattr(recap_ingest, "_request_recap_context", lambda _: scope)
+    monkeypatch.setattr(recap_ingest, "_native_source_actor", lambda *_: ("owner", "world_manage"))
+    review = Mock(return_value=(None, None, {"schema": "dmb_recap_name_review_v1"}))
+    monkeypatch.setattr(recap_name_review, "prepare_name_review", review)
+    path = "/api/live/recap-name-review"
+    body = {"operation": "generate_recap_memory", "managed_world_id": "managed",
+            "campaign_id": "campaign", "session": 22, "raw_text": "A keeper scouts Mireward."}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin="https://outside.example").status_code == 403
+    assert hosted.client.request("POST", path + "?world_id=foreign", json=body).status_code == 403
+    review.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    review.assert_called_once_with(body["raw_text"], scope, session_id="session-22")

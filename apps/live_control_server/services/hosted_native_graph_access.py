@@ -699,6 +699,20 @@ def require_saved_recap_access(request: Request, world_id: str) -> None:
     _owned_world(_hosted_subject(request), world_id)
 
 
+async def resolve_hosted_recap_name_review(request: Request) -> str:
+    from apps.live_control_server.routes.recap_ingest import RecapIngestRequest
+
+    if request.query_params:
+        raise _denied()
+    body = RecapIngestRequest.model_validate(await request.json())
+    if (body.operation != "generate_recap_memory" or not body.managed_world_id
+            or not (body.raw_text or "").strip()):
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.managed_world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_recap_correction(request: Request) -> str:
     from apps.live_control_server.services.exact_run_candidate_projection import (
         CandidateProjectionError, build_exact_run_candidate_projection,

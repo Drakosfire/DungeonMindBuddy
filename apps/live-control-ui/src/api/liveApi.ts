@@ -615,6 +615,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const action = requestBodyRecord(init?.body)?.action;
     return query.size === 1 && Boolean(query.get("world_id")) && (action === "end" || action === "save" || action === "reopen");
   }
+  if (path === "/api/live/recap-name-review") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body?.operation === "generate_recap_memory"
+      && typeof body.managed_world_id === "string" && Boolean(body.managed_world_id.trim())
+      && typeof body.raw_text === "string" && Boolean(body.raw_text.trim());
+  }
   const runEncounter = /^\/api\/live\/combat\/run-encounters\/[0-9a-f-]+\/scenes\/[^/?#]+?(\/preview|\/cancel|\/inspect|\/encounters\/[0-9a-f-]+(?:\/mechanics-adoptions(?::cancel|\/[0-9a-f-]+)?)?)?\?([^#]+)$/.exec(path);
   if (runEncounter) {
     const suffix = runEncounter[1] ?? "";
