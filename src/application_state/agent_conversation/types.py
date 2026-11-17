@@ -1446,7 +1446,7 @@ from .native_plan_statements import (
 
 
 from .native_plan_assertions import (
-    NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1, NativeAssertionCitationV1,
+    NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1, NativeAssertionCitationV1, NativeAssertionCitation,
 )
 
 
@@ -2470,7 +2470,7 @@ SurfaceEvidenceSegmentV4 = Annotated[SurfaceEvidenceSegmentV3 | NativeAssertionC
 class SurfaceEvidenceCompletionV7(SurfaceEvidenceCompletionV6):
     schema_: Literal['dmb_surface_evidence_completion_v7'] = Field(default='dmb_surface_evidence_completion_v7', alias='schema')
     answer_segments: list[SurfaceEvidenceSegmentV4] = Field(min_length=1, max_length=128)
-    native_assertion_citations: list[NativeAssertionCitationV1]
+    native_assertion_citations: list[NativeAssertionCitation]
 
 
 GraphTurnCompletion = Union[SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1"]
@@ -2651,7 +2651,7 @@ class PlanEvidenceHistoryAttributionV6(PlanEvidenceHistoryAttributionV5):
 class PlanEvidenceHistoryAttributionV7(PlanEvidenceHistoryAttributionV6):
     schema_: Literal['dmb_plan_evidence_history_attribution_v7'] = Field(default='dmb_plan_evidence_history_attribution_v7', alias='schema')
     answer_segments: list[SurfaceEvidenceSegmentV4]
-    native_assertion_citations: list[NativeAssertionCitationV1]
+    native_assertion_citations: list[NativeAssertionCitation]
 
     @model_validator(mode='after')
     def mixed_history_shape(self):

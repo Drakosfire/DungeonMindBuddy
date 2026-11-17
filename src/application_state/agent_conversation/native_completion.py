@@ -55,7 +55,7 @@ class SurfaceNativeCompletionV1(Strict):
     saved_source_citations: list[t.BuildSectionSegmentBindingV1] = Field(max_length=128)
     native_body_citations: list[t.NativeBodyExcerptCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
     native_clause_citations: list[t.NativeStatementClauseCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
-    native_assertion_citations: list[t.NativeAssertionCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
+    native_assertion_citations: list[t.NativeAssertionCitation] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
 
     @model_validator(mode='after')
     def supported_shape(self):

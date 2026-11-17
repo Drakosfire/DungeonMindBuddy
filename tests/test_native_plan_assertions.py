@@ -349,7 +349,7 @@ def test_support_materialization_does_not_authorize_a_later_changed_assertion(la
 
 
 def _ordinary_native_case(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False, pdf_region=None):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -1008,7 +1008,14 @@ def _ordinary_native_case(
         from application_state.content.service import snapshot_content
         proposal=data['plan_proposal']
         assert proposal['capture']==capture.model_dump(mode='json',by_alias=True)
-        assert proposal['replacement_markdown']==turn.completion.answer_segments[0].text+('\n\nNo additional applicable rule is established.' if mixed else '')
+        expected_markdown = turn.completion.answer_segments[0].text
+        if pdf_region is not None:
+            expected_markdown += f" [PDF page {pdf_region.page}](#dmb-ref:citation:pdf_{turn.turn_id}_0)"
+        assert proposal['replacement_markdown'] == expected_markdown + ('\n\nNo additional applicable rule is established.' if mixed else '')
+        if pdf_region is not None:
+            assert f"#dmb-ref:citation:pdf_{turn.turn_id}_0" in proposal["replacement_markdown"], (
+                "Apply would save the reviewed prose without its verified PDF citation"
+            )
         writer=next(e for e in turn.graph_context_execution.events if type(e) is NativeWriterAuthorizedV1)
         assert proposal['origin']['evidence_event_ids']==[str(identity) for identity in writer.native_read_event_ids]
         assert snapshot_content(capture.document_id).markdown==markdown
@@ -1042,7 +1049,32 @@ def _ordinary_native_case(
             original_head=lane.repo.get_head(world)  # Only this explicit admission advances it.
         opened=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-assertion-sources/0')
         assert opened.status_code==200,opened.text
-        assert opened.json()['content']==(BODY if advancement=='extension' else BODY.splitlines(keepends=True)[0])
+        if pdf_region is None:
+            assert opened.json()['content']==(BODY if advancement=='extension' else BODY.splitlines(keepends=True)[0])
+        else:
+            assert opened.json()['schema'] == 'dmb_native_assertion_pdf_source_read_v1'
+            assert opened.json()['citation']['region'] == pdf_region.model_dump(mode='json')
+            assert opened.json()['png_base64'].startswith('iVBORw0KGgo')
+            import re
+
+            from application_state.content.service import create_world_plan, commit_plan, snapshot_content
+
+            plan = create_world_plan(world_id=world, title="Reviewed PDF citation")
+            plan_id = str(plan.work_object_id)
+            link = f"[PDF page {pdf_region.page}](#dmb-ref:citation:pdf_{turn.turn_id}_0)"
+            scene = f"### First scene\n\n{proposal['replacement_markdown'] if authoring else link}\n"
+            other = "### Second scene\n\nContinue the adventure.\n"
+            plan, _ = commit_plan(plan_id, "# Plan\n\n" + scene + "\n" + other,
+                expected_revision=plan.object_revision, expected_world_id=world)
+            reordered = "# Plan\n\n" + other + "\n" + scene
+            commit_plan(plan_id, reordered, expected_revision=plan.object_revision, expected_world_id=world)
+            saved = snapshot_content(plan_id).markdown
+            assert saved == reordered and saved.count(link) == 1
+            saved_turn, saved_index = re.search(r"#dmb-ref:citation:pdf_([0-9a-f-]+)_([0-9]+)", saved).groups()
+            reopened = client.get(f"/api/live/agent/worlds/{world}/conversation/turns/{saved_turn}/native-assertion-sources/{saved_index}")
+            assert reopened.status_code == 200, reopened.text
+            assert reopened.json() == opened.json()
+
         assert opened.json()['citation']==completion['native_assertion_citations'][0]
         denied=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-assertion-sources/0?assertion=foreign')
         assert denied.status_code==422
@@ -1071,7 +1103,7 @@ def _ordinary_native_case(
         substituted=execution.model_copy(update={'events':[foreign if e.event_id==grants[0].event_id else e for e in execution.events]})
         with pytest.raises(ValueError,match='frozen context' if authored else 'current controller/query grant'):
             validate_execution(turn.graph_context_receipt,substituted)
-        for field,value in [('provider_attempt_id',uuid4()),('read_revision_id','rev:foreign'),('span_sha256','0'*64)]:
+        for field,value in [('provider_attempt_id',uuid4()),('read_revision_id','rev:foreign'),('span_sha256','0'*64) if pdf_region is None else ('region',pdf_region.model_copy(update={'right':.9}))]:
             bad=turn.completion.native_assertion_citations[0].model_copy(update={field:value})
             changed_completion=turn.completion.model_copy(update={'native_assertion_citations':[bad]})
             with pytest.raises(ValueError,match='original source support'):
@@ -1475,3 +1507,39 @@ def test_interrupted_actual_opening_retains_unknown_attempt_without_provider_rep
         lane, tmp_path, monkeypatch, native_read_admission_probes):
     _ordinary_native_case(lane, tmp_path, monkeypatch, False, False,
         None, 'opening_timeout', False, native_read_admission_probes)
+
+
+def test_citation_closure_counts_distinct_evidence_across_reads(monkeypatch):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import native_plan_assertions as owner
+    from application_state.agent_conversation.types import NativeAssertionClaimV1
+
+    metadata = {"standing": "provisional"}
+    first_span = SimpleNamespace(evidence_ref_id="pdf-region-1")
+    second_span = SimpleNamespace(evidence_ref_id="pdf-region-2")
+    assertion = SimpleNamespace(assertion_id="assertion-A", metadata=metadata)
+    first = SimpleNamespace(event_id="authored-read")
+    repeat = SimpleNamespace(event_id="search-read")
+    read = SimpleNamespace(assertion=assertion, spans=(first_span,))
+    reads = {(first.event_id, assertion.assertion_id): (first, read),
+             (repeat.event_id, assertion.assertion_id): (repeat, read)}
+    claim = NativeAssertionClaimV1.model_construct(
+        text="A cited Plan card", assertion_ids=[assertion.assertion_id], qualifications=[metadata])
+
+    def citation(receipt, authorization, event, selected, span, *, index):
+        return SimpleNamespace(segment_index=index, read_event_id=event.event_id,
+            assertion_id=selected.assertion.assertion_id, evidence_ref_id=span.evidence_ref_id)
+
+    monkeypatch.setattr(owner, "citation", citation)
+    completion = SimpleNamespace(answer_segments=[claim],
+        native_assertion_citations=[citation(None, None, first, read, first_span, index=0)])
+    owner.validate_citation_records(completion, None, None, reads)
+
+    reads[(repeat.event_id, assertion.assertion_id)] = (
+        repeat, SimpleNamespace(assertion=assertion, spans=(first_span, second_span)))
+    with pytest.raises(ValueError, match="omitted a supporting span"):
+        owner.validate_citation_records(completion, None, None, reads)
+
+    completion.native_assertion_citations[0].read_event_id = "unadmitted-read"
+    with pytest.raises(ValueError, match="lacks exact included support"):
+        owner.validate_citation_records(completion, None, None, reads)

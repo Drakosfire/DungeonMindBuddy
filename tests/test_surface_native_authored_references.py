@@ -285,6 +285,71 @@ def test_native_app_rejects_rebound_or_invented_human_context(lane, mutation):
         validate_context_binding(context, changed)
 
 
+from tests.test_native_recap_source_admission import native_core_dsn as native_core_dsn
+
+
+@pytest.fixture
+def pdf_assertion_lane(application_state_dsn, native_core_dsn, tmp_path, monkeypatch):
+    from hashlib import sha256
+    from io import BytesIO
+
+    from dungeonmind.application.vnext.native_pdf_access import register_native_pdf_evidence
+    from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1, NativePdfSourceAdmissionV1
+    from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresNativeSourceEvidenceRepository
+    from pypdf import PdfWriter
+
+    from tests.test_source_statements import NOW, make_lane
+
+    lane = make_lane(tmp_path, monkeypatch,
+        repo=PostgresNativeSourceEvidenceRepository(PostgresDatabase(native_core_dsn)), narrow=True)
+    output = BytesIO()
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=300)
+    writer.write(output)
+    raw = output.getvalue()
+    space = lane.world.world_id
+    checksum = sha256(raw).hexdigest()
+    revision = lane.repo.retain_native_pdf_source(NativePdfSourceAdmissionV1(
+        space_id=space, admission_id=str(uuid4()), created_at=NOW, content_sha256=checksum,
+        source_classification="dungeonbuddy.source:worldbuilding", authority="primary",
+        visibility={"kind": "public"},
+    ), raw)
+    region = NativePdfRegionV1(source_revision_id=revision.source_revision_id,
+        content_sha256=checksum, page=1, left=0, top=0, right=1, bottom=1)
+    published = register_native_pdf_evidence(
+        region, authorized_space_id=space, audience=frozenset(), declared_labels=frozenset(),
+        load=lane.repo.get_native_pdf_source, repository=lane.repo,
+        expected_parent_revision_id=lane.repo.get_head(space).head_revision_id,
+        publication_id=str(uuid4()), created_at=NOW,
+    )
+    assert published is not None
+    from dungeonmind.application.vnext.native_pdf_access import bind_native_pdf_evidence
+
+    evidence = bind_native_pdf_evidence(region, authorized_space_id=space, audience=frozenset(),
+        declared_labels=frozenset(), load=lane.repo.get_native_pdf_source)
+    lane.meta = replace(lane.meta, evidence_ref_ids=(evidence.evidence_ref_id,))
+    return lane, region
+
+
+def test_pdf_assertion_support_normalizes_and_reopens(pdf_assertion_lane, monkeypatch):
+    lane, region = pdf_assertion_lane
+    _check_exact_reopenable_citation(lane, monkeypatch, pdf_region=region)
+
+
+from tests.test_native_plan_assertions import native_read_admission_probes as native_read_admission_probes
+
+
+@pytest.mark.parametrize("authoring", [False, True])
+def test_pdf_assertion_reopens_from_ordinary_persisted_plan_turn(
+    pdf_assertion_lane, tmp_path, monkeypatch, native_read_admission_probes, authoring,
+):
+    from tests.test_native_plan_assertions import _ordinary_native_case
+
+    lane, region = pdf_assertion_lane
+    _ordinary_native_case(lane, tmp_path, monkeypatch, True, False, 'original', None,
+        False, native_read_admission_probes, pdf_region=region, authoring=authoring)
+
+
 @pytest.mark.parametrize('mutation', ['turn', 'conversation', 'attempt'])
 def test_retained_native_capture_cannot_be_rebound_to_another_request(lane, mutation):
     from application_state.agent_conversation.native_execution import validate_request_identity
@@ -311,6 +376,10 @@ def test_app_refuses_human_result_from_raw_append_and_preserves_retained_grant(l
 
 @pytest.mark.parametrize('statement', [False, True])
 def test_actual_sdk_human_support_normalizes_to_exact_reopenable_citation(lane, monkeypatch, statement):
+    _check_exact_reopenable_citation(lane, monkeypatch, statement=statement)
+
+
+def _check_exact_reopenable_citation(lane, monkeypatch, *, statement=False, pdf_region=None):
     """APP-read prefix plus actual SDK writer/citation owner, not ordinary Build delivery."""
     from application_state.agent_conversation.native_writer import model_frame
     from application_state.agent_conversation.native_completion import normalize_output
@@ -336,6 +405,7 @@ def test_actual_sdk_human_support_normalizes_to_exact_reopenable_citation(lane, 
     record = execution(context.context_receipt_sha256, record.policy, events)
     stored, auth, proof = producing_case(context, record, candidate, work=work)
     result = normalize_output(context, stored, auth, **proof)
+    result = type(result).model_validate_json(result.model_dump_json(by_alias=True))
     import os
     if statement and (destination := os.environ.get('DMB_NATIVE_AUTHORED_WIRE')):
         import json
@@ -356,9 +426,33 @@ def test_actual_sdk_human_support_normalizes_to_exact_reopenable_citation(lane, 
     monkeypatch.setattr(native, 'reopen_context', lambda query, principal: core
         if query == core.query and principal == GM else pytest.fail('Original pinned query changed'))
     service = SimpleNamespace(inspect_turn=lambda **_: completed)
+    index = 0 if pdf_region is None else next(
+        i for i, citation in enumerate(citations) if getattr(citation, 'region', None) == pdf_region
+    )
     opened = (open_clause if statement else open_assertion_source)(world_id=turn.world_id,
-        turn_id=turn.turn_id, citation_index=0, principal=GM, service=service)
-    assert opened.content and opened.citation == citations[0]
+        turn_id=turn.turn_id, citation_index=index, principal=GM, service=service)
+    assert opened.citation == citations[index]
+    if pdf_region is None:
+        assert opened.content
+    else:
+        from base64 import b64decode
+
+        from application_state.agent_conversation.native_plan_assertions import (
+            selected_read_records, validate_citation_records,
+        )
+
+        admitted = {(event.event_id, item.assertion.assertion_id): (event, item)
+                    for event, item in selected_read_records(stored)}
+        changed = list(citations)
+        changed[index] = changed[index].model_copy(update={
+            'region': pdf_region.model_copy(update={'right': 0.9}),
+        })
+        forged = result.model_copy(update={'native_assertion_citations': changed})
+        with pytest.raises(ValueError, match='changed original source support'):
+            validate_citation_records(forged, context, auth, admitted)
+
+        assert opened.citation.region == pdf_region
+        assert b64decode(opened.png_base64).startswith(b"\x89PNG\r\n\x1a\n")
     assert opened.citation.provider_attempt_id == auth.provider_attempt_id
 
 

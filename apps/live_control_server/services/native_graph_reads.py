@@ -16,7 +16,7 @@ from dungeonmind.contracts.vnext.source import EvidenceRefV3
 from application_state.agent_conversation.native_statement_input import digest
 from application_state.agent_conversation.native_plan_assertions import (
     NativePlanAssertionMatchV1, NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
-    NativePlanAssertionReadV1, NativeAssertionSpanV1, NativeGraphQueryV3, NativeGraphQueryV4, NativeObjectMatchV1, NativeAuthoredTargetV1,
+    NativePlanAssertionReadV1, NativeAssertionSpanV1, NativeAssertionPdfRegionV1, NativeGraphQueryV3, NativeGraphQueryV4, NativeObjectMatchV1, NativeAuthoredTargetV1,
 )
 from application_state.agent_conversation.native_plan_statements import (
     NativePlanQueryAuthorityV1, NativePlanQueryUnavailableV1, NativePlanQueryV1,
@@ -24,6 +24,7 @@ from application_state.agent_conversation.native_plan_statements import (
 )
 from . import source_statements as statements
 from .native_statement_answer_context import header, build_support, authority as descriptor_reference
+from .native_pdf_evidence import open_admitted_pdf_evidence
 from .managed_world_graph_projection import resolve_managed_world_binding
 from .world_graph_projection import WorldGraphProjectionServiceError
 
@@ -499,6 +500,21 @@ def _read_assertions(context, identities, *, matches=None):
         spans = []
         for ref in supports:
             span = verified_spans.get(ref.evidence_ref_id)
+            if span is None and ref.evidence_ref_id.startswith('pdf-region:'):
+                try:
+                    region, _ = open_admitted_pdf_evidence(
+                        ref, space_id=authority.native_world_id,
+                        load=context.repository.get_native_pdf_source,
+                    )
+                except ValueError:
+                    break
+                span = NativeAssertionPdfRegionV1(
+                    evidence_ref_id=ref.evidence_ref_id,
+                    source_artifact_id=ref.source_artifact_id,
+                    source_revision_id=region.source_revision_id,
+                    region=region,
+                )
+                verified_spans[ref.evidence_ref_id] = span
             if span is None:
                 opened = open_admitted_native_text(access, ref.evidence_ref_id)
                 if opened.status != 'available':
