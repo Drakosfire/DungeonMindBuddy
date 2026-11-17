@@ -89,3 +89,29 @@ def test_input_bytes_bound_and_inputs_not_mutated():
     with pytest.raises(ValueError):score(raw+b' ',manifest,replay)
     score(raw,manifest,replay)
     assert before==(manifest,replay)
+
+
+@pytest.mark.parametrize('raw', [
+    '{"alias":"wrong","alias":"choice1"}',
+    '{"decision":{"alias":"wrong","alias":"choice1"}}',
+    '{"cases":[],"cases":[]}',
+])
+def test_duplicate_json_keys_reject_before_reducing_supplied_response(raw):
+    from evals.inline_prose_targeting.replay_score import decode_json
+    with pytest.raises(ValueError, match='Duplicate JSON'):
+        decode_json(raw)
+
+
+def test_cli_duplicate_decision_key_never_writes_a_score(tmp_path):
+    import subprocess, sys
+    raw, manifest, replay = fixture()
+    (tmp_path/'inputs').write_bytes(raw)
+    (tmp_path/'manifest').write_text(json.dumps(manifest))
+    replay['decisions']=[{'id':'0','decision':{'alias':'choice1'}}]
+    encoded=json.dumps(replay).replace('{"alias": "choice1"}', '{"alias":"wrong","alias":"choice1"}')
+    (tmp_path/'replay').write_text(encoded)
+    result=subprocess.run([sys.executable,'-m','evals.inline_prose_targeting.replay_score',
+        '--inputs',str(tmp_path/'inputs'),'--manifest',str(tmp_path/'manifest'),
+        '--decisions',str(tmp_path/'replay'),'--output',str(tmp_path/'score')],capture_output=True)
+    assert result.returncode != 0 and b'Duplicate JSON' in result.stderr
+    assert not (tmp_path/'score').exists()

@@ -5,13 +5,24 @@ import json
 from pathlib import Path
 
 
+def decode_json(value):
+    def unique_object(pairs):
+        result = {}
+        for key, item in pairs:
+            if key in result:
+                raise ValueError('Duplicate JSON object key: ' + key)
+            result[key] = item
+        return result
+    return json.loads(value, object_pairs_hook=unique_object)
+
+
 def keys(value, expected):
     if not isinstance(value, dict) or set(value) != set(expected):
         raise ValueError('Unexpected protocol fields')
 
 
 def score(input_bytes, manifest, replay):
-    inputs = json.loads(input_bytes)
+    inputs = decode_json(input_bytes)
     keys(inputs, ['schema', 'split', 'cases'])
     keys(manifest, ['schema', 'inputs_sha256', 'split', 'source_sha', 'cases'])
     keys(replay, ['schema', 'inputs_sha256', 'provenance', 'decisions'])
@@ -96,7 +107,7 @@ def main():
     for name in ['inputs', 'manifest', 'decisions', 'output']: parser.add_argument('--' + name, type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists(): parser.error('Use a new output file; existing evidence is never overwritten')
-    result = score(args.inputs.read_bytes(), json.loads(args.manifest.read_text()), json.loads(args.decisions.read_text()))
+    result = score(args.inputs.read_bytes(), decode_json(args.manifest.read_text()), decode_json(args.decisions.read_text()))
     args.output.write_text(json.dumps(result, indent=2) + '\n')
     return 2 if result['hard_failure'] else 1 if result['coverage']['missing'] or any(result['counts'][key] for key in ['valid_miss', 'missed_clarification', 'missed_intentional_non_edit', 'unnecessary_clarification']) else 0
 
