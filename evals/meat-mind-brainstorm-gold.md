@@ -201,3 +201,24 @@ call per case. No writer or retrieval ran.
 This is classifier-only evidence from invented analogues. It leaves the two
 observed turns, save capability, and end-to-end latency open. The next
 comparison needs the observed opening context and the exact revision bindings.
+
+### Why a finish vote kept the crawl going
+
+The retained Jev calls separate a fallback operation from individual
+candidate votes. On these Build retrieval requests, the host selects reads
+whenever any applicable non-keyword candidate gets an include vote. The
+finish fallback matters only after the include set is empty. Neither trace
+had a post-read plan question.
+
+| Turn | First retrieval result | Largest include batch | First empty include set |
+| --- | --- | --- | --- |
+| 1 | Finish fallback with nine includes at 28.32s | 21 at 73.06s | 329.68s |
+| 2 | Finish-with-gaps fallback with 22 includes at 20.42s | 56 at 69.65s | 344.42s |
+
+These are raw include votes. Actual reads are counted separately because
+some votes can represent hints, overlap, or candidates that do not acquire
+evidence. The first bounded retrieval experiment should test the candidate
+pool after the page and explicit reference resolve. Offer additional reads
+when a concrete unanswered detail requires them. Preserve the fallback
+semantics for real evidence-seeking turns and test a control that needs a
+specific external passage.
