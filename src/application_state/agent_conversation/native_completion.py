@@ -223,15 +223,13 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     plan_review=connected_page_review_enabled(execution)
     review_enabled=plan_review or execution.policy.action.surface_id=='build' and native_review_enabled(evidence.work_frame)
     keys={'schema','answer_segments','limitations','requested_detail_gaps'} | ({'collaboration'} if review_enabled else set())
-    if isinstance(candidate, dict) and "statblock_variant" in candidate:
-        from .native_build_work_view import variant_sources
-        if not variant_sources(evidence.work_frame):
-            raise ValueError("No statblock variant was offered for this turn")
-        normalize_statblock_variant(candidate, evidence.work_frame)
+    if evidence.variant_format:
         keys.add("statblock_variant")
     if (not isinstance(candidate,dict) or set(candidate) != keys
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
         raise ValueError('Native completion requires its exact producing answer policy')
+    if evidence.variant_format:
+        normalize_statblock_variant(candidate, evidence.work_frame)
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()

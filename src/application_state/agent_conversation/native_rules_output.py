@@ -527,7 +527,8 @@ def normalize_shared_native_output(receipt, graph_execution, rules_execution, pr
     else:
         candidate = strict_json(proof.raw_output_json)
         base = normalize_candidate(candidate,receipt,graph_execution,auth,evidence)
-        variant = normalize_statblock_variant(candidate, evidence.work_frame)
+        if evidence.variant_format:
+            variant = normalize_statblock_variant(candidate, evidence.work_frame)
         segments = tuple(segment.text for segment in base.answer_segments)
         if segments:
             composition = AnswerCompositionV1(schema='dmb_answer_composition_v1',base_disposition='approved',

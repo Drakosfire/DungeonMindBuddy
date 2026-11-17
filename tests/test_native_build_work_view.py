@@ -190,3 +190,18 @@ def test_reopens_historical_draft_with_statblock_in_original_writer_format(monke
         ) == sha256(raw.encode()).hexdigest()
     with pytest.raises(ValueError, match="exact saved-work"):
         build_primary_context.verify_native_work_input(execution, None, body(current, old_name))
+
+
+@pytest.mark.parametrize("variant_format, offered_field", [(False, True), (True, False)])
+def test_variant_field_must_match_the_producing_writer_format(variant_format, offered_field):
+    from application_state.agent_conversation.native_completion import normalize_candidate
+
+    execution = SimpleNamespace(policy=SimpleNamespace(action=SimpleNamespace(surface_id="play")))
+    evidence = SimpleNamespace(variant_format=variant_format, frame={"answer_policy": "fixture"})
+    candidate = {
+        "schema": "fixture", "answer_segments": [], "limitations": [], "requested_detail_gaps": [],
+    }
+    if offered_field:
+        candidate["statblock_variant"] = None
+    with pytest.raises(ValueError, match="exact producing answer policy"):
+        normalize_candidate(candidate, None, execution, None, evidence)
