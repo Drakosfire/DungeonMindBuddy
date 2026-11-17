@@ -266,3 +266,13 @@ still omitted the acknowledgment and returned an invented sentinel idea
 The fixture asks about a clockwork creature while the source mechanics
 record is named Meat Mind, which limits the inference about the observed
 turn. Keep these as negative diagnostic results and keep runtime defaults.
+
+A matched synthetic control aligned the question, attachment label and saved
+mechanics on the same invented creature. The two provider bodies differed
+only in instructions. Both writers acknowledged the attachment. The baseline
+added two unrequested concepts and quoted the synthetic HP line (1,153
+input, 398 output, 3.56s). The refined writer gave a one-sentence
+acknowledgment and still quoted the HP line (1,198 input, 323 output, 3.08s).
+This supports testing restraint separately from reference acknowledgment.
+The extra stat quote still misses the minimal opener rubric. Keep this as
+one synthetic pair, with no claim about latency or the observed Meat Mind turns.
