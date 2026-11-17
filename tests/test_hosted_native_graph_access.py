@@ -482,6 +482,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/retry-attempts"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): access.resolve_hosted_conversation_world,
+            ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}/continue"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/build-source-withdrawals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}"): access.resolve_hosted_conversation_world,
@@ -3637,6 +3639,29 @@ def test_hosted_saved_work_plan_reads_exact_turn(hosted, monkeypatch):
     response = hosted.client.request("GET", path)
     assert response.status_code == 200, response.text
     read.assert_called_once_with("managed", conversation, turn)
+
+
+def test_hosted_saved_work_plan_writes_exact_turn(hosted, monkeypatch):
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import conversation_library, conversation_work_plans
+
+    save = Mock(return_value={"status": "saved"})
+    resume = Mock(return_value={"status": "recorded"})
+    monkeypatch.setattr(conversation_work_plans.work_plan, "save", save)
+    monkeypatch.setattr(conversation_work_plans.work_plan, "continue_step", resume)
+    monkeypatch.setattr(conversation_library, "_verified_world_id", lambda world: world)
+    conversation, turn, step, command = uuid4(), uuid4(), uuid4(), uuid4()
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation}/work-plans/{turn}"
+    for method, route, body, service in (
+        ("PUT", path, {"expected_revision": 0, "steps": [{"step_id": str(step), "text": "Review", "selected": True}]}, save),
+        ("POST", path + "/continue", {"expected_revision": 1, "step_id": str(step), "command_id": str(command)}, resume),
+    ):
+        assert hosted.client.request(method, route, json=body, session="other-session").status_code == 403
+        assert hosted.client.request(method, route, json=body, origin=None).status_code == 403
+        service.assert_not_called()
+        response = hosted.client.request(method, route, json=body)
+        assert response.status_code == 200, response.text
+        assert service.call_args.args[:3] == ("managed", conversation, turn)
 
 
 def test_hosted_plan_terminal_diagnostic_reads_owned_action(hosted, monkeypatch):

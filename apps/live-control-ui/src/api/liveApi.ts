@@ -636,6 +636,10 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[^/?]+\/build-proposals\?conversation_id=[0-9a-f-]+$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  const workPlanWrite = /^\/api\/live\/agent\/worlds\/[^/?#%]+\/conversations\/[0-9a-f-]+\/work-plans\/[0-9a-f-]+(\/continue)?$/.exec(path);
+  if (workPlanWrite && method !== "GET") {
+    return method === (workPlanWrite[1] ? "POST" : "PUT") && requestBodyRecord(init?.body) !== null;
+  }
   if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/conversations\/[0-9a-f-]+\/(?:name|work-plans\/[0-9a-f-]+|turns\/[0-9a-f-]+\/retry-attempts(?:\?[^#]*)?)$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
