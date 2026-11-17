@@ -253,6 +253,9 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes import statblock_candidates, threat_drafts, world_mechanics_associations
 
     app.include_router(statblock_candidates.router)
+    from apps.live_control_server.routes import combat_encounters
+
+    app.include_router(combat_encounters.router)
     app.include_router(threat_drafts.router)
     app.include_router(world_mechanics_associations.router)
     app.include_router(play_runs.router)
@@ -313,6 +316,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
             ("GET", "/api/live/threat-drafts"): access.resolve_hosted_statblock_inventory,
+            ("GET", "/api/live/combat/encounters"): access.resolve_hosted_combat_encounter_read,
+            ("GET", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter_read,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
@@ -2391,3 +2396,28 @@ def test_hosted_ingest_candidate_projection_is_owned_and_exact(hosted, monkeypat
     assert result.headers["cache-control"] == "no-store"
     assert result.json() == {"runId": "recap-run", "managedWorldId": "managed"}
     assert calls == [("recap-run", "managed")]
+
+
+def test_hosted_combat_lists_and_reopens_only_owned_encounters(hosted, application_state_dsn, monkeypatch):
+    from application_state.combat_encounters.service import create_encounter
+    from application_state.combat_encounters.types import CreateCombatEncounterRequest
+    from apps.live_control_server.routes import combat_encounters
+
+    monkeypatch.setattr(combat_encounters, "_verified_world", lambda world_id: world_id)
+    owned = create_encounter(world_id="managed", request=CreateCombatEncounterRequest(title="Owned encounter"))
+    foreign = create_encounter(world_id="foreign", request=CreateCombatEncounterRequest(title="Foreign encounter"))
+    base = "/api/live/combat/encounters"
+    catalog = f"{base}?world_id=managed"
+    detail = f"{base}/{owned.encounter_id}?world_id=managed"
+    for path in (catalog, detail):
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+        assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    result = hosted.client.request("GET", catalog)
+    assert result.status_code == 200, result.text
+    assert result.json() == [owned.model_dump(mode="json", by_alias=True)]
+    result = hosted.client.request("GET", detail)
+    assert result.status_code == 200, result.text
+    assert result.headers["cache-control"] == "no-store"
+    assert result.json() == owned.model_dump(mode="json", by_alias=True)
+    assert hosted.client.request("GET", f"{base}/{foreign.encounter_id}?world_id=managed").status_code == 404
+    assert hosted.client.request("POST", catalog, json={"title": "Denied"}).status_code == 403
