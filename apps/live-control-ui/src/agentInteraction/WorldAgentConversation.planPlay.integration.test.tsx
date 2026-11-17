@@ -1679,13 +1679,15 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it.each([false, true])("opens a pinned Build Graph passage and rejects foreign source context: %s", async foreign => {
+    vi.mocked(getNativeGraphCatalog).mockRejectedValue(new Error("Catalog outside this test"));
     const context = await buildGraphContext();
     const base = turn("plan", 1, "The western gate is watched.");
     const source = context.receipt.source_basis;
     const authority = context.receipt.graph_authority;
     const ref = (kind: string, object_id: string, revision: string) => ({ resolution: "resolved" as const,
       kind, object_id, revision, content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null });
-    const historical = { ...base, idempotency_key: "11111111-1111-4111-8111-000000000001", knowledge_context: context,
+    const historical = { ...base, turn_id: "22222222-2222-4222-8222-222222222222",
+      idempotency_key: "11111111-1111-4111-8111-000000000001", knowledge_context: context,
       provenance: { ...base.provenance, surface_id: "build", surface_instance_id: "build-instance",
         primary_work: { ...ref("build", "source-one", "2"), content_sha256: SHA }, supporting_work: [
           ref("dmb_build_source_visibility_v1", source.visibility, "1"),
@@ -1693,8 +1695,11 @@ describe("one App-level World conversation host across Plan and Play", () => {
           ref("world_graph_revision", authority.native_world_id, authority.graph_revision),
         ] } };
     if (foreign) context.receipt.source_basis.document_id = "another-source";
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(),
-      schema: "dmb_agent_conversation_history_v3", turns: [historical] });
+    const { knowledge_context: _details, ...summary } = historical;
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async (_world, options) => ({
+      ...history(), schema: "dmb_agent_conversation_history_v3",
+      turns: [options?.limit === 1 ? historical : summary],
+    }));
     vi.mocked(postWorldGraphSourceAnchorRead).mockResolvedValue({
       schema: "dmb_world_graph_source_anchor_read_v1", outcome: "enough", anchorId: "anchor-one",
       evidenceRefId: "evidence-internal-test", sourceArtifactId: "artifact-one", sourceRevisionId: "source-rev-one",
