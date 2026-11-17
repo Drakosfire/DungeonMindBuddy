@@ -332,6 +332,8 @@ def hosted(monkeypatch, request):
                 for operation in OPERATIONS
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
+            ("POST", "/api/live/native-graph-inspection/recap-page"): access.resolve_hosted_explorer_world,
+            ("POST", "/api/live/native-graph-inspection/related-recaps"): access.resolve_hosted_explorer_world,
             ("POST", access.FIRST_WORLD_PREPARE_PATH): access.resolve_hosted_first_world,
             ("POST", access.FIRST_WORLD_CONFIRM_PATH): access.resolve_hosted_first_world,
             ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
@@ -2956,3 +2958,25 @@ def test_hosted_rules_lookup_requires_owned_world(hosted):
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     assert any(source["available"] for source in response.json()["sources"])
+
+
+def test_hosted_related_recaps_bind_pinned_world(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.services import native_graph_inspection
+
+    read = Mock(return_value={"targets": []})
+    monkeypatch.setattr(native_graph_inspection, "related_recaps", read)
+    path = "/api/live/native-graph-inspection/related-recaps"
+    scope = {"managed_world_id": "managed", "native_world_id": "native", "binding_version": 1,
+             "revision_id": "rev_exact", "scope_mode": "world", "campaign_id": None}
+    body = {"scope": scope, "assertion_id": "assertion:1"}
+    assert hosted.client.request("POST", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", path, origin=None, json=body).status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    pin, principal, assertion = read.call_args.args
+    assert pin.managed_world_id == principal.managed_world_id == "managed"
+    assert pin.revision_id == "rev_exact"
+    assert assertion == "assertion:1"

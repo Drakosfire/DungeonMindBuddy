@@ -23,7 +23,9 @@ from apps.live_control_server.models.native_graph_explorer import (
     NativeGraphExplorerOperationRequest,
     NativeGraphExplorerPrepareRequest,
 )
-from apps.live_control_server.models.native_graph_inspection import InspectionPin, InspectionRead, InspectionScope
+from apps.live_control_server.models.native_graph_inspection import (
+    InspectionPin, InspectionRead, InspectionScope, NativeRecapPageRequest, NativeRelatedRecapsRequest,
+)
 from apps.live_control_server.models.native_source_inspection import NativeSourceRead
 from apps.live_control_server.services import hosted_auth
 from apps.live_control_server.services.agent_graph_auth import (
@@ -48,6 +50,8 @@ BUILD_PDF_SOURCES_PATH = hosted_auth.BUILD_PDF_SOURCES_PATH
 BUILD_PAGE_INVENTORY_PATH = "/api/live/workspace-documents/pages/inventory"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
 _REQUESTS = {
+    "/api/live/native-graph-inspection/recap-page": TypeAdapter(NativeRecapPageRequest),
+    "/api/live/native-graph-inspection/related-recaps": TypeAdapter(NativeRelatedRecapsRequest),
     "/api/live/native-graph-inspection/catalog": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-source-inspection/catalog": TypeAdapter(InspectionScope),
     "/api/live/native-source-inspection/read": TypeAdapter(NativeSourceRead),
@@ -124,7 +128,11 @@ async def resolve_hosted_explorer_world(request: Request) -> str:
     # The hosted middleware already bounds bytes and rejects duplicate keys and
     # conflicting selectors before invoking this exact code-owned resolver.
     body = _REQUESTS[request.url.path].validate_python(await request.json())
-    if isinstance(body, (InspectionRead, NativeSourceRead)):
+    if isinstance(body, NativeRecapPageRequest):
+        if body.read.selection.kind != "source":
+            raise _denied()
+        body = body.read
+    if isinstance(body, (InspectionRead, NativeSourceRead, NativeRelatedRecapsRequest)):
         if body.scope.scope_mode != "world":
             raise _denied()
         managed_world_id = body.scope.managed_world_id

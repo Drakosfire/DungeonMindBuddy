@@ -2,13 +2,13 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import Field
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.models.native_graph_inspection import (
-    Closed,
     InspectionPin,
     InspectionRead,
     InspectionScope,
+    NativeRecapPageRequest,
+    NativeRelatedRecapsRequest,
 )
 from apps.live_control_server.services import native_graph_inspection as service
 from apps.live_control_server.services.agent_graph_auth import (
@@ -79,14 +79,8 @@ def complete_object(
     return _call(service.complete_object, body, principal)
 
 
-class NativeRecapPageRequest(Closed):
-    read: InspectionRead
-    max_chars: int = Field(default=4000, ge=1, le=16000)
-    continuation: str | None = Field(default=None, max_length=128)
-
-
 @router.post("/recap-page")
-def recap_page(body: NativeRecapPageRequest, principal=Depends(native_graph_gm_dependency)):
+def recap_page(body: NativeRecapPageRequest, principal=Depends(native_graph_explorer_dependency)):
     from apps.live_control_server.services.native_recap_pages import read_native_recap_page
 
     def read_page(request, caller):
@@ -95,17 +89,14 @@ def recap_page(body: NativeRecapPageRequest, principal=Depends(native_graph_gm_d
             continuation=request.continuation,
         )
 
-    return _call(read_page, body, principal)
-
-
-class NativeRelatedRecapsRequest(Closed):
-    scope: InspectionPin
-    assertion_id: str = Field(min_length=1, max_length=256)
+    with hosted_response_binding(principal, body.read.scope.managed_world_id):
+        return _call(read_page, body, principal)
 
 
 @router.post("/related-recaps")
-def related_recaps(body: NativeRelatedRecapsRequest, principal=Depends(native_graph_gm_dependency)):
+def related_recaps(body: NativeRelatedRecapsRequest, principal=Depends(native_graph_explorer_dependency)):
     def discover(request, caller):
         return service.related_recaps(request.scope, caller, request.assertion_id)
 
-    return _call(discover, body, principal)
+    with hosted_response_binding(principal, body.scope.managed_world_id):
+        return _call(discover, body, principal)

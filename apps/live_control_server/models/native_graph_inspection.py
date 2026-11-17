@@ -56,3 +56,14 @@ class NeighborhoodSelection(Closed):
 class InspectionRead(Closed):
     scope: InspectionPin
     selection: Annotated[EntitySelection | SourceSelection | ChronologySelection | NeighborhoodSelection, Field(discriminator="kind")]
+
+
+class NativeRecapPageRequest(Closed):
+    read: InspectionRead
+    max_chars: int = Field(default=4000, ge=1, le=16000)
+    continuation: str | None = Field(default=None, max_length=128)
+
+
+class NativeRelatedRecapsRequest(Closed):
+    scope: InspectionPin
+    assertion_id: str = Field(min_length=1, max_length=256)
