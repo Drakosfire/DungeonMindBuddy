@@ -276,3 +276,30 @@ acknowledgment and still quoted the HP line (1,198 input, 323 output, 3.08s).
 This supports testing restraint separately from reference acknowledgment.
 The extra stat quote still misses the minimal opener rubric. Keep this as
 one synthetic pair, with no claim about latency or the observed Meat Mind turns.
+
+### Joined Build rehearsal
+
+[#3834](https://github.com/Drakosfire/DungeonMindBuddy/pull/3834) carries a
+verified statblock through same-page discussion and respects an intervening
+selection clear, source change, or stale published revision.
+[#3835](https://github.com/Drakosfire/DungeonMindBuddy/pull/3835) captures
+successive ordinary Build turns in one pinned conversation and verifies
+durable delivery and trace identity before advancing.
+
+[#3836](https://github.com/Drakosfire/DungeonMindBuddy/pull/3836) joins four
+discussion turns, the turn-five editable variant draft, explicit
+confirmation with lost-response recovery, a saved page link, and exact
+Combat readback. The explicit page-write control also passed. The exact
+reviewed commit passed all 137 tests in the two affected local suites.
+The controller, writer, and mechanics service were scripted. The test
+constructed the link directly and loaded Combat by review ID. Live intent,
+conversational fit, browser navigation, and the 30-second discussion
+target remain open.
+
+[#3826](https://github.com/Drakosfire/DungeonMindBuddy/pull/3826) verifies
+the exact retained Build writer request and its producing authorization
+for selector formats v1 and v2. Both original traces retain the request
+hashes and evidence IDs. The exact prompt bodies and full execution
+ledger are still missing from the evaluator. The current raw prompt
+endpoint requires local operator authority. Hosted prompt evidence access
+is tracked by [#3824](https://github.com/Drakosfire/DungeonMindBuddy/pull/3824).
