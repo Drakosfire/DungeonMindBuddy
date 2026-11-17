@@ -119,7 +119,8 @@ def apply_variant_text_corrections(definition, replacements):
         else:
             owner = rule["activation"].get("trigger") or {}
         original = owner.get(edit.field)
-        if not isinstance(original, str) or original.count(edit.replace_exact) != 1:
+        offset = original.find(edit.replace_exact) if isinstance(original, str) else -1
+        if offset < 0 or original.find(edit.replace_exact, offset + 1) >= 0:
             raise ApplicationStateConflictError("The correction does not match one exact rule passage.")
         owner[edit.field] = original.replace(edit.replace_exact, edit.with_text, 1)
     return StatblockDefinitionV1Input.model_validate(candidate)

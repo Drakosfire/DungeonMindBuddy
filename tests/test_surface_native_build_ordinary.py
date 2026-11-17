@@ -2134,3 +2134,15 @@ def test_variant_correction_creates_a_new_review_without_saving(lane, tmp_path, 
     new_draft = case.client.get(draft_path).json()
     assert new_draft["variant_review_ids"] == [successor["review_id"]]
     assert revised in new_draft["markdown"]
+
+
+def test_variant_exact_correction_rejects_overlapping_matches():
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.conversation_variant_save import (
+        VariantTextReplacement, apply_variant_text_corrections,
+    )
+
+    definition = {"rule_elements": [{"key": "fixture", "rules_text": "aaa"}]}
+    edit = VariantTextReplacement(rule_key="fixture", field="rules_text", replace_exact="aa", with_text="b")
+    with pytest.raises(ApplicationStateConflictError, match="one exact rule passage"):
+        apply_variant_text_corrections(definition, [edit])

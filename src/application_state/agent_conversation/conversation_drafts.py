@@ -88,8 +88,8 @@ def edit_draft(conn, *, world_id, conversation_id, turn_id, expected_revision, m
         return cursor.execute(
             """
             INSERT INTO agent.conversation_draft_revision
-                (world_id, conversation_id, turn_id, revision, markdown)
-            VALUES (%s, %s, %s, %s, %s)
+                (world_id, conversation_id, turn_id, revision, markdown, created_at)
+            VALUES (%s, %s, %s, %s, %s, clock_timestamp())
             RETURNING revision, markdown
             """,
             (*scope, expected_revision + 1, markdown),
