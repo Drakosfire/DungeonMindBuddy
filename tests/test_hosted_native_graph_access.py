@@ -550,6 +550,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/retry-attempts"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/discussion-retry-input"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): access.resolve_hosted_conversation_world,
             ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): access.resolve_hosted_conversation_world,
@@ -5335,3 +5336,25 @@ def test_hosted_build_insertion_ack_requires_owned_world_and_exact_revision(host
     result = hosted.client.request("POST", path)
     assert result.status_code == 200, result.text
     assert calls == [("managed", action, 3)]
+
+
+def test_hosted_discussion_retry_read_binds_world_and_revision(hosted, monkeypatch):
+    from application_state.agent_conversation import retry
+
+    calls = []
+
+    def read(world, conversation, turn, revision):
+        calls.append((world, str(conversation), str(turn), revision))
+        return {"state": "retained"}
+
+    monkeypatch.setattr(retry, "read_discussion_retry_input", read)
+    conversation = "00000000-0000-4000-8000-000000000001"
+    turn = "00000000-0000-4000-8000-000000000002"
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation}/turns/{turn}/discussion-retry-input?revision=3"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path.replace("/managed/", "/foreign/")).status_code == 403
+    assert hosted.client.request("GET", path + "&revision=4").status_code == 422
+    assert calls == []
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 200, result.text
+    assert calls == [("managed", conversation, turn, 3)]

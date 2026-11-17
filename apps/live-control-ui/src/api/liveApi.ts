@@ -452,6 +452,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-proposals\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\/inserted\?expected_revision=[1-9][0-9]*$/.test(path)) {
     return method === "POST" && init?.body == null;
   }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/conversations\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\/turns\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\/discussion-retry-input\?revision=[1-9][0-9]*$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
   const capabilityPath = "/api/live/extract-promote/worldbuilding/capabilities?";
   if (path.startsWith(capabilityPath)) {
     const worldId = new URLSearchParams(path.slice(capabilityPath.length)).get("world_id");
@@ -1085,6 +1088,7 @@ function apiRequestTarget(
     || /^\/api\/live\/workspace-documents\/world-runbooks\/[^/]+(?:\/snapshot|\/committed-revision(?:\/[^/]+)?|\/tiptap\/(?:prepare|commit))?$/.test(normalizedPath)
     || (normalizedPath === "/api/live/workspace-documents/world-runbooks" && init?.method?.toUpperCase() === "POST")
     || /^\/api\/live\/workspace-documents\/[^/]+\/native-world-source$/.test(normalizedPath)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[^/]+\/turns\/[^/]+\/discussion-retry-input$/.test(normalizedPath)
     || normalizedPath === "/api/live/workspace-documents/world-plans/page"
     || /^\/api\/live\/graph-authoring\/(?:prepare|commit)$/.test(normalizedPath)
     || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/(?:progress|rebase)$/.test(normalizedPath)
