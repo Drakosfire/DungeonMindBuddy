@@ -182,29 +182,14 @@ def list_saved_revisions(
 
 @router.get('/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}')
 def open_saved_revision(draft_id: str, revision_id: str, world_id: str, request: Request):
-    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
-    from apps.live_control_server.routes.agent import get_pdf_statblock_review
+    from application_state.mechanics_revisions.portraits import read_portrait
     from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
     require_build_pdf_access(request, world_id)
     packet = _revision_call(saved_versions.open_version, world_id=world_id, draft_id=draft_id, revision_id=revision_id)
-    resource = packet["resource"]
-    accepted_through = (resource.get("provenance") or {}).get("accepted_through") or {}
-    source = accepted_through.get(PDF_REVIEW_PROVENANCE)
-    if not isinstance(source, dict) or source.get("world_id") != world_id:
-        return packet
-    try:
-        review_id = UUID(source["review_id"])
-    except (KeyError, TypeError, ValueError):
-        return packet
-    try:
-        review = get_pdf_statblock_review(world_id, review_id, request)
-    except HTTPException as exc:
-        if exc.status_code not in {403, 404, 410, 503}:
-            raise
-        return packet
-    if review["regions"] == source.get("regions") and review.get("artwork"):
-        packet["pdf_portrait"] = review["artwork"]["jpeg_base64"]
+    portrait = read_portrait(world_id=world_id, draft_id=draft_id, revision_id=revision_id)
+    if portrait is not None:
+        packet["pdf_portrait"] = portrait
     return packet
 
 

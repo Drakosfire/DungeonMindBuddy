@@ -2325,31 +2325,27 @@ def test_hosted_statblock_picker_reads_only_owned_world(hosted, application_stat
     assert [row["world_id"] for row in hosted.client.request("GET", drafts).json()["drafts"]] == ["managed"]
 
 
-def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(hosted, monkeypatch):
-    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(
+    hosted, application_state_dsn, monkeypatch,
+):
+    from application_state.mechanics_revisions.portraits import retain_portrait
     from apps.live_control_server.routes import agent, statblock_candidates
-    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
     draft = "12345678-1234-1234-1234-123456789abc"
     revision = "rev_exact"
-    review = "87654321-1234-1234-1234-123456789abc"
-    regions = [{"page": 2}]
     calls = []
+    retain_portrait(world_id="managed", draft_id=draft, revision_id=revision, jpeg_base64="portrait")
 
     def read_exact(_root, **selectors):
         calls.append(selectors)
-        return {"resource": {"provenance": {"accepted_through": {PDF_REVIEW_PROVENANCE: {
-            "world_id": "managed", "review_id": review, "regions": regions,
-        }}}}}
+        return {"resource": {}}
 
-    def read_review(world_id, review_id, request):
-        require_build_pdf_access(request, world_id)
-        assert str(review_id) == review
-        return {"regions": regions, "artwork": {"jpeg_base64": "portrait"}}
+    def reject_review(*args):
+        pytest.fail("Opening published mechanics must not read a PDF review")
 
     monkeypatch.setattr(statblock_candidates, "statblock_data_root", lambda root: root)
     monkeypatch.setattr(statblock_candidates.saved_versions, "open_version", read_exact)
-    monkeypatch.setattr(agent, "get_pdf_statblock_review", read_review)
+    monkeypatch.setattr(agent, "get_pdf_statblock_review", reject_review)
     path = f"/api/live/threat-drafts/{draft}/mechanics-revisions/{revision}?world_id=managed"
     assert hosted.client.request("GET", path, session="other-session").status_code == 403
     assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
