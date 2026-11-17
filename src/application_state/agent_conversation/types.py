@@ -4666,7 +4666,7 @@ class BuildJevActionSelectionV1(GraphExecutionEventBaseV1):
 class BuildRequestedWorkResolutionV1(BuildJevActionSelectionV1):
     kind: Literal['build_requested_work_resolved_v1']
     controller_response_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
-    requested_work: Literal['discuss', 'clarify_request', 'plan', 'write_current_page', 'prepare_image', 'review_connected_page', 'review_relationship', 'change_mechanics', 'build_encounter', 'place_map_coordinates', 'save_page', 'publish_relationships', 'other_creation', 'clarify_creation']
+    requested_work: Literal['discuss', 'draft_in_conversation', 'clarify_request', 'plan', 'write_current_page', 'prepare_image', 'review_connected_page', 'review_relationship', 'change_mechanics', 'build_encounter', 'place_map_coordinates', 'save_page', 'publish_relationships', 'other_creation', 'clarify_creation']
     intent_family: Literal['discuss', 'create']
     menu_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
     resolver_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')

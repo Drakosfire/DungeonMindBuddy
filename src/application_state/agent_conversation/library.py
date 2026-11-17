@@ -266,6 +266,9 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             THEN graph_context_receipt->'work_context'->'source_basis'
             ELSE NULL END AS citation_source_basis,
         """ + _SAVED_STATBLOCK_PREVIEW_SELECT + """,
+        EXISTS (SELECT 1 FROM agent.conversation_draft_revision d
+            WHERE d.turn_id=t.turn_id AND d.world_id=t.world_id
+                AND d.conversation_id=t.conversation_id AND d.revision=1) AS draft_available,
         t.answer_composition_kind, """ + reference_select + ", " + repo._rules_summary_select("t")) if metadata else ""
     rows = conn.execute(
         f"""SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
@@ -288,6 +291,8 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             from .saved_citation_preview import project
             from .retry import author_interaction
             provenance=repo.turn_provenance(row,references[row["turn_id"]])
+            if row["draft_available"]:
+                message["conversation_draft_available"] = True
             if row["saved_statblocks"]:
                 message["saved_statblocks"] = row["saved_statblocks"]
             message.update(

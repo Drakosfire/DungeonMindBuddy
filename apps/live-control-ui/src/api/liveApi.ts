@@ -342,6 +342,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     "/api/live/graph-authoring/document-relationship/native-confirm",
   ].includes(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/work-plans\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/continue)?$/i.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/active\/messages$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/(?:name|turns|messages|resume|trash|restore))?$/i.test(pathname)) return true;
   if (/^\/api\/live\/connected-pages\/(?:prepare|confirm|[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})$/i.test(pathname)) return true;
@@ -445,6 +446,10 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   }
   if (/^\/api\/live\/agent\/worlds\/[^/?]+\/build-proposals\?conversation_id=[0-9a-f-]+$/.test(path)) {
     return method === "GET" && init?.body == null;
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(path)) {
+    return (method === "GET" && init?.body == null)
+      || (method === "PUT" && !!requestBodyRecord(init?.body));
   }
   const conversation = /^\/api\/live\/agent\/worlds\/[^/?]+\/(conversation(?:\/new|\/commands\/[0-9a-f-]+)?|conversations(?:\/active\/messages|\/[0-9a-f-]+\/(?:messages|turns|retry-context))?)(?:\?([^#]*))?$/.exec(path);
   if (conversation) {

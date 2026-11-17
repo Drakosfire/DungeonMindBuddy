@@ -60,7 +60,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -253,7 +253,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
-                chosen = (('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss') if name=='requested_work' else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
+                chosen = ((requested_work or ('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss')) if name=='requested_work' else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
                     else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
@@ -1646,7 +1646,7 @@ def test_low_score_valid_image_selection_prepares_review_through_ordinary_http(l
     # Captured controller shape: unique maximum .40, no response-contract resolution
     # previously survived the duplicated .90 gate. No image provider is called.
     scores=dict(build_encounter=0.0,change_mechanics=0.0,clarify_creation=.07,clarify_request=.04,
-        discuss=0.0,other_creation=.27,place_map_coordinates=0.0,plan=.02,prepare_image=.40,
+        discuss=0.0,draft_in_conversation=0.0,other_creation=.27,place_map_coordinates=0.0,plan=.02,prepare_image=.40,
         publish_relationships=0.0,review_connected_page=.01,review_relationship=0.0,
         save_page=0.0,write_current_page=.19)
     _fresh_case(lane,tmp_path,monkeypatch,None,True,False,'image',selection_probabilities=scores,
@@ -1699,6 +1699,61 @@ def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
         graph_revision="rev:old", node_id="ent:fixture", label="Fixture",
     )
     assert driver._referenced_statblocks((reference,)) == []
+
+
+def test_requested_chat_draft_is_persisted_by_ordinary_build(lane, tmp_path, monkeypatch):
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Write an editable Markdown draft in chat for review.",
+        requested_work="draft_in_conversation",
+    )
+    light = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert light.status_code == 200, light.text
+    assert light.json()["messages"][-1]["conversation_draft_available"] is True
+    assert case.service.conversation_draft_turn_ids(
+        case.world, case.turn.conversation_id, [case.turn.turn_id],
+    ) == {case.turn.turn_id}, (
+        type(case.turn).__name__, type(case.turn.completion).__name__,
+        [getattr(event, "requested_work", None) for event in case.turn.graph_context_execution.events
+         if hasattr(event, "requested_work")],
+    )
+    root = f"/api/live/agent/worlds/{case.world}/conversation"
+    history = case.client.get(root, params={"include_turn_correlation": True})
+    assert history.status_code == 200, history.text
+    page = history.json()
+    turn = page["turns"][-1]
+    assert turn["conversation_draft_available"] is True
+    draft = case.client.get(
+        f"{root}s/{page['conversation_id']}/drafts/{turn['turn_id']}"
+    )
+    assert draft.status_code == 200, draft.text
+    assert draft.json() == {"revision": 1, "markdown": turn["assistant_text"]}
+
+
+def test_brainstorm_stays_in_chat_without_creating_a_draft(lane, tmp_path, monkeypatch):
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Let's brainstorm how a clockwork fox could help the Lantern Market.",
+        requested_work="discuss",
+    )
+    light = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert light.status_code == 200, light.text
+    assert "conversation_draft_available" not in light.json()["messages"][-1]
+    assert case.service.conversation_draft_turn_ids(
+        case.world, case.turn.conversation_id, [case.turn.turn_id],
+    ) == set()
+    response = case.client.get(
+        f"/api/live/agent/worlds/{case.world}/conversation",
+        params={"include_turn_correlation": True},
+    )
+    assert response.status_code == 200, response.text
+    reply = response.json()["turns"][-1]
+    assert "conversation_draft_available" not in reply
+    assert not case.turn.completion.collaboration
+    assert not any(
+        getattr(event, "operation", None) == "propose_build_insertion"
+        for event in case.turn.graph_context_execution.events
+    )
 
 
 def test_selected_mechanics_are_available_without_repeating_the_artifact_name(lane, tmp_path, monkeypatch):
