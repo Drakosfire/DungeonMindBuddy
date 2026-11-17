@@ -110,6 +110,30 @@ explicitly attached through its mention selector.
   and whether a write capability or proposal is issued. Use the same source
   fixture for the discussion and explicit-write cases.
 
+#### Writer check for opening a brainstorm
+
+The retained answer correctly used the existing statblock and distinguished
+Edge's planned escalation from played history. For this opening turn, the
+GM expected a shorter acknowledgment that shows Buddy understood the idea
+and has the requested material ready. A grounded sentence about the hook
+is enough. The GM can ask for concrete mechanics in the next turn.
+
+- **Pass:** Acknowledge the brainstorm, confirm access to the current page
+  and explicitly referenced statblock when both are resolved, and mirror the
+  specific idea in a short chat response. Link the statblock once when its
+  exact link is available. Preserve the distinction between proposed behavior
+  and played history whenever the response mentions either.
+- **Fail:** Front-load a statblock or recap dump, repeat the premise, expose
+  Graph bookkeeping, or report a missing detail merely because the GM has
+  yet to pick a direction. If a requested reference is genuinely missing,
+  name that specific gap. Never claim an attachment was read without proof.
+- **Isolate the test:** Compare the retained answer with a writer-only replay
+  against the same captured context and model settings, changing only the
+  discussion guidance. Keep Gold local. Score grounding, brevity, link
+  resolution, and absence of a write proposal. Measure writer time and
+  tokens separately. Use the ordinary-turn comparison to measure the
+  effect of the routing and retrieval changes on total latency.
+
 ## Full Plan, map, and improvised NPC checks
 
 - **Full Plan construction.** Before the run, inventory the adventure's playable
