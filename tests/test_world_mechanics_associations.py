@@ -91,7 +91,13 @@ def test_http_exact_proof_append_replay_and_reopen(prepared,monkeypatch):
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(p.root/'unavailable'))
     replay=post(p);assert replay.json()=={'association':record,'replayed':True}
     assert p.dms.calls==1
-    listed=p.client.get('/api/live/world-mechanics/associations?world_id=elderwyld')
+    path = '/api/live/world-mechanics/associations?world_id=elderwyld'
+    token = 'test-local-operator-credential-' + ('x' * 32)
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'development')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN', token)
+    assert p.client.get(path).status_code == 401
+    listed = p.client.get(path, headers={'Authorization': f'Bearer {token}'})
     assert listed.json()==[record]
     changed={**p.body,'expected_draft_version':3}
     assert post(p,changed).status_code==409
