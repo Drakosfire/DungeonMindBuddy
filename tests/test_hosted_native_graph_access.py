@@ -302,6 +302,9 @@ def hosted(monkeypatch, request):
 
     app.include_router(rules_lookup.router)
     app.include_router(conversation_library.router)
+    from apps.live_control_server.routes import native_source_inspection
+
+    app.include_router(native_source_inspection.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
         agent_routes.get_world_turn_native_source_section, methods=["GET"],
@@ -333,6 +336,7 @@ def hosted(monkeypatch, request):
             },
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/complete-object"): access.resolve_hosted_explorer_world,
+            ("POST", "/api/live/native-source-inspection/published-recap"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/recap-page"): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/related-recaps"): access.resolve_hosted_explorer_world,
             ("POST", access.FIRST_WORLD_PREPARE_PATH): access.resolve_hosted_first_world,
@@ -3021,3 +3025,23 @@ def test_hosted_complete_object_requires_exact_world_pin(hosted, monkeypatch):
     request, principal = read.call_args.args
     assert request.scope.revision_id == request.request.revision_pin == "rev_exact"
     assert request.request.world_id == principal.managed_world_id == "managed"
+
+
+def test_hosted_published_recap_requires_owned_world(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.services import native_source_inspection
+
+    read = Mock(return_value={"source": {"status": "available"}})
+    monkeypatch.setattr(native_source_inspection, "published_recap", read)
+    path = "/api/live/native-source-inspection/published-recap"
+    body = {"managed_world_id": "managed", "campaign_id": "campaign", "session_id": "session"}
+    assert hosted.client.request("POST", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", path, origin=None, json=body).status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    selector, principal = read.call_args.args
+    assert selector.managed_world_id == principal.managed_world_id == "managed"
+    assert (selector.campaign_id, selector.session_id) == ("campaign", "session")

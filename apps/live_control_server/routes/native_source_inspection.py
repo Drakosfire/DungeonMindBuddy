@@ -6,9 +6,7 @@ from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.models.native_graph_inspection import InspectionScope
 from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapRead
 from apps.live_control_server.services import native_source_inspection as service
-from apps.live_control_server.services.agent_graph_auth import (
-    native_graph_gm_dependency,
-)
+from apps.live_control_server.services.native_graph_explorer import hosted_response_binding
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
 
 from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
@@ -43,5 +41,6 @@ def inspect(body: NativeSourceRead, principal=Depends(native_graph_explorer_depe
     return _call(service.inspect, body, principal)
 
 @router.post("/published-recap")
-def published_recap(body: PublishedRecapRead, principal=Depends(native_graph_gm_dependency)):
-    return _call(service.published_recap, body, principal)
+def published_recap(body: PublishedRecapRead, principal=Depends(native_graph_explorer_dependency)):
+    with hosted_response_binding(principal, body.managed_world_id):
+        return _call(service.published_recap, body, principal)
