@@ -142,3 +142,15 @@
 .buddy-retrieval-replay__popout [data-wide="true"] .buddy-retrieval-replay__canvas svg {
   height: clamp(16rem, 58dvh, 44rem);
 }
+
+.buddy-retrieval-replay__controls > button {
+  min-inline-size: 2.25rem;
+  min-block-size: 2.25rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.buddy-retrieval-replay__controls > button > span {
+  font-size: 1rem;
+  font-variant-emoji: text;
+}
