@@ -1185,6 +1185,7 @@ export interface NativeGraphQueryV3 extends Omit<NativePlanQueryV2,'schema'> {
 }
 export interface NativeGraphQueryV4 extends Omit<NativeGraphQueryV3,'schema'> {
   schema:'dmb_native_graph_query_v4';object_matches:{entity_id:string;label:string}[];
+  discovery_hops?: {relationship_id:string;from_node_id:string;to_node_id:string}[];
 }
 export interface PlanNativeContextReceiptV1 extends Omit<PlanSourceContextReceiptV1,'schema'|'graph_capability'> {
   schema:'dmb_plan_native_context_receipt_v1';graph_capability:null;
