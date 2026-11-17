@@ -9,3 +9,5 @@ Write set consists of apps/live_control_server/services/build_jev_harness.py, ap
 The Build controller receives frozen ordinary dialogue, but the shared native writer omitted it. Pass that same dialogue to the writer as ordinary user and assistant messages before current task and evidence frames. Prior dialogue supplies user intent and decisions; existing source citation and publication checks remain authoritative.
 
 Verify the final SDK request contains the actual prior user premises and selected decisions, preserves ordering and current evidence, and retains native structured output. Run owning writer and assembly contracts and the ordinary isolated rehearsal. Record the candidate outcome before any approved save. Gold remains local. Review and deliver this bounded change independently.
+
+The variant draft output schema also belongs to this slice. Require visible answer text at the provider boundary, in line with draft completion. Verify the constraint and retained structured variant with the ordinary isolated route.
