@@ -2338,7 +2338,9 @@ def withdraw_build_source(world_id: str, body: BuildSourceWithdrawal, request: R
     from apps.live_control_server.models.native_graph_inspection import InspectionScope
     from apps.live_control_server.services.native_source_inspection import catalog
 
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     try:
         binding = _source_world_binding(None, verified)
