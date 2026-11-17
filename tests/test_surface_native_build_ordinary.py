@@ -1754,3 +1754,13 @@ def test_brainstorm_stays_in_chat_without_creating_a_draft(lane, tmp_path, monke
         getattr(event, "operation", None) == "propose_build_insertion"
         for event in case.turn.graph_context_execution.events
     )
+
+
+def test_selected_mechanics_are_available_without_repeating_the_artifact_name(lane, tmp_path, monkeypatch):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Let's brainstorm why it wants freedom and whether the party could negotiate.",
+        saved_statblock="associated")
+    response = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert response.status_code == 200
+    references = response.json()["messages"][-1]["saved_statblocks"]
+    assert [(ref["name"], ref["revision_id"]) for ref in references] == [("Meat Mind", "rev_meatmind")]
