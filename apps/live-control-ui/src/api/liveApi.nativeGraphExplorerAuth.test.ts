@@ -521,3 +521,21 @@ it("uses hosted same-origin credentials for exactly the draft read and edit rout
   expect(fetch.mock.calls[1][1]).toMatchObject({ method: "PUT", credentials: "same-origin", mode: "same-origin" });
   expect(JSON.parse(String(fetch.mock.calls[1][1]?.body))).toEqual({ expected_revision: 1, markdown: "Edited" });
 });
+
+it("reads earlier image directions with the exact hosted session route", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ items: [] }));
+  const { listPreparedImages } = await import("../media/PreparedBuildImage");
+  const conversation = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const path = `/api/live/media/images/preparations/list?world_id=elderwyld&conversation_id=${conversation}`;
+
+  await expect(listPreparedImages("elderwyld", conversation)).resolves.toEqual([]);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch.mock.calls[0][0]).toBe(path);
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "&world_id=other")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

@@ -428,6 +428,16 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  const imageHistory = "/api/live/media/images/preparations/list?";
+  if (path.startsWith(imageHistory)) {
+    const selectors = new URLSearchParams(path.slice(imageHistory.length));
+    const worldId = selectors.get("world_id");
+    const conversationId = selectors.get("conversation_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(conversationId ?? "")
+      && path === imageHistory + "world_id=" + encodeURIComponent(worldId)
+        + "&conversation_id=" + conversationId;
+  }
   if (path === "/api/live/agent/turn") {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && isRecord(body?.owner_scope)
