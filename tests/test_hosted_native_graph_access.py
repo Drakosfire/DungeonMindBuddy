@@ -2279,10 +2279,40 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert reviewed_runs == [run_id]
     assert read.headers["cache-control"] == "no-store"
     corrections_route = f"/api/live/extract-promote/runs/{run_id}/evidence-corrections"
-    assert hosted.client.request("POST", corrections_route, session="other-session", json={}).status_code == 403
-    read = hosted.client.request("POST", corrections_route, json={})
-    assert read.status_code == 422, read.text
+    source_id = runs[run_id].source_artifact_id
+    digest = "a" * 64
+    correction = {
+        "parentRunId": run_id,
+        "expectedParentRevision": 1,
+        "worldId": "managed",
+        "sourceArtifactId": source_id,
+        "sourceSha256": digest,
+        "spanIndexSha256": digest,
+        "parentCandidateSha256": digest,
+        "corrections": [{
+            "assertionId": "assertion",
+            "evidenceIndex": 0,
+            "expectedRefSha256": digest,
+            "parts": [{
+                "sourceSpanRefId": "span",
+                "quoteAssignments": [{"originalQuoteIndex": 0, "replacementQuote": "Exact evidence"}],
+            }],
+        }],
+    }
+    corrections = []
 
+    def correct(payload):
+        corrections.append((payload.world_id, payload.parent_run_id, payload.source_artifact_id))
+        raise extract_promote.ExtractPromoteError("Correction reached service.", code="probe_reached", status_code=409)
+
+    monkeypatch.setattr(extract_promote, "correct_exact_run_evidence", correct)
+    assert hosted.client.request("POST", corrections_route, session="other-session", json=correction).status_code == 403
+    mismatch = hosted.client.request("POST", corrections_route, json={**correction, "parentRunId": "different"})
+    assert mismatch.status_code == 422, mismatch.text
+    assert not corrections
+    result = hosted.client.request("POST", corrections_route, json=correction)
+    assert result.status_code == 409, result.text
+    assert corrections == [("managed", run_id, source_id)]
 
 
 def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn):
