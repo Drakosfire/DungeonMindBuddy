@@ -236,3 +236,22 @@ requires a distinct variant. The bench still needs an ordinary review receipt
 binding the visible draft to validated structured mechanics, creation of the
 separate variant after approval, and one Edge link to that exact saved result.
 Score the existing Save and Combat checks as component evidence.
+
+### Synthetic writer comparison
+
+One frozen synthetic Build opener was replayed through OpenAI gpt-6-luna.
+The two actual provider bodies differed only in instructions. The original
+writer supplied a sentinel design, including attacks and a weakness. The
+candidate acknowledged the brainstorm and offered a focused choice about
+the creature's role. Both returned no collaboration payload.
+
+| Arm | Input tokens | Output tokens | Elapsed |
+| --- | ---: | ---: | ---: |
+| Retained guidance | 1,135 | 303 | 4.21s |
+| Candidate opener guidance | 1,167 | 81 | 1.93s |
+
+The candidate improved restraint on this fixture, but it did not acknowledge
+the resolved statblock. It therefore passes the brevity control and misses
+part of the opener's grounding check. These single samples establish neither
+a latency win nor observed-turn quality. Billed cost was unavailable. No
+retrieval or product writes ran.
