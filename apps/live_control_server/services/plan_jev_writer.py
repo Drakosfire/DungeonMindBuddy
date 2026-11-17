@@ -355,13 +355,15 @@ class PlanJevWriter:
         self.prompt_components = None
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
+        single_variant_base = self.shared and variant_format and len(variant_sources(self.work_frame)) == 1
         if task is not None:
             from application_state.agent_conversation.response_prompt import compose_response_prompt
             prompt = compose_response_prompt(
                 task=task,
                 rules_instructions=RULES_INSTRUCTIONS if rule_frame.lookups else None,
                 related_page_instructions=RELATED_PAGE_RESPONSE
-                    if self.provider_work.get('related_authored_pages', {}).get('pages') else None)
+                    if self.provider_work.get('related_authored_pages', {}).get('pages') else None,
+                single_variant_base=single_variant_base)
             self.instructions = prompt.instructions
             self.prompt_components = prompt.manifest()  # Host-only inspectability.
         else:
@@ -413,6 +415,10 @@ class PlanJevWriter:
                     'is needed rather than inventing a quote.\n')
             self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
                 RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
+            if single_variant_base:
+                from application_state.agent_conversation.response_prompt import VARIANT_BASE
+
+                self.instructions += "\n" + VARIANT_BASE.text
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = self.received_event = None
         self._usage_recorded = False
