@@ -484,6 +484,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && typeof body.expected_content_sha256 === "string" && /^[0-9a-f]{64}$/.test(body.expected_content_sha256)
       && typeof body.instructions === "string" && Boolean(body.instructions.trim());
   }
+  if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/build-source-withdrawals$/.test(path)) {
+    const source = requestBodyRecord(init?.body);
+    return method === "POST" && (source?.kind === "pdf" || source?.kind === "text")
+      && typeof source.revision_id === "string" && Boolean(source.revision_id);
+  }
   const imageGeneration = /^\/api\/live\/media\/images\/generate\?([^#]+)$/.exec(path);
   if (imageGeneration) {
     const query = new URLSearchParams(imageGeneration[1]);

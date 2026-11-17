@@ -323,6 +323,10 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes import build_proposal_reviews
 
     app.include_router(build_proposal_reviews.router, prefix="/api/live/agent")
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/build-source-withdrawals",
+        agent_routes.withdraw_build_source, methods=["POST"], status_code=204,
+    )
     app.include_router(conversation_library.router)
     from apps.live_control_server.routes import conversation_work_plans
 
@@ -460,6 +464,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/build-source-withdrawals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): access.resolve_hosted_conversation_world,
@@ -3903,3 +3908,42 @@ def test_hosted_document_trash_and_restore_preserve_identity(hosted, application
     assert restored.status_code == 200, restored.text
     assert restored.json()["status"] == "active"
     assert restored.json()["id"] == record["document_id"]
+
+
+@pytest.mark.parametrize("kind", ["pdf", "text"])
+def test_hosted_source_withdrawal_binds_exact_world_revision(hosted, monkeypatch, kind):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.integrations.dungeonmind import native_world_source_admission
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import native_source_inspection
+
+    repo = Mock()
+    repo.get_native_pdf_source.return_value = (SimpleNamespace(
+        source_artifact_id="artifact", status="active", visibility=SimpleNamespace(kind="public"),
+    ),)
+    catalog = Mock(return_value={
+        "scope": {"native_world_id": "space"},
+        "catalogue": {"sources": [{
+            "source_artifact": {"source_artifact_id": "artifact"},
+            "source_revision": {"source_revision_id": "revision"},
+        }]},
+    })
+    monkeypatch.setattr(native_world_source_admission, "_repository", lambda: repo)
+    monkeypatch.setattr(native_world_source_admission, "_source_world_binding", lambda root, world: SimpleNamespace(native_world_id="space"))
+    monkeypatch.setattr(native_source_inspection, "catalog", catalog)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    path = "/api/live/agent/worlds/managed/build-source-withdrawals"
+    body = {"kind": kind, "revision_id": "revision"}
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    catalog.assert_not_called()
+    assert not repo.mock_calls
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 204, response.text
+    repo.withdraw_native_source.assert_called_once_with(
+        space_id="space", source_artifact_id="artifact", source_revision_id="revision",
+    )
+    if kind == "text":
+        scope, principal = catalog.call_args.args
+        assert scope.managed_world_id == principal.managed_world_id == "managed"
