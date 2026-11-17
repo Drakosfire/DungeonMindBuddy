@@ -1,5 +1,6 @@
 """Provider-free PDF Event publication on disposable application and Core stores."""
 from base64 import b64decode
+from dataclasses import replace
 from datetime import UTC, datetime
 from hashlib import sha256
 from io import BytesIO
@@ -9,6 +10,7 @@ from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pypdf import PdfWriter
+import pytest
 
 from application_state.world_catalog import service as catalog_owner
 from application_state.world_catalog.types import NativeGraphBindingRecord
@@ -28,8 +30,9 @@ from tests.test_source_statements import (
 )
 
 
+@pytest.mark.parametrize("reserved", [False, True])
 def test_pdf_event_preserves_review_and_reopens_citation(
-    native_core_dsn, application_state_dsn, tmp_path, monkeypatch,
+    native_core_dsn, application_state_dsn, tmp_path, monkeypatch, reserved,
 ):
     token = token_urlsafe(32)
     for key, value in {
@@ -46,21 +49,22 @@ def test_pdf_event_preserves_review_and_reopens_citation(
     world = create_world_container(name="PDF Event fixture")
     space = world.native_graph_binding.native_world_id
     repo = native.repository()
-    initialize_empty_knowledge_space(
-        repository=repo, space_id=space, initialization_id="pdf-event-fixture",
-        created_at=NOW, domain_contract=dungeonbuddy_world_domain_contract(),
-        semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),
-    )
-    binding = NativeGraphBindingRecord(
-        native_world_id=space, status="active", binding_version=1,
-        validated_at=datetime.now(UTC).isoformat(),
-        validated_head_revision_id=repo.get_head(space).head_revision_id,
-    )
-    stored = catalog_owner.get_world(world.world_id)
-    catalog_owner.save_world(
-        world.model_copy(update={"native_graph_binding": binding}),
-        expected_revision=stored.revision,
-    )
+    if not reserved:
+        initialize_empty_knowledge_space(
+            repository=repo, space_id=space, initialization_id="pdf-event-fixture",
+            created_at=NOW, domain_contract=dungeonbuddy_world_domain_contract(),
+            semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),
+        )
+        binding = NativeGraphBindingRecord(
+            native_world_id=space, status="active", binding_version=1,
+            validated_at=datetime.now(UTC).isoformat(),
+            validated_head_revision_id=repo.get_head(space).head_revision_id,
+        )
+        stored = catalog_owner.get_world(world.world_id)
+        catalog_owner.save_world(
+            world.model_copy(update={"native_graph_binding": binding}),
+            expected_revision=stored.revision,
+        )
     pdf = BytesIO()
     writer = PdfWriter()
     writer.add_blank_page(width=200, height=300)
@@ -95,13 +99,52 @@ def test_pdf_event_preserves_review_and_reopens_citation(
         review = client.post(events + "/prepare", json=draft, headers=auth)
         assert review.status_code == 200, review.text
         packet = review.json()
+        foreign_world = create_world_container(name="Unrelated PDF Event fixture")
+        foreign_events = f"/api/live/worlds/{foreign_world.world_id}/pdf-adventure-events"
+        foreign = client.post(foreign_events + "/confirm", json=packet, headers=auth)
+        assert foreign.status_code == 409, foreign.text
+        foreign_space = foreign_world.native_graph_binding.native_world_id
+        assert repo.get_head(foreign_space) is None
         before = repo.get_head(space).head_revision_id
         tampered = packet | {"draft": draft | {"name": "Changed"}}
         assert client.post(events + "/confirm", json=tampered, headers=auth).status_code == 409
         assert repo.get_head(space).head_revision_id == before
+        if reserved:
+            from apps.live_control_server.services import world_graph_binding
+            assert catalog_owner.get_world(world.world_id).record.native_graph_binding.status == "provisioning"
+
+            def interrupt_catalog(*args, **kwargs):
+                raise world_graph_binding.WorldGraphBindingError("Simulated catalog conflict")
+
+            with monkeypatch.context() as failure:
+                failure.setattr(world_graph_binding, "_save_binding_record", interrupt_catalog)
+                interrupted = client.post(events + "/confirm", json=packet, headers=auth)
+                assert interrupted.status_code == 503, interrupted.text
+                assert interrupted.json()["detail"]["code"] == "event_publication_outcome_unknown"
+            saved_head = repo.get_head(space).head_revision_id
+            assert saved_head != before
+            assert catalog_owner.get_world(world.world_id).record.native_graph_binding.status == "provisioning"
+            from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_source_identity
+
+            identity = resolve_managed_source_identity(world.world_id)
+            for supplied_identity, revision, message in (
+                (replace(identity, provisioning_id="provision:" + "0" * 32), saved_head, "reservation changed"),
+                (identity, "rev:unrelated", "does not descend"),
+            ):
+                with pytest.raises(world_graph_binding.WorldGraphBindingError, match=message):
+                    world_graph_binding.activate_native_source_graph(
+                        world.world_id, identity=supplied_identity,
+                        repository=repo, published_revision_id=revision,
+                    )
+                assert catalog_owner.get_world(world.world_id).record.native_graph_binding.status == "provisioning"
+                assert repo.get_head(space).head_revision_id == saved_head
         committed = client.post(events + "/confirm", json=packet, headers=auth)
         assert committed.status_code == 200, committed.text
         receipt = committed.json()
+        if reserved:
+            assert receipt["replayed"]
+            assert receipt["published_revision_id"] == saved_head
+            assert catalog_owner.get_world(world.world_id).record.native_graph_binding.status == "active"
         retry = client.post(events + "/confirm", json=packet, headers=auth)
         assert retry.status_code == 200, retry.text
         assert retry.json() == receipt | {"replayed": True}

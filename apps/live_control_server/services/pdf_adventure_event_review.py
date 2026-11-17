@@ -1,4 +1,5 @@
 """Reviewed adventure Events backed by immutable Build PDF evidence."""
+from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -9,7 +10,11 @@ from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
 from pydantic import BaseModel, ConfigDict, Field
 from worldkeeper.application import contracts as wk
 
-from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
+from application_state.errors import (
+    ApplicationStateConflictError,
+    ApplicationStateIntegrityError,
+    ApplicationStateUnavailableError,
+)
 from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
 from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
 from apps.live_control_server.services.graph_object_authoring_prepare import (
@@ -18,9 +23,21 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     sign_publication_intent,
 )
 from apps.live_control_server.services.native_pdf_evidence import register_pdf_regions
+from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_source_identity
+from apps.live_control_server.services.world_container_registry import get_world_container
+from apps.live_control_server.services.world_graph_binding import (
+    WorldGraphBindingError, activate_native_source_graph,
+)
 from graph_memory.vnext.domain_runtime import GM_LABEL
 
 PRODUCER = "dungeonbuddy:pdf-adventure-event-v1"
+
+
+class EventPublicationRecoveryRequired(ApplicationStateUnavailableError):
+    code = "event_publication_outcome_unknown"
+
+    def __init__(self):
+        super().__init__("Retry the exact confirmation to recover publication.")
 
 
 class EventDraft(BaseModel):
@@ -67,8 +84,9 @@ def prepare(world_id, draft, principal):
     if not draft.name.strip() or not draft.description.strip():
         raise ApplicationStateConflictError("Provide the Event name and reviewed text.")
     _prepare_binding_key()
-    bound = native.binding(world_id)
-    space = bound["native_world_id"]
+    identity = resolve_managed_source_identity(world_id)
+    bound = asdict(identity)
+    space = identity.native_world_id
     repo = native.repository()
     publication_id = _publication_id(draft)
     if get_prospective_publication(space, publication_id, repository=repo) is not None:
@@ -78,7 +96,7 @@ def prepare(world_id, draft, principal):
     context, _, evidence_ids, _ = register_pdf_regions(
         repo, space, (draft.region,), context, access, now,
     )
-    if native.binding(world_id) != bound:
+    if resolve_managed_source_identity(world_id) != identity:
         raise ApplicationStateConflictError("The World binding changed during review.")
     domain, profile = native.descriptors(repo, space, context["revision_id"])
     prepared = transport.runtime(
@@ -100,7 +118,8 @@ def prepare(world_id, draft, principal):
 
 def confirm(world_id, request, principal):
     envelope = decode_publication_intent(request.token, allow_expired_recovery=True)
-    bound = native.binding(world_id)
+    identity = resolve_managed_source_identity(world_id)
+    bound = asdict(identity)
     draft = request.draft
     if (
         envelope.get("purpose") != PRODUCER
@@ -134,16 +153,27 @@ def confirm(world_id, request, principal):
         )
         if evidence is None or evidence.evidence_ref_id != evidence_id or access.parsed.get_evidence(evidence_id) is None:
             raise ApplicationStateConflictError("The reviewed PDF region is unavailable.")
-        if native.binding(world_id) != bound:
+        if resolve_managed_source_identity(world_id) != identity:
             raise ApplicationStateConflictError("The World binding changed during confirmation.")
     domain, profile = native.descriptors(repo, space, prepared.expected_parent_revision_id)
     transport.runtime(
         repo, domain, profile, now=prepared.prepared_at, operation_id=publication_id,
     ).commit_prepared_change(prepared, confirmed_by=principal.subject)
     aggregate = get_prospective_publication(space, publication_id, repository=repo)
-    if aggregate is None or native.binding(world_id) != bound:
-        raise ApplicationStateConflictError("Publication needs recovery. Retry the same confirmation.")
+    if aggregate is None or resolve_managed_source_identity(world_id) != identity:
+        raise EventPublicationRecoveryRequired()
     result = aggregate.prospective_result
+    if get_world_container(world_id).native_graph_binding.status == "provisioning":
+        try:
+            activate_native_source_graph(
+                world_id, identity=identity, repository=repo,
+                published_revision_id=result.published_revision_id,
+            )
+        except WorldGraphBindingError as exc:
+            raise EventPublicationRecoveryRequired() from exc
+    if resolve_managed_source_identity(world_id) != identity:
+        raise EventPublicationRecoveryRequired()
+    native.binding(world_id)
     entities = [entry for entry in result.results if entry.result_kind == "entity"]
     if len(entities) != 1 or entities[0].client_op_id != "event":
         raise ApplicationStateIntegrityError("The reviewed Event publication returned an unexpected result.")
