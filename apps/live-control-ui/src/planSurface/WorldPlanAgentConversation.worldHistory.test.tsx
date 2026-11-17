@@ -6579,3 +6579,27 @@ it.each(['failed','interrupted'] as const)('retains the lightweight %s reply not
  expect(document.querySelector('[data-turn-id="terminal-empty"] .world-plan-agent-conversation__message--assistant')).not.toBeNull();
  expect(screen.getByRole('button',{name:'Retry question'})).toBeInTheDocument();
 });
+
+it.each([true, false])('uses the reviewed statblock entry point on lightweight reopen (%s)', async reviewed => {
+  const turn = makeTurn(1, '33333333-3333-4333-8333-333333333331',
+    'Draft a variant for review', 'Writer statblock copy', 'build');
+  const page = history('conversation-a', 4, [turn]);
+  const api = setupApi(page, false);
+  api.getMessages.mockImplementation(async () => {
+    const light = api.messages(page);
+    return {
+      ...light,
+      messages: light.messages.map(row => ({
+        ...row, conversation_draft_available: true as const,
+        ...(reviewed ? { variant_draft_reviewed: true as const } : {}),
+      })),
+    };
+  });
+  render(conversationElement());
+  await screen.findByRole('button', { name: 'Open draft' });
+  const displayed = reviewed ? 'Open the statblock draft to review the mechanics.' : 'Writer statblock copy';
+  const suppressed = reviewed ? 'Writer statblock copy' : 'Open the statblock draft to review the mechanics.';
+  expect(screen.getByText(displayed)).toBeInTheDocument();
+  expect(screen.queryByText(suppressed)).not.toBeInTheDocument();
+  expect(api.getHistory).not.toHaveBeenCalled();
+});
