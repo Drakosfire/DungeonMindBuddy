@@ -6491,6 +6491,13 @@ export function WorldPlanAgentConversation({
       {onOriginalPage && <ConversationRecovery question={turn.user_text} blocked={composerBusy}
         label="Continue with selection" onRetry={onContinue}/>}
     </div>;
+    const draftEditor = verifiedWorldId && history?.conversation_id && !historicalAttempt &&
+      (turn.conversation_draft_available || savedMessage?.conversation_draft_available) && (
+        <ConversationDraftEditor
+          key={`draft:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
+          scope={{ worldId: verifiedWorldId, conversationId: history.conversation_id, turnId: turn.turn_id }}
+        />
+      );
     const hasLightweightReply = Boolean(pageSuggestion || turn.assistant_text || ['completed','failed','interrupted'].includes(turn.lifecycle_status));
     if (!history?.turns.some(full => sameSavedMessage(full, turn))) return <BuddyTurnInspection key={`world:${turn.turn_id}`} worldId={verifiedWorldId ?? ''} conversationId={history?.conversation_id ?? ''} turnId={turn.turn_id} lifecycle={turn.lifecycle_status}>
       <article className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? 'complete' : turn.lifecycle_status}`} data-turn-id={turn.turn_id} data-sequence={turn.sequence} tabIndex={-1}>
@@ -6499,6 +6506,7 @@ export function WorldPlanAgentConversation({
           <div className="world-plan-agent-conversation__reply-heading"><span className="world-plan-agent-conversation__speaker">Buddy</span></div>
           {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : selectPassage ? null : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : 'This reply did not finish.'}</p>}
           {savedStatblockLinks}
+          {draftEditor}
           {!historicalAttempt && (isBuild || !isReadOnly) && !turn.assistant_text
             && ['failed','interrupted'].includes(turn.lifecycle_status)
             && (isBuild ? turn.provenance.surface_id === 'build'
@@ -6621,13 +6629,7 @@ export function WorldPlanAgentConversation({
               pointerRevision={history.pointer_revision}
               disabled={composerBusy||!isBuild||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}
               onVisible={()=>agent.setPaneOpen(false)}/>:null}
-            {verifiedWorldId && history?.conversation_id &&
-              (turn.conversation_draft_available || savedMessage?.conversation_draft_available) && (
-                <ConversationDraftEditor
-                  key={`draft:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
-                  scope={{ worldId: verifiedWorldId, conversationId: history.conversation_id, turnId: turn.turn_id }}
-                />
-              )}
+            {draftEditor}
             {verifiedWorldId && history?.conversation_id && !pageWorkPlan && <ConversationWorkbook
               key={`workbook:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
               collaboration={collaboration}
