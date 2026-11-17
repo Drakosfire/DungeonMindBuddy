@@ -434,6 +434,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
+            ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-projection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/build-recap-launches/{request_id}"): access.resolve_hosted_build_recap_recovery,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/usage"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
@@ -5096,3 +5097,21 @@ def test_hosted_recap_candidate_correction_checks_world_and_parent(hosted, monke
     response = hosted.client.request("POST", path, json=body)
     assert response.status_code == 409, response.text
     assert calls == ["saved"]
+
+
+def test_hosted_historical_recap_projection_rejects_foreign_result(hosted, monkeypatch):
+    from apps.live_control_server.services import historical_recap_world_projection as historical
+
+    calls = []
+
+    def project(_root, run_id, *, managed_world_id):
+        calls.append((run_id, managed_world_id))
+        return SimpleNamespace(managed_world_id="foreign")
+
+    monkeypatch.setattr(historical, "build_historical_recap_world_projection", project)
+    path = "/api/live/graph-preview/extraction-runs/saved/recap-projection"
+    assert hosted.client.request("GET", path).status_code == 403
+    assert hosted.client.request("GET", path + "?managed_world_id=managed", session="other-session").status_code == 403
+    assert calls == []
+    assert hosted.client.request("GET", path + "?managed_world_id=managed").status_code == 403
+    assert calls == [("saved", "managed")]

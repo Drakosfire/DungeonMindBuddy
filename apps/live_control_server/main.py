@@ -385,6 +385,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/graph-preview/extraction-runs"): resolve_hosted_saved_recap,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): resolve_hosted_saved_recap,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): resolve_hosted_saved_recap,
+    ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-projection"): resolve_hosted_saved_recap,
     ("GET", "/api/live/graph-preview/build-recap-launches/{request_id}"): resolve_hosted_build_recap_recovery,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/usage"): resolve_hosted_saved_recap,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): resolve_hosted_build_extraction,

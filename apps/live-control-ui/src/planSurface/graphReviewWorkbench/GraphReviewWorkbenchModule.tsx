@@ -414,7 +414,7 @@ export function GraphReviewWorkbenchModule({
         setExactReviewError(null);
         setHistoricalRecapProjectionStatus("loading");
         try {
-          const projection = await getHistoricalRecapWorldProjection(run.run_id);
+          const projection = await getHistoricalRecapWorldProjection(run.run_id, managedWorldId ?? undefined);
           if (cancelled) return;
           if (
             projection.runId !== run.run_id
@@ -429,7 +429,8 @@ export function GraphReviewWorkbenchModule({
           }
           if (
             sourceReviewOnlyForCurrentRun
-            && projection.worldId.trim() !== context.campaignId.trim()
+            && (managedWorldId ? projection.managedWorldId !== managedWorldId
+              : projection.worldId.trim() !== context.campaignId.trim())
           ) {
             throw new Error(
               "historical recap projection World does not match the selected target World",
