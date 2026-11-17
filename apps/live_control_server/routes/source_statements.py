@@ -98,8 +98,14 @@ def read_subject(
     entity_id: str,
     campaign_id: str,
     revision_id: str,
-    principal: NativeGraphPrincipal = Depends(authenticate_native_graph_principal),
+    request: Request,
 ):
+    from apps.live_control_server.services import hosted_auth
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        principal = authenticate_native_graph_principal(request)
+    else:
+        principal = _statement_principal(request, managed_world_id)
     return _call(
         service.read_subject,
         managed_world_id=managed_world_id,

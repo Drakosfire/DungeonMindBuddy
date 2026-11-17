@@ -501,6 +501,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/extract-promote/runs/{run_id}/worldbuilding-publication-coverage"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/extract-promote/native-worldbuilding-context"): access.resolve_hosted_worldbuilding_review_context,
             ("GET", "/api/live/source-statements/proposals/{operation_id}"): access.resolve_hosted_source_statement_proposal,
+            ("GET", "/api/live/source-statements/{world_id}/subjects/{entity_id}"): access.resolve_hosted_source_statement_subject,
             ("POST", "/api/live/source-statements/proposals/{operation_id}/review"): access.resolve_hosted_source_statement_proposal,
             ("POST", "/api/live/source-statements/prepare"): access.resolve_hosted_source_statement_publication,
             ("POST", "/api/live/source-statements/confirm"): access.resolve_hosted_source_statement_publication,
@@ -4922,3 +4923,22 @@ def test_hosted_source_evidence_extension_checks_world_before_writing(hosted, mo
     result = hosted.client.request("POST", path, json=body)
     assert result.status_code == 200, result.text
     assert calls == [("managed", "hosted_dms:synthetic-owner-alpha")]
+
+
+def test_hosted_source_statement_subject_is_exact_world_read(hosted, monkeypatch):
+    from apps.live_control_server.routes import source_statements
+
+    calls = []
+
+    def read(**kwargs):
+        calls.append((kwargs["managed_world_id"], kwargs["revision_id"], kwargs["principal"].subject))
+        return {"status": "complete"}
+
+    monkeypatch.setattr(source_statements.service, "read_subject", read)
+    path = "/api/live/source-statements/managed/subjects/ent:subject?campaign_id=campaign&revision_id=rev:head"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&revision_id=other").status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 200, result.text
+    assert calls == [("managed", "rev:head", "hosted_dms:synthetic-owner-alpha")]

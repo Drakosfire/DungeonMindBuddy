@@ -343,7 +343,9 @@ def test_authenticated_routes_and_strict_selection(lane, monkeypatch):
     from apps.live_control_server.services import agent_graph_auth
 
     monkeypatch.setattr(agent_graph_auth, "enforce_native_graph_gm", lambda _: GM)
-    from apps.live_control_server.routes.source_statements import router
+    from apps.live_control_server.routes import source_statements as routes
+    monkeypatch.setattr(routes, "authenticate_native_graph_principal", lambda _: GM)
+    router = routes.router
     from apps.live_control_server.services.agent_graph_auth import (
         authenticate_native_graph_principal,
         native_graph_gm_dependency,
@@ -679,7 +681,8 @@ def test_extension_proof_tamper_refuses_before_publication(extension_lane, monke
 
 def extension_client(monkeypatch, principal=GM):
     from apps.live_control_server.services import agent_graph_auth
-    from apps.live_control_server.routes.source_statements import router
+    from apps.live_control_server.routes import source_statements as routes
+    router = routes.router
     from apps.live_control_server.services.agent_graph_auth import (
         authenticate_native_graph_principal,
     )
@@ -688,6 +691,7 @@ def extension_client(monkeypatch, principal=GM):
     if principal is not None:
         app.dependency_overrides[authenticate_native_graph_principal] = lambda: principal
         monkeypatch.setattr(agent_graph_auth, "authenticate_native_graph_principal", lambda _: principal)
+        monkeypatch.setattr(routes, "authenticate_native_graph_principal", lambda _: principal)
     return TestClient(app, client=("127.0.0.1", 50000))
 
 
