@@ -375,6 +375,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2/{run_id}/reference-manifest"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}"): access.resolve_hosted_play_read,
+            ("POST", "/api/live/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}"): access.resolve_hosted_play_command,
             ("GET", "/api/live/world-session-evidence"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/world-session-evidence/{run_id}/revisions/{revision}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/review"): access.resolve_hosted_play_read,
@@ -383,7 +384,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/receipts"): access.resolve_hosted_play_roll_receipts,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content/revisions/{revision_n}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): access.resolve_hosted_play_read,
-            ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): access.resolve_hosted_play_table_roll,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): access.resolve_hosted_play_command,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/media/images/preparations/list"): access.resolve_hosted_image_history,
@@ -2406,6 +2407,15 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert saved_proposal.json()["proposal_id"] == str(proposal_id)
     assert saved_proposal.json()["status"] == "pending"
     assert listed_proposals.json()["proposals"] == [saved_proposal.json()]
+
+    proposal_path = proposals + f"/{proposal_id}?world_id=managed"
+    proposal_body = edit.model_dump(mode="json")
+    assert hosted.client.request("POST", proposal_path, json=proposal_body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", proposal_path, json=proposal_body, origin=None).status_code == 403
+    retry = hosted.client.request("POST", proposal_path, json=proposal_body)
+    assert retry.status_code == 200, retry.text
+    assert retry.json() == saved_proposal.json()
+
 
     tables_path = f"{base}/prepared-tables?world_id=managed"
     table_response = hosted.client.request("GET", tables_path)
