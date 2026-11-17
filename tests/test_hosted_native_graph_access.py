@@ -264,6 +264,7 @@ def hosted(monkeypatch, request):
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation", agent_routes.get_world_conversation_history, methods=["GET"])
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/new", agent_routes.post_new_world_conversation, methods=["POST"])
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}", agent_routes.get_new_world_conversation_status, methods=["GET"])
+    app.add_api_route("/api/live/agent/turn", agent_routes.post_agent_turn, methods=["POST"])
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -330,6 +331,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
             ("GET", "/api/live/threat-drafts"): access.resolve_hosted_statblock_inventory,
+            ("POST", "/api/live/agent/turn"): access.resolve_hosted_chat_turn,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}"): access.resolve_hosted_conversation_world,
@@ -2652,3 +2654,37 @@ def test_hosted_citation_read_binds_world_and_saved_turn(hosted, monkeypatch):
     opened.assert_called_once_with(
         world_id="managed", turn_id=turn_id, citation_index=0, service=conversation_service,
     )
+
+
+def test_hosted_chat_turn_reaches_executor_with_exact_world_principal(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import agent
+
+    execute = Mock()
+    execute.return_value.model_dump.return_value = {"status": "completed"}
+    monkeypatch.setattr(agent, "execute_agent_turn", execute)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: None)
+    path = "/api/live/agent/turn"
+    body = {
+        "schema": "dmb_agent_turn_request_v1",
+        "client_thread_id": "thread", "turn_id": "turn",
+        "surface": {"surface_id": "build", "instance_id": "build"},
+        "owner_scope": {"kind": "world", "world_id": "managed"},
+        "primary_work": None, "client_work_state": "none",
+        "graph_request": {"mode": "none"}, "graph_selection": None,
+        "message": "Open the saved source",
+    }
+    assert hosted.client.request("POST", path, session=None, json=body).status_code == 401
+    assert hosted.client.request("POST", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", path, origin=None, json=body).status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "owner_scope": None}).status_code == 403
+    execute.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json() == {"status": "completed"}
+    assert execute.call_count == 1
+    principal = execute.call_args.kwargs["native_principal"]
+    assert principal.managed_world_id == "managed"
+    assert principal.subject == execute.call_args.kwargs["operator_subject"]

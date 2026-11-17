@@ -235,6 +235,32 @@ async def resolve_hosted_conversation_world(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_chat_turn(request: Request) -> str:
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest, AgentTurnWorldOwner
+
+    if request.query_params:
+        raise _denied()
+    body = AgentTurnRequest.model_validate(await request.json())
+    if not isinstance(body.owner_scope, AgentTurnWorldOwner):
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.owner_scope.world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
+def chat_turn_principal(
+    request: Request, world_id: str, *, authorize_local: Callable[[Request], NativeGraphPrincipal],
+) -> NativeGraphPrincipal:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return authorize_local(request)
+    require_conversation_access(request, world_id, authorize_local=authorize_local)
+    subject = _hosted_subject(request)
+    return HostedOwnerGraphPrincipal(
+        subject=f"hosted_dms:{subject}", dms_subject=subject, role="gm",
+        auth_method="hosted_owner", managed_world_id=world_id,
+    )
+
+
 def require_conversation_access(
     request: Request, world_id: str, *, authorize_local: Callable[[Request], object],
 ) -> None:
