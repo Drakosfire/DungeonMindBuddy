@@ -277,3 +277,38 @@ def test_variant_format_with_visible_reply_rejects_empty_segments_at_completion(
     }
     with pytest.raises(ValueError, match="requires a visible reply"):
         normalize_candidate(candidate, None, execution, None, evidence)
+
+
+@pytest.mark.parametrize(
+    ("quotes", "valid"),
+    [
+        (["Only after the bell."], True),
+        ([], True),
+        (["Only before the bell."], False),
+        (["bell"], False),
+    ],
+)
+def test_variant_witness_binds_unique_authored_clause_to_containing_rule(quotes, valid):
+    from application_state.agent_conversation.native_completion import normalize_statblock_variant
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    work = {
+        "response_contract": {"requested_work": "draft_in_conversation", "operation": "answer_from_sources"},
+        "saved_statblocks": [{"event_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857", "definition": base}],
+        "working_draft_context": {"draft_markdown": "Only after the bell. The bell falls silent."},
+    }
+    added = base["rule_elements"][0] | {"key": "truce"}
+    proposal = {
+        "source": "statblock0",
+        "add_rules": [{"authored_quotes": quotes, "rule": added}],
+        "replace_rules": [],
+    }
+    if not valid:
+        with pytest.raises(ValueError, match="witness must identify exact authored text"):
+            normalize_statblock_variant({"statblock_variant": proposal}, work,
+                                        variant_edits=True, variant_witnesses=True)
+    else:
+        result = normalize_statblock_variant({"statblock_variant": proposal}, work,
+                                             variant_edits=True, variant_witnesses=True)
+        assert result.definition.model_dump()["rule_elements"][-1] == added

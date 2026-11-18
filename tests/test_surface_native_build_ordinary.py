@@ -438,6 +438,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     source="pdf0:0", quote="Hit Points 41")]
             if saved_statblock and current_work == "draft_in_conversation":
                 new_rule = definition["rule_elements"][0] | {"key": "truce", "name": "Terms of Truce", "costs": None}
+                if body["text"]["format"]["name"] == "surface_native_evidence_selectors_v6":
+                    new_rule = {"rule": new_rule, "authored_quotes": []}
                 candidate["statblock_variant"] = {
                     "source": "statblock0", "add_rules": [new_rule], "replace_rules": [],
                 }

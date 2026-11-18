@@ -220,13 +220,13 @@ def verify_native_work_input(execution, basis, raw):
     from .source_writer_output import responses_text_frame, strict_json
     from .rules_authority_types import canonical_bytes
     body=strict_json(raw)
-    from .native_build_work_view import VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WRITER_FORMAT, frame_in_request, semantic_frame
+    from .native_build_work_view import VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT, frame_in_request, semantic_frame
     frame=frame_in_request(body)
     host=native_work_frame(execution,basis)
     format_name = body.get("text", {}).get("format", {}).get("name")
     expected = (semantic_frame(host, execution,
-        include_variant=format_name in {VARIANT_WRITER_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT},
-        variant_edits=format_name in {VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT}) if frame is not None else host)
+        include_variant=format_name in {VARIANT_WRITER_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT},
+        variant_edits=format_name in {VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT}) if frame is not None else host)
     if frame is None:
         frame=responses_text_frame(raw,schemas={NATIVE_WORK_SCHEMA},label='Native Build work')
     if (body.get('model') != execution.policy.provider_roles.writer.model
