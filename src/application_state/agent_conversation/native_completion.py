@@ -210,8 +210,9 @@ def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False, v
         review = proposal["passage_review"]
         passages = variant_draft_passages(work_frame)
         if (not passages or not isinstance(review, dict) or set(review) != set(passages)
-                or any(value not in ("retain", "change", "omit") for value in review.values())):
+                or any(value not in ("retain", "change", "omit", "retain_trigger") for value in review.values())):
             raise ValueError("Statblock variant must review every offered draft passage")
+        _validate_retained_trigger_bindings(proposal, passages)
     source = proposal["source"]
     if not isinstance(source, str) or source not in sources:
         raise ValueError("Statblock variant base was not admitted")
@@ -229,6 +230,37 @@ def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False, v
         if variant_edits else proposal["definition"]
     )
     return ConversationVariantDraft(base_event_id=base["event_id"], definition=definition)
+
+
+def _validate_retained_trigger_bindings(proposal, passages):
+    required = {
+        handle: passages[handle] for handle, decision in proposal["passage_review"].items()
+        if decision == "retain_trigger"
+    }
+    covered = set()
+    for field in ("add_rules", "replace_rules"):
+        edits = proposal[field]
+        if not isinstance(edits, list):
+            raise ValueError("Statblock rule edits must be arrays")
+        for edit in edits:
+            if not isinstance(edit, dict):
+                raise ValueError("Statblock rule edits must be objects")
+            condition = edit.get("carried_condition")
+            if condition is None:
+                continue
+            if not isinstance(condition, str) or not condition.strip():
+                raise ValueError("Carried trigger requires exact authored text")
+            matches = [handle for handle, passage in required.items() if condition in passage]
+            rule = edit.get("rule")
+            activation = rule.get("activation") if isinstance(rule, dict) else None
+            trigger = activation.get("trigger") if isinstance(activation, dict) else None
+            if len(matches) != 1 or not isinstance(trigger, dict):
+                raise ValueError("Carried trigger must bind to one retained trigger passage and a typed rule")
+            if activation.get("timing_text") is not None or trigger.get("source_element_key") is not None:
+                raise ValueError("Carried trigger cannot add timing or a rule dependency")
+            covered.add(matches[0])
+    if covered != required.keys():
+        raise ValueError("Every retained trigger passage requires a carried condition")
 
 
 def _unique_authored_quote(markdown, quote):

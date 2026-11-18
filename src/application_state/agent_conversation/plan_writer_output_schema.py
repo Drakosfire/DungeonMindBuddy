@@ -357,18 +357,24 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                 passages = variant_draft_passages(work_frame)
                 if not passages:
                     raise ValueError("Variant passage review requires a nonempty authored draft")
-                review = _object({handle: _enum(["retain", "change", "omit"]) for handle in passages})
+                review = _object({
+                    handle: _enum(["retain", "change", "omit", "retain_trigger"]) for handle in passages
+                })
                 review["description"] = (
-                    "Review each authored passage before drafting. Retain existing behavior needed "
-                    "by the requested variant, including all trigger exceptions and consequences. "
-                    "Change only where the GM asked for it. Omit unrelated material."
+                    "Review every authored passage before drafting. Use retain_trigger for an existing "
+                    "activation condition that governs these mechanics. Every retain_trigger requires "
+                    "an exact carried_condition from that passage in its corresponding rule. "
+                    "Retain other relevant effects and qualifications. Change only where the GM explicitly "
+                    "asked to change that source behavior. Omit unrelated material."
                 )
                 witnesses["description"] = (
                     "Quote the exact authored passages that establish the retained effects of this rule."
                 )
                 fields["carried_condition"]["description"] = (
-                    "Select the exact source sentence from a retained passage for an existing trigger. "
-                    "Use null for original or explicitly changed mechanics."
+                    "Select the exact activation sentence from a retain_trigger passage. Keep every exception. "
+                    "For this carried trigger, set activation.timing_text and activation.trigger.source_element_key "
+                    "to null. Put consequences only in rules_text. Null here is for an original or explicitly "
+                    "changed trigger."
                 )
                 properties = {"passage_review": review, **properties}
             if format_version >= 4:

@@ -361,3 +361,26 @@ def test_variant_passages_keep_exact_text_order_and_ignore_blank_separators():
     assert variant_draft_passages(work) == {"p1": "First.", "p2": "  Second.", "p3": "Third.\n"}
     assert variant_output_version(work) == 9
     assert variant_output_version({}) == 8
+
+
+@pytest.mark.parametrize("drift", [None, "unbound", "omitted", "timing", "dependency"])
+def test_retained_trigger_has_exact_binding_and_no_added_prerequisites(drift):
+    from application_state.agent_conversation.native_completion import _validate_retained_trigger_bindings
+
+    exact = "The gate opens only after the second bell."
+    passages = {"p1": exact, "p2": "The guards stand aside."}
+    activation = {
+        "timing_text": "After a deal." if drift == "timing" else None,
+        "trigger": {"source_element_key": "deal" if drift == "dependency" else None},
+    }
+    candidate = {
+        "passage_review": {"p1": "omit" if drift == "unbound" else "retain_trigger", "p2": "retain"},
+        "add_rules": [{"carried_condition": None if drift == "omitted" else exact,
+                       "rule": {"activation": activation}}],
+        "replace_rules": [],
+    }
+    if drift is None:
+        _validate_retained_trigger_bindings(candidate, passages)
+    else:
+        with pytest.raises(ValueError, match="[Tt]rigger"):
+            _validate_retained_trigger_bindings(candidate, passages)
