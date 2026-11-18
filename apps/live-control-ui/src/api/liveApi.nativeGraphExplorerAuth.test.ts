@@ -539,3 +539,17 @@ it("reads earlier image directions with the exact hosted session route", async (
   await expect(api.authenticatedApiFetch(path + "&world_id=other")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("reads a hosted conversation name without enabling name writes", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ title: "Saved" }));
+  const path = "/api/live/agent/worlds/elderwyld/conversations/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/name";
+  await api.authenticatedApiFetch(path);
+  expect(fetch).toHaveBeenCalledOnce();
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path, { method: "PUT", body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledOnce();
+});
