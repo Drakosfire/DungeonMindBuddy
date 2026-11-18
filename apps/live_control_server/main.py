@@ -145,6 +145,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_combat_encounter,
     resolve_hosted_connected_page,
     resolve_hosted_conversation_world,
+    resolve_hosted_native_publication,
     resolve_hosted_native_creature,
     resolve_hosted_mechanics_association,
     resolve_hosted_image_history,
@@ -201,6 +202,8 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", "/api/live/extract-promote/native-prepare"): resolve_hosted_native_publication,
+    ("POST", "/api/live/extract-promote/native-confirm"): resolve_hosted_native_publication,
     ("POST", "/api/live/extract-promote/worldbuilding/prepare"): resolve_hosted_worldbuilding_write_plan,
     ("POST", "/api/live/extract-promote/worldbuilding/confirm"): resolve_hosted_worldbuilding_write_plan,
     ("POST", "/api/live/extract-promote/native-worldbuilding-context"): resolve_hosted_worldbuilding_review_context,

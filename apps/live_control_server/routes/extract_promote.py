@@ -723,19 +723,25 @@ def _native_recap_operation(body, request, principal, operation):
 def prepare_native_recap(
     body: NativeRecapPrepareRequest | NativeWorldbuildingPrepareRequest,
     request: Request,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ):
     from apps.live_control_server.services.native_recap_preparation import prepare
-    return _native_recap_operation(body, request, principal, prepare)
+    require_explorer_access(principal, body.managed_world_id)
+    response = _native_recap_operation(body, request, principal, prepare)
+    require_explorer_access(principal, body.managed_world_id)
+    return response
 
 
 def confirm_native_recap(
     body: NativeRecapConfirmRequest,
     request: Request,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ):
     from apps.live_control_server.services.native_recap_preparation import confirm
-    return _native_recap_operation(body, request, principal, confirm)
+    require_explorer_access(principal, body.envelope.review.managed_world_id)
+    response = _native_recap_operation(body, request, principal, confirm)
+    require_explorer_access(principal, body.envelope.review.managed_world_id)
+    return response
 
 
 router.add_api_route(

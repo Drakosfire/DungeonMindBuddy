@@ -832,7 +832,13 @@ def confirm(request, principal):
                  "candidate_source_authority_changed")
     _require(native.binding(envelope.review.managed_world_id) == bound, "candidate_binding_changed")
     domain, profile = native.descriptors(repo, space, prepared.expected_parent_revision_id)
-    result = transport.runtime(repo, domain, profile, now=prepared.prepared_at,
-                               operation_id=prepared.prepared_change_id).commit_prepared_change(
-                                   prepared, confirmed_by=principal.subject)
+    runtime = transport.runtime(
+        repo, domain, profile, now=prepared.prepared_at,
+        operation_id=prepared.prepared_change_id,
+    )
+    from apps.live_control_server.services.hosted_native_graph_access import require_explorer_access
+
+    _require(native.binding(envelope.review.managed_world_id) == bound, "candidate_binding_changed")
+    require_explorer_access(principal, envelope.review.managed_world_id)
+    result = runtime.commit_prepared_change(prepared, confirmed_by=principal.subject)
     return {"status": "committed", "recovered": recovering, "result": jsonable_encoder(result)}

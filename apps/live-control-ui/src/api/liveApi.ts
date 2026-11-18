@@ -434,6 +434,12 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (path === "/api/live/extract-promote/native-prepare" || path === "/api/live/extract-promote/native-confirm") {
+    const body = requestBodyRecord(init?.body);
+    const review = path.endsWith("/native-confirm") && isRecord(body?.envelope) ? body.envelope.review : body;
+    return method === "POST" && isRecord(review) && typeof review.managed_world_id === "string"
+      && Boolean(review.managed_world_id) && typeof review.run_id === "string" && Boolean(review.run_id);
+  }
   if (path === "/api/live/extract-promote/worldbuilding/prepare"
     || path === "/api/live/extract-promote/worldbuilding/confirm") {
     const body = requestBodyRecord(init?.body);
