@@ -16,6 +16,7 @@ describes is implemented or deployed.
 | Understand Agent orchestration and context | [Agent runtime boundary](../apps/live_control_server/services/agent_runtime.py), [context compilation decision](Design/DECISION-agent-context-compilation.md), and the dated [runtime design direction](Design/DECISION-agent-runtime-and-semantic-adjudication.md) |
 | Choose verification for a change | [Agent policy: review and verification](../AGENTS.md#review-and-verification), [frontend commands](../apps/live-control-ui/README.md#commands), and the owning contract |
 | Find experiments, fixtures, or evaluation evidence | [Lab and evaluation guide](../evals/README.md) |
+| Find the accepted ingestion baseline and historical retrieval evidence | [Baseline and retrieval history report](Reports/REPORT-ingestion-baseline-and-retrieval-history-2026-11-07.md) |
 | Deploy or recover a system | [Production deployment](Runbooks/RUNBOOK-buddy-production-deployment.md) and [application-state recovery](Runbooks/RUNBOOK-application-state-authority-recovery.md) |
 
 ## Current work and historical material
