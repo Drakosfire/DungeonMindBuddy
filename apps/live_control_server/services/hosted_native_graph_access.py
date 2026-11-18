@@ -1018,6 +1018,18 @@ async def resolve_hosted_worldbuilding_evidence_correction(request: Request) -> 
     return world_id
 
 
+def worldbuilding_evidence_authorizer(request: Request, world_id: str) -> Callable[[], None] | None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return None
+
+    def authorize() -> None:
+        if getattr(request.state, "hosted_build_page_world", None) != world_id:
+            raise _denied()
+        _owned_world(_hosted_subject(request), world_id)
+
+    return authorize
+
+
 async def resolve_hosted_threat_hydration(request: Request) -> str:
     if request.query_params:
         raise _denied()

@@ -4649,3 +4649,17 @@ def test_hosted_evidence_correction_requires_exact_owned_parent(hosted, monkeypa
     response = hosted.client.request("POST", path, json=body)
     assert response.status_code == 409, response.text
     assert correct.call_args.args[0].parent_run_id == "saved-run"
+
+    persisted = Mock()
+
+    def transfer_before_write(_request, *, authorize_write):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        authorize_write()
+        persisted()
+
+    correct.side_effect = transfer_before_write
+    denied = hosted.client.request("POST", path, json=body)
+    assert denied.status_code == 403, denied.text
+    persisted.assert_not_called()
