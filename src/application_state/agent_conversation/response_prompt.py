@@ -58,11 +58,12 @@ Do not mark answered dimensions as missing or fill gaps with unrelated excerpts.
 
 TASKS = {
     'answer': None,
-    'build_discussion': ResponsePromptComponent('build_discussion_task', '1',
-        'When the user introduces a brainstorming topic and identifies references without asking '
-        'for a specific idea or deliverable yet, briefly acknowledge the aim and confirm which '
-        'references are ready. When the user asks for specific ideas, develop those ideas at the '
-        'requested scope.'),
+    'build_discussion': ResponsePromptComponent('build_discussion_task', '2',
+        'For a brainstorm opener, confirm the requested references are ready. When the GM '
+        'extends a speculative premise, use references silently to check compatibility and '
+        'give one concrete hypothetical play moment in discussion. Leave open questions '
+        'unresolved. When the GM explicitly asks what evidence establishes, answer with '
+        'offered supporting selectors. Provide multiple ideas when requested.'),
     'clarify': ResponsePromptComponent('clarification_task', '1',
         'Ask focused questions needed to resolve the current request. Keep the clarification '
         'in conversation or its offered questions object; do not draft or carry out follow-up work.'),
