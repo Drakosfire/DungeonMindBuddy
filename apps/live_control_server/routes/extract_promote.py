@@ -318,6 +318,12 @@ def post_recap_evidence_corrections(
     return response.model_dump(mode="json", by_alias=True)
 
 
+def recap_candidate_correction_access(request: Request, managed_world_id: str | None = None) -> None:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_recap_correction
+
+    require_hosted_recap_correction(request, managed_world_id or "")
+
+
 @router.post(
     "/runs/{run_id}/recap-candidate-corrections",
     response_model=(
@@ -338,17 +344,35 @@ def post_recap_candidate_corrections(
     request_context: Request,
     run_id: str,
     request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9 | RecapCandidateCorrectionRequestV10 | RecapCandidateCorrectionRequestV11,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    _access: None = Depends(recap_candidate_correction_access),
 ) -> dict[str, Any] | JSONResponse:
     """GM-only bounded semantic candidate child; no World publication."""
+    from apps.live_control_server.services import hosted_auth
+
     try:
-        _reject_selector_query(request_context)
+        if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+            _reject_selector_query(request_context)
         if run_id != request.parent_run_id:
             raise ExtractPromoteError(
                 "path run ID does not match parentRunId",
                 code="invalid_request", status_code=422,
             )
-        response = correct_recap_candidate(request)
+        authorize = None
+        if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+            def authorize() -> None:
+                recap_candidate_correction_access(
+                    request_context, request_context.query_params.get("managed_world_id"),
+                )
+        if authorize is None:
+            response = correct_recap_candidate(request)
+        else:
+            response = correct_recap_candidate(request, authorize_write=authorize)
+        result = response.model_dump(mode="json", by_alias=True)
+        if authorize is not None:
+            authorize()
+        return result
+    except HTTPException:
+        raise
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -357,7 +381,6 @@ def post_recap_candidate_corrections(
             "The recap candidate correction failed unexpectedly.",
             code="extract_promote_internal_error", status_code=500,
         ))
-    return response.model_dump(mode="json", by_alias=True)
 
 
 @router.post(

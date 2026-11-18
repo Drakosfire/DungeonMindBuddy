@@ -1161,3 +1161,35 @@ async def resolve_hosted_native_publication(request: Request) -> str:
     world = await run_in_threadpool(_owned_world, subject, review.managed_world_id)
     request.state.hosted_native_graph_world = world.world_id
     return world.world_id
+
+
+async def resolve_hosted_recap_correction(request: Request) -> str:
+    from apps.live_control_server.services.exact_run_candidate_projection import (
+        CandidateProjectionError, build_exact_run_candidate_projection,
+    )
+    from apps.live_control_server.config import repo_root
+
+    world_id = request.query_params.get("managed_world_id")
+    run_id = getattr(request.state, "hosted_route_run_id", None)
+    if not world_id or not run_id or request.query_params.multi_items() != [("managed_world_id", world_id)]:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    try:
+        await run_in_threadpool(build_exact_run_candidate_projection, repo_root(), run_id, world.world_id)
+    except CandidateProjectionError:
+        raise _denied() from None
+    request.state.hosted_saved_recap_world = world.world_id
+    request.state.hosted_recap_correction_binding = world.native_graph_binding
+    return world.world_id
+
+
+def require_hosted_recap_correction(request: Request, world_id: str) -> None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+        return
+    if getattr(request.state, "hosted_saved_recap_world", None) != world_id:
+        raise _denied()
+    binding = getattr(request.state, "hosted_recap_correction_binding", None)
+    world = _owned_world(_hosted_subject(request), world_id)
+    if binding is None or world.native_graph_binding != binding:
+        raise _denied()

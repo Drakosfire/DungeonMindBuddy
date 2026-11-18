@@ -137,6 +137,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_worldbuilding_evidence_correction,
     resolve_hosted_exact_extraction_read,
     resolve_hosted_saved_recap,
+    resolve_hosted_recap_correction,
     resolve_hosted_build_page,
     resolve_hosted_build_native_source,
     resolve_hosted_statblock_inventory,
@@ -202,6 +203,7 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", "/api/live/extract-promote/runs/{run_id}/recap-candidate-corrections"): resolve_hosted_recap_correction,
     ("POST", "/api/live/extract-promote/native-prepare"): resolve_hosted_native_publication,
     ("POST", "/api/live/extract-promote/native-confirm"): resolve_hosted_native_publication,
     ("POST", "/api/live/extract-promote/worldbuilding/prepare"): resolve_hosted_worldbuilding_write_plan,
