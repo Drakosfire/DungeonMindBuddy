@@ -536,14 +536,18 @@ def get_world_session_review(run_id: str, request: Request, world_id: Annotated[
     from apps.live_control_server.services import hosted_auth
     from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
 
-    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
         require_hosted_plan_world_context(request, world_id)
     else:
         enforce_native_graph_gm(request)
     try:
-        return read_review(run_id=run_id, world_id=world_id)
+        review = read_review(run_id=run_id, world_id=world_id)
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    return review
 
 
 @router.put("/world-play-runs/v2/{run_id}/review/commands/{command_id}")

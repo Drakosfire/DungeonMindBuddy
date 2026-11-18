@@ -2420,6 +2420,23 @@ def test_hosted_owner_creates_lists_and_reopens_plan(hosted, application_state_d
     assert snapshot.json()["record"]["title"] == body["title"]
 
 
+def test_hosted_play_review_denies_ownership_transfer_during_read(hosted, monkeypatch):
+    from application_state.play import session_review
+
+    def read_review(**_scope):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"review": "private-review"}
+
+    monkeypatch.setattr(session_review, "read_review", read_review)
+    response = hosted.client.request(
+        "GET", "/api/live/world-play-runs/v2/saved-run/review?world_id=managed",
+    )
+    assert response.status_code == 403, response.text
+    assert "private-review" not in response.text
+
+
 def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_state_dsn, tmp_path):
     from application_state.content.service import commit_plan
     from apps.live_control_server.services.workspace_document_registry import create_world_owned_plan_v2
