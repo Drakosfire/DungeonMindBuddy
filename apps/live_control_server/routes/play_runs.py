@@ -472,33 +472,53 @@ async def put_world_run_content_command(
 @router.get("/world-play-runs/v2/{run_id}/content/proposals")
 def list_world_run_scene_proposals(run_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     from application_state.play_scene_edit.service import PlaySceneEditProposalService
     from apps.live_control_server.services.play_scene_edit_proposal import public_record
     from application_state.errors import ApplicationStateError
     try:
         from uuid import UUID
-        return {"proposals": [public_record(record) for record in PlaySceneEditProposalService().list_records(world_id=world_id, run_id=UUID(run_id))]}
+        response = {"proposals": [public_record(record) for record in PlaySceneEditProposalService().list_records(world_id=world_id, run_id=UUID(run_id))]}
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Invalid proposal or Run identity") from exc
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    return response
 
 
 @router.get("/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}")
 def get_world_run_scene_proposal(run_id: str, proposal_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     from application_state.play_scene_edit.service import PlaySceneEditProposalService
     from apps.live_control_server.services.play_scene_edit_proposal import public_record
     from application_state.errors import ApplicationStateError
     try:
         from uuid import UUID
-        return public_record(PlaySceneEditProposalService().get(world_id=world_id, run_id=UUID(run_id), proposal_id=UUID(proposal_id)))
+        response = public_record(PlaySceneEditProposalService().get(world_id=world_id, run_id=UUID(run_id), proposal_id=UUID(proposal_id)))
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Invalid proposal or Run identity") from exc
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    return response
 
 
 @router.post("/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}")

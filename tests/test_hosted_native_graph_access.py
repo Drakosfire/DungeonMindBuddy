@@ -360,6 +360,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2/{run_id}/review"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-session-evidence"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/world-session-evidence/{run_id}/revisions/{revision}"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables"): access.resolve_hosted_play_read,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): access.resolve_hosted_play_table_roll,
@@ -2521,6 +2523,41 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     pinned = hosted.client.request("GET", pinned_path).json()
     assert pinned["markdown"] == record["markdown"]
     assert pinned["work_revision_id"] == body["expected_playable_work_revision_id"]
+
+    from uuid import UUID
+
+    from application_state.play_scene_edit.service import PlaySceneEditProposalService
+    from apps.live_control_server.models.play_scene_edit_proposal import PlaySceneEditProposalRequest
+    from apps.live_control_server.services.agent_play_surface_context import resolve_world_play_session_turn_snapshot
+
+    edit = PlaySceneEditProposalRequest(
+        run_revision=opened["run_revision"], scene_id=result.json()["scenes"][0]["scene_id"],
+        instruction="Clarify what the party sees at the gate.",
+        content_basis={
+            "edition_revision": 0, "edition_revision_id": None,
+            "content_sha256": body["expected_playable_content_sha256"],
+        },
+    )
+    _, context_receipt = resolve_world_play_session_turn_snapshot(
+        root=tmp_path, world_id="managed", run_id=run_id,
+        run_revision=edit.run_revision, content_basis=edit.content_basis,
+    )
+    proposal_id = uuid4()
+    PlaySceneEditProposalService().reserve(
+        world_id="managed", run_id=UUID(run_id), proposal_id=proposal_id,
+        request=edit.model_dump(mode="json"), context_receipt=context_receipt,
+    )
+    proposals = f"{base}/content/proposals"
+    listed_proposals = hosted.client.request("GET", proposals + "?world_id=managed")
+    assert listed_proposals.status_code == 200, listed_proposals.text
+    saved_proposal = hosted.client.request("GET", proposals + f"/{proposal_id}?world_id=managed")
+    assert saved_proposal.status_code == 200, saved_proposal.text
+    assert saved_proposal.json()["proposal_id"] == str(proposal_id)
+    assert saved_proposal.json()["status"] == "pending"
+    assert listed_proposals.json()["proposals"] == [saved_proposal.json()]
+
+    assert hosted.client.request("GET", proposals + "?world_id=managed", session="other-session").status_code == 403
+    assert hosted.client.request("GET", proposals + f"/{proposal_id}?world_id=managed", session="other-session").status_code == 403
 
     tables_path = f"{base}/prepared-tables?world_id=managed"
     table_response = hosted.client.request("GET", tables_path)

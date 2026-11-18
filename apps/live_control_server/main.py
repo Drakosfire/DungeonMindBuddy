@@ -234,6 +234,8 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/world-play-runs/v2/{run_id}/review"): resolve_hosted_play_read,
     ("GET", "/api/live/world-session-evidence"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/world-session-evidence/{run_id}/revisions/{revision}"): resolve_hosted_play_read,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals"): resolve_hosted_play_read,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}"): resolve_hosted_play_read,
     ("GET", "/api/live/world-play-runs/v2/{run_id}/content"): resolve_hosted_play_read,
     ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables"): resolve_hosted_play_read,
     ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): resolve_hosted_play_table_roll,

@@ -735,6 +735,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const query = new URLSearchParams(sessionEvidence[1]);
     return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
   }
+  const playProposal = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\/proposals(?:\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?([^#]+)$/i.exec(path);
+  if (playProposal) {
+    const query = new URLSearchParams(playProposal[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
   const runContent = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\?/.exec(path);
   if (runContent) {
     const worldId = new URLSearchParams(path.slice(runContent[0].length)).get("world_id");
