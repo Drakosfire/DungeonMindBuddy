@@ -96,6 +96,42 @@ def test_pdf_event_preserves_review_and_reopens_citation(
         assert repo.get_head(space) == before
         wrong = draft | {"region": region | {"content_sha256": "0" * 64}}
         assert client.post(events + "/prepare", json=wrong, headers=auth).status_code == 409
+        for boundary in ("source", "parent"):
+            with monkeypatch.context() as change:
+                source_reads = 0
+                revoked = False
+                original_revision = repo.get_revision
+                original_load = repo.get_native_pdf_source
+                original_authorize = pdf_adventure_events.require_build_pdf_access
+
+                def load_source(*args):
+                    nonlocal source_reads, revoked
+                    source = original_load(*args)
+                    source_reads += 1
+                    if boundary == "source" and source_reads == 2:
+                        revoked = True
+                    return source
+
+                def read_revision(*args):
+                    nonlocal revoked
+                    result = original_revision(*args)
+                    if boundary == "parent" and source_reads == 2:
+                        revoked = True
+                    return result
+
+                def authorize(request, world_id):
+                    if revoked:
+                        raise pdf_adventure_events.HTTPException(403)
+                    return original_authorize(request, world_id)
+
+                change.setattr(native, "repository", lambda: repo)
+                change.setattr(repo, "get_native_pdf_source", load_source)
+                change.setattr(repo, "get_revision", read_revision)
+                change.setattr(pdf_adventure_events, "require_build_pdf_access", authorize)
+                denied = client.post(events + "/prepare", json=draft, headers=auth)
+                assert denied.status_code == 403, denied.text
+                assert source_reads == 2
+                assert repo.get_head(space) == before
         review = client.post(events + "/prepare", json=draft, headers=auth)
         assert review.status_code == 200, review.text
         packet = review.json()
@@ -109,6 +145,27 @@ def test_pdf_event_preserves_review_and_reopens_citation(
         tampered = packet | {"draft": draft | {"name": "Changed"}}
         assert client.post(events + "/confirm", json=tampered, headers=auth).status_code == 409
         assert repo.get_head(space).head_revision_id == before
+        with monkeypatch.context() as change:
+            revoked = False
+            original_descriptors = native.descriptors
+            original_authorize = pdf_adventure_events.require_build_pdf_access
+
+            def descriptors(*args):
+                nonlocal revoked
+                result = original_descriptors(*args)
+                revoked = True
+                return result
+
+            def authorize(request, world_id):
+                if revoked:
+                    raise pdf_adventure_events.HTTPException(403)
+                return original_authorize(request, world_id)
+
+            change.setattr(native, "descriptors", descriptors)
+            change.setattr(pdf_adventure_events, "require_build_pdf_access", authorize)
+            denied = client.post(events + "/confirm", json=packet, headers=auth)
+            assert denied.status_code == 403, denied.text
+            assert repo.get_head(space).head_revision_id == before
         if reserved:
             from apps.live_control_server.services import world_graph_binding
             assert catalog_owner.get_world(world.world_id).record.native_graph_binding.status == "provisioning"
@@ -171,7 +228,14 @@ def test_missing_signing_authority_is_reported_unavailable(monkeypatch):
     from apps.live_control_server.services.graph_object_authoring_prepare import sign_publication_intent
 
     monkeypatch.delenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", raising=False)
+    principal = NativeGraphPrincipal(subject="local_operator", role="gm", auth_method="local_operator")
+    monkeypatch.setattr(pdf_adventure_events, "require_build_pdf_access", lambda *_: principal)
+
+    def sign(*_args, authorize_write):
+        authorize_write()
+        return sign_publication_intent({})
+
     with pytest.raises(HTTPException) as caught:
-        pdf_adventure_events._invoke(lambda *_: sign_publication_intent({}), None, None, None)
+        pdf_adventure_events._invoke(sign, "fixture-world", None, None)
     assert caught.value.status_code == 503
     assert caught.value.detail["code"] == "authority_unavailable"

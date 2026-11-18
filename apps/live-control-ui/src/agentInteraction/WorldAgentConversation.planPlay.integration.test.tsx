@@ -1,3 +1,4 @@
+import * as hostedAuth from "../auth/HostedAuthGate";
 import nativeBuildWire from '../test/surface-native-build-http.json';
 import {WorldGuidedTour} from '../guidedTour/WorldGuidedTour';
 import {useGuidedTour} from '../guidedTour/GuidedTour';
@@ -511,6 +512,7 @@ function openConversationOptions() {
 describe("one App-level World conversation host across Plan and Play", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getNativeGraphCatalog).mockRejectedValue(new Error("Catalog unavailable in fixture"));
     Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
     selectedWorld.id = WORLD;
     window.localStorage.clear();
@@ -2469,6 +2471,29 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(composer).toHaveValue("Keep this next thought");
   });
 
+  it("keeps local session settings out of hosted Conversation options", async () => {
+    const auth = vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+      status: "authenticated", refreshWarning: false, subject: "owner", displayName: "Owner",
+    });
+    try {
+      vi.mocked(postWorldPlayAgentTurn).mockRejectedValueOnce(new LiveApiError("Unauthorized", 401));
+      render(<Harness initial="play" />);
+      fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+      const input = await screen.findByLabelText("Message DungeonBuddy");
+      await waitFor(() => expect(input).toBeEnabled());
+      fireEvent.click(screen.getByTitle("Conversation options"));
+      expect(screen.queryByRole("button", { name: "Settings", exact: true })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Connect local session" })).not.toBeInTheDocument();
+      fireEvent.change(input, { target: { value: "Help with this page" } });
+      fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+      const signIn = await screen.findByRole("link", { name: "Sign in to DungeonMind" });
+      expect(signIn.getAttribute("href")).toContain("/api/auth/login?return_to=");
+      expect(screen.queryByRole("button", { name: "Open Settings" })).not.toBeInTheDocument();
+    } finally {
+      auth.mockRestore();
+    }
+  });
+
   it("prepends a requested Play history page without moving the reader or duplicating turns", async () => {
     const latest={...history([turn("play",2,"Middle answer"),turn("play",3,"Latest answer")]),next_before_sequence:2};
     vi.mocked(getWorldAgentConversationHistory).mockImplementation(async (_world,options)=>options?.beforeSequence
@@ -2506,6 +2531,24 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(screen.getByTitle("Conversation options"));
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New conversation" })).toBeInTheDocument();
+  });
+
+  it("offers hosted sign-in when New Conversation authorization fails", async () => {
+    const auth = vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+      status: "authenticated", refreshWarning: false, subject: "owner", displayName: "Owner",
+    });
+    try {
+      vi.mocked(postWorldAgentNewConversation).mockRejectedValueOnce(new LiveApiError("Unauthorized", 401));
+      render(<Harness initial="play" />);
+      fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+      await screen.findByText("Original Plan answer");
+      fireEvent.click(screen.getByTitle("Conversation options"));
+      fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+      expect(await screen.findByRole("link", { name: "Sign in to DungeonMind" })).toBeInTheDocument();
+      expect(screen.queryByText(/Reconnect in Settings/)).not.toBeInTheDocument();
+    } finally {
+      auth.mockRestore();
+    }
   });
 
   it("starts a World conversation from Play with the same saved-command path", async () => {
