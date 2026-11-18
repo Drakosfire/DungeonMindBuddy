@@ -4492,3 +4492,14 @@ def test_hosted_command_resolution_binds_world_actor_and_pointer(hosted, monkeyp
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "absent"
     assert service.get_command_resolution.call_args.args[0].expected_current_pointer_revision == 3
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return None
+
+    service.get_command_resolution.side_effect = transfer_during_read
+    denied = hosted.client.request("GET", receipt)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text

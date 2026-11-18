@@ -2270,7 +2270,19 @@ def post_world_command_resolution(world_id: str, command_id: UUID, body: Command
     if body.original_command.world_id != verified_world_id or body.original_command.command_id != command_id or request.query_params:
         raise HTTPException(status_code=422, detail="resolution path and original command must match")
     try:
-        record = _conversation_service(request).resolve_new_conversation(body, actor=principal.subject)
+        if principal.auth_method == "hosted_owner":
+            from functools import partial
+            from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+            authorize_world = partial(
+                require_conversation_access, request, world_id, authorize_local=enforce_native_graph_gm,
+            )
+            record = _conversation_service(request).resolve_new_conversation(
+                body, actor=principal.subject, authorize_world=authorize_world,
+            )
+            authorize_world()
+        else:
+            record = _conversation_service(request).resolve_new_conversation(body, actor=principal.subject)
     except ApplicationStateError as exc:
         raise _resolution_error(exc) from exc
     return AgentCommandResolutionResponseV1(status="terminal", record=record)
@@ -2301,6 +2313,7 @@ def get_world_command_resolution(world_id: str, command_id: UUID, operation_id: 
         record = _conversation_service(request).get_command_resolution(body)
     except ApplicationStateError as exc:
         raise _resolution_error(exc) from exc
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     return AgentCommandResolutionResponseV1(status="terminal" if record else "absent", record=record)
 
 
