@@ -1,4 +1,4 @@
-# [IDEA] Replay Buddy's search in Conversation Details
+# [IDEA] Step through Buddy’s trace and search in Conversation Details
 
 **Captured:** 2026-11-14  
 **Status:** Original design capture retained below; merged local mechanisms and remaining acceptance are distinguished here. Not an implementation handoff.
@@ -15,6 +15,10 @@ The original “first slice” below is historical design intent, not an unbuilt
 
 When a GM opens **Details** on a Buddy reply, show a small, read-only graph that plays back how Buddy gathered context for that turn. Let the GM pause, step backward and forward, and open an exact retained citation without leaving the conversation. Make it feel like watching the search unfold at a human pace, not watching live telemetry or reading an event log.
 
+## One experience
+
+Extend the existing Conversation Details trace tooling instead of adding a separate trace explorer, replay screen, or Jev-only viewer. The saved attempt is the record. The graph visualizes recorded World search steps, including Jev where present, beside a readable timeline; source reads and final context can be shown when the same attempt proves them. A missing relationship in the World is a separate problem from showing what the attempt actually did.
+
 ## First slice
 
 - Reuse the Graph visualizer's rendering and visual language, with a compact layout designed for replay. Load it only when Details is opened. No full World graph, editing tools, or separate graph page.
@@ -24,6 +28,6 @@ When a GM opens **Details** on a Buddy reply, show a small, read-only graph that
 
 ## Dogfood check
 
-Start with one real saved Buddy reply, not a hand-drawn route. Open its Details, step through a recorded search and an evidence read, and reopen the exact citation. If the trace has a gap or a non-graph fallback, show it plainly. The Wandering Forest is a good demo candidate if a suitable turn exists.
+Start with one real saved Buddy reply, not a hand-drawn route. Open its Details, step through a recorded search and an evidence read, and reopen the exact citation. If the trace has a gap or a non-graph fallback, show it plainly. The Wandering Forest is a useful second witness if a suitable saved turn exists: distinguish a recorded path to Fallen Spine, a missing connection to Thrin, or a recap fallback without filling in absent hops. Do not make Forest ingestion repair part of the replay slice.
 
 Related design: [Buddy's work, explained](https://github.com/Drakosfire/DungeonMindBuddy/blob/42f5fd6f36fffa71eea73ad3d7ac4cff1bc63fe5/Docs/Design/DESIGN-agent-trace-teaching-and-timing.md). This idea covers completed-turn playback only, not live status or timing estimates.

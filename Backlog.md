@@ -49,10 +49,15 @@ One row per product idea. These rows are pointers, not separate status records. 
 | [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | [Home implementation #3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) merged; assess actual hosted sign-in and any remaining acceptance. |
 | [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Audit every surface and identify the right empty canvas and next action. |
 | [Shared page composer residuals](#idea-high-priority--shared-grid-page-constructor) | Manual foundation merged; physical print and ordinary chat-directed layout remain separate acceptance work. |
+| [Shared agent actions across surfaces](#idea-shared-agent-actions-across-surfaces) | Prove one inline text edit in Build and Plan through their native saves; then test a sourced Graph relationship. |
+| [Agent page-formatting benchmarks](#idea-agent-page-formatting-benchmarks) | Compare Buddy on repeatable Build formatting tasks; preserve content and prove the saved rendered result. |
+| [Report a bug from Buddy](#idea-report-a-bug-from-buddy) | One page and agent entry flow, with screenshot drop and a link to the filed issue. |
 | [Layered map editor](Docs/Backlog/IDEA-layered-map-editor.md) | One durable map with editable overlays. Share coordinates where justified, not a single UI with page layout. |
-| [Composable spatial workspace and themes](#deferred-composable-spatial-workspace-and-selectable-themes) | Select either saved canvas arrangements or a reversible theme, not both in one slice. |
+| [App-wide theming](#idea-app-wide-theme-system) | One shared design system, selectable and customizable themes, with reviewed agent proposals. |
+| [Composable spatial workspace](#deferred-composable-spatial-workspace) | Saved canvas arrangements; not page composition or a separate theme system. |
+| [Standalone Elderwyld demo World and timeline](#idea-standalone-elderwyld-demo-world-and-timeline) | Author a populated, shareable setting history for signed-out Buddy without using collaborative campaign material. |
 | [Connected campaign arcs](Docs/Backlog/IDEA-connected-campaign-arcs.md) | Explore the source-backed Wandering Forest arc across sessions; use unrelated material as a negative control. |
-| [Conversation search replay](Docs/Backlog/IDEA-conversation-search-replay.md) | Merged local replay mechanisms; retain hosted and broader trace acceptance gaps. |
+| [Step through Buddy's work](Docs/Backlog/IDEA-conversation-search-replay.md) | Merged local replay mechanisms; retain hosted and broader trace acceptance gaps. |
 | [AW workflow capabilities](Docs/Backlog/IDEA-aw-workflow-capabilities.md) | Draft/variant/link/Combat mechanisms merged; ordinary live qualification remains open. |
 | [Campaign recap contributor](Docs/Backlog/IDEA-recap-contributor.md) | One campaign, two accounts, GM publication, and a spoiler-isolation witness. |
 | [Deeper Build document hierarchy](Docs/Backlog/IDEA-build-document-hierarchy.md) | Retain only if dogfood shows a navigation gap after the merged picker and recap browser. |
@@ -77,7 +82,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 
 - Hosted signed-in presenter demo World: [#3837](https://github.com/Drakosfire/DungeonMindBuddy/issues/3837) owns scope and acceptance. This is not the signed-out demo or full cross-surface demo [#410](https://github.com/Drakosfire/DungeonMindBuddy/issues/410).
 - Hosted incremental ordinary reply text: [#3838](https://github.com/Drakosfire/DungeonMindBuddy/issues/3838) owns scope and acceptance. Build construction SSE and status updates are not that witness.
-- Still-unmerged design input: [#3683](https://github.com/Drakosfire/DungeonMindBuddy/pull/3683) retains shared themes, spatial workspace, signed-out original Elderwyld content, shared agent actions, formatting benchmarks and bug-report ideas. This pointer does not adopt that draft, activate its work or erase its distinct ideas. Current sequencing remains with the roadmap.
+- Design input: [#3683](https://github.com/Drakosfire/DungeonMindBuddy/pull/3683) captures shared themes, spatial workspace, signed-out original Elderwyld content, shared agent actions, formatting benchmarks and bug-report ideas. This is design context, not authorization to implement or a change to roadmap sequencing.
 - Maintenance: the 2026-11-17 audit was a historical snapshot. On 2026-11-18, six of the 20 Buddy issue-linked rows in [the queue](Docs/Backlog/MAINTENANCE.md) had closed with distinct dispositions; [#4012](https://github.com/Drakosfire/DungeonMindBuddy/pull/4012) reconciled those rows while retaining open residuals. Broader demo [#410](https://github.com/Drakosfire/DungeonMindBuddy/issues/410) and source-anchor acceptance [#783](https://github.com/Drakosfire/DungeonMindBuddy/issues/783) remain open, not closed by nearby implementation.
 
 ## Research held for evidence or selection
@@ -110,12 +115,62 @@ One row per product idea. These rows are pointers, not separate status records. 
 
 **Residuals:** Physical sticker-sheet/print sizing, pagination and cutout proof remain separate. Ordinary chat-directed movement of an existing image is also separate: the local executor experiment is not normal-chat routing or model/held-out qualification, and is not a merged capability. Keep content/citation/asset identity, semantic reading order, stale rejection and explicit Save acceptance as gates. Shared agent actions and broader unscheduled design ambitions are not complete.
 
-**Historical design context:** Edge authoring requested intentional text/art/table/callout placement in Tiptap rather than a freeform map. [#3683](https://github.com/Drakosfire/DungeonMindBuddy/pull/3683) retains the unmerged composer specification and broader design proposals. Do not treat that draft as a current implementation assignment or replace the roadmap's priorities.
+**Historical design context:** Edge authoring requested intentional text/art/table/callout placement in Tiptap rather than a freeform map. The [composer design](Docs/Backlog/DESIGN-build-page-composer.md) retains the specification and broader proposals; it does not create an implementation assignment or replace roadmap priorities.
 
 **Surfaces when:** Planning remaining Build composition acceptance or agent layout. Product sequencing remains owned by `Docs/Roadmaps/ROADMAP-demo.md`; this reconciliation activates no new slice.
 
+**Original design context:** Edge authoring dogfood began with the need to place artwork intentionally. The subsequent product discussion selected a shared page composer as the design target, not a standalone image-grid feature. It did not authorize implementation.
+
+**Design direction:** Keep Tiptap as the editor. Add opt-in, content-height rows with independent resizable slots for ordinary paragraphs, images, tables and callouts. Tables remain semantic blocks inside slots, not a layout primitive. Keep normal documents and spatial/map work separate.
+
+**Proposal:** [Build page composer](Docs/Backlog/DESIGN-build-page-composer.md) defines row guides, minimum heights, reading order, revision and draft recovery, and the separate sticker-sheet print test.
+
+**Original first-slice design:** Author a real two-column Build section with editable text and an image, then prove that the same grid can place a table and a callout without special layout primitives. Insert or move an existing block, snap column boundaries, and change block order only through an explicit move. Decide revision ownership and serialization before coding. Reuse existing node editing/resize behavior where applicable without confusing image width with column placement.
+
+**Design acceptance:** Save, reload and reopen the same layout and content. Undo/redo preserves both. Narrow screens stack content in a stable reading order; semantic Markdown, retrieval and exact citation references preserve that order and content for the saved revision. Layout-only changes must not silently reorder or alter semantic text. Preserve keyboard access, ordinary editing, and unsaved/recovered drafts. Do not require nested grids, overlap, arbitrary positioning, or map-coordinate machinery for this slice.
+
+
 **Refs:** Edge source `bba72416-9dfe-49bb-add0-21a346e9a421`; `apps/live-control-ui/src/tiptap/extensions/MediaImageNode.tsx`; `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
 
+## [IDEA] Standalone Elderwyld demo World and timeline
+
+**Goal:** Create a populated Elderwyld demo World with its own chronology, separate from the played campaigns. Write original setting history and demo material rather than copying, paraphrasing, or anonymizing jointly authored recaps. The demo should feel like a lived-in World without sharing prose Alan does not solely own.
+
+**First slice:** Author one coherent arc with dated Events and connected people, places, and objects. Give it a few original, citable sources, a Build handout, and a Plan scene that can be run in Play. Bundle those records with the demo Graph and Conversation evidence so one story carries across the surfaces.
+
+**Release boundary:** Use a standalone demo World and independently review its sources, citations, assets, and any conversation or trace captures before public use. Exclude live campaign records and player contributions; use only original demo material or assets cleared for this use. Signed-out edits and Play progress stay temporary, with no database writes or link to the live World. This item is content groundwork, not approval to publish or implement the guest runtime.
+
+---
+
+## [IDEA] Shared agent actions across surfaces
+
+**Goal:** Enable Buddy to act wherever it makes sense in the product, without duplicating each surface's editor or giving the agent a generic write path.
+
+**Current boundary:** Build and Plan already share the inline proposal and review UI. Build saves authored Pages and their revision-bound presentation; Plan saves native prep with playable structure. Ordinary Markdown proposals do not carry layout operations. See `apps/live-control-ui/src/surface/SurfacePageProposal.tsx` and `apps/live-control-ui/src/planSurface/agentEdit/planAgentEditProposal.ts`.
+
+**Shared contract to test:** The surface exposes authorized operations for the current object. Buddy proposes a typed change against an exact target and revision. The user reviews the actual effect; the domain owner validates and commits it through its existing write path, then returns a durable receipt. Keep chat answers, proposed changes, and saved effects distinct. Retry must reconcile the receipt, not apply twice.
+
+**First proof:** Run “Rewrite this paragraph without changing the facts or citations” in Build and Plan. Use the shared inline review and each native save path. Reopen and verify the edit and citations, unchanged Plan scene/table boundaries, cancellation with no durable write, and stale-proposal rejection when the user types while Buddy works. Then test one source-backed Graph relationship through its native review and write path to see whether the contract travels beyond text. Layout capabilities remain separate until the target supports them safely.
+
+---
+
+## [IDEA] Agent page-formatting benchmarks
+**Owner:** Build authoring + Buddy benchmark harness
+**Captured:** 2026-11-15
+**Goal:** Give the agent a repeatable improvement loop for turning existing Build content into useful, readable pages. Score formatting separately from drafting or retrieval.
+
+**First benchmark:** Freeze representative input Pages, a plain-language layout brief per task, and the current normal Buddy agent/action path as the baseline. Start with existing composer actions: place artwork beside prose, arrange a real table and callout, and revise the layout on a saved page. Evaluate the actual saved revision and a cold browser reopen at desktop and narrow widths, not the chat response or screenshots alone. Add text over art and sticker/print cases only once the corresponding tools exist.
+
+**Scoring and guardrails:** Hard fail on lost or rewritten content, incorrect reading order, broken source citations, lost asset references, or a claimed save that cannot reopen. For passing runs, grade whether the layout follows the brief and is readable, then compare retries, tool calls, and time. Use structural assertions plus a small blind visual rubric; don't require pixel-perfect matches. Tune on a development set, keep a sealed holdout, and repeat baseline/candidate runs to separate improvements from variance. No benchmark run or tooling activation is implied by this entry.
+
+## [IDEA] Report a bug from Buddy
+**Owner:** Shared Surface authoring + Buddy agent
+**Captured:** 2026-11-15
+**Goal:** Let someone report a problem where it happens, either through a **Report a bug** page action or by asking Buddy in conversation. Both open the same reviewable draft, not separate intake systems.
+
+**First slice:** Reuse the PDF extractor's screenshot drop/file-picker behavior (and paste where supported). Preview and allow removal of the image, capture a short title and what happened, and optionally show a reviewed page/build label. Buddy can draft the same fields, but the user sees the exact issue body, attachment, tracker, and visibility before pressing Submit. File one issue in the configured GitHub repository (or the configured equivalent ticket tracker) from the service, and return its link in the originating page or conversation.
+
+**Acceptance:** Prove both entry points create the same kind of linked ticket. Cancel sends nothing. A retry does not file duplicates, and a failed submit keeps the report editable. Keep screenshots private by default; if the tracker or attachment would be public, make that visible and require explicit approval of the exact content or use a private intake. Don't auto-attach World content, conversation, logs, cookies, or secrets. Reuse the upload interaction, not the PDF-extraction pipeline. This entry does not authorize implementation or ticket submission.
 
 ## [DEFERRED] Define independent source-artifact archive and restore
 **Owner:** APP-STATE / source lifecycle
@@ -174,17 +229,29 @@ One row per product idea. These rows are pointers, not separate status records. 
 ---
 
 
-## [DEFERRED] Composable spatial workspace and selectable themes
+## [IDEA] App-wide theme system
+
+**Owner:** Buddy shared presentation and surface owners
+**Captured:** 2026-09-26 (theme ambition; clarified in the 2026-11-14 product discussion)
+**Trigger:** Operator selects coherent, selectable styling as a product capability.
+
+Use one shared vocabulary of semantic color, typography, spacing, focus and interaction tokens and consistent components across surfaces. Ship a selectable default and alternate theme before expanding to customization. Users and the agent should target the same bounded, typed theme settings; agent changes are reviewable and reversible, not arbitrary CSS or an independent styling path. Keep the existing palette as the default until selected otherwise. Reuse the [presentation substrate](Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md). A single surface can prove the shared contract, but do not create a Graph-only theme fork.
+
+<a id="deferred-composable-spatial-workspace-and-selectable-themes"></a>
+
+## [DEFERRED] Composable spatial workspace
+
 **Owner:** Buddy presentation
 **Captured:** 2026-09-26
 **Last verified:** 2026-11-10 @ `8a9ad7902`
-**Trigger:** The operator selects spatial composition or selectable themes for implementation.
+**Trigger:** The operator selects saved spatial composition for implementation.
 
-**Current boundary:** Shared presentation components and graph canvas exist. Current source has no saved multi-object workspace arrangements or selectable theme-pack contract. The shared grid page constructor above owns the separate request for snapping page content into rows and columns.
+**Current boundary:** Shared presentation components and graph canvas exist; saved multi-object workspace arrangements are not established by this backlog. The page composer handles ordered document layout. [App-wide theming](#idea-app-wide-theme-system) owns styling.
 
-**Next slice on trigger:** Select either saved spatial arrangements or selectable themes and bound it independently. For spatial arrangements, investigate existing canvas/projection components and define ownership of positions, sizes and camera state. For themes, investigate existing semantic tokens and define one reversible theme selection. These are separate capabilities.
+**Next slice on trigger:** Investigate existing canvas/projection components and define one saved arrangement with clear ownership of positions, sizes and camera state. Preserve low-cost pan/zoom and do not conflate coordinate mutation with theme or semantic document truth.
 
-**Refs:** [presentation substrate plan](Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md); `apps/live-control-ui/src/localWorld/worldGraphCanvas/`; shared grid page constructor entry above.
+**Refs:** [presentation substrate plan](Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md); `apps/live-control-ui/src/localWorld/worldGraphCanvas/`.
+
 
 ## [DEFERRED] Create a campaign inside an existing World
 **Owner:** Buddy campaign UX + DungeonMind campaign membership
