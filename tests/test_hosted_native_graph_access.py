@@ -297,6 +297,11 @@ def hosted(monkeypatch, request):
     app.include_router(extract_promote.router)
     app.include_router(live.router)
     app.include_router(graph_preview.router)
+    from apps.live_control_server.routes.agent import withdraw_build_source
+
+    app.add_api_route("/api/live/agent/worlds/{world_id}/build-source-withdrawals", withdraw_build_source, methods=["POST"], status_code=204)
+
+
     from apps.live_control_server.routes.agent import put_pdf_statblock_review
 
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
@@ -398,6 +403,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
+            ("POST", "/api/live/agent/worlds/{world_id}/build-source-withdrawals"): access.resolve_hosted_conversation_world,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/from-regions"): access.resolve_hosted_build_pdf_world,
             ("PUT", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
@@ -3010,6 +3016,61 @@ def test_hosted_build_source_admission_checks_saved_document_world(hosted, monke
     result = hosted.client.request("POST", path, json=body)
     assert result.status_code == 409, result.text
     assert calls == [document_id]
+
+
+@pytest.mark.parametrize("kind", ["pdf", "text"])
+@pytest.mark.parametrize("transfer", [False, True])
+def test_hosted_source_withdrawal_binds_exact_world_revision(hosted, monkeypatch, kind, transfer):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.integrations.dungeonmind import native_world_source_admission
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import native_source_inspection
+
+    repo = Mock()
+    repo.get_native_pdf_source.return_value = (SimpleNamespace(
+        source_artifact_id="artifact", status="active", visibility=SimpleNamespace(kind="public"),
+    ),)
+    catalog = Mock(return_value={
+        "scope": {"native_world_id": "space"},
+        "catalogue": {"sources": [{
+            "source_artifact": {"source_artifact_id": "artifact"},
+            "source_revision": {"source_revision_id": "revision"},
+        }]},
+    })
+    monkeypatch.setattr(native_world_source_admission, "_repository", lambda: repo)
+    monkeypatch.setattr(native_world_source_admission, "_source_world_binding", lambda root, world: SimpleNamespace(native_world_id="space"))
+    monkeypatch.setattr(native_source_inspection, "catalog", catalog)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    path = "/api/live/agent/worlds/managed/build-source-withdrawals"
+    body = {"kind": kind, "revision_id": "revision"}
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    catalog.assert_not_called()
+    assert not repo.mock_calls
+    if transfer:
+        lookup = repo.get_native_pdf_source if kind == "pdf" else catalog
+
+        def transfer_ownership(*_args):
+            hosted.records["managed"] = hosted.records["managed"].model_copy(
+                update={"owner_subject": OTHER_OWNER},
+            )
+            return lookup.return_value
+
+        lookup.side_effect = transfer_ownership
+        response = hosted.client.request("POST", path, json=body)
+        assert response.status_code == 403, response.text
+        repo.withdraw_native_source.assert_not_called()
+        return
+
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 204, response.text
+    repo.withdraw_native_source.assert_called_once_with(
+        space_id="space", source_artifact_id="artifact", source_revision_id="revision",
+    )
+    if kind == "text":
+        scope, principal = catalog.call_args.args
+        assert scope.managed_world_id == principal.managed_world_id == "managed"
 
 
 def test_hosted_prompt_reads_require_owner_and_captured_trace(hosted, monkeypatch):
