@@ -1,6 +1,8 @@
 # DOCS: correct surface runtime selection authority
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: HISTORICAL — completed by Buddy PR #4003, merged at `ecba0365cd25942a47fb019f1fba7eca9c557608`. The lease is closed.
+
+Originally authorized by the documentation goal. PR topology: serial.
 Base: Buddy main `0de22f5fb7132c93e97aed24d105ee336eefebb7`.
 Branch: `codex/docs-surface-runtime-authority`. Predecessor: merged #3997.
 
