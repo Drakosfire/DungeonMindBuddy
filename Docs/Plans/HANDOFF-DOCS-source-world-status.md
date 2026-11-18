@@ -1,6 +1,6 @@
 # DOCS: source-to-World implementation status
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: parallel-independent.
+Status: MERGED / HISTORICAL. Buddy PR #3982, merge `3286af0256740b17b3e4cfb7e8fc05623958252c`. The lane is closed; this record does not authorize new work.
 
 Concurrent lane: `codex/docs-link-check`, based on current main, checks maintained documentation links. Its expected paths are `scripts/check_docs_links.py`, `tests/test_check_docs_links.py`, and `Docs/Plans/HANDOFF-DOCS-link-check.md`; they do not overlap this slice and neither lane depends on the other. Both use the shared verification lock for frontend checks.
 

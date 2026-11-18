@@ -1,6 +1,6 @@
 # DOCS: check maintained documentation links
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: parallel-independent.
+Status: MERGED / HISTORICAL. Buddy PR #3985, merge `1fadf2cabff8353db3e86faf7602033372a45056`. The lane is closed; this record does not authorize new work.
 
 Base: Buddy main `65641eaffb2d7df866ec9ba61b86aada9e89dacf`. Branch: `codex/docs-link-check`. Concurrent lane: PR #3982 (`codex/docs-source-world-status`), which edits the source-to-World contract and its own handoff only. No behavioral dependency or shared paths exist. Both lanes use the shared frontend verification lock.
 

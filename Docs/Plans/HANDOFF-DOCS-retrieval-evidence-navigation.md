@@ -1,6 +1,6 @@
 # DOCS: retrieval evidence navigation
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: MERGED / HISTORICAL. Buddy PR #3980, merge `28a707a44ba66bde753f6a38676fd15d08b0f128`. The lane is closed; this record does not authorize new work.
 
 Base: Buddy main `d2f46d19d01432fe305b2d29ae4f308326a1cff4`, after #3963. Branch: `codex/docs-retrieval-evidence`.
 
