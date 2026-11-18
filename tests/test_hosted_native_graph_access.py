@@ -429,6 +429,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
+            ("POST", "/api/live/extract-promote/runs/{run_id}/evidence-corrections"): access.resolve_hosted_worldbuilding_evidence_correction,
             ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
@@ -4615,3 +4616,50 @@ def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch, c
     denied = hosted.client.request("GET", path)
     assert denied.status_code == 403, denied.text
     assert "Private recap metadata" not in denied.text
+
+
+def test_hosted_evidence_correction_requires_exact_owned_parent(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import extract_promote
+
+    digest = "a" * 64
+
+    async def owned(subject, run_id):
+        assert run_id == "saved-run"
+        access._owned_world(subject, "managed")
+        return "managed", SimpleNamespace(source_artifact_id="source", content_sha256=digest)
+
+    correct = Mock(side_effect=extract_promote.ExtractPromoteError("fixture", code="fixture", status_code=409))
+    monkeypatch.setattr(access, "_owned_worldbuilding_extraction", owned)
+    monkeypatch.setattr(extract_promote, "correct_exact_run_evidence", correct)
+    path = "/api/live/extract-promote/runs/saved-run/evidence-corrections"
+    body = {
+        "parentRunId": "saved-run", "expectedParentRevision": 1, "worldId": "managed",
+        "sourceArtifactId": "source", "sourceSha256": digest, "spanIndexSha256": digest,
+        "parentCandidateSha256": digest,
+        "corrections": [{"assertionId": "assertion", "evidenceIndex": 0, "expectedRefSha256": digest,
+                         "parts": [{"sourceSpanRefId": "span",
+                                    "quoteAssignments": [{"originalQuoteIndex": 0, "replacementQuote": "Fixture"}]}]}],
+    }
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "parentRunId": "other"}).status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "sourceArtifactId": "other"}).status_code == 403
+    correct.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 409, response.text
+    assert correct.call_args.args[0].parent_run_id == "saved-run"
+
+    persisted = Mock()
+
+    def transfer_before_write(_request, *, authorize_write):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        authorize_write()
+        persisted()
+
+    correct.side_effect = transfer_before_write
+    denied = hosted.client.request("POST", path, json=body)
+    assert denied.status_code == 403, denied.text
+    persisted.assert_not_called()

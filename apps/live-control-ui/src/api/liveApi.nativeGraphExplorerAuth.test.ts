@@ -1213,3 +1213,17 @@ it("checks recap names through the hosted World route", async () => {
   await expect(api.authenticatedApiFetch(path + "?world_id=foreign", request)).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("uses the hosted session for exact Worldbuilding evidence corrections", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+  const path = "/api/live/extract-promote/runs/saved-run/evidence-corrections";
+  const init = { method: "POST", body: JSON.stringify({ parentRunId: "saved-run" }) };
+  await api.authenticatedApiFetch(path, init);
+  expect(fetch).toHaveBeenCalledWith(path, expect.objectContaining({
+    method: "POST", credentials: "same-origin", mode: "same-origin",
+  }));
+  await expect(api.authenticatedApiFetch(path + "?world_id=foreign", init)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

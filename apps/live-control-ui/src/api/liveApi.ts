@@ -434,6 +434,9 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (/^\/api\/live\/extract-promote\/runs\/[a-z0-9_-]+\/evidence-corrections$/i.test(path)) {
+    return method === "POST" && requestBodyRecord(init?.body) !== null;
+  }
   if (path === "/api/live/threats/query-hydration") {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && body?.scopeMode === "world" && body.campaignId === null
@@ -932,6 +935,7 @@ function apiRequestTarget(
   let normalizedPath = path;
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
   const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
+    || /^\/api\/live\/extract-promote\/runs\/[^/]+\/evidence-corrections$/.test(normalizedPath)
     || /^\/api\/live\/workspace-documents\/[^/]+\/native-world-source$/.test(normalizedPath)
     || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/progress$/.test(normalizedPath)
     || (normalizedPath === "/api/live/world-play-runs/v2/active" && init?.method?.toUpperCase() === "PUT");
