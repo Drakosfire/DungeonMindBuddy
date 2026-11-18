@@ -274,3 +274,20 @@ plain-page coverage repair, shared harness, migration, merge or deployment.
 Validate artifacts and scorer together, independent review, exact hosted verifier;
 retain prior full-discovered diagnostic as the meaningful integrated checkpoint,
 not as a green result for this new head. Publish only to the existing draft #3867.
+
+### Plan mounted contextual-boundary witness (2026-11-18)
+
+ACTIVE serial eval-only continuation from63d972db, authorized by coordinating root
+on the user's request to resume cross-surface agent layout. Fresh main eecaf799,
+173 open PRs plus expanded #3824 inspected. PlanSurfacePage runtime is #3824-owned;
+Plan producer/review backend overlaps #3919; Plan bridge and mounted fixture source
+also overlap #1014/#1188. No lease is transferred. Write only this handoff and
+new evals/inline_prose_targeting adapter/tests/docs. Reuse the existing mounted
+Plan fixture in an explicit generated test with guarded source anchors, rather
+than copying or editing its owning source. Record source SHA/checksum and generated
+fixture bytes. Run contextual existing section boundary with top caret, duplicate
+passage, untouched neighbors, Undo, explicit native frontend Save owner and cold
+remount; include malformed boundary refusal. Transport/model and server persistence
+stay scripted. This is no production route change, ordinary model accuracy claim,
+native PostgreSQL proof, or authority to enable new writers. No provider/live data,
+merge/deploy or leased source writes. Exact-head review/hosted check remain gates.

@@ -155,3 +155,37 @@ the real replay scorer with each equivalent alias and reject top/opening/wrong-
 section nominations. These are scorer controls, not held-out model evaluations.
 No producer has run or received evaluator answers. Set `PROSE_PYTHON` to the
 existing Python environment if `python3` cannot import the scorer dependencies.
+
+## Plan mounted contextual-boundary witness
+
+`plan_mounted_witness.py` derives a named test from the existing PlanSurfacePage
+fixture, preserving its real mounted surface, proposal review and frontend Save
+owner. Guarded single-occurrence anchors fail if that owner fixture changes.
+It does not edit the owning file. Generated code and a source/derived SHA256
+receipt are retained externally for inspection. The adapter changes the synthetic
+page, request, offered section boundary and assertions: unrelated top caret,
+duplicate passage in Rumours, insertion after Preparation objective/before Opening
+Beat, unchanged neighbor JSON and playable marker, native Undo/Redo, explicit Save
+and a fresh mount. An altered boundary is rejected without mutation or Save; an intervening human edit invalidates the pending suggestion without retargeting or Save.
+
+Reproduction (existing dependency symlink and global lock as above):
+
+```sh
+python -m evals.inline_prose_targeting.plan_mounted_witness --evidence "$TASK/plan-witness"
+flock /tmp/dungeonmind-frontend-verification-$(id -u).lock \
+  node node_modules/vitest/vitest.mjs run \
+  --config evals/inline_prose_targeting/vitest.config.mts \
+  evals/inline_prose_targeting/plan_mounted.generated.test.tsx \
+  -t 'contextual Plan boundary benchmark' --reporter=json \
+  --outputFile="$TASK/plan-witness/results.json"
+rm evals/inline_prose_targeting/plan_mounted.generated.test.tsx
+python -m pytest evals/inline_prose_targeting/test_plan_mounted_witness.py -q
+```
+
+Do not commit the generated owner fixture. The ordinary model turn and review/
+persistence transports remain the owner's scripted mocks. This is frontend
+contextual-placement/Save/remount proof, not model accuracy or PostgreSQL proof.
+Other owner tests are discovered but filtered; their skipped status is not a pass.
+Production routing/authoring remains unchanged. PlanSurfacePage is still leased
+by #3824, its owner fixture by #1188/#1014, Plan bridge by #1014 and saved review
+backend by #3919/#3824; no ownership release is inferred from nonconflicting hunks.
