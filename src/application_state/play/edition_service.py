@@ -1,5 +1,6 @@
 """Durable Run-local editions. All operations serialize through the Run lock."""
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 import hashlib
 import json
@@ -245,7 +246,9 @@ def read_command(*, run_id: str, world_id: str, command_id: str) -> ContentRecei
 
 
 def commit_content(
-    *, run_id: str, world_id: str, command_id: str, request: ContentCommit
+    *, run_id: str, world_id: str, command_id: str, request: ContentCommit,
+    authorize_world: Callable[[], None] | None = None,
+    validate_media: Callable[[str], None] | None = None,
 ) -> ContentReceipt:
     run_id, world_id = _coordinates(run_id, world_id)
     command_id = _as_uuid(command_id, field_name="command_id")
@@ -259,6 +262,8 @@ def commit_content(
         run, manifest, pin, structure, edition, history = state
         replay = next((row for row in history if row["command_id"] == command_id), None)
         if replay is not None:
+            if authorize_world is not None:
+                authorize_world()
             if replay["request_sha256"] != digest:
                 raise ApplicationStateConflictError(
                     "command_id already accepted a different request"
@@ -282,6 +287,10 @@ def commit_content(
         if content_hash == current.content_sha256:
             raise ApplicationStateValidationError("Run content edit has no changes")
         _structure(pin.markdown, request.markdown, manifest.manifest)
+        if validate_media is not None:
+            validate_media(request.markdown)
+        if authorize_world is not None:
+            authorize_world()
         n = current.edition_revision + 1
         stamp = datetime.now(UTC)
         if edition is None:

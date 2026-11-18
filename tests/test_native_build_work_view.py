@@ -254,7 +254,7 @@ def test_only_manual_single_self_reference_is_normalized_in_new_rules(usage_kind
     result = _apply_statblock_rule_edits(base, {"add_rules": [manual, sequence], "replace_rules": []})
     assert result == base | {"rule_elements": [
         *base["rule_elements"],
-        manual | {"mechanic": {"kind": "human_adjudicated", "adjudication_tags": None}},
+        manual | {"mechanic": {"kind": "human_adjudicated", "adjudication_tags": []}},
         sequence,
     ]}
     assert manual["mechanic"]["kind"] == "multiattack"
