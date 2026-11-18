@@ -1,0 +1,3898 @@
+import type { PdfLocator } from "./retainedPdfRegions";
+import {verifyNativeThreatReply,type NativeThreatReply,type PreparedNativeThreat,type PublishedNativeThreat} from './nativeThreatCreation';
+import {verifyWorldCreatureCatalog} from './worldMechanicsTypes';
+import type {NativeSourceCatalog,NativeSourceBody,NativeSourceSelection,PublishedNativeRecap} from './nativeSourceInspection';
+import type {InspectionScope,InspectionPin,InspectionSelection,NativeGraphCatalog,NativeGraphEntity,NativeGraphSource,NativeGraphPdfRegion} from "./nativeGraphInspection";
+import {readBuildConstructionStream,ConstructionStreamError,type BuildObjectConstructionProgress} from './buildConstructionStream';
+import type {
+  ArtifactReadResponse,
+  CapabilityReadResponse,
+  LiveEventsResponse,
+  LiveJobsResponse,
+  PlanViewProjection,
+  ManagedWorldPlanContextV2,
+  ProjectionCommand,
+  ProjectionWriteResult,
+  ProjectionTarget,
+  CitationSourceRequest,
+  CitationSourceResponse,
+  CitationFreshnessRequest,
+  CitationFreshnessResponse,
+  LiveQueryResponse,
+  IndexAgentTurnRequestV1,
+  IndexAgentTurnResponseV1,
+  WorldPlanAgentTurnRequestV1,
+  WorldPlayAgentTurnRequestV1,
+  WorldPlanAgentTurnResponse,
+  WorldPlanGraphContextFailureV1,
+  WorldAgentConversationHistoryResponse,
+  WorldAgentNewConversationRequestV1,
+  WorldAgentNewConversationResponseV1,
+  WorldAgentNewConversationStatusV1,
+  WorldCommandResolutionRequestV1,
+  WorldCommandResolutionResponseV1,
+  LiveQueryBackend,
+  LiveQueryOptions,
+  PlanDocumentEditProposalRequest,
+  PlanDocumentEditProposalResponse,
+  WorldPlanDocumentEditProposalRequest,
+  WorldPlanDocumentEditProposalResponse,
+  WorldPlanEditClarificationResponse,
+  WorldPlanActionProjectionPage,
+  WorldPlanActionConversationProjectionPage,
+  LiveSurfaceResponse,
+  GeneratedStatblockDetailResponse,
+  GeneratedStatblockListResponse,
+  IngestionSourceBundle,
+  ResolvedRollResponse,
+  SurfaceLayout,
+  ListStatblockDraftsResponse,
+  ReadStatblockDraftResponse,
+  StatblockRetrievalActivationResponse,
+  StatblockRetrievalVerifyRequest,
+  StatblockRetrievalVerifyResponse,
+  StoreStatblockDraftRequest,
+  StoreStatblockDraftResponse,
+  StatblockWorkbenchCommandRequest,
+  StatblockWorkbenchCommandResponse,
+  StatblockWorkbenchSampleResponse,
+  TiptapMarkdownWriteCommitRequest,
+  TiptapMarkdownWriteCommitResponse,
+  TiptapMarkdownWritePrepareRequest,
+  TiptapMarkdownWritePrepareResponse,
+  ExtractionRunLaunchRequest,
+  ExtractionRunLaunchResponse,
+  ExtractionRunRecord,
+  ExtractionRunStatusResponse,
+  HistoricalRecapWorldProjectionResponse,
+  WorkspaceDocumentRecord,
+  WorkspaceDocumentsListResponse,
+  WorkspaceDocumentSnapshot,
+  NativeWorldSourceAdmissionStatus,
+  WorkspaceCommittedRevision,
+  WorldOwnedCommittedRevisionV2,
+  WorldOwnedRunbookCommittedRevisionV2,
+  PlayActiveRunState,
+  WorldPlayActiveRunStateV2,
+  PlayRunRecord,
+  WorldPlayRunRecordV2,
+  WorldPlayRunsListResponseV2,
+  PlayRunsListResponse,
+  PlayRunReferenceManifest,
+  CreatePlayRunRequest,
+  ReplacePlayRunProgressRequest,
+  RebasePlayRunRequest,
+  CreateWorkspaceDocumentRequest,
+  UpdateWorkspaceDocumentMetadataRequest,
+  WorkspaceDocumentRevisionRequest,
+  WorldContainerRecord,
+  WorldContainersListResponse,
+  CreateWorldContainerRequest,
+  WorldOwnedPlansResponseV2,
+  WorldOwnedPlanRecordV2,
+  WorldOwnedPlanSnapshotV2,
+  WorldOwnedPlanMarkdownWriteCommitResponseV2,
+  WorldOwnedRunbookRecordV2,
+  WorldOwnedRunbooksResponseV2,
+  WorldOwnedRunbookSnapshotV2,
+  WorldOwnedRunbookMarkdownWriteCommitResponseV2,
+  GraphPreviewSurfaceResponse,
+  GraphIngestLatestRunResponse,
+  GraphIngestRunsResponse,
+  GoldGraphProjectionResponse,
+  GraphReviewExistingObjectResolverRequest,
+  GraphReviewExistingObjectResolverResponse,
+  GraphObjectAuthoringCommitRequest,
+  GraphObjectAuthoringCommitResponse,
+  GraphObjectAuthoringPrepareRequest,
+  GraphObjectAuthoringPrepareResponse,
+  GoldReviewCompareResponse,
+  GoldReviewEvidenceDiffResponse,
+  GoldReviewSessionsResponse,
+  VocabularyAblationDogfoodResponse,
+  ManualReviewBedDetail,
+  ManualReviewBedsResponse,
+  RecapArtifactsListResponse,
+  RecapGraphPresentationResponse,
+  RecapGraphQuery,
+  WorldGraphProjection,
+  WorldGraphProjectionRequest,
+  ManagedWorldGraphProjectionRequest,
+  ManagedWorldGraphProjectionResponse,
+  WorldGraphObjectProjectionRequest,
+  WorldGraphObjectProjectionResult,
+  WorldGraphRecapProjection,
+  WorldGraphSourceAnchorReadRequest,
+  WorldGraphSourceAnchorReadResponse,
+  WorldGraphRecapContextReadRequestV2,
+  WorldGraphRecapContextReadResponseV2,
+  PartyRegistrySurfaceResponse,
+  PartyRegistrySessionRosterWriteCommitRequest,
+  PartyRegistrySessionRosterWriteCommitResponse,
+  PartyRegistrySessionRosterWritePrepareRequest,
+  PartyRegistrySessionRosterWritePrepareResponse,
+  CreateThreatDraftRequest,
+  GenerateThreatDraftCandidateRequestV1,
+  GenerateThreatDraftCandidateResponseV1,
+  ThreatDraft,
+  ReviseCandidateFromEditedDefinitionRequestV1,
+  ReviseCandidateFromEditedDefinitionResponseV1,
+  ReadStatblockCandidateResponseV1,
+  ValidateDefinitionBuddyRequestV1,
+  ValidateDefinitionBuddyResponseV1,
+  AcceptThreatDraftMechanicsRequestV1,
+  AcceptThreatDraftMechanicsResponseV1,
+  BuildSourceNavigationResponse,
+  BeginThreatPublicationOperationRequestV1,
+  CancelThreatPublicationOperationRequestV1,
+  ConfirmThreatPublicationRequestV1,
+  CreateThreatIdentityResolutionRequestV1,
+  PrepareThreatIdentityCandidatesRequestV1,
+  PrepareThreatPublicationProposalRequestV1,
+  ReadAcceptanceOperationResponseV1,
+  RetryThreatPublicationOperationRequestV1,
+  ThreatPublicationCommitResponseV1,
+  ThreatPublicationIdentityResponseV1,
+  ThreatPublicationOperationResponseV1,
+  ThreatPublicationProposalResponseV1,
+  StatblockIntegrationReadinessV1,
+  ThreatQueryHydrationRequestV1,
+  ThreatQueryHydrationResponseV1,
+} from "./types";
+import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/hermesConversationHistory";
+import { WORLD_GRAPH_REVISION_COMMITTED_EVENT } from "../worldGraph/worldGraphRevisionEvents";
+import { shareInFlightRead, startReadWave } from "./inFlightReads";
+
+const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
+let nativeGraphAccessToken: string | null = null;
+let nativeGraphCsrf: string | null = null;
+let nativeGraphSessionRequest: Promise<string> | null = null;
+let nativeGraphRevocationRequest: Promise<void> | null = null;
+let nativeGraphSessionRevoked = false;
+let nativeGraphSessionEpoch = 0;
+let nativeGraphSessionRecovery: {
+  fromEpoch: number;
+  connectedEpoch: number | null;
+  request: Promise<string>;
+} | null = null;
+export function getNativeGraphAccessGeneration(): number { return nativeGraphSessionEpoch; }
+
+let hostedGraphSubject: string | null = null;
+/** Ends old read acquisitions when the UI learns that account admission changed.
+ * This is cancellation/presentation isolation, never server authorization. */
+export function invalidateHostedGraphAccess(subject: string | null): void {
+  if (hostedGraphSubject === subject) return;
+  hostedGraphSubject = subject;
+  nativeGraphSessionEpoch += 1;
+  startReadWave();
+}
+
+export const NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT = "dmb:native-graph-access-token-changed";
+
+function localGraphSessionTarget(): string {
+  if (baseUrl) throw new LiveApiError("Local Graph sessions require the same-origin /api proxy.", 0);
+  if (!isLoopbackApiDestination("/api/live/agent/local-session")) {
+    throw new LiveApiError("Local Graph sessions require a loopback UI origin.", 0);
+  }
+  return "/api/live/agent/local-session";
+}
+
+async function graphSessionFetch(method: "GET" | "POST" | "DELETE", csrf?: string): Promise<Response> {
+  return fetch(localGraphSessionTarget(), {
+    method, credentials: "same-origin", redirect: "error", cache: "no-store",
+    headers: csrf ? { "X-DMB-Graph-CSRF": csrf } : undefined,
+  });
+}
+
+export async function ensureNativeGraphSession(): Promise<string> {
+  if (nativeGraphSessionRevoked) throw new LiveApiError("Local Graph session was revoked. Reconnect explicitly.", 401);
+  if (nativeGraphCsrf) return nativeGraphCsrf;
+  if (!nativeGraphSessionRequest) {
+    const epoch = nativeGraphSessionEpoch;
+    const request = (async () => {
+      let response = await graphSessionFetch("GET");
+      if (response.status === 401) {
+        if (epoch !== nativeGraphSessionEpoch || nativeGraphSessionRevoked) {
+          throw new LiveApiError("Local Graph session changed. Reconnect explicitly.", 401);
+        }
+        response = await graphSessionFetch("POST");
+      }
+      if (!response.ok) throw new LiveApiError("Local Graph session is unavailable.", response.status);
+      const body = await response.json() as { status?: unknown; csrf_token?: unknown };
+      if (body.status !== "active" || typeof body.csrf_token !== "string" || !body.csrf_token) {
+        throw new LiveApiError("Local Graph session response is invalid.", response.status);
+      }
+      if (epoch !== nativeGraphSessionEpoch || nativeGraphSessionRevoked) {
+        throw new LiveApiError("Local Graph session changed. Reconnect explicitly.", 401);
+      }
+      nativeGraphCsrf = body.csrf_token;
+      if (typeof window !== "undefined") window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
+      return body.csrf_token;
+    })();
+    nativeGraphSessionRequest = request;
+    void request.then(
+      () => { if (nativeGraphSessionRequest === request) nativeGraphSessionRequest = null; },
+      () => { if (nativeGraphSessionRequest === request) nativeGraphSessionRequest = null; },
+    );
+  }
+  return nativeGraphSessionRequest;
+}
+
+export async function connectNativeGraphSession(): Promise<string> {
+  if (nativeGraphRevocationRequest) await nativeGraphRevocationRequest.catch(() => undefined);
+  if (nativeGraphSessionRequest) await nativeGraphSessionRequest.catch(() => undefined);
+  nativeGraphSessionEpoch += 1;
+  startReadWave();
+  nativeGraphCsrf = null;
+  nativeGraphSessionRevoked = false;
+  return ensureNativeGraphSession();
+}
+
+export function revokeNativeGraphSession(): Promise<void> {
+  if (!nativeGraphRevocationRequest) {
+    const cachedCsrf = nativeGraphCsrf;
+    nativeGraphSessionEpoch += 1;
+    startReadWave();
+    nativeGraphSessionRevoked = true;
+    nativeGraphCsrf = null;
+    const request = (async () => {
+      if (nativeGraphSessionRequest) await nativeGraphSessionRequest.catch(() => undefined);
+      let csrf = cachedCsrf;
+      if (!csrf) {
+        const status = await graphSessionFetch("GET");
+        if (!status.ok) throw new LiveApiError("Local Graph session could not be revoked.", status.status);
+        const body = await status.json() as { csrf_token?: unknown };
+        if (typeof body.csrf_token !== "string" || !body.csrf_token) {
+          throw new LiveApiError("Local Graph session response is invalid.", status.status);
+        }
+        csrf = body.csrf_token;
+      }
+      const response = await graphSessionFetch("DELETE", csrf);
+      if (!response.ok) throw new LiveApiError("Local Graph session could not be revoked.", response.status);
+      if (typeof window !== "undefined") window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
+    })();
+    nativeGraphRevocationRequest = request;
+    void request.then(
+      () => { if (nativeGraphRevocationRequest === request) nativeGraphRevocationRequest = null; },
+      () => { if (nativeGraphRevocationRequest === request) nativeGraphRevocationRequest = null; },
+    );
+  }
+  return nativeGraphRevocationRequest;
+}
+
+function blockStaleNativeGraphSession(status: number, usedCsrf: string | null, requestEpoch: number): void {
+  if (!usedCsrf || requestEpoch !== nativeGraphSessionEpoch || (status !== 401 && status !== 403)) return;
+  nativeGraphSessionEpoch += 1;
+  startReadWave();
+  nativeGraphCsrf = null;
+  nativeGraphSessionRevoked = true;
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
+}
+
+/** Keep the local operator credential in this module's memory only. */
+export function setNativeGraphAccessToken(token: string | null): void {
+  const normalized = token?.trim() ?? "";
+  const changed = normalized !== (nativeGraphAccessToken ?? "");
+  nativeGraphAccessToken = normalized || null;
+  if (changed) {
+    nativeGraphSessionEpoch += 1;
+    startReadWave();
+  }
+  if (!nativeGraphAccessToken) nativeGraphCsrf = null;
+  if (changed && typeof window !== "undefined") {
+    window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
+  }
+}
+
+function requestBodyRecord(body: BodyInit | null | undefined): Record<string, unknown> | null {
+  if (typeof body !== "string") return null;
+  try {
+    const parsed: unknown = JSON.parse(body);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function isRecapSelectionContextPath(pathname: string): boolean {
+  return /^\/api\/live\/extract-promote\/runs\/[^/]+\/selection-context$/.test(pathname);
+}
+
+function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
+  const pathname = path.split("?", 1)[0];
+  if ([
+    "/api/live/native-graph-inspection/complete-object",
+    "/api/live/native-graph-inspection/authoring-identities",
+    "/api/live/native-source-inspection/published-recap/objects",
+    "/api/live/native-source-inspection/published-recap",
+    "/api/live/native-graph-explorer/graph",
+    "/api/live/native-graph-explorer/prepare",
+    "/api/live/native-graph-explorer/confirm",
+    "/api/live/native-graph-explorer/operations/read",
+  ].includes(pathname)) return true;
+  if (/^\/api\/live\/worlds\/[^/]+\/pdf-adventure-events\/(?:prepare|confirm)$/.test(pathname)) return true;
+  if (/^\/api\/live\/threat-drafts\/[^/]+\/saved-statblock$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-source-withdrawals$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|region:validate|ocr|review|statblock-reviews|statblock:validate))?$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+(?:\/validate|\/from-regions|\/creature-draft|\/(?:accept|append)\/[^/]+)?$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+\/publication(?:\/statblock)?$/.test(pathname)) return true;
+  if ([
+    "/api/live/graph-authoring/document-relationship/request",
+    "/api/live/graph-authoring/document-relationship/native-prepare",
+    "/api/live/graph-authoring/document-relationship/native-confirm",
+  ].includes(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/work-plans\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/continue)?$/i.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/variant-reviews\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/(?:confirm|saved))?)?$/i.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/active\/messages$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/(?:name|turns|messages|resume|trash|restore))?$/i.test(pathname)) return true;
+  if (/^\/api\/live\/connected-pages\/(?:prepare|confirm|[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})$/i.test(pathname)) return true;
+  if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/terminal-diagnostic$/.test(pathname)) return true;
+  if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/prompts(?:\/[^/]+)?$/.test(pathname)) return true;
+  if (/^\/api\/live\/rules\/(?:catalog|query|passages\/[a-f0-9]{64})$/.test(pathname)) return true;
+  if (pathname.startsWith("/api/live/media/images/")) return true;
+  if (pathname.startsWith("/api/live/world-workspace/")) return true;
+  if (pathname.startsWith("/api/live/combat/encounters")) return true;
+  if (pathname.startsWith("/api/live/combat/run-encounters/")) return true;
+  if (/^\/api\/live\/world-play-runs\/v2\/(?:preparation|[^/]+\/creation(?::cancel)?)$/.test(pathname)) return true;
+  if (/^\/api\/live\/world-play-runs\/v2\/[^/]+$/.test(pathname) && requestBodyRecord(body)?.schema_version === "dmb_world_session_create_v1") return true;
+  if (/^\/api\/live\/combat\/scene-templates(?:\/|$)/.test(pathname)) return true;
+  if (pathname.startsWith("/api/live/world-mechanics/associations")) return true;
+  if (/^\/api\/live\/threat-drafts\/[^/]+\/native-creature(?:\/(?:prepare|confirm))?$/.test(pathname)) return true;
+  if (/^\/api\/live\/threat-drafts\/[^/]+\/mechanics-(?:revisions(?:\/[^/]+)?|revision-operations\/[^/]+(?::recover)?)$/.test(pathname)) return true;
+  if (pathname.startsWith("/api/live/world-session-evidence")) return true;
+  if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/prepared-tables(?:\/receipts|\/commands\/[^/]+)?$/.test(pathname)) return true;
+  if (pathname === "/api/live/recap-ingest" || pathname === "/api/live/recap-name-review" || isRecapSelectionContextPath(pathname)) return true;
+  if (pathname === "/api/live/extract-promote/native-prepare" || pathname === "/api/live/extract-promote/native-confirm"
+      || pathname === "/api/live/extract-promote/native-worldbuilding-context") return true;
+  if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/review(?:\/commands\/[^/]+)?$/.test(pathname)) return true;
+  if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/content(?:\/revisions\/\d+|\/commands\/[^/]+|\/proposals(?:\/[^/]+)?)?$/.test(pathname)) return true;
+  if (/^\/api\/live\/graph-preview\/build-recap-launches(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?$/i.test(pathname)) return true;
+  if (pathname === "/api/live/graph-preview/extraction-runs") return true;
+  if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/recap-inspection$/.test(pathname)) return true;
+  if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)) return true;
+  if (/^\/api\/live\/extract-promote\/worldbuilding\/(?:capabilities|prepare|confirm)$/.test(pathname)) return true;
+  if (/^\/api\/live\/extract-promote\/worldbuilding\/first-world\/(?:prepare|confirm)$/.test(pathname)) return true;
+  if (/^\/api\/live\/extract-promote\/runs\/[^/]+\/recap-evidence-corrections$/.test(pathname)) return true;
+  if (/^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname)) {
+    return true;
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+(?:\/resolve|\/resolutions\/[^/]+)?)?$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/(?:conversation\/turns|plan-proposals)\/[^/]+\/graph-evidence$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace(?:\/[^/]+\/prompt\/[^/]+)?$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:identities|(?:native-)?steps\/\d+\/assertion)$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/prompts$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/source-passages\/\d+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/(?:native-source-sections|native-source-clauses|native-body-excerpts)\/\d+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/connected-page-origin$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/related-pages\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/saved-sections\/\d+\/[a-f0-9-]+$/i.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted|review))?)?$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/plan-proposals\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(pathname)
+    || pathname === "/api/live/agent/turn"
+    || /^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname)
+    || pathname === "/api/live/world-graph/projection"
+    || pathname === "/api/live/world-graph/managed-projection"
+    || pathname === "/api/live/world-graph/recap-projection"
+    || pathname.startsWith("/api/live/world-graph/retrieval/")
+    || pathname === "/api/live/threats/query-hydration") return true;
+
+  const payload = requestBodyRecord(body);
+  if (/^\/api\/live\/tiptap\/markdown-write\/(prepare|commit)$/.test(pathname)
+    && typeof payload?.markdown === 'string' && payload.markdown.includes('dmb-media:')) return true;
+  return pathname === "/api/live/query" && payload?.world_graph_context != null;
+}
+
+function isLoopbackApiDestination(requestUrl: string): boolean {
+  let destination: URL;
+  try {
+    const pageUrl = typeof window === "undefined" ? undefined : window.location.href;
+    destination = pageUrl ? new URL(requestUrl, pageUrl) : new URL(requestUrl);
+  } catch {
+    return false;
+  }
+
+  if (destination.protocol !== "http:" && destination.protocol !== "https:") return false;
+  const hostname = destination.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+const HOSTED_EXPLORER_PATHS = new Set([
+  "/api/live/native-graph-explorer/graph",
+  "/api/live/native-graph-explorer/prepare",
+  "/api/live/native-graph-explorer/confirm",
+  "/api/live/native-graph-explorer/operations/read",
+]);
+
+const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
+
+const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\?admission_id=[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+
+function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const savedEvidence = /^\/api\/live\/agent\/worlds\/[^/?#%]+\/(?:conversation\/turns|plan-proposals)\/[0-9a-f-]+\/graph-evidence\?([^#]+)$/.exec(path);
+  if (savedEvidence) {
+    const query = new URLSearchParams(savedEvidence[1]);
+    return method === "GET" && init?.body == null && query.size === 2
+      && Boolean(query.get("claim_id")) && Boolean(query.get("anchor_id"));
+  }
+  if (path === "/api/live/connected-pages/prepare" || path === "/api/live/connected-pages/confirm") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.world_id === "string" && Boolean(body.world_id)
+      && typeof body.operation_id === "string" && Boolean(body.operation_id);
+  }
+  const associateMechanics = /^\/api\/live\/world-mechanics\/associations\?([^#]+)$/.exec(path);
+  if (method === "POST" && associateMechanics) {
+    const query = new URLSearchParams(associateMechanics[1]);
+    const target = requestBodyRecord(init?.body)?.target;
+    const world = query.get("world_id");
+    return query.size === 1 && Boolean(world) && isRecord(target) && target.managed_world_id === world;
+  }
+  const mechanicsRead = /^\/api\/live\/world-mechanics\/associations\/(?:creatures|requests\/[0-9a-f-]+)\?([^#]+)$/.exec(path);
+  if (mechanicsRead) {
+    const query = new URLSearchParams(mechanicsRead[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
+  const pdfPublish = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/(?:(?:creature-draft|validate|publication)\?expected_revision=([1-9][0-9]*)|accept\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.exec(path);
+  if (method === "POST" && pdfPublish) {
+    const expectedRevision = pdfPublish[1];
+    if (expectedRevision) return init?.body == null && Number.isSafeInteger(Number(expectedRevision));
+    const body = requestBodyRecord(init?.body);
+    return typeof body?.operation_id === "string" && Boolean(body.operation_id)
+      && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision) && body.expected_revision > 0
+      && typeof body.expected_draft_version === "number" && Number.isSafeInteger(body.expected_draft_version) && body.expected_draft_version > 0
+      && isRecord(body.validation_receipt) && typeof body.validation_definition_digest === "string";
+  }
+  const pdfReview = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(\/publication(?:\/statblock)?)?)?([?][^#]+)?$/.exec(path);
+  if (pdfReview) {
+    const [, reviewId, publication, search] = pdfReview;
+    if (method === "PUT" && reviewId && !publication && search === undefined) {
+      const body = requestBodyRecord(init?.body);
+      return typeof body?.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
+        && body.expected_revision >= 0 && isRecord(body.definition) && Array.isArray(body.regions);
+    }
+    if (method !== "GET" || init?.body != null) return false;
+    if (publication !== "/publication/statblock") return search === undefined;
+    const query = new URLSearchParams(search);
+    const draftId = query.get("draft_id");
+    const revisionId = query.get("revision_id");
+    return !!draftId && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(draftId)
+      && !!revisionId && path === path.split("?", 1)[0] + "?" + new URLSearchParams({ draft_id: draftId, revision_id: revisionId });
+  }
+  const promptEvidence = /^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/turns\/[a-f0-9-]+\/context-trace\/(?:([a-f0-9-]+)\/prompt\/([a-f0-9-]+)|(prompts))$/.exec(path);
+  if (promptEvidence) {
+    if (!promptEvidence[3]) return method === "GET" && init?.body == null;
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body !== null && Object.keys(body).length === 1
+      && Array.isArray(body.prompts) && body.prompts.length >= 1 && body.prompts.length <= 8;
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/name$/i.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  if (HOSTED_PDF_UPLOAD_PATH.test(path)) {
+    return method === "POST" && init?.body instanceof Blob && init.body.size > 0
+      && new Headers(init.headers).get("Content-Type") === "application/pdf";
+  }
+  const retainedPdf = /^(\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources)(?:\/(open|region:validate)|\?([^#]+))?$/.exec(path);
+  if (retainedPdf) {
+    const [, root, operation, search] = retainedPdf;
+    if (operation) return method === "POST" && requestBodyRecord(init?.body) !== null;
+    if (method !== "GET" || init?.body != null) return false;
+    if (search === undefined) return true;
+    const after = new URLSearchParams(search).get("after");
+    return after !== null && path === root + "?" + new URLSearchParams({ after });
+  }
+  if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/regenerate$/i.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && (body?.mode === "new" || body?.mode === "image_to_image")
+      && typeof body.expected_content_sha256 === "string" && /^[0-9a-f]{64}$/.test(body.expected_content_sha256)
+      && typeof body.instructions === "string" && Boolean(body.instructions.trim());
+  }
+  const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
+  const playProgress = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/progress\?([^#]+)$/.exec(path);
+  if (playProgress) {
+    const query = new URLSearchParams(playProgress[1]);
+    const body = requestBodyRecord(init?.body);
+    return method === "PUT" && query.size === 1 && Boolean(query.get("world_id"))
+      && typeof body?.expected_run_revision === "number" && Number.isSafeInteger(body.expected_run_revision)
+      && body.expected_run_revision > 0 && isRecord(body.progress);
+  }
+  if (connectedPage) {
+    const query = new URLSearchParams(connectedPage[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/from-regions$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && Array.isArray(body?.regions) && body.regions.length > 0
+      && typeof body.instruction === "string";
+  }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/append\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.operation_id === "string" && Boolean(body.operation_id)
+      && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
+      && body.expected_revision > 0 && isRecord(body.base);
+  }
+  if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/save$/i.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body !== null && Object.keys(body).length === 0;
+  }
+  const imageAssociation = /^\/api\/live\/media\/images\/preparations\/[0-9a-f-]+\/asset\?([^#]+)$/.exec(path);
+  if (imageAssociation) {
+    const query = new URLSearchParams(imageAssociation[1]);
+    return method === "POST" && query.size === 1 && Boolean(query.get("world_id"))
+      && isRecord(requestBodyRecord(init?.body));
+  }
+  const imageGeneration = /^\/api\/live\/media\/images\/generate\?([^#]+)$/.exec(path);
+  if (imageGeneration) {
+    const query = new URLSearchParams(imageGeneration[1]);
+    return method === "POST" && query.size === 1 && Boolean(query.get("world_id"))
+      && isRecord(requestBodyRecord(init?.body));
+  }
+  const imageCapabilities = "/api/live/media/images/capabilities?";
+  if (path.startsWith(imageCapabilities)) {
+    const world = new URLSearchParams(path.slice(imageCapabilities.length)).get("world_id");
+    return method === "GET" && init?.body == null && !!world
+      && path === imageCapabilities + new URLSearchParams({ world_id: world });
+  }
+  if (/^\/api\/live\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/pdf-adventure-events\/(?:prepare|confirm)$/.test(path)) {
+    return method === "POST" && requestBodyRecord(init?.body) !== null;
+  }
+  const nativeSource = /^\/api\/live\/workspace-documents\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/native-world-source/.exec(path);
+  if (nativeSource) {
+    const selectors = path.slice(nativeSource[0].length);
+    if (method === "GET" && init?.body == null) {
+      return selectors === "" || /^\?expected_revision=[1-9][0-9]*$/.test(selectors);
+    }
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && selectors === "" && typeof body?.expected_revision === "number"
+      && Number.isSafeInteger(body.expected_revision) && body.expected_revision > 0
+      && typeof body.expected_body_sha256 === "string" && /^[0-9a-f]{64}$/.test(body.expected_body_sha256);
+  }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-source-withdrawals$/.test(path)) {
+    const source = requestBodyRecord(init?.body);
+    return method === "POST" && (source?.kind === "pdf" || source?.kind === "text")
+      && typeof source.revision_id === "string" && Boolean(source.revision_id);
+  }
+  const imageHistory = "/api/live/media/images/preparations/list?";
+  if (path.startsWith(imageHistory)) {
+    const selectors = new URLSearchParams(path.slice(imageHistory.length));
+    const worldId = selectors.get("world_id");
+    const conversationId = selectors.get("conversation_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(conversationId ?? "")
+      && path === imageHistory + "world_id=" + encodeURIComponent(worldId)
+        + "&conversation_id=" + conversationId;
+  }
+  if (path === "/api/live/agent/turn") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && isRecord(body?.owner_scope)
+      && body.owner_scope.kind === "world" && typeof body.owner_scope.world_id === "string"
+      && Boolean(body.owner_scope.world_id.trim())
+      && typeof body.client_thread_id === "string" && typeof body.turn_id === "string";
+  }
+  if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(metadata|original)$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/turns\/[0-9a-f-]+\/(?:native-source-sections|source-passages|native-body-excerpts|native-assertion-sources|native-source-clauses)\/\d+$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/turns\/[0-9a-f-]+\/context-trace$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/build-proposals\?conversation_id=[0-9a-f-]+$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  const variantReview = /^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/variant-reviews\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/(confirm|saved))?$/i.exec(path);
+  if (variantReview) {
+    return init?.body == null && method === (variantReview[1] === "confirm" ? "POST" : "GET");
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(path)) {
+    return (method === "GET" && init?.body == null)
+      || (method === "PUT" && !!requestBodyRecord(init?.body));
+  }
+  const conversation = /^\/api\/live\/agent\/worlds\/[^/?]+\/(conversation(?:\/new|\/commands\/[0-9a-f-]+)?|conversations(?:\/active\/messages|\/[0-9a-f-]+\/(?:messages|turns|retry-context))?)(?:\?([^#]*))?$/.exec(path);
+  if (conversation) {
+    if (conversation[1] === "conversation/new") {
+      return method === "POST" && conversation[2] === undefined && !!requestBodyRecord(init?.body);
+    }
+    return method === "GET" && init?.body == null;
+  }
+  const mechanicsPreview = /^\/api\/live\/combat\/encounters\/(?:saved-mechanics|accepted-mechanics|world-mechanics|conversation-variant)\/preview\?/.exec(path);
+  if (mechanicsPreview) {
+    const worldId = new URLSearchParams(path.slice(mechanicsPreview[0].length)).get("world_id");
+    return method === "POST" && !!worldId && !!requestBodyRecord(init?.body)
+      && path === mechanicsPreview[0] + new URLSearchParams({ world_id: worldId });
+  }
+  const creaturePublication = /^\/api\/live\/threat-drafts\/[0-9a-f-]+\/native-creature(?:\/(prepare|confirm))?(?:\?([^#]+))?$/.exec(path);
+  if (creaturePublication) {
+    const [, action, selectors] = creaturePublication;
+    if (!action) {
+      const query = new URLSearchParams(selectors);
+      return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+    }
+    const body = requestBodyRecord(init?.body);
+    const review = action === "confirm" ? body?.review : body;
+    return method === "POST" && !selectors && isRecord(review)
+      && typeof review.world_id === "string" && Boolean(review.world_id);
+  }
+  const archivedStatblock = /^\/api\/live\/threat-drafts\/[0-9a-f-]+\/saved-statblock\?([^#]+)$/.exec(path);
+  if (archivedStatblock) {
+    const query = new URLSearchParams(archivedStatblock[1]);
+    return method === "DELETE" && init?.body == null && query.size === 2 && Boolean(query.get("world_id"))
+      && /^[1-9][0-9]*$/.test(query.get("expected_version") ?? "");
+  }
+  if (/^\/api\/live\/threat-drafts\/[0-9a-f-]+\/mechanics-revisions$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.world_id === "string" && Boolean(body.world_id);
+  }
+  const mechanicsOperation = /^\/api\/live\/threat-drafts\/[0-9a-f-]+\/mechanics-revision-operations\/[0-9a-f-]+(:recover)?\?([^#]+)$/.exec(path);
+  if (mechanicsOperation) {
+    const query = new URLSearchParams(mechanicsOperation[2]);
+    return method === (mechanicsOperation[1] ? "POST" : "GET") && init?.body == null
+      && query.size === 1 && Boolean(query.get("world_id"));
+  }
+  const savedRevisionList = /^\/api\/live\/threat-drafts\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-revisions\?/.exec(path);
+  if (savedRevisionList) {
+    const query = new URLSearchParams(path.slice(savedRevisionList[0].length));
+    const worldId = query.get("world_id");
+    const offset = query.get("offset");
+    return method === "GET" && init?.body == null && !!worldId && offset !== null && /^\d+$/.test(offset)
+      && path === savedRevisionList[0] + new URLSearchParams({ world_id: worldId, offset });
+  }
+  const combatAdoption = /^\/api\/live\/combat\/encounters\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-adoptions(:cancel|\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
+  if (combatAdoption) {
+    const query = new URLSearchParams(path.slice(combatAdoption[0].length));
+    const worldId = query.get("world_id");
+    if (!worldId) return false;
+    const exact = new URLSearchParams({ world_id: worldId });
+    const suffix = combatAdoption[1];
+    if (method === "GET" && suffix !== ":cancel" && init?.body == null) {
+      const before = query.get("before_operation_id");
+      if (!suffix && before) exact.set("before_operation_id", before);
+      return path === combatAdoption[0] + exact;
+    }
+    return method === "POST" && (!suffix || suffix === ":cancel") && !!requestBodyRecord(init?.body)
+      && path === combatAdoption[0] + exact;
+  }
+  const combatEncounter = /^\/api\/live\/combat\/encounters(\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
+  if (combatEncounter) {
+    const worldId = new URLSearchParams(path.slice(combatEncounter[0].length)).get("world_id");
+    if (!worldId || path !== combatEncounter[0] + new URLSearchParams({ world_id: worldId })) return false;
+    if (method === "GET") return init?.body == null;
+    return method === (combatEncounter[1] ? "PUT" : "POST") && !!requestBodyRecord(init?.body);
+  }
+  if (path === "/api/live/graph-preview/extraction-runs") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.document_id === "string"
+      && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(body.document_id)
+      && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
+      && body.expected_revision > 0 && typeof body.expected_content_sha256 === "string"
+      && /^(?:sha256:)?[a-f0-9]{64}$/.test(body.expected_content_sha256);
+  }
+  const savedRecap = /^\/api\/live\/graph-preview\/extraction-runs(?:\/[^/?]+\/(recap-inspection|candidate-projection))?\?/.exec(path);
+  if (savedRecap && method === "GET" && init?.body == null) {
+    const query = new URLSearchParams(path.slice(savedRecap[0].length));
+    const worldId = query.get("managed_world_id");
+    if (worldId) {
+      const exactQuery = new URLSearchParams({ managed_world_id: worldId });
+      if (savedRecap[1] === "recap-inspection") {
+        const revision = query.get("expected_run_revision");
+        const source = query.get("source_revision_id");
+        if (!revision || !source) return false;
+        exactQuery.set("expected_run_revision", revision);
+        exactQuery.set("source_revision_id", source);
+      } else if (!savedRecap[1]) {
+        const campaign = query.get("campaign_id");
+        if (campaign) exactQuery.set("campaign_id", campaign);
+      }
+      return path === savedRecap[0] + exactQuery;
+    }
+  }
+  const exactStatblock = /^\/api\/live\/threat-drafts\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-revisions\/rev_[a-z0-9]+\?/.exec(path);
+  if (exactStatblock) {
+    const worldId = new URLSearchParams(path.slice(exactStatblock[0].length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === exactStatblock[0] + "world_id=" + encodeURIComponent(worldId);
+  }
+  const mechanicsInventory = "/api/live/world-mechanics/associations?";
+  if (path.startsWith(mechanicsInventory)) {
+    const worldId = new URLSearchParams(path.slice(mechanicsInventory.length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === mechanicsInventory + "world_id=" + encodeURIComponent(worldId);
+  }
+  const creation = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/creation(?::cancel)?)?\?/.exec(path);
+  if (creation) {
+    const query = new URLSearchParams(path.slice(creation[0].length));
+    const worldId = query.get("world_id");
+    const suffix = creation[1];
+    if (!worldId || path !== creation[0] + new URLSearchParams({ world_id: worldId })) return false;
+    if (suffix === "/creation") return method === "GET" && init?.body == null;
+    return method === (suffix ? "POST" : "PUT")
+      && requestBodyRecord(init?.body)?.schema_version === "dmb_world_session_create_v1";
+  }
+  const preparedTables = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/prepared-tables(\/commands\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
+  if (preparedTables) {
+    const worldId = new URLSearchParams(path.slice(preparedTables[0].length)).get("world_id");
+    if (!worldId || path !== preparedTables[0] + new URLSearchParams({ world_id: worldId })) return false;
+    return preparedTables[1]
+      ? method === "PUT" && !!requestBodyRecord(init?.body)
+      : method === "GET" && init?.body == null;
+  }
+  const review = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/review\?([^#]+)$/i.exec(path);
+  if (review) {
+    const query = new URLSearchParams(review[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
+  const sessionEvidence = /^\/api\/live\/world-session-evidence(?:\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/revisions\/\d+)?\?([^#]+)$/i.exec(path);
+  if (sessionEvidence) {
+    const query = new URLSearchParams(sessionEvidence[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
+  const playProposal = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\/proposals(\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?([^#]+)$/i.exec(path);
+  if (playProposal) {
+    const query = new URLSearchParams(playProposal[2]);
+    if (query.size !== 1 || !query.get("world_id")) return false;
+    if (method === "GET") return init?.body == null;
+    return method === "POST" && Boolean(playProposal[1]) && requestBodyRecord(init?.body) !== null;
+  }
+  const playReviewCommand = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/review\/commands\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/i.exec(path);
+  if (method === "PUT" && playReviewCommand) {
+    const query = new URLSearchParams(playReviewCommand[1]);
+    const action = requestBodyRecord(init?.body)?.action;
+    return query.size === 1 && Boolean(query.get("world_id"))
+      && (action === "end" || action === "save" || action === "reopen");
+  }
+  const editionCommand = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\/commands\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/i.exec(path);
+  if (method === "PUT" && editionCommand) {
+    const query = new URLSearchParams(editionCommand[1]);
+    return query.size === 1 && Boolean(query.get("world_id"))
+      && requestBodyRecord(init?.body)?.schema_version === "dmb_world_play_run_content_commit_v1";
+  }
+  const runContent = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\?/.exec(path);
+  if (runContent) {
+    const worldId = new URLSearchParams(path.slice(runContent[0].length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === runContent[0] + new URLSearchParams({ world_id: worldId });
+  }
+  const preparationPath = "/api/live/world-play-runs/v2/preparation";
+  if (path.startsWith(preparationPath + "?")) {
+    const selectors = new URLSearchParams(path.slice(preparationPath.length + 1));
+    const worldId = selectors.get("world_id");
+    const entryScene = selectors.get("entry_scene_id");
+    if (method !== "POST" || !worldId || !requestBodyRecord(init?.body)) return false;
+    const expected = new URLSearchParams({ world_id: worldId });
+    if (entryScene) expected.set("entry_scene_id", entryScene);
+    return path === `${preparationPath}?${expected}`;
+  }
+  if (path === "/api/live/world-containers") return method === "GET" && init?.body == null;
+  if (path.startsWith(HOSTED_WORLD_LOOKUP_PATH + "?")) {
+    const query = new URLSearchParams(path.slice(HOSTED_WORLD_LOOKUP_PATH.length + 1));
+    const worldId = query.get("managed_world_id");
+    return method === "GET" && init?.body == null && worldId !== null && worldId !== ""
+      && path === hostedWorldLookupPath(worldId);
+  }
+  if (method !== "POST") return false;
+  if (path === "/api/live/native-graph-inspection/catalog" ||
+      path === "/api/live/native-source-inspection/catalog" ||
+      path === "/api/live/native-source-inspection/read") {
+    const body = requestBodyRecord(init?.body);
+    const scope = path.endsWith("/read") ? body?.scope : body;
+    return isRecord(scope) && scope.scope_mode === "world" && scope.campaign_id === null
+      && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id);
+  }
+  if (path === "/api/live/native-source-inspection/published-recap/objects") {
+    const body = requestBodyRecord(init?.body);
+    const scope = body?.scope;
+    return method === "POST" && isRecord(scope) && scope.managed_world_id === body?.managed_world_id
+      && scope.scope_mode === "world" && scope.campaign_id === null;
+  }
+  if (path === "/api/live/native-source-inspection/published-recap") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body !== undefined && body !== null
+      && Object.keys(body).length === 3
+      && ["managed_world_id", "campaign_id", "session_id"].every(key =>
+        typeof body[key] === "string" && Boolean(body[key].trim()));
+  }
+  if (HOSTED_EXPLORER_PATHS.has(path)) return true;
+  if (path !== "/api/live/native-graph-inspection/read") return false;
+  const body = requestBodyRecord(init?.body);
+  const selection = body?.selection;
+  const scope = body?.scope;
+  return typeof scope === "object" && scope !== null
+    && (scope as Record<string, unknown>).scope_mode === "world"
+    && (scope as Record<string, unknown>).campaign_id === null
+    && typeof selection === "object" && selection !== null
+    && ["entity", "chronology", "source"].some(kind => kind === (selection as Record<string, unknown>).kind);
+}
+
+function apiRequestTarget(
+  path: string,
+  init?: RequestInit,
+): { url: string; localGraphRequest: boolean; hostedGraphRequest: boolean } {
+  const url = `${baseUrl}${path}`;
+  const localGraphRequest = requiresNativeGraphAuthorization(path, init?.body);
+  const pageUrl = typeof window === "undefined" ? undefined : window.location.href;
+  let normalizedPath = path;
+  try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
+  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
+    || /^\/api\/live\/workspace-documents\/[^/]+\/native-world-source$/.test(normalizedPath)
+    || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/progress$/.test(normalizedPath);
+  if (isLoopbackApiDestination(url)) return { url, localGraphRequest, hostedGraphRequest: false };
+  if (localGraphRequest || graphSurface) {
+    // Exact relative paths only: explicit API bases, URL credentials, queries,
+    // encoded/lookalike routes and insecure origins never enter hosted transport.
+    let secureSameOrigin = false;
+    try {
+      const page = new URL(pageUrl!);
+      const destination = new URL(url, page);
+      secureSameOrigin = !baseUrl && page.protocol === "https:"
+        && destination.origin === page.origin && !destination.username && !destination.password;
+    } catch { /* Fail closed. */ }
+    if (secureSameOrigin && isHostedGraphRequest(path, init)) {
+      return { url, localGraphRequest: false, hostedGraphRequest: true };
+    }
+    throw new LiveApiError(
+      "Local operator Agent/Graph requests require loopback; hosted graph requests require an exact same-origin HTTPS route.",
+      0,
+    );
+  }
+  return { url, localGraphRequest, hostedGraphRequest: false };
+}
+
+function hostedGraphHeaders(path: string, headers: Record<string, string>): Record<string, string> {
+  // Do not allow local bearer/session credentials or caller identity headers into
+  // this cookie-authenticated request. Ownership comes only from the server.
+  return Object.fromEntries(Object.entries(headers).filter(([key]) =>
+    ["accept", "content-type"].includes(key.toLowerCase())
+      || (key.toLowerCase() === "x-pdf-created-at" && HOSTED_PDF_UPLOAD_PATH.test(path))));
+}
+
+function headerRecord(headers: HeadersInit | undefined): Record<string, string> {
+  if (!headers) return {};
+  if (headers instanceof Headers) return Object.fromEntries(headers.entries());
+  if (Array.isArray(headers)) return Object.fromEntries(headers);
+  return { ...headers };
+}
+
+function nativeGraphHeaders(
+  path: string,
+  body: BodyInit | null | undefined,
+  headers: Record<string, string>,
+): Record<string, string> {
+  if (!requiresNativeGraphAuthorization(path, body)) return headers;
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === "authorization") delete headers[key];
+  }
+  if (nativeGraphAccessToken) {
+    headers.Authorization = `Bearer ${nativeGraphAccessToken}`;
+  }
+  return headers;
+}
+/** Repo-relative path passed to POST /api/live/query for context_lookup grounding. */
+export const DEFAULT_PLANNING_MANIFEST_PATH =
+  (import.meta.env.VITE_LIVE_PLANNING_MANIFEST_PATH as string | undefined)?.trim() ||
+  "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json";
+
+function htmlInsteadOfJsonHint(): string {
+  return (
+    "The API returned an HTML page instead of JSON. Usually the L3 server is not running, " +
+    "or the UI is not proxying /api to it. Terminal 1 (repo root): " +
+    "export DUNGEONMIND_LIVE_SESSION_DIR=evals/c2_live_prep/live/session_22 && " +
+    "uv run uvicorn apps.live_control_server.main:app --reload. " +
+    "Terminal 2: cd apps/live-control-ui && npm run dev (use dev, not preview)."
+  );
+}
+
+async function parseJsonBody<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  const trimmed = text.trimStart();
+  if (trimmed.startsWith("<!") || trimmed.toLowerCase().startsWith("<html")) {
+    throw new Error(htmlInsteadOfJsonHint());
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      `API response is not valid JSON (HTTP ${response.status}). ${htmlInsteadOfJsonHint()}`,
+    );
+  }
+}
+
+export interface LiveApiErrorDiagnostic {
+  code: string;
+  message: string;
+  severity?: string;
+}
+
+export interface LiveApiErrorOptions {
+  code?: string | null;
+  diagnostics?: LiveApiErrorDiagnostic[] | null;
+  planContextFailure?: WorldPlanGraphContextFailureV1 | null;
+}
+
+export class LiveApiError extends Error {
+  public readonly code?: string | null;
+  public readonly diagnostics?: LiveApiErrorDiagnostic[] | null;
+  public readonly planContextFailure?: WorldPlanGraphContextFailureV1 | null;
+
+  constructor(
+    message: string,
+    public readonly status: number,
+    options?: LiveApiErrorOptions,
+  ) {
+    super(message);
+    this.name = "LiveApiError";
+    this.code = options?.code ?? null;
+    this.diagnostics = options?.diagnostics ?? null;
+    this.planContextFailure = options?.planContextFailure ?? null;
+  }
+}
+
+function parseWorldGraphErrorFields(body: {
+  schema?: unknown;
+  code?: unknown;
+  message?: unknown;
+  diagnostics?: unknown;
+}): Pick<LiveApiErrorOptions, "code" | "diagnostics"> {
+  const isWorldGraphError =
+    body.schema === "dmb_world_graph_projection_error_v1"
+    || (typeof body.code === "string" && typeof body.message === "string");
+
+  if (!isWorldGraphError) {
+    return { code: null, diagnostics: null };
+  }
+
+  const code = typeof body.code === "string" ? body.code : null;
+  const diagnostics = Array.isArray(body.diagnostics)
+    ? body.diagnostics
+        .filter(
+          (entry): entry is LiveApiErrorDiagnostic =>
+            typeof entry === "object"
+            && entry != null
+            && typeof (entry as LiveApiErrorDiagnostic).code === "string"
+            && typeof (entry as LiveApiErrorDiagnostic).message === "string",
+        )
+        .map((entry) => ({
+          code: entry.code,
+          message: entry.message,
+          severity: typeof entry.severity === "string" ? entry.severity : undefined,
+        }))
+    : null;
+
+  return { code, diagnostics };
+}
+
+const PLAN_GRAPH_PREDISPATCH_FAILURE_HTTP_STATUS: Readonly<Record<string, number>> = Object.freeze({
+  managed_world_unresolved: 404,
+  native_binding_invalid: 409,
+  graph_revision_unavailable: 409,
+  graph_read_failed: 503,
+  graph_evidence_invalid: 502,
+  provider_envelope_over_budget: 413,
+  receipt_freeze_failed: 503,
+});
+
+export function isValidWorldPlanGraphContextFailure(
+  value: unknown,
+  responseCode: unknown,
+  responseStatus: number,
+): value is WorldPlanGraphContextFailureV1 {
+  if (!isRecord(value)) return false;
+  const expectedKeys = [
+    "schema", "status", "failure_code", "provider_dispatched", "automatic_downgrade",
+  ].sort();
+  const actualKeys = Object.keys(value).sort();
+  if (actualKeys.length !== expectedKeys.length
+    || actualKeys.some((key, index) => key !== expectedKeys[index])
+    || value.schema !== "dmb_plan_world_graph_context_failure_v1"
+    || value.status !== "pre_dispatch_failed"
+    || typeof value.failure_code !== "string" || !value.failure_code.trim()
+    || value.provider_dispatched !== false
+    || value.automatic_downgrade !== false) return false;
+
+  const expectedStatus = PLAN_GRAPH_PREDISPATCH_FAILURE_HTTP_STATUS[value.failure_code];
+  return typeof expectedStatus === "number"
+    && responseCode === value.failure_code
+    && responseStatus === expectedStatus;
+}
+
+function parsePlanWorldGraphContextFailure(
+  body: unknown,
+  responseStatus: number,
+): WorldPlanGraphContextFailureV1 | null {
+  if (!isRecord(body)) return null;
+  const detail = isRecord(body.detail) ? body.detail : body;
+  const failure = detail.plan_context_failure;
+  return isValidWorldPlanGraphContextFailure(failure, detail.code, responseStatus)
+    ? failure
+    : null;
+}
+
+
+function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean {
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method === "GET" || method === "HEAD") return true;
+  if (method !== "POST" || typeof init?.body !== "string") return false;
+  const pathname = path.split("?", 1)[0];
+  const body = requestBodyRecord(init.body);
+  if (pathname === "/api/live/native-graph-explorer/graph") {
+    return typeof body?.managed_world_id === "string" && Boolean(body.managed_world_id.trim());
+  }
+  if (pathname === "/api/live/native-graph-explorer/operations/read") {
+    return typeof body?.managed_world_id === "string" && Boolean(body.managed_world_id.trim())
+      && typeof body.operation_id === "string" && Boolean(body.operation_id.trim());
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/new$/.test(pathname)) {
+    return typeof body?.command_id === "string" && Boolean(body.command_id)
+      && Number.isSafeInteger(body.expected_pointer_revision)
+      && (body.expected_active_conversation_id === null || typeof body.expected_active_conversation_id === "string");
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals$/.test(pathname)) {
+    return typeof body?.idempotency_key === "string" && Boolean(body.idempotency_key)
+      && typeof body.conversation_id === "string" && Number.isSafeInteger(body.expected_pointer_revision);
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/from-regions$/i.test(pathname)) {
+    return Array.isArray(body?.regions) && body.regions.length > 0
+      && typeof body.instruction === "string";
+  }
+  if (pathname === "/api/live/agent/turn") {
+    return typeof body?.client_thread_id === "string" && Boolean(body.client_thread_id)
+      && typeof body.turn_id === "string" && Boolean(body.turn_id);
+  }
+  return isRecapSelectionContextPath(pathname)
+    || pathname === "/api/live/recap-name-review"
+    || /^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname)
+    || pathname === "/api/live/world-graph/projection"
+    || pathname === "/api/live/world-graph/managed-projection"
+    || pathname === "/api/live/world-graph/recap-projection"
+    || ["search", "object", "complete-object", "neighborhood", "evidence", "source-anchor/read"]
+      .some((read) => pathname === `/api/live/world-graph/retrieval/${read}`)
+    || pathname === "/api/live/threats/query-hydration"
+    || /^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname);
+}
+
+async function trustedLocalSessionRejection(response: Response): Promise<boolean> {
+  if (response.status !== 401 && response.status !== 403) return false;
+  try {
+    const body: unknown = await response.clone().json();
+    if (!isRecord(body) || !isRecord(body.detail)) return false;
+    return (response.status === 401 && body.detail.code === "graph_auth_required")
+      || (response.status === 403 && body.detail.code === "graph_auth_csrf_rejected");
+  } catch {
+    return false;
+  }
+}
+
+/** @internal Shared transport for API wrappers and transport-boundary verification. */
+async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Promise<{
+  response: Response; csrf: string | null; requestEpoch: number;
+}> {
+  const target = apiRequestTarget(path, init);
+  // Keep immutable request bytes/CAS/correlation for the sole permitted retry.
+  const frozenInit = { ...init, headers: headerRecord(init?.headers) };
+  const dispatch = async (expectedEpoch?: number) => {
+    const csrf = target.localGraphRequest && !nativeGraphAccessToken
+      ? await ensureNativeGraphSession() : null;
+    if (expectedEpoch !== undefined && (nativeGraphSessionEpoch !== expectedEpoch
+      || nativeGraphSessionRevoked || nativeGraphAccessToken)) {
+      throw new LiveApiError("Local session changed during recovery. Retry deliberately.", 401,
+        { code: "local_graph_session_changed" });
+    }
+    const requestEpoch = nativeGraphSessionEpoch;
+    const usedBearer = Boolean(nativeGraphAccessToken);
+    const response = await fetch(target.url, {
+      ...frozenInit,
+      ...(target.localGraphRequest || target.hostedGraphRequest
+        ? { redirect: "error" as const, credentials: "same-origin" as const } : {}),
+      ...(target.hostedGraphRequest ? { cache: "no-store" as const, mode: "same-origin" as const } : {}),
+      headers: target.hostedGraphRequest ? hostedGraphHeaders(path, {
+        ...(HOSTED_PDF_UPLOAD_PATH.test(path) ? {} : { "Content-Type": "application/json" }),
+        ...frozenInit.headers,
+      }) : nativeGraphHeaders(path, frozenInit.body, {
+        "Content-Type": "application/json", ...frozenInit.headers,
+        ...(csrf && (frozenInit.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
+      }),
+    });
+    if (target.hostedGraphRequest) {
+      const assertCurrent = () => {
+        if (requestEpoch !== nativeGraphSessionEpoch || frozenInit.signal?.aborted) {
+          throw new LiveApiError("The signed-in account changed during this request. Check the saved operation before retrying.",
+            401, { code: "hosted_graph_session_changed" });
+        }
+      };
+      assertCurrent();
+      return { response: admittedReadResponse(response, assertCurrent), csrf: null, requestEpoch, usedBearer: false };
+    }
+    return { response, csrf, requestEpoch, usedBearer };
+  };
+  const first = await dispatch();
+  if (!target.localGraphRequest || baseUrl || !first.csrf || first.usedBearer
+    || nativeGraphAccessToken || nativeGraphSessionRevoked || frozenInit.signal?.aborted
+    || !await trustedLocalSessionRejection(first.response)) return first;
+
+  let recovery = nativeGraphSessionRecovery;
+  if (!recovery || recovery.fromEpoch !== first.requestEpoch
+    || (recovery.connectedEpoch === null
+      ? first.requestEpoch !== nativeGraphSessionEpoch
+      : recovery.connectedEpoch !== nativeGraphSessionEpoch)) {
+    if (first.requestEpoch !== nativeGraphSessionEpoch) return first;
+    recovery = { fromEpoch: first.requestEpoch, connectedEpoch: null, request: Promise.resolve("") };
+    const owned = recovery;
+    owned.request = (async () => {
+      if (nativeGraphSessionRequest) await nativeGraphSessionRequest.catch(() => undefined);
+      if (nativeGraphSessionRevoked || nativeGraphAccessToken || nativeGraphSessionEpoch !== owned.fromEpoch) {
+        throw new LiveApiError("Local session changed during recovery.", 401, { code: "local_graph_session_changed" });
+      }
+      nativeGraphSessionEpoch += 1;
+      startReadWave();
+      nativeGraphCsrf = null;
+      owned.connectedEpoch = nativeGraphSessionEpoch;
+      // Reuse the existing GET → bootstrap POST. Never clear explicit revocation.
+      return ensureNativeGraphSession();
+    })();
+    nativeGraphSessionRecovery = owned;
+  }
+  try {
+    await recovery.request;
+  } catch (reason) {
+    throw new LiveApiError("Local session recovery failed. Reconnect in Settings.",
+      reason instanceof LiveApiError ? reason.status : 0, { code: "local_graph_session_recovery_failed" });
+  }
+  if (!canRetryLocalSessionRequest(path, frozenInit) || nativeGraphSessionRevoked || nativeGraphAccessToken
+    || recovery.connectedEpoch !== nativeGraphSessionEpoch || frozenInit.signal?.aborted) return first;
+  return dispatch(recovery.connectedEpoch ?? undefined);
+}
+
+/** Exact allowlist of passive reads; commands/provider dispatch never share transport. */
+function isShareableRead(path: string, init?: RequestInit): boolean {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const pathname = path.split("?", 1)[0];
+  if (method === "GET" && init?.body == null) return /^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/(?:active|[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})\/messages$/i.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation$/.test(pathname)
+    || pathname === "/api/live/play-runs"
+    || pathname === "/api/live/play-active-run"
+    || pathname === "/api/live/world-play-runs/v2"
+    || pathname === "/api/live/world-play-runs/v2/active"
+    || pathname === "/api/live/world-plan-edit/actions"
+    || pathname === "/api/live/world-plan-edit/conversation-actions"
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/prompt\/[^/]+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:identities|(?:native-)?steps\/\d+\/assertion)$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/prompts$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
+    || /^\/api\/live\/world-session-evidence(?:\/[^/]+\/revisions\/\d+)?$/.test(pathname)
+    || pathname === "/api/live/graph-preview/extraction-runs"
+    || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/recap-inspection$/.test(pathname)
+    || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)
+    || /^\/api\/live\/media\/images\/[^/]+\/metadata$/.test(pathname)
+    || /^\/api\/live\/rules\/(?:catalog|query|passages\/[a-f0-9]{64})$/.test(pathname);
+  if (method !== "POST" || typeof init?.body !== "string") return false;
+  const payload = requestBodyRecord(init.body);
+  if (pathname === "/api/live/native-graph-explorer/graph") {
+    return typeof payload?.managed_world_id === "string" && Boolean(payload.managed_world_id.trim());
+  }
+  if (pathname === "/api/live/native-graph-explorer/operations/read") {
+    return typeof payload?.managed_world_id === "string" && Boolean(payload.managed_world_id.trim())
+      && typeof payload.operation_id === "string" && Boolean(payload.operation_id.trim());
+  }
+  return isRecapSelectionContextPath(pathname) || [
+      "/api/live/world-graph/projection",
+      "/api/live/world-graph/managed-projection",
+      "/api/live/world-graph/recap-projection",
+      "/api/live/world-graph/retrieval/complete-object",
+      "/api/live/world-graph/retrieval/source-anchor/read",
+      "/api/live/world-graph/retrieval/recap-context/v2/read",
+      "/api/live/graph-preview/existing-object-resolver/candidates",
+    ].includes(pathname);
+}
+
+/** These allowlisted endpoints return JSON; keep admission valid through body consumption. */
+function admittedReadResponse(response: Response, assertCurrent: () => void): Response {
+  return new Proxy(response, {
+    get(target, property) {
+      if (property === "clone") return () => admittedReadResponse(target.clone(), assertCurrent);
+      const value = Reflect.get(target, property, target);
+      if (typeof value !== "function") return value;
+      if (["json", "text", "arrayBuffer", "blob", "formData", "bytes"].includes(String(property))) {
+        return async (...args: unknown[]) => {
+          assertCurrent();
+          const body: unknown = await Reflect.apply(value, target, args);
+          assertCurrent();
+          return body;
+        };
+      }
+      return value.bind(target);
+    },
+  });
+}
+
+/** @internal Shared transport with access-scoped pending-read acquisition. */
+export async function authenticatedApiFetch(path: string, init?: RequestInit): Promise<{
+  response: Response; csrf: string | null; requestEpoch: number;
+}> {
+  // Validate the destination before touching a shared acquisition.
+  const target = apiRequestTarget(path, init);
+  const localCatalogRead = isLoopbackApiDestination(target.url) && path === "/api/live/world-containers"
+    && (init?.method ?? "GET").toUpperCase() === "GET" && init?.body == null;
+  const hostedCatalogRead = target.hostedGraphRequest && hostedGraphSubject !== null
+    && path === "/api/live/world-containers";
+  if (!localCatalogRead && !hostedCatalogRead && !isShareableRead(path, init)) {
+    if (["GET", "HEAD"].includes((init?.method ?? "GET").toUpperCase())) return authenticatedApiFetchOnce(path, init);
+    startReadWave();
+    try {
+      return await authenticatedApiFetchOnce(path, init);
+    } finally {
+      // Reads begun during a write may observe its predecessor, even when they
+      // resolve after it. Post-write refreshes need their own acquisition wave.
+      // Also invalidate on an uncertain transport failure; never infer no write.
+      startReadWave();
+    }
+  }
+  const { signal, ...callerOptions } = init ?? {};
+  const options = { ...callerOptions, headers: headerRecord(callerOptions.headers) };
+  const headers = Array.from(new Headers(options.headers).entries()).sort(([a], [b]) => a.localeCompare(b));
+  const acquisitionEpoch = nativeGraphSessionEpoch;
+  const requestOptions = Object.entries({ ...options, method: (options.method ?? "GET").toUpperCase(), headers })
+    .sort(([a], [b]) => a.localeCompare(b));
+  const key = JSON.stringify([baseUrl, acquisitionEpoch, path, requestOptions]);
+  const result = await shareInFlightRead(key, ownedSignal => {
+    if (acquisitionEpoch !== nativeGraphSessionEpoch || !localCatalogRead && !target.hostedGraphRequest && nativeGraphSessionRevoked) {
+      throw new LiveApiError("Local session changed before this read. Retry deliberately.", 401,
+        { code: "local_graph_session_changed" });
+    }
+    return authenticatedApiFetchOnce(path, { ...options, signal: ownedSignal });
+  }, signal);
+  const assertCurrent = () => {
+    if (signal?.aborted) throw signal.reason ?? new DOMException("Read cancelled", "AbortError");
+    if (result.requestEpoch !== nativeGraphSessionEpoch || !localCatalogRead && !target.hostedGraphRequest && nativeGraphSessionRevoked) {
+      throw new LiveApiError("Local session changed during this read. Retry deliberately.", 401,
+        { code: "local_graph_session_changed" });
+    }
+  };
+  assertCurrent();
+  const response = result.response.clone();
+  return { ...result, response: response.ok ? admittedReadResponse(response, assertCurrent) : response };
+}
+
+async function apiFetch<T>(path: string, init?: RequestInit, decode?: (response:Response, assertCurrent:()=>void)=>Promise<T>): Promise<T> {
+  const { response, csrf, requestEpoch } = await authenticatedApiFetch(path, init);
+  if (!response.ok) {
+    blockStaleNativeGraphSession(response.status, csrf, requestEpoch);
+    let detail = response.statusText;
+    let errorOptions: LiveApiErrorOptions | undefined;
+    try {
+      const body = await parseJsonBody<{
+        detail?: unknown;
+        message?: unknown;
+        schema?: unknown;
+        code?: unknown;
+        diagnostics?: unknown;
+      }>(response);
+      if (typeof body.message === "string") {
+        detail = body.message;
+        errorOptions = {
+          ...parseWorldGraphErrorFields(body),
+          planContextFailure: parsePlanWorldGraphContextFailure(body, response.status),
+        };
+      } else if (typeof body.detail === "string") {
+        detail = body.detail;
+        errorOptions = {
+          ...parseWorldGraphErrorFields(body),
+          planContextFailure: parsePlanWorldGraphContextFailure(body, response.status),
+        };
+      } else if (body.detail != null && typeof body.detail === "object") {
+        const detailObj = body.detail as {
+          code?: unknown;
+          message?: unknown;
+          schema?: unknown;
+          diagnostics?: unknown;
+        };
+        if (typeof detailObj.message === "string") {
+          detail = detailObj.message;
+        } else {
+          detail = JSON.stringify(body.detail);
+        }
+        errorOptions = {
+          ...parseWorldGraphErrorFields({
+            ...body,
+            ...detailObj,
+          }),
+          planContextFailure: parsePlanWorldGraphContextFailure(body, response.status),
+        };
+        if (!errorOptions.code && typeof detailObj.code === "string") {
+          errorOptions = { ...errorOptions, code: detailObj.code, diagnostics: null };
+        }
+      } else if (body.detail != null) {
+        detail = JSON.stringify(body.detail);
+        errorOptions = {
+          ...parseWorldGraphErrorFields(body),
+          planContextFailure: parsePlanWorldGraphContextFailure(body, response.status),
+        };
+      }
+    } catch (parseError) {
+      if (parseError instanceof Error) {
+        detail = parseError.message;
+      }
+    }
+    throw new LiveApiError(detail, response.status, errorOptions);
+  }
+  if(decode){
+    try{return await decode(response,()=>{
+      if(requestEpoch!==nativeGraphSessionEpoch||nativeGraphSessionRevoked)
+        throw new LiveApiError("Local session changed during this reply. Check the saved request.",401,{code:"local_graph_session_changed"});
+    });}finally{startReadWave();}
+  }
+  return parseJsonBody<T>(response);
+}
+
+/** Lifecycle statuses that may carry a typed publication envelope, including integrity (500). */
+const PUBLICATION_TYPED_STATUSES = new Set([200, 201, 404, 409, 500, 503]);
+
+const OPERATION_RESPONSE_SCHEMA = "dmb_threat_publication_operation_response_v1";
+const IDENTITY_RESPONSE_SCHEMA = "dmb_threat_publication_identity_response_v1";
+const PROPOSAL_RESPONSE_SCHEMA = "dmb_threat_publication_proposal_response_v1";
+const COMMIT_RESPONSE_SCHEMA = "dmb_threat_publication_commit_response_v1";
+const OPERATION_RECORD_SCHEMA = "dmb_threat_publication_operation_v1";
+const RESOLUTION_RECORD_SCHEMA = "dmb_threat_publication_identity_resolution_v1";
+const CANDIDATE_SET_SCHEMA = "dmb_threat_identity_candidate_set_v1";
+const PROPOSAL_RECORD_SCHEMA = "dmb_threat_publication_proposal_v1";
+const COMMIT_RECORD_SCHEMA = "dmb_threat_publication_commit_v1";
+
+const OPERATION_RESULT_LABELS = new Set<string>([
+  "publication_ready",
+  "publication_stale",
+  "publication_cancelled",
+  "publication_superseded",
+  "publication_busy",
+  "publication_input_conflict",
+  "publication_parent_mismatch",
+  "publication_source_mismatch",
+  "publication_history_full",
+  "publication_not_found",
+  "publication_draft_unavailable",
+  "publication_graph_unavailable",
+  "publication_storage_unavailable",
+  "publication_integrity_failure",
+  "publication_invalid_state",
+]);
+
+const IDENTITY_RESULT_LABELS = new Set<string>([
+  "publication_identity_candidates_ready",
+  "publication_identity_created_new",
+  "publication_identity_connected_existing",
+  "publication_identity_refused",
+  "publication_identity_superseded",
+  "publication_identity_operation_not_ready",
+  "publication_identity_candidate_overflow",
+  "publication_identity_candidate_set_changed",
+  "publication_identity_review_required",
+  "publication_identity_target_not_found",
+  "publication_identity_target_invalid",
+  "publication_identity_new_id_collision",
+  "publication_identity_busy",
+  "publication_identity_input_conflict",
+  "publication_identity_history_full",
+  "publication_identity_not_found",
+  "publication_identity_graph_unavailable",
+  "publication_identity_storage_unavailable",
+  "publication_identity_integrity_failure",
+]);
+
+const PROPOSAL_RESULT_LABELS = new Set<string>([
+  "publication_proposal_ready",
+  "publication_proposal_superseded",
+  "publication_proposal_identity_refused",
+  "publication_proposal_operation_not_ready",
+  "publication_proposal_resolution_not_active",
+  "publication_proposal_predecessor_mismatch",
+  "publication_proposal_parent_mismatch",
+  "publication_proposal_typed_collision",
+  "publication_proposal_busy",
+  "publication_proposal_input_conflict",
+  "publication_proposal_history_full",
+  "publication_proposal_not_found",
+  "publication_proposal_graph_unavailable",
+  "publication_proposal_storage_unavailable",
+  "publication_proposal_integrity_failure",
+]);
+
+const COMMIT_RESULT_LABELS = new Set<string>([
+  "publication_commit_verified",
+  "publication_commit_committed_unverified",
+  "publication_commit_recovery_pending",
+  "publication_commit_uncommitted",
+  "publication_commit_outcome_ambiguous",
+  "publication_commit_proposal_not_active",
+  "publication_commit_proposal_incompatible",
+  "publication_commit_operation_not_ready",
+  "publication_commit_resolution_not_active",
+  "publication_commit_predecessor_mismatch",
+  "publication_commit_parent_mismatch",
+  "publication_commit_busy",
+  "publication_commit_input_conflict",
+  "publication_commit_not_found",
+  "publication_commit_graph_unavailable",
+  "publication_commit_storage_unavailable",
+  "publication_commit_integrity_failure",
+]);
+
+/** Labels that must carry their durable record (mirrors route success classes). */
+const OPERATION_LABELS_REQUIRING_RECORD = new Set<string>([
+  "publication_ready",
+  "publication_stale",
+  "publication_cancelled",
+  "publication_superseded",
+]);
+
+const IDENTITY_LABELS_REQUIRING_RESOLUTION = new Set<string>([
+  "publication_identity_created_new",
+  "publication_identity_connected_existing",
+  "publication_identity_refused",
+  "publication_identity_superseded",
+]);
+
+const PROPOSAL_LABELS_REQUIRING_PROPOSAL = new Set<string>([
+  "publication_proposal_ready",
+  "publication_proposal_superseded",
+]);
+
+const COMMIT_LABELS_REQUIRING_COMMITTED_REVISION = new Set<string>([
+  "publication_commit_verified",
+  "publication_commit_committed_unverified",
+]);
+
+const COMMIT_LABELS_REQUIRING_COMMIT_RECORD = new Set<string>([
+  "publication_commit_verified",
+  "publication_commit_committed_unverified",
+  "publication_commit_recovery_pending",
+  "publication_commit_uncommitted",
+  "publication_commit_outcome_ambiguous",
+]);
+
+const OPERATION_STATUS_BY_LABEL: Record<string, ReadonlySet<number>> = {
+  publication_ready: new Set([200, 201]),
+  publication_stale: new Set([200]),
+  publication_cancelled: new Set([200]),
+  publication_superseded: new Set([200]),
+  publication_busy: new Set([409]),
+  publication_input_conflict: new Set([409]),
+  publication_parent_mismatch: new Set([409]),
+  publication_source_mismatch: new Set([409]),
+  publication_history_full: new Set([409]),
+  publication_invalid_state: new Set([409]),
+  publication_not_found: new Set([404]),
+  publication_draft_unavailable: new Set([503]),
+  publication_graph_unavailable: new Set([503]),
+  publication_storage_unavailable: new Set([503]),
+  publication_integrity_failure: new Set([500]),
+};
+
+const IDENTITY_STATUS_BY_LABEL: Record<string, ReadonlySet<number>> = {
+  publication_identity_candidates_ready: new Set([200]),
+  publication_identity_created_new: new Set([200, 201]),
+  publication_identity_connected_existing: new Set([200, 201]),
+  publication_identity_refused: new Set([200, 201]),
+  publication_identity_superseded: new Set([200, 201]),
+  publication_identity_operation_not_ready: new Set([409]),
+  publication_identity_candidate_overflow: new Set([409]),
+  publication_identity_candidate_set_changed: new Set([409]),
+  publication_identity_review_required: new Set([409]),
+  publication_identity_target_invalid: new Set([409]),
+  publication_identity_new_id_collision: new Set([409]),
+  publication_identity_busy: new Set([409]),
+  publication_identity_input_conflict: new Set([409]),
+  publication_identity_history_full: new Set([409]),
+  publication_identity_not_found: new Set([404]),
+  publication_identity_target_not_found: new Set([404]),
+  publication_identity_graph_unavailable: new Set([503]),
+  publication_identity_storage_unavailable: new Set([503]),
+  publication_identity_integrity_failure: new Set([500]),
+};
+
+const PROPOSAL_STATUS_BY_LABEL: Record<string, ReadonlySet<number>> = {
+  publication_proposal_ready: new Set([200, 201]),
+  publication_proposal_superseded: new Set([200]),
+  publication_proposal_identity_refused: new Set([409]),
+  publication_proposal_operation_not_ready: new Set([409]),
+  publication_proposal_resolution_not_active: new Set([409]),
+  publication_proposal_predecessor_mismatch: new Set([409]),
+  publication_proposal_parent_mismatch: new Set([409]),
+  publication_proposal_typed_collision: new Set([409]),
+  publication_proposal_busy: new Set([409]),
+  publication_proposal_input_conflict: new Set([409]),
+  publication_proposal_history_full: new Set([409]),
+  publication_proposal_not_found: new Set([404]),
+  publication_proposal_graph_unavailable: new Set([503]),
+  publication_proposal_storage_unavailable: new Set([503]),
+  publication_proposal_integrity_failure: new Set([500]),
+};
+
+const COMMIT_STATUS_BY_LABEL: Record<string, ReadonlySet<number>> = {
+  publication_commit_verified: new Set([200, 201]),
+  publication_commit_committed_unverified: new Set([200, 201]),
+  publication_commit_recovery_pending: new Set([503]),
+  publication_commit_uncommitted: new Set([409]),
+  publication_commit_outcome_ambiguous: new Set([409]),
+  publication_commit_proposal_not_active: new Set([409]),
+  publication_commit_proposal_incompatible: new Set([409]),
+  publication_commit_operation_not_ready: new Set([409]),
+  publication_commit_resolution_not_active: new Set([409]),
+  publication_commit_predecessor_mismatch: new Set([409]),
+  publication_commit_parent_mismatch: new Set([409]),
+  publication_commit_busy: new Set([409]),
+  publication_commit_input_conflict: new Set([409]),
+  publication_commit_not_found: new Set([404]),
+  publication_commit_graph_unavailable: new Set([503]),
+  publication_commit_storage_unavailable: new Set([503]),
+  publication_commit_integrity_failure: new Set([500]),
+};
+
+function isRecord(body: unknown): body is Record<string, unknown> {
+  return typeof body === "object" && body !== null && !Array.isArray(body);
+}
+
+function statusAllowsLabel(
+  status: number,
+  label: string,
+  table: Record<string, ReadonlySet<number>>,
+): boolean {
+  const allowed = table[label];
+  return allowed != null && allowed.has(status);
+}
+
+function isNonBlankString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isOperationRecord(value: unknown, draftId: string): boolean {
+  if (!isRecord(value)) return false;
+  if (value.schema !== OPERATION_RECORD_SCHEMA) return false;
+  if (!isNonBlankString(value.operation_id)) return false;
+  if (!isRecord(value.source_snapshot)) return false;
+  if (value.source_snapshot.draft_id !== draftId) return false;
+  if (!isNonBlankString(value.source_snapshot.draft_id)) return false;
+  if (!isRecord(value.source_snapshot.accepted_mechanics_ref)) return false;
+  const mechanics = value.source_snapshot.accepted_mechanics_ref;
+  if (!isNonBlankString(mechanics.statblock_id) || !isNonBlankString(mechanics.revision_id)) {
+    return false;
+  }
+  if (!isNonBlankString(mechanics.definition_digest)) return false;
+  if (typeof mechanics.accepted_from_draft_version !== "number") return false;
+  return true;
+}
+
+function isCandidateSetRecord(value: unknown, draftId: string, operationId: string): boolean {
+  if (!isRecord(value)) return false;
+  if (value.schema !== CANDIDATE_SET_SCHEMA) return false;
+  if (value.draft_id !== draftId || value.operation_id !== operationId) return false;
+  if (!Array.isArray(value.candidates)) return false;
+  if (!isNonBlankString(value.candidate_set_digest)) return false;
+  return true;
+}
+
+function isResolutionRecord(value: unknown, draftId: string, operationId: string): boolean {
+  if (!isRecord(value)) return false;
+  if (value.schema !== RESOLUTION_RECORD_SCHEMA) return false;
+  if (!isNonBlankString(value.resolution_id)) return false;
+  if (value.draft_id !== draftId || value.operation_id !== operationId) return false;
+  if (!isCandidateSetRecord(value.candidate_set, draftId, operationId)) return false;
+  return true;
+}
+
+function isProposalRecord(value: unknown, draftId: string, operationId: string): boolean {
+  if (!isRecord(value)) return false;
+  if (value.schema !== PROPOSAL_RECORD_SCHEMA) return false;
+  if (!isNonBlankString(value.proposal_id)) return false;
+  if (value.draft_id !== draftId || value.operation_id !== operationId) return false;
+  if (!isNonBlankString(value.sealed_proposal_digest)) return false;
+  if (!isNonBlankString(value.expected_parent_revision_id)) return false;
+  if (!isRecord(value.effect_summary)) return false;
+  return true;
+}
+
+function isCommitRecord(
+  value: unknown,
+  draftId: string,
+  operationId: string,
+  commitId: string,
+  requireCommittedRevision: boolean,
+): boolean {
+  if (!isRecord(value)) return false;
+  if (value.schema !== COMMIT_RECORD_SCHEMA) return false;
+  if (value.commit_id !== commitId) return false;
+  if (value.draft_id !== draftId || value.operation_id !== operationId) return false;
+  if (!isNonBlankString(value.sealed_proposal_digest)) return false;
+  if (requireCommittedRevision && !isNonBlankString(value.committed_revision_id)) return false;
+  return true;
+}
+
+function validateOperationPublicationEnvelope(
+  body: unknown,
+  status: number,
+): ThreatPublicationOperationResponseV1 | null {
+  if (!isRecord(body)) return null;
+  if (body.schema !== OPERATION_RESPONSE_SCHEMA) return null;
+  if (typeof body.result_label !== "string" || !OPERATION_RESULT_LABELS.has(body.result_label)) {
+    return null;
+  }
+  if (!statusAllowsLabel(status, body.result_label, OPERATION_STATUS_BY_LABEL)) return null;
+  if (typeof body.draft_id !== "string") return null;
+
+  const operation = body.operation;
+  if (OPERATION_LABELS_REQUIRING_RECORD.has(body.result_label)) {
+    if (!isOperationRecord(operation, body.draft_id)) return null;
+  } else if (operation != null && operation !== undefined) {
+    if (!isOperationRecord(operation, body.draft_id)) return null;
+  }
+  return body as unknown as ThreatPublicationOperationResponseV1;
+}
+
+function validateIdentityPublicationEnvelope(
+  body: unknown,
+  status: number,
+): ThreatPublicationIdentityResponseV1 | null {
+  if (!isRecord(body)) return null;
+  if (body.schema !== IDENTITY_RESPONSE_SCHEMA) return null;
+  if (typeof body.result_label !== "string" || !IDENTITY_RESULT_LABELS.has(body.result_label)) {
+    return null;
+  }
+  if (!statusAllowsLabel(status, body.result_label, IDENTITY_STATUS_BY_LABEL)) return null;
+  if (typeof body.draft_id !== "string" || typeof body.operation_id !== "string") return null;
+  if (!("predecessor_usable" in body)) return null;
+
+  if (body.result_label === "publication_identity_candidates_ready") {
+    if (!isCandidateSetRecord(body.candidate_set, body.draft_id, body.operation_id)) return null;
+  }
+  if (IDENTITY_LABELS_REQUIRING_RESOLUTION.has(body.result_label)) {
+    if (!isResolutionRecord(body.resolution, body.draft_id, body.operation_id)) return null;
+  } else if (body.resolution != null && body.resolution !== undefined) {
+    if (!isResolutionRecord(body.resolution, body.draft_id, body.operation_id)) return null;
+  }
+  if (body.candidate_set != null && body.candidate_set !== undefined) {
+    if (!isCandidateSetRecord(body.candidate_set, body.draft_id, body.operation_id)) return null;
+  }
+  return body as unknown as ThreatPublicationIdentityResponseV1;
+}
+
+function validateProposalPublicationEnvelope(
+  body: unknown,
+  status: number,
+): ThreatPublicationProposalResponseV1 | null {
+  if (!isRecord(body)) return null;
+  if (body.schema !== PROPOSAL_RESPONSE_SCHEMA) return null;
+  if (typeof body.result_label !== "string" || !PROPOSAL_RESULT_LABELS.has(body.result_label)) {
+    return null;
+  }
+  if (!statusAllowsLabel(status, body.result_label, PROPOSAL_STATUS_BY_LABEL)) return null;
+  if (typeof body.draft_id !== "string" || typeof body.operation_id !== "string") return null;
+  if (!("resolution_id" in body)) return null;
+
+  if (PROPOSAL_LABELS_REQUIRING_PROPOSAL.has(body.result_label)) {
+    if (!isProposalRecord(body.proposal, body.draft_id, body.operation_id)) return null;
+  } else if (body.proposal != null && body.proposal !== undefined) {
+    if (!isProposalRecord(body.proposal, body.draft_id, body.operation_id)) return null;
+  }
+  return body as unknown as ThreatPublicationProposalResponseV1;
+}
+
+function validateCommitPublicationEnvelope(
+  body: unknown,
+  status: number,
+): ThreatPublicationCommitResponseV1 | null {
+  if (!isRecord(body)) return null;
+  if (body.schema !== COMMIT_RESPONSE_SCHEMA) return null;
+  if (typeof body.result_label !== "string" || !COMMIT_RESULT_LABELS.has(body.result_label)) {
+    return null;
+  }
+  if (!statusAllowsLabel(status, body.result_label, COMMIT_STATUS_BY_LABEL)) return null;
+  if (
+    typeof body.draft_id !== "string"
+    || typeof body.operation_id !== "string"
+    || typeof body.commit_id !== "string"
+  ) {
+    return null;
+  }
+  if (body.commit_admitted !== null && typeof body.commit_admitted !== "boolean") return null;
+  if (typeof body.retry_allowed !== "boolean") return null;
+  if (!("proposal_id" in body)) return null;
+  if (
+    body.commit_admitted !== null
+    && body.commit_admitted !== (body.commit != null)
+  ) {
+    return null;
+  }
+
+  const requireRevision = COMMIT_LABELS_REQUIRING_COMMITTED_REVISION.has(body.result_label);
+  if (COMMIT_LABELS_REQUIRING_COMMIT_RECORD.has(body.result_label) || requireRevision) {
+    if (
+      !isCommitRecord(
+        body.commit,
+        body.draft_id,
+        body.operation_id,
+        body.commit_id,
+        requireRevision,
+      )
+    ) {
+      return null;
+    }
+  } else if (body.commit != null && body.commit !== undefined) {
+    if (
+      !isCommitRecord(body.commit, body.draft_id, body.operation_id, body.commit_id, false)
+    ) {
+      return null;
+    }
+  }
+  return body as unknown as ThreatPublicationCommitResponseV1;
+}
+
+async function publicationFetch<T extends { schema: string; result_label: string }>(
+  path: string,
+  init: RequestInit | undefined,
+  validate: (body: unknown, status: number) => T | null,
+): Promise<T> {
+  const { response, csrf, requestEpoch } = await authenticatedApiFetch(path, init);
+  blockStaleNativeGraphSession(response.status, csrf, requestEpoch);
+
+  let body: unknown;
+  try {
+    body = await parseJsonBody<unknown>(response);
+  } catch (parseError) {
+    const message = parseError instanceof Error ? parseError.message : String(parseError);
+    throw new LiveApiError(message, response.status);
+  }
+
+  if (PUBLICATION_TYPED_STATUSES.has(response.status)) {
+    const validated = validate(body, response.status);
+    if (validated) {
+      return validated;
+    }
+    throw new LiveApiError(
+      "Publication response failed schema, result_label, status, or record validation",
+      response.status,
+    );
+  }
+
+  let detail = response.statusText;
+  if (isRecord(body)) {
+    if (typeof body.message === "string") {
+      detail = body.message;
+    } else if (typeof body.detail === "string") {
+      detail = body.detail;
+    }
+  }
+
+  throw new LiveApiError(detail, response.status);
+}
+
+function threatPublicationOperationsPrefix(draftId: string): string {
+  return `/api/live/threat-drafts/${encodeURIComponent(draftId)}/publication-operations`;
+}
+
+export async function getSurface(): Promise<LiveSurfaceResponse> {
+  return apiFetch<LiveSurfaceResponse>("/api/live/surface");
+}
+
+export async function getSurfaceSessionViews(): Promise<LiveSurfaceResponse & LiveEventsResponse & LiveJobsResponse & { plan_view: PlanViewProjection }> {
+  const surface = await apiFetch<LiveSurfaceResponse & Partial<LiveEventsResponse & LiveJobsResponse & { plan_view: PlanViewProjection }>>(
+    "/api/live/surface?include_session_views=true",
+  );
+  if (surface.events && surface.jobs && surface.plan_view) {
+    return { ...surface, events: surface.events, jobs: surface.jobs, plan_view: surface.plan_view };
+  }
+
+  const [events, jobs, planView] = await Promise.all([getEvents(), getJobs(), getPlanView()]);
+  return { ...surface, ...events, ...jobs, plan_view: planView };
+}
+
+export async function getEvents(since?: string): Promise<LiveEventsResponse> {
+  const query = since ? `?since=${encodeURIComponent(since)}` : "";
+  return apiFetch<LiveEventsResponse>(`/api/live/events${query}`);
+}
+
+export async function getJobs(): Promise<LiveJobsResponse> {
+  return apiFetch<LiveJobsResponse>("/api/live/jobs");
+}
+
+export async function getPlanView(worldId?: string | null, signal?: AbortSignal): Promise<PlanViewProjection> {
+  return apiFetch<PlanViewProjection>(
+    worldId ? `/api/live/plan-view?world_id=${encodeURIComponent(worldId)}` : "/api/live/plan-view",
+    signal ? { signal } : undefined,
+  );
+}
+
+export async function getManagedWorldPlanContext(worldId: string): Promise<ManagedWorldPlanContextV2> {
+  const query = new URLSearchParams({ scope_mode: "world", world_id: worldId });
+  return apiFetch<ManagedWorldPlanContextV2>(`/api/live/plan-view?${query.toString()}`);
+}
+
+export async function getPartyRegistry(
+  campaignId: string,
+  session: number,
+): Promise<PartyRegistrySurfaceResponse> {
+  const params = new URLSearchParams({
+    campaign_id: campaignId,
+    session: String(session),
+  });
+  return apiFetch<PartyRegistrySurfaceResponse>(`/api/live/party-registry?${params.toString()}`);
+}
+
+export async function preparePartyRegistrySessionRosterWrite(
+  body: PartyRegistrySessionRosterWritePrepareRequest,
+): Promise<PartyRegistrySessionRosterWritePrepareResponse> {
+  return apiFetch<PartyRegistrySessionRosterWritePrepareResponse>(
+    "/api/live/party-registry/session-roster/prepare",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function commitPartyRegistrySessionRosterWrite(
+  body: PartyRegistrySessionRosterWriteCommitRequest,
+): Promise<PartyRegistrySessionRosterWriteCommitResponse> {
+  return apiFetch<PartyRegistrySessionRosterWriteCommitResponse>(
+    "/api/live/party-registry/session-roster/commit",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+function recapGraphQueryString(query?: RecapGraphQuery): string {
+  if (!query) {
+    return "";
+  }
+  const params = new URLSearchParams();
+  if (query.run_dir) params.set("run_dir", query.run_dir);
+  if (query.artifact_id) params.set("artifact_id", query.artifact_id);
+  if (query.campaign_id) params.set("campaign_id", query.campaign_id);
+  if (query.session_id) params.set("session_id", query.session_id);
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
+export async function getRecapArtifacts(campaignId?: string): Promise<RecapArtifactsListResponse> {
+  const query = campaignId ? `?campaign_id=${encodeURIComponent(campaignId)}` : "";
+  return apiFetch<RecapArtifactsListResponse>(`/api/live/graph-preview/artifacts${query}`);
+}
+
+export async function getGraphPreviewLatest(
+  runDir?: string,
+  query?: Omit<RecapGraphQuery, "run_dir">,
+): Promise<GraphPreviewSurfaceResponse> {
+  const params = new URLSearchParams();
+  if (runDir) params.set("run_dir", runDir);
+  if (query?.artifact_id) params.set("artifact_id", query.artifact_id);
+  if (query?.campaign_id) params.set("campaign_id", query.campaign_id);
+  if (query?.session_id) params.set("session_id", query.session_id);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<GraphPreviewSurfaceResponse>(`/api/live/graph-preview/latest${suffix}`);
+}
+
+export async function getRecapGraphPresentation(
+  query?: RecapGraphQuery,
+): Promise<RecapGraphPresentationResponse> {
+  return apiFetch<RecapGraphPresentationResponse>(
+    `/api/live/graph-preview/recap${recapGraphQueryString(query)}`,
+  );
+}
+
+export interface GraphIngestRunsQuery {
+  campaignId?: string;
+  sessionId?: string;
+  sourceRecapPath?: string;
+  sourceRecapSha256?: string;
+  status?: string;
+  requirePreviewUnionStore?: boolean;
+}
+
+export async function getGraphIngestRuns(query: GraphIngestRunsQuery = {}): Promise<GraphIngestRunsResponse> {
+  const params = new URLSearchParams();
+  if (query.campaignId) params.set("campaign_id", query.campaignId);
+  if (query.sessionId) params.set("session_id", query.sessionId);
+  if (query.sourceRecapPath) params.set("source_recap_path", query.sourceRecapPath);
+  if (query.sourceRecapSha256) params.set("source_recap_sha256", query.sourceRecapSha256);
+  if (query.status) params.set("status", query.status);
+  if (query.requirePreviewUnionStore != null) {
+    params.set("require_preview_union_store", String(query.requirePreviewUnionStore));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<GraphIngestRunsResponse>(`/api/live/graph-preview/graph-ingest/runs${suffix}`);
+}
+
+export async function getLatestGraphIngestRun(
+  campaignId: string,
+  sessionId: string,
+  sourceRecapPath?: string,
+  sourceRecapSha256?: string,
+): Promise<GraphIngestLatestRunResponse> {
+  const params = new URLSearchParams({ campaign_id: campaignId, session_id: sessionId });
+  if (sourceRecapPath) params.set("source_recap_path", sourceRecapPath);
+  if (sourceRecapSha256) params.set("source_recap_sha256", sourceRecapSha256);
+  return apiFetch<GraphIngestLatestRunResponse>(
+    `/api/live/graph-preview/graph-ingest/latest?${params.toString()}`,
+  );
+}
+
+export interface GoldReviewCompareQuery {
+  campaignId: string;
+  sessionId: string;
+  manifestPath?: string;
+}
+
+export async function getGoldReviewSessions(): Promise<GoldReviewSessionsResponse> {
+  return apiFetch<GoldReviewSessionsResponse>("/api/live/graph-preview/gold-review/sessions");
+}
+
+export async function getGoldReviewCompare(query: GoldReviewCompareQuery): Promise<GoldReviewCompareResponse> {
+  const params = new URLSearchParams({
+    campaign_id: query.campaignId,
+    session_id: query.sessionId,
+  });
+  if (query.manifestPath) params.set("manifest_path", query.manifestPath);
+  return apiFetch<GoldReviewCompareResponse>(
+    `/api/live/graph-preview/gold-review/compare?${params.toString()}`,
+  );
+}
+
+export interface GoldReviewEvidenceQuery extends GoldReviewCompareQuery {
+  objectKind: string;
+  objectId: string;
+}
+
+export async function getGoldReviewEvidence(
+  query: GoldReviewEvidenceQuery,
+): Promise<GoldReviewEvidenceDiffResponse> {
+  const params = new URLSearchParams({
+    campaign_id: query.campaignId,
+    session_id: query.sessionId,
+    object_kind: query.objectKind,
+    object_id: query.objectId,
+  });
+  if (query.manifestPath) params.set("manifest_path", query.manifestPath);
+  return apiFetch<GoldReviewEvidenceDiffResponse>(
+    `/api/live/graph-preview/gold-review/evidence?${params.toString()}`,
+  );
+}
+
+export interface GoldReviewVocabularyAblationQuery {
+  campaignId: string;
+  sessionId: string;
+}
+
+export async function getGoldReviewVocabularyAblation(
+  query: GoldReviewVocabularyAblationQuery,
+): Promise<VocabularyAblationDogfoodResponse> {
+  const params = new URLSearchParams({
+    campaign_id: query.campaignId,
+    session_id: query.sessionId,
+  });
+  return apiFetch<VocabularyAblationDogfoodResponse>(
+    `/api/live/graph-preview/gold-review/vocabulary-ablation?${params.toString()}`,
+  );
+}
+
+export async function getManualReviewBeds(): Promise<ManualReviewBedsResponse> {
+  return apiFetch<ManualReviewBedsResponse>("/api/live/graph-preview/manual-review/beds");
+}
+
+export async function getManualReviewBed(bedId: string): Promise<ManualReviewBedDetail> {
+  return apiFetch<ManualReviewBedDetail>(
+    `/api/live/graph-preview/manual-review/beds/${encodeURIComponent(bedId)}`,
+  );
+}
+
+let projectionInvalidationTarget: Window | null = null;
+
+/** Retire pre-commit sharing, without retaining projection values or refetching owners. */
+function ensureProjectionRevisionInvalidation(): void {
+  const target = typeof window === "undefined" ? null : window;
+  if (projectionInvalidationTarget === target) return;
+  projectionInvalidationTarget?.removeEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, startReadWave, true);
+  projectionInvalidationTarget = target;
+  target?.addEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, startReadWave, true);
+}
+
+// Invalidate before current bubble-phase consumers synchronously refresh.
+ensureProjectionRevisionInvalidation();
+
+if (import.meta.hot) import.meta.hot.dispose(() => {
+  projectionInvalidationTarget?.removeEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, startReadWave, true);
+  projectionInvalidationTarget = null;
+});
+
+export async function postWorldGraphProjection(
+  request: WorldGraphProjectionRequest,
+  signal?: AbortSignal,
+): Promise<WorldGraphProjection> {
+  ensureProjectionRevisionInvalidation();
+  return apiFetch<WorldGraphProjection>("/api/live/world-graph/projection", {
+    signal,
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function postManagedWorldGraphProjection(
+  request: ManagedWorldGraphProjectionRequest,
+  signal?: AbortSignal,
+): Promise<ManagedWorldGraphProjectionResponse> {
+  ensureProjectionRevisionInvalidation();
+  // The strict server model defaults both optional fields to null. Encode that
+  // identity once so equivalent producers can share a pending read. Preserve
+  // unexpected runtime fields for the server's extra=forbid validation.
+  const { schema, managedWorldId, revisionPin = null, queryText = null, ...extra } = request;
+  return apiFetch<ManagedWorldGraphProjectionResponse>(
+    "/api/live/world-graph/managed-projection",
+    {
+      signal,
+      method: "POST",
+      body: JSON.stringify({ schema, managedWorldId, revisionPin, queryText, ...extra }),
+    },
+  );
+}
+
+export async function postNativeWorldGraphCompleteObject(
+  request: WorldGraphObjectProjectionRequest,
+  scope?: InspectionPin,
+  signal?: AbortSignal,
+): Promise<WorldGraphObjectProjectionResult> {
+  return apiFetch<WorldGraphObjectProjectionResult>(
+    "/api/live/native-graph-inspection/complete-object",
+    {
+      signal,
+      method: "POST",
+      body: JSON.stringify({ request, scope }),
+    },
+  );
+}
+
+export async function postWorldGraphCompleteObject(
+  request: WorldGraphObjectProjectionRequest,
+): Promise<WorldGraphObjectProjectionResult> {
+  return apiFetch<WorldGraphObjectProjectionResult>(
+    "/api/live/world-graph/retrieval/complete-object",
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function postWorldGraphRecapProjection(
+  request: WorldGraphProjectionRequest,
+): Promise<WorldGraphRecapProjection> {
+  ensureProjectionRevisionInvalidation();
+  return apiFetch<WorldGraphRecapProjection>("/api/live/world-graph/recap-projection", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function resolveGraphReviewExistingObjectCandidates(
+  request: GraphReviewExistingObjectResolverRequest,
+): Promise<GraphReviewExistingObjectResolverResponse> {
+  return apiFetch<GraphReviewExistingObjectResolverResponse>(
+    "/api/live/graph-preview/existing-object-resolver/candidates",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export interface GoldGraphProjectionQuery {
+  campaignId: string;
+  sessionId: string;
+}
+
+export async function getGraphObjectAuthoringKinds(): Promise<{objectKinds: string[]}> {
+  return apiFetch<{objectKinds: string[]}>("/api/live/graph-authoring/object-kinds");
+}
+
+export async function prepareGraphObjectAuthoringWrite(
+  request: GraphObjectAuthoringPrepareRequest,
+): Promise<GraphObjectAuthoringPrepareResponse> {
+  return apiFetch<GraphObjectAuthoringPrepareResponse>(
+    "/api/live/graph-authoring/prepare",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function commitGraphObjectAuthoringWrite(
+  request: GraphObjectAuthoringCommitRequest,
+): Promise<GraphObjectAuthoringCommitResponse> {
+  return apiFetch<GraphObjectAuthoringCommitResponse>(
+    "/api/live/graph-authoring/commit",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function getGoldGraphProjection(
+  query: GoldGraphProjectionQuery,
+  signal?: AbortSignal,
+): Promise<GoldGraphProjectionResponse> {
+  const params = new URLSearchParams({
+    campaign_id: query.campaignId,
+    session_id: query.sessionId,
+  });
+  return apiFetch<GoldGraphProjectionResponse>(
+    `/api/live/graph-preview/gold-review/projection?${params.toString()}`,
+    { signal },
+  );
+}
+
+export async function getBuildSourceNavigation(args: {
+  sourceArtifactId: string;
+  sourceSpanRefId: string;
+}): Promise<BuildSourceNavigationResponse> {
+  const params = new URLSearchParams({
+    source_artifact_id: args.sourceArtifactId,
+    source_span_ref_id: args.sourceSpanRefId,
+  });
+  return apiFetch<BuildSourceNavigationResponse>(
+    `/api/live/source-navigation?${params.toString()}`,
+  );
+}
+
+export function getSourceSessions(campaignId: string, signal?: AbortSignal): Promise<number[]> {
+  const query = new URLSearchParams({ campaign_id: campaignId });
+  return apiFetch<number[]>(`/api/live/source-bundle/sessions?${query}`, { signal });
+}
+
+export async function getSourceBundle(
+  scope = "campaign-ingested",
+  campaignId?: string,
+): Promise<IngestionSourceBundle> {
+  const query = new URLSearchParams({ scope });
+  if (campaignId) query.set("campaign_id", campaignId);
+  return apiFetch<IngestionSourceBundle>(`/api/live/source-bundle?${query.toString()}`);
+}
+
+export async function getArtifact(
+  target: Pick<ProjectionTarget, "target_type" | "target_id">,
+): Promise<ArtifactReadResponse> {
+  const query = new URLSearchParams({
+    target_type: target.target_type,
+    target_id: target.target_id,
+  });
+  return apiFetch<ArtifactReadResponse>(`/api/live/artifact?${query.toString()}`);
+}
+
+export async function getCapabilities(
+  target: Pick<ProjectionTarget, "target_type" | "target_id">,
+): Promise<CapabilityReadResponse> {
+  const query = new URLSearchParams({
+    target_type: target.target_type,
+    target_id: target.target_id,
+  });
+  return apiFetch<CapabilityReadResponse>(`/api/live/capabilities?${query.toString()}`);
+}
+
+export async function postCommand(command: ProjectionCommand): Promise<ProjectionWriteResult> {
+  return apiFetch<ProjectionWriteResult>("/api/live/commands", {
+    method: "POST",
+    body: JSON.stringify(command),
+  });
+}
+
+export async function postCitationSource(
+  request: CitationSourceRequest,
+): Promise<CitationSourceResponse> {
+  return apiFetch<CitationSourceResponse>("/api/live/citation-source", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function postCitationFreshness(
+  request: CitationFreshnessRequest,
+): Promise<CitationFreshnessResponse> {
+  return apiFetch<CitationFreshnessResponse>("/api/live/citation-freshness", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function postWorldGraphSourceAnchorRead(
+  request: WorldGraphSourceAnchorReadRequest,
+  saved?: { worldId: string; claimId: string } & ({ turnId: string } | { actionId: string }),
+): Promise<WorldGraphSourceAnchorReadResponse> {
+  if (saved && !isLoopbackApiDestination(`${baseUrl}/api/live`)) {
+    const query = new URLSearchParams({ claim_id: saved.claimId, anchor_id: request.anchorId });
+    const subject = "actionId" in saved ? `plan-proposals/${encodeURIComponent(saved.actionId)}`
+      : `conversation/turns/${encodeURIComponent(saved.turnId)}`;
+    return apiFetch<WorldGraphSourceAnchorReadResponse>(
+      `/api/live/agent/worlds/${encodeURIComponent(saved.worldId)}/${subject}/graph-evidence?${query}`,
+    );
+  }
+  return apiFetch<WorldGraphSourceAnchorReadResponse>(
+    "/api/live/world-graph/retrieval/source-anchor/read",
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function postWorldGraphRecapContextReadV2(
+  request: WorldGraphRecapContextReadRequestV2,
+): Promise<WorldGraphRecapContextReadResponseV2> {
+  return apiFetch<WorldGraphRecapContextReadResponseV2>(
+    "/api/live/world-graph/retrieval/recap-context/v2/read",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function postIndexAgentTurn(
+  request: IndexAgentTurnRequestV1,
+): Promise<IndexAgentTurnResponseV1> {
+  return apiFetch<IndexAgentTurnResponseV1>("/api/live/agent/turn", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function postWorldPlanAgentTurn(
+  request: WorldPlanAgentTurnRequestV1,
+): Promise<WorldPlanAgentTurnResponse> {
+  return apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function postWorldPlayAgentTurn(
+  request: WorldPlayAgentTurnRequestV1,
+): Promise<WorldPlanAgentTurnResponse> {
+  return apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function postWorldBuildAgentTurn(request: import("./types").WorldBuildAgentTurnRequestV1,
+  onProgress:(progress:BuildObjectConstructionProgress)=>void=()=>undefined): Promise<WorldPlanAgentTurnResponse> {
+  try{
+    return await apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn",
+      {method:"POST",body:JSON.stringify(request),headers:{Accept:"text/event-stream"}},
+      (response,assertCurrent)=>readBuildConstructionStream(response,request,onProgress,assertCurrent));
+  }catch(reason){
+    if(reason instanceof ConstructionStreamError){
+      const detail=reason.detail as {message?:unknown;code?:unknown}|null;
+      throw new LiveApiError(typeof detail==='string'?detail:typeof detail?.message==='string'?detail.message:reason.message,
+        reason.status,{code:typeof detail?.code==='string'?detail.code:null});
+    }
+    throw reason;
+  }
+}
+
+export async function getWorldAgentTurnContextTrace(worldId: string, turnId: string, signal?: AbortSignal) {
+  return apiFetch<import('./buddyContextTraceTypes').WorldAgentTurnContextTraceResponse>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace`,
+    signal ? { signal } : undefined,
+  );
+}
+
+export function getWorldAgentReplayAssertion(worldId: string, turnId: string, traceId: string,
+  sequence: number, assertionId: string, signal: AbortSignal) {
+  const query = new URLSearchParams({ assertion_id: assertionId });
+  return apiFetch<import('./buddyContextTraceTypes').BuddyReplayAssertionResponse>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/steps/${sequence}/assertion?${query}`,
+    { signal, cache: 'no-store' },
+  );
+}
+
+export function getWorldAgentReplayIdentities(worldId: string, turnId: string, traceId: string, signal: AbortSignal, offset = 0) {
+  return apiFetch<{
+    world_id: string; turn_id: string; trace_id: string
+    next_offset?: number | null
+    identities: { node_id: string; label: string; kind: string }[]
+  }>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/identities${offset ? `?offset=${offset}` : ""}`,
+    { signal, cache: 'no-store' },
+  );
+}
+
+export function getWorldAgentNativeReplayAssertion(worldId: string, turnId: string, traceId: string,
+  sequence: number, assertionId: string, signal: AbortSignal) {
+  const query = new URLSearchParams({ assertion_id: assertionId });
+  return apiFetch<import('./buddyContextTraceTypes').BuddyReplayNativeAssertionResponse>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/native-steps/${sequence}/assertion?${query}`,
+    { signal, cache: 'no-store' },
+  );
+}
+
+export async function getWorldAgentHistoricalSourcePassage(reference: import('./buddyContextTraceTypes').BuddyHistoricalSourceReference, signal?: AbortSignal) {
+  const query = new URLSearchParams({ conversation_id: reference.conversation_id, attempt: String(reference.attempt),
+    source_read_id: reference.source_read_id, content_sha256: reference.content_sha256 });
+  return apiFetch<import('./buddyContextTraceTypes').BuddyHistoricalSourcePassageResponse>(
+    `/api/live/agent/worlds/${encodeURIComponent(reference.world_id)}/conversation/turns/${encodeURIComponent(reference.turn_id)}/context-trace/${encodeURIComponent(reference.trace_id)}/source-passages/${encodeURIComponent(reference.source_read_event_id)}?${query}`,
+    { signal, cache: 'no-store' },
+  );
+}
+
+export async function getWorldAgentTurnPrompt(worldId: string, turnId: string, traceId: string, providerAttemptId: string, signal?: AbortSignal) {
+  return apiFetch<import('./buddyContextTraceTypes').BuddyPromptEvidence>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/prompt/${encodeURIComponent(providerAttemptId)}`,
+    { signal, cache: 'no-store' },
+  );
+}
+
+export async function getWorldAgentTurnPrompts(
+  worldId: string,
+  turnId: string,
+  prompts: { trace_id: string; provider_attempt_id: string }[],
+  signal?: AbortSignal,
+) {
+  return apiFetch<{
+    schema: 'dmb_agent_prompt_evidence_batch_v1';
+    results: (import('./buddyContextTraceTypes').BuddyPromptEvidence | { unavailable: string })[];
+  }>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/prompts`,
+    { method: 'POST', body: JSON.stringify({ prompts }), signal, cache: 'no-store' },
+  );
+}
+
+export interface WorldAgentConversationHistoryOptions {
+  limit?: number;
+  beforeSequence?: number;
+  includeTurnCorrelation?: boolean;
+  signal?: AbortSignal;
+}
+
+export async function getWorldAgentConversationHistory(
+  worldId: string,
+  options: WorldAgentConversationHistoryOptions = {},
+): Promise<WorldAgentConversationHistoryResponse> {
+  const query = new URLSearchParams();
+  if (options.limit !== undefined) query.set("limit", String(options.limit));
+  if (options.beforeSequence !== undefined) query.set("before_sequence", String(options.beforeSequence));
+  if (options.includeTurnCorrelation === true) query.set("include_turn_correlation", "true");
+  const suffix = query.size ? `?${query.toString()}` : "";
+  const page = await apiFetch<WorldAgentConversationHistoryResponse>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation${suffix}`,
+    options.signal ? { signal: options.signal } : undefined,
+  );
+  const buildTurns = page.turns.filter(t=>t.provenance.surface_id==='build'&&t.provenance.primary_work.kind==='build');
+  if(options.includeTurnCorrelation&&page.conversation_id&&buildTurns.length){
+    const {readRetryContext}=await import('./conversationRetryApi');
+    const contexts=await readRetryContext(worldId,page.conversation_id,buildTurns.map(t=>t.turn_id),options.signal);
+    return {...page,turns:page.turns.map(t=>contexts.has(t.turn_id)?{...t,retry_context:contexts.get(t.turn_id)}:t)} as WorldAgentConversationHistoryResponse;
+  }
+  return page;
+}
+
+export async function postWorldCommandResolution(request: WorldCommandResolutionRequestV1): Promise<WorldCommandResolutionResponseV1> {
+  const command = request.original_command;
+  return apiFetch<WorldCommandResolutionResponseV1>(`/api/live/agent/worlds/${encodeURIComponent(command.world_id)}/conversation/commands/${encodeURIComponent(command.command_id)}/resolve`,
+    { method: "POST", body: JSON.stringify(request) });
+}
+
+export async function getWorldCommandResolution(request: WorldCommandResolutionRequestV1): Promise<WorldCommandResolutionResponseV1> {
+  const command = request.original_command;
+  const query = new URLSearchParams({ original_pointer_revision: String(command.expected_pointer_revision),
+    original_active_conversation_id: command.expected_active_conversation_id ?? "null",
+    current_pointer_revision: String(request.expected_current_pointer_revision),
+    current_active_conversation_id: request.expected_current_active_conversation_id ?? "null" });
+  return apiFetch<WorldCommandResolutionResponseV1>(`/api/live/agent/worlds/${encodeURIComponent(command.world_id)}/conversation/commands/${encodeURIComponent(command.command_id)}/resolutions/${encodeURIComponent(request.resolution_operation_id)}?${query}`);
+}
+
+export async function getWorldAgentNewConversationStatus(
+  worldId: string, request: WorldAgentNewConversationRequestV1,
+): Promise<WorldAgentNewConversationStatusV1> {
+  const query = new URLSearchParams({
+    expected_pointer_revision: String(request.expected_pointer_revision),
+    expected_active_conversation_id: request.expected_active_conversation_id ?? "null",
+  });
+  return apiFetch<WorldAgentNewConversationStatusV1>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/commands/${encodeURIComponent(request.command_id)}?${query}`,
+  );
+}
+
+export async function postWorldAgentNewConversation(
+  worldId: string,
+  request: WorldAgentNewConversationRequestV1,
+): Promise<WorldAgentNewConversationResponseV1> {
+  return apiFetch<WorldAgentNewConversationResponseV1>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/new`,
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function postLiveQuery(
+  text: string,
+  campaignId: string,
+  session: number,
+  queryBackend: LiveQueryBackend = "live",
+  options: LiveQueryOptions = {},
+): Promise<LiveQueryResponse> {
+  if (queryBackend === "hermes") {
+    const normalizedHistory = normalizeHermesOutboundConversationHistory(
+      options.conversationHistory,
+    );
+    const body: Record<string, unknown> = {
+      campaign_id: campaignId,
+      session,
+      mode: "live",
+      query_backend: "hermes",
+      text,
+      agent_thread_id: options.agentThreadId ?? null,
+      trace_requested: options.traceRequested ?? null,
+      ...(options.hermesSessionPointer
+        ? { hermes_session_pointer: options.hermesSessionPointer }
+        : {}),
+      ...(options.worldGraphContext != null
+        ? { world_graph_context: options.worldGraphContext }
+        : {}),
+      ...(options.surfaceContext != null
+        ? { surface_context: options.surfaceContext }
+        : {}),
+      ...(normalizedHistory.length > 0
+        ? { conversation_history: normalizedHistory }
+        : {}),
+    };
+    return apiFetch<LiveQueryResponse>("/api/live/query", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  const body = {
+    campaign_id: campaignId,
+    session,
+    mode: "live",
+    query_backend: queryBackend,
+    text,
+    manifest_path: DEFAULT_PLANNING_MANIFEST_PATH,
+    agent_thread_id: options.agentThreadId ?? null,
+    hermes_session_id: options.hermesSessionId ?? null,
+    trace_requested: options.traceRequested ?? null,
+    world_graph_context: options.worldGraphContext ?? undefined,
+  };
+
+  return apiFetch<LiveQueryResponse>("/api/live/query", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function postPlanDocumentEditProposal(
+  request: PlanDocumentEditProposalRequest,
+): Promise<PlanDocumentEditProposalResponse> {
+  return apiFetch<PlanDocumentEditProposalResponse>("/api/live/plan-document-edit/propose", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function postWorldPlanDocumentEditProposal(
+  request: WorldPlanDocumentEditProposalRequest,
+): Promise<WorldPlanDocumentEditProposalResponse | WorldPlanEditClarificationResponse> {
+  return apiFetch<WorldPlanDocumentEditProposalResponse | WorldPlanEditClarificationResponse>("/api/live/world-plan-edit/propose", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function getWorldPlanDocumentEditActions(
+  worldId: string,
+  documentId: string,
+): Promise<WorldPlanActionProjectionPage> {
+  const query = new URLSearchParams({ world_id: worldId, document_id: documentId });
+  return apiFetch<WorldPlanActionProjectionPage>(`/api/live/world-plan-edit/actions?${query.toString()}`);
+}
+
+export async function getWorldPlanConversationActions(
+  worldId: string,
+  conversationId: string,
+  options: { limit?: number; beforeActionSequence?: number } = {},
+): Promise<WorldPlanActionConversationProjectionPage> {
+  const query = new URLSearchParams({ world_id: worldId, conversation_id: conversationId });
+  if (options.limit !== undefined) query.set("limit", String(options.limit));
+  if (options.beforeActionSequence !== undefined) query.set("before_action_sequence", String(options.beforeActionSequence));
+  return apiFetch<WorldPlanActionConversationProjectionPage>(`/api/live/world-plan-edit/conversation-actions?${query.toString()}`);
+}
+
+export async function putSurfaceLayout(
+  layout: SurfaceLayout,
+): Promise<{ layout: SurfaceLayout }> {
+  return apiFetch<{ layout: SurfaceLayout }>("/api/live/surface/layout", {
+    method: "PUT",
+    body: JSON.stringify(layout),
+  });
+}
+
+export async function resolveRoll(command: string): Promise<ResolvedRollResponse> {
+  return apiFetch<ResolvedRollResponse>("/api/live/resolve-roll", {
+    method: "POST",
+    body: JSON.stringify({ command }),
+  });
+}
+
+export async function completeJob(jobId: string): Promise<{ job: import("./types").LiveJob }> {
+  return apiFetch(`/api/live/jobs/${encodeURIComponent(jobId)}/complete`, {
+    method: "POST",
+  });
+}
+
+export async function rebuildPacket(): Promise<{
+  job_id: string;
+  status: string;
+  job: import("./types").LiveJob;
+}> {
+  return apiFetch("/api/live/rebuild-packet", { method: "POST" });
+}
+
+export async function getStatblockWorkbenchSample(): Promise<StatblockWorkbenchSampleResponse> {
+  return apiFetch<StatblockWorkbenchSampleResponse>(
+    "/api/live/statblocks/workbench/sample",
+  );
+}
+
+export async function getStatblockIntegrationReadiness(): Promise<StatblockIntegrationReadinessV1> {
+  return apiFetch<StatblockIntegrationReadinessV1>("/api/live/statblocks/v1/readiness");
+}
+
+export async function createThreatDraft(
+  request: CreateThreatDraftRequest,
+): Promise<ThreatDraft> {
+  return apiFetch<ThreatDraft>("/api/live/threat-drafts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+}
+
+export async function generateThreatDraftCandidate(
+  draftId: string,
+  request: GenerateThreatDraftCandidateRequestV1,
+): Promise<GenerateThreatDraftCandidateResponseV1> {
+  return apiFetch<GenerateThreatDraftCandidateResponseV1>(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/candidates:generate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export interface WorldThreatDraftSummary {
+  version: number;
+  world_id: string;
+  draft_id: string;
+  name: string;
+  saved_revision_id: string | null;
+}
+
+export async function listWorldThreatDrafts(worldId: string, signal: AbortSignal): Promise<WorldThreatDraftSummary[]> {
+  const drafts: WorldThreatDraftSummary[] = [];
+  const limit = 100;
+  for (let offset = 0; ; offset += limit) {
+    const query = new URLSearchParams({ world_id: worldId, limit: String(limit), offset: String(offset) });
+    const page = await apiFetch<{ drafts: WorldThreatDraftSummary[]; total: number }>(
+      `/api/live/threat-drafts?${query}`, { signal },
+    );
+    drafts.push(...page.drafts);
+    if (!page.drafts.length || offset + limit >= page.total) return drafts;
+  }
+}
+
+export async function getThreatDraft(draftId: string): Promise<ThreatDraft> {
+  return apiFetch<ThreatDraft>(`/api/live/threat-drafts/${encodeURIComponent(draftId)}`);
+}
+
+export async function postThreatQueryHydration(
+  request: ThreatQueryHydrationRequestV1,
+): Promise<ThreatQueryHydrationResponseV1> {
+  return apiFetch<ThreatQueryHydrationResponseV1>("/api/live/threats/query-hydration", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+}
+
+export async function reviseThreatDraftCandidate(
+  draftId: string,
+  request: ReviseCandidateFromEditedDefinitionRequestV1,
+): Promise<ReviseCandidateFromEditedDefinitionResponseV1> {
+  return apiFetch<ReviseCandidateFromEditedDefinitionResponseV1>(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/candidates:revise`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function getStatblockCandidate(
+  candidateId: string,
+): Promise<ReadStatblockCandidateResponseV1> {
+  return apiFetch<ReadStatblockCandidateResponseV1>(
+    `/api/live/statblock-candidates/${encodeURIComponent(candidateId)}`,
+  );
+}
+
+export async function validateStatblockDefinition(
+  request: ValidateDefinitionBuddyRequestV1,
+): Promise<ValidateDefinitionBuddyResponseV1> {
+  return apiFetch<ValidateDefinitionBuddyResponseV1>(
+    "/api/live/statblock-definitions:validate",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function postStatblockWorkbenchCommand(
+  request: StatblockWorkbenchCommandRequest,
+): Promise<StatblockWorkbenchCommandResponse> {
+  return apiFetch<StatblockWorkbenchCommandResponse>(
+    "/api/live/statblocks/workbench/command",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function storeStatblockWorkbenchDraft(
+  request: StoreStatblockDraftRequest,
+): Promise<StoreStatblockDraftResponse> {
+  return apiFetch<StoreStatblockDraftResponse>(
+    "/api/live/statblocks/workbench/drafts",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function listStatblockWorkbenchDrafts(): Promise<ListStatblockDraftsResponse> {
+  return apiFetch<ListStatblockDraftsResponse>(
+    "/api/live/statblocks/workbench/drafts",
+  );
+}
+
+export async function getStatblockWorkbenchDraft(
+  artifactId: string,
+): Promise<ReadStatblockDraftResponse> {
+  return apiFetch<ReadStatblockDraftResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}`,
+  );
+}
+
+export async function listGeneratedStatblocks(): Promise<GeneratedStatblockListResponse> {
+  return apiFetch<GeneratedStatblockListResponse>(
+    "/api/live/statblocks/view/generated",
+  );
+}
+
+export async function getGeneratedStatblock(
+  artifactId: string,
+): Promise<GeneratedStatblockDetailResponse> {
+  return apiFetch<GeneratedStatblockDetailResponse>(
+    `/api/live/statblocks/view/generated/${encodeURIComponent(artifactId)}`,
+  );
+}
+
+export async function acceptThreatDraftMechanics(
+  draftId: string,
+  request: AcceptThreatDraftMechanicsRequestV1,
+): Promise<AcceptThreatDraftMechanicsResponseV1> {
+  return apiFetch<AcceptThreatDraftMechanicsResponseV1>(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics:accept`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function getAcceptanceOperation(
+  draftId: string,
+  operationId: string,
+): Promise<ReadAcceptanceOperationResponseV1> {
+  return apiFetch<ReadAcceptanceOperationResponseV1>(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/acceptance-operations/${encodeURIComponent(operationId)}`,
+  );
+}
+
+export async function reconcileAcceptanceOperation(
+  draftId: string,
+  operationId: string,
+): Promise<AcceptThreatDraftMechanicsResponseV1> {
+  return apiFetch<AcceptThreatDraftMechanicsResponseV1>(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/acceptance-operations/${encodeURIComponent(operationId)}:reconcile`,
+    {
+      method: "POST",
+    },
+  );
+}
+
+export async function beginThreatPublicationOperation(
+  draftId: string,
+  request: BeginThreatPublicationOperationRequestV1,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch(
+    threatPublicationOperationsPrefix(draftId),
+    { method: "POST", body: JSON.stringify(request) },
+    validateOperationPublicationEnvelope,
+  );
+}
+
+export async function getThreatPublicationOperation(
+  draftId: string,
+  operationId: string,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}`,
+    undefined,
+    validateOperationPublicationEnvelope,
+  );
+}
+
+export async function refreshThreatPublicationOperation(
+  draftId: string,
+  operationId: string,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/refresh`,
+    { method: "POST" },
+    validateOperationPublicationEnvelope,
+  );
+}
+
+export async function cancelThreatPublicationOperation(
+  draftId: string,
+  operationId: string,
+  request: CancelThreatPublicationOperationRequestV1,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/cancel`,
+    { method: "POST", body: JSON.stringify(request) },
+    validateOperationPublicationEnvelope,
+  );
+}
+
+export async function retryThreatPublicationOperation(
+  draftId: string,
+  operationId: string,
+  request: RetryThreatPublicationOperationRequestV1,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/retry`,
+    { method: "POST", body: JSON.stringify(request) },
+    validateOperationPublicationEnvelope,
+  );
+}
+
+export async function prepareThreatIdentityCandidates(
+  draftId: string,
+  operationId: string,
+  request?: PrepareThreatIdentityCandidatesRequestV1,
+): Promise<ThreatPublicationIdentityResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-candidates/prepare`,
+    { method: "POST", body: JSON.stringify(request ?? {}) },
+    validateIdentityPublicationEnvelope,
+  );
+}
+
+export async function createThreatIdentityResolution(
+  draftId: string,
+  operationId: string,
+  request: CreateThreatIdentityResolutionRequestV1,
+): Promise<ThreatPublicationIdentityResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-resolutions`,
+    { method: "POST", body: JSON.stringify(request) },
+    validateIdentityPublicationEnvelope,
+  );
+}
+
+export async function getThreatIdentityResolution(
+  draftId: string,
+  operationId: string,
+  resolutionId: string,
+): Promise<ThreatPublicationIdentityResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-resolutions/${encodeURIComponent(resolutionId)}`,
+    undefined,
+    validateIdentityPublicationEnvelope,
+  );
+}
+
+export async function prepareThreatPublicationProposal(
+  draftId: string,
+  operationId: string,
+  resolutionId: string,
+  request: PrepareThreatPublicationProposalRequestV1,
+): Promise<ThreatPublicationProposalResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-resolutions/${encodeURIComponent(resolutionId)}/proposals`,
+    { method: "POST", body: JSON.stringify(request) },
+    validateProposalPublicationEnvelope,
+  );
+}
+
+export async function getThreatPublicationProposal(
+  draftId: string,
+  operationId: string,
+  proposalId: string,
+): Promise<ThreatPublicationProposalResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/proposals/${encodeURIComponent(proposalId)}`,
+    undefined,
+    validateProposalPublicationEnvelope,
+  );
+}
+
+export async function confirmThreatPublicationCommit(
+  draftId: string,
+  operationId: string,
+  proposalId: string,
+  request: ConfirmThreatPublicationRequestV1,
+): Promise<ThreatPublicationCommitResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/proposals/${encodeURIComponent(proposalId)}/commits`,
+    { method: "POST", body: JSON.stringify(request) },
+    validateCommitPublicationEnvelope,
+  );
+}
+
+export async function getThreatPublicationCommit(
+  draftId: string,
+  operationId: string,
+  commitId: string,
+): Promise<ThreatPublicationCommitResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/commits/${encodeURIComponent(commitId)}`,
+    undefined,
+    validateCommitPublicationEnvelope,
+  );
+}
+
+export async function listWorkspaceDocuments(args: {
+  world_id?: string;
+  campaign_id?: string;
+  kind?: "plan" | "runbook" | "worldbuilding_source";
+  status?: "active" | "discarded";
+} = {}): Promise<WorkspaceDocumentsListResponse> {
+  const params = new URLSearchParams();
+  if (args.world_id) params.set("world_id", args.world_id);
+  if (args.campaign_id) params.set("campaign_id", args.campaign_id);
+  if (args.kind) params.set("kind", args.kind);
+  if (args.status) params.set("status", args.status);
+  const query = params.toString();
+  return apiFetch<WorkspaceDocumentsListResponse>(
+    `/api/live/workspace-documents${query ? `?${query}` : ""}`,
+  );
+}
+
+export type WorkspacePageInventoryResponse = WorkspaceDocumentsListResponse & {
+  campaign_tags: string[] | null;
+  next_before_updated_at: string | null;
+  next_before_document_id: string | null;
+};
+
+export function listWorkspacePageInventory(
+  filters: { worldId?: string; campaignId?: string; status?: "active" | "discarded" },
+  before?: { updatedAt: string; documentId: string },
+  signal?: AbortSignal,
+): Promise<WorkspacePageInventoryResponse> {
+  const query = new URLSearchParams();
+  if (filters.worldId) query.set("world_id", filters.worldId);
+  if (filters.campaignId) query.set("campaign_id", filters.campaignId);
+  if (filters.status) query.set("status", filters.status);
+  if (before) {
+    query.set("before_updated_at", before.updatedAt);
+    query.set("before_document_id", before.documentId);
+  }
+  const suffix = query.size ? `?${query}` : "";
+  return apiFetch<WorkspacePageInventoryResponse>(
+    `/api/live/workspace-documents/pages/inventory${suffix}`, { signal },
+  );
+}
+
+function hostedWorldLookupPath(worldId: string): string {
+  return HOSTED_WORLD_LOOKUP_PATH + "?" + new URLSearchParams({ managed_world_id: worldId });
+}
+
+export function getHostedWorldContainer(worldId: string, signal: AbortSignal): Promise<WorldContainerRecord> {
+  return apiFetch<WorldContainerRecord>(hostedWorldLookupPath(worldId), { signal });
+}
+
+export async function listWorldContainers(signal?: AbortSignal): Promise<WorldContainersListResponse> {
+  return apiFetch<WorldContainersListResponse>("/api/live/world-containers", signal ? { signal } : undefined);
+}
+
+export async function createWorldContainer(
+  request: CreateWorldContainerRequest,
+): Promise<WorldContainerRecord> {
+  return apiFetch<WorldContainerRecord>("/api/live/world-containers", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function listWorldOwnedPlans(worldId: string): Promise<WorldOwnedPlansResponseV2> {
+  return apiFetch<WorldOwnedPlansResponseV2>(
+    `/api/live/workspace-documents/world-plans?world_id=${encodeURIComponent(worldId)}`,
+  );
+}
+
+export type WorldPlanInventoryPage = WorldOwnedPlansResponseV2 & {
+  next_before_updated_at: string | null;
+  next_before_document_id: string | null;
+};
+
+export function listWorldPlanInventoryPage(
+  worldId: string,
+  before?: { updatedAt: string; documentId: string },
+  signal?: AbortSignal,
+): Promise<WorldPlanInventoryPage> {
+  const query = new URLSearchParams({ world_id: worldId });
+  if (before) {
+    query.set("before_updated_at", before.updatedAt);
+    query.set("before_document_id", before.documentId);
+  }
+  return apiFetch<WorldPlanInventoryPage>(
+    `/api/live/workspace-documents/world-plans/page?${query}`,
+    { signal },
+  );
+}
+
+export async function createWorldOwnedPlan(request: {
+  schema_version: "dmb_workspace_document_create_v2";
+  scope_mode: "world";
+  world_id: string;
+  title: string;
+}): Promise<WorldOwnedPlanRecordV2> {
+  return apiFetch<WorldOwnedPlanRecordV2>("/api/live/workspace-documents/world-plans", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function getWorldOwnedPlanSnapshot(documentId: string): Promise<WorldOwnedPlanSnapshotV2> {
+  return apiFetch<WorldOwnedPlanSnapshotV2>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/snapshot`,
+  );
+}
+
+const CANONICAL_API_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const CANONICAL_API_SHA256 = /^[0-9a-f]{64}$/;
+
+function assertWorldRunbookRecord(
+  value: unknown,
+  worldId: string,
+  expectedDocumentId?: string,
+): asserts value is WorldOwnedRunbookRecordV2 {
+  if (typeof value !== "object" || value == null) {
+    throw new TypeError("World Runbook response is not an object.");
+  }
+  const record = value as Partial<WorldOwnedRunbookRecordV2> & { campaign_id?: unknown };
+  if (
+    record.schema_version !== "dmb_world_owned_runbook_record_v2"
+    || record.scope_mode !== "world"
+    || record.world_id !== worldId
+    || record.campaign_id !== null
+    || record.kind !== "runbook"
+    || typeof record.document_id !== "string"
+    || !CANONICAL_API_UUID.test(record.document_id)
+    || (expectedDocumentId != null && record.document_id !== expectedDocumentId)
+  ) {
+    throw new TypeError("World Runbook response does not match the selected World and V2 contract.");
+  }
+}
+
+function assertWorldPlayRun(
+  value: unknown,
+  worldId: string,
+  expectedRunId?: string,
+): asserts value is WorldPlayRunRecordV2 {
+  if (typeof value !== "object" || value == null) {
+    throw new TypeError("World Play Run response is not an object.");
+  }
+  const run = value as Partial<WorldPlayRunRecordV2> & { campaign_id?: unknown };
+  if (
+    (run.lifecycle_status !== undefined && run.lifecycle_status !== "active" && run.lifecycle_status !== "trashed")
+    || run.schema_version !== "dmb_world_play_run_record_v2"
+    || run.world_id !== worldId
+    || Object.prototype.hasOwnProperty.call(run, "campaign_id")
+    || typeof run.run_id !== "string"
+    || !CANONICAL_API_UUID.test(run.run_id)
+    || (expectedRunId != null && run.run_id !== expectedRunId)
+    || typeof run.playable_artifact_id !== "string"
+    || !CANONICAL_API_UUID.test(run.playable_artifact_id)
+    || typeof run.playable_work_revision_id !== "string"
+    || !CANONICAL_API_UUID.test(run.playable_work_revision_id)
+    || !Number.isInteger(run.playable_revision)
+    || (run.playable_revision ?? 0) <= 0
+    || !Number.isInteger(run.run_revision)
+    || (run.run_revision ?? 0) <= 0
+    || typeof run.playable_content_sha256 !== "string"
+    || !CANONICAL_API_SHA256.test(run.playable_content_sha256)
+    || typeof run.progress !== "object"
+    || run.progress == null
+  ) {
+    throw new TypeError("World Play Run response does not match the selected World and V2 contract.");
+  }
+}
+
+function assertWorldPlayActiveRunState(
+  value: unknown,
+  worldId: string,
+  expectedRunId?: string,
+): asserts value is WorldPlayActiveRunStateV2 {
+  if (typeof value !== "object" || value === null) {
+    throw new TypeError("World active-Run response is not an object.");
+  }
+  const state = value as Partial<WorldPlayActiveRunStateV2>;
+  if (
+    Object.keys(value).sort().join(",") !== "run_id,schema_version,selected_at,world_id"
+    || state.schema_version !== "dmb_world_play_active_run_v2"
+    || state.world_id !== worldId
+    || !(state.run_id === null || (
+      typeof state.run_id === "string"
+      && CANONICAL_API_UUID.test(state.run_id)
+      && (expectedRunId === undefined || state.run_id === expectedRunId)
+    ))
+    || !(state.selected_at === null || (
+      typeof state.selected_at === "string"
+      && state.selected_at.trim() !== ""
+      && Number.isFinite(Date.parse(state.selected_at))
+    ))
+    || ((state.run_id === null) !== (state.selected_at === null))
+  ) {
+    throw new TypeError("World active-Run response does not match the scoped V2 contract.");
+  }
+}
+
+function worldQuery(worldId: string): string {
+  const cleaned = worldId.trim();
+  if (!cleaned || cleaned !== worldId) throw new TypeError("World ID must be non-empty and canonical.");
+  return `world_id=${encodeURIComponent(cleaned)}`;
+}
+
+export async function listWorldOwnedRunbooks(worldId: string): Promise<WorldOwnedRunbooksResponseV2> {
+  const response = await apiFetch<WorldOwnedRunbooksResponseV2>(
+    `/api/live/workspace-documents/world-runbooks?${worldQuery(worldId)}`,
+  );
+  if (
+    response.schema_version !== "dmb_world_owned_runbooks_list_v2"
+    || response.scope_mode !== "world"
+    || response.world_id !== worldId
+    || !Array.isArray(response.records)
+  ) {
+    throw new TypeError("World Runbook inventory does not match the selected World and V2 contract.");
+  }
+  response.records.forEach((record) => assertWorldRunbookRecord(record, worldId));
+  return response;
+}
+
+export async function createWorldOwnedRunbook(request: {
+  world_id: string;
+  title: string;
+}): Promise<WorldOwnedRunbookRecordV2> {
+  worldQuery(request.world_id);
+  const record = await apiFetch<WorldOwnedRunbookRecordV2>("/api/live/workspace-documents/world-runbooks", {
+    method: "POST",
+    body: JSON.stringify({
+      schema_version: "dmb_workspace_document_create_v2",
+      scope_mode: "world",
+      world_id: request.world_id,
+      title: request.title,
+    }),
+  });
+  assertWorldRunbookRecord(record, request.world_id);
+  return record;
+}
+
+export async function getWorldOwnedRunbook(
+  documentId: string,
+  worldId: string,
+): Promise<WorldOwnedRunbookRecordV2> {
+  const record = await apiFetch<WorldOwnedRunbookRecordV2>(
+    `/api/live/workspace-documents/world-runbooks/${encodeURIComponent(documentId)}?${worldQuery(worldId)}`,
+  );
+  assertWorldRunbookRecord(record, worldId, documentId);
+  return record;
+}
+
+export async function getWorldOwnedRunbookSnapshot(
+  documentId: string,
+  worldId: string,
+): Promise<WorldOwnedRunbookSnapshotV2> {
+  const snapshot = await apiFetch<WorldOwnedRunbookSnapshotV2>(
+    `/api/live/workspace-documents/world-runbooks/${encodeURIComponent(documentId)}/snapshot?${worldQuery(worldId)}`,
+  );
+  if (
+    snapshot.schema_version !== "dmb_workspace_runbook_snapshot_v2"
+    || snapshot.record == null
+    || snapshot.record.document_id !== documentId
+    || snapshot.record.world_id !== worldId
+  ) {
+    throw new TypeError("World Runbook snapshot does not match the selected World and document.");
+  }
+  assertWorldRunbookRecord(snapshot.record, worldId, documentId);
+  return snapshot;
+}
+
+export async function getWorldOwnedRunbookCommittedRevision(
+  documentId: string,
+  worldId: string,
+  revisionN?: number,
+  expectedSha256?: string,
+): Promise<WorldOwnedRunbookCommittedRevisionV2> {
+  worldQuery(worldId);
+  if ((revisionN == null) !== (expectedSha256 == null)) {
+    throw new TypeError("Exact World revision reads require both revision and expected SHA-256.");
+  }
+  if (
+    revisionN != null
+    && (!Number.isInteger(revisionN) || revisionN <= 0 || !CANONICAL_API_SHA256.test(expectedSha256 ?? ""))
+  ) {
+    throw new TypeError("Exact World revision reads require a positive revision and canonical SHA-256.");
+  }
+  const suffix = revisionN == null ? "" : `/${encodeURIComponent(String(revisionN))}`;
+  const query = new URLSearchParams({ world_id: worldId });
+  if (expectedSha256 != null) query.set("expected_sha256", expectedSha256);
+  const committed = await apiFetch<WorldOwnedRunbookCommittedRevisionV2>(
+    `/api/live/workspace-documents/world-runbooks/${encodeURIComponent(documentId)}/committed-revision${suffix}?${query.toString()}`,
+  );
+  if (
+    committed.schema_version !== "dmb_workspace_committed_revision_v2"
+    || committed.scope_mode !== "world"
+    || committed.world_id !== worldId
+    || committed.campaign_id !== null
+    || committed.document_id !== documentId
+    || committed.kind !== "runbook"
+    || (revisionN != null && committed.revision_n !== revisionN)
+    || (expectedSha256 != null && committed.content_sha256 !== expectedSha256)
+  ) {
+    throw new TypeError("World Runbook revision does not match the selected World, document, and exact pin.");
+  }
+  return committed;
+}
+
+export async function prepareWorldRunbookMarkdownWrite(
+  worldId: string,
+  request: TiptapMarkdownWritePrepareRequest,
+): Promise<TiptapMarkdownWritePrepareResponse> {
+  const response = await apiFetch<TiptapMarkdownWritePrepareResponse>(
+    `/api/live/workspace-documents/world-runbooks/${encodeURIComponent(request.document_id)}/tiptap/prepare?${worldQuery(worldId)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ...request,
+        schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+        scope_mode: "world",
+        world_id: worldId,
+      }),
+    },
+  );
+  if (
+    response.schema_version !== "dmb_tiptap_markdown_write_prepare_v2"
+    || response.scope_mode !== "world"
+    || response.world_id !== worldId
+    || response.document_id !== request.document_id
+  ) {
+    throw new TypeError("World Runbook prepare response does not match the selected World and document.");
+  }
+  return response;
+}
+
+export async function commitWorldRunbookMarkdownWrite(
+  worldId: string,
+  request: TiptapMarkdownWriteCommitRequest,
+): Promise<WorldOwnedRunbookMarkdownWriteCommitResponseV2> {
+  const response = await apiFetch<WorldOwnedRunbookMarkdownWriteCommitResponseV2>(
+    `/api/live/workspace-documents/world-runbooks/${encodeURIComponent(request.document_id)}/tiptap/commit?${worldQuery(worldId)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ...request,
+        schema_version: "dmb_tiptap_markdown_write_commit_v2",
+        scope_mode: "world",
+        world_id: worldId,
+      }),
+    },
+  );
+  if (
+    response.schema_version !== "dmb_tiptap_markdown_write_commit_v2"
+    || response.scope_mode !== "world"
+    || response.world_id !== worldId
+    || response.document_id !== request.document_id
+  ) {
+    throw new TypeError("World Runbook commit response does not match the selected World and document.");
+  }
+  assertWorldRunbookRecord(response.committed_record, worldId, request.document_id);
+  return response;
+}
+
+export async function getWorkspaceDocument(documentId: string): Promise<WorkspaceDocumentRecord> {
+  return apiFetch<WorkspaceDocumentRecord>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}`,
+  );
+}
+
+export async function getWorkspaceDocumentAny(
+  documentId: string,
+): Promise<WorkspaceDocumentRecord | WorldOwnedPlanRecordV2> {
+  return apiFetch<WorkspaceDocumentRecord | WorldOwnedPlanRecordV2>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}`,
+  );
+}
+
+export async function getWorkspaceDocumentSnapshot(documentId: string): Promise<WorkspaceDocumentSnapshot> {
+  return apiFetch<WorkspaceDocumentSnapshot>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/snapshot`,
+  );
+}
+
+/** Saved Page projection; a divergent editor working copy is never a source. */
+export async function getCommittedPageSnapshot(documentId: string): Promise<WorkspaceDocumentSnapshot> {
+  return apiFetch<WorkspaceDocumentSnapshot>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/snapshot?view=committed`,
+  );
+}
+
+export async function getNativeWorldSourceAdmissionStatus(
+  documentId: string,
+  expectedRevision?: number,
+): Promise<NativeWorldSourceAdmissionStatus> {
+  const query = expectedRevision == null
+    ? ""
+    : `?expected_revision=${encodeURIComponent(String(expectedRevision))}`;
+  return apiFetch<NativeWorldSourceAdmissionStatus>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/native-world-source${query}`,
+  );
+}
+
+export async function admitNativeWorldSource(
+  documentId: string,
+  expectedRevision: number,
+  expectedBodySha256: string,
+): Promise<NativeWorldSourceAdmissionStatus> {
+  return apiFetch<NativeWorldSourceAdmissionStatus>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/native-world-source`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        expected_revision: expectedRevision,
+        expected_body_sha256: expectedBodySha256,
+      }),
+    },
+  );
+}
+
+export async function getCommittedWorkspaceRevision(
+  documentId: string,
+  revisionN?: number,
+): Promise<WorkspaceCommittedRevision> {
+  const encodedId = encodeURIComponent(documentId);
+  const suffix = revisionN == null ? "" : `/${encodeURIComponent(String(revisionN))}`;
+  return apiFetch<WorkspaceCommittedRevision>(
+    `/api/live/workspace-documents/${encodedId}/committed-revision${suffix}`,
+  );
+}
+
+export async function getWorldOwnedPlanCommittedRevision(
+  documentId: string,
+  revisionN?: number,
+): Promise<WorldOwnedCommittedRevisionV2> {
+  const encodedId = encodeURIComponent(documentId);
+  const suffix = revisionN == null ? "" : `/${encodeURIComponent(String(revisionN))}`;
+  return apiFetch<WorldOwnedCommittedRevisionV2>(
+    `/api/live/workspace-documents/${encodedId}/committed-revision${suffix}`,
+  );
+}
+
+export async function createWorkspaceDocument(
+  request: CreateWorkspaceDocumentRequest,
+): Promise<WorkspaceDocumentRecord> {
+  return apiFetch<WorkspaceDocumentRecord>(
+    "/api/live/workspace-documents",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function updateWorkspaceDocumentMetadata(
+  documentId: string,
+  request: UpdateWorkspaceDocumentMetadataRequest,
+): Promise<WorkspaceDocumentRecord> {
+  return apiFetch<WorkspaceDocumentRecord>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}`,
+    { method: "PATCH", body: JSON.stringify(request) },
+  );
+}
+
+export async function discardWorkspaceDocument(
+  documentId: string,
+  request: WorkspaceDocumentRevisionRequest = {},
+): Promise<WorkspaceDocumentRecord> {
+  return apiFetch<WorkspaceDocumentRecord>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/discard`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function restoreWorkspaceDocument(
+  documentId: string,
+  request: WorkspaceDocumentRevisionRequest = {},
+): Promise<WorkspaceDocumentRecord> {
+  return apiFetch<WorkspaceDocumentRecord>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/restore`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function prepareTiptapMarkdownWrite(
+  request: TiptapMarkdownWritePrepareRequest,
+): Promise<TiptapMarkdownWritePrepareResponse> {
+  return apiFetch<TiptapMarkdownWritePrepareResponse>(
+    "/api/live/tiptap/markdown-write/prepare",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function commitTiptapMarkdownWrite(
+  request: TiptapMarkdownWriteCommitRequest,
+): Promise<TiptapMarkdownWriteCommitResponse> {
+  return apiFetch<TiptapMarkdownWriteCommitResponse>(
+    "/api/live/tiptap/markdown-write/commit",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function commitWorldOwnedPlanMarkdownWrite(
+  request: TiptapMarkdownWriteCommitRequest & {
+    schema_version: "dmb_tiptap_markdown_write_commit_v2";
+    scope_mode: "world";
+    world_id: string;
+  },
+): Promise<WorldOwnedPlanMarkdownWriteCommitResponseV2> {
+  return apiFetch<WorldOwnedPlanMarkdownWriteCommitResponseV2>(
+    "/api/live/tiptap/markdown-write/commit",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function launchExtractionRun(
+  request: ExtractionRunLaunchRequest,
+): Promise<ExtractionRunLaunchResponse> {
+  return apiFetch<ExtractionRunLaunchResponse>(
+    "/api/live/graph-preview/extraction-runs",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+/** Generic exact ExtractionRun reload (recap + worldbuilding). Never substitutes latest. */
+export async function getExtractionRun(runId: string, signal?: AbortSignal): Promise<ExtractionRunRecord> {
+  return apiFetch<ExtractionRunRecord>(
+    `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}`,
+    signal ? { signal } : undefined,
+  );
+}
+
+/** Exact-run durable recap projected onto the current governed World. */
+export async function getHistoricalRecapWorldProjection(
+  runId: string,
+  managedWorldId?: string,
+): Promise<HistoricalRecapWorldProjectionResponse> {
+  const selector = managedWorldId
+    ? `?managed_world_id=${encodeURIComponent(managedWorldId)}`
+    : "";
+  return apiFetch<HistoricalRecapWorldProjectionResponse>(
+    `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}/recap-projection${selector}`,
+  );
+}
+
+/** Build-only workspace lineage envelope for an exact extraction run. */
+export async function getExtractionRunStatus(runId: string): Promise<ExtractionRunStatusResponse> {
+  return apiFetch<ExtractionRunStatusResponse>(
+    `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}/build-context`,
+  );
+}
+
+export async function activateStatblockRetrieval(
+  artifactId: string,
+): Promise<StatblockRetrievalActivationResponse> {
+  return apiFetch<StatblockRetrievalActivationResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/retrieval/activate`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+}
+
+export async function verifyStatblockRetrieval(
+  artifactId: string,
+  request: StatblockRetrievalVerifyRequest = {},
+): Promise<StatblockRetrievalVerifyResponse> {
+  return apiFetch<StatblockRetrievalVerifyResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/retrieval/verify`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function getPlayActiveRun(): Promise<PlayActiveRunState> {
+  return apiFetch<PlayActiveRunState>("/api/live/play-active-run");
+}
+
+export async function putPlayActiveRun(runId: string): Promise<PlayActiveRunState> {
+  return apiFetch<PlayActiveRunState>("/api/live/play-active-run", {
+    method: "PUT",
+    body: JSON.stringify({ run_id: runId }),
+  });
+}
+
+export async function getWorldPlayActiveRun(worldId: string): Promise<WorldPlayActiveRunStateV2> {
+  const state = await apiFetch<WorldPlayActiveRunStateV2>(
+    `/api/live/world-play-runs/v2/active?${worldQuery(worldId)}`,
+  );
+  assertWorldPlayActiveRunState(state, worldId);
+  return state;
+}
+
+export async function putWorldPlayActiveRun(
+  worldId: string,
+  runId: string,
+): Promise<WorldPlayActiveRunStateV2> {
+  const state = await apiFetch<WorldPlayActiveRunStateV2>(
+    `/api/live/world-play-runs/v2/active?${worldQuery(worldId)}`,
+    { method: "PUT", body: JSON.stringify({ run_id: runId }) },
+  );
+  assertWorldPlayActiveRunState(state, worldId, runId);
+  return state;
+}
+
+export async function listPlayRuns(args: {
+  campaign_id?: string;
+  playable_artifact_id?: string;
+} = {}, signal?: AbortSignal): Promise<PlayRunsListResponse> {
+  const params = new URLSearchParams();
+  if (args.campaign_id) params.set("campaign_id", args.campaign_id);
+  if (args.playable_artifact_id) params.set("playable_artifact_id", args.playable_artifact_id);
+  const query = params.toString();
+  return apiFetch<PlayRunsListResponse>(`/api/live/play-runs${query ? `?${query}` : ""}`, signal ? { signal } : undefined);
+}
+
+export async function getPlayRun(
+  runId: string,
+  options: { ensureNativeReady?: boolean } = {},
+): Promise<PlayRunRecord> {
+  const query = options.ensureNativeReady ? "?ensure_native_ready=true" : "";
+  return apiFetch<PlayRunRecord>(`/api/live/play-runs/${encodeURIComponent(runId)}${query}`);
+}
+
+export async function putPlayRun(
+  runId: string,
+  request: CreatePlayRunRequest,
+): Promise<PlayRunRecord> {
+  return apiFetch<PlayRunRecord>(
+    `/api/live/play-runs/${encodeURIComponent(runId)}`,
+    { method: "PUT", body: JSON.stringify(request) },
+  );
+}
+
+export async function getPlayRunReferenceManifest(runId: string): Promise<PlayRunReferenceManifest> {
+  return apiFetch<PlayRunReferenceManifest>(
+    `/api/live/play-runs/${encodeURIComponent(runId)}/reference-manifest`,
+  );
+}
+
+export async function putPlayRunReferenceManifest(
+  runId: string,
+): Promise<PlayRunReferenceManifest> {
+  return apiFetch<PlayRunReferenceManifest>(
+    `/api/live/play-runs/${encodeURIComponent(runId)}/reference-manifest`,
+    { method: "PUT" },
+  );
+}
+
+export async function putPlayRunProgress(
+  runId: string,
+  request: ReplacePlayRunProgressRequest,
+): Promise<PlayRunRecord> {
+  return apiFetch<PlayRunRecord>(
+    `/api/live/play-runs/${encodeURIComponent(runId)}/progress`,
+    { method: "PUT", body: JSON.stringify(request) },
+  );
+}
+
+export async function listWorldPlayRuns(worldId: string, signal?: AbortSignal): Promise<WorldPlayRunsListResponseV2> {
+  const response = await apiFetch<WorldPlayRunsListResponseV2>(
+    `/api/live/world-play-runs/v2?${worldQuery(worldId)}`,
+    signal ? { signal } : undefined,
+  );
+  if (
+    response.schema_version !== "dmb_world_play_runs_list_v2"
+    || !Array.isArray(response.records)
+  ) {
+    throw new TypeError("World Play Run inventory does not match the V2 contract.");
+  }
+  response.records.forEach((run) => assertWorldPlayRun(run, worldId));
+  return response;
+}
+
+export async function getWorldPlayRun(runId: string, worldId: string): Promise<WorldPlayRunRecordV2> {
+  const run = await apiFetch<WorldPlayRunRecordV2>(
+    `/api/live/world-play-runs/v2/${encodeURIComponent(runId)}?${worldQuery(worldId)}`,
+  );
+  assertWorldPlayRun(run, worldId, runId);
+  return run;
+}
+
+export async function putWorldPlayRun(runId:string,worldId:string,request:import('../combat/runEncountersApi').WorldSessionRequest):Promise<import('../combat/runEncountersApi').SessionApplied>{
+ const result=await apiFetch<import('../combat/runEncountersApi').SessionApplied>(`/api/live/world-play-runs/v2/${encodeURIComponent(runId)}?${worldQuery(worldId)}`,{method:'PUT',body:JSON.stringify(request)});
+ assertWorldPlayRun(result.run,worldId,runId);return result;
+}
+
+export async function putWorldPlayRunProgress(
+  runId: string,
+  worldId: string,
+  request: ReplacePlayRunProgressRequest,
+): Promise<WorldPlayRunRecordV2> {
+  const run = await apiFetch<WorldPlayRunRecordV2>(
+    `/api/live/world-play-runs/v2/${encodeURIComponent(runId)}/progress?${worldQuery(worldId)}`,
+    { method: "PUT", body: JSON.stringify(request) },
+  );
+  assertWorldPlayRun(run, worldId, runId);
+  return run;
+}
+
+export async function putWorldPlayRunRebase(
+  runId: string,
+  worldId: string,
+  request: RebasePlayRunRequest,
+): Promise<WorldPlayRunRecordV2> {
+  const run = await apiFetch<WorldPlayRunRecordV2>(
+    `/api/live/world-play-runs/v2/${encodeURIComponent(runId)}/rebase?${worldQuery(worldId)}`,
+    { method: "PUT", body: JSON.stringify(request) },
+  );
+  assertWorldPlayRun(run, worldId, runId);
+  return run;
+}
+
+export async function getWorldPlayRunReferenceManifest(
+  runId: string,
+  worldId: string,
+): Promise<PlayRunReferenceManifest> {
+  const manifest = await apiFetch<PlayRunReferenceManifest>(
+    `/api/live/world-play-runs/v2/${encodeURIComponent(runId)}/reference-manifest?${worldQuery(worldId)}`,
+  );
+  if (manifest.run_id !== runId) {
+    throw new TypeError("World Play Run manifest does not match the requested Run.");
+  }
+  return manifest;
+}
+
+export async function getAgentSourcePassage(worldId: string, turnId: string, citationIndex: number):
+  Promise<import("./types").AgentSourcePassageReadResponseV1> {
+  if (!Number.isSafeInteger(citationIndex) || citationIndex < 0 || citationIndex > 16383) {
+    throw new Error("Invalid source passage index");
+  }
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/source-passages/${citationIndex}`);
+}
+
+export async function getAgentSavedSection(target: Pick<import("./types").SavedBuildSectionTargetV1,"world_id"|"turn_id"|"segment_index"|"section_event_id">):
+  Promise<import("./types").SavedBuildSectionReadV1> {
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(target.world_id)}/conversation/turns/${encodeURIComponent(target.turn_id)}/saved-sections/${target.segment_index}/${encodeURIComponent(target.section_event_id)}`);
+}
+
+export function getPlanActionPromptIndex(worldId: string, actionId: string, signal?: AbortSignal) {
+  return apiFetch<import('./types').ActionPromptIndex>(
+    `/api/live/world-plan-edit/actions/${encodeURIComponent(actionId)}/prompts?${new URLSearchParams({ world_id: worldId })}`,
+    { signal, cache: 'no-store' },
+  );
+}
+export function getPlanActionPromptBody(worldId: string, actionId: string, attemptId: string, signal?: AbortSignal) {
+  return apiFetch<import('./types').ActionPromptEvidence>(
+    `/api/live/world-plan-edit/actions/${encodeURIComponent(actionId)}/prompts/${encodeURIComponent(attemptId)}?${new URLSearchParams({ world_id: worldId })}`,
+    { signal, cache: 'no-store' },
+  );
+}
+
+
+export function getPlanActionTerminalDiagnostic(worldId: string, actionId: string, signal?: AbortSignal):
+  Promise<import("./types").ActionTerminalDiagnosticRead> {
+  return apiFetch(`/api/live/world-plan-edit/actions/${encodeURIComponent(actionId)}/terminal-diagnostic?world_id=${encodeURIComponent(worldId)}`, { signal, cache: "no-store" });
+}
+
+// Passive exact rules reads share only pending transport, never settled evidence.
+export function getRulesCatalog(signal?: AbortSignal) {
+  return apiFetch<import('./rulesLookupTypes').RulesCatalog>('/api/live/rules/catalog', { signal, cache: 'no-store' });
+}
+export function queryRulesEvidence(corpus: string, question: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ corpus, question, limit: '4' });
+  return apiFetch<import('./rulesLookupTypes').RulesLookupPacket>(`/api/live/rules/query?${query}`, { signal, cache: 'no-store' });
+}
+export function getRulesPassage(corpus: string, citationId: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ corpus });
+  return apiFetch<import('./rulesLookupTypes').RulesPassage>(`/api/live/rules/passages/${encodeURIComponent(citationId)}?${query}`, { signal, cache: 'no-store' });
+}
+
+
+export function getHistoricalRulesPassage(target: import('./rulesLookupTypes').RulesPassageTarget, signal?: AbortSignal) {
+  const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+  if (!target.worldId || target.worldId.length > 128
+    || ![target.conversationId, target.turnId, target.supportId].every(value => uuid.test(value))
+    || !Number.isSafeInteger(target.attempt) || target.attempt < 1 || target.attempt > 2147483647
+    || !/^[a-f0-9]{64}$/.test(target.supportSha256)) throw new Error('Invalid historical Rules citation.');
+  const query = new URLSearchParams({ conversation_id: target.conversationId, attempt: String(target.attempt), support_sha256: target.supportSha256 });
+  return apiFetch<import('./rulesLookupTypes').RulesHistoricalPassage>(
+    `/api/live/agent/worlds/${encodeURIComponent(target.worldId)}/conversation/turns/${target.turnId}/rules-passages/${target.supportId}?${query}`,
+    { signal, cache: 'no-store' });
+}
+
+
+export async function listWorldCreatures(worldId:string):Promise<import('./worldMechanicsTypes').WorldCreatureCatalog> {
+  const view = await apiFetch<import('./worldMechanicsTypes').WorldCreatureCatalog>(`/api/live/world-mechanics/associations/creatures?world_id=${encodeURIComponent(worldId)}`);
+  verifyWorldCreatureCatalog(view,worldId);
+  return view;
+}
+export async function findWorldMechanicsAssociationRequest(worldId:string,requestId:string):Promise<import("./worldMechanicsTypes").WorldMechanicsAssociation|null> {
+  return apiFetch(`/api/live/world-mechanics/associations/requests/${encodeURIComponent(requestId)}?world_id=${encodeURIComponent(worldId)}`);
+}
+export async function listWorldMechanicsAssociations(worldId: string): Promise<import("./worldMechanicsTypes").WorldMechanicsAssociation[]> {
+  return apiFetch(`/api/live/world-mechanics/associations?world_id=${encodeURIComponent(worldId)}`);
+}
+export async function associateWorldMechanics(worldId: string, request: import("./worldMechanicsTypes").AssociateWorldMechanicsRequest): Promise<import("./worldMechanicsTypes").AssociateWorldMechanicsResponse> {
+  return apiFetch(`/api/live/world-mechanics/associations?world_id=${encodeURIComponent(worldId)}`, {
+    method: "POST", body: JSON.stringify(request),
+  });
+}
+
+// Manual saved revisions share authenticated transport; no encounter mutation.
+export async function listSavedMechanicsVersions(draftId:string,worldId:string,offset=0):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').SavedMechanicsVersionList>{
+  return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions?world_id=${encodeURIComponent(worldId)}&offset=${offset}`);
+}
+export async function openSavedMechanicsVersion(draftId:string,worldId:string,revisionId:string,sourceReviewId?:string):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>{
+  const path = sourceReviewId
+    ? `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/statblock-reviews/${encodeURIComponent(sourceReviewId)}/publication/statblock?${new URLSearchParams({draft_id:draftId,revision_id:revisionId})}`
+    : `/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions/${encodeURIComponent(revisionId)}?world_id=${encodeURIComponent(worldId)}`;
+  const packet=await apiFetch<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>(path);
+  if(!packet||packet.world_id!==worldId||packet.draft_id!==draftId||!packet.locator||!packet.resource
+    ||packet.locator.provider!=='dungeonmind'||packet.locator.contract!=='dungeonmind.dungeonbuddy-statblocks'||packet.locator.contract_version!=='1.0.0'
+    ||packet.locator.revision_id!==revisionId||packet.resource.revision_id!==revisionId
+    ||packet.resource.statblock_id!==packet.locator.statblock_id||packet.resource.definition_digest!==packet.locator.definition_digest
+    ||packet.resource.contract!==packet.locator.contract||packet.resource.contract_version!==packet.locator.contract_version)
+    throw new Error('Saved version identity changed. No other version was substituted.');
+  return packet;
+}
+export async function saveMechanicsRevision(draftId:string,request:import('../statblocks/revision/savedMechanicsRevisionTypes').RevisionSaveIntent):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').RevisionSaveOutcome>{
+  return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
+}
+export async function recoverMechanicsRevision(draftId:string,worldId:string,operationId:string):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').RevisionSaveOutcome|null>{
+  return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revision-operations/${encodeURIComponent(operationId)}:recover?world_id=${encodeURIComponent(worldId)}`,{method:'POST'});
+}
+export async function inspectMechanicsRevision(draftId:string,worldId:string,operationId:string):Promise<{operation:import('../statblocks/revision/savedMechanicsRevisionTypes').RevisionSaveOutcome|null}>{
+  return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revision-operations/${encodeURIComponent(operationId)}?world_id=${encodeURIComponent(worldId)}`);
+}
+
+export async function getAgentNativeSourceSection(worldId:string,turnId:string,citationIndex:number):
+  Promise<import("./types").AgentNativeSourceSectionReadResponseV1> {
+  if(!Number.isSafeInteger(citationIndex) || citationIndex<0 || citationIndex>16383) throw new Error("Invalid section index");
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/native-source-sections/${citationIndex}`);
+}
+
+
+export interface BuddyReadinessResponse {
+  schema: "dmb_agent_readiness_v1";
+  surface: "build" | "plan" | "play";
+  world_graph: boolean;
+  configured: boolean;
+  issues: string[];
+}
+export function getBuddyReadiness(surface: BuddyReadinessResponse["surface"], worldGraph: boolean): Promise<BuddyReadinessResponse> {
+  return apiFetch(`/api/live/agent/readiness?${new URLSearchParams({surface, world_graph: String(worldGraph)})}`);
+}
+
+/** Exact turn-bound related authoring context; never a latest-page substitute. */
+export function getAgentRelatedPage(worldId:string,turnId:string,readId:string):Promise<unknown> {
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/related-pages/${encodeURIComponent(readId)}`);
+}
+
+export function getAgentConnectedPageOrigin(worldId:string,turnId:string):Promise<import('./types').AgentConnectedPageOriginV1>{
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/connected-page-origin`);
+}
+
+export async function getAgentNativeSourceClause(worldId:string,turnId:string,citationIndex:number):Promise<import('./types').NativeStatementClauseReadV1>{
+  if(!Number.isSafeInteger(citationIndex)||citationIndex<0)throw new Error('Invalid source clause index');
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/native-source-clauses/${citationIndex}`);
+}
+
+export async function getAgentNativeBodyExcerpt(worldId:string,turnId:string,citationIndex:number):
+  Promise<import('./types').AgentNativeBodyExcerptReadResponseV2> {
+  if(!Number.isSafeInteger(citationIndex) || citationIndex<0 || citationIndex>16383) throw new Error('Invalid excerpt index');
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/native-body-excerpts/${citationIndex}`);
+}
+
+export async function getAgentNativeAssertionSource(worldId:string,turnId:string,citationIndex:number):Promise<import('./types').NativeAssertionSourceReadV1>{
+  if(!Number.isSafeInteger(citationIndex)||citationIndex<0)throw new Error('Invalid assertion source index');
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/native-assertion-sources/${citationIndex}`);
+}
+
+
+export type NativeAuthoringIdentity = {
+  selectable?: boolean;
+  node_id: string;
+  label: string;
+  kind: string;
+  role: string;
+  summary: string | null;
+};
+
+export async function getNativeAuthoringIdentities(worldId: string): Promise<NativeAuthoringIdentity[]> {
+  const result = await apiFetch<{scope: InspectionPin; identities: NativeAuthoringIdentity[]}>(
+    '/api/live/native-graph-inspection/authoring-identities',
+    {
+      method: 'POST',
+      body: JSON.stringify({managed_world_id: worldId, scope_mode: 'world', campaign_id: null}),
+    },
+  );
+  if (result.scope.managed_world_id !== worldId || result.scope.scope_mode !== 'world') {
+    throw new Error('The object picker did not match this World.');
+  }
+  return result.identities;
+}
+
+export function getNativeGraphCatalog(scope:InspectionScope,signal?:AbortSignal):Promise<NativeGraphCatalog> {
+ return apiFetch('/api/live/native-graph-inspection/catalog',{method:'POST',signal,body:JSON.stringify(scope)});
+}
+export function inspectNativeGraph(scope:InspectionPin,selection:InspectionSelection,signal?:AbortSignal):Promise<NativeGraphEntity|NativeGraphSource|NativeGraphPdfRegion> {
+ return apiFetch('/api/live/native-graph-inspection/read',{method:'POST',signal,body:JSON.stringify({scope,selection})});
+}
+
+type NativeRecapSelection = Extract<InspectionSelection, { kind: "source" }>;
+
+export function getNativeRelatedRecaps(scope: InspectionPin, assertionId: string, signal?: AbortSignal) {
+  return apiFetch<{
+    scope: InspectionPin;
+    targets: Array<{
+      selection: NativeRecapSelection;
+      source_artifact_id: string;
+      source_revision_id: string;
+    }>;
+  }>("/api/live/native-graph-inspection/related-recaps", {
+    method: "POST", signal, body: JSON.stringify({ scope, assertion_id: assertionId }),
+  });
+}
+
+export function readNativeRecapPage(
+  scope: InspectionPin, selection: NativeRecapSelection, continuation?: string, signal?: AbortSignal,
+) {
+  return apiFetch<NativeGraphSource & { next_continuation: string | null }>(
+    "/api/live/native-graph-inspection/recap-page",
+    { method: "POST", signal, body: JSON.stringify({ read: { scope, selection }, continuation }) },
+  );
+}
+
+export function getNativeSourceCatalog(scope:InspectionScope,signal?:AbortSignal):Promise<NativeSourceCatalog> {
+ return apiFetch('/api/live/native-source-inspection/catalog',{method:'POST',cache:'no-store',signal,body:JSON.stringify(scope)});
+}
+export function readNativeSource(scope:InspectionPin,selection:NativeSourceSelection,signal?:AbortSignal):Promise<NativeSourceBody> {
+ return apiFetch('/api/live/native-source-inspection/read',{method:'POST',cache:'no-store',signal,body:JSON.stringify({scope,...selection})});
+}
+
+export async function prepareNativeThreat(draft:string,world:string,version:number,pdfRegions?:readonly PdfLocator[], mechanics?:import("../statblocks/revision/savedMechanicsRevisionTypes").SavedMechanicsLocator):Promise<NativeThreatReply> {
+  const value=await apiFetch<unknown>(`/api/live/threat-drafts/${encodeURIComponent(draft)}/native-creature/prepare`,{method:'POST',body:JSON.stringify({world_id:world,expected_draft_version:version,pdf_regions:pdfRegions,mechanics_locator:mechanics})});
+  const reply=await verifyNativeThreatReply(value,world,draft,mechanics);
+  if(reply.state==='prepared'&&reply.review.draft_version!==version)throw new Error('The prepared creature uses another draft version.');
+  return reply;
+}
+export async function confirmNativeThreat(packet:PreparedNativeThreat):Promise<PublishedNativeThreat> {
+  const r=packet.review;
+  const value=await apiFetch<unknown>(`/api/live/threat-drafts/${encodeURIComponent(r.draft_id)}/native-creature/confirm`,{method:'POST',body:JSON.stringify({review:r,prepared:packet.prepared,token:packet.token})});
+  const reply=await verifyNativeThreatReply(value,r.world_id,r.draft_id);
+  if(reply.state!=='published'||reply.native_world_id!==r.binding.native_world_id||reply.binding_version!==r.binding.binding_version)throw new Error('Creature confirmation belongs to another World binding. Keep the same review for recovery.');
+  return reply;
+}
+export async function getNativeThreat(draft:string,world:string):Promise<PublishedNativeThreat|null> {
+  const value=await apiFetch<unknown>(`/api/live/threat-drafts/${encodeURIComponent(draft)}/native-creature?world_id=${encodeURIComponent(world)}`);
+  if(value===null)return null;
+  const reply=await verifyNativeThreatReply(value,world,draft);
+  if(reply.state!=='published')throw new Error('Creature status is not a published result.');
+  return reply;
+}
+
+export async function readPublishedNativeRecap(
+  managedWorldId: string, campaignId: string, sessionId: string, signal?: AbortSignal,
+): Promise<PublishedNativeRecap> {
+  const packet = await apiFetch<PublishedNativeRecap>("/api/live/native-source-inspection/published-recap", {
+    method: "POST", cache: "no-store", signal,
+    body: JSON.stringify({ managed_world_id: managedWorldId, campaign_id: campaignId, session_id: sessionId }),
+  });
+  if (packet?.schema !== "dmb_native_published_recap_v1" ||
+      packet.scope?.managed_world_id !== managedWorldId ||
+      packet.scope.scope_mode !== "world" || packet.scope.campaign_id !== null ||
+      !packet.scope.native_world_id || !packet.scope.revision_id ||
+      !Number.isSafeInteger(packet.scope.binding_version) || packet.scope.binding_version < 1 ||
+      packet.campaign_id !== campaignId || packet.session_id !== sessionId ||
+      !Array.isArray(packet.evidence_ref_ids) || !packet.evidence_ref_ids.every(id => typeof id === "string" && id.length > 0) ||
+      packet.source?.status !== "available" || typeof packet.source.body_text !== "string") {
+    throw new Error("The published recap did not match the selected World and session.");
+  }
+  return packet;
+}
+
+
+export function readPublishedRecapObjects(recap: PublishedNativeRecap, entityId?: string, signal?: AbortSignal) {
+  return apiFetch<
+    { scope: InspectionPin; objects: { id: string; label: string; ambiguous: boolean }[]; partial: boolean }
+    | { kind: "entity"; detail: NativeGraphEntity }
+    | { kind: "complete"; detail: WorldGraphObjectProjectionResult }
+  >("/api/live/native-source-inspection/published-recap/objects", {
+    method: "POST", signal, body: JSON.stringify({
+      managed_world_id: recap.scope.managed_world_id, campaign_id: recap.campaign_id,
+      session_id: recap.session_id, scope: recap.scope, source_artifact_id: recap.source.source_artifact_id,
+      source_revision_id: recap.source.source_revision_id, entity_id: entityId,
+    }),
+  });
+}
+
+
+export async function withdrawBuildSource(worldId: string, source: { kind: "pdf" | "text"; revision_id: string }) {
+  const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-source-withdrawals`;
+  const { response } = await authenticatedApiFetch(path, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(source),
+  });
+  if (!response.ok) throw new Error("Could not delete the document. Refresh and try again.");
+}
+
+export async function archiveBuildStatblock(worldId: string, draftId: string, version: number) {
+  const query = new URLSearchParams({ world_id: worldId, expected_version: String(version) });
+  const { response } = await authenticatedApiFetch(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/saved-statblock?${query}`, { method: "DELETE" },
+  );
+  if (!response.ok) throw new Error("Could not remove the statblock. Refresh and try again.");
+}
+
+export interface PdfStatblockReviewSummary {
+  review_id: string;
+  name: string;
+  draft_id: string;
+}
+
+export async function listPdfStatblockReviews(worldId: string, signal: AbortSignal): Promise<PdfStatblockReviewSummary[]> {
+  const result = await apiFetch<{ reviews: PdfStatblockReviewSummary[] }>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/statblock-reviews`, { signal },
+  );
+  return result.reviews;
+}
