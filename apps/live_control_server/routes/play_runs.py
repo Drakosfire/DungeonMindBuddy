@@ -316,18 +316,26 @@ def get_world_play_run_v2(
 )
 def put_world_play_run_progress_v2(
     run_id: str,
+    request: Request,
     body: ReplacePlayRunProgressRequest,
     world_id: Annotated[str, Query(min_length=1)],
 ) -> dict[str, Any]:
+    from functools import partial
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    authorize_world = partial(require_hosted_plan_world_context, request, world_id)
+    authorize_world()
     try:
         record = replace_world_play_run_progress(
             world_id=world_id,
             run_id=run_id,
             expected_run_revision=body.expected_run_revision,
             progress=body.progress,
+            authorize_world=authorize_world,
         )
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    authorize_world()
     return record.model_dump(mode="json")
 
 

@@ -354,6 +354,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/reference-manifest"): access.resolve_hosted_play_read,
@@ -2679,6 +2680,42 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert denied.status_code == 403
     assert reflections not in denied.text
 
+    from application_state.play import service as play_service
+
+    owner = hosted.records["managed"]
+    progress_path = f"{base}/progress?world_id=managed"
+    current = hosted.client.request("GET", run_path).json()
+    progress = {
+        **current["progress"],
+        "notes_by_element_id": {edit.scene_id: "Private Play note"},
+    }
+    progress_request = {"expected_run_revision": current["run_revision"], "progress": progress}
+    lock_run = play_service.repo.lock_run
+
+    def transfer_after_lock(*args, **kwargs):
+        record = lock_run(*args, **kwargs)
+        hosted.records["managed"] = owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return record
+
+    with monkeypatch.context() as patch:
+        patch.setattr(play_service.repo, "lock_run", transfer_after_lock)
+        denied = hosted.client.request("PUT", progress_path, json=progress_request)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    hosted.records["managed"] = owner
+    assert hosted.client.request("GET", run_path).json()["progress"] == current["progress"]
+
+    saved_progress = hosted.client.request("PUT", progress_path, json=progress_request)
+    assert saved_progress.status_code == 200, saved_progress.text
+    assert saved_progress.json()["progress"] == progress
+    assert hosted.client.request("PUT", progress_path, json=progress_request).json() == saved_progress.json()
+    with monkeypatch.context() as patch:
+        patch.setattr(play_service.repo, "lock_run", transfer_after_lock)
+        denied = hosted.client.request("PUT", progress_path, json=progress_request)
+    assert denied.status_code == 403, denied.text
+    assert "Private Play note" not in denied.text
+    hosted.records["managed"] = owner
+
     from application_state.play import session_evidence
 
     owner = hosted.records["managed"]
@@ -3716,3 +3753,29 @@ def test_hosted_persists_and_reopens_exact_mechanics_association(prepared, hoste
     status = f"{base}/requests/{fixture.body['request_id']}?world_id={world}"
     assert hosted.client.request("GET", status).json() == record
     assert hosted.client.request("GET", status, session="other-session").status_code == 403
+
+
+def test_hosted_play_progress_binds_world_run_and_origin(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import play_runs
+
+    write = Mock(side_effect=play_runs.PlayRunRegistryError("stale revision", status_code=409))
+    monkeypatch.setattr(play_runs, "replace_world_play_run_progress", write)
+    run_id = str(uuid4())
+    path = f"/api/live/world-play-runs/v2/{run_id}/progress?world_id=managed"
+    body = {"expected_run_revision": 2, "progress": {
+        "current_scene_id": None, "current_beat_id": None, "resolved_beat_ids": [],
+        "selections": {}, "notes_by_element_id": {},
+    }}
+    assert hosted.client.request("PUT", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("PUT", path, origin="https://outside.example", json=body).status_code == 403
+    assert hosted.client.request("PUT", path + "&world_id=foreign", json=body).status_code == 403
+    write.assert_not_called()
+
+    response = hosted.client.request("PUT", path, json=body)
+    assert response.status_code == 409, response.text
+    write.assert_called_once()
+    assert write.call_args.kwargs["world_id"] == "managed"
+    assert write.call_args.kwargs["run_id"] == run_id
+    assert write.call_args.kwargs["expected_run_revision"] == 2

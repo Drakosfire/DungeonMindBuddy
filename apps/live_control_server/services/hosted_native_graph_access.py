@@ -456,6 +456,10 @@ async def resolve_hosted_play_scene_proposal(request: Request) -> str:
     return await _resolve_hosted_play_world(request)
 
 
+async def resolve_hosted_play_command(request: Request) -> str:
+    return await _resolve_hosted_play_world(request)
+
+
 async def resolve_hosted_play_table_roll(request: Request) -> str:
     return await _resolve_hosted_play_world(request)
 
