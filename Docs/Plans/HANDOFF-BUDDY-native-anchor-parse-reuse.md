@@ -66,3 +66,14 @@ Retain Core source verification mirror at
 (archive of exacta672791bacd14a55da488b4639d95dfe39de3805, no dependency changes)
 for declared-pin verification. Cleanup after delivery with active process/mount,
 unique-data/commit checks and explicit scope; no removals authorized here.
+
+Bounded verification rebrief: the required auth-app contract exposed one inherited
+player-denial harness failure (247pass/1fail on both declared/candidate Core with
+explicit local configuration). tests/test_native_source_inspection.py overrides
+retired native_graph_gm_dependency while its production route now uses
+native_graph_explorer_dependency. Route/test blobs exactly match base7014b5de;
+this slice did not introduce the mismatch. Extend the lease by this one test path
+only, updating the imported/overridden dependency, preserving401/409 assertions.
+This restores the required authorization proof; no production authorization or
+source-inspection behavior changes. Four-path PR, one cache capability plus its
+required safety validation. Do not absorb other hosted/source work.
