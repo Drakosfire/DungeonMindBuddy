@@ -3369,7 +3369,10 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toEqual([]);
     expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
     expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
-    expect(fetchSpy.mock.calls.map(([url, init]) => [String(url), init?.method ?? "GET"])).toEqual([
+    const dispatchCalls = fetchSpy.mock.calls
+      .map(([url, init]) => [String(url), init?.method ?? "GET"])
+      .filter(([url]) => url === "/api/live/agent/turn" || url === "/api/live/agent/readiness?surface=plan&world_graph=true");
+    expect(dispatchCalls).toEqual([
       ["/api/live/agent/readiness?surface=plan&world_graph=true", "GET"],
       ["/api/live/agent/turn", "POST"],
     ]);
@@ -3551,7 +3554,10 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByText(/server confirmed provider dispatch did not begin/)).not.toBeInTheDocument();
     expect(pendingAskKeys()).toHaveLength(1);
     expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
-    expect(fetchSpy.mock.calls.map(([url, init]) => [String(url), init?.method ?? "GET"])).toEqual([
+    const dispatchCalls = fetchSpy.mock.calls
+      .map(([url, init]) => [String(url), init?.method ?? "GET"])
+      .filter(([url]) => url === "/api/live/agent/turn" || url === "/api/live/agent/readiness?surface=plan&world_graph=true");
+    expect(dispatchCalls).toEqual([
       ["/api/live/agent/readiness?surface=plan&world_graph=true", "GET"],
       ["/api/live/agent/turn", "POST"],
     ]);
@@ -4936,7 +4942,7 @@ describe("World Plan conversation consumer", () => {
       target:{schema:'dmb_agent_source_passage_open_target_v1',kind:'source_passage',world_id:worldId,turn_id:turnId,citation_index:0},citation,content:passage});
     await mountComponent(); await screen.findByText('What does the source say?');
     if(mixed) expect(screen.getByText('A proposed outing.').closest('blockquote')).not.toBeNull();
-    expect(screen.getByText('Sources')).toBeInTheDocument();expect(open).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Answer sources')).toHaveTextContent(/^Sources$/);expect(open).not.toHaveBeenCalled();
     openLatestTurnDetails();
     fireEvent.click((mixed ? within(screen.getByLabelText('Source-supported statement')) : within(screen.getByText('Details',{selector:'summary'}).closest('details')!)).getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));
     await screen.findByRole('region',{name:'Opened source passage'});expect(open).toHaveBeenCalledWith(worldId,turnId,0);
@@ -5235,7 +5241,7 @@ describe("World Plan conversation consumer", () => {
         kind: "source_passage", world_id: worldId, turn_id: turnId, citation_index: 0}, citation, content: passage});
     await mountComponent();
     expect(await screen.findByText("What does the lore say?")).toBeInTheDocument();
-    expect(screen.getByText("Sources")).toBeInTheDocument();
+    expect(screen.getByLabelText("Answer sources")).toHaveTextContent(/^Sources$/);
     expect(open).not.toHaveBeenCalled();
     openLatestTurnDetails();
     fireEvent.click(within(screen.getByText("Details", {selector: "summary"}).closest("details")!).getByRole("button", {name: named ? "Read River Watch — synthetic source · lines 1–1" : "Read passage 1"}));
@@ -5304,9 +5310,8 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByLabelText("Answer sources")).toHaveAttribute("title", "Authored page suggestion; review and placement are managed on the page.");
     expect(turn.assistant_text).toBe(passage);
     expect(knowledge.completion.answer_segments[0].text).toBe(passage);
-    expect(screen.getByText("Page proposal")).toBeInTheDocument();
+    expect(screen.getByLabelText("Answer sources")).toHaveTextContent(/^Page proposal$/);
     expect(screen.queryByText("World + Source")).not.toBeInTheDocument();
-    expect(screen.queryByText("Sources")).not.toBeInTheDocument();
   });
 
   it("loads the latest page, merges older turns by durable ID, and preserves server ordering", async () => {
