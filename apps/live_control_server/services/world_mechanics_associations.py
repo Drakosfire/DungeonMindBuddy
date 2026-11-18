@@ -15,9 +15,11 @@ from apps.live_control_server.services.threat_draft_store import locked_threat_d
 
 
 def associate(*, root: Path | None = None, request: AssociateWorldMechanicsRequest, actor: str,
-              client=None) -> AssociateWorldMechanicsResponse:
+              client=None, authorize=None) -> AssociateWorldMechanicsResponse:
     previous = state.replay(request)
     if previous is not None:
+        if authorize is not None:
+            authorize()
         return AssociateWorldMechanicsResponse(association=previous, replayed=True)
     if root is None:
         try:
@@ -35,7 +37,10 @@ def associate(*, root: Path | None = None, request: AssociateWorldMechanicsReque
     with locked_threat_draft(root, draft.draft_id) as current:
         if current != draft:
             raise ApplicationStateConflictError("Saved mechanics draft changed during verification; reopen it")
-        return state.append_verified(request=request, actor=actor, proof=SavedMechanicsProof(
+        result = state.append_verified(request=request, actor=actor, authorize=authorize, proof=SavedMechanicsProof(
             locator=request.locator, origin_locator=origin.model_dump(mode="json"),
             origin_acceptance_operation_id=anchor, revision_operation_id=revision_operation,
         ))
+        if authorize is not None:
+            authorize()
+        return result

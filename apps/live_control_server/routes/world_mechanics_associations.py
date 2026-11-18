@@ -71,13 +71,19 @@ def association_request(request_id: UUID, world_id: WorldId, request: Request):
 
 @router.post("", response_model=AssociateWorldMechanicsResponse)
 def associate_route(world_id: WorldId, body: AssociateWorldMechanicsRequest, request: Request):
-    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        conversation_graph_principal, require_conversation_access,
+    )
 
     principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     if body.target.managed_world_id != world_id:
         raise HTTPException(status_code=409, detail="Selected creature belongs to a different World")
+    def authorize():
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+
     try:
-        return associate(request=body, actor=principal.subject)
+        guard = {"authorize": authorize} if principal.auth_method == "hosted_owner" else {}
+        return associate(request=body, actor=principal.subject, **guard)
     except (ApplicationStateError, WorldGraphProjectionServiceError,
             ThreatDraftStoreError, AcceptanceReconciliationError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

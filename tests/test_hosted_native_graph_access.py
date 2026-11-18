@@ -414,6 +414,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}"): access.resolve_hosted_saved_statblock,
             ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
+            ("POST", "/api/live/world-mechanics/associations"): access.resolve_hosted_mechanics_association,
             ("GET", "/api/live/world-mechanics/associations/creatures"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/world-mechanics/associations/requests/{request_id}"): access.resolve_hosted_plan_world_context,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
@@ -3477,7 +3478,8 @@ def test_hosted_prepared_image_association_uses_world_asset_owner(hosted, monkey
     assert response.status_code == 403, response.text
 
 
-def test_hosted_persists_and_reopens_exact_mechanics_association(prepared, hosted, monkeypatch):
+@pytest.mark.parametrize("transfer", [False, True])
+def test_hosted_persists_and_reopens_exact_mechanics_association(prepared, hosted, monkeypatch, transfer):
     from apps.live_control_server.services import statblock_saved_revision, world_creature_selection
 
     fixture = prepared
@@ -3488,6 +3490,27 @@ def test_hosted_persists_and_reopens_exact_mechanics_association(prepared, hoste
     base = "/api/live/world-mechanics/associations"
     path = f"{base}?world_id={world}"
     assert hosted.client.request("POST", path, json=fixture.body, origin=None).status_code == 403
+    if transfer:
+        from application_state.world_mechanics import service as association_state
+
+        original_replay = association_state._replay
+        lookup_count = 0
+
+        def transfer_during_locked_lookup(conn, world_id, request):
+            nonlocal lookup_count
+            result = original_replay(conn, world_id, request)
+            lookup_count += 1
+            if lookup_count == 2:
+                hosted.records[world] = hosted.records[world].model_copy(update={"owner_subject": OTHER_OWNER})
+            return result
+
+        monkeypatch.setattr(association_state, "_replay", transfer_during_locked_lookup)
+        denied = hosted.client.request("POST", path, json=fixture.body)
+        assert denied.status_code == 403, denied.text
+        assert lookup_count == 2
+        assert association_state.find_request(world_id=world, request_id=fixture.body["request_id"]) is None
+        return
+
     first = hosted.client.request("POST", path, json=fixture.body)
     assert first.status_code == 200, first.text
     record = first.json()["association"]
