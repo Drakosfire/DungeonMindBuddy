@@ -68,8 +68,13 @@ def _image_client() -> GenerationClient:
 
 
 @router.get("/capabilities")
-def image_capabilities(request: Request, response: Response):
-    enforce_native_graph_gm(request)
+def image_capabilities(request: Request, response: Response, world_id: str | None = None):
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    if world_id is None:
+        enforce_native_graph_gm(request)
+    else:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     response.headers["Cache-Control"] = "no-store"
     try:
         assert_at_head()
@@ -118,8 +123,23 @@ def _image_failure_message(error: GenerationEngineError, unavailable: str) -> st
 
 
 @router.post("/generate")
-async def generate_image_preview(body: ImagePreviewRequest, request: Request, response: Response):
-    principal = enforce_native_graph_gm(request)
+async def generate_image_preview(
+    body: ImagePreviewRequest, request: Request, response: Response, world_id: str | None = None,
+):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        conversation_graph_principal, hosted_world_media_owner, require_conversation_access,
+    )
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        if world_id is None:
+            raise HTTPException(403, detail="Select a World before generating artwork.")
+        principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+        asset_owner = hosted_world_media_owner(world_id)
+    else:
+        principal = enforce_native_graph_gm(request)
+        asset_owner = principal.subject
     response.headers["Cache-Control"] = "no-store"
     if not _fal_key():
         raise HTTPException(503, detail="Image generation needs the server's fal credential.")
@@ -131,12 +151,16 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
     if body.preparation_id is not None:
         try:
             preparation = BuildImageService().get(body.preparation_id, principal.subject)
+            if world_id is not None and preparation.reservation.basis.world_id != world_id:
+                raise HTTPException(404, detail="Image preparation unavailable.")
         except ApplicationStateError as error:
             raise HTTPException(error.status_code, detail='Image preparation unavailable.') from error
     effective_prompt = MAP_FRAMING + "\n\n" + body.prompt if body.purpose == "map" else body.prompt
     client = None
     try:
         client = _image_client()
+        if hosted and world_id is not None:
+            require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
         result = await client.generate_image(ImageRequest(
             prompt=effective_prompt, model=body.model, width=body.width, height=body.height,
             num_images=1, options=body.options, deadline_ms=180000,
@@ -154,8 +178,10 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
     for image in result.images:
         if image.media_type not in {"image/png", "image/jpeg", "image/webp"} or len(image.content) > 20 * 1024 * 1024:
             raise HTTPException(502, detail="The returned image could not be previewed.")
+        if hosted and world_id is not None:
+            require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
         try:
-            row = media.stage_image(image.content, principal.subject, {
+            row = media.stage_image(image.content, asset_owner, {
                 "kind": "generation", "prompt": effective_prompt, "authored_prompt": body.prompt, "model": body.model,
                 "settings": body.model_dump(mode="json", exclude={"prompt"}),
                 "observation": result.observation.model_dump(mode="json"),
@@ -282,14 +308,38 @@ class ImageAssociationRequest(BaseModel):
 
 
 @router.post('/preparations/{action_id}/asset')
-def associate_image(action_id: UUID, body: ImageAssociationRequest, request: Request, response: Response):
-    principal = enforce_native_graph_gm(request)
+def associate_image(
+    action_id: UUID, body: ImageAssociationRequest, request: Request, response: Response,
+    world_id: str | None = None,
+):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        conversation_graph_principal, hosted_world_media_owner, require_conversation_access,
+    )
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted and world_id is None:
+        raise HTTPException(403, detail="Select a World before placing artwork.")
+    principal = (
+        conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+        if world_id is not None else enforce_native_graph_gm(request)
+    )
+    def authorize_world(bound_world_id: str) -> None:
+        require_conversation_access(request, bound_world_id, authorize_local=enforce_native_graph_gm)
+
     response.headers['Cache-Control'] = 'no-store'
     try:
-        preparation = BuildImageService().get(action_id, principal.subject)
+        service = BuildImageService()
+        preparation = service.get(action_id, principal.subject)
+        if world_id is not None and preparation.reservation.basis.world_id != world_id:
+            raise HTTPException(404, detail="Image preparation unavailable.")
         from apps.live_control_server.services.build_document_proposal import _source
         _source(preparation.reservation)
-        return _preparation_record(BuildImageService().associate(action_id, body.asset_id, principal.subject, body.expected_revision))
+        return _preparation_record(service.associate(
+            action_id, body.asset_id, principal.subject, body.expected_revision,
+            asset_owner=hosted_world_media_owner(world_id) if hosted else None,
+            authorize_world=authorize_world if hosted else None,
+        ))
     except ApplicationStateError as error:
         raise HTTPException(error.status_code, detail=str(error)) from error
 

@@ -500,6 +500,43 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && body !== null && Object.keys(body).length === 0;
   }
+  const imageAssociation = /^\/api\/live\/media\/images\/preparations\/[0-9a-f-]+\/asset\?([^#]+)$/.exec(path);
+  if (imageAssociation) {
+    const query = new URLSearchParams(imageAssociation[1]);
+    return method === "POST" && query.size === 1 && Boolean(query.get("world_id"))
+      && isRecord(requestBodyRecord(init?.body));
+  }
+  const imageGeneration = /^\/api\/live\/media\/images\/generate\?([^#]+)$/.exec(path);
+  if (imageGeneration) {
+    const query = new URLSearchParams(imageGeneration[1]);
+    return method === "POST" && query.size === 1 && Boolean(query.get("world_id"))
+      && isRecord(requestBodyRecord(init?.body));
+  }
+  const imageCapabilities = "/api/live/media/images/capabilities?";
+  if (path.startsWith(imageCapabilities)) {
+    const world = new URLSearchParams(path.slice(imageCapabilities.length)).get("world_id");
+    return method === "GET" && init?.body == null && !!world
+      && path === imageCapabilities + new URLSearchParams({ world_id: world });
+  }
+  if (/^\/api\/live\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/pdf-adventure-events\/(?:prepare|confirm)$/.test(path)) {
+    return method === "POST" && requestBodyRecord(init?.body) !== null;
+  }
+  const nativeSource = /^\/api\/live\/workspace-documents\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/native-world-source/.exec(path);
+  if (nativeSource) {
+    const selectors = path.slice(nativeSource[0].length);
+    if (method === "GET" && init?.body == null) {
+      return selectors === "" || /^\?expected_revision=[1-9][0-9]*$/.test(selectors);
+    }
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && selectors === "" && typeof body?.expected_revision === "number"
+      && Number.isSafeInteger(body.expected_revision) && body.expected_revision > 0
+      && typeof body.expected_body_sha256 === "string" && /^[0-9a-f]{64}$/.test(body.expected_body_sha256);
+  }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-source-withdrawals$/.test(path)) {
+    const source = requestBodyRecord(init?.body);
+    return method === "POST" && (source?.kind === "pdf" || source?.kind === "text")
+      && typeof source.revision_id === "string" && Boolean(source.revision_id);
+  }
   const imageHistory = "/api/live/media/images/preparations/list?";
   if (path.startsWith(imageHistory)) {
     const selectors = new URLSearchParams(path.slice(imageHistory.length));
@@ -579,6 +616,14 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     if (!worldId || path !== combatEncounter[0] + new URLSearchParams({ world_id: worldId })) return false;
     if (method === "GET") return init?.body == null;
     return method === (combatEncounter[1] ? "PUT" : "POST") && !!requestBodyRecord(init?.body);
+  }
+  if (path === "/api/live/graph-preview/extraction-runs") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.document_id === "string"
+      && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(body.document_id)
+      && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
+      && body.expected_revision > 0 && typeof body.expected_content_sha256 === "string"
+      && /^(?:sha256:)?[a-f0-9]{64}$/.test(body.expected_content_sha256);
   }
   const savedRecap = /^\/api\/live\/graph-preview\/extraction-runs(?:\/[^/?]+\/(recap-inspection|candidate-projection))?\?/.exec(path);
   if (savedRecap && method === "GET" && init?.body == null) {
@@ -682,7 +727,8 @@ function apiRequestTarget(
   const pageUrl = typeof window === "undefined" ? undefined : window.location.href;
   let normalizedPath = path;
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
-  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath);
+  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
+    || /^\/api\/live\/workspace-documents\/[^/]+\/native-world-source$/.test(normalizedPath);
   if (isLoopbackApiDestination(url)) return { url, localGraphRequest, hostedGraphRequest: false };
   if (localGraphRequest || graphSurface) {
     // Exact relative paths only: explicit API bases, URL credentials, queries,

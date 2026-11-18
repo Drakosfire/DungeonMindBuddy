@@ -17,6 +17,7 @@ import type { CombatEncounterDraft, CombatEncounterRecord, CombatEntity } from "
 import { CombatMechanicsInspection } from "../../combat/CombatMechanicsInspection";
 import { CombatMechanicsAdoption } from '../../combat/CombatMechanicsAdoption';
 import { CombatEncounterAssembly } from "../../combat/CombatEncounterAssembly";
+import {CombatRosterTable} from '../../combat/CombatRosterTable';
 import "../../combat/combatRoster.css";
 import {CombatRecoverySession, combatDraftEqual, combatSelectionKey, type CombatRecovery} from "../../combat/combatRecovery";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
@@ -56,6 +57,7 @@ function nextActor(draft: CombatEncounterDraft | null): CombatEntity | null {
 function RosterRow({
   entity,
   active,
+  hidden,
   disabled,
   onChange,
   onSetActive,
@@ -63,6 +65,7 @@ function RosterRow({
 }: {
   entity: CombatEntity;
   active: boolean;
+  hidden: boolean;
   disabled: boolean;
   onChange: (entity: CombatEntity) => void;
   onSetActive: () => void;
@@ -103,20 +106,19 @@ function RosterRow({
   const healAmount = Number.parseInt(heal, 10);
 
   return (
-    <tr className={active ? "combat-roster-active-row" : undefined}>
+    <tr hidden={hidden} className={active ? "combat-roster-active-row" : entity.defeated ? "combat-roster-defeated-row" : undefined}>
       <td>
-        <button type="button" onClick={onSetActive} disabled={disabled || entity.defeated}>
+        <button type="button" aria-label={`Set ${entity.name} as current actor`} onClick={onSetActive} disabled={disabled || entity.defeated}>
           {active ? "▶" : "Set"}
         </button>
       </td>
-      <td>
+      <td className="combat-roster-participant">
         <strong>{entity.name}</strong>
         <div className="module-muted">
           {entity.world_identity ? `World: ${entity.world_identity.label} · Manual stats` : entity.statblock_title ?? entity.statblock_artifact_id ?? entity.source}
         </div>
-        {entity.mechanics_snapshot && <CombatMechanicsInspection snapshot={entity.mechanics_snapshot} />}
-      </td>
-      <td>
+        {entity.mechanics_snapshot && <CombatMechanicsInspection snapshot={entity.mechanics_snapshot} presentation="dialog" />}
+        <div className="combat-roster-team">
         <select
           aria-label={`Team for ${entity.name}`}
           value={entity.team}
@@ -128,6 +130,7 @@ function RosterRow({
           <option value="enemy">Enemy</option>
           <option value="neutral">Neutral</option>
         </select>
+        </div>
       </td>
       <td>
         <input
@@ -139,7 +142,7 @@ function RosterRow({
         />
       </td>
       <td>{valueText(entity.ac)}</td>
-      <td>
+      <td className="combat-roster-health">
         <input
           aria-label={`HP for ${entity.name}`}
           className="combat-roster-short-input"
@@ -150,8 +153,7 @@ function RosterRow({
             update({ hp: parsed === null && event.target.value.trim() !== "" ? event.target.value : parsed });
           }}
         />{" "}/ {valueText(entity.max_hp)}
-      </td>
-      <td>
+        <label className="combat-roster-temp"><span>Temp</span>
         <input
           aria-label={`Temp HP for ${entity.name}`}
           className="combat-roster-short-input"
@@ -159,6 +161,7 @@ function RosterRow({
           disabled={disabled}
           onChange={(event) => update({ temp_hp: Math.max(0, numberOrNull(event.target.value) ?? 0) })}
         />
+        </label>
       </td>
       <td>
         <div className="combat-roster-delta-controls">
@@ -194,7 +197,8 @@ function RosterRow({
           </button>
         </div>
       </td>
-      <td>
+      <td className="combat-roster-notes">
+        <span className="eyebrow">Conditions</span>
         <input
           aria-label={`Conditions for ${entity.name}`}
           value={entity.conditions.join(", ")}
@@ -203,8 +207,7 @@ function RosterRow({
             conditions: event.target.value.split(",").map((item) => item.trim()).filter(Boolean),
           })}
         />
-      </td>
-      <td>
+        <span className="eyebrow">Notes</span>
         <textarea
           aria-label={`Notes for ${entity.name}`}
           value={entity.notes}
@@ -371,10 +374,16 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
   }
 
   function updateEntity(entityId: string, replacement: CombatEntity) {
-    updateDraft((current) => ({
-      ...current,
-      entities: current.entities.map((entity) => entity.id === entityId ? replacement : entity),
-    }));
+    updateDraft((current) => {
+      const entities = current.entities.map((entity) => entity.id === entityId ? replacement : entity);
+      const index = entities.findIndex(entity => entity.id === entityId);
+      const successor = [...entities.slice(index + 1), ...entities.slice(0, index)]
+        .find(entity => !entity.defeated)?.id ?? null;
+      return {...current, entities,
+        active_turn_entity_id: replacement.defeated && current.active_turn_entity_id === entityId
+          ? successor : current.active_turn_entity_id,
+      };
+    });
   }
 
   async function createEncounter() {
@@ -510,7 +519,11 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
       }
       const from = activeIndex;
       const nextIndex = (from + (direction === "next" ? 1 : living.length - 1)) % living.length;
-      const wrapped = direction === "next" ? nextIndex <= from : nextIndex >= from;
+      const anchorIndex = current.entities.findIndex(entity => entity.id === current.round_start_entity_id);
+      const anchoredOrder = anchorIndex < 0 ? current.entities
+        : [...current.entities.slice(anchorIndex), ...current.entities.slice(0, anchorIndex)];
+      const roundStart = anchoredOrder.find(entity => !entity.defeated)?.id;
+      const wrapped = direction === "next" ? living[nextIndex]?.id === roundStart : living[from]?.id === roundStart;
       return {
         ...current,
         active_turn_entity_id: living[nextIndex]?.id ?? null,
@@ -626,6 +639,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
                 </label>
                 <span className="module-muted">{visibleRecord.ruleset.system_id} · {visibleRecord.ruleset.edition_id} · config rev {visibleRecord.ruleset.revision} · pinned {visibleRecord.ruleset_digest.slice(0, 12)}</span>
               </header>
+              <details className="combat-roster-setup" open={adoptionBlocked ? true : undefined}><summary>Encounter setup · saved mechanics</summary>
               <CombatMechanicsAdoption key={`adoption:${worldId}:${visibleRecord.encounter_id}`}
                 scope={scope?.runScope} record={visibleRecord} disabled={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current}
                 onLockChange={setAdoptionBlocked} onReconciled={current=>{
@@ -638,6 +652,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
                   setRecord(current);setDraft(draftRef.current);setAvailableRecovery(null);setRecoveryMessage(null);
                   setEncounters(items=>[current,...items.filter(item=>item.encounter_id!==current.encounter_id)]);
                 }}/>
+              </details>
               <CombatEncounterAssembly key={`${worldId}:${worldRequestGeneration.current}:${visibleRecord.encounter_id}`}
                 worldId={worldId} variant={variant} disabled={operationsBlocked || availableRecovery !== null} remainingSlots={100 - visibleDraft.entities.length}
                 onAdd={(entities, group) => {
@@ -654,24 +669,22 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
               {visibleDraft.entities.length === 0 ? (
                 <p className="module-muted">Add combatants to assemble this encounter.</p>
               ) : (
-                <div className="combat-roster-table-wrap">
-                  <table className="combat-roster-table">
-                    <thead><tr><th>Turn</th><th>Name</th><th>Team</th><th>Init</th><th>AC</th><th>HP</th><th>Temp</th><th>Delta</th><th>Conditions</th><th>Notes</th><th>Status</th></tr></thead>
-                    <tbody>
-                      {visibleDraft.entities.map((entity) => (
+                <CombatRosterTable draft={visibleDraft} disabled={replacingDraft}
+                  onToggleGroup={key => updateDraft(current => ({...current,
+                    groups: current.groups.map(group => group.group_key === key ? {...group, collapsed: !group.collapsed} : group),
+                  }))}
+                  renderRow={(entity, hidden) => (
                         <RosterRow
                           key={entity.id}
                           entity={entity}
                           active={entity.id === visibleDraft.active_turn_entity_id}
+                          hidden={hidden}
                           disabled={replacingDraft}
                           onChange={(updated) => updateEntity(entity.id, updated)}
                           onSetActive={() => setActive(entity.id)}
                           onRemove={() => removeEntity(entity.id)}
                         />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      )}/>
               )}
               {error?.includes("changed since it was opened") ? (
                 <button type="button" disabled={operationsBlocked} onClick={() => void reloadEncounter()}>Reload latest revision</button>
