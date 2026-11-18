@@ -4397,3 +4397,25 @@ def test_hosted_build_review_binds_world_and_action(hosted, monkeypatch):
     assert hosted.client.request("POST", path, json=body).status_code == 404
     world, saved_action, command = service.execute.call_args.args
     assert (world, saved_action, command.operation) == ("managed", action, "open")
+
+    owner_record = hosted.records["managed"]
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+        return {"review": "Private Build proposal"}
+
+    service.get.side_effect = transfer_during_read
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "Private Build proposal" not in denied.text
+    hosted.records["managed"] = owner_record
+
+    def transfer_before_write(*_args, authorize_world):
+        hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+        authorize_world()
+        pytest.fail("Build review write continued after ownership changed")
+
+    service.execute.side_effect = transfer_before_write
+    denied = hosted.client.request("POST", path, json=body)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
