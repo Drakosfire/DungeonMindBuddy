@@ -540,6 +540,26 @@ it("reads earlier image directions with the exact hosted session route", async (
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
+it("reads captured diagnostic prompts through the hosted session", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ results: [] }));
+  const id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  await api.getWorldAgentTurnPrompt("elderwyld", id, id, id);
+  await api.getWorldAgentTurnPrompts("elderwyld", id, [{ trace_id: id, provider_attempt_id: id }]);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store", redirect: "error" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(
+    `/api/live/agent/worlds/elderwyld/conversation/turns/${id}/context-trace/prompts`,
+    { method: "POST", body: JSON.stringify({ prompts: [], extra: true }) },
+  )).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
+
 it("reads a hosted conversation name without enabling name writes", async () => {
   const api = await setup();
   hostedOrigin();

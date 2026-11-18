@@ -360,6 +360,10 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/prompt/{provider_attempt_id}"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/prompts"): access.resolve_hosted_conversation_world,
+
+
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
@@ -2887,6 +2891,31 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_prompt_reads_require_owner_and_captured_trace(hosted, monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import agent
+
+    reads = Mock(return_value=[])
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(agent, "_conversation_service", lambda _: SimpleNamespace(list_context_trace_attempts=reads))
+    turn, trace, attempt = uuid4(), uuid4(), uuid4()
+    base = f"/api/live/agent/worlds/managed/conversation/turns/{turn}/context-trace"
+    single = f"{base}/{trace}/prompt/{attempt}"
+    batch = f"{base}/prompts"
+    body = {"prompts": [{"trace_id": str(trace), "provider_attempt_id": str(attempt)}]}
+    assert hosted.client.request("GET", single, session="other-session").status_code == 403
+    assert hosted.client.request("POST", batch, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", batch, origin=None, json=body).status_code == 403
+    reads.assert_not_called()
+    response = hosted.client.request("GET", single)
+    assert response.status_code == 404, response.text
+    response = hosted.client.request("POST", batch, json=body)
+    assert response.status_code == 200, response.text
+    assert response.json()["results"] == [{"unavailable": "prompt_not_captured"}]
+    assert response.headers["cache-control"] == "no-store"
 
 
 def test_hosted_conversation_name_read_requires_world_owner(hosted, monkeypatch):
