@@ -1,6 +1,8 @@
 # DOCS: guide development verification
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: HISTORICAL — completed by Buddy PR #4007, merged at `902fd066c2cffeb0eccdc7e0c294402df77242ab`. The lease is closed.
+
+Originally authorized by the documentation goal. PR topology: serial.
 Base: Buddy main `7eaebf0300d74e7e1ca6799c4d0b8e0957202b4b`.
 Branch: `codex/docs-development-verification`. Predecessor: merged #4006.
 
