@@ -434,6 +434,12 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (path === "/api/live/extract-promote/native-worldbuilding-context") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.managed_world_id === "string" && Boolean(body.managed_world_id)
+      && typeof body.run_id === "string" && typeof body.source_artifact_id === "string"
+      && typeof body.source_sha256 === "string";
+  }
   const playableCollection = /^\/api\/live\/workspace-documents\/world-plans(?:\?|$)/.exec(path);
   if (playableCollection) {
     const prefix = playableCollection[0];

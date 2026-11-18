@@ -132,6 +132,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_build_pdf_world,
     resolve_hosted_saved_artwork,
     resolve_hosted_build_extraction,
+    resolve_hosted_worldbuilding_review_context,
     resolve_hosted_worldbuilding_evidence_correction,
     resolve_hosted_exact_extraction_read,
     resolve_hosted_saved_recap,
@@ -199,6 +200,7 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", "/api/live/extract-promote/native-worldbuilding-context"): resolve_hosted_worldbuilding_review_context,
     ("POST", "/api/live/threats/query-hydration"): resolve_hosted_threat_hydration,
     ("POST", "/api/live/recap-name-review"): resolve_hosted_recap_name_review,
     ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): resolve_hosted_conversation_world,
