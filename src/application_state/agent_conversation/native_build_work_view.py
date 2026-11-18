@@ -1,5 +1,6 @@
 """Provider-only Build work. Existing captured work records retain all authority."""
 from copy import deepcopy
+import re
 from uuid import UUID
 
 _OPTIONAL = frozenset({'working_draft_context', 'response_contract', 'captured_editor',
@@ -56,7 +57,25 @@ VARIANT_WITNESS_FORMAT = "surface_native_evidence_selectors_v6"
 VARIANT_CARRIED_CONDITION_FORMAT = "surface_native_evidence_selectors_v8"
 
 
-def semantic_frame(host, execution, *, include_variant=False, variant_edits=False):
+VARIANT_PASSAGE_REVIEW_FORMAT = "surface_native_evidence_selectors_v9"
+
+
+def variant_draft_passages(work_frame):
+    """Offer ordered local handles over the exact authored draft text."""
+    markdown = work_frame.get("working_draft_context", {}).get("draft_markdown", "")
+    passages = (
+        passage for passage in re.split(r"\r?\n[ \t]*\r?\n(?:[ \t]*\r?\n)*", markdown)
+        if passage.strip()
+    )
+    return {f"p{index}": passage for index, passage in enumerate(passages, 1)}
+
+
+def variant_output_version(work_frame):
+    return 9 if variant_draft_passages(work_frame) else 8
+
+
+def semantic_frame(host, execution, *, include_variant=False, variant_edits=False,
+                   variant_passage_review=False):
     from .build_primary_context import NATIVE_WORK_SCHEMA
     if (host.get('schema') != NATIVE_WORK_SCHEMA
             or set(host) - ({'schema', 'source_basis', 'artifact_under_edit'} | _OPTIONAL)):
@@ -79,7 +98,8 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
     if 'working_draft_context' in host:
         draft = host['working_draft_context']
         work['current_draft'] = {'selection': aliases[draft['record_id']],
-            'markdown': draft['draft_markdown']}
+            **({'passages': variant_draft_passages(host)} if variant_passage_review
+               else {'markdown': draft['draft_markdown']})}
     if 'response_contract' in host:
         contract = host['response_contract']
         allowed = {'policy', 'requested_work', 'intent_family', 'operation', 'purpose',
