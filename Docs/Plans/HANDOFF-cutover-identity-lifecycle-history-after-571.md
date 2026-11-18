@@ -1,5 +1,11 @@
 # HANDOFF — CUTOVER classify identity lifecycle shadow state after PR #571
 
+Historical payload recovery: the correction paths below refer to the
+[exact package tree at `30008dc4`](https://github.com/Drakosfire/DungeonMindBuddy/tree/30008dc473bd80144a46c035d09b56ad1deb2928/graph_data/approved_graph_corrections).
+Their duplicate checkout copies are retired; use the
+[checksum-verified recovery procedure](../../graph_data/README.md#historical-correction-packages).
+This note preserves historical contracts and grants no new dispatch authority.
+
 **Created:** 2026-08-12  
 **Status:** DONE — merged as PR #575 at `d32c244e8505b2d35d1aa536f6ef6cc097d735ce`; cumulative review cycles = 3  
 **Workstream:** CUTOVER  
