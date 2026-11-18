@@ -460,6 +460,22 @@ def _ensure_native_source_space(repository, world_id, native_world_id, *, author
 
 
 
+class AuthorizedTextAdmissionRepository:
+    """Recheck ownership after the pinned admission helper's last authority read."""
+
+    def __init__(self, repository, authorize_write):
+        self._repository = repository
+        self._authorize_write = authorize_write
+
+    def __getattr__(self, name):
+        return getattr(self._repository, name)
+
+    def get_head(self, space_id):
+        head = self._repository.get_head(space_id)
+        self._authorize_write()
+        return head
+
+
 def admit_native_world_source(
     root, document_id: str, *, expected_revision: int, expected_body_sha256: str,
     authorize_world: Callable[[str], None] | None = None,
@@ -531,11 +547,15 @@ def admit_native_world_source(
             spans=[span],
         )
         _require_source_binding(root, world_id, sealed_world_binding)
+        admission_repository = repository
         if authorize_world is not None:
             authorize_world(world_id)
+            admission_repository = AuthorizedTextAdmissionRepository(
+                repository, lambda: authorize_world(world_id),
+            )
         try:
             receipt = publish_native_text_source_evidence(
-                repository=repository,
+                repository=admission_repository,
                 request=request,
                 domain_contract=domain,
                 semantic_profile=profile,
@@ -551,6 +571,8 @@ def admit_native_world_source(
                 root=root, sealed_world_binding=sealed_world_binding,
             )
         except Exception as exc:
+            if authorize_world is not None:
+                authorize_world(world_id)
             try:
                 recovered = repository.get_native_source_admission_receipt(native_world_id, admission_id)
             except Exception as probe_error:
