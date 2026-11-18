@@ -440,7 +440,7 @@ to recent startup logs on a disposable stack before exposing Buddy publicly.
 
 ## 4. Verify DNS, TLS, and the proxy
 
-Record the existing Nginx configuration. Install the [hosted read-only proxy fragment](../../deploy/production/nginx-buddy.conf) in the selected Buddy TLS virtual host and match all upstream directives to the verified URL printed in step 3. Use the edge owner's DNS and certificate procedures for records, issuance, and renewal.
+Record the existing Nginx configuration. Install the [hosted proxy fragment](../../deploy/production/nginx-buddy.conf) in the selected Buddy TLS virtual host and match all upstream directives to the verified URL printed in step 3. Use the edge owner's DNS and certificate procedures for records, issuance, and renewal.
 
 After the canonical Buddy host passes sign-in and Build verification, configure DNS and TLS for `dungeonbuddy.net` using the edge owner's procedures. In its dedicated TLS server block, include [the vanity redirect fragment](../../deploy/production/nginx-buddy-vanity.conf). Run `nginx -t` before reloading. Verify the first response without following the redirect.
 
@@ -450,8 +450,10 @@ curl -sSI 'https://dungeonbuddy.net/build?world=pilot'
 
 Expect HTTP 302 and `Location: https://buddy.dungeonmind.net/build?world=pilot`. Open the vanity URL in a signed-out browser and verify that DungeonMind Auth returns the pilot to the same Build deep link. To roll back the entry point, restore the previous vanity virtual host configuration, run `nginx -t`, and reload.
 
-The hosted profile serves authentication, the SPA, and read-only World and
-Graph requests. It buffers requests and responses, leaves proxy caching
+The hosted profile serves authentication, the SPA, and explicitly authorized
+World-scoped API routes. Buddy's application policy determines which operations
+are admitted; the proxy does not impose a read-only release scope. It buffers
+requests and responses, leaves proxy caching
 disabled, and uses 60-second upstream read and send timeouts. Before replacing
 an existing location, have the edge owner inspect the effective configuration
 and confirm which callers it serves. The exact PDF admission route permits
@@ -532,11 +534,25 @@ verify that each URL renders the intended page.
 4. Open the landing page at `/`, select the approved World, and follow its
    Graph link. Verify `/graph` renders the graph and opens object details. Check
    that the viewer offers read controls and that a direct link to an unassigned
-   World is denied. Open `/plan`, `/play`, `/surface`, `/build`, `/ingest`, and
-   `/combat` directly and confirm they show the hosted unavailable page. Verify the hosted API denies graph
-   authoring and recap ingestion. Use the
+   World is denied. Follow World-scoped links to `/plan`, `/play`, `/build`,
+   `/ingest`, `/combat`, and `/statblock`, retaining the selected World in each
+   URL. A bare workspace URL without an admitted World should ask the user to
+   choose one. These workspaces no longer share a blanket hosted-unavailable
+   page; opening a workspace does not establish that every operation is enabled.
+
+   Check the reviewed release's `HOSTED_WORLD_SCOPE_RESOLVERS` in
+   [the API entry point](../../apps/live_control_server/main.py) and the
+   [hosted request boundary](../../apps/live_control_server/services/hosted_auth.py)
+   for the exact method/path policy. Registered operations still require their
+   World/resource authorization and handler checks; authenticated requests to
+   unregistered API routes remain denied. Qualify any write workflow separately
+   against its approved disposable World and provider target, rather than
+   requiring all authoring or recap ingestion to fail.
+
+   `/surface` remains the legacy board. Use the
    [frontend guide](../../apps/live-control-ui/README.md#legacy-surface-board)
-   for the local operator Chat smoke.
+   for its local operator Chat smoke; a hosted board shell is not proof of that
+   legacy workflow.
 5. Verify the navbar identifies the signed-in DungeonMind account and keeps World selection in a separate control. Open the account menu and sign out. Confirm `POST /api/auth/logout` succeeds, then reload and require `401` from `GET /api/auth/session`. Probe `GET /api/live/world-containers` directly from the signed-out browser and require `401`; the UI may skip this request. Record the result and timestamp without saving cookies or credentials.
 
 ## 6. Close out or roll back
