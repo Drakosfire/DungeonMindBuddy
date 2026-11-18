@@ -248,7 +248,7 @@ def _apply_statblock_rule_edits(base, proposal):
                         ]):
                     # A manual rule pointing only to itself has no executable
                     # attack sequence. Its existing rules text governs play.
-                    rule["mechanic"] = {"kind": "human_adjudicated", "adjudication_tags": None}
+                    rule["mechanic"] = {"kind": "human_adjudicated", "adjudication_tags": []}
                 rules.append(rule)
     if not edited:
         raise ValueError("Statblock variant must propose at least one rule edit")

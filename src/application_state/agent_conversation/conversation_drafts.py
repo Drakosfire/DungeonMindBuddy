@@ -16,8 +16,15 @@ EXISTS (
     JOIN agent.conversation_variant_review r
         ON r.turn_id = d.turn_id AND r.revision = d.revision
     WHERE d.turn_id = t.turn_id AND d.world_id = t.world_id
-      AND d.conversation_id = t.conversation_id AND d.revision = 1
-      AND d.markdown IS DISTINCT FROM t.assistant_text
+      AND d.conversation_id = t.conversation_id
+      AND EXISTS (
+          SELECT 1 FROM agent.conversation_draft_revision initial
+          JOIN agent.conversation_variant_review initial_review
+              ON initial_review.turn_id = initial.turn_id
+              AND initial_review.revision = initial.revision
+          WHERE initial.turn_id = d.turn_id AND initial.revision = 1
+            AND initial.markdown IS DISTINCT FROM t.assistant_text
+      )
       AND NOT EXISTS (
           SELECT 1 FROM agent.conversation_draft_revision later
           WHERE later.turn_id = d.turn_id AND later.revision > d.revision
