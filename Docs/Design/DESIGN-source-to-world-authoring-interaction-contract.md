@@ -1,6 +1,6 @@
 # Design — Source-to-World authoring interaction contract
 
-**Status:** ACCEPTED BUDDY INTERACTION AUTHORITY — consumer migration not yet implemented
+**Status:** ACCEPTED BUDDY INTERACTION AUTHORITY — implementation is partial and path-specific
 **Date:** 2026-09-25
 **Workstream:** `CON-READY / DOGFOOD-CONTINUITY`
 **Authority re-anchor:** `main@08e4c39967e63bc3b60791748129ca3eaa42f161`
@@ -26,9 +26,19 @@ read source
 → continue from source or World
 ```
 
-The existing Buddy controls and governed-write path remain historical
-implementation evidence. The accepted destination is the WorldKeeper consumer
-boundary described here.
+The WorldKeeper consumer boundary below remains the accepted ownership model.
+Implementation has progressed since this decision: the accepted
+[PLAY-1 consumer proof](../Reports/REPORT-CON-READY-PLAY-worldkeeper-consumer-proof-v1.md)
+covered a bounded proposal-to-prepare/commit seam, without changing production
+routes or proving all operations in this design. The current
+[native Graph service](../../apps/live_control_server/services/native_graph_explorer.py)
+also uses WorldKeeper to prepare and commit supported create/connect intents;
+its [request models](../../apps/live_control_server/models/native_graph_explorer.py)
+and [owning tests](../../tests/test_native_graph_explorer.py) show the bounded
+operations and review/confirmation behavior. This is evidence of specific
+implemented paths, not blanket completion of this design or proof of hosted
+deployment or availability. Check the current routes and release evidence for
+the environment in question.
 
 ## Accepted ownership boundary
 
@@ -64,9 +74,10 @@ admission, durable-ID allocation or prediction, a general application read
 layer, or durable publication recovery. It coordinates the semantic change
 lifecycle through DungeonMind's authority.
 
-Current Buddy-side semantic translation is migration evidence, not permanent
-product ownership. PR #745 establishes authority only; it does not perform the
-consumer migration.
+Buddy-side semantic translation remains a consumer responsibility, not ownership
+of WorldKeeper semantics. PR #745 established this authority; the later PLAY-1
+proof and native Graph path provide bounded implementation evidence. Neither
+establishes that every operation or surface described here has migrated.
 
 ## Durable reference versus source occurrence
 
