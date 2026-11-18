@@ -623,6 +623,7 @@ describe("canonical local guest entry", () => {
     vi.stubGlobal("fetch", managedServerFetch({ authStatus: "authenticated" }));
     render(<App />);
     expect(await screen.findByRole("link", { name: "Open your World" })).toHaveAttribute("href", "/graph?world=world-a");
+    expect(screen.getByRole("link", { name: "DungeonMind Buddy" })).toHaveAttribute("href", "/?world=world-a");
     expect(screen.queryByRole("link", { name: "Sign in with DungeonMind" })).not.toBeInTheDocument();
     expect(screen.getByText("Continue in World A.")).toBeInTheDocument();
   });

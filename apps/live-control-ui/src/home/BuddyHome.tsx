@@ -27,7 +27,7 @@ export function BuddyHome() {
   return <div className="buddy-home">
     <a className="buddy-home__skip" href="#buddy-home-main">Skip to content</a>
     <header className="buddy-home__masthead">
-      <a className="buddy-home__brand" href="/" onClick={interceptPrimaryNavigationClick}><Compass /><span>DungeonMind <span className="buddy-home__brand-buddy">Buddy</span></span></a>
+      <a className="buddy-home__brand" href={worldScopedSurfaceHref("/", world.kind === "managed" ? world.worldId : null)} onClick={interceptPrimaryNavigationClick}><Compass /><span>DungeonMind <span className="buddy-home__brand-buddy">Buddy</span></span></a>
       <nav aria-label="Buddy introduction"><a href="#buddy-about">What is Buddy?</a><a className="buddy-home__back" href="https://www.dungeonmind.net/">← DungeonMind.net</a></nav>
     </header>
     <main id="buddy-home-main">
