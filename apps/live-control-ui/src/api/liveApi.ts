@@ -467,6 +467,10 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/name$/i.test(path)) {
     return method === "GET" && init?.body == null;
   }
+  if (HOSTED_PDF_UPLOAD_PATH.test(path)) {
+    return method === "POST" && init?.body instanceof Blob && init.body.size > 0
+      && new Headers(init.headers).get("Content-Type") === "application/pdf";
+  }
   const retainedPdf = /^(\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources)(?:\/(open|region:validate)|\?([^#]+))?$/.exec(path);
   if (retainedPdf) {
     const [, root, operation, search] = retainedPdf;
@@ -480,10 +484,6 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);
     return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
-  }
-  if (HOSTED_PDF_UPLOAD_PATH.test(path)) {
-    return method === "POST" && init?.body instanceof Blob && init.body.size > 0
-      && new Headers(init.headers).get("Content-Type") === "application/pdf";
   }
   const imageHistory = "/api/live/media/images/preparations/list?";
   if (path.startsWith(imageHistory)) {
