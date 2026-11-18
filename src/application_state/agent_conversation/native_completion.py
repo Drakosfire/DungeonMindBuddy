@@ -194,16 +194,24 @@ def normalize_output(receipt, execution, authorization, *, prepared_request_json
 
 
 def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False, variant_witnesses=False,
-                                variant_carried_condition=False):
-    from .native_build_work_view import variant_sources
+                                variant_carried_condition=False, variant_passage_review=False):
+    from .native_build_work_view import variant_draft_passages, variant_sources
 
     proposal = candidate.get("statblock_variant")
     if proposal is None:
         return None
     sources = variant_sources(work_frame)
     keys = {"source", "add_rules", "replace_rules"} if variant_edits else {"source", "definition"}
+    if variant_passage_review:
+        keys.add("passage_review")
     if not isinstance(proposal, dict) or set(proposal) != keys:
         raise ValueError("Statblock variant does not match its producing format")
+    if variant_passage_review:
+        review = proposal["passage_review"]
+        passages = variant_draft_passages(work_frame)
+        if (not passages or not isinstance(review, dict) or set(review) != set(passages)
+                or any(value not in ("retain", "change", "omit") for value in review.values())):
+            raise ValueError("Statblock variant must review every offered draft passage")
     source = proposal["source"]
     if not isinstance(source, str) or source not in sources:
         raise ValueError("Statblock variant base was not admitted")
@@ -320,7 +328,8 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     if evidence.variant_format:
         normalize_statblock_variant(candidate, evidence.work_frame, variant_edits=evidence.variant_edits,
             variant_witnesses=evidence.variant_witnesses,
-            variant_carried_condition=evidence.variant_carried_condition)
+            variant_carried_condition=evidence.variant_carried_condition,
+            variant_passage_review=evidence.variant_passage_review)
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()

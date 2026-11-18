@@ -336,3 +336,28 @@ def test_carried_condition_binds_identical_text_to_playable_trigger_and_display(
             _unwrap_witnessed_edits([row], bad_source, carried_condition=True)
     with pytest.raises(ValueError, match="requires a typed trigger"):
         _unwrap_witnessed_edits([row | {"rule": {"rules_text": effect}}], clause, carried_condition=True)
+
+
+@pytest.mark.parametrize("review", [
+    {"p1": "retain"},
+    {"p1": "retain", "p2": "ignore"},
+    {"p1": "retain", "p2": "omit", "p3": "retain"},
+])
+def test_variant_review_requires_every_exact_draft_handle(review):
+    from application_state.agent_conversation.native_completion import normalize_statblock_variant
+
+    work = {"working_draft_context": {"draft_markdown": "One.\r\n\r\nTwo."}}
+    candidate = {"statblock_variant": {
+        "passage_review": review, "source": "statblock0", "add_rules": [], "replace_rules": [],
+    }}
+    with pytest.raises(ValueError, match="review every offered draft passage"):
+        normalize_statblock_variant(candidate, work, variant_edits=True, variant_passage_review=True)
+
+
+def test_variant_passages_keep_exact_text_order_and_ignore_blank_separators():
+    from application_state.agent_conversation.native_build_work_view import variant_draft_passages, variant_output_version
+
+    work = {"working_draft_context": {"draft_markdown": "First.\r\n\t\r\n  Second.\n\nThird.\n"}}
+    assert variant_draft_passages(work) == {"p1": "First.", "p2": "  Second.", "p3": "Third.\n"}
+    assert variant_output_version(work) == 9
+    assert variant_output_version({}) == 8
