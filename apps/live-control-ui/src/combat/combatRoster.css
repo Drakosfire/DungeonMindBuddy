@@ -1,3 +1,40 @@
 .combat-roster-save-rail { display:flex; flex-wrap:wrap; gap:.6rem; align-items:end; }
 .combat-roster-save-rail label { display:flex; flex-direction:column; gap:.25rem; flex:1; min-width:min(14rem,100%); max-width:100%; }
 .combat-roster-save-rail :is(input,select) { min-width:0; width:100%; box-sizing:border-box; }
+.combat-roster-turn-rail {
+  position:sticky; top:0; z-index:2;
+  background:var(--ui-background-app);
+  padding:.6rem 0;
+}
+.combat-roster-turn-rail > div:nth-child(2) { flex:1; min-width:10rem; }
+.combat-roster-setup { margin:.5rem 0; }
+.combat-roster-setup > summary { cursor:pointer; padding:.6rem 0; }
+.combat-roster-caption { text-align:left; padding:.7rem 0; }
+.combat-roster-table { min-width:60rem; }
+.combat-roster-table .combat-roster-participant { min-width:13rem; }
+.combat-roster-participant > strong { display:block; margin-bottom:.3rem; }
+.combat-roster-participant > button { margin-top:.4rem; text-align:left; }
+.combat-roster-table input:not([type=checkbox]), .combat-roster-table select { box-sizing:border-box; }
+.combat-roster-team { margin-top:.5rem; }
+.combat-roster-team select { width:auto; }
+.combat-roster-temp { display:flex; align-items:center; gap:.3rem; margin-top:.4rem; }
+.combat-roster-temp span { color:var(--ui-text-secondary); }
+.combat-roster-notes input, .combat-roster-notes textarea { width:100%; }
+.combat-roster-notes textarea { min-width:10rem; min-height:2.5rem; resize:vertical; }
+.combat-roster-notes > span { display:block; }
+.combat-roster-group th { background:var(--ui-background-chrome); }
+.combat-roster-group button { text-align:left; }
+.combat-roster-defeated-row .combat-roster-participant > strong { text-decoration:line-through; }
+.combat-mechanics-dialog {
+  width:min(55rem, calc(100vw - 2rem)); max-height:calc(100dvh - 2rem);
+  box-sizing:border-box; overflow:auto; padding:1rem;
+  background:var(--ui-background-app); color:var(--ui-text-primary);
+  border:1px solid var(--ui-border-subtle); border-radius:var(--ui-radius-md);
+}
+.combat-mechanics-dialog::backdrop { background:rgb(0 0 0 / 65%); }
+.combat-mechanics-dialog > header { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; }
+@media (max-width:640px) {
+  .combat-roster-turn-rail { gap:.4rem; }
+  .combat-roster-turn-rail > div { padding:.4rem; }
+  .combat-roster-turn-rail > div:nth-child(2) { min-width:8rem; }
+}
