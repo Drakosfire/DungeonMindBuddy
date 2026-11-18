@@ -36,8 +36,9 @@ copies are not a substitute for their current owning documents.
 
 [Plans](Plans/) contain handoffs and design work;
 [reports](Reports/) contain findings and evidence; [roadmaps](Roadmaps/)
-describe bounded workstreams. Check a document's scope and status before
-using it as current sequencing authority.
+describe bounded workstreams. Some directory indexes retain earlier sequencing
+and role terminology; check a document's scope, status, and applicable handoff
+before using it as current sequencing authority.
 
 ## Hosted deployment
 
