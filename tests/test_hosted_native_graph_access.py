@@ -3093,6 +3093,21 @@ def test_hosted_archives_exact_statblock_and_preserves_saved_revision(prepared, 
         assert hosted.client.request("DELETE", f"{base}&expected_version={version + 1}").status_code == 409
         before, _ = threat_draft_store.list_threat_drafts(fixture.root, world_id=world)
         assert len(before) == 1
+        owner_record = hosted.records[world]
+        load_draft = threat_draft_store._load_draft_unlocked
+
+        def transfer_during_lookup(*args):
+            draft = load_draft(*args)
+            hosted.records[world] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+            return draft
+
+        with patch.context() as transfer:
+            transfer.setattr(threat_draft_store, "_load_draft_unlocked", transfer_during_lookup)
+            denied = hosted.client.request("DELETE", path)
+        assert denied.status_code == 403, denied.text
+        visible, _ = threat_draft_store.list_threat_drafts(fixture.root, world_id=world)
+        assert visible == before
+        hosted.records[world] = owner_record
         archived = hosted.client.request("DELETE", path)
         assert archived.status_code == 204, archived.text
         after, _ = threat_draft_store.list_threat_drafts(fixture.root, world_id=world)
