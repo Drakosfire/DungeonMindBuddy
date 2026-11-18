@@ -735,10 +735,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     const query = new URLSearchParams(sessionEvidence[1]);
     return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
   }
-  const playProposal = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\/proposals(?:\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?([^#]+)$/i.exec(path);
+  const playProposal = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\/proposals(\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?([^#]+)$/i.exec(path);
   if (playProposal) {
-    const query = new URLSearchParams(playProposal[1]);
-    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+    const query = new URLSearchParams(playProposal[2]);
+    if (query.size !== 1 || !query.get("world_id")) return false;
+    if (method === "GET") return init?.body == null;
+    return method === "POST" && Boolean(playProposal[1]) && requestBodyRecord(init?.body) !== null;
   }
   const runContent = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\?/.exec(path);
   if (runContent) {

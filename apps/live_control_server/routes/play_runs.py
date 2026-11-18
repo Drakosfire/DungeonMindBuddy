@@ -524,7 +524,17 @@ def get_world_run_scene_proposal(run_id: str, proposal_id: str, request: Request
 @router.post("/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}")
 async def post_world_run_scene_proposal(run_id: str, proposal_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    from functools import partial
+
+    authorize_world = None
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        authorize_world = partial(require_hosted_plan_world_context, request, world_id)
+        authorize_world()
+    else:
+        enforce_native_graph_gm(request)
     from uuid import UUID
     from pydantic import ValidationError
     from application_state.errors import ApplicationStateError
@@ -538,14 +548,19 @@ async def post_world_run_scene_proposal(run_id: str, proposal_id: str, request: 
         raw.extend(chunk)
     try:
         body = PlaySceneEditProposalRequest.model_validate_json(bytes(raw))
-        return await propose_scene_edit(root=managed_world_data_root(), world_id=world_id, run_id=str(UUID(run_id)),
-                                        proposal_id=UUID(proposal_id), request=body)
+        if authorize_world is not None:
+            authorize_world()
+        proposal = await propose_scene_edit(root=managed_world_data_root(), world_id=world_id, run_id=str(UUID(run_id)),
+                                        proposal_id=UUID(proposal_id), request=body, authorize_world=authorize_world)
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors(include_context=False)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if authorize_world is not None:
+        authorize_world()
+    return proposal
 
 
 @router.get("/world-play-runs/v2/{run_id}/review")
