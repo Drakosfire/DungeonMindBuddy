@@ -2,7 +2,7 @@
 
 Execution plans, experiments, audits, and design notes for DungeonMindBuddy.
 
-**Current Buddy demonstration:** [`STEWARDS-HANDOFF-demo.md`](STEWARDS-HANDOFF-demo.md) and [`../Roadmaps/ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md) own product execution. The lexical-retrieval plan and checklist below retain their research/rollout history; they do not sequence the DEMO journey.
+**Current Buddy demonstration:** the bounded DEMO assignment in [`STEWARDS-HANDOFF-demo.md`](STEWARDS-HANDOFF-demo.md) and [`../Roadmaps/ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md) owns product execution. Responsibilities come from the named assignment, with no additional merge, runtime, or model authority. The lexical-retrieval plan and checklist below retain their research/rollout history; they do not sequence the DEMO journey.
 
 ---
 
@@ -29,12 +29,12 @@ Execution plans, experiments, audits, and design notes for DungeonMindBuddy.
 
 ---
 
-## Hermes campaign authoring foundation (active proposed)
+## Hermes campaign authoring foundation (historical)
 
 | Doc | Role |
 | --- | ---- |
-| [`PLAN-hermes-campaign-authoring-foundation-reset.md`](PLAN-hermes-campaign-authoring-foundation-reset.md) | Phase 0–5 reset plan; current Hermes sequencing for the foundation reset. |
-| [`../Design/INDEX-hermes-campaign-authoring-foundation.md`](../Design/INDEX-hermes-campaign-authoring-foundation.md) | Active Hermes document index. |
+| [`PLAN-hermes-campaign-authoring-foundation-reset.md`](PLAN-hermes-campaign-authoring-foundation-reset.md) | July 2026 reset plan; historical sequencing, not a current dispatch surface. |
+| [`../Design/INDEX-hermes-campaign-authoring-foundation.md`](../Design/INDEX-hermes-campaign-authoring-foundation.md) | Superseded historical index with links to current Agent authority. |
 | [`archive/2026-07-15/hermes-campaign-authoring-foundation-reset/`](archive/2026-07-15/hermes-campaign-authoring-foundation-reset/) | Superseded Hermes ladder / design-reset sandbox. |
 
 Many older sentence-routing / session-recap experiment docs were moved under

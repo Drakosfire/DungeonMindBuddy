@@ -454,12 +454,44 @@ class AgentConversationService:
             )
             return {row[0] for row in rows}
 
+    def reviewed_variant_turn_ids(self, world_id: str, conversation_id: UUID, turn_ids: list[UUID]) -> set[UUID]:
+        from .conversation_drafts import CANONICAL_REVIEWED_DRAFT
+
+        with unit_of_work(_ready_dsn()) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT t.turn_id FROM agent.turn t
+                WHERE t.world_id = %s AND t.conversation_id = %s AND t.turn_id = ANY(%s)
+                  AND t.status = 'completed' AND t.surface_id = 'build'
+                  AND {CANONICAL_REVIEWED_DRAFT}
+                """,
+                (_world_id(world_id), conversation_id, turn_ids),
+            )
+            return {row[0] for row in rows}
+
     def open_conversation_draft(self, world_id: str, conversation_id: UUID, turn_id: UUID):
         from .conversation_drafts import open_draft
 
         with unit_of_work(_ready_dsn()) as conn:
             return open_draft(conn, world_id=_world_id(world_id),
                               conversation_id=conversation_id, turn_id=turn_id)
+
+    def conversation_variant_approval(self, world_id: str, conversation_id: UUID, turn_id: UUID):
+        from .conversation_variant_save import approval_handoff, requested_approval
+
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = repo.get_turn(conn, world_id, turn_id)
+            envelope = turn.envelope if isinstance(turn, MixedCompletedTurnV1) else turn
+            if envelope is None or envelope.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError("Approval turn not found")
+            primary = envelope.provenance.primary_work
+            if not requested_approval(turn) or primary.resolution != "resolved":
+                return {"status": "not_requested"}
+            return approval_handoff(
+                conn, world_id=world_id, conversation_id=conversation_id, prior_to=envelope.sequence,
+                accepted_at=envelope.accepted_at, page_id=primary.object_id, page_kind=primary.kind,
+            )
 
     def edit_conversation_draft(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
@@ -484,6 +516,19 @@ class AgentConversationService:
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, revision=revision, review_id=review_id,
                 definition=definition, base_locator=base_locator,
+            )
+
+    def store_conversation_variant_correction(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        review_id: UUID, expected_revision: int, definition: dict, markdown: str,
+    ):
+        from .conversation_variant_save import store_correction
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return store_correction(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id, expected_revision=expected_revision,
+                definition=definition, markdown=markdown,
             )
 
     def open_conversation_variant_review(
@@ -615,7 +660,7 @@ class AgentConversationService:
             raise ApplicationStateConflictError("resolution operation ID has a different binding")
         return record
 
-    def resolve_new_conversation(self, request: CommandResolutionRequestV1, *, actor: str) -> CommandResolutionRecordV1:
+    def resolve_new_conversation(self, request: CommandResolutionRequestV1, *, actor: str, authorize_world=None) -> CommandResolutionRecordV1:
         command = request.original_command
         _world_id(command.world_id)
         if not actor.strip():
@@ -624,6 +669,8 @@ class AgentConversationService:
             pointer = _lock_pointer(conn, command.world_id)
             previous = repo.get_command_resolution(conn, command.world_id, request.resolution_operation_id)
             if previous is not None:
+                if authorize_world is not None:
+                    authorize_world()
                 if previous.resolution_request_fingerprint != request.fingerprint():
                     raise ApplicationStateConflictError("resolution operation ID has a different binding")
                 return previous
@@ -658,6 +705,8 @@ class AgentConversationService:
                     retirement_operation_id=request.resolution_operation_id if outcome == "retired" else None)
             except ValidationError as exc:
                 raise ApplicationStateIntegrityError("command resolution evidence is invalid") from exc
+            if authorize_world is not None:
+                authorize_world()
             return repo.insert_command_resolution(conn, record)
 
     def new_conversation(self, command: ConversationCommand) -> ConversationCommandReceipt:
@@ -1650,9 +1699,12 @@ class AgentConversationService:
                 if isinstance(event,RelatedPagesSelection):
                     captured=conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",(turn.turn_id,turn.attempt)).fetchone()
                     validate_related_selection(turn,event,related_page_proof,captured[0] if captured else None)
-                from .build_saved_statblock import BuildSavedStatblockReadV1, validate_read
+                from .build_saved_statblock import BuildSavedStatblockReadV1, validate_prior_read, validate_read
                 if isinstance(event, BuildSavedStatblockReadV1):
                     validate_read(event, turn.graph_context_execution)
+                    if event.reused_from_turn_id is not None:
+                        previous = repo.get_turn(conn, turn.world_id, event.reused_from_turn_id)
+                        validate_prior_read(event, turn, previous)
                     if not callable(saved_statblock_materializer) or saved_statblock_materializer() != event:
                         raise ValueError("Saved statblock read lacks its exact mechanics materialization")
                 if isinstance(event,RelatedPageRead):
@@ -2926,6 +2978,10 @@ class AgentConversationService:
                 )
             from .types import BuildIntentionalResponseCompletionV1, BuildRequestedWorkResolutionV1, SurfaceNativeCompletionV1
 
+            if conversation_variant is not None:
+                from apps.live_control_server.services.conversation_variant_save import variant_review_is_valid
+                if not variant_review_is_valid(conversation_variant.definition, native_output_proof.variant_validation):
+                    conversation_variant = None
             selected_draft = False
             if isinstance(result.completion, (BuildIntentionalResponseCompletionV1, SurfaceNativeCompletionV1)) and execution is not None:
                 selected_draft = any(
@@ -2940,14 +2996,15 @@ class AgentConversationService:
 
                     if not result.assistant_text.strip():
                         raise ApplicationStateValidationError("Conversation draft requires Markdown text")
+                    markdown = result.assistant_text
+                    if conversation_variant is not None:
+                        from apps.live_control_server.services.conversation_variant_markdown import render_variant_markdown
+
+                        markdown = render_variant_markdown(conversation_variant.definition)
                     create_draft(
                         conn, world_id=world_id, conversation_id=turn.conversation_id,
-                        turn_id=turn.turn_id, markdown=result.assistant_text,
+                        turn_id=turn.turn_id, markdown=markdown,
                     )
-            if conversation_variant is not None:
-                from apps.live_control_server.services.conversation_variant_save import variant_review_is_valid
-                if not variant_review_is_valid(conversation_variant.definition, native_output_proof.variant_validation):
-                    conversation_variant = None
             if conversation_variant is not None:
                 from .build_saved_statblock import BuildSavedStatblockReadV1
                 from .conversation_variant_save import store_review

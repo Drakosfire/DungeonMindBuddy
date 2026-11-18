@@ -1,8 +1,12 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   openConversationDraft,
+  openConversationVariantApproval,
   openVariantReview,
   confirmVariantReview,
+  correctVariantReview,
+  type VariantTextReplacement,
+  type VariantRuleField,
   type ConversationVariantReview,
   saveConversationDraft,
   type ConversationDraft,
@@ -18,18 +22,110 @@ interface VariantPagePlacement {
   bridge: BuildComposeBridge;
 }
 
-export function ConversationDraftEditor({ scope, placement }: {
+interface ApprovalTarget {
+  scope: ConversationDraftScope;
+  reviewId: string;
+  revision: number;
+}
+
+async function loadReviewedDraft(target: ApprovalTarget) {
+  const draft = await openConversationDraft(target.scope);
+  if (draft.revision !== target.revision || !draft.variant_review_ids?.includes(target.reviewId)) {
+    throw new Error("The reviewed draft changed. Reopen the latest draft before saving.");
+  }
+  const data = await openVariantReview(target.scope, target.reviewId);
+  if (data.revision !== target.revision) throw new Error("The statblock review changed.");
+  return { draft, review: { id: target.reviewId, data } };
+}
+
+export function ConversationVariantApproval({ scope, placement }: {
   scope: ConversationDraftScope;
   placement?: VariantPagePlacement;
 }) {
-  const id = useId();
-  const [draft, setDraft] = useState<ConversationDraft | null>(null);
-  const [markdown, setMarkdown] = useState("");
+  const [opened, setOpened] = useState<(Awaited<ReturnType<typeof loadReviewedDraft>> & { target: ApprovalTarget }) | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const [review, setReview] = useState<{ id: string; data: ConversationVariantReview } | null>(null);
-  const [savedVariant, setSavedVariant] = useState(false);
+  async function open() {
+    setBusy(true);
+    setError("");
+    try {
+      const target = await openConversationVariantApproval(scope);
+      setOpened({ target, ...await loadReviewedDraft(target) });
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not find the reviewed variant.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return opened ? <ConversationDraftEditor scope={opened.target.scope} placement={placement} initialReview={opened} /> :
+    <section aria-label="Variant approval">
+      <button type="button" disabled={busy} onClick={() => void open()}>Find reviewed statblock</button>
+      {error && <p role="alert">{error}</p>}
+    </section>;
+}
+
+function VariantCorrectionFields({ rules, busy, onStage, onDirty }: {
+  rules: ConversationVariantReview["definition"]["rule_elements"];
+  busy: boolean;
+  onStage: (replacements: VariantTextReplacement[]) => void;
+  onDirty: (dirty: boolean) => void;
+}) {
+  const [selected, setSelected] = useState(rules[0]?.key ?? "");
+  const [edits, setEdits] = useState<Record<string, VariantTextReplacement>>({});
+  const dirty = Object.keys(edits).length > 0;
+  useEffect(() => { onDirty(dirty); return () => onDirty(false); }, [dirty, onDirty]);
+  const rule = rules.find(item => item.key === selected);
+  if (!rule) return null;
+
+  const slots: [VariantRuleField, string, string | null | undefined][] = [
+    ["rules_text", "Rule text", rule.rules_text],
+    ["timing_text", "Timing", rule.activation.timing_text],
+    ["condition_text", "Trigger condition", rule.activation.trigger?.condition_text],
+  ];
+  return <details>
+    <summary>Correct reviewed rules</summary>
+    <label>Rule <select value={selected} disabled={busy} onChange={event => setSelected(event.target.value)}>
+      {rules.map(item => <option key={item.key} value={item.key}>{item.name}</option>)}
+    </select></label>
+    {slots.map(([field, label, value]) => {
+      if (!value) return null;
+      const key = rule.key + ":" + field;
+      return <label key={key}>{label}
+        <textarea disabled={busy} value={edits[key]?.with_text ?? value} onChange={event => {
+          const revised = event.target.value;
+          setEdits(previous => {
+            const next = { ...previous };
+            if (revised === value) delete next[key];
+            else next[key] = { rule_key: rule.key, field, replace_exact: value, with_text: revised };
+            return next;
+          });
+        }} />
+      </label>;
+    })}
+    <button type="button"
+      disabled={busy || !dirty || Object.values(edits).some(edit => !edit.with_text.trim())}
+      onClick={() => onStage(Object.values(edits))}>Stage corrected review</button>
+    {dirty && <button type="button" disabled={busy} onClick={() => setEdits({})}>Discard corrections</button>}
+  </details>;
+}
+
+export function ConversationDraftEditor({ scope, placement, initialReview }: {
+  scope: ConversationDraftScope;
+  placement?: VariantPagePlacement;
+  initialReview?: Awaited<ReturnType<typeof loadReviewedDraft>> & { target: ApprovalTarget };
+}) {
+  const id = useId();
+  const [correctionDirty, setCorrectionDirty] = useState(false);
+  const [approvalTarget, setApprovalTarget] = useState(initialReview?.target);
+  const [draft, setDraft] = useState<ConversationDraft | null>(initialReview?.draft ?? null);
+  const [markdown, setMarkdown] = useState(initialReview?.draft.markdown ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const [review, setReview] = useState<{ id: string; data: ConversationVariantReview } | null>(initialReview?.review ?? null);
+  const [savedVariant, setSavedVariant] = useState(initialReview?.review.data.saved === true);
 
   const pendingPlacement = useRef<{ href: string; prepared: PreparedBuildProposal } | null>(null);
   const [linkedHref, setLinkedHref] = useState<string | null>(null);
@@ -84,8 +180,29 @@ export function ConversationDraftEditor({ scope, placement }: {
     }
   }
 
+  async function correctVariant(replacements: VariantTextReplacement[]) {
+    if (!draft || !review || savedVariant || markdown !== draft.markdown) return;
+    setBusy(true);
+    setError("");
+    try {
+      const corrected = await correctVariantReview(scope, review.id, draft.revision, replacements);
+      setReview(null);
+      const target = { scope, reviewId: corrected.review_id, revision: corrected.revision };
+      if (approvalTarget) setApprovalTarget(target);
+      const next = await loadReviewedDraft(target);
+      setDraft(next.draft);
+      setMarkdown(next.draft.markdown);
+      setReview(next.review);
+      setSavedVariant(next.review.data.saved === true);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not stage the corrected review.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function confirmVariant() {
-    if (!draft || !review || markdown !== draft.markdown) return;
+    if (!draft || !review || correctionDirty || markdown !== draft.markdown) return;
     setBusy(true);
     setError("");
     try {
@@ -98,15 +215,24 @@ export function ConversationDraftEditor({ scope, placement }: {
     }
   }
 
-  async function open() {
+  async function open(reopenProducer = false) {
     setReview(null);
     setSavedVariant(false);
     setBusy(true);
     setError("");
     try {
-      const latest = await openConversationDraft(scope);
-      setDraft(latest);
-      setMarkdown(latest.markdown);
+      if (approvalTarget && !reopenProducer) {
+        const latest = await loadReviewedDraft(approvalTarget);
+        setDraft(latest.draft);
+        setMarkdown(latest.draft.markdown);
+        setReview(latest.review);
+        setSavedVariant(latest.review.data.saved === true);
+      } else {
+        const latest = await openConversationDraft(scope);
+        if (reopenProducer) setApprovalTarget(undefined);
+        setDraft(latest);
+        setMarkdown(latest.markdown);
+      }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Could not open the draft.");
     } finally {
@@ -140,7 +266,7 @@ export function ConversationDraftEditor({ scope, placement }: {
           <button type="button" disabled={busy || markdown === draft.markdown} onClick={() => void save()}>
             Save draft
           </button>
-          {markdown === draft.markdown && draft.variant_review_ids?.map(reviewId => (
+          {!approvalTarget && markdown === draft.markdown && draft.variant_review_ids?.map(reviewId => (
             <button key={reviewId} type="button" disabled={busy} onClick={() => void inspectVariant(reviewId)}>
               Review statblock variant
             </button>
@@ -152,7 +278,10 @@ export function ConversationDraftEditor({ scope, placement }: {
                 hitPoints: summary => summary,
                 ruleEditor: () => null,
               }} />
-              <button type="button" disabled={busy || savedVariant} onClick={() => void confirmVariant()}>
+              {!savedVariant && review.data.definition.rule_elements?.length > 0 &&
+                <VariantCorrectionFields key={review.id} rules={review.data.definition.rule_elements}
+                  busy={busy} onDirty={setCorrectionDirty} onStage={replacements => void correctVariant(replacements)} />}
+              <button type="button" disabled={busy || savedVariant || correctionDirty} onClick={() => void confirmVariant()}>
                 Confirm and save as new statblock
               </button>
               {savedVariant && <>
@@ -168,8 +297,8 @@ export function ConversationDraftEditor({ scope, placement }: {
             </section>
           )}
           {error && (
-            <button type="button" disabled={busy} onClick={() => void open()}>
-              Discard local edits and reopen
+            <button type="button" disabled={busy} onClick={() => void open(Boolean(approvalTarget))}>
+              {approvalTarget ? "Open latest draft for review" : "Discard local edits and reopen"}
             </button>
           )}
         </>

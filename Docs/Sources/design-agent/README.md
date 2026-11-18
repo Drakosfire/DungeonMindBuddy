@@ -2,6 +2,7 @@
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies
 **Mirror refresh source revision:** `60ba556ba1d3ad494fa5b3e431edbf061ec7cfac` (repository bundle)
+**Process/current-pickup refresh:** Selected process and governance copies were synchronized with their canonical files in this change. This is not a full design/corpus audit; user-managed Project Sources were not changed.
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
 This directory is the clean pickup point for refreshing ChatGPT immediate /

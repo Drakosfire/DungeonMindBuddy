@@ -1,3 +1,4 @@
+import { useHostedAuthStatus } from "../auth/HostedAuthGate";
 import type {RecapIngestRequest} from "../api/types";
 import {RecapNameReview} from "../ingestion/RecapNameReview";
 import { IngestionUsage } from "./IngestionUsage";
@@ -256,6 +257,7 @@ function buildToastForResult(
 }
 
 export function IngestionModule({ campaignId: planCampaignId, session, managedWorldId: providedWorldId, initialSourceSession }: IngestionModuleProps) {
+  const localOperator = useHostedAuthStatus().status === "local_operator";
   const selectedWorld = useSelectedWorld();
   const managedWorldId = selectedWorld.kind === "managed"
     ? (!providedWorldId || providedWorldId === selectedWorld.worldId ? selectedWorld.worldId : undefined)
@@ -1657,7 +1659,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           ) : null}
           <details ref={evidenceDetailsRef} id="ingestion-evidence-details">
             <summary>Evidence &amp; details</summary>
-            <NativeGraphAccessControl onChanged={handleNativeGraphAccessChanged}/>
+            {localOperator && <NativeGraphAccessControl onChanged={handleNativeGraphAccessChanged}/>}
             {evidenceResult ? <>
               <p>Source and extraction are saved in the database. Candidates require reviewed publication.</p>
               <p>Status: {evidenceResult.status}</p>

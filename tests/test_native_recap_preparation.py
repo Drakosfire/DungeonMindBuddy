@@ -53,6 +53,8 @@ def choice(identifier, kind="node", action="create", fields=("label", "node_type
 
 @pytest.fixture
 def lane(monkeypatch, tmp_path, request):
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", TOKEN)
