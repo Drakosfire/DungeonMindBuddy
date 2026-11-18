@@ -1669,7 +1669,7 @@ describe("World Plan conversation consumer", () => {
     expect(await within(clarification as HTMLElement).findByText("Mira owns the observatory.")).toBeInTheDocument();
     expect(readSource).toHaveBeenCalledWith(expect.objectContaining({
       worldId: "native-test", revisionPin: "graph-r1", anchorId: "anchor:owner",
-    }));
+    }), { worldId, actionId: clarificationId, claimId: "claim:owner" });
     mounted.unmount();
     mounted = await mountComponent(7, bridge, null, false, {
       editorSelectionActive: true, draftGeneration: 0, selectionGeneration: 0,
