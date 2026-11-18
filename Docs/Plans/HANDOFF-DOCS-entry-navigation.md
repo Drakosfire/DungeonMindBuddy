@@ -1,6 +1,6 @@
 # DOCS: repository entry navigation
 
-Status: ACTIVE. This handoff is the authorized contract for one documentation-entry slice.
+Status: MERGED / HISTORICAL. Buddy PR #3963, merge `d2f46d19d01432fe305b2d29ae4f308326a1cff4`. The lane is closed; this record does not authorize new work.
 
 ## Outcome and topology
 
