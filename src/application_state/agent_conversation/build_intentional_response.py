@@ -470,6 +470,27 @@ a revision request, or an action on a different mechanics object.
 """
 
 
+
+_PRE_LORE_PAGE_WORK = WORK
+_PRE_LORE_PAGE_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **_PRE_LORE_PAGE_WORK,
+    "review_lore_page": Work(
+        "create",
+        "Review a new standalone authored page, initially blank or populated, or continue its review.",
+        review="lore_page",
+    ),
+})
+GUIDANCE = _PRE_LORE_PAGE_GUIDANCE + """
+Choose review_lore_page when the author explicitly asks for a new standalone page
+or follows up on that request. Use the latest explicit subject and requested
+contents in the author's turns to resolve references such as 'the page'.
+A page mentioned as context or suggested during brainstorming is not the
+destination. Choose review_connected_page when the author explicitly requests
+a new place with a connection to a source page, location, or person.
+"""
+
+
 def _resolver_digest(work_options):
     return digest({
         "policy": POLICY,
@@ -483,6 +504,8 @@ MENU_DIGEST = digest(question(guidance=GUIDANCE))
 RESOLVER_DIGEST = _resolver_digest(WORK)
 _MENU_CONTRACTS = MappingProxyType({
     MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST),
+    digest(question(guidance=_PRE_LORE_PAGE_GUIDANCE, work_options=_PRE_LORE_PAGE_WORK)):
+        (_PRE_LORE_PAGE_GUIDANCE, _PRE_LORE_PAGE_WORK, _resolver_digest(_PRE_LORE_PAGE_WORK)),
     digest(question(guidance=_PRE_APPROVAL_GUIDANCE, work_options=_PRE_APPROVAL_WORK)):
         (_PRE_APPROVAL_GUIDANCE, _PRE_APPROVAL_WORK, _resolver_digest(_PRE_APPROVAL_WORK)),
     **{

@@ -422,3 +422,24 @@ def test_retained_resolution_uses_the_frozen_work_inventory():
     event.resolution = {**saved_resolution, "contract_sha256": "0" * 64}
     with pytest.raises(ValueError, match="differs from its frozen response contract"):
         c.validate_resolution_metadata(event, policy)
+
+
+def test_lore_page_request_cannot_fall_through_to_connected_location_review():
+    caps = c.Capabilities(("answer_from_sources",), ("connected_page",), False)
+    route = c.resolve("review_lore_page", caps)
+    assert route["requested_work"] == "review_lore_page"
+    assert route["purpose"] == "explain_capability"
+    assert route["barrier"] == "requested_review_not_offered"
+    assert all(item["id"] != "review_connected_page" for item in route["available_followups"])
+    assert c.resolve("review_connected_page", caps)["barrier"] is None
+
+    prior = c.digest(c.question(guidance=c._PRE_LORE_PAGE_GUIDANCE,
+                                work_options=c._PRE_LORE_PAGE_WORK))
+    assert c.known_semantics(prior, c._resolver_digest(c._PRE_LORE_PAGE_WORK))
+    response = {"answers": {"requested_work": {
+        "selected": "review_connected_page",
+        "probabilities": {key: float(key == "review_connected_page") for key in c._PRE_LORE_PAGE_WORK},
+    }}}
+    assert c.selected(response, menu=prior) == "review_connected_page"
+    with pytest.raises(ValueError, match="Invalid actual semantic selection"):
+        c.selected(response, menu=c.MENU_DIGEST)
