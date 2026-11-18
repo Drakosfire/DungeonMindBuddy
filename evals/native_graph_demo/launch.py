@@ -26,7 +26,7 @@ from urllib.parse import quote
 CORE_PIN = "430c1a6db631d097dfa0a273f8933067f708bc56"
 WK_PIN = "ef9c50f2d6aa89a35e9408f83fc4d0ba47825ca2"
 DATABASE = "dmb_native_graph_demo"
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PGVECTOR_IMAGE_ID = (
     "sha256:9b05db12a35460fff0587e009f9326e414a53e9484555547f96d214a2ba98ef7"
 )
@@ -1352,7 +1352,7 @@ def main(argv=None):
                 from apps.live_control_server.native_graph_demo.service import (
                     NativeGraphDemoService,
                 )
-                from apps.live_control_server.native_graph_demo.server import (
+                from evals.native_graph_demo.server import (
                     DemoHTTPServer,
                 )
 
