@@ -853,3 +853,19 @@ it("archives only an exact saved statblock version through the hosted session", 
   await expect(api.authenticatedApiFetch(path, init)).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+
+it("associates mechanics with a creature in the same hosted World", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ fixture: true }));
+  const path = "/api/live/world-mechanics/associations?world_id=managed";
+  const command = (world: string) => ({ method: "POST", body: JSON.stringify({ target: { managed_world_id: world } }) });
+  await api.authenticatedApiFetch(path, command("managed"));
+  const [, sent] = fetch.mock.calls[0];
+  expect(sent).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+  expect(new Headers(sent?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path, command("other"))).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
