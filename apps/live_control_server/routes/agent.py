@@ -1958,11 +1958,15 @@ def get_world_replay_identities(world_id: str, turn_id: UUID, trace_id: UUID, re
 
     principal = enforce_native_graph_gm(request)
     world = _verified_world_id(world_id)
-    if request.query_params:
+    selectors = list(request.query_params.multi_items())
+    offset_text = request.query_params.get("offset", "0")
+    if (selectors and (len(selectors) != 1 or selectors[0][0] != "offset")
+            or not offset_text.isascii() or not offset_text.isdecimal()
+            or len(offset_text) > 8 or str(int(offset_text)) != offset_text):
         raise HTTPException(status_code=422, detail={"code": "replay_identity_selector_invalid"})
     try:
         result = replay_identities(service=_conversation_service(request), principal=principal,
-                                   world_id=world, turn_id=turn_id, trace_id=trace_id)
+                                   world_id=world, turn_id=turn_id, trace_id=trace_id, offset=int(offset_text))
         return JSONResponse(result, headers={"Cache-Control": "no-store"})
     except InspectionUnavailable as exc:
         raise HTTPException(status_code=404, detail={"code": exc.code}) from exc
@@ -2010,7 +2014,9 @@ def get_world_turn_prompt(world_id: str, turn_id: UUID, trace_id: UUID, provider
     from application_state.agent_conversation.context_trace import TracePromptReference
     from apps.live_control_server.services.agent_prompt_evidence import PromptEvidenceError, read_prompt
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422, detail="prompt read does not accept query selectors")
@@ -2055,7 +2061,9 @@ def get_world_turn_prompts(
     from application_state.agent_conversation.context_trace import TracePromptReference
     from apps.live_control_server.services.agent_prompt_evidence import MAX_PROMPT_BYTES, PromptEvidenceError, read_prompt
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422, detail="prompt read does not accept query selectors")
@@ -3062,14 +3070,17 @@ def post_append_pdf_statblock_review(
     body: AppendPdfStatblockReviewRequest, request: Request,
 ):
     from apps.live_control_server.routes.statblock_candidates import _revision_call
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
     from apps.live_control_server.services.statblock_saved_revision import append_pdf_review
 
-    enforce_native_graph_gm(request)
+    require_build_pdf_access(request, world_id)
     world_id = _verified_world_id(world_id)
-    return _revision_call(
+    result = _revision_call(
         append_pdf_review, draft_id=str(draft_id), world_id=world_id, review_id=review_id,
         request=body, load_review=lambda: get_pdf_statblock_review(world_id, review_id, request),
     )
+    require_build_pdf_access(request, world_id)
+    return result
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/region:validate", status_code=204)
