@@ -1,6 +1,8 @@
 # DOCS: clarify retrieval evidence location
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: HISTORICAL — completed by Buddy PR #4009, merged at `54085982b2dcbc901d0ccccea02e4f0f7b822426`. The lease is closed.
+
+Originally authorized by the documentation goal. PR topology: serial.
 Base: Buddy main `92e1d597b2a5b2275eca18a8c7a033039f1edd93`.
 Branch: `codex/docs-retrieval-evidence-location`. Predecessor: merged #4007.
 
