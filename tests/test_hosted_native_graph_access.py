@@ -4725,3 +4725,15 @@ def test_hosted_plan_inventory_page_authorizes_world_and_cursor(hosted, monkeypa
     result = hosted.client.request("GET", path + "&limit=2")
     assert result.status_code == 200, result.text
     assert calls == [("managed", 3, None)]
+
+    def transfer_during_inventory(*args, **kwargs):
+        result = inventory(*args, **kwargs)
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return result
+
+    monkeypatch.setattr(workspace_documents, "list_world_owned_plans_v2", transfer_during_inventory)
+    denied = hosted.client.request("GET", path + "&limit=2")
+    assert denied.status_code == 403, denied.text
+    assert calls == [("managed", 3, None), ("managed", 3, None)]

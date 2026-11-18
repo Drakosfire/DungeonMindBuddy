@@ -246,12 +246,14 @@ def get_world_plan_inventory_page(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     records = inventory.records[:limit]
     boundary = records[-1] if len(inventory.records) > limit else None
-    return WorldPlanInventoryPage(
+    page = WorldPlanInventoryPage(
         world_id=inventory.world_id,
         records=records,
         next_before_updated_at=boundary.updated_at if boundary else None,
         next_before_document_id=boundary.document_id if boundary else None,
     )
+    require_hosted_plan_world_context(request, world_id)
+    return page
 
 
 @router.post("/workspace-documents/world-plans", response_model=WorldOwnedPlanRecordV2)
