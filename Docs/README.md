@@ -42,7 +42,9 @@ The [design source index](Design/INDEX-design-agent-source-set.md) is a dated
 curated reference, including a user-managed Project Sources snapshot. Check
 its stated refresh dates and reconcile process guidance with current
 [AGENTS.md](../AGENTS.md); it is not an independent policy gate. Exported
-copies are not a substitute for their current owning documents.
+copies are not a substitute for their current owning documents. The export
+preserves copied Markdown paths, which may not resolve from the export directory;
+open the canonical document to follow its relative links.
 
 [Plans](Plans/) contain handoffs and design work;
 [reports](Reports/) contain findings and evidence; [roadmaps](Roadmaps/)

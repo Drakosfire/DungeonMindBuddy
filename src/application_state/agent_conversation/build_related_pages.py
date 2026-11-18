@@ -128,6 +128,12 @@ def project(execution):
         if choices or records(execution):
             raise ValueError("Anchored discussion cannot acquire optional related pages")
         return None
+    from .build_intentional_response import is_variant_approval
+
+    if not choices and any(is_variant_approval(event) for event in execution.events):
+        if records(execution):
+            raise ValueError("Approval without a related-page selection cannot acquire related pages")
+        return None
     from .types import BuildReviewedActionSelectionV1
     empty_reviewed = not catalog(execution.policy) and not choices and any(isinstance(e, BuildReviewedActionSelectionV1) for e in execution.events)
     if not empty_reviewed and (len(choices) != 1 or set(choices[0].document_ids) != {

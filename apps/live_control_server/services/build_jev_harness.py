@@ -248,8 +248,8 @@ class BuildJevHarness:
                 from .build_authored_references import acquire as acquire_authored_references
             acquire_authored_references(adapter)
             from .build_related_pages import acquire_selected_pages
-            from application_state.agent_conversation.build_intentional_response import is_anchored_discussion
-            if not is_anchored_discussion(driver.selection):
+            from application_state.agent_conversation.build_intentional_response import is_anchored_discussion, is_variant_approval
+            if not (is_anchored_discussion(driver.selection) or is_variant_approval(driver.selection)):
                 acquire_selected_pages(adapter)
             capture_draft_context(adapter)
             if adapter.rules_runtime is not None:
@@ -470,12 +470,19 @@ class BuildJevHarness:
         # dialogue resolves follow-up references; it is never source evidence.
         dialogue = tuple({'role': role, 'content': pair[role]}
             for pair in adapter.build_frozen_history for role in ('user', 'assistant'))
-        retrieval = PlanJevDriver(adapter,dialogue=dialogue,rules=rules)
+        from application_state.agent_conversation.writer_evidence_selection import native_approval_terminal
+
+        terminal = native_approval_terminal(adapter.turn)
+        retrieval = None
         writer = None
         try:
-            proof = asyncio.run(retrieval.run(transport=self.decision_transport))
+            proof = {}
+            if terminal is None:
+                retrieval = PlanJevDriver(adapter,dialogue=dialogue,rules=rules)
+                proof = asyncio.run(retrieval.run(transport=self.decision_transport))
+                terminal = {'status':'ready','reason':'native_retrieval_finished'}
             from .build_jev_writer_selection import WriterSelectionDriver
-            selector = WriterSelectionDriver(adapter,work_driver,{'status':'ready','reason':'native_retrieval_finished'})
+            selector = WriterSelectionDriver(adapter,work_driver,terminal)
             if selector.catalog:
                 asyncio.run(self._decide(adapter,selector))
             else:
@@ -491,7 +498,7 @@ class BuildJevHarness:
             adapter.turn = completed.envelope if isinstance(completed,MixedCompletedTurnV1) else completed
             return completed
         finally:
-            self.calls += retrieval.calls + ([writer.call] if writer is not None and writer.call is not None else [])
+            self.calls += (retrieval.calls if retrieval is not None else []) + ([writer.call] if writer is not None and writer.call is not None else [])
             if writer is not None:
                 self.output_limit_exceeded = writer.output_limit_exceeded
                 self.failure_stage = {"prepare":"writer_prepare", "generation":"writer_generation", "capture":"writer_validation"}[writer.failure_stage]

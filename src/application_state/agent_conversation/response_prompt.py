@@ -58,9 +58,11 @@ Do not mark answered dimensions as missing or fill gaps with unrelated excerpts.
 
 TASKS = {
     'answer': None,
-    'build_discussion': ResponsePromptComponent('build_discussion_task', '2',
-        'For a brainstorm opener, confirm the requested references are ready. When the GM '
-        'extends a speculative premise, use references silently to check compatibility and '
+    'build_discussion': ResponsePromptComponent('build_discussion_task', '4',
+        'For a brainstorm opener, briefly mirror the aim and name the current page and attachments '
+        'that are present in the supplied context. Confirm readiness only for material you have. '
+        'If a requested attachment is unavailable, say so briefly. Stop there unless the GM asked '
+        'for ideas. When the GM extends a speculative premise, use references silently to check compatibility and '
         'give one concrete hypothetical play moment in discussion. Leave open questions '
         'unresolved. When the GM explicitly asks what evidence establishes, answer with '
         'offered supporting selectors. Provide multiple ideas when requested.'),

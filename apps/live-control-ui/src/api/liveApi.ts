@@ -434,6 +434,12 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (path === "/api/live/threats/query-hydration") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body?.scopeMode === "world" && body.campaignId === null
+      && typeof body.worldId === "string" && Boolean(body.worldId)
+      && typeof body.revisionPin === "string" && Boolean(body.revisionPin);
+  }
   if (path === "/api/live/recap-name-review") {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && body?.operation === "generate_recap_memory"
