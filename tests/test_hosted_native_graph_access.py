@@ -365,6 +365,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/media/images/preparations/{action_id}/asset"): access.resolve_hosted_image_world,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("POST", "/api/live/media/images/{asset_id}/save"): access.resolve_hosted_saved_artwork,
+            ("POST", "/api/live/media/images/{asset_id}/regenerate"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
@@ -2251,6 +2252,53 @@ def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn, 
     assert saved.json()["state"] == "ready"
     assert media.get_asset(asset["asset_id"], owner)["state"] == "ready"
     save.assert_awaited_once_with(UUID(str(asset["asset_id"])), owner, authorize_write=ANY)
+
+    from types import SimpleNamespace
+
+    provider = SimpleNamespace(
+        generate_image=AsyncMock(return_value=SimpleNamespace(
+            images=[SimpleNamespace(content=payload, media_type="image/png")],
+            observation=SimpleNamespace(model_dump=lambda **kwargs: {"provider": "fixture"}),
+        )),
+        aclose=AsyncMock(),
+    )
+    monkeypatch.setattr(media_images, "_fal_key", lambda: "fixture")
+    monkeypatch.setattr(media_images, "_image_client", lambda: provider)
+    asset_id = str(asset["asset_id"])
+    parent = media.get_asset(asset_id, owner)
+    edit_path = f"/api/live/media/images/{asset_id}/regenerate"
+    edit = {"mode": "new", "instructions": "Paint the gate at dawn.", "expected_content_sha256": parent["content_sha256"]}
+    assert hosted.client.request("POST", edit_path, json=edit, session="other-session").status_code == 403
+    assert hosted.client.request("POST", edit_path, json=edit, origin=None).status_code == 403
+    assert hosted.client.request("POST", edit_path, json={**edit, "expected_content_sha256": "0" * 64}).status_code == 409
+    provider.generate_image.assert_not_called()
+    regenerated = hosted.client.request("POST", edit_path, json=edit)
+    assert regenerated.status_code == 200, regenerated.text
+    child = regenerated.json()["asset_id"]
+    assert child != asset_id
+    assert regenerated.json()["parent_asset_id"] == asset_id
+    assert media.get_asset(child, owner)["state"] == "staged"
+    assert media.get_asset(asset_id, owner) == parent
+    assert hosted.client.request("GET", f"/api/live/media/images/{child}/original").content == payload
+    provider.generate_image.assert_awaited_once()
+
+    from unittest.mock import Mock
+
+    stage = Mock(wraps=media.stage_image)
+    monkeypatch.setattr(media, "stage_image", stage)
+    generated_result = provider.generate_image.return_value
+
+    async def transfer_during_generation(*_args):
+        hosted.records[world_id] = hosted.records[world_id].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return generated_result
+
+    provider.generate_image.side_effect = transfer_during_generation
+    denied = hosted.client.request("POST", edit_path, json=edit)
+    assert denied.status_code == 403, denied.text
+    assert provider.generate_image.await_count == 2
+    stage.assert_not_called()
 
 
 def test_hosted_plan_context_requires_exact_owned_world(hosted):
