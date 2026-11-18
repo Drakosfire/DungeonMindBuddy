@@ -2593,6 +2593,40 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert len(generator.calls) == 1
     assert hosted.client.request("GET", fresh_path).json() == generated.json()
 
+    original_owner = hosted.records["managed"]
+    original_range = play_scene_edit_proposal.scene_body_range
+
+    def revoke_during_scene_read(*args, **kwargs):
+        hosted.records["managed"] = original_owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return original_range(*args, **kwargs)
+
+    denied_id = uuid4()
+    with monkeypatch.context() as patch:
+        patch.setattr(play_scene_edit_proposal, "scene_body_range", revoke_during_scene_read)
+        denied = hosted.client.request(
+            "POST", proposals + f"/{denied_id}?world_id=managed", json=proposal_body,
+        )
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert len(generator.calls) == 1
+    hosted.records["managed"] = original_owner
+    assert hosted.client.request("GET", proposals + f"/{denied_id}?world_id=managed").status_code == 404
+
+    original_get = PlaySceneEditProposalService.get
+
+    def revoke_during_replay(store, **scope):
+        record = original_get(store, **scope)
+        hosted.records["managed"] = original_owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return record
+
+    with monkeypatch.context() as patch:
+        patch.setattr(PlaySceneEditProposalService, "get", revoke_during_replay)
+        denied = hosted.client.request("POST", fresh_path, json=proposal_body)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert proposal_body["instruction"] not in denied.text
+    hosted.records["managed"] = original_owner
+
     tables_path = f"{base}/prepared-tables?world_id=managed"
     table_response = hosted.client.request("GET", tables_path)
     assert table_response.status_code == 200, table_response.text
