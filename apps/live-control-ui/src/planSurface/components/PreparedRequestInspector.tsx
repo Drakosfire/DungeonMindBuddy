@@ -1,4 +1,4 @@
-import './BuddyContextTrace.css'
+import './BuddyEvidence.css'
 import { useState } from 'react'
 type Component = { pointer: string; label: string; value: unknown }
 const pointerPart = (key: string) => key.replace(/~/g, '~0').replace(/\//g, '~1')

@@ -6,10 +6,12 @@ import {
   ZipWriter,
 } from "@zip.js/zip.js";
 import {
+  encodeLocalWorldPackageV1,
   isLocalWorldPackageMemberPath,
   LOCAL_WORLD_PACKAGE_V1,
   parseLocalWorldPackageV1,
   validateLocalWorldPackageMemberPaths,
+  validateOwnedLocalWorldPackageV1,
   type ParseLocalWorldPackageV1Result,
 } from "./localWorldPackageV1";
 
@@ -168,10 +170,26 @@ function mapFromInput(input: ReadonlyMap<string, Uint8Array>): Map<string, Uint8
 }
 
 export async function encodeLocalWorldPackageZipV1(input: ReadonlyMap<string, Uint8Array>): Promise<EncodeLocalWorldPackageZipV1Result> {
+  return writeLocalWorldPackageZip(input, false);
+}
+
+/** Encode and archive a World without exposing its freshly allocated member buffers. */
+export async function exportLocalWorldPackageZipV1(
+  ...args: Parameters<typeof encodeLocalWorldPackageV1>
+): Promise<EncodeLocalWorldPackageZipV1Result> {
+  const encoded = await encodeLocalWorldPackageV1(...args);
+  if (encoded.status !== "encoded") return { status: "error", code: "invalid-package", message: encoded.message };
+  return writeLocalWorldPackageZip(encoded.members, true);
+}
+
+async function writeLocalWorldPackageZip(
+  input: ReadonlyMap<string, Uint8Array>,
+  ownsMembers: boolean,
+): Promise<EncodeLocalWorldPackageZipV1Result> {
   try {
-    const members = mapFromInput(input); // capture all caller-owned bytes before the first await
-    const parsed = await parseLocalWorldPackageV1(members);
-    if (parsed.status !== "staged") fail(parsed.code === "unsupported-version" ? "unsupported-version" : "invalid-package", parsed.message);
+    const members = ownsMembers ? input : mapFromInput(input);
+    const parsed = await validateOwnedLocalWorldPackageV1(members);
+    if (parsed.status !== "valid") fail(parsed.code === "unsupported-version" ? "unsupported-version" : "invalid-package", parsed.message);
     const writer = new BlobWriter("application/zip");
     const zip = new ZipWriter(writer, { zip64: false, dataDescriptor: false, extendedTimestamp: false, useUnicodeFileNames: true, level: 0, useCompressionStream: false, useWebWorkers: false });
     for (const [path, bytes] of [...members].sort(([a], [b]) => a.localeCompare(b))) {
@@ -202,25 +220,21 @@ export async function decodeLocalWorldPackageZipV1(blob: Blob): Promise<DecodeLo
       const meta = expectedByName.get(entry.filename);
       if (!meta) throw new ZipProblem("invalid-archive", "ZIP parsed a member absent from bounded preflight.");
       if (meta.expandedSize !== entry.uncompressedSize || meta.compressedSize !== entry.compressedSize || meta.method !== entry.compressionMethod) fail("invalid-archive", "ZIP parsed metadata differs from bounded preflight.");
-      const chunks: Uint8Array[] = [];
-      let entryTotal = 0;
+      const bytes = new Uint8Array(meta.expandedSize);
+      let offset = 0;
       const sink = new WritableStream<Uint8Array>({
         write(chunk) {
-          const bytes = new Uint8Array(chunk);
-          entryTotal += bytes.byteLength;
-          streamedTotal += bytes.byteLength;
-          const json = meta.name === "manifest.json" || meta.name === "semantic.json" || meta.name === "layout.json" || meta.name === "history.json";
-          const limit = json ? LOCAL_WORLD_PACKAGE_V1.limits.jsonMemberBytes : LOCAL_WORLD_PACKAGE_V1.limits.attachmentBytes;
-          if (entryTotal > limit || streamedTotal > LOCAL_WORLD_PACKAGE_V1.limits.totalBytes) throw new ZipProblem("limit-exceeded", "Inflated ZIP output exceeded a package byte limit.");
-          chunks.push(bytes);
+          const nextOffset = offset + chunk.byteLength;
+          streamedTotal += chunk.byteLength;
+          if (streamedTotal > LOCAL_WORLD_PACKAGE_V1.limits.totalBytes) throw new ZipProblem("limit-exceeded", "Inflated ZIP output exceeded a package byte limit.");
+          if (nextOffset > bytes.byteLength) fail("invalid-archive", `Inflated length disagrees with ZIP metadata: ${meta.name}`);
+          bytes.set(chunk, offset);
+          offset = nextOffset;
         },
       });
       await entry.getData(sink);
-      if (entryTotal !== meta.expandedSize) fail("invalid-archive", `Inflated length disagrees with ZIP metadata: ${meta.name}`);
-      const combined = new Uint8Array(entryTotal);
-      let offset = 0;
-      for (const chunk of chunks) { combined.set(chunk, offset); offset += chunk.byteLength; }
-      members.set(meta.name, combined);
+      if (offset !== bytes.byteLength) fail("invalid-archive", `Inflated length disagrees with ZIP metadata: ${meta.name}`);
+      members.set(meta.name, bytes);
     }
     const parsed = await parseLocalWorldPackageV1(members);
     if (parsed.status !== "staged") throw new ZipProblem(parsed.code === "unsupported-version" ? "unsupported-version" : "invalid-package", parsed.message);

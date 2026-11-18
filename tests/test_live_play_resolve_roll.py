@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
-from src.live_play.roll_table_registry import RollTableRegistry
+from live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
+from live_play.roll_table_registry import RollTableRegistry
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKET_PATH = ROOT / "evals/c2_live_prep/live/session_22/live_packet.json"

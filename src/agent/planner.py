@@ -26,7 +26,9 @@ from typing import Any, Callable
 
 import blake3
 
-from src.agent.planner_pricing import usage_cost_usd
+from corpus.fingerprint import is_managed_dungeonbuddy_storage
+
+from llm.planner_pricing import usage_cost_usd
 from src.agent.planner_turn_output_schema import (
     planner_turn_output_schema_enabled,
     planner_turn_text_format,
@@ -46,20 +48,21 @@ from src.agent.planner_telemetry import (
     text_sig,
     usage_dict_from_response,
 )
-from src.agent.synthesis import _load_api_key
-from src.llm.api_client import DungeonMindApiClient
+from bootstrap_env import load_openai_api_key as _load_api_key
+from llm.api_client import DungeonMindApiClient
 
-_planner_logger = logging.getLogger("dmb.planner")
 from src.agent.session_memory_query import (
     dispatch_query_session_memory_json,
     env_session_memory_records_path,
     load_session_memory_records_from_env,
 )
-from src.prompts.corpus_session_planner import (
+from prompts.corpus_session_planner import (
     STATBLOCK_TOOL_DESCRIPTION,
     STATBLOCK_VIA_RESPONSES_SYSTEM,
     build_corpus_session_planner_instructions,
 )
+
+_planner_logger = logging.getLogger("dmb.planner")
 
 _MAX_FILE_CHARS = 30_000
 _MAX_TOOL_ROUNDS_PER_USER_TURN = 25
@@ -86,7 +89,7 @@ def _resolve_planner_model(model: str | None) -> str:
     """
     if model and str(model).strip():
         return str(model).strip()
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     policy = load_buddy_model_policy()
     if policy:
@@ -244,10 +247,6 @@ def _assign_unique_path_refs(sorted_relpaths: list[str]) -> tuple[dict[str, str]
     return ref_to_rel, rel_to_ref
 
 
-def _is_managed_dungeonbuddy_storage(path: Path) -> bool:
-    return "_dungeonbuddy" in path.parts
-
-
 def build_corpus_path_ref_index(corpus_dir: Path) -> dict[str, str]:
     """Map ``ref_hex`` -> corpus-relative ``.md`` path (posix). Empty when corpus is missing."""
     root = corpus_dir.resolve()
@@ -256,7 +255,7 @@ def build_corpus_path_ref_index(corpus_dir: Path) -> dict[str, str]:
     rels = sorted(
         p.relative_to(root).as_posix()
         for p in root.rglob("*.md")
-        if p.is_file() and not _is_managed_dungeonbuddy_storage(p)
+        if p.is_file() and not is_managed_dungeonbuddy_storage(p)
     )
     ref_to_rel, _ = _assign_unique_path_refs(rels)
     return ref_to_rel
@@ -276,7 +275,7 @@ def build_corpus_manifest_and_ref_index(corpus_dir: Path) -> tuple[str, dict[str
     rels = sorted(
         p.relative_to(root).as_posix()
         for p in root.rglob("*.md")
-        if p.is_file() and not _is_managed_dungeonbuddy_storage(p)
+        if p.is_file() and not is_managed_dungeonbuddy_storage(p)
     )
     ref_to_rel, rel_to_ref = _assign_unique_path_refs(rels)
 
@@ -1293,7 +1292,7 @@ def make_tool_dispatcher(
                     "Error: assemble_recap_draft is disabled (planner started with "
                     "allow_corpus_writes=False). Re-launch with corpus writes enabled to use it."
                 )
-            from src.agent.recap_ingest_helpers import assemble_recap as _assemble_recap
+            from live_play.recap_ingest_helpers import assemble_recap as _assemble_recap
 
             raw_rel = str(args.get("raw_notes_path", "")).strip()
             notes_path = _resolve_safe_corpus_notes_staging_file(corpus_path, raw_rel)
@@ -1347,7 +1346,7 @@ def make_tool_dispatcher(
                     "allow_corpus_writes=False). Re-launch with corpus writes enabled to use it."
                 )
             from src.agent.recap_context import RecapContextError, resolve_recap_context
-            from src.agent.recap_ingest_helpers import assemble_recap as _assemble_recap
+            from live_play.recap_ingest_helpers import assemble_recap as _assemble_recap
             from src.agent.recap_write_mechanical_payload import (
                 build_recap_write_payload_from_ingest,
             )
@@ -1391,7 +1390,7 @@ def make_tool_dispatcher(
                     f"Error: {name} is disabled (planner started with "
                     "allow_corpus_writes=False). Re-launch with corpus writes enabled to use it."
                 )
-            from src.agent.corpus_writer import (
+            from corpus.corpus_writer import (
                 append_timeline_row as _append_timeline_row,
                 write_corpus_file as _write_corpus_file,
             )
@@ -2181,7 +2180,7 @@ def run_planning_turn_with_retrieval_router(
         DECISION_NEED_MORE_CONTEXT,
         run_retrieval_first_decision,
     )
-    from evals.sentence_routing_retrieval_falsification.breadcrumb_natural_scoring import (
+    from src.agent.retrieval_context import (
         build_hit_context_text,
         index_records_by_unit_id,
     )

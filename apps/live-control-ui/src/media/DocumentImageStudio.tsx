@@ -1,7 +1,7 @@
 import {useTourImage} from '../guidedTour/ImageObservations';
 import { useEffect, useRef } from 'react';
 import { authenticatedApiFetch, getNativeGraphAccessGeneration } from '../api/liveApi';
-import { MediaImageWizard } from './MediaImageWizard';
+import { DeferredMediaImageWizard } from './DeferredMediaImageWizard';
 import type { DocumentMediaBridge } from './documentMediaBridge';
 import './DocumentImageStudio.css';
 
@@ -13,7 +13,7 @@ export function DocumentImageStudio({ bridge, onClose, targetLabel, initialPromp
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, [bridge]);
   return <aside className="document-image-studio" aria-label={`Image Studio · ${targetLabel}`}>
-    <MediaImageWizard placeAfterBlock initialPrompt={initialPrompt} onClose={onClose} chooseLabel={`Place in ${targetLabel}`} onChoose={async (image, _result, placement) => {
+    <DeferredMediaImageWizard placeAfterBlock initialPrompt={initialPrompt} onClose={onClose} chooseLabel={`Place in ${targetLabel}`} onChoose={async (image, _result, placement) => {
       const generation = getNativeGraphAccessGeneration();
       const target = await bridge.pickInsertion({ ...placement, assetId: image.asset_id });
       placement.signal.throwIfAborted();

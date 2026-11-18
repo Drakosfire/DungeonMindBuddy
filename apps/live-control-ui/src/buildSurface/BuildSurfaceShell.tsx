@@ -3,7 +3,7 @@ import {BuildWorkPlanHost} from "./BuildWorkPlanHost";
 import {BuildEditorToolsPanel} from './BuildEditorToolsPanel';
 import { saveBuildProposal } from './saveBuildProposal';
 import { mediaMarkdown } from "../media/mediaReferences";
-import { MediaImageWizard } from "../media/MediaImageWizard";
+import { DeferredMediaImageWizard } from "../media/DeferredMediaImageWizard";
 import { createBuildComposeBridge, type BuildComposeBridge, type BuildComposeEditorState } from "./buildComposeBridge";
 import { BUILD_STARTER_CONTENT, BUILD_STUDIO_ACTION, type BuildStudioAction, buildStarterKey, requestBuildStudioAction } from "./buildStudioActions";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -139,7 +139,7 @@ function BuildPresentableSourceView({
       </div>
     </section> : null}
     {mediaError&&<p role="alert">{mediaError}</p>}
-    {mediaOpen && <aside className="build-media-studio"><MediaImageWizard onClose={() => setMediaOpen(false)} onChoose={async(image,_result,placement)=>{
+    {mediaOpen && <aside className="build-media-studio"><DeferredMediaImageWizard onClose={() => setMediaOpen(false)} onChoose={async(image,_result,placement)=>{
       const origin=mediaCapture.current;
       if (!origin || !['staged','ready'].includes(image.state) || !composeBridge.pickInsertion) throw new Error('Open a retained image and an editable page first.');
       const target=await composeBridge.pickInsertion({...placement,assetId:image.asset_id});

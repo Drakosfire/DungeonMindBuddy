@@ -11,9 +11,10 @@ from apps.live_control_server.schema_validation import (
     validate_live_job_row,
     validate_live_surface_layout,
 )
-from src.live_play.current_state_derive import derive_current_state_fields
-from src.live_play.live_store import append_jsonl, iter_jsonl, load_json, write_json
-from src.live_play.surface_layout_invariants import (
+from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
+from current_state_derive import derive_current_state_fields
+from live_store import append_jsonl, iter_jsonl, load_json, write_json
+from surface_layout_invariants import (
     validate_catalog_layout_consistency,
     validate_surface_layout_invariants,
 )
@@ -29,12 +30,26 @@ def _paths(base: Path) -> dict[str, Path]:
     }
 
 
+def load_session_packet(base: Path) -> dict[str, Any]:
+    return load_json(_paths(base)["packet"])
+
+
+def load_session_events(base: Path) -> list[dict[str, Any]]:
+    path = _paths(base)["events"]
+    return iter_jsonl(path) if path.is_file() else []
+
+
+def load_session_jobs(base: Path) -> list[dict[str, Any]]:
+    path = _paths(base)["jobs"]
+    return iter_jsonl(path) if path.is_file() else []
+
+
 def load_session(base: Path) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     paths = _paths(base)
-    packet = load_json(paths["packet"])
+    packet = load_session_packet(base)
     layout = load_json(paths["layout"])
-    events = iter_jsonl(paths["events"]) if paths["events"].is_file() else []
-    jobs = iter_jsonl(paths["jobs"]) if paths["jobs"].is_file() else []
+    events = load_session_events(base)
+    jobs = load_session_jobs(base)
     return packet, layout, events, jobs
 
 
@@ -48,19 +63,39 @@ def append_events_and_jobs(
     paths["jobs"].parent.mkdir(parents=True, exist_ok=True)
     if not paths["events"].is_file():
         paths["events"].write_text("", encoding="utf-8")
-    if not paths["jobs"].is_file():
-        paths["jobs"].write_text("", encoding="utf-8")
     validate_before_append(events, jobs)
     for event in events:
         append_jsonl(paths["events"], event)
-    for job in jobs:
-        append_jsonl(paths["jobs"], job)
+    with registry_mutation_lock(paths["jobs"]):
+        paths["jobs"].touch(exist_ok=True)
+        for job in jobs:
+            append_jsonl(paths["jobs"], job)
 
 
 def refresh_current_state(base: Path) -> dict[str, Any]:
-    packet, layout, events, jobs = load_session(base)
+    return refresh_loaded_current_state(base, *load_session(base))
+
+
+def refresh_loaded_current_state(
+    base: Path,
+    packet: dict[str, Any],
+    layout: dict[str, Any],
+    events: list[dict[str, Any]],
+    jobs: list[dict[str, Any]],
+) -> dict[str, Any]:
+    state = derive_current_state(packet, layout, events, jobs)
+    write_json(_paths(base)["state"], state)
+    return state
+
+
+def derive_current_state(
+    packet: dict[str, Any],
+    layout: dict[str, Any],
+    events: list[dict[str, Any]],
+    jobs: list[dict[str, Any]],
+) -> dict[str, Any]:
     derived = derive_current_state_fields(packet, layout, events, jobs)
-    state = {
+    return {
         "schema_version": "0.1.0",
         "campaign_id": packet["campaign_id"],
         "session": packet["session"],
@@ -75,8 +110,6 @@ def refresh_current_state(base: Path) -> dict[str, Any]:
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         **derived,
     }
-    write_json(_paths(base)["state"], state)
-    return state
 
 
 def events_since(events: list[dict[str, Any]], since_id: str | None) -> list[dict[str, Any]]:
@@ -117,20 +150,21 @@ def validate_and_save_layout(
 
 def complete_job(base: Path, job_id: str) -> dict[str, Any] | None:
     paths = _paths(base)
-    jobs = iter_jsonl(paths["jobs"]) if paths["jobs"].is_file() else []
-    updated: dict[str, Any] | None = None
-    for index, row in enumerate(jobs):
-        if row.get("id") == job_id:
-            updated = {**row, "status": "complete"}
-            jobs[index] = updated
-            break
-    if updated is None:
-        return None
-    validate_live_job_row(updated)
-    for row in jobs:
-        validate_live_job_row(row)
-    _rewrite_jsonl(paths["jobs"], jobs)
-    return updated
+    with registry_mutation_lock(paths["jobs"]):
+        jobs = iter_jsonl(paths["jobs"]) if paths["jobs"].is_file() else []
+        updated: dict[str, Any] | None = None
+        for index, row in enumerate(jobs):
+            if row.get("id") == job_id:
+                updated = {**row, "status": "complete"}
+                jobs[index] = updated
+                break
+        if updated is None:
+            return None
+        validate_live_job_row(updated)
+        for row in jobs:
+            validate_live_job_row(row)
+        _rewrite_jsonl(paths["jobs"], jobs)
+        return updated
 
 
 def queue_packet_rebuild_job(base: Path, packet: dict[str, Any]) -> dict[str, Any]:
@@ -163,8 +197,6 @@ def queue_packet_rebuild_job(base: Path, packet: dict[str, Any]) -> dict[str, An
     }
     validate_live_job_row(job)
     paths = _paths(base)
-    paths["jobs"].parent.mkdir(parents=True, exist_ok=True)
-    if not paths["jobs"].is_file():
-        paths["jobs"].write_text("", encoding="utf-8")
-    append_jsonl(paths["jobs"], job)
+    with registry_mutation_lock(paths["jobs"]):
+        append_jsonl(paths["jobs"], job)
     return job

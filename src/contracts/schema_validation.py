@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +10,7 @@ from jsonschema.exceptions import ValidationError
 from referencing import Registry, Resource
 
 
-SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schemas" / "v0.1"
+SCHEMA_DIR = Path(os.environ.get("DMB_SCHEMA_DIR") or Path(__file__).resolve().parents[2] / "schemas" / "v0.1")
 
 
 def _schema_store() -> dict[str, dict[str, Any]]:

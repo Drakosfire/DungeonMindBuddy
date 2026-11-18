@@ -79,7 +79,7 @@ def test_actual_registered_producer_does_not_read_or_inject_roster(tmp_path, mon
     assert result.failure_kind is None, result.diagnostics
     expected_profile = "recap_category_v2@2.0" if profile == "category_baseline" else "recap_category_encounter_job_preview@2.0"
     assert result.run.profile_id == expected_profile
-    expected_calls = ["actor_pass","location_pass","collective_pass","object_pass","thread_pass","beat_pass"]
+    expected_calls = ["actor_pass","location_pass","collective_pass","object_pass","thread_pass","event_pass"]
     if profile == "category_encounter_job_preview":
         expected_calls.append("encounter_job_pass")
     assert [name for name, _ in calls] == expected_calls + ["edge_pass"]
@@ -114,7 +114,7 @@ def test_binding_drift_still_refuses_before_output_or_provider(tmp_path, monkeyp
 @pytest.mark.parametrize("with_supplement", [False, True])
 def test_retired_profile_refuses_before_source_supplement_output_or_provider(tmp_path, monkeypatch, with_supplement):
     from graph_memory.ingestion.native_recap_source import SourceScope
-    from src.graph_memory.extraction.extraction_profile import UnknownExtractionProfileError
+    from graph_memory.extraction.extraction_profile import UnknownExtractionProfileError
     from apps.live_control_server.services import session_evidence
     def forbidden(*a, **kw):
         pytest.fail("retired policy must not open source/supplement or dispatch inference")
@@ -129,8 +129,8 @@ def test_retired_profile_refuses_before_source_supplement_output_or_provider(tmp
 
 def test_direct_options_cannot_execute_a_retired_profile():
     from dataclasses import replace
-    from src.graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionOptions, CategoryGraphExtractionError, extract_category_candidate_graph
-    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionOptions, CategoryGraphExtractionError, extract_category_candidate_graph
+    from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     class NoCalls:
         def run_pass(self,*a,**k):
             pytest.fail("must reject retired policy before inference")

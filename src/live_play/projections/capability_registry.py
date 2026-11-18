@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from src.live_play.projections.capabilities import ProjectionCapability
-from src.live_play.projections.targets import ProjectionTarget
+from live_play.projections.capabilities import ProjectionCapability
+from live_play.projections.targets import ProjectionTarget
 
 DISABLED_REASON = "Not implemented in PR85."
 

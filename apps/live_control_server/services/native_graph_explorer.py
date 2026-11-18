@@ -407,6 +407,12 @@ def _safe_graph_from_catalogue(
                     "id": entity_id,
                     "name": name,
                     "kind": _node_kind(entity_terms),
+                    # Presentation only: retain the exact distinct admitted values
+                    # from this same pinned catalogue, without identity inference.
+                    "presentation": {
+                        "recorded_names": sorted(entity_names),
+                        "classification_terms": sorted(entity_terms),
+                    },
                 }
             )
         omitted_assertions = max(0, len(all_assertion_ids - represented_assertion_ids))
@@ -487,15 +493,8 @@ def _graph_envelope(
                 revision_id=revision_id,
             )
         )
-        catalogue = native_graph_inspection.catalog(scope, principal)
-        repo = native.read_repository()
-        graph = _safe_graph_from_catalogue(
-            bound,
-            catalogue,
-            native.descriptors(
-                repo, bound["native_world_id"], catalogue["scope"]["revision_id"]
-            )[1],
-        )
+        catalogue, profile = native_graph_inspection.presentation_catalog(scope, principal)
+        graph = _safe_graph_from_catalogue(bound, catalogue, profile)
     except NativeGraphExplorerError:
         raise
     except Exception:

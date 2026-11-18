@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { baseCandidateDefinition } from "./editorFixtures";
+import { baseCandidateDefinition } from "../../test/statblockEditorFixtures";
 import {
   beginValidationAttempt,
   createEditorStateFromOutput,

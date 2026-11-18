@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
-from src.live_play.source_bundle import build_ingestion_source_bundle
+from live_play.source_bundle import build_ingestion_source_bundle
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,8 +47,10 @@ def test_source_bundle_includes_manifest_reference_units() -> None:
     assert "C2S23 dogfood-full manifest" in labels
 
 
-def test_live_source_bundle_endpoint_returns_contract() -> None:
-    client = TestClient(create_app())
+def test_live_source_bundle_endpoint_returns_contract(monkeypatch) -> None:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
 
     response = client.get("/api/live/source-bundle?campaign_id=longmont-c2")
 
@@ -57,3 +59,18 @@ def test_live_source_bundle_endpoint_returns_contract() -> None:
     assert body["schema_version"] == "dmb_ingestion_source_bundle_v1"
     assert body["coverage"]["unitCount"] == len(body["units"])
     assert "read_only_adapter" in body["diagnostics"]
+
+
+def test_source_session_index_matches_bundle(monkeypatch) -> None:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
+    for campaign_id in ("longmont-c1", "longmont-c2", "unknown"):
+        params = {"campaign_id": campaign_id}
+        bundle = client.get("/api/live/source-bundle", params=params)
+        sessions = client.get("/api/live/source-bundle/sessions", params=params)
+        assert bundle.status_code == sessions.status_code == 200
+        assert sessions.json() == sorted({
+            unit["fields"]["sessionNumber"] for unit in bundle.json()["units"]
+            if unit["fields"].get("sessionNumber") is not None
+        }, reverse=True)

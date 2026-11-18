@@ -1,6 +1,6 @@
 import pytest
 
-from src.graph_memory.extraction.recap_source_authority import (
+from graph_memory.extraction.recap_source_authority import (
     filter_planning_pass_output, partition_recap_source_rows,
 )
 

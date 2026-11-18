@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -56,8 +55,7 @@ class DeactivateNativeGraphBindingRequest(BaseModel):
 NativeGraphAuthorityValidator = Callable[[str], Any]
 
 
-def _load_binding_snapshot(root: Path, world_id: str) -> tuple[WorldContainerRecord, int]:
-    del root
+def _load_binding_snapshot(world_id: str) -> tuple[WorldContainerRecord, int]:
     try:
         stored = _stored_world(world_id)
     except WorldContainerRegistryError as exc:
@@ -153,7 +151,6 @@ def _validated_head_and_revision(
 
 
 def bind_native_graph(
-    root: Path,
     managed_world_id: str,
     *,
     native_world_id: str,
@@ -169,7 +166,7 @@ def bind_native_graph(
     if isinstance(expected_binding_version, bool) or expected_binding_version < 0:
         raise WorldGraphBindingError("Expected binding version must be non-negative.", status_code=422)
 
-    initial, expected_revision = _load_binding_snapshot(root, cleaned_managed_id)
+    initial, expected_revision = _load_binding_snapshot(cleaned_managed_id)
     _require_expected_version(initial, expected_binding_version)
     if isinstance(initial.native_graph_binding, NativeGraphProvisioningRecord):
         raise WorldGraphBindingError(
@@ -201,13 +198,13 @@ def bind_native_graph(
 
 
 def activate_reviewed_native_graph(
-    root: Path, managed_world_id: str, *, target: FirstWorldNativeTarget,
+    managed_world_id: str, *, target: FirstWorldNativeTarget,
     receipt: WorldGraphInitializationReceipt,
     plan_id: str, plan_digest: str,
     authority_validator: NativeGraphAuthorityValidator | None = None,
 ) -> WorldContainerRecord:
     """Verify real reviewed genesis unlocked, then promote only its exact reservation."""
-    initial, revision = _load_binding_snapshot(root, _validate_world_id(managed_world_id))
+    initial, revision = _load_binding_snapshot(_validate_world_id(managed_world_id))
     binding = initial.native_graph_binding
     if binding is None or (
         binding.native_world_id != target.native_world_id
@@ -267,7 +264,7 @@ def activate_reviewed_native_graph(
             raise WorldGraphBindingError("Active World has a different initialization proof.")
         # This binding is immutable for this operation; a concurrent deactivate
         # must not be acknowledged as successful original-confirm recovery.
-        current, current_revision = _load_binding_snapshot(root, managed_world_id)
+        current, current_revision = _load_binding_snapshot(managed_world_id)
         if current_revision != revision or current != initial:
             raise WorldGraphBindingError("World binding changed during initialization recovery.")
         return current
@@ -287,8 +284,87 @@ def activate_reviewed_native_graph(
         ) from exc
 
 
+def activate_native_source_graph(managed_world_id, *, identity, repository, published_revision_id):
+    """Activate the exact reservation after a reviewed native publication."""
+    from dungeonmind.application.vnext import get_publication_receipt
+    from dungeonmind.application.vnext.materialization import (
+        NATIVE_VNEXT_GRAPH_SCHEMA, encode_native_graph_payload,
+    )
+
+    from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import (
+        _genesis_descriptors, _stable_id,
+    )
+
+    initial, revision = _load_binding_snapshot(managed_world_id)
+    binding = initial.native_graph_binding
+    if (
+        binding is None or binding.status not in {"provisioning", "active"}
+        or binding.native_world_id != identity.native_world_id
+        or binding.binding_version != identity.binding_version
+        or binding.provisioning_id != identity.provisioning_id
+        or identity.provisioning_id is None
+    ):
+        raise WorldGraphBindingError("World reservation changed during publication.")
+
+    space = binding.native_world_id
+    operation = _stable_id("dmb-world-genesis", space)
+    receipt = get_publication_receipt(space, operation, repository=repository)
+    if receipt is None or receipt.space_id != space or receipt.expected_parent_revision_id is not None:
+        raise WorldGraphBindingError("Native source genesis proof is unavailable.")
+    genesis = receipt.published_revision_id
+    head = repository.get_head(space)
+    if head is None:
+        raise WorldGraphBindingError("Native Graph head is unavailable.")
+    domain, profile = _genesis_descriptors()
+    empty = encode_native_graph_payload(entities={}, assertions={}, aliases={}, evidence={})
+    current = head.head_revision_id
+    seen = set()
+    verified_genesis = False
+    while current not in seen:
+        seen.add(current)
+        stored = repository.get_revision(space, current)
+        if stored is None or stored.revision.space_id != space or stored.revision.revision_id != current:
+            current = None
+            break
+        parent = stored.revision.parent_revision_id
+        if current == genesis and parent is None:
+            if (
+                stored.revision.graph_schema == NATIVE_VNEXT_GRAPH_SCHEMA
+                and stored.revision.operation_ids == [operation]
+                and stored.revision.graph_payload_sha256 == receipt.graph_payload_sha256
+                and stored.revision.domain_contract_ref.domain_id == domain.domain_id
+                and stored.revision.domain_contract_ref.domain_revision == domain.domain_revision
+                and stored.revision.semantic_profile_ref.profile_id == profile.profile_id
+                and stored.revision.semantic_profile_ref.profile_revision == profile.profile_revision
+                and stored.graph_payload == empty
+            ):
+                verified_genesis = True
+                break
+        if parent is None:
+            current = None
+            break
+        current = parent
+    if not verified_genesis or published_revision_id == genesis or published_revision_id not in seen:
+        raise WorldGraphBindingError("Reviewed publication does not descend from the reserved genesis.")
+    if isinstance(binding, NativeGraphBindingRecord):
+        if binding.initialization_revision_id != genesis:
+            raise WorldGraphBindingError("Active World has a different initialization proof.")
+        return initial
+
+    active = NativeGraphBindingRecord(
+        native_world_id=space,
+        status="active",
+        binding_version=binding.binding_version,
+        provisioning_id=binding.provisioning_id,
+        initialization_revision_id=genesis,
+        validated_at=_utc_now_iso(),
+        validated_head_revision_id=head.head_revision_id,
+    )
+    updated = initial.model_copy(update={"native_graph_binding": active, "schema_version": RECORD_SCHEMA})
+    return _save_binding_record(updated, revision)
+
+
 def deactivate_native_graph_binding(
-    root: Path,
     managed_world_id: str,
     *,
     expected_binding_version: int,
@@ -298,7 +374,7 @@ def deactivate_native_graph_binding(
     if isinstance(expected_binding_version, bool) or expected_binding_version < 0:
         raise WorldGraphBindingError("Expected binding version must be non-negative.", status_code=422)
 
-    current, revision = _load_binding_snapshot(root, cleaned_managed_id)
+    current, revision = _load_binding_snapshot(cleaned_managed_id)
     _require_expected_version(current, expected_binding_version)
     binding = current.native_graph_binding
     if binding is None:

@@ -2,7 +2,7 @@
 from copy import deepcopy
 from dataclasses import dataclass
 
-from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
+from graph_memory.extraction.extraction_profile import ExtractionPassSpec
 import hashlib
 import json
 import math
@@ -132,7 +132,7 @@ class RecordingPassClient:
         self.advisory = None
 
     def run_pass(self, name, **kwargs):
-        from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+        from graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
 
         self.pending = {"pass_id": name, "seam_request_sha256": digest({
             "model_id": kwargs["model_id"], "instructions": kwargs["instructions"],

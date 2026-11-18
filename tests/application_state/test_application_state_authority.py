@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 
+from application_state import authority
 from application_state.authority import (
     ApplicationStateFingerprint,
     DomainFingerprint,
@@ -196,6 +197,28 @@ def test_fingerprint_changes_with_content_and_source_rows(
     assert counts["content.work_object"] == 1
     assert counts["source.artifact"] == 1
     assert counts["source.revision"] == 1
+
+
+def test_fingerprint_uses_one_snapshot_across_domains(
+    application_state_dsn: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    before = compute_fingerprint(application_state_dsn)
+    read_table = authority._fingerprint_table
+
+    def write_between_tables(conn, domain, table, order_by):
+        result = read_table(conn, domain, table, order_by)
+        if domain == "content.work_object":
+            create_plan(title="Concurrent plan", campaign_id="eldyrwild")
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(authority, "_fingerprint_table", write_between_tables)
+        during = compute_fingerprint(application_state_dsn)
+
+    assert during == before
+    after = compute_fingerprint(application_state_dsn)
+    assert after != before
+    assert {d.name: d.row_count for d in after.domains}["content.work_object"] == 1
 
 
 def test_fingerprint_stable_across_repeated_computation_with_rows(

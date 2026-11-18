@@ -25,9 +25,9 @@ from generationengine import (
     TextResult,
 )
 
-from src.agent.corpus_path_tools import read_paths_from_tool_trace
-from src.agent.synthesis import _load_api_key
-from src.llm.generation_sync import run_awaitable_sync
+from corpus.tool_trace import read_paths_from_tool_trace
+from bootstrap_env import load_openai_api_key as _load_api_key
+from llm.generation_sync import run_awaitable_sync
 
 IntentMode = Literal["factual_lookup", "upgrade_request", "comparison_request"]
 
@@ -166,7 +166,7 @@ def _resolve_intent_classifier_model(model: str | None) -> str:
     env_model = os.environ.get(_INTENT_CLASSIFIER_MODEL_ENV, "").strip()
     if env_model:
         return env_model
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     policy = load_buddy_model_policy()
     if policy:

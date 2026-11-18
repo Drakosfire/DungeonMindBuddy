@@ -1,7 +1,8 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies
-**Export refreshed:** 2026-11-11 — process/current-pickup and governance copies synchronized from canonical repository files. This was not a full design/corpus audit; user-managed Project Sources were not changed.
+**Mirror refresh source revision:** `60ba556ba1d3ad494fa5b3e431edbf061ec7cfac` (repository bundle)
+**Process/current-pickup refresh:** Selected process and governance copies were synchronized with their canonical files in this change. This is not a full design/corpus audit; user-managed Project Sources were not changed.
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
 This directory is the clean pickup point for refreshing ChatGPT immediate /
@@ -68,5 +69,8 @@ Never repair an export copy in place. Repair the canonical document first, then
 refresh its mapped export copy byte-for-byte. The canonical source index owns
 the mapping.
 
-The old CON-READY and Playable sequence copies still on disk are historical
-2026-09-25 exports; exclude them from the current upload set.
+The historical 2026-09-25 exports remain available at these pinned links.
+
+- [ROADMAP-con-ready.md](https://github.com/Drakosfire/DungeonMindBuddy/blob/19424706b02166aec8592fd17fd66b36c20835d3/Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-con-ready.md)
+- [ROADMAP-playable-hoist-dungeonmind-kernel.md](https://github.com/Drakosfire/DungeonMindBuddy/blob/19424706b02166aec8592fd17fd66b36c20835d3/Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-playable-hoist-dungeonmind-kernel.md)
+- [STEWARDS-ANCHOR-con-ready.md](https://github.com/Drakosfire/DungeonMindBuddy/blob/19424706b02166aec8592fd17fd66b36c20835d3/Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md)

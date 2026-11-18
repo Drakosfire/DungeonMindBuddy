@@ -322,7 +322,7 @@ def seeded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         lambda _root: "deadbeef" * 5,
     )
     monkeypatch.setattr(
-        "src.bootstrap_env.load_dungeonmindbuddy_dotenv",
+        "bootstrap_env.load_dungeonmindbuddy_dotenv",
         lambda: None,
     )
     return {
@@ -698,11 +698,11 @@ def test_replay_never_calls_extraction_or_model_policy(
         raise AssertionError("extraction/model seam called")
 
     monkeypatch.setattr(
-        "src.graph_memory.extraction.graph_preview_runner.run_production_extraction",
+        "graph_memory.extraction.graph_preview_runner.run_production_extraction",
         boom,
     )
     monkeypatch.setattr(
-        "src.graph_memory.extraction.category_candidate_graph_extractor.resolve_category_graph_model",
+        "graph_memory.extraction.category_candidate_graph_extractor.resolve_category_graph_model",
         boom,
     )
     seams, calls = _success_seams()

@@ -14,6 +14,8 @@ import yaml
 
 from scripts import ci_local_frontend as local
 
+REAL_COMMAND = local.command
+
 
 @pytest.fixture
 def sandbox(tmp_path, monkeypatch):
@@ -26,6 +28,8 @@ def sandbox(tmp_path, monkeypatch):
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     ui = repo / "apps/live-control-ui"
     ui.mkdir(parents=True)
+    (ui / "src").mkdir()
+    (ui / "src/owner.test.ts").touch()
     (ui / "package-lock.json").write_text('{"lockfileVersion":3}')
     (repo / ".gitignore").write_text("node_modules/\n")
     (repo / "ci").mkdir()
@@ -140,10 +144,13 @@ def sandbox(tmp_path, monkeypatch):
     return args, calls, fake
 
 
-def test_real_worktree_cleanup_and_source_bound_inventory(sandbox):
+@pytest.mark.parametrize("sparse", [False, True])
+def test_real_worktree_cleanup_and_source_bound_inventory(sandbox, sparse):
     args, calls, _ = sandbox
+    args.sparse_checkout = sparse
     assert local.verify(args) == 0
     report = local.validate(Path(args.output) / "evidence.json", args.sha, "discovered")
+    assert report["sparse_checkout"] is sparse
     assert (
         report["cleanup_complete"]
         and not report["source_dirty_before"]
@@ -275,6 +282,29 @@ def test_contract_drift_fails_closed_and_hosted_filters_preserved(sandbox):
         local.frontend_plan(catalog, "discovered")
 
 
+@pytest.mark.parametrize("suite", ["hosted", "discovered"])
+@pytest.mark.parametrize("order", [(1, 0, 2), (0, 2, 1)])
+def test_misordered_contract_is_rejected(sandbox, suite, order):
+    args, _, _ = sandbox
+    catalog = json.loads((Path(args.repo) / "ci/contracts.json").read_text())
+    contract = catalog["contracts"]["hosted-frontend"]
+    steps = contract["steps"]
+    contract["steps"] = [steps[index] for index in order]
+    with pytest.raises(ValueError, match="misordered"):
+        local.frontend_plan(catalog, suite)
+
+
+def test_frontend_selector_must_exist_in_pinned_tree(sandbox):
+    args, _, _ = sandbox
+    repo = Path(args.repo)
+    catalog = json.loads((repo / "ci/contracts.json").read_text())
+    step = catalog["contracts"]["hosted-frontend"]["steps"][1]
+    step["argv"][3] = "src/stale.test.ts"
+    (repo / "apps/live-control-ui/src/stale.test.ts").touch()
+    with pytest.raises(ValueError, match="missing pinned frontend test selector"):
+        local.frontend_plan(catalog, "hosted", repo=repo, sha=args.sha)
+
+
 def test_interrupted_command_kills_child_and_removes_worktree(sandbox, monkeypatch):
     args, _, _ = sandbox
 
@@ -375,6 +405,15 @@ def test_only_declared_hosted_name_filters_allow_unselected_skips(tmp_path, filt
     report = local.case_parity(expected, result, frontend, argv)
     assert report["collection_parity"] == filtered
     assert report["reported_unselected_skips"] == int(filtered)
+    assert report["selected_passed_cases"] == 1
+    assert report["selected_skipped_cases"] == 0
+    selected = result["testResults"][0]["assertionResults"][0]
+    selected["status"] = "skipped"
+    skipped = local.case_parity(expected, result, frontend, argv)
+    assert skipped["collection_parity"] == filtered
+    assert skipped["selected_passed_cases"] == 0
+    assert skipped["selected_skipped_cases"] == 1
+    selected["status"] = "passed"
     result["testResults"][0]["assertionResults"][1]["status"] = "passed"
     assert not local.case_parity(expected, result, frontend, argv)["collection_parity"]
 
@@ -703,3 +742,138 @@ def test_repo_subdirectory_cannot_hide_repository_local_allocation(sandbox, fiel
     setattr(args, field, str(repository / "ci"))
     with pytest.raises(ValueError, match="outside the source repository"):
         local.verify(args)
+
+
+@pytest.mark.parametrize("replace_fails", [False, True])
+def test_publish_evidence_keeps_old_report_until_replace(tmp_path, monkeypatch, replace_fails):
+    destination = tmp_path / "evidence.json"
+    destination.write_text('{"state": "old"}')
+    replace = Path.replace
+    new_report = {"state": "complete"}
+
+    def observe_replace(source, target):
+        assert source.parent == target.parent
+        assert json.loads(target.read_text()) == {"state": "old"}
+        assert json.loads(source.read_text()) == new_report
+        if replace_fails:
+            raise OSError("publication interrupted")
+        return replace(source, target)
+
+    monkeypatch.setattr(Path, "replace", observe_replace)
+    if replace_fails:
+        with pytest.raises(OSError, match="publication interrupted"):
+            local.publish_evidence(destination, new_report)
+        assert json.loads(destination.read_text()) == {"state": "old"}
+    else:
+        local.publish_evidence(destination, new_report)
+        assert json.loads(destination.read_text()) == new_report
+    assert list(tmp_path.iterdir()) == [destination]
+
+
+@pytest.mark.parametrize(
+    ("payload", "reason"),
+    [(None, "missing"), ("{", "invalid JSON"), ("{}", "unexpected report structure"),
+     ('{"testResults": null}', "unexpected report structure")],
+)
+def test_invalid_vitest_report_records_reason(sandbox, monkeypatch, payload, reason):
+    args, _, fake = sandbox
+
+    def command(argv, cwd, log, env):
+        result = fake(argv, cwd, log, env)
+        if "--reporter=json" in argv:
+            path = Path(next(arg.split("=", 1)[1] for arg in argv if arg.startswith("--outputFile=")))
+            if payload is None:
+                path.unlink()
+            else:
+                path.write_text(payload)
+        return result
+
+    monkeypatch.setattr(local, "command", command)
+    assert local.verify(args) == 1
+    evidence = Path(args.output) / "evidence.json"
+    step = json.loads(evidence.read_text())["tests"][0]
+    assert step["results_file"].endswith(".json")
+    assert step["results_error"] == reason
+    assert step["collection_parity"] is False
+    with pytest.raises(ValueError):
+        local.validate(evidence, args.sha, args.suite)
+
+
+@pytest.mark.parametrize("removal_fails", [False, True])
+def test_final_inspection_failure_still_attempts_removal(sandbox, monkeypatch, removal_fails):
+    args, _, fake = sandbox
+    original_git = local.git
+    build_ran = False
+
+    def command(argv, cwd, log, env):
+        nonlocal build_ran
+        result = fake(argv, cwd, log, env)
+        if Path(log).name == "build.log":
+            build_ran = True
+        return result
+
+    def git(path, *argv, **kwargs):
+        if build_ran and Path(path) != Path(args.repo) and argv == ("rev-parse", "HEAD"):
+            raise ValueError("final source inspection failed")
+        return original_git(path, *argv, **kwargs)
+
+    original_run = local.subprocess.run
+
+    def run(argv, *args, **kwargs):
+        if removal_fails and argv[3:5] == ["worktree", "remove"]:
+            raise ValueError("worktree removal failed")
+        return original_run(argv, *args, **kwargs)
+
+    monkeypatch.setattr(local.subprocess, "run", run)
+    monkeypatch.setattr(local, "command", command)
+    monkeypatch.setattr(local, "git", git)
+    assert local.verify(args) == 1
+    report = json.loads((Path(args.output) / "evidence.json").read_text())
+    assert report["source_inspection_error"] == "final source inspection failed"
+    assert report["error"] == (
+        "worktree removal failed" if removal_fails else "final source inspection failed"
+    )
+    assert report["cleanup_complete"] is not removal_fails
+    registrations = original_git(Path(args.repo), "worktree", "list", "--porcelain")
+    assert registrations.count("worktree ") == (2 if removal_fails else 1)
+
+
+def test_timeout_retains_step_receipt_and_cleans_worktree(sandbox, monkeypatch):
+    args, _, _ = sandbox
+    argv = [sys.executable, "-u", "-c", "import time; print('started'); time.sleep(60)"]
+    monkeypatch.setattr(local, "COMMAND_TIMEOUT_SECONDS", 0.25)
+    monkeypatch.setattr(
+        local, "command",
+        lambda _argv, cwd, log, env: REAL_COMMAND(argv, cwd, log, env),
+    )
+
+    assert local.verify(args) == 1
+    out = Path(args.output)
+    receipt = json.loads((out / "run-receipt.json").read_text())
+    assert receipt["cleanup_complete"]
+    assert receipt["timed_out_step"]["argv"] == argv
+    assert receipt["timed_out_step"]["timeout_seconds"] == 0.25
+    assert receipt["timed_out_step"]["elapsed_seconds"] >= 0.25
+    assert receipt["timed_out_step"]["exit_code"] == 1
+    assert receipt["timed_out_step"]["log"] == "install.log"
+    assert (out / "install.log").read_text() == "started\n"
+    assert "timed out" in receipt["error"]
+
+
+def test_validation_reads_each_evidence_artifact_once(sandbox, monkeypatch):
+    args, _, _ = sandbox
+    assert local.verify(args) == 0
+    out = Path(args.output)
+    report_path = out / "evidence.json"
+    artifacts = json.loads(report_path.read_text())["artifacts"]
+    reads = []
+    original_open = Path.open
+
+    def track_open(path, *args, **kwargs):
+        if path.parent == out and path.name in artifacts:
+            reads.append(path.name)
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", track_open)
+    local.validate(report_path, args.sha, "discovered")
+    assert sorted(reads) == sorted(artifacts)

@@ -152,7 +152,7 @@ def test_world_play_trash_preserves_history_replay_and_requires_explicit_restore
     assert trashed["revision"] == 2
     assert trashed["content_revision"] == 1
     assert list_trashed_world_play_sessions(world_id=WORLD)[0]["id"] == str(run_id)
-    assert get_world_play_run(Path("."), world_id=WORLD, run_id=str(run_id)).lifecycle_status == "trashed"
+    assert get_world_play_run(world_id=WORLD, run_id=str(run_id)).lifecycle_status == "trashed"
     assert get_world_play_active_run(world_id=WORLD) is None
     assert read(run_id).markdown == request.markdown
     assert read_command(run_id=str(run_id), world_id=WORLD, command_id=command_id) == receipt

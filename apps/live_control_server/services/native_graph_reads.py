@@ -16,7 +16,7 @@ from dungeonmind.contracts.vnext.source import EvidenceRefV3
 from application_state.agent_conversation.native_statement_input import digest
 from application_state.agent_conversation.native_plan_assertions import (
     NativePlanAssertionMatchV1, NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
-    NativePlanAssertionReadV1, NativeAssertionSpanV1, NativeGraphQueryV3, NativeGraphQueryV4, NativeObjectMatchV1, NativeAuthoredTargetV1,
+    NativePlanAssertionReadV1, NativeAssertionSpanV1, NativeAssertionPdfRegionV1, NativeGraphQueryV3, NativeGraphQueryV4, NativeObjectMatchV1, NativeAuthoredTargetV1,
 )
 from application_state.agent_conversation.native_plan_statements import (
     NativePlanQueryAuthorityV1, NativePlanQueryUnavailableV1, NativePlanQueryV1,
@@ -24,6 +24,7 @@ from application_state.agent_conversation.native_plan_statements import (
 )
 from . import source_statements as statements
 from .native_statement_answer_context import header, build_support, authority as descriptor_reference
+from .native_pdf_evidence import open_admitted_pdf_evidence
 from .managed_world_graph_projection import resolve_managed_world_binding
 from .world_graph_projection import WorldGraphProjectionServiceError
 
@@ -114,10 +115,11 @@ def _subject_labels(statement_id, paths, entities, campaign, *, labels=None):
     return ', '.join(sorted(set(subjects)))
 
 
-def _assertion_matches(entities, *, excluded_subjects, name_scope=None):
+def _assertion_matches(entities, *, excluded_subjects, name_scope=None, discovery_hops=None):
     """Only assertions returned by Core's scoped complete-entity reads; no body IO."""
     found = {}
     scoped_labels = {}
+    reached = {hop.to_node_id for hop in discovery_hops or ()}
     for entity_id, entity in entities.items():
         if not entity.found or entity.completeness.status != 'complete':
             continue
@@ -133,13 +135,23 @@ def _assertion_matches(entities, *, excluded_subjects, name_scope=None):
             labels = scoped_labels[scope]
             row = found.setdefault(assertion.assertion_id, [assertion, set(), labels[assertion.subject_entity_id]])
             row[1].add(entity_id)
+            if (discovery_hops is not None and len(discovery_hops) < 32
+                    and parsed.subject_entity_id not in entities and parsed.subject_entity_id not in reached
+                    and getattr(parsed.value, 'entity_id', None) == entity_id):
+                from application_state.agent_conversation.neighborhood_replay import NeighborhoodReplayHop
+
+                discovery_hops.append(NeighborhoodReplayHop(
+                    relationship_id=assertion.assertion_id, from_node_id=entity_id,
+                    to_node_id=assertion.subject_entity_id,
+                ))
+                reached.add(assertion.subject_entity_id)
     return tuple(NativePlanAssertionMatchV1(assertion_id=a.assertion_id,
         subject_entity_id=a.subject_entity_id, discovered_entity_ids=tuple(sorted(witnesses)),
         assertion_sha256=digest(a), label=f'{label} · {a.predicate}')
         for a, witnesses, label in sorted(found.values(), key=lambda row: row[0].assertion_id))
 
 
-def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campaign_id, read_entity):
+def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campaign_id, read_entity, discovery_hops=None):
     """Compose one catalog from actual scoped Core entities, without body IO."""
     gaps = []
     routes, entities = {}, {}
@@ -155,14 +167,15 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
         for a in obj.assertions:
             if (a.predicate == statements.mapping.ABOUT
                     and getattr(a.value, 'entity_id', None) == entity_id
-                    and a.subject_entity_id != entity_id):
+                and a.subject_entity_id != entity_id):
                 routes.setdefault(a.subject_entity_id, []).append((entity_id, [a.assertion_id]))
     matches = []
     scoped_labels = {}
     qualified_subjects = set()
     for statement_id, paths in routes.items():
         obj = entities.get(statement_id)
-        if obj is None:
+        followed_link = obj is None
+        if followed_link:
             obj = read_entity(revision_id, statement_id, pinned)
         if not obj.found or obj.completeness.status != 'complete':
             gaps.append('native_statement_entity_unavailable')
@@ -184,6 +197,13 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
         witness_ids = {a for _, ids in paths for a in ids}
         if not witness_ids <= own_ids:
             raise ValueError('Statement discovery links differ from admitted complete entity')
+        if followed_link and discovery_hops is not None and len(discovery_hops) < 32:
+            from application_state.agent_conversation.neighborhood_replay import NeighborhoodReplayHop
+
+            source_id, assertions = paths[0]
+            discovery_hops.append(NeighborhoodReplayHop(
+                relationship_id=assertions[0], from_node_id=source_id, to_node_id=statement_id,
+            ))
         logical = clause['logical_source']
         campaign = clause['campaign']
         if campaign not in scoped_labels:
@@ -197,7 +217,8 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
             label=(f"About {subjects} · " if subjects else "")
                 + f"{logical['object_id']} — {payload['episode']} ({clause['campaign']})"))
     return (tuple(matches), _assertion_matches(entities, excluded_subjects=qualified_subjects,
-            name_scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign_id),) if scope_mode=='campaign' else None),
+            name_scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign_id),) if scope_mode=='campaign' else None,
+            discovery_hops=discovery_hops),
         tuple(sorted(set(gaps))), entities)
 
 
@@ -293,9 +314,39 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         raise ValueError('Core search changed query authority')
     gaps = [] if result.completeness.status == 'complete' else ['native_search_partial']
     discovered = tuple(hit.entity.entity_id for hit in result.hits)
+    if scope_mode == 'campaign':
+        from apps.live_control_server.services.native_recap_preparation import TIMELINE_PREDICATE
+
+        campaign_scope = [(statements.CAMPAIGN_SCOPE_AXIS, campaign_id)]
+
+        def belongs_to_campaign(assertion):
+            return [(binding.axis, binding.value) for binding in assertion.metadata.scope] == campaign_scope
+
+        timeline_events = []
+        for entity_id in discovered:
+            entity = read_entity(revision_id, entity_id, pinned)
+            if not entity.found or entity.completeness.status != 'complete':
+                continue
+            if not any(a.subject_entity_id == entity_id
+                       and a.predicate == 'dnd5e:classification'
+                       and getattr(a.value, 'term', None) == 'dungeonbuddy:campaign'
+                       and belongs_to_campaign(a)
+                       for a in entity.assertions):
+                continue
+            timeline_events.extend(
+                a.subject_entity_id for a in entity.assertions
+                if a.predicate == TIMELINE_PREDICATE
+                and getattr(a.value, 'entity_id', None) == entity_id
+                and belongs_to_campaign(a)
+                and a.metadata.claim_mode == 'dungeonbuddy.claim:observed_event'
+                and getattr(a.metadata.temporal_scope, 'schema_term', None)
+                == 'dungeonbuddy.time:fictional_anchor_v1'
+            )
+        discovered = tuple(dict.fromkeys((*discovered, *timeline_events)))
+    discovery_hops = []
     matches, assertion_matches, entity_gaps, _entities = _entity_catalog(discovered, pinned,
         space=space, revision_id=revision_id, scope_mode=scope_mode, campaign_id=campaign_id,
-        read_entity=read_entity)
+        read_entity=read_entity, discovery_hops=discovery_hops)
     gaps.extend(entity_gaps)
     targets = []
     if authored_references is not None:
@@ -321,7 +372,7 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         assertion_matches=assertion_matches,
         search_result_sha256=result.result_digest, discovered_entity_ids=discovered,
         matches=tuple(matches), status='partial' if gaps else 'complete', gap_codes=tuple(sorted(set(gaps))),
-        authored_targets=tuple(targets), object_matches=tuple(objects))
+        authored_targets=tuple(targets), object_matches=tuple(objects), discovery_hops=tuple(discovery_hops))
     if resolve(managed_world_id) != bound:
         raise ValueError('Active Graph binding changed during native query')
     return QueryContext(query, bound, pinned, repo, principal, resolve), query
@@ -449,6 +500,21 @@ def _read_assertions(context, identities, *, matches=None):
         spans = []
         for ref in supports:
             span = verified_spans.get(ref.evidence_ref_id)
+            if span is None and ref.evidence_ref_id.startswith('pdf-region:'):
+                try:
+                    region, _ = open_admitted_pdf_evidence(
+                        ref, space_id=authority.native_world_id,
+                        load=context.repository.get_native_pdf_source,
+                    )
+                except ValueError:
+                    break
+                span = NativeAssertionPdfRegionV1(
+                    evidence_ref_id=ref.evidence_ref_id,
+                    source_artifact_id=ref.source_artifact_id,
+                    source_revision_id=region.source_revision_id,
+                    region=region,
+                )
+                verified_spans[ref.evidence_ref_id] = span
             if span is None:
                 opened = open_admitted_native_text(access, ref.evidence_ref_id)
                 if opened.status != 'available':
@@ -473,6 +539,8 @@ def reopen_context(query, principal):
     """Current access to a retained query's original R, without re-running search."""
     _require_gm(principal)
     authority = query.authority
+    if getattr(principal, 'managed_world_id', authority.managed_world_id) != authority.managed_world_id:
+        raise ValueError('Historical native query World differs from principal World')
     bound = resolve_managed_world_binding(authority.managed_world_id)
     if (bound.native_world_id, bound.binding_version) != (authority.native_world_id, authority.binding_version):
         raise ValueError('Historical native query binding changed')

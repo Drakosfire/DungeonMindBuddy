@@ -2,9 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   activateStatblockRetrieval,
-  addGeneratedStatblockToCombat,
-  advanceCombatTurn,
-  applyCombatHpDelta,
   commitTiptapMarkdownWrite,
   commitWorldRunbookMarkdownWrite,
   admitNativeWorldSource,
@@ -15,10 +12,13 @@ import {
   getWorldOwnedRunbookCommittedRevision,
   getWorldOwnedRunbookSnapshot,
   listWorldOwnedPlans,
+  listWorldPlanInventoryPage,
+  listWorkspacePageInventory,
   listWorldOwnedRunbooks,
   createWorkspaceDocument,
   DEFAULT_PLANNING_MANIFEST_PATH,
   getArtifact,
+  getSurfaceSessionViews,
   getPlayActiveRun,
   getWorldPlayActiveRun,
   getBuildSourceNavigation,
@@ -55,7 +55,6 @@ import {
   postWorldGraphCompleteObject,
   postWorldGraphSourceAnchorRead,
   setNativeGraphAccessToken,
-  getCurrentCombat,
   getGeneratedStatblock,
   getStatblockWorkbenchDraft,
   getStatblockWorkbenchSample,
@@ -74,13 +73,10 @@ import {
   prepareThreatIdentityCandidates,
   listGeneratedStatblocks,
   listStatblockWorkbenchDrafts,
-  patchCombatEntity,
   postCommand,
   postCitationSource,
   postStatblockWorkbenchCommand,
   prepareTiptapMarkdownWrite,
-  setCombatActiveTurn,
-  sortCombatInitiative,
   storeStatblockWorkbenchDraft,
   verifyStatblockRetrieval,
 } from "./liveApi";
@@ -604,7 +600,7 @@ describe("local operator API destination policy", () => {
     const api = await importLiveApiForBaseUrl("");
     api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }),
+      mockJsonResponse({ schema: "dmb_agent_conversation_history_v1", turns: [] }),
     );
 
     await api.getWorldAgentConversationHistory("world-a", { limit: 50 });
@@ -631,7 +627,7 @@ describe("local operator API destination policy", () => {
     const api = await importLiveApiForBaseUrl("");
     api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema: "dmb_agent_conversation_history_v3" }),
+      mockJsonResponse({ schema: "dmb_agent_conversation_history_v3", turns: [] }),
     );
 
     await api.getWorldAgentConversationHistory("world-a", { limit: 25, includeTurnCorrelation: true });
@@ -676,7 +672,7 @@ describe("local operator API destination policy", () => {
     api.setNativeGraphAccessToken(null);
     const fetchSpy = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "test-csrf" }))
-      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }));
+      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1", turns: [] }));
 
     await api.getWorldAgentConversationHistory("world-a", { limit: 50 });
 
@@ -690,7 +686,7 @@ describe("local operator API destination policy", () => {
     const api = await importLiveApiForBaseUrl("");
     const fetchSpy = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "reload-csrf" }))
-      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }))
+      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1", turns: [] }))
       .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_new_conversation_response_v1" }))
       .mockResolvedValueOnce(Response.json({ status: "revoked" }))
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
@@ -797,7 +793,7 @@ describe("local operator API destination policy", () => {
       .mockReturnValueOnce(oldResponse)
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
       .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new-csrf" }))
-      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }));
+      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1", turns: [] }));
 
     await api.ensureNativeGraphSession();
     const oldRequest = api.getWorldAgentConversationHistory("world-a");
@@ -1642,7 +1638,7 @@ describe("liveApi artifact/capability helpers", () => {
         session_id: "session-1",
         source_kind: "gold_fixture",
         gold_fixture_id: "graph-memory:session-1-candidate-graph-gold:v0",
-        gold_fixture_relpath: "evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json",
+        gold_fixture_relpath: "evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/candidate_graph_gold.json",
         focus: {},
         node_views: {},
         mentions: [],
@@ -2064,63 +2060,6 @@ describe("liveApi artifact/capability helpers", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/statblocks/view/generated/statblock%3Adraft%20test");
-  });
-
-  it("getCurrentCombat calls expected current combat endpoint", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema: "dmb_combat_encounter_state_v1", entities: [] }),
-    );
-
-    await getCurrentCombat();
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe("/api/live/combat/current");
-  });
-
-  it("combat roster mutation helpers call expected endpoints", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({
-        schema_version: "dmb_combat_mutation_v1",
-        encounter: { entities: [] },
-        diagnostics: [],
-      }),
-    );
-
-    await patchCombatEntity("entity:one", { notes: "bloodied" });
-    await applyCombatHpDelta("entity:one", { action: "damage", amount: 7 });
-    await sortCombatInitiative();
-    await setCombatActiveTurn({ entity_id: "entity:one" });
-    await advanceCombatTurn({ direction: "previous" });
-
-    expect(fetchSpy).toHaveBeenCalledTimes(5);
-    expect(String(fetchSpy.mock.calls[0][0])).toBe(
-      "/api/live/combat/current/entities/entity%3Aone",
-    );
-    expect(fetchSpy.mock.calls[0][1]?.method).toBe("PATCH");
-    expect(String(fetchSpy.mock.calls[1][0])).toBe(
-      "/api/live/combat/current/entities/entity%3Aone/hp-delta",
-    );
-    expect(fetchSpy.mock.calls[1][1]?.method).toBe("POST");
-    expect(String(fetchSpy.mock.calls[2][0])).toBe("/api/live/combat/current/sort-initiative");
-    expect(String(fetchSpy.mock.calls[3][0])).toBe("/api/live/combat/current/active-turn");
-    expect(String(fetchSpy.mock.calls[4][0])).toBe("/api/live/combat/current/turn");
-  });
-
-  it("addGeneratedStatblockToCombat posts encoded add request", async () => {
-    const request = { team: "enemy" as const, count: 2, initiative: 17 };
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema_version: "dmb_add_generated_statblock_to_combat_v1" }),
-    );
-
-    await addGeneratedStatblockToCombat("statblock:draft test", request);
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe("/api/live/statblocks/view/generated/statblock%3Adraft%20test/combat/add");
-    expect(init?.method).toBe("POST");
-    expect(init?.headers).toEqual({ "Content-Type": "application/json" });
-    expect(JSON.parse(String(init?.body))).toEqual(request);
   });
 
   it("acceptThreatDraftMechanics posts to mechanics:accept", async () => {
@@ -3289,8 +3228,9 @@ describe("bounded local cookie recovery", () => {
       if (String(url).endsWith("/new")) {
         const id = JSON.parse(String(init?.body)).command_id;
         if (!businessCommands.has(id)) { businessCommands.add(id); commandWork += 1; }
+        return Response.json({ schema: "synthetic-success" });
       }
-      return Response.json({ schema: "synthetic-success" });
+      return Response.json({ schema: "dmb_agent_conversation_history_v3", turns: [] });
     });
     await api.ensureNativeGraphSession();
     const command = { schema: "dmb_agent_new_conversation_request_v1" as const, command_id: "frozen-command", expected_pointer_revision: 7, expected_active_conversation_id: "prior-conversation" };
@@ -3482,4 +3422,58 @@ it.each(['prepare','confirm'])('refuses non-loopback first-World %s before sendi
     {method:'POST',body:'{}'})).rejects.toThrow('loopback');
   expect(fetch).not.toHaveBeenCalled();
   vi.restoreAllMocks();vi.unstubAllEnvs();
+});
+
+it("forwards exact World Plan cursor timestamps and cancellation", async () => {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({
+    world_id: "world one", records: [], next_before_updated_at: null, next_before_document_id: null,
+  }));
+  const controller = new AbortController();
+  const updatedAt = "2026-01-01T00:00:00.123456Z";
+  await listWorldPlanInventoryPage("world one", { updatedAt, documentId: "cursor-id" }, controller.signal);
+  const url = new URL(String(fetchSpy.mock.calls[0][0]), "http://localhost");
+  expect(url.pathname).toBe("/api/live/workspace-documents/world-plans/page");
+  expect(url.searchParams.get("world_id")).toBe("world one");
+  expect(url.searchParams.get("before_updated_at")).toBe(updatedAt);
+  expect(url.searchParams.get("before_document_id")).toBe("cursor-id");
+  expect(fetchSpy.mock.calls[0][1]?.signal).toBe(controller.signal);
+  fetchSpy.mockRestore();
+});
+
+it("forwards authored-page scope, cursor and cancellation", async () => {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ records: [] }));
+  const controller = new AbortController();
+  const updatedAt = "2026-01-01T00:00:00.123456Z";
+  await listWorkspacePageInventory(
+    { worldId: "world one", campaignId: "campaign one", status: "discarded" },
+    { updatedAt, documentId: "cursor-id" },
+    controller.signal,
+  );
+  const url = new URL(String(fetchSpy.mock.calls[0][0]), "http://localhost");
+  expect(url.pathname).toBe("/api/live/workspace-documents/pages/inventory");
+  expect(Object.fromEntries(url.searchParams)).toEqual({
+    world_id: "world one", campaign_id: "campaign one", status: "discarded",
+    before_updated_at: updatedAt, before_document_id: "cursor-id",
+  });
+  expect(fetchSpy.mock.calls[0][1]?.signal).toBe(controller.signal);
+  fetchSpy.mockRestore();
+});
+
+it.each([true, false])("loads surface views with combined response supported: %s", async (supported) => {
+  const surface = { catalog: [], layout: {}, state: {} };
+  const views = { events: [{ id: "event" }], jobs: [], plan_view: { timeline: [] } };
+  const fetch = vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    if (path.endsWith("/surface?include_session_views=true")) {
+      return Response.json(supported ? { ...surface, ...views } : surface);
+    }
+    if (path.endsWith("/events")) return Response.json({ events: views.events });
+    if (path.endsWith("/jobs")) return Response.json({ jobs: views.jobs });
+    if (path.endsWith("/plan-view")) return Response.json(views.plan_view);
+    throw new Error("Unexpected request: " + path);
+  });
+  vi.stubGlobal("fetch", fetch);
+
+  expect(await getSurfaceSessionViews()).toEqual({ ...surface, ...views });
+  expect(fetch).toHaveBeenCalledTimes(supported ? 1 : 4);
 });

@@ -1,0 +1,140 @@
+# Buddy actions and authoring benchmark
+
+Use ordinary Plan turns in isolated state. These cases test destination and
+side effects, in addition to whether Buddy produces a useful response. Use the
+existing Plan authoring contract and retained APP turn evidence. Keep the
+assessment local.
+
+## Plan authoring and conversation-only cohort
+
+| Case | Request and starting state | Required result |
+| --- | --- | --- |
+| PA01 — Sheep discussion | Replay exact turn `65f25721-cb00-4041-95a2-ecb57fedfbd7` from the private capture `experiments/plan-discussion-routing-20261027`. Restore the exact six prior dialogue messages in order, ending in the prior writing request, with the original Plan, draft and placement catalogue. | Answer in conversation. Zero page proposals, write reservations, insertion attempts or page mutations. The original `write_current_page/before:6` outcome fails even though dismissal restored the page. |
+| PA02 — explicit page write | Use the neighboring retained Sheep writing control from the same handoff. Restore its own history and destination. | Stage exactly one editable proposal at the requested `before:6` boundary. Leave the saved page unchanged until explicit Save. Dismissal restores the draft. Preserve the original provider-outcome-unknown attempt separately from the later successful retry. |
+| PA03 — editable drafts in conversation | From a saved Plan with an eligible page target, ask: “Draft two versions here in the conversation so I can edit and discuss them. Keep both here for review.” Give the turn prior page-writing history. | Present two separately reviewable drafts in the conversation. Verify they can be edited there. Zero page proposals, write reservations, insertion attempts or page mutations. If inline editing is unavailable, report that capability gap separately from routing and page integrity. |
+
+PA01 and PA02 use the [retained Sheep evidence](../Docs/Plans/HANDOFF-PLAN-current-request-intent.md#current-evidence-and-diagnosis).
+PA03 is a new contrast. The historical capture is private. Resolve the exact
+turn and history locally, record the fixture digest, and mark results
+unqualified if any original input is missing. A paraphrase or conversation
+without the preceding writing request cannot qualify the historical case.
+
+## Assessment
+
+Take before and after snapshots of the draft and saved Plan. Inspect the
+complete turn event sequence, proposal journal and UI surface **before any
+dismissal or cleanup**. Record operation selection, reservation, proposal
+creation, render destination, draft and saved-page changes, and reopen result.
+A transient or subsequently dismissed page proposal fails either
+conversation-only case. Missing action telemetry makes the negative result
+unproven. For the positive control, inspect the staged placement first and
+then record the result of Dismiss separately.
+
+Score conversational fulfillment separately from side-effect integrity. A
+reply that omits the requested drafts can pass the no-write check but fails
+fulfillment. Retain failed attempts with their original outcomes. Use the
+[Plan authoring owner tests](../tests/test_plan_jev_authoring.py) for
+provider-free boundary checks and ordinary captured turns for routing and
+surface evidence.
+
+
+## Build and Ingest workflow cohort
+
+| Case | Difficulty | Attempt to replay | What passes |
+| --- | --- | --- | --- |
+| AW01 | Basic | Edit one row on the Edge page using the retained provider-free save-and-reopen case. | Only the intended row changes. Adjacent rows stay intact and a fresh reopen shows the edit. This is the control for observing a durable write. |
+| AW02 | Basic | Review and correct `Karesmine` → `Karsemine` and `Baergom` → `Baergrom` before C2S30 extraction. | Show each occurrence in context. Apply accepted corrections to the effective input, preserve the original source, and verify the extractor receives the corrected input. |
+| AW03 | Medium | “Create six NPCs for Edge, with jobs and a distinguishing detail, and add them as a table.” | Stage a six-row table with the requested fields. Insert it once at the intended location after acceptance. Save and reopen preserve the table and pre-existing page content. |
+| AW04 | Medium | Correct the Dustwalker possessive using the sentence context from C2S30 name review. | Show the surrounding prose and apply the possessive only to the reviewed occurrence. A legitimate plural elsewhere survives. |
+| AW05 | Hard | Resolve Karsemine’s ambiguous World identity before merging C2S30. | Make competing identities inspectable. The reviewed merge reuses the selected existing identity, creates no duplicate, and its claims reopen to the exact recap passages. |
+| AW06 | Hard | Refresh a previously published session after re-ingestion, using the C2S30 replacement request. | Graph readback reflects the reviewed replacement. Authored World material survives, superseded claims are absent from the current projection, and the prior revision remains inspectable. Qualify replacement capability before scheduling this case. |
+| AW07 | Challenging | Recover the exact C2S30 extraction request after the source-support error, then finish reviewed publication if recovery succeeds. | Bind the action to the retained extraction and verified source support. On verified recovery, publish once through review and match the receipt to Graph readback. If recovery fails, identify the missing prerequisite and leave the Graph unchanged. Score that outcome as safe handling, with publication still unproven. |
+| AW08 | Impossible on the pinned fixture | Attempt the same recovery and publication with both the exact request and equivalent verification evidence absent. | Identify the missing prerequisite, preserve the reviewed candidate, and produce neither a Graph mutation nor a success receipt. A fresh reopen shows the same candidate and its blocked state. |
+
+AW03 is pinned to the explicit operator request in the
+[Build Compose handoff](../Docs/Plans/HANDOFF-AGENT-build-compose-insertion.md#agent--compose-into-the-saved-build-page).
+AW01 reuses the earlier Edge control. AW02 and AW04–AW07 come from the C2S30
+dogfood. AW08 is a controlled missing-evidence variant. Before replay, bind
+each case to its exact isolated starting state and retained evidence. Record
+missing inputs as unqualified. For AW04, verify the plural control exists
+before grading it and identify any added control as synthetic.
+
+Score target selection, action correctness, persistence and protected-state
+integrity separately. Retain the effective input, review decisions, action
+events and receipts when applicable. Verify state through fresh reopen or
+Graph readback. For AW07 and AW08, inspect the action history as well as the
+final state so a transient mutation cannot pass the blocked outcome.
+
+## AW09 — Corrupted Edge Meat Mind variant (challenging)
+
+Operator request: “Use the existing Meat Mind statblock and the Corrupted Edge
+material to make a distinct Meat Mind variant for Edge. It is neutral and
+willing to negotiate. Show me the statblock for review before creating its
+page. Then reference it from Corrupted Edge and make it available for combat
+and agent lookup.”
+
+1. **Retrieve.** Pin the base statblock identity and revision and the Corrupted
+   Edge page revision. Reopen the passages that support the variant's demeanor
+   and any other claimed traits. If the base or local context cannot be
+   verified, surface the missing input and hold creation. Session 29 prep is a
+   lead for qualification. It explicitly lacks a bound authoritative Meat
+   Mind statblock and cannot establish which mechanics to inherit.
+2. **Propose in conversation.** Render a complete Markdown statblock for review.
+   A future Markdown preview object may present the same proposal. Show which
+   mechanics were inherited, what changes are proposed, and which traits are
+   grounded in Edge. Neutral and willing to negotiate must be explicit. Any
+   invented mechanics or behavior must be identifiable as proposed.
+3. **Confirm and save.** Verify that the preview creates no page, link, or
+   combat entry before confirmation. After approval, save the reviewed
+   variant under its own identity and page. Add a resolved reference from
+   Corrupted Edge to that page. Reopen both and compare the saved variant with
+   the confirmed proposal. A repeat of the same confirmed action must leave
+   one variant page and one reference. Preserve the base statblock and
+   unrelated Edge content.
+4. **Reuse.** In an isolated encounter, load the variant through ordinary combat
+   admission and verify that its mechanical fields match the saved variant.
+   In a fresh agent turn, resolve the variant from Corrupted Edge and verify
+   that the agent can cite its page and distinguish it from the base Meat
+   Mind. Score combat load and agent lookup independently.
+
+Qualify the source pair, the governed authoring path, and both reuse paths
+before calling this case executable. Retain the retrieval trace, preview,
+confirmation, save receipts, and independent readbacks. Score the first
+failed boundary and any partial state. Markdown in conversation is sufficient
+for the review step.
+
+## Checkpoint storage
+
+Use the benchmark artifact owner's `action_checkpoint` for serial capture and
+retained observation. Pass a JSON binding containing the exact build and
+isolated environment, fixture and stage inputs, and previous checkpoint digest.
+A matching binding reuses retained evidence. A changed binding selects a new
+record and a changed predecessor digest invalidates downstream reuse. Keep
+failed observations and unknown action outcomes. Use the product owner's
+receipt and idempotency checks before attempting a mutation again. A missing
+checkpoint alone cannot establish that an action was never applied.
+
+Run offline conversation-only scoring with
+`python -m evals.buddy_benchmark.workflow action-report --manifest MANIFEST --output DIR`.
+The manifest schema is `dmb_aw_assessment_v1`. Each case has a unique `id` and
+an `observation` pin with `path` and `sha256`. The pinned JSON supplies
+`events`, `before`, `after`, `fulfilled`, and `journal_complete`. Use null for
+unavailable observations. A no-action pass requires `journal_complete: true`.
+An observed forbidden effect fails even in a partial journal. The command scores
+supplied observations only.
+
+Set case `kind` to `confirmed_action` for a reviewed mutation. Supply
+`before_confirmation` effects, ordered `mutations` and `expected_mutations`,
+and independently assessed `reopened` and `protected_state_changed` flags.
+For `blocked_action`, supply `mutations`, `success_receipts`,
+`missing_prerequisite`, and `candidate_preserved`. Use null when evidence is
+unavailable. The result reports each check separately.
+
+
+To include runtime measurements, pin an ordinary HTTP capture as
+`turn_capture` (path and SHA-256) and supply the expected `turn_id` on the same
+case. The harness verifies the response and trace turn IDs and reports duration,
+phase timings, tokens, call count and reported cost independently of the action
+verdict. A partial usage status marks the token count as a subtotal and gives
+the number of calls that reported usage. A null cost means the provider price is unavailable. Operator
+interventions remain unknown until observed separately.

@@ -74,14 +74,24 @@ def test_same_node_id_within_scope_is_deduped():
 
 
 def test_same_label_across_scopes_is_not_deduped():
-    response = resolve_existing_object_candidates(_request(query="Caelynn"))
+    response = resolve_existing_object_candidates(_request(
+        query="Caelynn",
+        node_views={
+            "recap:caelynn": {
+                "node_id": "recap:caelynn",
+                "label": "Caelynn",
+                "kind": "character",
+                "source_domains": ["recap"],
+            },
+        },
+    ))
     scopes = {
         candidate.graph_scope
         for candidate in response.candidates
         if candidate.label.lower() == "caelynn"
     }
     assert GraphObjectCandidateScope.party_pc in scopes
-    assert len(scopes) >= 2
+    assert GraphObjectCandidateScope.current_recap_projection in scopes
 
 
 def test_projection_node_views_keep_authored_nodes_out_of_current_recap_scope():

@@ -81,7 +81,7 @@ def _registered_publication_binding(resolved):
 
 def _load_registered_publication_binding(resolved):
     root = live_config.repo_root()
-    artifact = get_source_artifact(root, resolved.source_artifact_id)
+    artifact = get_source_artifact(resolved.source_artifact_id)
     if (not artifact.workspace_document_id or not artifact.workspace_document_revision
             or not artifact.world_id or artifact.world_id != resolved.world_id
             or resolved.source_domain != "worldbuilding" or resolved.session_id
@@ -118,7 +118,7 @@ def _prepare_source_admission(resolved, binding, *, expected_head_revision_id):
     from apps.live_control_server.ports.world_graph_source_admission_access import (
         get_world_graph_source_admission_authority,
     )
-    artifact = get_source_artifact(live_config.repo_root(), resolved.source_artifact_id)
+    artifact = get_source_artifact(resolved.source_artifact_id)
     if artifact.campaign_id not in (None, "", binding.managed_world_id):
         raise ExtractPromoteError("Build source has genuine campaign ownership",
                                  code="worldbuilding_source_binding_changed", status_code=409)

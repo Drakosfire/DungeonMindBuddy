@@ -80,7 +80,7 @@ from src.agent.planner import (  # noqa: E402
 )
 from src.agent.planner_cache import load_or_build_planner_instructions  # noqa: E402
 from src.agent.synthesis import _load_api_key  # noqa: E402
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
+from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 
 _SLICE_DIR = Path(__file__).resolve().parent
 _GOLD_SCENARIO = _SLICE_DIR / "gold" / "timeline_pass_session20.json"

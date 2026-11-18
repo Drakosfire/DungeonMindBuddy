@@ -75,7 +75,7 @@ def test_replay_and_recorded_decision_survive_all_files_removed(monkeypatch, tmp
             reviewer_id="synthetic:test-operator", review_decision_ref="synthetic:reviewed-description"))
     accepted = assess_recap_semantics(decided, parent=parent, source_revision_id=basis.source_revision_sha256, root=tmp_path)
     assert accepted.accepted and accepted.basis_sha256 == assessment.basis_sha256
-    assert registry.get_extraction_run(tmp_path, parent.run_id) == parent
+    assert registry.get_extraction_run(parent.run_id) == parent
 
 
 @pytest.mark.parametrize("owner", ["parent", "child"])

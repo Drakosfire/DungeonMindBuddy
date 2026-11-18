@@ -13,20 +13,20 @@ from evals.graph_memory_layer.session_23_candidate_graph_gold_fixture import (
 from evals.graph_memory_layer.session_23_recap_ingest_fixture import (
     build_source_span_artifacts as default_build_source_span_artifacts,
 )
-from src.graph_memory.candidate_graph_preview import (
+from graph_memory.candidate_graph_preview import (
     CANDIDATE_GRAPH_PREVIEW_SCHEMA,
     CANDIDATE_GRAPH_PREVIEW_VERSION,
     NODE_TYPES,
     candidate_graph_preview_from_dict,
     validate_candidate_graph_preview,
 )
-from src.graph_memory.anchor_quotes import (
+from graph_memory.anchor_quotes import (
     anchor_quote_matches_to_dicts,
     coerce_anchor_quotes,
     find_anchor_quote_matches,
     quote_found_in_paragraph,
 )
-from src.graph_memory.source_span import SourceSpanRef, resolve_many_source_span_refs
+from graph_memory.source_span import SourceSpanRef, resolve_many_source_span_refs
 
 ENVELOPE_SCHEMA = "dmb_live_extractor_candidate_envelope_v0"
 ENVELOPE_VERSION = "0.1"

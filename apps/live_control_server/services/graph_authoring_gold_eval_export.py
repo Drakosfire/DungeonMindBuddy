@@ -31,7 +31,7 @@ from apps.live_control_server.models.graph_authoring_overlay import (
 from apps.live_control_server.services.graph_authoring_overlay_store import (
     GraphAuthoringOverlayStore,
 )
-from src.live_play.live_store import write_json
+from live_store import write_json
 
 AUTHORED_GRAPH_GOLD_EVAL_EXPORT_SCHEMA = "dmb.authored_graph_gold_eval_export.v1"
 AUTHORED_GRAPH_GOLD_EVAL_EXPORT_VERSION = "0.1"

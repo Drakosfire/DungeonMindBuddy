@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from src.ingestion.entity_extractor import ExtractedEntity
+from ingestion.entity_extractor import ExtractedEntity
 
 
 class EventRecord(BaseModel):

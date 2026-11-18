@@ -1,3 +1,5 @@
+import { parseMarkdownAst } from "../tiptap/markdown/parseMarkdownAst";
+import { stripLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import { useMemo, useRef } from "react";
 import { markdownDocumentHeadings } from "../markdownReader/MarkdownDocumentOutline";
 import { MarkdownDocumentReader } from "../markdownReader/MarkdownDocumentReader";
@@ -59,7 +61,8 @@ export function BuildSourceReader({
   navigationTarget = { status: "none" },
 }: BuildSourceReaderProps) {
   const outlineRef = useRef<HTMLDetailsElement>(null);
-  const outline = useMemo(() => markdownDocumentHeadings(markdown), [markdown]);
+  const parsedBody = useMemo(() => parseMarkdownAst(stripLeadingYamlFrontmatter(markdown).markdown), [markdown]);
+  const outline = useMemo(() => markdownDocumentHeadings(markdown, parsedBody), [markdown, parsedBody]);
   const minimumDepth = Math.min(...outline.map(heading => heading.depth));
   const statusMessage = navigationStatusMessage(navigationTarget);
   const canPassHighlight =
@@ -129,7 +132,7 @@ export function BuildSourceReader({
           </nav>
         </details>
       ) : null}
-      <MarkdownDocumentReader markdown={markdown} sourceLineTarget={sourceLineTarget} />
+      <MarkdownDocumentReader markdown={markdown} parsedBody={parsedBody} sourceLineTarget={sourceLineTarget} />
     </article>
   );
 }

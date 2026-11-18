@@ -9,9 +9,10 @@ interface HostedAuthContextValue {
   readonly refreshWarning: boolean;
   /** Presentation scope only. The server remains the owner/access authority. */
   readonly subject: string | null;
+  readonly displayName: string | null;
 }
 
-const HostedAuthContext = createContext<HostedAuthContextValue>({ status: "local_operator", refreshWarning: false, subject: null });
+const HostedAuthContext = createContext<HostedAuthContextValue>({ status: "local_operator", refreshWarning: false, subject: null, displayName: null });
 
 type HostedAuthGateProps = {
   children: ReactNode;
@@ -36,18 +37,18 @@ export function dungeonMindLoginHref(locationHref: string): string {
 }
 
 export function HostedAuthGate({ children, enabled, allowSignedOutChildren = false }: HostedAuthGateProps) {
-  const [session, setSession] = useState<{ status: HostedAuthStatus; subject: string | null }>({
-    status: enabled ? "checking" : "local_operator", subject: null,
+  const [session, setSession] = useState<{ status: HostedAuthStatus; subject: string | null; displayName: string | null }>({
+    status: enabled ? "checking" : "local_operator", subject: null, displayName: null,
   });
-  const { status, subject } = enabled ? session : { status: "local_operator" as const, subject: null };
+  const { status, subject, displayName } = enabled ? session : { status: "local_operator" as const, subject: null, displayName: null };
   const requestSequence = useRef(0);
 
   const refreshSession = useCallback(async () => {
     if (!enabled) return;
     const sequence = ++requestSequence.current;
-    const accept = (nextStatus: HostedAuthStatus, nextSubject: string | null = null) => {
+    const accept = (nextStatus: HostedAuthStatus, nextSubject: string | null = null, nextDisplayName: string | null = null) => {
       invalidateHostedGraphAccess(nextSubject);
-      setSession({ status: nextStatus, subject: nextSubject });
+      setSession({ status: nextStatus, subject: nextSubject, displayName: nextDisplayName });
     };
     try {
       const response = await fetch(SESSION_PATH, {
@@ -63,11 +64,12 @@ export function HostedAuthGate({ children, enabled, allowSignedOutChildren = fal
         return;
       }
       if (!response.ok) throw new Error("Session status is unavailable");
-      const payload = await response.json() as { status?: unknown; subject?: unknown };
+      const payload = await response.json() as { status?: unknown; subject?: unknown; display_name?: unknown };
       if (sequence !== requestSequence.current) return;
       if (payload.status === "authenticated" && typeof payload.subject === "string"
         && payload.subject.length > 0 && payload.subject === payload.subject.trim()) {
-        accept("authenticated", payload.subject);
+        accept("authenticated", payload.subject,
+          typeof payload.display_name === "string" ? payload.display_name.trim() || null : null);
       } else if (payload.status === "local_operator") {
         accept("local_operator");
       } else if (payload.status === "signed_out") {
@@ -101,7 +103,7 @@ export function HostedAuthGate({ children, enabled, allowSignedOutChildren = fal
     return (
       <HostedAuthContext.Provider
         key={JSON.stringify([status, subject])}
-        value={{ status, subject, refreshWarning: false }}
+        value={{ status, subject, displayName, refreshWarning: false }}
       >
         {children}
       </HostedAuthContext.Provider>

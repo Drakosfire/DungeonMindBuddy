@@ -1,3 +1,7 @@
+export type SavedStatblockPdfSources = {
+  scope: import('./nativeGraphInspection').InspectionPin;
+  support: { assertion_id: string; evidence_ref_id: string }[];
+};
 import {readSavedCitationPreview,type SavedCitationPreview} from './savedCitationPreview';
 import type {AuthoredReferenceInput} from './types';
 import {isAuthoredReferences} from '../agentInteraction/authoredGraphReferences';
@@ -22,26 +26,69 @@ function summary(value:any,world:string):ConversationSummary{
   ||!Number.isInteger(value.turn_count)||value.turn_count<0||!Number.isFinite(Date.parse(value.created_at))||!Number.isFinite(Date.parse(value.updated_at)))throw new Error('Conversation name has a different owner or invalid metadata.');
  return value;
 }
-export async function listConversations(world:string,status:'all'|'archived'|'trashed',before?:string){
+export async function listConversations(world:string,status:'all'|'archived'|'trashed',before?:string,signal?:AbortSignal){
  const q=new URLSearchParams({status,limit:'25'});if(before)q.set('before',before);
- const value=await read(path(world)+'?'+q);
+ const value=await read(path(world)+'?'+q,{signal});
  if(value.schema!=='dmb_conversation_library_v1'||value.world_id!==world||value.status!==status||!Array.isArray(value.items)||value.items.length>25||!(value.next_before===null||uuid(value.next_before)))throw new Error('Conversation list differs from this World.');
  value.items.forEach((item:any)=>summary(item,world));return value as LibraryPage;
 }
-export async function readConversationName(world:string,id:string){const value=summary(await read(path(world)+'/'+encodeURIComponent(id)+'/name'),world);if(value.conversation_id!==id)throw new Error('Conversation name differs from the selection.');return value;}
+export async function readConversationName(world:string,id:string,signal?:AbortSignal){const value=summary(await read(path(world)+'/'+encodeURIComponent(id)+'/name',{signal}),world);if(value.conversation_id!==id)throw new Error('Conversation name differs from the selection.');return value;}
 export async function renameConversation(world:string,id:string,title:string,expected_revision:number){
  const value=summary(await read(path(world)+'/'+encodeURIComponent(id)+'/name',{method:'PUT',body:JSON.stringify({title,expected_revision})}),world);
  if(value.conversation_id!==id||value.title!==title.trim()||value.name_revision!==expected_revision+1)throw new Error('The exact name save could not be confirmed.');return value;
 }
-export async function readConversationTurns(world:string,id:string,before?:number){
+export async function readConversationTurns(world:string,id:string,before?:number,signal?:AbortSignal){
  const q=new URLSearchParams({limit:'50'});if(before!==undefined)q.set('before_sequence',String(before));
- const value=await read(path(world)+'/'+encodeURIComponent(id)+'/turns?'+q);
+ const value=await read(path(world)+'/'+encodeURIComponent(id)+'/turns?'+q,{signal});
  return decodeLibraryTurns(value,world,id,before);
 }
+async function readExportTurnPage(
+ world: string, id: string, view: 'full' | 'digest', before?: number, signal?: AbortSignal,
+) {
+ const query = new URLSearchParams({limit: '50', view});
+ if (before !== undefined) query.set('before_sequence', String(before));
+ return read(path(world) + '/' + encodeURIComponent(id) + '/turns?' + query, {signal});
+}
+
+function isPageDigest(value: unknown): value is string {
+ return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
+}
+
+export async function readExportTurns(world: string, id: string, before?: number, signal?: AbortSignal) {
+ let value;
+ try {
+  value = await readExportTurnPage(world, id, 'full', before, signal);
+ } catch (error) {
+  if (before !== undefined || !(error instanceof LiveApiError)
+   || error.status !== 422 || error.message !== 'Unexpected or repeated conversation selector') throw error;
+  return {...await readConversationTurns(world, id, before, signal), page_sha256: null};
+ }
+ const {page_sha256, ...page} = value;
+ if (!isPageDigest(page_sha256)) throw new Error('Transcript page digest is invalid.');
+ return {...decodeLibraryTurns(page, world, id, before), page_sha256};
+}
+
+export async function verifyExportTurns(
+ world: string, id: string, expected: {page_sha256: string; next_before_sequence: number | null},
+ before?: number, signal?: AbortSignal,
+) {
+ const value = await readExportTurnPage(world, id, 'digest', before, signal);
+ if (!exactObject(value, ['schema', 'world_id', 'conversation_id', 'page_sha256', 'next_before_sequence'])
+  || value.schema !== 'dmb_conversation_library_turn_digest_v1'
+  || value.world_id !== world || value.conversation_id !== id
+  || value.page_sha256 !== expected.page_sha256
+  || value.next_before_sequence !== expected.next_before_sequence) {
+  throw new Error('A reply changed during export. Retry to collect the latest saved reply.');
+ }
+}
+
 export function decodeLibraryTurns(value:any,world:string,id:string,before?:number):LibraryTurns {
  if(!exactObject(value,['schema','world_id','conversation_id','turns','next_before_sequence'])||value.schema!=='dmb_conversation_library_turns_v3'||value.world_id!==world||value.conversation_id!==id||!Array.isArray(value.turns)||value.turns.length>50
   ||!(value.next_before_sequence===null||Number.isInteger(value.next_before_sequence)&&value.next_before_sequence>0))throw new Error('Transcript differs from the selected conversation.');
  let last=0;for(const t of value.turns){if(!exactObject(t,['turn_id','sequence','status','user_text','assistant_text','reply_object','retry_context',...(Object.hasOwn(t,'authored_references')?['authored_references']:[])])||!uuid(t.turn_id)||!Number.isInteger(t.sequence)||t.sequence<=last||(before!==undefined&&t.sequence>=before)||typeof t.user_text!=='string'||typeof t.status!=='string'||!(t.assistant_text===null||typeof t.assistant_text==='string'))throw new Error('Transcript order or content is invalid.');if(Object.hasOwn(t,'authored_references')&&!isAuthoredReferences(t.authored_references,world))throw new Error('Transcript reference input is invalid.');validateReplyObject(t.reply_object,world,id,t);decodeRetryContext(t.retry_context,world,id,t.turn_id);last=t.sequence;}
+ if (value.next_before_sequence !== null && value.next_before_sequence !== value.turns[0]?.sequence) {
+  throw new Error('Transcript cursor differs from its page.');
+ }
  return value as LibraryTurns;
 }
 
@@ -85,9 +132,9 @@ export async function changeConversationLifecycle(command:ResumeConversationComm
 
 export type ConversationMessage=Pick<LibraryTurn,'turn_id'|'sequence'|'status'|'user_text'|'assistant_text'>;
 export interface ConversationMessages{schema:'dmb_conversation_messages_v1';world_id:string;conversation_id:string;messages:ConversationMessage[];next_before_sequence:number|null}
-export async function readConversationMessages(world:string,id:string,before?:number):Promise<ConversationMessages>{
+export async function readConversationMessages(world:string,id:string,before?:number,signal?:AbortSignal):Promise<ConversationMessages>{
  const q=new URLSearchParams({limit:'50'});if(before!==undefined)q.set('before_sequence',String(before));
- const value=await read(path(world)+'/'+encodeURIComponent(id)+'/messages?'+q);
+ const value=await read(path(world)+'/'+encodeURIComponent(id)+'/messages?'+q,{signal});
  if(!exactObject(value,['schema','world_id','conversation_id','messages','next_before_sequence'])||value.schema!=='dmb_conversation_messages_v1'||value.world_id!==world||value.conversation_id!==id||!Array.isArray(value.messages)||value.messages.length>50
   ||!(value.next_before_sequence===null||Number.isInteger(value.next_before_sequence)&&value.next_before_sequence>0))throw new Error('Message preview differs from the selected conversation.');
  let last=0;for(const t of value.messages){if(!exactObject(t,['turn_id','sequence','status','user_text','assistant_text'])||!uuid(t.turn_id)||!Number.isInteger(t.sequence)||t.sequence<=last||(before!==undefined&&t.sequence>=before)||!['accepted','running','completed','failed','interrupted'].includes(t.status)||typeof t.user_text!=='string'||!(t.assistant_text===null||typeof t.assistant_text==='string'))throw new Error('Message preview order or content is invalid.');last=t.sequence;}
@@ -99,7 +146,7 @@ export async function readConversationMessages(world:string,id:string,before?:nu
 export interface ActiveConversationMessages {
   schema: 'dmb_active_conversation_messages_v4'; world_id: string; conversation_state: 'active' | 'absent';
   conversation_id: string | null; active_conversation_id: string | null; pointer_revision: number;
-  messages: (ConversationMessage & { author_interaction?: import('./conversationRetryApi').AuthorInteraction; reply_object: LibraryReplyObject | null; authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview })[];
+  messages: (ConversationMessage & { author_interaction?: import('./conversationRetryApi').AuthorInteraction; reply_object: LibraryReplyObject | null; authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview; conversation_draft_available?: true; variant_draft_reviewed?: true; variant_approval_requested?: true; saved_statblocks?: {name: string; world_id: string; draft_id: string; revision_id: string; pdf_sources?: SavedStatblockPdfSources | null}[] })[];
   next_before_sequence: number | null;
 }
 export async function readActiveConversationMessages(world: string, before?: number, signal?: AbortSignal): Promise<ActiveConversationMessages> {
@@ -111,7 +158,7 @@ export async function readActiveConversationMessages(world: string, before?: num
     || (v.conversation_state === 'active' ? !uuid(v.conversation_id) || v.active_conversation_id !== v.conversation_id
       : v.conversation_id !== null || v.active_conversation_id !== null || v.messages.length !== 0 || v.next_before_sequence !== null)) throw new Error('Active message page has a different owner.');
   let last = 0; for (const t of v.messages) {
-if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_text', 'revision', 'idempotency_key', 'provenance', 'citation_preview', 'authored_references', 'reply_object', ...(Object.hasOwn(t ?? {}, 'author_interaction') ? ['author_interaction'] : [])])
+if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_text', 'revision', 'idempotency_key', 'provenance', 'citation_preview', 'authored_references', 'reply_object', ...(Object.hasOwn(t ?? {}, 'saved_statblocks') ? ['saved_statblocks'] : []), ...(Object.hasOwn(t ?? {}, 'conversation_draft_available') ? ['conversation_draft_available'] : []), ...(Object.hasOwn(t ?? {}, 'variant_draft_reviewed') ? ['variant_draft_reviewed'] : []), ...(Object.hasOwn(t ?? {}, 'variant_approval_requested') ? ['variant_approval_requested'] : []), ...(Object.hasOwn(t ?? {}, 'author_interaction') ? ['author_interaction'] : [])])
       || !uuid(t.turn_id) || !uuid(t.idempotency_key) || !Number.isSafeInteger(t.revision) || t.revision < 1 || !Number.isSafeInteger(t.sequence) || t.sequence <= last
       || before !== undefined && t.sequence >= before || !['accepted', 'running', 'completed', 'failed', 'interrupted'].includes(t.status)
       || ('author_interaction' in t && (t.author_interaction !== 'select_passage' || t.status !== 'interrupted'
@@ -120,9 +167,48 @@ if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_te
     validateReplyObject(t.reply_object,world,v.conversation_id,t);
     if(t.reply_object&&(t.reply_object.source.surface_id!==t.provenance.surface_id||t.reply_object.source.document_id!==t.provenance.primary_work?.object_id))throw new Error('Saved review differs from its actual surface.');
     if(t.authored_references!==null&&!isAuthoredReferences(t.authored_references,world))throw new Error('Saved references have a different owner.');
+    if (Object.hasOwn(t, 'variant_draft_reviewed') &&
+      (t.variant_draft_reviewed !== true || t.conversation_draft_available !== true ||
+        t.status !== 'completed' || t.provenance.surface_id !== 'build')) {
+      throw new Error('Invalid reviewed statblock draft message.');
+    }
+    if (Object.hasOwn(t, 'variant_approval_requested') &&
+      (t.variant_approval_requested !== true || t.status !== 'completed' || t.provenance.surface_id !== 'build')) {
+      throw new Error('Invalid variant approval message.');
+    }
+    if (Object.hasOwn(t, 'conversation_draft_available') &&
+      (t.conversation_draft_available !== true || t.status !== 'completed' || t.provenance.surface_id !== 'build')) {
+      throw new Error('Invalid conversation draft marker.');
+    }
+    if (t.saved_statblocks !== undefined && (!Array.isArray(t.saved_statblocks)
+      || t.saved_statblocks.some((reference: unknown) => !reference || typeof reference !== 'object'
+        || !('name' in reference) || !('world_id' in reference)
+        || !('draft_id' in reference) || !('revision_id' in reference)
+        || !exactObject(reference, ['name', 'world_id', 'draft_id', 'revision_id', ...(Object.hasOwn(reference, 'pdf_sources') ? ['pdf_sources'] : [])])
+        || typeof reference.name !== 'string' || reference.world_id !== world
+        || !uuid(reference.draft_id) || typeof reference.revision_id !== 'string'
+        || !/^rev_[a-z0-9]+$/.test(reference.revision_id)
+        || ('pdf_sources' in reference && reference.pdf_sources !== null
+          && !validSavedStatblockPdfSources(reference.pdf_sources, world))))) throw new Error('Saved statblock references are invalid.');
     t.citation_preview=t.status==='completed'?readSavedCitationPreview(t.citation_preview,world,t.provenance.surface_id,t.assistant_text):null;
     last = t.sequence;
 }
   if (!(v.next_before_sequence === null || v.messages.length > 0 && v.next_before_sequence === v.messages[0].sequence)) throw new Error('Active message cursor differs from its page.');
   return v;
+}
+
+function validSavedStatblockPdfSources(value: unknown, world: string): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const sources = value as SavedStatblockPdfSources;
+  const scope = sources.scope;
+  return exactObject(value, ['scope', 'support']) && !!scope
+    && exactObject(scope, ['managed_world_id', 'native_world_id', 'scope_mode', 'campaign_id', 'binding_version', 'revision_id'])
+    && scope.managed_world_id === world && scope.scope_mode === 'world' && scope.campaign_id === null
+    && typeof scope.native_world_id === 'string' && !!scope.native_world_id
+    && typeof scope.revision_id === 'string' && !!scope.revision_id
+    && Number.isInteger(scope.binding_version) && scope.binding_version > 0
+    && Array.isArray(sources.support) && sources.support.every(item => !!item
+      && exactObject(item, ['assertion_id', 'evidence_ref_id'])
+      && typeof item.assertion_id === 'string' && !!item.assertion_id
+      && typeof item.evidence_ref_id === 'string' && item.evidence_ref_id.startsWith('pdf-region:'));
 }

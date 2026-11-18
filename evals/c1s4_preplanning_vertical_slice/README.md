@@ -144,3 +144,7 @@ Step 2D does not:
 
 The emitter patches a generated JSON block inside an existing Cursor-managed `.canvas.tsx` file.
 
+
+## Historical Step 2C and Step 2D output
+
+The PR #67 [multimode report](https://github.com/Drakosfire/DungeonMindBuddy/blob/19d290d42dd5f1d7f82035a620b5a3ea93d145e4/evals/c1s4_preplanning_vertical_slice/artifacts/last_c1s4_step2c_multimode_report.json) and [canvas payload](https://github.com/Drakosfire/DungeonMindBuddy/blob/19d290d42dd5f1d7f82035a620b5a3ea93d145e4/evals/c1s4_preplanning_vertical_slice/artifacts/last_c1s4_expected_context_canvas_payload.json) are preserved at a pinned revision. For a fresh report and payload, run `bash scripts/c1s4_update_expected_context_canvas.sh` from the repository root. Set `CANVAS_PATH` to a scratch file to keep the output outside the managed Cursor canvas directory.

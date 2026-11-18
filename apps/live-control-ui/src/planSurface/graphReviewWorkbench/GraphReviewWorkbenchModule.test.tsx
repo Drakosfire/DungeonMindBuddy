@@ -33,7 +33,7 @@ import {
 } from "./graphReviewCommittedAuthority";
 import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
 import { GraphReviewCommittedProjectionPanel } from "./GraphReviewCommittedProjectionPanel";
-import { session23WorldGraphRecapFixture } from "../graphPreview/worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../../test/worldGraphRecapFixture";
 import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 import { SelectedWorldProvider } from "../../selectedWorld/SelectedWorldContext";

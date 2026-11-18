@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from src.live_play.classify_live_turn import (
+from live_play.classify_live_turn import (
     TurnClassification,
     build_live_turn_classifier_sequence_client,
     classify_live_turn,

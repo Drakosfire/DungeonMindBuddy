@@ -1,9 +1,12 @@
+import type { SavedMechanicsLocator } from "../statblocks/revision/savedMechanicsRevisionTypes";
+import type {PdfLocator} from "./retainedPdfRegions";
 /** Native publication packets are opaque signed server reviews, never client authority. */
 export interface NativeThreatReview {
   schema:'dmb_native_threat_review_v1';world_id:string;draft_id:string;draft_version:number;label:string;
   body_sha256:string;binding:{managed_world_id:string;native_world_id:string;binding_version:number};
   publication_id:string;source_evidence_id:string;source_artifact_id:string;source_revision_id:string;
-  prepared_digest:string;principal:string;expires_at:string;
+  mechanics_locator?: SavedMechanicsLocator;
+  pdf_evidence_ids?:string[];pdf_regions?:PdfLocator[];prepared_digest:string;principal:string;expires_at:string;
 }
 export interface PreparedNativeThreat {state:'prepared';source_text:string;review:NativeThreatReview;prepared:Record<string,unknown>;token:string}
 export interface PublishedNativeThreat {state:'published';world_id:string;draft_id:string;native_world_id:string;binding_version:number;node_id:string;publication_id:string;published_revision_id:string;replayed:boolean}
@@ -12,7 +15,7 @@ const record=(value:unknown):value is Record<string,unknown>=>!!value&&typeof va
 const text=(value:unknown):value is string=>typeof value==='string'&&value.length>0;
 const positive=(value:unknown)=>Number.isInteger(value)&&Number(value)>0;
 const hex=(value:unknown)=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
-export async function verifyNativeThreatReply(value:unknown,world:string,draft:string):Promise<NativeThreatReply> {
+export async function verifyNativeThreatReply(value:unknown,world:string,draft:string,mechanics?:SavedMechanicsLocator):Promise<NativeThreatReply> {
   const fail=()=>{throw new Error('Native creature review does not match this saved draft. The retained review was kept.');};
   if(!record(value))return fail();
   const publication='dmb-native-threat:v1:'+draft;
@@ -28,7 +31,18 @@ export async function verifyNativeThreatReply(value:unknown,world:string,draft:s
     ||!positive(r.draft_version)||!text(r.label)||!hex(r.body_sha256)||!hex(r.prepared_digest)
     ||!record(r.binding)||r.binding.managed_world_id!==world||!text(r.binding.native_world_id)||!positive(r.binding.binding_version)
     ||![r.source_evidence_id,r.source_artifact_id,r.source_revision_id,r.principal,r.expires_at].every(text)
+    ||(r.pdf_evidence_ids!==undefined&&(!Array.isArray(r.pdf_evidence_ids)||!r.pdf_evidence_ids.every(text)))
+    ||(r.pdf_regions!==undefined&&(!Array.isArray(r.pdf_regions)
+      ||r.pdf_regions.length!==(Array.isArray(r.pdf_evidence_ids)?r.pdf_evidence_ids.length:0)
+      ||!r.pdf_regions.every(region=>record(region)&&text(region.source_revision_id)
+        &&hex(region.content_sha256)&&positive(region.page)
+        &&[region.left,region.top,region.right,region.bottom].every(n=>typeof n==='number'&&n>=0&&n<=1)
+        &&Number(region.left)<Number(region.right)&&Number(region.top)<Number(region.bottom))))
     ||!Number.isFinite(Date.parse(String(r.expires_at))))return fail();
+  const locator = r.mechanics_locator;
+  if (mechanics && (!record(locator) || Object.entries(mechanics).some(([key, expected]) => locator[key] !== expected))) {
+    return fail();
+  }
   // Bind displayed retained text to the server review; WK/signature validation
   // stays on the server. Expiry is intentionally not a client recovery decision.
   const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value.source_text))),b=>b.toString(16).padStart(2,'0')).join('');

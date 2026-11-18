@@ -7,9 +7,9 @@ from pathlib import Path
 
 from evals.graph_memory_layer.build_recap_ingestion_projection_payload_fixture import FIXTURE_PATH, SCHEMA, VERSION
 from evals.graph_memory_layer.report_recap_ingestion_source_artifact_materializer import DEFAULT_INPUTS
-from src.graph_memory.recap_ingestion_materialize import SOURCE_FAMILY, RecapIngestionMaterializerInput, materialize_recap_ingestion_source_artifacts
-from src.graph_memory.recap_ingestion_materializer_report import analyze_recap_ingestion_materializer_output
-from src.graph_memory.recap_ingestion_projection_readiness import assess_recap_ingestion_projection_readiness
+from graph_memory.recap_ingestion_materialize import SOURCE_FAMILY, RecapIngestionMaterializerInput, materialize_recap_ingestion_source_artifacts
+from graph_memory.recap_ingestion_materializer_report import analyze_recap_ingestion_materializer_output
+from graph_memory.recap_ingestion_projection_readiness import assess_recap_ingestion_projection_readiness
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DESIGN_REPORT = REPO_ROOT / "Docs" / "Reports" / "archive" / "2026-06-28" / "graph-memory" / "GRAPH-MEMORY-RECAP-INGESTION-PROJECTION-PAYLOAD-FIXTURE.md"

@@ -335,7 +335,7 @@ def resolve_agent_play_surface_context(
         )
 
     try:
-        record = get_play_run(root, run_id)
+        record = get_play_run(run_id)
     except PlayRunRegistryError:
         return _resolution(
             context=None,
@@ -409,7 +409,7 @@ def resolve_agent_play_surface_context(
         )
 
     try:
-        manifest = get_play_run_reference_manifest(root, run_id)
+        manifest = get_play_run_reference_manifest(run_id)
     except Exception:
         return _resolution(
             context=None,
@@ -573,7 +573,7 @@ def _resolve_world_play_surface_context_v2(
     )
 
     try:
-        world = get_world_container(root, request.world_id)
+        world = get_world_container(request.world_id)
     except WorldContainerRegistryError as exc:
         raise WorldPlaySurfaceContextError(str(exc)) from exc
     if world.world_id != request.world_id:
@@ -583,7 +583,7 @@ def _resolve_world_play_surface_context_v2(
 
     try:
         record = get_world_play_run(
-            root, world_id=request.world_id, run_id=request.run_id
+            world_id=request.world_id, run_id=request.run_id
         )
     except Exception as exc:
         raise WorldPlaySurfaceContextError(
@@ -624,7 +624,7 @@ def _resolve_world_play_surface_context_v2(
 
     try:
         manifest = get_world_play_run_reference_manifest(
-            root, world_id=request.world_id, run_id=request.run_id
+            world_id=request.world_id, run_id=request.run_id
         )
     except Exception as exc:
         raise WorldPlaySurfaceContextError(
@@ -713,8 +713,8 @@ def resolve_world_play_session_turn_snapshot(
     )
 
     try:
-        world = get_world_container(root, world_id)
-        record = get_world_play_run(root, world_id=world_id, run_id=run_id)
+        world = get_world_container(world_id)
+        record = get_world_play_run(world_id=world_id, run_id=run_id)
         run, content = read_context_snapshot(run_id=run_id, world_id=world_id)
     except Exception as exc:
         raise WorldPlaySurfaceContextError(
@@ -758,7 +758,7 @@ def resolve_world_play_session_turn_snapshot(
         )
     try:
         manifest = get_world_play_run_reference_manifest(
-            root, world_id=world_id, run_id=run_id
+            world_id=world_id, run_id=run_id
         )
     except Exception as exc:
         raise WorldPlaySurfaceContextError(
@@ -867,7 +867,7 @@ def resolve_historical_world_play_turn_snapshot(
     """Reconstruct the accepted moment from its immutable Runbook pin."""
     from apps.live_control_server.services.world_container_registry import get_world_container
 
-    world = get_world_container(root, world_id)
+    world = get_world_container(world_id)
     if world.world_id != world_id:
         raise WorldPlaySurfaceContextError("Historical Play World identity changed")
     if isinstance(receipt, PlayRunTurnContextReceiptV2):
@@ -927,9 +927,9 @@ def _resolve_historical_world_play_session_turn_snapshot(
             world_id=world_id,
             revision_n=receipt.edition_revision,
         )
-        record = get_world_play_run(root, world_id=world_id, run_id=receipt.run_id)
+        record = get_world_play_run(world_id=world_id, run_id=receipt.run_id)
         manifest = get_world_play_run_reference_manifest(
-            root, world_id=world_id, run_id=receipt.run_id
+            world_id=world_id, run_id=receipt.run_id
         )
         committed = get_committed_playable_revision(
             receipt.runbook_object_id,

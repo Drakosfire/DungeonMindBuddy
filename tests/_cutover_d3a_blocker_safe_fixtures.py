@@ -178,7 +178,7 @@ def register_glass_orchard(repo: Path):
     )
 
 
-    return create_world_container(repo, name="The Glass Orchard")
+    return create_world_container(name="The Glass Orchard")
 
 
 def first_world_decisions(
@@ -266,7 +266,7 @@ def write_post_genesis_graph_review_run(repo: Path) -> str:
         ExtractionRunComponentRef,
         ExtractionRunStatus,
     )
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE,
     )
 
@@ -800,7 +800,7 @@ def _write_reviewable_extraction_run(
     from graph_memory.source_span import (
         source_span_index_to_dict,
     )
-    from src.live_play.live_store import write_json
+    from live_store import write_json
 
 
     if candidate_campaign_id is ...:
@@ -940,7 +940,7 @@ def _write_reviewable_extraction_run(
     candidate_payload["source_artifact_ids"] = [artifact.source_artifact_id]
     # Stamp the real worldbuilding profile default — not played_canon. BLD-07
     # narrowed worldbuilding to inspect-only; fixtures must not hide the gate.
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE,
     )
 
@@ -1028,7 +1028,7 @@ def _write_bld08_reviewable_run(
     session_id: str | None = None,
 ) -> tuple[str, Path]:
     """Adapt the canonical run fixture to the checked-in BLD-08 profile."""
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         DEFAULT_SEMANTIC_STATE,
     )
 
@@ -1055,7 +1055,7 @@ def _mutate_extraction_candidate(repo, run_id: str, mutator) -> None:
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
     from application_state.ingest.components import get_component_bytes
 
-    run = get_extraction_run(repo, run_id)
+    run = get_extraction_run(run_id)
     component = run.components["candidate_graph"]
     payload = json.loads(get_component_bytes(
         run_id=run_id, kind="candidate_graph", content_sha256=component.sha256,

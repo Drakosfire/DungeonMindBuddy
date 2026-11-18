@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vitest/config";
+import { defineConfig } from "vite";
 
 const appRoot = fileURLToPath(new URL(".", import.meta.url));
 
@@ -25,11 +25,5 @@ export default defineConfig({
     rollupOptions: {
       input: resolve(appRoot, "native-demo.html"),
     },
-  },
-  test: {
-    environment: "jsdom",
-    setupFiles: ["./src/test/setup.ts"],
-    globals: true,
-    include: ["src/nativeGraphDemo/**/*.test.ts", "src/nativeGraphDemo/**/*.test.tsx"],
   },
 });

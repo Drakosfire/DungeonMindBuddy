@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from src.graph_memory.extraction.worldbuilding_profile_catalog import SOURCE_OBSERVATION_WORLDBUILDING_PROFILES
+from graph_memory.extraction.worldbuilding_profile_catalog import SOURCE_OBSERVATION_WORLDBUILDING_PROFILES
 
 
 import hashlib
@@ -718,7 +718,7 @@ def _recap_semantic_assessment(run_id: str, source_revision_id: str, run_record=
     )
 
     try:
-        run = run_record or get_extraction_run(_artifact_root(), run_id)
+        run = run_record or get_extraction_run(run_id)
     except GraphRunRegistryError as exc:
         raise ExtractPromoteError(
             "canonical extraction run could not be re-read",
@@ -730,7 +730,7 @@ def _recap_semantic_assessment(run_id: str, source_revision_id: str, run_record=
     parent_id = run.lineage.get("parent_run_id")
     if isinstance(parent_id, str) and parent_id.strip():
         try:
-            parent = get_extraction_run(_artifact_root(), parent_id)
+            parent = get_extraction_run(parent_id)
         except GraphRunRegistryError as exc:
             if exc.status_code != 404:
                 raise ExtractPromoteError(
@@ -917,7 +917,7 @@ def decide_recap_semantic_disposition(
                 code="recap_semantic_decision_invalid", status_code=409,
             )
         parent_id = run.lineage.get("parent_run_id")
-        parent = get_extraction_run(_artifact_root(), parent_id) if isinstance(parent_id, str) else None
+        parent = get_extraction_run(parent_id) if isinstance(parent_id, str) else None
         artifact = data.source_artifact
     except GraphRunRegistryError as exc:
         raise ExtractPromoteError(
@@ -1527,7 +1527,7 @@ def _load_worldbuilding_publication_input(resolved, *, allow_gazetteer=True) -> 
         )
 
 
-    from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
+    from graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
     expected_profile = resolved.extraction_profile
     if (expected_profile not in PUBLISHABLE_WORLDBUILDING_PROFILES
             or (not allow_gazetteer and expected_profile != "worldbuilding_shepherds_flock_v0@0.1")):

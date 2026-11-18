@@ -12,17 +12,16 @@ node_modules/
 **/node_modules/
 dist/
 **/dist/
+apps/live-control-ui/dist-native-demo/
 out/
 **/out/
-corpus/
-**/corpus/
+# Exclude campaign data at the repository root. Keep the src/corpus package.
+/corpus/
 tests/
 **/tests/
-evals/**
-!evals/c2_live_prep/
-!evals/c2_live_prep/live/
-!evals/c2_live_prep/live/schemas/
-!evals/c2_live_prep/live/schemas/**
+evals/
+/Session 20 Recap.txt
+/session-23-recap.txt
 Docs/
 **/__pycache__/
 **/*.py[cod]
@@ -34,13 +33,8 @@ Docs/
 **/serviceAccountKey.json
 **/secrets.txt
 
-# Typechecked UI builds need one synthetic fixture; exclude it from the production app stage.
-!tests/
-tests/*
-!tests/fixtures/
-tests/fixtures/*
-!tests/fixtures/statblocks/
-tests/fixtures/statblocks/*
-!tests/fixtures/statblocks/v1/
-tests/fixtures/statblocks/v1/*
-!tests/fixtures/statblocks/v1/candidate-response.json
+# Local UI build outputs, caches, and overrides.
+apps/live-control-ui/build/
+apps/live-control-ui/.npm-cache/
+apps/live-control-ui/**/*.tsbuildinfo
+apps/live-control-ui/**/*.local

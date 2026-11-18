@@ -69,7 +69,7 @@ def read_local_graph_profile(path_text: str) -> dict[str, str]:
 
 def load_dungeonmindbuddy_dotenv(*, override: bool = True) -> None:
     """
-    Load the first existing file from this list (later files override earlier when ``override``).
+    Load each existing file in order. When ``override`` is true, later files override earlier values.
 
     Order matches ``src/cli.py`` expectations, with ``.env`` first for common local setups:
 
@@ -77,10 +77,12 @@ def load_dungeonmindbuddy_dotenv(*, override: bool = True) -> None:
     - ``<repo>/.env.development``
     - ``<parent>/.env.development`` (monorepo / shared dev env)
     """
+    configured_root = os.environ.get("DMB_DOTENV_ROOT")
+    root = Path(configured_root).resolve() if configured_root else _REPO_ROOT
     candidates = [
-        _REPO_ROOT / ".env",
-        _REPO_ROOT / ".env.development",
-        _REPO_ROOT.parent / ".env.development",
+        root / ".env",
+        root / ".env.development",
+        root.parent / ".env.development",
     ]
     for path in candidates:
         if not path.is_file():
@@ -94,3 +96,13 @@ def load_dungeonmindbuddy_dotenv(*, override: bool = True) -> None:
         # This explicit private overlay owns its six fields even when the
         # ordinary dotenv loader was asked not to override ambient settings.
         os.environ.update(read_local_graph_profile(profile_path))
+    if not os.environ.get("OPENAI_API_KEY", "").strip():
+        dedicated_key = os.environ.get("DUNGEONBUDDY_OPENAI", "").strip()
+        if dedicated_key:
+            os.environ["OPENAI_API_KEY"] = dedicated_key
+
+
+def load_openai_api_key() -> str | None:
+    """Load Buddy dotenv settings before resolving the OpenAI key."""
+    load_dungeonmindbuddy_dotenv()
+    return os.getenv("OPENAI_API_KEY")

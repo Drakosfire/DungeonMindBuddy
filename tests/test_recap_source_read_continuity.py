@@ -230,7 +230,7 @@ def _mock_stored_recap(monkeypatch, payload: bytes):
         session_id=artifact.session_id, content_sha256=artifact.content_sha256,
         encoding="utf-8", media_type="text/markdown", markdown=payload.decode("utf-8"),
     )
-    monkeypatch.setattr(inputs, "get_source_artifact", lambda root, artifact_id: artifact)
+    monkeypatch.setattr(inputs, "get_source_artifact", lambda artifact_id: artifact)
     monkeypatch.setattr(service, "get_source_markdown", lambda **kwargs: record)
     return record
 

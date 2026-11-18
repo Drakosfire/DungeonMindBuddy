@@ -155,19 +155,25 @@ def get_graph_ingest_runs(
 
 
 @router.get("/extraction-runs/{run_id}")
-def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
+def get_extraction_run_by_id(run_id: str, request: Request = None) -> dict[str, Any]:
     """Exact ExtractionRun reload. Source-domain neutral; never substitutes latest.
 
     Works for recap and worldbuilding runs. Build-specific workspace lineage lives
     on ``GET /extraction-runs/{run_id}/build-context``.
     """
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import read_hosted_exact_extraction
+
+    if request is not None and hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        return read_hosted_exact_extraction(request, run_id)
+
     from apps.live_control_server.services.graph_run_registry import (
         GraphRunRegistryError,
         get_extraction_run,
     )
 
     try:
-        run = get_extraction_run(repo_root(), run_id)
+        run = get_extraction_run(run_id)
     except GraphRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return public_run(run)
@@ -200,12 +206,11 @@ def get_saved_recap_runs(
     request: Request,
     managed_world_id: Annotated[str, Query(min_length=1)],
     campaign_id: Annotated[str | None, Query(min_length=1)] = None,
-    _principal=Depends(native_graph_gm_dependency),
 ):
-    from apps.live_control_server.services.ingest_run_catalog import (
-        list_saved_recap_runs,
-    )
+    from apps.live_control_server.services.ingest_run_catalog import list_saved_recap_runs
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
 
+    require_saved_recap_access(request, managed_world_id)
     _saved_run_query(request, {"managed_world_id"}, {"campaign_id"})
     return _saved_run_response(
         lambda: list_saved_recap_runs(
@@ -249,12 +254,11 @@ def get_extraction_run_recap_inspection(
     managed_world_id: Annotated[str, Query(min_length=1)],
     expected_run_revision: Annotated[int, Query(gt=0)],
     source_revision_id: Annotated[UUID, Query()],
-    _principal=Depends(native_graph_gm_dependency),
 ):
-    from apps.live_control_server.services.ingest_run_catalog import (
-        read_saved_recap_source,
-    )
+    from apps.live_control_server.services.ingest_run_catalog import read_saved_recap_source
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
 
+    require_saved_recap_access(request, managed_world_id)
     _saved_run_query(
         request, {"managed_world_id", "expected_run_revision", "source_revision_id"}
     )
@@ -276,9 +280,10 @@ def get_extraction_run_recap_inspection(
 def get_extraction_run_candidate_projection(
     run_id: str,
     request: Request,
-    _principal=Depends(native_graph_gm_dependency),
 ):
     """Read exact frozen candidate prose; never admit or publish domain data."""
+    from apps.live_control_server.services.hosted_native_graph_access import require_saved_recap_access
+    require_saved_recap_access(request, request.query_params.get("managed_world_id", ""))
     if set(request.query_params) != {"managed_world_id"} or len(
         request.query_params.getlist("managed_world_id")
     ) != 1:
@@ -379,12 +384,12 @@ def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
 
     root = repo_root()
     try:
-        run = get_extraction_run(root, run_id)
+        run = get_extraction_run(run_id)
     except GraphRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
     try:
-        artifact = get_source_artifact(root, run.source_artifact_id)
+        artifact = get_source_artifact(run.source_artifact_id)
     except SourceArtifactRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
@@ -439,16 +444,16 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
         WorkspaceDocumentRegistryError,
         get_workspace_document,
     )
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE_ID,
         WORLDBUILDING_PROFILE_VERSION,
     )
-    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+    from graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE_ID,
         WORLDBUILDING_PLUMBING_PROFILE_VERSION,
     )
 
-    from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
+    from graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
 
     _ALLOWED_BUILD_PROFILES = {
         *(tuple(key.split("@")) for key in PUBLISHABLE_WORLDBUILDING_PROFILES),
@@ -516,8 +521,6 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
             status_code=409,
             detail=f"revision mismatch: expected {expected_revision}, current {record.revision}",
         )
-    if not record.target_relpath:
-        raise HTTPException(status_code=422, detail="workspace document has no target_relpath")
 
     try:
         artifact = create_source_artifact_from_workspace_document(

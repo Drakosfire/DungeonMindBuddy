@@ -45,7 +45,7 @@ from src.agent.planner import (  # noqa: E402
 )
 from src.agent.planner_cache import load_or_build_planner_instructions  # noqa: E402
 from src.agent.synthesis import _load_api_key  # noqa: E402
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
+from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 
 from evals.session_events_extraction_vertical_slice.step1_session_events_run import (  # noqa: E402
     load_scenario as load_stage_a_scenario,

@@ -27,7 +27,7 @@ from evals.graph_memory_layer.live_vs_gold_compare import compare_parts, parts_f
 from evals.graph_memory_layer.session_23_candidate_graph_gold_fixture import (
     load_gold_candidate_graph_dict,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     EDGE_PASS_NAME,
     consolidate_category_outputs,
     sanitize_parts,

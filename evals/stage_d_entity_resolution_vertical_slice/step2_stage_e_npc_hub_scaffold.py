@@ -2,7 +2,7 @@
 
 Consumes ``branch_scaffold_proposals[]`` emitted by
 ``scripts/promote_stage_d_proposals.py`` and routes all writes through
-``src.agent.corpus_writer.write_corpus_file``.
+``corpus.corpus_writer.write_corpus_file``.
 
 Default behavior is preview-only (two-phase dry run). ``--commit`` opt-in
 performs the second phase immediately using each preview's confirm token.
@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.agent.corpus_writer import write_corpus_file
+from corpus.corpus_writer import write_corpus_file
 from evals.stage_d_entity_resolution_vertical_slice.stage_e_scaffold_grader import (
     grade_stage_e_scaffold,
 )

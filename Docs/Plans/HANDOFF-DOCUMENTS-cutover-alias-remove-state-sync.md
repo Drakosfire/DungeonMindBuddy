@@ -21,8 +21,10 @@ pr_body_template: |
 
 # HANDOFF — Advance CUTOVER to exact-six alias retirement
 
+> Run historical commands from the [pre-cutover checkout](https://github.com/Drakosfire/DungeonMindBuddy/blob/30008dc473bd80144a46c035d09b56ad1deb2928/scripts/apply_eldyrwild_identity_shadow_alias_remove.py) with the retained World inputs.
+
 **Created:** 2026-08-13  
-**Status:** ACTIVE — one documentation/state-authority capability  
+**Status:** DONE / HISTORICAL. [PR #582](https://github.com/Drakosfire/DungeonMindBuddy/pull/582) merged. Do not redispatch.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOCUMENTS-cutover-alias-remove-state-sync.md`  
 **Conversation/workstream:** `CUTOVER — post-alias_remove state-authority sync`  
 **Flow / owner:** `DOCUMENTS`  

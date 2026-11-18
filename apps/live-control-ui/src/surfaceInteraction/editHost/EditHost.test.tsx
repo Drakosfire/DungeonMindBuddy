@@ -112,6 +112,24 @@ describe("EditHost", () => {
     expect(screen.getByTestId("surface-edit-host")).toHaveClass("open");
   });
 
+  it("leaves Escape in a native source dialog to the browser without closing Edit", async () => {
+    const user = userEvent.setup();
+    const publication = makePublication({ editCommands: [makeEdit({ id: "save", label: "Save" })] });
+    renderEditHost(<><Publisher publication={publication} /><dialog open data-native-escape-owner aria-label="Sources"><input aria-label="Find source" /></dialog></>);
+    const toggle = screen.getByRole("button", { name: "Edit" });
+    await user.click(toggle);
+    const input = screen.getByRole("textbox", { name: "Find source" });
+    input.focus();
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    const reachedDialog = vi.fn();
+    screen.getByRole("dialog", { name: "Sources" }).addEventListener("keydown", reachedDialog);
+    input.dispatchEvent(escape);
+    expect(escape.defaultPrevented).toBe(false);
+    expect(reachedDialog).toHaveBeenCalledOnce();
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(input).toHaveFocus();
+  });
+
   it("closes on Escape and restores focus to the Edit toggle", async () => {
     const user = userEvent.setup();
     const publication = makePublication({

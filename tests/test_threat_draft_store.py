@@ -27,7 +27,7 @@ from apps.live_control_server.services.threat_draft_store import (
     list_threat_drafts,
     update_threat_draft,
 )
-from src.live_play.live_store import write_json
+from live_store import write_json
 
 
 def _world_create_request(**overrides: object) -> CreateWorldThreatDraftRequest:
@@ -89,6 +89,20 @@ def test_world_draft_version_and_scope_survive_store_lifecycle(tmp_path: Path) -
     assert loaded.world_id == "world_1"
     assert loaded.campaign_id is None
     assert loaded.workflow_state == "mechanics_saved"
+    summaries, _ = list_threat_drafts(tmp_path, world_id="world_1")
+    assert summaries[0].saved_revision_id == locator.revision_id
+    from apps.live_control_server.services.threat_draft_store import archive_saved_threat_draft
+
+    with pytest.raises(ThreatDraftStoreError) as error:
+        archive_saved_threat_draft(tmp_path, world_id="world_2", draft_id=loaded.draft_id, expected_version=loaded.version)
+    assert error.value.status_code == 404
+    with pytest.raises(ThreatDraftStoreError) as error:
+        archive_saved_threat_draft(tmp_path, world_id="world_1", draft_id=loaded.draft_id, expected_version=loaded.version - 1)
+    assert error.value.status_code == 409
+    archive_saved_threat_draft(tmp_path, world_id="world_1", draft_id=loaded.draft_id, expected_version=loaded.version)
+    assert list_threat_drafts(tmp_path, world_id="world_1") == ([], 0)
+    assert get_threat_draft(tmp_path, loaded.draft_id) == loaded
+
     assert loaded.description == "A changed authored brief."
     assert len(loaded.candidate_refs) == 2
 
@@ -1527,3 +1541,35 @@ def test_reconcile_active_to_rejected_and_terminal_cannot_transition(
             ),
         )
     assert exc_info.value.status_code == 409
+
+
+def test_stable_world_draft_creation_replays_without_crossing_worlds(tmp_path):
+    from uuid import uuid4
+
+    key = uuid4()
+    request = _world_create_request()
+    first = create_threat_draft(tmp_path, request, stable_id=key)
+    assert first.draft_id == str(key)
+    assert create_threat_draft(tmp_path, request, stable_id=key) == first
+    with pytest.raises(ThreatDraftStoreError, match="another scope"):
+        create_threat_draft(tmp_path, _world_create_request(world_id="world_2"), stable_id=key)
+    with pytest.raises(ThreatDraftStoreError, match="intent changed"):
+        create_threat_draft(tmp_path, _world_create_request(threat_kind="hazard"), stable_id=key)
+
+
+def test_source_backed_draft_retries_without_a_ruleset(tmp_path):
+    from uuid import uuid4
+
+    from apps.live_control_server.services.statblock_candidate_generation import (
+        map_draft_to_generate_request,
+    )
+
+    key = uuid4()
+    request = _world_create_request(generation_intent={"ruleset": None})
+    draft = create_threat_draft(tmp_path, request, stable_id=key)
+
+    assert draft.generation_intent.ruleset is None
+    assert create_threat_draft(tmp_path, request, stable_id=key) == draft
+    with pytest.raises(ThreatDraftStoreError, match="Choose a ruleset") as exc:
+        map_draft_to_generate_request(draft, request_id="fixture")
+    assert exc.value.status_code == 422

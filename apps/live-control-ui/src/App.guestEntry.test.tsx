@@ -120,6 +120,26 @@ function expectOnlyScopedIndexCalls(fetchMock: ReturnType<typeof nativeIndexFetc
     || String(path).startsWith("/api/live/index-graph/"))).toBe(true);
 }
 
+async function graphMenuAction(name: string) {
+  const direct = screen.queryByRole("button", { name, exact: true });
+  if (direct) return direct;
+  const trigger = ["Info", "Refresh", "Export snapshot"].includes(name) ? "More graph actions" : "Graph tools";
+  fireEvent.click(await screen.findByRole("button", { name: trigger, exact: true }));
+  return screen.getByRole("button", { name, exact: true });
+}
+
+// Exercise the connected-only default and its reveal control for isolated
+// fixture objects, without changing their graph or bypassing the real UI.
+async function revealIsolatedObject(user: ReturnType<typeof userEvent.setup>, name: string, hiddenCount = 1) {
+  await user.click(await screen.findByRole("button", { name: "Graph view options" }));
+  const reveal = await screen.findByRole("checkbox", { name: `Show objects without listed relationships (${hiddenCount} hidden)` });
+  expect(reveal).not.toBeChecked();
+  expect(screen.queryByRole("button", { name: `${name}, person` })).not.toBeInTheDocument();
+  await user.click(reveal);
+  expect(reveal).toBeChecked();
+  return screen.findByRole("button", { name: `${name}, person` });
+}
+
 function managedWorldRecord(worldId: string, name: string) {
   return {
     schema_version: "dmb_world_container_record_v1",
@@ -168,6 +188,12 @@ function managedServerFetch({
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input);
     if (path === "/api/auth/session") return Response.json({ status: authStatus, ...(authStatus === "authenticated" ? { subject: "owner-a" } : {}) });
+    if (path === "/api/live/world-containers/lookup?managed_world_id=world-a") {
+      return Response.json(managedWorldRecord("world-a", "World A"));
+    }
+    if (path === "/api/live/world-containers/lookup?managed_world_id=world-b") {
+      return Response.json(managedWorldRecord("world-b", "World B"));
+    }
     if (path === "/api/live/world-containers") return Response.json({
       schema_version: "dmb_world_container_registry_v1",
       records: [managedWorldRecord("world-a", "World A"), managedWorldRecord("world-b", "World B")],
@@ -205,7 +231,7 @@ describe("canonical local guest entry", () => {
     vi.stubEnv("PROD", true);
     vi.stubGlobal("crypto", webcrypto as unknown as Crypto);
     vi.stubGlobal("Blob", NodeBlob);
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState({}, "", "/graph");
     localStorage.clear();
     sessionStorage.clear();
     localRepositoryHarness.repository = new InMemoryLocalWorldRepository({ store: new InMemoryLocalWorldStore() });
@@ -217,7 +243,7 @@ describe("canonical local guest entry", () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState({}, "", "/graph");
   });
 
   it("keeps older browser Worlds available as a secondary surface without hosted requests", async () => {
@@ -404,19 +430,19 @@ describe("canonical local guest entry", () => {
 
     expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
     expect(screen.getByText("Buddy playground · private graph")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Info" }));
+    await user.click(await graphMenuAction("Info"));
     expect(screen.getByText(/Event typing is not available in this native profile/)).toBeInTheDocument();
     expect(screen.getByText("Rename is unavailable")).toBeInTheDocument();
     expect(screen.getByText("Delete is unavailable")).toBeInTheDocument();
     expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/index-graph/session")).toHaveLength(1);
     expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/index-graph/graph")).toBe(true);
 
-    await user.click(screen.getByRole("button", { name: "Add object" }));
+    await user.click(await graphMenuAction("Add object"));
     const name = screen.getByLabelText("Name");
     await user.type(name, "Aster");
     mounted.unmount();
     render(<App />, { reactStrictMode: true });
-    await user.click(await screen.findByRole("button", { name: "Add object" }));
+    await user.click(await graphMenuAction("Add object"));
     expect(await screen.findByDisplayValue("Aster")).toBeInTheDocument();
 
     const prepareButton = screen.getByRole("button", { name: "Prepare object" });
@@ -441,7 +467,9 @@ describe("canonical local guest entry", () => {
     }));
     expect(await screen.findByText("Create Aster as a native person in this private graph.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Confirm in DungeonMind" }));
-    expect(await screen.findByRole("button", { name: "Aster, person" })).toBeInTheDocument();
+    // This legacy response has no exact created-ID receipt. Reveal the saved
+    // isolate explicitly rather than identifying or selecting it by its name.
+    expect(await revealIsolatedObject(user, "Aster", 2)).toBeInTheDocument();
     expect(calls.filter(({ path }) => path.endsWith("/prepare"))).toHaveLength(1);
     expect(calls.filter(({ path }) => path.endsWith("/confirm"))).toHaveLength(1);
     expect(new Headers(calls.find(({ path }) => path.endsWith("/confirm"))?.init?.headers).get("X-DMB-Index-Graph-CSRF")).toBe("guest-csrf");
@@ -513,7 +541,7 @@ describe("canonical local guest entry", () => {
 
     await act(async () => {
       window.history.back();
-      await waitFor(() => expect(window.location.pathname).toBe("/"));
+      await waitFor(() => expect(window.location.pathname).toBe("/graph"));
     });
     expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
     expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/auth/session")).toHaveLength(1);
@@ -522,14 +550,14 @@ describe("canonical local guest entry", () => {
   it("shows a distinct hosted signed-out playground and sign-in path without calling the local guest API", async () => {
     const fetchMock = nativeIndexFetch(guestGraph, "signed_out");
     vi.stubGlobal("fetch", fetchMock);
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState({}, "", "/graph");
 
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Buddy graph playground" })).toBeInTheDocument();
-    expect(screen.getByText(/hosted service does not expose the local-only playground graph/i)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Plan" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Sign in with DungeonMind" })).toHaveAttribute(
-      "href", "/api/auth/login?return_to=%2F",
+      "href", "/api/auth/login?return_to=%2Fgraph",
     );
     expect(screen.queryByRole("button", { name: "Lina, person" })).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.map(([path]) => String(path))).toEqual(["/api/auth/session"]);
@@ -538,7 +566,7 @@ describe("canonical local guest entry", () => {
   it("never treats an unavailable authentication check as signed out or as a playground", async () => {
     const fetchMock = vi.fn(async () => response(503, { status: "unavailable" }));
     vi.stubGlobal("fetch", fetchMock);
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState({}, "", "/graph");
 
     render(<App />);
 
@@ -552,13 +580,14 @@ describe("canonical local guest entry", () => {
     "loads the real selected World graph and keeps its verified title paired in %s mode",
     async (authStatus) => {
       vi.stubEnv("PROD", true);
-      window.history.replaceState({}, "", "/?world=world-a");
+      window.history.replaceState({}, "", "/graph?world=world-a");
       const fetchMock = managedServerFetch({ authStatus });
       vi.stubGlobal("fetch", fetchMock);
+      const user = userEvent.setup();
 
       render(<App />, { reactStrictMode: true });
 
-      expect(await screen.findByRole("button", { name: "Aster, person" })).toBeInTheDocument();
+      expect(await revealIsolatedObject(user, "Aster")).toBeInTheDocument();
       expect(screen.getByText("World · World A")).toBeInTheDocument();
       expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/native-graph-explorer/graph")).toBe(true);
       const graphCall = fetchMock.mock.calls.find(([path]) => String(path) === "/api/live/native-graph-explorer/graph");
@@ -570,14 +599,14 @@ describe("canonical local guest entry", () => {
 
   it("keeps an empty authenticated selection in an explicit playground with a World chooser", async () => {
     vi.stubEnv("PROD", true);
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState({}, "", "/graph");
     const fetchMock = managedServerFetch({ authStatus: "authenticated" });
     vi.stubGlobal("fetch", fetchMock);
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Buddy graph playground" })).toBeInTheDocument();
-    expect(screen.getByText(/choose a managed World in the navigation above/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Choose a World" })).toBeInTheDocument();
+    expect(screen.getByText(/Select a World to open this workspace/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Switch World: Choose" })).toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/native-graph-explorer/graph"
       || String(path).startsWith("/api/live/index-graph/"))).toBe(false);
@@ -585,7 +614,7 @@ describe("canonical local guest entry", () => {
 
   it("keeps the selected World title and error when its managed graph cannot be read", async () => {
     vi.stubEnv("PROD", true);
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     const fetchMock = managedServerFetch({
       graphRead: () => Response.json({ error: "Native graph read is unavailable.", code: "graph_read_failed" }, { status: 503 }),
     });
@@ -599,9 +628,50 @@ describe("canonical local guest entry", () => {
     expect(fetchMock.mock.calls.some(([path]) => String(path).startsWith("/api/live/index-graph/"))).toBe(false);
   });
 
+  it("warms the World graph from Build and reuses it across Graph visits", async () => {
+    window.history.replaceState({}, "", "/build?world=world-a");
+    const fetchMock = managedServerFetch({
+      graphRead: (world, count) => count === 2
+        ? new Promise<Response>(() => {})
+        : Response.json(managedGraphEnvelope(world, count === 1 ? "Aster" : "Updated Aster")),
+    });
+    const documentId = "792026bc-6600-4c2d-ae55-05c045d1502f";
+    let finishDocumentRead!: (response: Response) => void;
+    const pendingDocument = new Promise<Response>(resolve => { finishDocumentRead = resolve; });
+    vi.stubGlobal("fetch", (path: RequestInfo | URL, init?: RequestInit) =>
+      String(path) === `/api/live/workspace-documents/${documentId}` ? pendingDocument : fetchMock(path, init));
+    const user = userEvent.setup();
+    const reads = () => fetchMock.mock.calls.filter(([path]) => path === "/api/live/native-graph-explorer/graph");
+    const navigate = (path: string) => act(() => {
+      window.history.pushState({}, "", path);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    render(<App />);
+    await waitFor(() => expect(reads()).toHaveLength(1));
+    navigate(`/build?world=world-a&documentId=${documentId}`);
+    expect(await screen.findByText("Verifying page selection…")).toBeInTheDocument();
+    navigate("/graph?world=world-a");
+    await act(async () => finishDocumentRead(Response.json({}, { status: 404 })));
+    expect(await revealIsolatedObject(user, "Aster")).toBeInTheDocument();
+    navigate("/build?world=world-a");
+    await waitFor(() => expect(screen.queryByText("World · World A")).not.toBeInTheDocument());
+    navigate("/graph?world=world-a");
+    expect(await screen.findByText("World · World A")).toBeInTheDocument();
+    expect(reads()).toHaveLength(1);
+
+    await user.click(await graphMenuAction("Refresh"));
+    await waitFor(() => expect(reads()).toHaveLength(2));
+    navigate("/build?world=world-a");
+    await waitFor(() => expect(screen.queryByText("World · World A")).not.toBeInTheDocument());
+    navigate("/graph?world=world-a");
+    expect(await revealIsolatedObject(user, "Updated Aster")).toBeInTheDocument();
+    expect(reads()).toHaveLength(3);
+  });
+
   it("does not apply a late World A graph response after switching to World B", async () => {
     vi.stubEnv("PROD", true);
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     let resolveSecondA!: (value: Response) => void;
     const secondA = new Promise<Response>((resolve) => { resolveSecondA = resolve; });
     const fetchMock = managedServerFetch({
@@ -613,14 +683,14 @@ describe("canonical local guest entry", () => {
     const user = userEvent.setup();
 
     render(<App />);
-    expect(await screen.findByRole("button", { name: "Aster, person" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Refresh" }));
+    expect(await revealIsolatedObject(user, "Aster")).toBeInTheDocument();
+    await user.click(await graphMenuAction("Refresh"));
     await waitFor(() => expect(fetchMock.mock.calls.filter(([path, init]) => String(path) === "/api/live/native-graph-explorer/graph"
       && JSON.parse(String(init?.body)).managed_world_id === "world-a")).toHaveLength(2));
 
     await user.click(screen.getByRole("button", { name: "Switch World: World A" }));
     await user.click(await screen.findByRole("button", { name: "World B" }));
-    expect(await screen.findByRole("button", { name: "Bramble, person" })).toBeInTheDocument();
+    expect(await revealIsolatedObject(user, "Bramble")).toBeInTheDocument();
     expect(screen.getByText("World · World B")).toBeInTheDocument();
 
     await act(async () => resolveSecondA(Response.json(managedGraphEnvelope("world-a", "Aster late"))));
@@ -630,13 +700,13 @@ describe("canonical local guest entry", () => {
 
   it("owns a fresh managed client through StrictMode replay, World switching, and unmount", async () => {
     vi.stubEnv("PROD", true);
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     const fetchMock = managedServerFetch();
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     const mounted = render(<StrictMode><App /></StrictMode>);
 
-    expect(await screen.findByRole("button", { name: "Aster, person" })).toBeInTheDocument();
+    expect(await revealIsolatedObject(user, "Aster")).toBeInTheDocument();
     const clientsFor = (worldId: string) => managedClientHarness.created
       .filter((entry) => entry.worldId === worldId)
       .map((entry) => entry.client);
@@ -658,7 +728,7 @@ describe("canonical local guest entry", () => {
 
     await user.click(screen.getByRole("button", { name: "Switch World: World A" }));
     await user.click(await screen.findByRole("button", { name: "World B" }));
-    expect(await screen.findByRole("button", { name: "Bramble, person" })).toBeInTheDocument();
+    expect(await revealIsolatedObject(user, "Bramble")).toBeInTheDocument();
     expect(screen.getByText("World · World B")).toBeInTheDocument();
 
     const worldBClients = clientsFor("world-b");
@@ -683,7 +753,7 @@ describe("canonical local guest entry", () => {
   });
 
   it("retains existing local-operator managed drafts under their original storage key", async () => {
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     sessionStorage.setItem("dungeonmind-native-demo:draft:managed%3Aworld-a:native-world-a", JSON.stringify({
       version: 1, world_id: "native-world-a", pending: null, pending_phase: "prepare",
       draft: { objectName: "Pre-existing local draft", objectKind: "person", sourceId: "", targetId: "", predicate: "" },
@@ -691,83 +761,117 @@ describe("canonical local guest entry", () => {
     vi.stubGlobal("fetch", managedServerFetch());
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByRole("button", { name: "Aster, person" });
-    await user.click(screen.getByRole("button", { name: "Add object" }));
+    await revealIsolatedObject(user, "Aster");
+    expect(screen.queryByText("Existing browser-only Worlds and notes")).not.toBeInTheDocument();
+    await user.click(await graphMenuAction("Add object"));
     expect(screen.getByLabelText("Name")).toHaveValue("Pre-existing local draft");
   });
 
-  it("loads and explicitly authors an owned World on a hosted HTTPS origin without local credentials", async () => {
+  it("browses an assigned hosted World without exposing authoring", async () => {
     const dom = (globalThis as unknown as { jsdom: { reconfigure: (options: { url: string }) => void } }).jsdom;
     const originalUrl = window.location.href;
-    dom.reconfigure({ url: "https://buddy.example/?world=world-a" });
-    let graph = managedGraphEnvelope("world-a", "Aster");
-    let operationId = "";
-    const identity = { schema: "dmb_native_graph_explorer_v1", managed_world_id: "world-a", native_world_id: "native-world-a", binding_version: 1 };
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const path = String(input);
-      if (path === "/api/auth/session") return Response.json({ status: "authenticated", subject: "hosted-owner" });
-      if (path === "/api/live/world-containers") return Response.json({ schema_version: "dmb_world_container_registry_v1",
-        records: [managedWorldRecord("world-a", "Owned World")] });
-      if (path === "/api/live/native-graph-explorer/graph") return Response.json(graph);
-      if (path === "/api/live/native-graph-explorer/prepare") {
-        const body = JSON.parse(String(init?.body));
-        operationId = body.operation_id;
-        expect(body).toMatchObject({ managed_world_id: "world-a", native_world_id: "native-world-a", binding_version: 1,
-          expected_revision_id: "revision-world-a", name: "Hosted creation" });
-        return Response.json({ ...identity, status: "prepared", operation_id: operationId,
-          parent_revision_id: "revision-world-a", review: { summary: "Create Hosted creation in the owned World." } });
-      }
-      if (path === "/api/live/native-graph-explorer/confirm") {
-        expect(JSON.parse(String(init?.body))).toEqual({ managed_world_id: "world-a", operation_id: operationId });
-        graph = { ...graph, graph: { ...graph.graph, revision_id: "revision-world-a-2",
-          nodes: [...graph.graph.nodes, { id: "entity:hosted", name: "Hosted creation", kind: "person" }] } };
-        return Response.json({ ...identity, status: "committed", operation_id: operationId, graph });
-      }
-      return Response.json({}, { status: 403 });
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
-    const mounted = render(<App />, { reactStrictMode: true });
+    dom.reconfigure({ url: "https://buddy.example/graph?world=world-a" });
     try {
-      await screen.findByRole("button", { name: "Aster, person" });
-      await user.click(screen.getByRole("button", { name: "Add object" }));
-      await user.type(screen.getByLabelText("Name"), "Hosted creation");
-      await user.click(screen.getByRole("button", { name: "Prepare object" }));
-      await screen.findByText("Create Hosted creation in the owned World.");
-      expect(fetchMock.mock.calls.filter(([path]) => String(path).endsWith("/confirm"))).toHaveLength(0);
-      await user.click(screen.getByRole("button", { name: "Confirm in DungeonMind" }));
-      await screen.findByRole("button", { name: "Hosted creation, person" });
-      expect(fetchMock.mock.calls.filter(([path]) => String(path).endsWith("/prepare"))).toHaveLength(1);
-      expect(fetchMock.mock.calls.filter(([path]) => String(path).endsWith("/confirm"))).toHaveLength(1);
-      expect(fetchMock.mock.calls.every(([path]) => String(path) === "/api/auth/session"
-        || String(path) === "/api/live/world-containers" || String(path).startsWith("/api/live/native-graph-explorer/"))).toBe(true);
-      for (const [, init] of fetchMock.mock.calls) {
-        expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
-        const headers = new Headers(init?.headers);
-        expect(headers.has("Authorization")).toBe(false);
-        expect(headers.has("X-DMB-Graph-CSRF")).toBe(false);
-      }
+      const fetchMock = managedServerFetch({ authStatus: "authenticated" });
+      vi.stubGlobal("fetch", fetchMock);
+      render(<App />);
+
+      expect(await revealIsolatedObject(userEvent.setup(), "Aster")).toBeInTheDocument();
+      expect(screen.getByLabelText(/^Account:/)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Add object" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Plan" })).not.toBeInTheDocument();
+      expect(fetchMock.mock.calls.every(([path]) => [
+        "/api/auth/session", "/api/live/world-containers/lookup?managed_world_id=world-a", "/api/live/native-graph-explorer/graph",
+      ].includes(String(path)))).toBe(true);
     } finally {
-      mounted.unmount();
       dom.reconfigure({ url: originalUrl });
     }
   });
 
-  it("inspects a hosted canvas point at the exact loaded pin without source or statblock requests", async () => {
+  it("posts sign-out to Buddy and reports a failed response", async () => {
+    window.history.replaceState({}, "", "/");
+    const fetchMock = vi.fn(async (url: RequestInfo | URL, _init?: RequestInit) => {
+      if (url === "/api/auth/session") return Response.json({ status: "authenticated", subject: "owner", display_name: "Aster Example" });
+      if (url === "/api/auth/logout") return Response.json({}, { status: 503 });
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByLabelText("Account: Aster Example"));
+    expect(screen.getByRole("button", { name: "Switch World: Choose" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sign-out failed");
+    expect(fetchMock).toHaveBeenCalledWith("/api/auth/logout", expect.objectContaining({
+      method: "POST", credentials: "same-origin",
+    }));
+  });
+
+  it("opens the Build workspace for an authenticated, admitted World", async () => {
+    vi.stubEnv("PROD", true);
+    window.history.replaceState({}, "", "/build?world=world-a");
+    vi.stubGlobal("fetch", managedServerFetch({ authStatus: "authenticated" }));
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Start with a spark/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Open document/i })).toBeInTheDocument();
+  });
+
+  it("keeps hosted PDF Build closed when the World lookup is denied", async () => {
+    vi.stubEnv("PROD", true);
+    window.history.replaceState({}, "", "/build?world=world-a&pdfReview=held-review");
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
+      input === "/api/auth/session"
+        ? Response.json({ status: "authenticated", subject: "other-account" })
+        : Response.json({}, { status: 403 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("World selection unavailable");
+    expect(screen.queryByLabelText("Choose or drop a PDF")).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([path]) => String(path).includes("build-pdf-sources"))).toBe(false);
+  });
+
+  it.each(["/plan", "/play", "/ingest", "/combat", "/statblock", "/surface"])(
+    "requires an admitted World before mounting %s",
+    async (path) => {
+      window.history.replaceState({}, "", path);
+      const fetchMock = managedServerFetch({ authStatus: "authenticated" });
+      vi.stubGlobal("fetch", fetchMock);
+      render(<App />);
+
+      expect(await screen.findByRole("heading", { name: "Choose a World" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Switch World: Choose" })).toBeInTheDocument();
+      expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(["/api/auth/session"]);
+    },
+  );
+
+  it("inspects a hosted canvas point at the exact loaded pin and opens exact evidence on demand", async () => {
     const dom = (globalThis as unknown as { jsdom: { reconfigure: (options: { url: string }) => void } }).jsdom;
     const originalUrl = window.location.href;
-    dom.reconfigure({ url: "https://buddy.example/?world=world-a" });
+    dom.reconfigure({ url: "https://buddy.example/graph?world=world-a" });
     const envelope = managedGraphEnvelope("world-a", "Aster");
     const pin = { managed_world_id: "world-a", native_world_id: "native-world-a", binding_version: 1,
       revision_id: "revision-world-a", scope_mode: "world", campaign_id: null };
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
       if (path === "/api/auth/session") return Response.json({ status: "authenticated", subject: "hosted-owner" });
-      if (path === "/api/live/world-containers") return Response.json({ schema_version: "dmb_world_container_registry_v1",
-        records: [managedWorldRecord("world-a", "Owned World")] });
+      if (path === "/api/live/world-containers/lookup?managed_world_id=world-a") {
+        return Response.json(managedWorldRecord("world-a", "Owned World"));
+      }
       if (path === "/api/live/native-graph-explorer/graph") return Response.json(envelope);
       if (path === "/api/live/native-graph-inspection/read") {
-        expect(JSON.parse(String(init?.body))).toEqual({ scope: pin, selection: { kind: "entity", entity_id: "entity:world-a" } });
+        const request = JSON.parse(String(init?.body));
+        if (request.selection.kind === "source") {
+          expect(request).toEqual({ scope: pin, selection: {
+            kind: "source", assertion_id: "assertion:description", evidence_ref_id: "evidence:source",
+          } });
+          return Response.json({ schema: "dmb_native_graph_source_v1", scope: pin, source: { text: "Exact observatory excerpt" } });
+        }
+        expect(request).toEqual({ scope: pin, selection: { kind: "entity", entity_id: "entity:world-a" } });
         return Response.json({ schema: "dmb_native_graph_entity_v1", scope: pin, entity: {
           found: true,
           assertions: [{ assertion_id: "assertion:description", subject_entity_id: "entity:world-a", predicate: "custom:description",
@@ -785,27 +889,31 @@ describe("canonical local guest entry", () => {
     const user = userEvent.setup();
     const mounted = render(<App />, { reactStrictMode: true });
     try {
-      const point = await screen.findByRole("button", { name: "Aster, person" });
+      const point = await revealIsolatedObject(user, "Aster");
       expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/native-graph-inspection/read")).toBe(false);
       await user.click(point);
-      expect(await screen.findByText("Aster · description: Keeps the observatory charts.")).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: "Object details" })).toBeInTheDocument();
-      expect(screen.getByText("belief · reported · provisional")).toBeInTheDocument();
-      expect(screen.getByText("Source excerpts and linked statblocks are not available in the hosted explorer yet.")).toBeInTheDocument();
-      await user.click(screen.getByText("Record qualifications"));
+      expect(await screen.findByText("custom:description: Keeps the observatory charts.")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Aster" })).toBeInTheDocument();
+      expect(screen.getByText(/Record status: belief · reported · provisional/)).toBeInTheDocument();
+      expect(screen.getByText("Linked statblocks are unavailable for this connection.")).toBeInTheDocument();
+      await user.click(screen.getByText("Other recorded information (1)"));
+      await user.click(screen.getByText("Evidence and qualifications"));
+      await user.click(screen.getByText("Exact record"));
       expect(screen.getByText(/"temporal_scope"/)).toHaveTextContent("unknown");
-      expect(screen.queryByRole("button", { name: "Read supporting source" })).not.toBeInTheDocument();
+      expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/native-graph-inspection/read")).toHaveLength(1);
+      await user.click(screen.getByRole("button", { name: "Read supporting source" }));
+      expect(await screen.findByText("Exact observatory excerpt")).toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Linked statblocks" })).not.toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Focus", exact: true }));
       await user.click(screen.getByRole("button", { name: "Close details" }));
-      expect(screen.queryByText("Aster · description: Keeps the observatory charts.")).not.toBeInTheDocument();
+      expect(screen.queryByText("custom:description: Keeps the observatory charts.")).not.toBeInTheDocument();
       const reads = fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/native-graph-inspection/read");
-      expect(reads).toHaveLength(1);
+      expect(reads).toHaveLength(2);
       expect(reads[0][1]).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
       expect(new Headers(reads[0][1]?.headers).has("Authorization")).toBe(false);
       expect(new Headers(reads[0][1]?.headers).has("X-DMB-Graph-CSRF")).toBe(false);
-      expect(fetchMock.mock.calls.every(([path]) => ["/api/auth/session", "/api/live/world-containers",
+      expect(fetchMock.mock.calls.every(([path]) => ["/api/auth/session", "/api/live/world-containers/lookup?managed_world_id=world-a",
         "/api/live/native-graph-explorer/graph", "/api/live/native-graph-inspection/read"].includes(String(path)))).toBe(true);
     } finally {
       mounted.unmount();
@@ -813,7 +921,7 @@ describe("canonical local guest entry", () => {
     }
   });
 
-  it("rechecks World selection on account switch and isolates graph drafts even for the same World ID", async () => {
+  it("rechecks World selection on account switch and isolates graph responses even for the same World ID", async () => {
     let subject = "owner-a";
     const backend = managedServerFetch();
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -825,26 +933,20 @@ describe("canonical local guest entry", () => {
       return backend(input, init);
     });
     vi.stubGlobal("fetch", fetchMock);
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByRole("button", { name: "Aster, person" });
-    await user.click(screen.getByRole("button", { name: "Add object" }));
-    await user.type(screen.getByLabelText("Name"), "Owner A private draft");
+    await revealIsolatedObject(user, "Aster");
     subject = "owner-b";
     fireEvent(window, new Event("focus"));
-    await screen.findByRole("button", { name: "Bramble, person" });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Aster, person" })).not.toBeInTheDocument());
+    await revealIsolatedObject(user, "Bramble");
     expect(screen.queryByRole("button", { name: "Aster, person" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Add object" }));
-    expect(screen.getByLabelText("Name")).toHaveValue("");
-    expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/world-containers")).toHaveLength(2);
-    await user.type(screen.getByLabelText("Name"), "Owner B private draft");
+    expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/world-containers/lookup?managed_world_id=world-a")).toHaveLength(2);
     subject = "owner-a";
     fireEvent(window, new Event("focus"));
-    await screen.findByRole("button", { name: "Aster, person" });
-    await user.click(screen.getByRole("button", { name: "Add object" }));
-    expect(screen.getByLabelText("Name")).toHaveValue("Owner A private draft");
-    expect(screen.queryByDisplayValue("Owner B private draft")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Bramble, person" })).not.toBeInTheDocument());
+    await revealIsolatedObject(user, "Aster");
   });
 
   it.each(["signed_out", "unavailable"] as const)("removes the selected graph on %s and discards its pending response", async nextStatus => {
@@ -860,11 +962,11 @@ describe("canonical local guest entry", () => {
       return backend(input, init);
     });
     vi.stubGlobal("fetch", fetchMock);
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByRole("button", { name: "Aster, person" });
-    await user.click(screen.getByRole("button", { name: "Refresh" }));
+    await revealIsolatedObject(user, "Aster");
+    await user.click(await graphMenuAction("Refresh"));
     await waitFor(() => expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/native-graph-explorer/graph")).toHaveLength(2));
     status = nextStatus;
     fireEvent(window, new Event("focus"));
@@ -881,25 +983,24 @@ describe("canonical local guest entry", () => {
     const oldList = new Promise<Response>(resolve => { resolveOld = resolve; });
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input) === "/api/auth/session") return Response.json({ status: "authenticated", subject });
-      if (String(input) === "/api/live/world-containers") return subject === "owner-a" ? oldList
-        : Response.json({ schema_version: "dmb_world_container_registry_v1", records: [] });
+      if (String(input) === "/api/live/world-containers/lookup?managed_world_id=world-a") return subject === "owner-a" ? oldList
+        : Response.json({}, { status: 403 });
       return Response.json({}, { status: 403 });
     });
     vi.stubGlobal("fetch", fetchMock);
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     render(<App />);
     await screen.findByText("Verifying World selection…");
-    await waitFor(() => expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/world-containers")).toHaveLength(1));
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/world-containers/lookup?managed_world_id=world-a")).toHaveLength(1));
     subject = "owner-b";
     fireEvent(window, new Event("focus"));
     await screen.findByText("World selection unavailable");
-    await act(async () => resolveOld(Response.json({ schema_version: "dmb_world_container_registry_v1",
-      records: [managedWorldRecord("world-a", "Owner A secret world")] })));
+    await act(async () => resolveOld(Response.json(managedWorldRecord("world-a", "Owner A secret world"))));
     expect(screen.queryByText("Owner A secret world")).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/native-graph-explorer/graph")).toBe(false);
   });
 
-  it.each(["/?world=hosted-world", "/?auth_error=cancelled", "/#section", "/unknown-path"]) (
+  it.each(["/graph?world=hosted-world", "/graph?auth_error=cancelled", "/graph#section", "/unknown-path"]) (
     "does not expose a guest surface for %s",
     async (pathname) => {
       window.history.replaceState({}, "", pathname);

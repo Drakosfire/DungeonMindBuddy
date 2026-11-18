@@ -5,7 +5,7 @@ import {
   baseCandidateDefinition,
   baseCandidateDefinitionWithNullLair,
   complexCandidateDefinition,
-} from "./editorFixtures";
+} from "../../test/statblockEditorFixtures";
 import { definitionOutputToInput } from "./definitionOutputToInput";
 
 describe("definitionOutputToInput", () => {

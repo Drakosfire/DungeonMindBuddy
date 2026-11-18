@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../test/worldGraphRecapFixture";
 import {
   admitBuildDocumentScope,
   admitBuildObjectInsert,

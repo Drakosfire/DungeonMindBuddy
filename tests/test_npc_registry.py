@@ -14,12 +14,12 @@ from textwrap import dedent
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
-from src.contracts.npc_registry import (
+from contracts.npc_registry import (
     NpcRegistryRecord,
     dump_npc_registry,
     load_npc_registry,
 )
-from src.contracts.schema_validation import validate_instance
+from contracts.schema_validation import validate_instance
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]

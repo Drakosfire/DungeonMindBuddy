@@ -13,7 +13,7 @@ from generationengine import InferenceObservation, ObservationState, TextRequest
 from pydantic import ValidationError
 
 from src.cli import DungeonBuddyCLI
-from src.ingestion.frontmatter_inference import (
+from ingestion.frontmatter_inference import (
     OpenAIFrontmatterInferenceClient,
     ProposedDocumentMetadata,
     _frontmatter_inference_prompt,
@@ -76,7 +76,7 @@ def test_no_client_uses_heuristic_with_zero_generationengine_calls(
         raise AssertionError("no-client path must not construct GenerationEngine")
 
     monkeypatch.setattr(
-        "src.ingestion.frontmatter_inference.GenerationClient.from_env",
+        "ingestion.frontmatter_inference.GenerationClient.from_env",
         _boom,
     )
     metadata = infer_frontmatter_metadata(path=_WORLD_PATH, text=_WORLD_TEXT)
@@ -91,7 +91,7 @@ def test_selected_client_uses_generationengine_and_skips_heuristic(
         raise AssertionError("injected client must not construct GenerationEngine")
 
     monkeypatch.setattr(
-        "src.ingestion.frontmatter_inference.GenerationClient.from_env",
+        "ingestion.frontmatter_inference.GenerationClient.from_env",
         _boom,
     )
     client = RecordingStructuredClient()
@@ -312,7 +312,7 @@ def test_production_client_is_constructed_inside_awaited_execution(
         return _FakeGE()
 
     monkeypatch.setattr(
-        "src.ingestion.frontmatter_inference.GenerationClient.from_env",
+        "ingestion.frontmatter_inference.GenerationClient.from_env",
         _from_env,
     )
     metadata = OpenAIFrontmatterInferenceClient().propose(
@@ -367,7 +367,7 @@ def test_cli_selects_inference_adapter_when_openai_api_key_present(
 
 
 def test_production_path_no_longer_owns_openai_or_wrapper_telemetry() -> None:
-    import src.ingestion.frontmatter_inference as frontmatter_inference
+    import ingestion.frontmatter_inference as frontmatter_inference
 
     source = inspect.getsource(OpenAIFrontmatterInferenceClient)
     module_source = inspect.getsource(frontmatter_inference)

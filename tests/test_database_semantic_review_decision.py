@@ -19,7 +19,7 @@ pytestmark = pytest.mark.usefixtures("application_state_dsn")
 def _held_child(monkeypatch, root):
     parent, request = _false_quote_parent(monkeypatch, root)
     response = correction.correct_recap_run_evidence(request)
-    child = registry.get_extraction_run(root, response.run_id)
+    child = registry.get_extraction_run(response.run_id)
     return parent, child, dict(expectedRevision=child.revision,
         candidateSha256=response.candidate_sha256, decision="accepted", reviewDecisionRef="review:synthetic-acceptance")
 
@@ -56,7 +56,7 @@ def test_mounted_acceptance_with_all_evidence_files_removed(monkeypatch, tmp_pat
     assert after.run.components == child.components
     assert assess_recap_semantics(after.run, parent=parent,
         source_revision_id=after.source_artifact.content_sha256).accepted
-    assert registry.get_extraction_run(tmp_path, parent.run_id) == parent
+    assert registry.get_extraction_run(parent.run_id) == parent
 
 
 @pytest.mark.parametrize("kind", ["source_artifact", "candidate_graph", "source_span_index"])
@@ -76,7 +76,7 @@ def test_bad_stored_evidence_cannot_use_valid_mirrors(monkeypatch, tmp_path, app
     with _client() as client:
         response = client.post(f"/api/live/extract-promote/runs/{child.run_id}/semantic-disposition", json=body)
     assert response.status_code == (500 if violation == "corrupt" and kind != "source_artifact" else 409), response.text
-    assert registry.get_extraction_run(tmp_path, child.run_id) == child
+    assert registry.get_extraction_run(child.run_id) == child
 
 
 @pytest.mark.parametrize("drift", ["revision", "candidate_digest"])
@@ -89,4 +89,4 @@ def test_stale_review_cannot_record_decision(monkeypatch, tmp_path, drift):
     with _client() as client:
         response = client.post(f"/api/live/extract-promote/runs/{child.run_id}/semantic-disposition", json=body)
     assert response.status_code == 409, response.text
-    assert registry.get_extraction_run(tmp_path, child.run_id) == child
+    assert registry.get_extraction_run(child.run_id) == child

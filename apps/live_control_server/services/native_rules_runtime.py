@@ -430,8 +430,15 @@ class NativeRulesRuntime:
             proof = proof.model_copy(update={"graph_packets": packets})
         if self.record.execution.budget_use.calls == 0:
             from application_state.agent_conversation.native_rules_output import normalize_unused_native_output
-            completion, bindings, text = normalize_unused_native_output(
-                turn, self.record.execution, proof,**(dict(work_proof=work_proof,trace=trace) if shared else {}))
+            normalized = normalize_unused_native_output(
+                turn, self.record.execution, proof,**(dict(work_proof=work_proof,trace=trace,
+                    include_variant=True) if shared else {}))
+            completion, bindings, text = normalized[:3]
+            if shared and normalized[3] is not None:
+                from .conversation_variant_save import validate_variant_review
+                proof = proof.model_copy(update={
+                    "variant_validation": validate_variant_review(normalized[3].definition),
+                })
             if self.adapter.context_capture is not None:
                 self.adapter.context_capture.answer_context(text)
             result=TurnResult(

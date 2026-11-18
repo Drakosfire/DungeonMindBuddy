@@ -1,103 +1,56 @@
 {
   "candidate_graph": {
-    "beats": [
-      {
-        "beat_id": "beat_001_job_offered",
-        "evidence_refs": [
-          {
-            "anchor_quotes": [
-              "clear rats from the cellar"
-            ],
-            "source_span_ref_id": "spref:glowkindle:001"
-          }
-        ],
-        "involved_node_ids": [
-          "npc_glowkindle",
-          "loc_glowkindle_cellar"
-        ],
-        "order": 1,
-        "proposed_action": "create",
-        "summary": "Glowkindle asks the party to clear rats from the cellar.",
-        "title": "Job offered",
-        "warnings": []
-      },
-      {
-        "beat_id": "beat_002_cellar_context",
-        "evidence_refs": [
-          {
-            "anchor_quotes": [
-              "beneath Glowkindle's brewery"
-            ],
-            "source_span_ref_id": "spref:glowkindle:002"
-          }
-        ],
-        "involved_node_ids": [
-          "loc_glowkindle_cellar",
-          "loc_glowkindle_brewery"
-        ],
-        "order": 2,
-        "proposed_action": "create",
-        "summary": "The cellar is beneath Glowkindle's brewery and contains damaged stores.",
-        "title": "Cellar context",
-        "warnings": []
-      },
-      {
-        "beat_id": "beat_003_rat_fight",
-        "evidence_refs": [
-          {
-            "anchor_quotes": [
-              "fights a swarm of rats"
-            ],
-            "source_span_ref_id": "spref:glowkindle:003"
-          }
-        ],
-        "involved_node_ids": [
-          "creature_rat_swarm",
-          "loc_glowkindle_cellar"
-        ],
-        "order": 3,
-        "proposed_action": "create",
-        "summary": "The party fights a swarm of rats in the cellar.",
-        "title": "Rat fight",
-        "warnings": []
-      },
-      {
-        "beat_id": "beat_004_cellar_safe",
-        "evidence_refs": [
-          {
-            "anchor_quotes": [
-              "safe enough for Glowkindle"
-            ],
-            "source_span_ref_id": "spref:glowkindle:004"
-          }
-        ],
-        "involved_node_ids": [
-          "npc_glowkindle",
-          "loc_glowkindle_cellar"
-        ],
-        "order": 4,
-        "proposed_action": "create",
-        "summary": "The stores are safe enough for Glowkindle to reopen the cellar.",
-        "title": "Cellar safe",
-        "warnings": []
-      }
-    ],
+    "beats": [],
     "campaign_id": "longmont-c2",
     "deferred_items": [],
     "diagnostics": {
-      "approved_memory_write": false,
-      "canon_promotion": false,
-      "corpus_mutation": false,
-      "extraction_mode": "category_decomposed",
-      "extraction_performed": true,
-      "llm_used": true,
-      "model_id": "fixture-no-llm",
+      "agent_interaction_connected": false,
+      "canon_promoted": false,
+      "corpus_mutated": false,
+      "corpus_scanned": false,
+      "extraction_performed": false,
+      "facts_promoted": false,
+      "llm_used": false,
+      "missing_evidence_objects": 0,
+      "plan_connected": false,
       "preview_only": true,
-      "production_retrieval": false,
-      "runtime_connected": true,
+      "runtime_connected": false,
+      "unresolved_evidence_refs": 0,
       "warning_count": 0
     },
     "edges": [
+      {
+        "confidence": "high",
+        "edge_id": "edge:party-participates-in-encounter",
+        "evidence_refs": [
+          {
+            "anchor_quotes": [
+              "the party fights a swarm of rats"
+            ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:003",
+            "source_anchor_id": "anchor:spref:glowkindle:003",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
+            "source_span_ref_id": "spref:glowkindle:003"
+          }
+        ],
+        "from_node_id": "node:heroes-party",
+        "label": "Party fights the rats",
+        "proposed_action": "create",
+        "relationship_type": "participates_in",
+        "semantic_state": {
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
+        },
+        "to_node_id": "enc_glowkindle_cellar_rats",
+        "warnings": []
+      },
       {
         "confidence": "high",
         "edge_id": "edge:cellar-located-in-brewery",
@@ -106,18 +59,26 @@
             "anchor_quotes": [
               "beneath Glowkindle's brewery"
             ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:002",
+            "source_anchor_id": "anchor:spref:glowkindle:002",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
             "source_span_ref_id": "spref:glowkindle:002"
           }
         ],
         "from_node_id": "loc_glowkindle_cellar",
         "label": "Cellar located in brewery",
-        "predicate_family": "location_hierarchy",
         "proposed_action": "create",
         "relationship_type": "located_in",
         "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
         },
         "to_node_id": "loc_glowkindle_brewery",
         "warnings": []
@@ -130,18 +91,26 @@
             "anchor_quotes": [
               "In the cellar"
             ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:003",
+            "source_anchor_id": "anchor:spref:glowkindle:003",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
             "source_span_ref_id": "spref:glowkindle:003"
           }
         ],
         "from_node_id": "enc_glowkindle_cellar_rats",
         "label": "Encounter located in cellar",
-        "predicate_family": "location_hierarchy",
         "proposed_action": "create",
         "relationship_type": "located_in",
         "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
         },
         "to_node_id": "loc_glowkindle_cellar",
         "warnings": []
@@ -154,18 +123,26 @@
             "anchor_quotes": [
               "swarm of rats"
             ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:003",
+            "source_anchor_id": "anchor:spref:glowkindle:003",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
             "source_span_ref_id": "spref:glowkindle:003"
           }
         ],
         "from_node_id": "creature_rat_swarm",
         "label": "Rat swarm participates in encounter",
-        "predicate_family": "participation",
         "proposed_action": "create",
         "relationship_type": "participates_in",
         "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
         },
         "to_node_id": "enc_glowkindle_cellar_rats",
         "warnings": []
@@ -178,18 +155,26 @@
             "anchor_quotes": [
               "clear rats"
             ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:001",
+            "source_anchor_id": "anchor:spref:glowkindle:001",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
             "source_span_ref_id": "spref:glowkindle:001"
           }
         ],
         "from_node_id": "quest_clear_glowkindle_rats",
         "label": "Quest targets rat swarm",
-        "predicate_family": "hook_relation",
         "proposed_action": "create",
         "relationship_type": "mission_targets",
         "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
         },
         "to_node_id": "creature_rat_swarm",
         "warnings": []
@@ -202,77 +187,29 @@
             "anchor_quotes": [
               "from the cellar"
             ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:001",
+            "source_anchor_id": "anchor:spref:glowkindle:001",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
             "source_span_ref_id": "spref:glowkindle:001"
           }
         ],
         "from_node_id": "quest_clear_glowkindle_rats",
         "label": "Quest focuses on cellar",
-        "predicate_family": "hook_relation",
         "proposed_action": "create",
         "relationship_type": "mission_focus",
         "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
         },
         "to_node_id": "loc_glowkindle_cellar",
         "warnings": []
-      },
-      {
-        "confidence": "medium",
-        "context_anchor": true,
-        "edge_id": "edge:heroes-party-participates-in-enc-glowkindle-cellar-rats",
-        "evidence_refs": [
-          {
-            "anchor_quotes": [
-              "the party"
-            ],
-            "source_span_ref_id": "spref:glowkindle:001"
-          }
-        ],
-        "from_node_id": "node:heroes-party",
-        "label": "Heroes / party participates in Glowkindle cellar rat fight",
-        "predicate_family": "participation",
-        "proposed_action": "anchor",
-        "relationship_type": "participates_in",
-        "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
-        },
-        "to_node_id": "enc_glowkindle_cellar_rats",
-        "warnings": [
-          "context_anchor_no_session_evidence",
-          "deterministic_party_participation"
-        ]
-      },
-      {
-        "confidence": "medium",
-        "context_anchor": true,
-        "edge_id": "edge:heroes-party-pursues-quest-clear-glowkindle-rats",
-        "evidence_refs": [
-          {
-            "anchor_quotes": [
-              "the party"
-            ],
-            "source_span_ref_id": "spref:glowkindle:001"
-          }
-        ],
-        "from_node_id": "node:heroes-party",
-        "label": "Heroes / party pursues Clear rats from Glowkindle's cellar",
-        "predicate_family": "hook_relation",
-        "proposed_action": "anchor",
-        "relationship_type": "pursues",
-        "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
-        },
-        "to_node_id": "quest_clear_glowkindle_rats",
-        "warnings": [
-          "context_anchor_no_session_evidence",
-          "deterministic_party_participation"
-        ]
       }
     ],
     "ignored_items": [],
@@ -286,6 +223,13 @@
             "anchor_quotes": [
               "Glowkindle asks the party"
             ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:001",
+            "source_anchor_id": "anchor:spref:glowkindle:001",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
             "source_span_ref_id": "spref:glowkindle:001"
           }
         ],
@@ -295,9 +239,11 @@
         "node_type": "character",
         "proposed_action": "create",
         "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
         },
         "warnings": []
       },
@@ -310,6 +256,13 @@
             "anchor_quotes": [
               "a swarm of rats"
             ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:003",
+            "source_anchor_id": "anchor:spref:glowkindle:003",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
             "source_span_ref_id": "spref:glowkindle:003"
           }
         ],
@@ -319,9 +272,11 @@
         "node_type": "character",
         "proposed_action": "create",
         "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
         },
         "warnings": []
       },
@@ -334,6 +289,13 @@
             "anchor_quotes": [
               "Glowkindle's brewery"
             ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:002",
+            "source_anchor_id": "anchor:spref:glowkindle:002",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
             "source_span_ref_id": "spref:glowkindle:002"
           }
         ],
@@ -343,9 +305,11 @@
         "node_type": "location",
         "proposed_action": "create",
         "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
         },
         "warnings": []
       },
@@ -358,6 +322,13 @@
             "anchor_quotes": [
               "The cellar is beneath"
             ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:002",
+            "source_anchor_id": "anchor:spref:glowkindle:002",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
             "source_span_ref_id": "spref:glowkindle:002"
           }
         ],
@@ -367,9 +338,11 @@
         "node_type": "location",
         "proposed_action": "create",
         "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
         },
         "warnings": []
       },
@@ -382,6 +355,13 @@
             "anchor_quotes": [
               "the party"
             ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:001",
+            "source_anchor_id": "anchor:spref:glowkindle:001",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
             "source_span_ref_id": "spref:glowkindle:001"
           }
         ],
@@ -391,14 +371,148 @@
         "node_type": "character",
         "proposed_action": "create",
         "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
         },
         "warnings": [
           "context_anchor_no_session_evidence",
           "party_name_binding_deferred"
         ]
+      },
+      {
+        "confidence": "medium",
+        "corpus_ref": null,
+        "description": "Glowkindle asks the party to clear rats from the cellar.",
+        "evidence_refs": [
+          {
+            "anchor_quotes": [
+              "clear rats from the cellar"
+            ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:001",
+            "source_anchor_id": "anchor:spref:glowkindle:001",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
+            "source_span_ref_id": "spref:glowkindle:001"
+          }
+        ],
+        "importance": "medium",
+        "label": "Job offered",
+        "node_id": "beat_001_job_offered",
+        "node_type": "event",
+        "proposed_action": "create",
+        "semantic_state": {
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
+        },
+        "warnings": []
+      },
+      {
+        "confidence": "medium",
+        "corpus_ref": null,
+        "description": "The cellar is beneath Glowkindle's brewery and contains damaged stores.",
+        "evidence_refs": [
+          {
+            "anchor_quotes": [
+              "beneath Glowkindle's brewery"
+            ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:002",
+            "source_anchor_id": "anchor:spref:glowkindle:002",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
+            "source_span_ref_id": "spref:glowkindle:002"
+          }
+        ],
+        "importance": "medium",
+        "label": "Cellar context",
+        "node_id": "beat_002_cellar_context",
+        "node_type": "event",
+        "proposed_action": "create",
+        "semantic_state": {
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
+        },
+        "warnings": []
+      },
+      {
+        "confidence": "medium",
+        "corpus_ref": null,
+        "description": "The party fights a swarm of rats in the cellar.",
+        "evidence_refs": [
+          {
+            "anchor_quotes": [
+              "fights a swarm of rats"
+            ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:003",
+            "source_anchor_id": "anchor:spref:glowkindle:003",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
+            "source_span_ref_id": "spref:glowkindle:003"
+          }
+        ],
+        "importance": "medium",
+        "label": "Rat fight",
+        "node_id": "beat_003_rat_fight",
+        "node_type": "event",
+        "proposed_action": "create",
+        "semantic_state": {
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
+        },
+        "warnings": []
+      },
+      {
+        "confidence": "medium",
+        "corpus_ref": null,
+        "description": "The stores are safe enough for Glowkindle to reopen the cellar.",
+        "evidence_refs": [
+          {
+            "anchor_quotes": [
+              "safe enough for Glowkindle"
+            ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:004",
+            "source_anchor_id": "anchor:spref:glowkindle:004",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
+            "source_span_ref_id": "spref:glowkindle:004"
+          }
+        ],
+        "importance": "medium",
+        "label": "Cellar safe",
+        "node_id": "beat_004_cellar_safe",
+        "node_type": "event",
+        "proposed_action": "create",
+        "semantic_state": {
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
+        },
+        "warnings": []
       },
       {
         "confidence": "medium",
@@ -409,6 +523,13 @@
             "anchor_quotes": [
               "clear rats from the cellar"
             ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:001",
+            "source_anchor_id": "anchor:spref:glowkindle:001",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
             "source_span_ref_id": "spref:glowkindle:001"
           }
         ],
@@ -418,9 +539,11 @@
         "node_type": "quest",
         "proposed_action": "create",
         "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
         },
         "warnings": []
       },
@@ -433,6 +556,13 @@
             "anchor_quotes": [
               "fights a swarm of rats"
             ],
+            "can_highlight_span": true,
+            "can_open_source": true,
+            "evidence_role": "source_evidence",
+            "label": "spref:glowkindle:003",
+            "source_anchor_id": "anchor:spref:glowkindle:003",
+            "source_artifact_id": "synthetic-glowkindle-c1s1",
+            "source_ref_id": "synthetic-glowkindle-c1s1-recap",
             "source_span_ref_id": "spref:glowkindle:003"
           }
         ],
@@ -442,9 +572,11 @@
         "node_type": "combat_encounter",
         "proposed_action": "create",
         "semantic_state": {
-          "canon_status": "preview_only",
-          "lifecycle": "candidate",
-          "memory_status": "uncommitted"
+          "authority_state": "system_derived",
+          "canon_state": "played_canon",
+          "evidence_role": "source_evidence",
+          "lifecycle_state": "candidate",
+          "visibility_state": "gm_private"
         },
         "warnings": []
       }
@@ -454,7 +586,7 @@
     "schema": "dmb_candidate_graph_preview_v0",
     "session_id": "synthetic-glowkindle-c1s1",
     "source_artifact_ids": [
-      "artifact:recap:longmont-c2:synthetic-glowkindle-c1s1"
+      "synthetic-glowkindle-c1s1"
     ],
     "status": "preview",
     "version": "0.1"
@@ -467,7 +599,7 @@
     "has_encounter_location_edge": true,
     "has_invalid_predicate_issues": false,
     "has_party_participates_in_encounter": true,
-    "has_party_pursues_quest": true,
+    "has_party_pursues_quest": false,
     "has_quest": true,
     "has_quest_focus_edge": true,
     "has_quest_target_edge": true,
@@ -477,10 +609,12 @@
   "corpus_scanned": false,
   "diagnostics": {
     "consolidation_diagnostics": {
+      "automatic_identity_consolidation": false,
       "cross_class_blocked_nodes": [],
       "cross_class_merged_nodes": [],
       "dropped_edges_missing_endpoints": [],
       "dropped_no_valid_evidence": {},
+      "edge_evidence_inheritance": true,
       "edge_predicate_issues": [],
       "encounter_job_pass": {
         "dropped_invalid_node_type_ids": [],
@@ -488,47 +622,71 @@
         "kept_node_count": 2,
         "raw_node_count": 2
       },
-      "inserted_party_anchor_slugs": [],
       "merged_edges": [],
       "merged_nodes": [],
-      "nodes_before_dedup": 7,
-      "party_anchor_hub_paths": [],
-      "party_collective_inserted": false,
-      "party_companion_slugs": [],
-      "party_membership_edge_slugs": [],
-      "party_participation_attachment": {
-        "combat_encounter_node_ids": [
-          "enc_glowkindle_cellar_rats"
-        ],
-        "enabled": true,
-        "inserted_edge_count": 2,
-        "inserted_edge_ids": [
-          "edge:heroes-party-participates-in-enc-glowkindle-cellar-rats",
-          "edge:heroes-party-pursues-quest-clear-glowkindle-rats"
-        ],
-        "quest_node_ids": [
-          "quest_clear_glowkindle_rats"
-        ],
-        "skipped_reason": null,
-        "subject_node_ids": [
-          "node:heroes-party"
-        ]
-      },
+      "node_id_bindings": [
+        {
+          "candidate_node_id": "npc_glowkindle",
+          "local_node_id": "npc_glowkindle",
+          "pass_id": "actor_pass"
+        },
+        {
+          "candidate_node_id": "creature_rat_swarm",
+          "local_node_id": "creature_rat_swarm",
+          "pass_id": "actor_pass"
+        },
+        {
+          "candidate_node_id": "loc_glowkindle_brewery",
+          "local_node_id": "loc_glowkindle_brewery",
+          "pass_id": "location_pass"
+        },
+        {
+          "candidate_node_id": "loc_glowkindle_cellar",
+          "local_node_id": "loc_glowkindle_cellar",
+          "pass_id": "location_pass"
+        },
+        {
+          "candidate_node_id": "node:heroes-party",
+          "local_node_id": "node:heroes-party",
+          "pass_id": "collective_pass"
+        },
+        {
+          "candidate_node_id": "beat_001_job_offered",
+          "local_node_id": "beat_001_job_offered",
+          "pass_id": "event_pass"
+        },
+        {
+          "candidate_node_id": "beat_002_cellar_context",
+          "local_node_id": "beat_002_cellar_context",
+          "pass_id": "event_pass"
+        },
+        {
+          "candidate_node_id": "beat_003_rat_fight",
+          "local_node_id": "beat_003_rat_fight",
+          "pass_id": "event_pass"
+        },
+        {
+          "candidate_node_id": "beat_004_cellar_safe",
+          "local_node_id": "beat_004_cellar_safe",
+          "pass_id": "event_pass"
+        }
+      ],
+      "nodes_before_dedup": 11,
       "per_pass_counts": {
         "actor_pass": 2,
-        "beat_pass": 4,
+        "beat_pass": 0,
         "collective_pass": 1,
-        "edge_pass": 5,
+        "edge_pass": 6,
         "encounter_job_pass": 2,
+        "event_pass": 4,
         "location_pass": 2,
         "object_pass": 0,
         "thread_pass": 0
       },
-      "registry_relpath": "/workspace/DungeonMindBuddy/corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_party_registry.json",
-      "repaired_edge_evidence_refs": 2,
-      "session_graph_context_warnings": [
-        "no session_pc_rosters['1'] entry"
-      ]
+      "profile_id": "recap_category_v2",
+      "profile_version": "2.0",
+      "rejected_node_evidence_refs": [],
+      "repaired_edge_evidence_refs": 0
     },
     "result_diagnostics": {
       "approved_memory_write": false,
@@ -654,6 +812,24 @@
             "trimmed_line_count": 0,
             "untrimmed_line_count": 18
           },
+          "event_pass": {
+            "combat_encounter_hint_count": 0,
+            "containment_hint_count": 0,
+            "context_line_count": 0,
+            "do_not_merge_hint_count": 0,
+            "enabled": true,
+            "known_name_count": 0,
+            "packet_id": "packet:vocab:a7770d77f683",
+            "pass_name": "event_pass",
+            "predicate_hint_count": 0,
+            "predicate_hint_subject_count": 0,
+            "render_method": "node_vocabulary_context_v1",
+            "target_entity_kinds": [
+              "event"
+            ],
+            "trimmed_line_count": 0,
+            "untrimmed_line_count": 0
+          },
           "location_pass": {
             "combat_encounter_hint_count": 0,
             "containment_hint_count": 0,
@@ -716,14 +892,18 @@
         }
       },
       "preview_only": true,
-      "production_retrieval": false
+      "production_retrieval": false,
+      "recap_source_authority": {
+        "checked": false,
+        "deferred_items": 0,
+        "reason": "full_source_text_unavailable"
+      }
     }
   },
   "extraction_options": {
     "enable_dynamic_node_vocabulary_packet": true,
     "enable_encounter_job_edge_guidance": true,
-    "enable_encounter_job_pass": true,
-    "enable_party_participation_attachment": true
+    "enable_encounter_job_pass": true
   },
   "fixture_only": true,
   "generated_by": "evals.graph_memory_layer.encounter_job_dogfood_fixture",

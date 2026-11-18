@@ -10,7 +10,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from src.agent.corpus_path_tools import CORPUS_PATH_TOOL_NAMES, read_paths_from_tool_trace
+from corpus.tool_trace import CORPUS_PATH_TOOL_NAMES, read_paths_from_tool_trace
 from src.agent.planner import (
     PlanningModelStepRecord,
     PlanningTurnDetail,
@@ -28,7 +28,7 @@ from evals.planner_slice.live_report import (
     write_planner_live_report,
 )
 from evals.planner_slice.planner_answer_benchmark import instrument_planner_answer
-from src.prompts.planner_live_eval_user import AUTONOMOUS_PLANNING_USER_SUFFIX
+from prompts.planner_live_eval_user import AUTONOMOUS_PLANNING_USER_SUFFIX
 
 _log = logging.getLogger("dmb.planner.live_eval")
 

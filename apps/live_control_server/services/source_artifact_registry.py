@@ -154,7 +154,7 @@ def resolve_worldbuilding_source_span(
     span_index: int = 0,
 ):
     """Load one persisted worldbuilding span and resolve it through the evidence resolver."""
-    artifact = get_source_artifact(root, source_artifact_id)
+    artifact = get_source_artifact(source_artifact_id)
     if str(artifact.source_domain) != "worldbuilding":
         raise SourceArtifactRegistryError(
             "resolve_worldbuilding_source_span requires a worldbuilding artifact",
@@ -183,28 +183,23 @@ def resolve_worldbuilding_source_span(
 
 
 def get_source_artifacts(
-    root: Path, source_artifact_ids: set[str]
+    source_artifact_ids: set[str]
 ) -> dict[str, GraphMemorySourceArtifact]:
     """Exact metadata lookup from APP; no source bodies or filesystem discovery."""
-    del root
     try:
-        rows = source_service.get_source_input_descriptors(
+        return source_service.get_source_input_descriptors(
             source_artifact_ids=sorted(source_artifact_ids)
         )
     except ApplicationStateError as exc:
         raise SourceArtifactRegistryError(
             str(exc), status_code=exc.status_code
         ) from exc
-    return {
-        key: GraphMemorySourceArtifact.model_validate(value)
-        for key, value in rows.items()
-    }
 
 
 def get_source_artifact(
-    root: Path, source_artifact_id: str
+    source_artifact_id: str
 ) -> GraphMemorySourceArtifact:
-    records = get_source_artifacts(root, {source_artifact_id})
+    records = get_source_artifacts({source_artifact_id})
     artifact = records.get(source_artifact_id)
     if artifact is None:
         raise SourceArtifactRegistryError(
@@ -443,7 +438,7 @@ def _register_source_input(
         ) from exc
     # Exact replays return the frozen descriptor, including original timestamps
     # and inert historical locator. Input storage grants no Core authority.
-    return get_source_artifact(Path(), artifact.source_artifact_id)
+    return get_source_artifact(artifact.source_artifact_id)
 
 
 def create_recap_source_artifact(
@@ -551,7 +546,7 @@ def load_registered_source_artifact_bytes(
     DungeonMind owns provenance admission. This reader supplies the product-owned
     body by its registered identity and digest; a file mirror grants no fallback.
     """
-    artifact = get_source_artifact(root, source_artifact_id)
+    artifact = get_source_artifact(source_artifact_id)
     return artifact, load_source_input_bytes(artifact)
 
 
@@ -607,7 +602,7 @@ def _register_page_source(
 ) -> GraphMemorySourceArtifact:
     """Reuse exact immutable descriptors across the Page storage transition."""
     try:
-        existing = get_source_artifact(root, candidate.source_artifact_id)
+        existing = get_source_artifact(candidate.source_artifact_id)
     except SourceArtifactRegistryError as exc:
         if exc.status_code != 404:
             raise

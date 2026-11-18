@@ -1185,6 +1185,7 @@ export interface NativeGraphQueryV3 extends Omit<NativePlanQueryV2,'schema'> {
 }
 export interface NativeGraphQueryV4 extends Omit<NativeGraphQueryV3,'schema'> {
   schema:'dmb_native_graph_query_v4';object_matches:{entity_id:string;label:string}[];
+  discovery_hops?: {relationship_id:string;from_node_id:string;to_node_id:string}[];
 }
 export interface PlanNativeContextReceiptV1 extends Omit<PlanSourceContextReceiptV1,'schema'|'graph_capability'> {
   schema:'dmb_plan_native_context_receipt_v1';graph_capability:null;
@@ -1224,11 +1225,12 @@ export interface SurfaceNativeCompletionV1 {
   answer_context_status:SurfaceEvidenceCompletionV1['answer_context_status']|'discussion';
   answer_segments:(Exclude<SurfaceEvidenceCompletionV7['answer_segments'][number],{kind:'graph_claim'|'authored_quote'}>
     | Extract<WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'draft_reference_claim'|'related_page_claim'|'saved_source_claim'}>
-    | {kind:'discussion';text:string})[];
+    | {kind:'discussion';text:string}
+    | {kind:'statblock_pdf_claim';text:string;scope:import('./nativeGraphInspection').InspectionPin;assertion_id:string;evidence_ref_id:string})[];
   collaboration:ConversationCollaborationV3|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
   saved_source_citations:{segment_index:number;text_sha256:string;section_event_ids:string[]}[];
   native_body_citations:NativeBodyExcerptCitationV1[];native_clause_citations:NativeStatementClauseCitationV1[];
-  native_assertion_citations:NativeAssertionCitationV1[];
+  native_assertion_citations:NativeAssertionCitation[];
 }
 export interface AgentSurfaceNativeContextResponseV1 {
   schema:'dmb_agent_surface_native_context_response_v1';receipt:SurfaceNativeContextReceiptV1;
@@ -1409,16 +1411,23 @@ export interface NativeAssertionCitationV1 {
   managed_world_id:string;native_world_id:string;read_revision_id:string;assertion_sha256:string;evidence_ref_id:string;
   source_artifact_id:string;source_revision_id:string;body_sha256:string;start_byte:number;end_byte:number;span_sha256:string;
 }
+export type NativeAssertionPdfCitationV1 = Omit<NativeAssertionCitationV1,'body_sha256'|'start_byte'|'end_byte'|'span_sha256'> & {
+  region:import('./retainedPdfRegions').PdfLocator;
+};
+export type NativeAssertionCitation = NativeAssertionCitationV1 | NativeAssertionPdfCitationV1;
 export interface NativeAssertionClaimV1 {
   kind:'native_assertion_claim';text:string;assertion_ids:string[];qualifications:Record<string,unknown>[];
 }
 export interface SurfaceEvidenceCompletionV7 extends Omit<SurfaceEvidenceCompletionV6,'schema'|'answer_segments'> {
   schema:'dmb_surface_evidence_completion_v7';answer_segments:(SurfaceEvidenceCompletionV6['answer_segments'][number]|NativeAssertionClaimV1)[];
-  native_assertion_citations:NativeAssertionCitationV1[];
+  native_assertion_citations:NativeAssertionCitation[];
 }
-export interface NativeAssertionSourceReadV1 {
+export type NativeAssertionSourceReadV1 = {
   schema:'dmb_native_assertion_source_read_v1';world_id:string;turn_id:string;citation_index:number;citation:NativeAssertionCitationV1;content:string;
-}
+} | {
+  schema:'dmb_native_assertion_pdf_source_read_v1';world_id:string;turn_id:string;citation_index:number;
+  citation:NativeAssertionPdfCitationV1;png_base64:string;
+};
 export interface AgentNativeBodyExcerptReadResponseV2 {
   schema:'dmb_agent_native_body_excerpt_read_v2';world_id:string;turn_id:string;citation_index:number;
   citation:NativeBodyExcerptCitationV1;content:string;display_label:string|null;
@@ -1600,6 +1609,9 @@ export type AgentConversationTurnLifecycleV1 =
   | "interrupted";
 
 export interface WorldAgentConversationHistoryTurnV1 {
+  conversation_draft_available?: true;
+  variant_draft_reviewed?: true;
+  variant_approval_requested?: true;
   plan_requested_operation?: "discuss" | "write_current_page";
   authored_references?: AuthoredReferenceInput;
   native_statement_context?: NativeStatementAnswerContextV1;
@@ -2194,6 +2206,7 @@ export interface ResolvedRollResponse {
 }
 
 export interface RecapIngestRequest {
+  name_review?: {review_id: string; decisions: Array<{id: string; replacement: string | null}>};
   session_evidence?: Array<{run_id:string;review_revision:number;sha256:string}>;
   operation: "generate_recap_memory";
   campaign_id: string;
@@ -2466,94 +2479,6 @@ export interface CombatEncounterState {
   groups: Array<Record<string, unknown>>;
   provenance: Array<Record<string, unknown>>;
   updated_at: string;
-}
-
-export interface CombatEntityPatchRequest {
-  name?: string | null;
-  team?: CombatTeam | null;
-  init?: number | null;
-  ac?: number | string | null;
-  hp?: number | string | null;
-  max_hp?: number | string | null;
-  temp_hp?: number | null;
-  defeated?: boolean | null;
-  notes?: string | null;
-  conditions?: string[] | null;
-}
-
-export interface CombatHpDeltaRequest {
-  action: "damage" | "heal" | "set_temp_hp";
-  amount: number;
-}
-
-export interface CombatTurnRequest {
-  direction?: "next" | "previous";
-}
-
-export interface CombatSetActiveRequest {
-  entity_id?: string | null;
-}
-
-export interface CombatMutationResponse {
-  schema_version: "dmb_combat_mutation_v1";
-  encounter: CombatEncounterState;
-  diagnostics: string[];
-}
-
-export interface CombatSaveSummary {
-  save_id: string;
-  title: string;
-  encounter_id: string;
-  entity_count: number;
-  round: number;
-  updated_at?: string | null;
-}
-
-export interface CombatSavesListResponse {
-  schema_version: "dmb_combat_saves_list_v1";
-  saves: CombatSaveSummary[];
-  backups: string[];
-}
-
-export interface CombatSaveSlotResponse {
-  schema_version: "dmb_combat_save_slot_v1";
-  encounter: CombatEncounterState;
-  saves: CombatSaveSummary[];
-  backups: string[];
-  diagnostics: string[];
-}
-
-export interface LoadCombatSaveRequest {
-  save_id: string;
-}
-
-export interface NewCombatEncounterRequest {
-  title?: string | null;
-  encounter_id?: string | null;
-}
-
-export interface SaveCurrentCombatRequest {
-  save_id: string;
-  title?: string | null;
-}
-
-export interface AddGeneratedStatblockCombatRequest {
-  team?: CombatTeam;
-  count?: number;
-  name_override?: string | null;
-  initiative?: number | null;
-  insert_after_entity_id?: string | null;
-  group_key?: string | null;
-  notes?: string | null;
-  hp_override?: number | null;
-  max_hp_override?: number | null;
-}
-
-export interface AddGeneratedStatblockCombatResponse {
-  schema_version: "dmb_add_generated_statblock_to_combat_v1";
-  added_entities: CombatEntity[];
-  encounter: CombatEncounterState;
-  diagnostics: string[];
 }
 
 export interface StatblockPromotionWarning {
@@ -2908,6 +2833,7 @@ export type AnyPlayRunRecord = PlayRunRecord | WorldPlayRunRecordV2;
 export interface WorldPlayRunsListResponseV2 {
   schema_version: "dmb_world_play_runs_list_v2";
   records: WorldPlayRunRecordV2[];
+  source_titles?: Record<string, string>;
 }
 
 export interface PlayRunsListResponse {
@@ -3871,6 +3797,7 @@ export interface GraphProjectionNodeView {
   summary?: string | null;
   /** Cross-campaign provenance when projection scopeMode is world. */
   campaign_scope?: string | null;
+  campaign_scope_unknown?: boolean;
   /** Authored overlay metadata (A6+) */
   source?: string | null;
   authored?: boolean;
@@ -4039,6 +3966,7 @@ export interface WorldGraphProjectionNodeView {
   aliases: string[];
   sourceDomains: string[];
   campaignScope?: string | null;
+  campaignScopeUnknown?: boolean;
   summary?: string | null;
   anchoredToFocusSession: boolean;
   evidenceBadges: WorldGraphProjectionEvidenceBadge[];
@@ -4609,84 +4537,6 @@ export interface GraphObjectAuthoringCommitResponse {
   audit_status?: "recorded" | "degraded" | "skipped" | null;
 }
 
-export interface GraphMergeReconciliationDiagnostic {
-  code: string;
-  message: string;
-  severity: "error" | "warning" | "info";
-  assertion_id?: string | null;
-  node_id?: string | null;
-}
-
-export interface GraphMergeReconciliationPlanSummary {
-  merge_assertion_count: number;
-  applicable_assertion_count: number;
-  already_materialized_assertion_count: number;
-  skipped_assertion_count: number;
-  redirect_count: number;
-  edge_rewire_count: number;
-  edge_dedupe_count: number;
-}
-
-export interface GraphMergeReconciliationApplySummary {
-  redirects_added: number;
-  merge_records_added: number;
-  survivor_nodes_created: number;
-  survivor_nodes_updated: number;
-  merged_away_nodes_marked: number;
-  edges_rewired: number;
-  edges_deduped: number;
-}
-
-export interface GraphMergeReconciliationPrepareRequest {
-  campaignId: string;
-  campaignRel?: string | null;
-  sessionId?: string | null;
-  previewUnionStorePath: string;
-  materializationPassId?: string | null;
-}
-
-export interface GraphMergeReconciliationPrepareResponse {
-  prepared: boolean;
-  campaign_id: string;
-  session_id?: string | null;
-  overlay_path: string;
-  union_store_path: string;
-  materialization_pass_id: string;
-  overlay_token: string;
-  union_store_token: string;
-  plan_digest: string;
-  confirm_token: string;
-  summary: GraphMergeReconciliationPlanSummary;
-  diagnostics: GraphMergeReconciliationDiagnostic[];
-  no_mutation_guarantees: string[];
-}
-
-export interface GraphMergeReconciliationApplyRequest {
-  campaignId: string;
-  campaignRel?: string | null;
-  sessionId?: string | null;
-  previewUnionStorePath: string;
-  materializationPassId: string;
-  confirmToken: string;
-  overlayToken: string;
-  unionStoreToken: string;
-}
-
-export interface GraphMergeReconciliationApplyResponse {
-  applied: boolean;
-  campaign_id: string;
-  session_id?: string | null;
-  overlay_path: string;
-  union_store_path: string;
-  backup_path?: string | null;
-  materialization_pass_id: string;
-  applied_assertion_ids: string[];
-  skipped_assertion_ids: string[];
-  summary: GraphMergeReconciliationApplySummary;
-  diagnostics: GraphMergeReconciliationDiagnostic[];
-  no_mutation_guarantees: string[];
-}
-
 // --- Extract → World Graph promote (PR011A2) ---
 
 export type ExtractPromotionReviewItemKind = "object" | "relationship" | "attribute" | "alias";
@@ -5054,7 +4904,7 @@ export interface ThreatDraftRulesetRefV1 {
 }
 
 export interface ThreatDraftGenerationIntentV1 {
-  ruleset: ThreatDraftRulesetRefV1;
+  ruleset: ThreatDraftRulesetRefV1 | null;
   target_cr?: string | null;
   complexity?: string | null;
   must_include: string[];
@@ -5075,28 +4925,6 @@ export interface ThreatDraftGraphContextSnapshotV1 {
 }
 
 /** Bootstrap lifecycle states from `WorldGraphBootstrapStatusResponse`. */
-export type WorldGraphBootstrapStateV1 =
-  | "ready"
-  | "invalid_bundle"
-  | "active"
-  | "active_head_advanced"
-  | "blocked_existing_world"
-  | "inconsistent_lineage"
-  | "error";
-
-/** CamelCase wire shape from `/api/live/world-graph-bootstrap/status`. */
-export interface WorldGraphBootstrapStatusV1 {
-  schema: "dmb_world_graph_bootstrap_status_v1";
-  state: WorldGraphBootstrapStateV1 | string;
-  worldId: string;
-  campaignId: string;
-  /** False for certification failures (`invalid_bundle`); true when the locked bundle certified. */
-  bundleValid?: boolean;
-  currentHeadRevisionId?: string | null;
-  initialHeadRevisionId?: string | null;
-  diagnostics?: Array<{ code: string; message: string; severity?: string }>;
-}
-
 export interface ThreatDraftFocusV1 {
   session?: number | null;
   prep_label?: string | null;

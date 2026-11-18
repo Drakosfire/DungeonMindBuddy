@@ -15,7 +15,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Sequence
 
-from src.token_resolution.contracts import (
+from .contracts import (
     HubAliasSpec,
     LexiconArtifact,
     LexiconBuildSource,

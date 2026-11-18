@@ -7,7 +7,7 @@ from apps.live_control_server.integrations.dungeonmind.assertion_qualification i
     edge_endpoint_kind_admission_reason,
     resolve_buddy_predicate_mapping_v4,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import consolidate_category_outputs
+from graph_memory.extraction.category_candidate_graph_extractor import consolidate_category_outputs
 
 
 @pytest.mark.parametrize("other", ["attacks", "threatens"])

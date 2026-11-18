@@ -34,7 +34,6 @@ import {
   type ReadWorldResult,
   type WriteLayoutResult,
 } from "./localWorldRepository";
-import { validateLocalWorldRecordForPackage } from "./localWorldPackageV1";
 
 export const LOCAL_WORLD_DATABASE_SCHEMA_VERSION = 3;
 export const LOCAL_WORLD_DATABASE_NAME = "dungeonmindbuddy-local-worlds";
@@ -139,6 +138,30 @@ async function inTransaction<T>(
     await finished.catch(() => undefined);
     throw error;
   }
+}
+
+type StoredPackageData = Omit<LocalWorldPackageData, "bundledMembers"> & {
+  readonly bundledMembers: Readonly<Record<string, readonly number[] | Uint8Array>>;
+};
+
+function packAttachmentBytes(data: LocalWorldPackageData): StoredPackageData {
+  return {
+    ...data,
+    bundledMembers: Object.fromEntries(
+      Object.entries(data.bundledMembers).map(([path, bytes]) => [path, Uint8Array.from(bytes)]),
+    ),
+  };
+}
+
+function unpackAttachmentBytes(data: StoredPackageData): LocalWorldPackageData {
+  return {
+    ...data,
+    bundledMembers: Object.fromEntries(
+      Object.entries(data.bundledMembers).map(([path, bytes]) => [
+        path, bytes instanceof Uint8Array ? Array.from(bytes) : bytes,
+      ]),
+    ),
+  };
 }
 
 function upgradeDatabase(request: IDBOpenDBRequest, oldVersion: number): void {
@@ -487,13 +510,15 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
   async restorePackage(recordInput: LocalWorldRecord, dataInput: LocalWorldPackageData): Promise<RestoreLocalWorldPackageResult> {
     let record: LocalWorldRecord;
     let data: LocalWorldPackageData;
+    let invalidRecord: string | null;
     try {
       // Structured copies happen synchronously, before opening/awaiting a transaction.
       record = cloneLocalWorldValue(recordInput);
       data = cloneLocalWorldValue(dataInput);
+      const { validateLocalWorldRecordForPackage } = await import("./localWorldPackageV1");
+      invalidRecord = validateLocalWorldRecordForPackage(record);
     } catch (error) { return { status: "error", message: errorMessage(error) }; }
     const worldId = record.snapshot.worldId;
-    const invalidRecord = validateLocalWorldRecordForPackage(record);
     if (invalidRecord) return { status: "error", message: invalidRecord };
     const invalidData = validateLocalWorldPackageData(data, worldId);
     if (invalidData) return { status: "error", message: invalidData };
@@ -507,7 +532,7 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
         this.beforeWrite("package-restore");
         await requestResult(worlds.add(record));
         this.beforeWrite("package-restore");
-        await requestResult(transaction.objectStore(PACKAGE_DATA_STORE).add(data));
+        await requestResult(transaction.objectStore(PACKAGE_DATA_STORE).add(packAttachmentBytes(data)));
         return { status: "restored", record: cloneLocalWorldValue(record) };
       });
     } catch (error) { return { status: "error", message: errorMessage(error) }; }
@@ -519,8 +544,8 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
         const worlds = transaction.objectStore(WORLD_STORE);
         const record = await requestResult<LocalWorldRecord | undefined>(worlds.get(worldId));
         if (!record) return { status: "missing" };
-        const data = await requestResult<LocalWorldPackageData | undefined>(transaction.objectStore(PACKAGE_DATA_STORE).get(worldId));
-        return data ? { status: "found", data: cloneLocalWorldValue(data) } : { status: "not-stored" };
+        const data = await requestResult<StoredPackageData | undefined>(transaction.objectStore(PACKAGE_DATA_STORE).get(worldId));
+        return data ? { status: "found", data: unpackAttachmentBytes(data) } : { status: "not-stored" };
       });
     } catch (error) { return { status: "error", message: errorMessage(error) }; }
   }
@@ -531,11 +556,11 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
         const worlds = transaction.objectStore(WORLD_STORE);
         const record = await requestResult<LocalWorldRecord | undefined>(worlds.get(worldId));
         if (!record) return { status: "missing" };
-        const data = await requestResult<LocalWorldPackageData | undefined>(transaction.objectStore(PACKAGE_DATA_STORE).get(worldId));
+        const data = await requestResult<StoredPackageData | undefined>(transaction.objectStore(PACKAGE_DATA_STORE).get(worldId));
         return {
           status: "found",
           record: cloneLocalWorldValue(record),
-          ...(data ? { data: cloneLocalWorldValue(data) } : {}),
+          ...(data ? { data: unpackAttachmentBytes(data) } : {}),
         };
       });
     } catch (error) { return { status: "error", message: errorMessage(error) }; }
@@ -546,8 +571,8 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
         const worlds = transaction.objectStore(WORLD_STORE);
         const current = await requestResult<LocalWorldRecord | undefined>(worlds.get(worldId));
         if (!current) return { status: "missing" };
-        const storedData = await requestResult<LocalWorldPackageData | undefined>(transaction.objectStore(PACKAGE_DATA_STORE).get(worldId));
-        const data = storedData ?? emptyLocalWorldPackageData(worldId);
+        const storedData = await requestResult<StoredPackageData | undefined>(transaction.objectStore(PACKAGE_DATA_STORE).get(worldId));
+        const data = storedData ? unpackAttachmentBytes(storedData) : emptyLocalWorldPackageData(worldId);
         const notes = readWorldNotesPackageData(data, worldId);
         if (notes.status === "error") return { status: "error", message: notes.message };
         const candidates = await requestResult<LocalWorldConflictCandidate[]>(
@@ -592,8 +617,8 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
         const current = await requestResult<LocalWorldRecord | undefined>(worlds.get(worldId));
         if (!current) return { status: "missing" };
         const packageStore = transaction.objectStore(PACKAGE_DATA_STORE);
-        const storedData = await requestResult<LocalWorldPackageData | undefined>(packageStore.get(worldId));
-        const currentData = storedData ?? emptyLocalWorldPackageData(worldId);
+        const storedData = await requestResult<StoredPackageData | undefined>(packageStore.get(worldId));
+        const currentData = storedData ? unpackAttachmentBytes(storedData) : emptyLocalWorldPackageData(worldId);
         const nextData = writeWorldNotesPackageData(currentData, worldId, encoded.bytes);
         if (nextData.status !== "written") return { status: "error", message: nextData.message };
 
@@ -626,7 +651,7 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
         this.beforeWrite("document-edit");
         await requestResult(worlds.put(nextRecord));
         this.beforeWrite("document-edit-after-world");
-        await requestResult(packageStore.put(nextData.data));
+        await requestResult(packageStore.put(packAttachmentBytes(nextData.data)));
         return { status: "committed", record: cloneLocalWorldValue(nextRecord) };
       });
     } catch (error) { return { status: "error", message: errorMessage(error) }; }

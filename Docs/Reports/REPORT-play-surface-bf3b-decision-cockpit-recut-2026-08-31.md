@@ -92,11 +92,13 @@ Back returns to North Gate with Seal still selected:
 
 ### Witness D — Clear
 
-![Witness D cleared](assets/play-surface-bf3b-673/D-cleared.png)
+The clear and reload captures match the unselected North Gate screenshot byte for byte. See the [original captures in the pinned report](https://github.com/Drakosfire/DungeonMindBuddy/blob/a5ae454f83ff1c9c4dccb33f33e1b784140be055/Docs/Reports/REPORT-play-surface-bf3b-decision-cockpit-recut-2026-08-31.md).
+
+![Witness D cleared](assets/play-surface-bf3b-673/A-unselected-north-gate.png)
 
 Reload after Clear:
 
-![Witness D cleared reload](assets/play-surface-bf3b-673/D-cleared-reload.png)
+![Witness D cleared reload](assets/play-surface-bf3b-673/A-unselected-north-gate.png)
 
 - Selection, consequence, and branch-state rows gone
 - North Gate remains current

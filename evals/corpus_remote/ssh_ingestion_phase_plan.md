@@ -10,6 +10,22 @@ Prepare a reproducible remote-corpus ingestion phase for benchmark expansion wit
 - Absolute remote corpus root path.
 - Campaign grouping rules for remote documents.
 
+## Run the snapshot wrapper
+
+In the checkout's existing `.env.ssh`, configure `SSH_HOST`, `SSH_ALIAS`
+(the SSH username), `CORPUS_SOURCE_HOST` (the label recorded in the snapshot),
+and `CORPUS_REMOTE_ROOT` (the absolute path on the remote host). Run
+`bash scripts/run_remote_snapshot_from_env.sh` from the repository root.
+An optional first argument overrides the remote root. An optional second
+argument sets the sample size, which defaults to 40.
+
+For password authentication, set `CORPUS_SSH_PASSWORD` in the operator
+environment or `.env.ssh`. The wrapper also accepts the legacy
+`SSH_PRIVATE_KEY` variable as a password input. The Python process receives
+the password in its environment. Verify the first live invocation against
+the approved source host and check the generated inventory's source label
+and sampled paths before using it in a benchmark.
+
 ## Required Output Artifacts
 
 - `out/evals/corpus_remote/remote_inventory.json`

@@ -46,12 +46,12 @@ class ConversationSummary(BaseModel):
 
 _SELECT = """SELECT c.conversation_id,c.world_id,c.status,c.created_at,c.updated_at,
     c.next_turn_sequence-1 AS turn_count,COALESCE(n.revision,0) AS name_revision,
-    COALESCE(n.title,left(regexp_replace(first_turn.user_text,'[[:space:]]+',' ','g'),160),'') AS title
-    FROM agent.conversation c
-    LEFT JOIN agent.conversation_name n USING(conversation_id,world_id)
-    LEFT JOIN LATERAL (SELECT user_text FROM agent.turn t
+    COALESCE(n.title,(SELECT left(regexp_replace(t.user_text,'[[:space:]]+',' ','g'),160)
+        FROM agent.turn t
         WHERE t.world_id=c.world_id AND t.conversation_id=c.conversation_id
-        ORDER BY sequence LIMIT 1) first_turn ON TRUE"""
+        ORDER BY sequence LIMIT 1),'') AS title
+    FROM agent.conversation c
+    LEFT JOIN agent.conversation_name n USING(conversation_id,world_id)"""
 
 
 def _summary(row):
@@ -131,13 +131,20 @@ def rename(world: str, conversation: UUID, change: NameChange):
         ).fetchone()
         if parent is None:
             raise ApplicationStateNotFoundError("Conversation not found in this World")
-        current = _one(conn, world, conversation)
+        saved_name = conn.execute(
+            "SELECT title, revision FROM agent.conversation_name WHERE world_id=%s AND conversation_id=%s",
+            (world, conversation),
+        ).fetchone()
+        revision = saved_name["revision"] if saved_name else 0
         if (
-            current.name_revision == change.expected_revision + 1
-            and current.title == change.title
+            saved_name is not None
+            and revision == change.expected_revision + 1
+            and saved_name["title"] == change.title
         ):
-            return current
-        if current.name_revision != change.expected_revision:
+            current = _one(conn, world, conversation)
+            if current.name_revision == revision and current.title == change.title:
+                return current
+        if revision != change.expected_revision:
             raise ApplicationStateConflictError(
                 "Conversation name changed. Reload its name before replacing it."
             )
@@ -226,16 +233,55 @@ def _message_reply_object(row, provenance, conversation):
     return _reply_object_projection(completion,provenance,row['world_id'],conversation,row['turn_id'])
 
 
+_SAVED_STATBLOCK_PREVIEW_SELECT = """CASE WHEN surface_id='build' AND status='completed' THEN (
+            SELECT jsonb_agg(jsonb_build_object(
+                'name', event->'definition'->'identity'->'name',
+                'world_id', event->'world_id', 'draft_id', event->'draft_id',
+                'revision_id', event->'locator'->'revision_id',
+                'pdf_sources', CASE WHEN jsonb_typeof(event->'pdf_support'->'support')='array'
+                THEN jsonb_build_object('scope', event->'pdf_support'->'scope', 'support', (
+                    SELECT COALESCE(jsonb_agg(item - 'text'), '[]'::jsonb)
+                    FROM jsonb_array_elements(event->'pdf_support'->'support') AS item
+                    WHERE EXISTS (
+                        SELECT 1 FROM jsonb_array_elements(completion->'answer_segments') AS claim
+                        WHERE claim->>'kind'='statblock_pdf_claim'
+                            AND claim->'scope'=event->'pdf_support'->'scope'
+                            AND claim->>'assertion_id'=item->>'assertion_id'
+                            AND claim->>'evidence_ref_id'=item->>'evidence_ref_id')))
+                ELSE NULL END))
+            FROM jsonb_array_elements(graph_context_execution->'events') AS event
+            WHERE event->>'kind'='build_saved_statblock_read_v1'
+                AND event->>'world_id'=t.world_id
+        ) END AS saved_statblocks"""
+
+
+_VARIANT_APPROVAL_PREVIEW_SELECT = """(
+    t.status = 'completed' AND t.surface_id = 'build' AND
+    jsonb_path_exists(t.graph_context_execution, '$.events[*] ? (
+        @.kind == "build_requested_work_resolved_v1" &&
+        @.requested_work == "review_variant_approval"
+    )')
+) AS variant_approval_requested"""
+
+
 def _message_page(conn, world, conversation, limit, before_sequence, *, metadata=False):
     """Bounded message display; never load execution or a full context receipt."""
     from . import repository as repo
     from .authored_reference_preview import SELECT as reference_select, project as reference_preview
+    from .conversation_drafts import CANONICAL_REVIEWED_DRAFT
 
     presentation = (""",failure_code,completion,
         CASE WHEN jsonb_typeof(completion->'saved_source_citations')='array'
             AND completion->'saved_source_citations'<>'[]'::jsonb
             THEN graph_context_receipt->'work_context'->'source_basis'
             ELSE NULL END AS citation_source_basis,
+        """ + _SAVED_STATBLOCK_PREVIEW_SELECT + """,
+        EXISTS (SELECT 1 FROM agent.conversation_draft_revision d
+            WHERE d.turn_id=t.turn_id AND d.world_id=t.world_id
+                AND d.conversation_id=t.conversation_id AND d.revision=1) AS draft_available,
+        """ + _VARIANT_APPROVAL_PREVIEW_SELECT + """,
+        (t.status='completed' AND t.surface_id='build' AND
+        """ + CANONICAL_REVIEWED_DRAFT + """) AS variant_draft_reviewed,
         t.answer_composition_kind, """ + reference_select + ", " + repo._rules_summary_select("t")) if metadata else ""
     rows = conn.execute(
         f"""SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
@@ -258,6 +304,14 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             from .saved_citation_preview import project
             from .retry import author_interaction
             provenance=repo.turn_provenance(row,references[row["turn_id"]])
+            if row["draft_available"]:
+                message["conversation_draft_available"] = True
+            if row["variant_draft_reviewed"]:
+                message["variant_draft_reviewed"] = True
+            if row["variant_approval_requested"]:
+                message["variant_approval_requested"] = True
+            if row["saved_statblocks"]:
+                message["saved_statblocks"] = row["saved_statblocks"]
             message.update(
                 reply_object=_message_reply_object(row,provenance,conversation),
                 citation_preview=project(row),
@@ -292,7 +346,12 @@ def read_messages(
     with unit_of_work(_ready_dsn()) as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         conn.row_factory = dict_row
-        _one(conn, world, conversation)
+        owner = conn.execute(
+            "SELECT 1 FROM agent.conversation WHERE world_id=%s AND conversation_id=%s",
+            (world, conversation),
+        ).fetchone()
+        if owner is None:
+            raise ApplicationStateNotFoundError("Conversation not found in this World")
         messages, cursor = _message_page(
             conn, world, conversation, limit, before_sequence
         )
@@ -316,8 +375,7 @@ def read_active_messages(
     with unit_of_work(_ready_dsn()) as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         conn.row_factory = dict_row
-        pointer = repo.get_world_state(conn, world)
-        active = repo.get_active_conversation(conn, world)
+        pointer, active = repo.get_active_conversation_snapshot(conn, world)
         ident = pointer.active_conversation_id if pointer else None
         if (
             (active.conversation_id if active else None) != ident
@@ -344,6 +402,24 @@ def read_active_messages(
     }
 
 
+def _turn_row(turn, world, conversation):
+    from .authored_graph_references import reference_input
+
+    meta = getattr(turn, "envelope", turn)
+    row = {
+        "turn_id": str(meta.turn_id),
+        "sequence": meta.sequence,
+        "status": meta.status,
+        "user_text": meta.user_text,
+        "assistant_text": turn.assistant_text,
+        "reply_object": _reply_object(turn, world, conversation),
+    }
+    captured = reference_input(turn)
+    if captured is not None:
+        row["authored_references"] = captured.model_dump(mode="json", by_alias=True)
+    return row
+
+
 def read_turns(
     world: str,
     conversation: UUID,
@@ -352,39 +428,25 @@ def read_turns(
     before_sequence: int | None = None,
 ):
     service = AgentConversationService()
-    service.get_conversation(world, conversation)
-    turns = service.list_turns(
-        world, conversation, limit=limit, before_sequence=before_sequence
-    )
-    from .authored_graph_references import reference_input
-    rows = []
-    for turn in turns:
-        meta = getattr(turn, "envelope", turn)
-        captured = reference_input(turn)
-        rows.append(
-            {
-                **({'authored_references':captured.model_dump(mode='json',by_alias=True)} if captured is not None else {}),
-                "turn_id": str(meta.turn_id),
-                "sequence": meta.sequence,
-                "status": meta.status,
-                "user_text": meta.user_text,
-                "assistant_text": turn.assistant_text,
-                "reply_object": _reply_object(turn, world, conversation),
-            }
-        )
-    from .retry import context
+    from .retry import library_contexts
 
     with unit_of_work(_ready_dsn()) as conn:
-        conn.execute("SET TRANSACTION READ ONLY")
-        for row, turn in zip(rows, turns, strict=True):
-            row["retry_context"] = context(conn, turn, active=False)
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        turns, more = service.list_turn_page(
+            world, conversation, limit=limit, before_sequence=before_sequence,
+            connection=conn,
+        )
+        contexts = library_contexts(conn, world, conversation, turns)
+    rows = [_turn_row(turn, world, conversation) for turn in turns]
+    for row, retry_context in zip(rows, contexts, strict=True):
+        row["retry_context"] = retry_context
     return {
         "schema": "dmb_conversation_library_turns_v3",
         "world_id": world,
         "conversation_id": str(conversation),
         "turns": rows,
         "next_before_sequence": min(r["sequence"] for r in rows)
-        if len(rows) == limit
+        if more
         else None,
     }
 
@@ -393,52 +455,32 @@ def read_retry_attempts(
     world, conversation, turn_id, *, limit=50, before_sequence=None
 ):
     from . import repository as repo
-    from .retry import context, _edges
+    from .retry import library_contexts
 
     if not 1 <= limit <= 50 or before_sequence is not None and before_sequence < 1:
         raise ApplicationStateValidationError("Invalid retry history cursor")
     with unit_of_work(_ready_dsn()) as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-        owner = repo.get_conversation(conn, world, conversation)
-        turn = repo.get_turn(conn, world, turn_id)
-        meta = getattr(turn, "envelope", turn)
-        if owner is None or turn is None or meta.conversation_id != conversation:
+        anchor = repo.get_retry_history_anchor(conn, world, conversation, turn_id)
+        if anchor is None:
             raise ApplicationStateNotFoundError(
                 "Retry history unavailable in this conversation"
             )
-        incoming, _ = _edges(conn, meta)
-        root = incoming[0] if incoming else turn_id
-        before = meta.sequence if before_sequence is None else before_sequence
-        if before > meta.sequence:
+        sequence, root = anchor
+        before = sequence if before_sequence is None else before_sequence
+        if before > sequence:
             raise ApplicationStateValidationError(
                 "Retry history cursor follows its selected attempt"
             )
-        ids = conn.execute(
-            """SELECT t.turn_id FROM agent.turn t LEFT JOIN agent.turn_retry r ON r.successor_id=t.turn_id
-            WHERE t.world_id=%s AND t.conversation_id=%s AND (t.turn_id=%s OR r.root_id=%s)
-            AND t.sequence<%s ORDER BY t.sequence DESC LIMIT %s""",
-            (world, conversation, root, root, before, limit + 1),
-        ).fetchall()
-        more = len(ids) > limit
-        turns = [repo.get_turn(conn, world, row[0]) for row in reversed(ids[:limit])]
-        active = False  # Library inspection never grants a retry control.
-        from .authored_graph_references import reference_input
+        turns, more = repo.list_retry_attempt_page(
+            conn, world, conversation, root, before_sequence=before, limit=limit
+        )
         rows = []
-        for item in turns:
-            m = getattr(item, "envelope", item)
-            captured = reference_input(item)
-            rows.append(
-                {
-                    **({'authored_references':captured.model_dump(mode='json',by_alias=True)} if captured is not None else {}),
-                    "turn_id": str(m.turn_id),
-                    "sequence": m.sequence,
-                    "status": m.status,
-                    "user_text": m.user_text,
-                    "assistant_text": item.assistant_text,
-                    "reply_object": _reply_object(item, world, conversation),
-                    "retry_context": context(conn, item, active=active),
-                }
-            )
+        contexts = library_contexts(conn, world, conversation, turns)
+        for item, retry_context in zip(turns, contexts, strict=True):
+            row = _turn_row(item, world, conversation)
+            row["retry_context"] = retry_context
+            rows.append(row)
         return {
             "schema": "dmb_conversation_library_turns_v3",
             "world_id": world,

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from src.agent.recap_ingest_helpers import (
+from live_play.recap_ingest_helpers import (
     assemble_recap,
     detect_duplicate_paragraphs,
     emit_recap_frontmatter,

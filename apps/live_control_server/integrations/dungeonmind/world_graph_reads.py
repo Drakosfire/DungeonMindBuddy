@@ -634,9 +634,8 @@ def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummar
                 status_code=503,
                 diagnostics=[{"reason": "enumeration_ports_missing"}],
             )
-        world_ids: set[str] = set()
-        for head in bundle.world_graph.list_heads():
-            world_ids.add(head.world_id)
+        heads = {head.world_id: head for head in bundle.world_graph.list_heads()}
+        world_ids = set(heads)
         for world_id in bundle.existing_world_adoptions.list_world_ids():
             world_ids.add(world_id)
         init_repo = getattr(bundle, "reviewed_world_initializations", None)
@@ -646,7 +645,10 @@ def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummar
 
         summaries: list[WorldHeadSummary] = []
         for world_id in sorted(world_ids):
-            head = bundle.world_graph.get_head(world_id)
+            head = heads.get(world_id)
+            if head is None:
+                # A receipt may have appeared after list_heads took its snapshot.
+                head = bundle.world_graph.get_head(world_id)
             summaries.append(
                 WorldHeadSummary(
                     world_id=world_id,
@@ -2807,7 +2809,7 @@ def _neighborhood_result_view(
         partial=bool(coverage.missing_seed_node_ids or coverage.missing_evidence_ref_ids),
         has_content=has_content,
     )
-    return WorldGraphRetrievalResult(
+    view = WorldGraphRetrievalResult(
         operation="neighborhood",
         outcome=outcome,
         snapshot=_retrieval_snapshot_view(
@@ -2827,6 +2829,13 @@ def _neighborhood_result_view(
         trust_boundary=_retrieval_trust_boundary(),
         diagnostics=_coverage_diagnostics(coverage),
     )
+    view._discovery_relationship_ids = result.discovery_relationship_ids
+    view._discovery_hops = tuple(
+        (hop.relationship_id, hop.from_object_id, hop.to_object_id) for hop in result.discovery_hops
+    )
+    view._object_limit_pruned_ids = result.object_limit_pruned_ids
+    view._object_limit_pruned_count = result.object_limit_pruned_count
+    return view
 
 
 _EVIDENCE_TARGET_KIND_MAP = {
@@ -3127,7 +3136,7 @@ def _load_admitted_source_body(
         _reconcile_graph_registry_scope,
     )
 
-    artifact = get_source_artifact(repo_root, source_artifact_id)
+    artifact = get_source_artifact(source_artifact_id)
     expected = content_sha256.removeprefix("sha256:").strip().lower()
     actual = (artifact.content_sha256 or "").removeprefix("sha256:").strip().lower()
     if not re.fullmatch(r"[0-9a-f]{64}", expected) or actual != expected:

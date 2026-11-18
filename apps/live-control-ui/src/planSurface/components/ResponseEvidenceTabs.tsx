@@ -1,4 +1,4 @@
-import './BuddyContextTrace.css'
+import './BuddyEvidence.css'
 import { useId, useState, type ReactNode } from 'react'
 
 export function ResponseEvidenceTabs({ evidence, prompt }: { evidence: ReactNode; prompt: ReactNode }) {

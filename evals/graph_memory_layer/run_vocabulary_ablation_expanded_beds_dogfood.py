@@ -31,14 +31,14 @@ from evals.graph_memory_layer.session_1_candidate_graph_gold_fixture import (
     load_gold_candidate_graph_dict as load_c1s1_gold_candidate_graph_dict,
 )
 from evals.graph_memory_layer.session_1_recap_ingest_fixture import load_expected_normalized_recap
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
-from src.graph_memory import identity_resolution as ir
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from bootstrap_env import load_dungeonmindbuddy_dotenv
+from graph_memory import identity_resolution as ir
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     extract_category_candidate_graph,
     resolve_category_graph_model,
 )
-from src.graph_memory.vocabulary import (
+from graph_memory.vocabulary import (
     ContainmentHint,
     ContextVocabularyPacket,
     DoNotMergeDecision,
@@ -58,22 +58,13 @@ from src.graph_memory.vocabulary import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_REPORT_PATH = (
-    REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-EXPANDED-BEDS.md"
-)
-DEFAULT_JSON_ARTIFACT_PATH = (
-    REPO_ROOT
-    / "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/expanded_beds_vocabulary_ablation.json"
-)
-DEFAULT_PROMPT_REVIEW_PATH = (
-    REPO_ROOT
-    / "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/expanded_beds_prompt_review.json"
-)
-DEFAULT_PROMPT_REVIEW_REPORT_PATH = (
-    REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-VOCABULARY-ABLATION-PROMPT-REVIEW.md"
-)
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "out/graph_memory/vocabulary_ablation"
+DEFAULT_REPORT_PATH = DEFAULT_OUTPUT_DIR / "GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-EXPANDED-BEDS.md"
+DEFAULT_JSON_ARTIFACT_PATH = DEFAULT_OUTPUT_DIR / "expanded_beds_vocabulary_ablation.json"
+DEFAULT_PROMPT_REVIEW_PATH = DEFAULT_OUTPUT_DIR / "expanded_beds_prompt_review.json"
+DEFAULT_PROMPT_REVIEW_REPORT_PATH = DEFAULT_OUTPUT_DIR / "GRAPH-MEMORY-VOCABULARY-ABLATION-PROMPT-REVIEW.md"
 DEFAULT_MANUAL_REVIEW_DIR = (
-    REPO_ROOT / "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review"
+    REPO_ROOT / "evals/graph_memory_layer/examples/vocabulary_ablation/manual_review"
 )
 MANUAL_REVIEW_VARIANTS = ("baseline", "edge_and_node_packet")
 C1S1_SOURCE_LABEL = "evals/graph_memory_layer/examples/session_1_recap_ingest/expected_normalized_recap.md"
@@ -810,7 +801,7 @@ def run_bed(bed: BedConfig, *, model_id: str) -> dict[str, Any]:
 
 def _manual_review_graph_relpath(bed_id: str, variant_name: str) -> str:
     return (
-        f"evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/"
+        f"evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/"
         f"{bed_id}_{variant_name}_candidate_graph.json"
     )
 

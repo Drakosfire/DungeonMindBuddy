@@ -13,12 +13,12 @@ from generationengine.types import (
     TextResult,
 )
 
-from src.graph_memory.extraction.bounded_recap_execution import (
+from graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient,
     DEEPSEEK_MODEL,
     RecapExecutionLimits,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
 
@@ -32,12 +32,12 @@ def _fixture_ingest_context(campaign_id: str):
 @pytest.fixture(autouse=True)
 def semantic_engine_seam(monkeypatch):
     """Use explicit structured fake engines; process tests live separately."""
-    from src.graph_memory.extraction import bounded_recap_execution as module
-    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+    from graph_memory.extraction import bounded_recap_execution as module
+    from graph_memory.extraction._recap_inference_worker import _WorkerOutcome
 
     def execute(factory, request, *, deadline, attempt_evidence=None):
         from generationengine.types import TextRequest
-        from src.graph_memory.extraction.bounded_recap_execution import (
+        from graph_memory.extraction.bounded_recap_execution import (
             _persist_attempt_response,
         )
 
@@ -191,7 +191,7 @@ def deepseek_observation(**changes):
 
 
 def test_deepseek_route_caps_and_unknown_receipt():
-    from src.graph_memory.extraction.category_candidate_graph_schema import (
+    from graph_memory.extraction.category_candidate_graph_schema import (
         category_pass_text_format,
     )
 
@@ -209,7 +209,7 @@ def test_deepseek_route_caps_and_unknown_receipt():
     result = invoke(client, DEEPSEEK_MODEL)
     request = engine.requests[0]
     assert (request.provider, request.model) == ("openrouter", DEEPSEEK_MODEL)
-    assert request.provider_route.order == ("DeepSeek",)
+    assert request.provider_route.order == ("deepinfra/fp8",)
     assert request.provider_route.allow_fallbacks is False
     assert request.provider_route.require_parameters is True
     assert request.reasoning_effort == "none" and request.json_object is False
@@ -225,7 +225,7 @@ def test_deepseek_route_caps_and_unknown_receipt():
     assert "observation_nodes" not in request.system_prompt
     assert result["cost_usd"] is None
     assert client.calls[0]["requested_route"] == {
-        "order": ["DeepSeek"],
+        "order": ["deepinfra/fp8"],
         "allow_fallbacks": False,
         "require_parameters": True,
     }
@@ -317,7 +317,7 @@ def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
     assert sdk_system == ge_call.system_prompt
     assert schema_instruction(ge_call.json_schema) not in sdk_system
     assert kwargs["extra_body"]["provider"] == {
-        "order": ["DeepSeek"],
+        "order": ["deepinfra/fp8"],
         "allow_fallbacks": False,
         "require_parameters": True,
     }
@@ -561,8 +561,8 @@ def test_private_response_evidence_is_atomic_and_never_overwrites(tmp_path):
 
 @pytest.mark.usefixtures("application_state_dsn")
 def test_unknown_worker_receipt_does_not_create_private_response(tmp_path, monkeypatch):
-    from src.graph_memory.extraction import bounded_recap_execution as module
-    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+    from graph_memory.extraction import bounded_recap_execution as module
+    from graph_memory.extraction._recap_inference_worker import _WorkerOutcome
 
     monkeypatch.setattr(
         module, "_execute_in_owned_process", lambda *args, **kwargs: _WorkerOutcome(None, False)
@@ -578,7 +578,7 @@ def test_unknown_worker_receipt_does_not_create_private_response(tmp_path, monke
 
 
 def test_validation_paths_redact_unknown_response_field_names():
-    from src.graph_memory.extraction.bounded_recap_execution import _safe_validation_path
+    from graph_memory.extraction.bounded_recap_execution import _safe_validation_path
 
     schema = {"properties": {"observation_nodes": {"type": "array"}}}
     assert _safe_validation_path(
@@ -592,7 +592,7 @@ def test_unexpected_local_validator_fault_stops_without_leaking_or_next_call(
 ):
     from jsonschema.exceptions import SchemaError
 
-    from src.graph_memory.extraction import bounded_recap_execution as module
+    from graph_memory.extraction import bounded_recap_execution as module
 
     raw = '{"observation_nodes": [], "private": "PRIVATE_RESPONSE"}'
     engine = Engine(TextResult(text=raw, observation=deepseek_observation()))
@@ -623,7 +623,7 @@ def test_unexpected_local_validator_fault_stops_without_leaking_or_next_call(
 
 
 def test_deepseek_requires_credential_without_provider_call(monkeypatch):
-    from src.graph_memory.extraction import bounded_recap_execution as module
+    from graph_memory.extraction import bounded_recap_execution as module
 
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("DUNGEONBUDDY_OPENROUTER", raising=False)
@@ -652,7 +652,7 @@ def test_provider_model_pair_is_caller_selected(provider, model):
 def test_edge_output_allowance_applies_only_to_actual_edge_spec(
     edge_override, expected_edge_limit
 ):
-    from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
+    from graph_memory.extraction.extraction_profile import ExtractionPassSpec
 
     responses = [
         TextResult(text='{"observation_nodes": []}', observation=deepseek_observation()),
@@ -715,7 +715,7 @@ def test_edge_output_allowance_applies_only_to_actual_edge_spec(
     for request in engine.requests:
         assert 0 < request.deadline_ms <= 120_000
         assert request.max_transport_retries == 0
-        assert request.provider_route.order == ("DeepSeek",)
+        assert request.provider_route.order == ("deepinfra/fp8",)
         assert request.provider_route.allow_fallbacks is False
     assert limits.max_calls == 8
     assert limits.run_deadline_ms == 480_000
@@ -839,12 +839,12 @@ def test_remaining_deadline_shrinks_and_zero_usage_is_known():
     "run_deadline_ms,per_call_deadline_ms,elapsed_ms,expected_ms",
     [(480_000, 120_000, 0, 120_000), (480_000, 120_000, 360_000, 120_000),
      (1000, 120_000, 250, 750), (900_000, 240_000, 0, 240_000),
-     (900_000, 240_000, 800_000, 100_000)],
+     (900_000, 240_000, 800_000, 100_000), (None, 240_000, 1_200_000, 240_000)],
 )
 def test_selected_logical_deadline_reaches_request_and_owned_worker(
     monkeypatch, run_deadline_ms, per_call_deadline_ms, elapsed_ms, expected_ms
 ):
-    from src.graph_memory.extraction import bounded_recap_execution as module
+    from graph_memory.extraction import bounded_recap_execution as module
 
     engine = Engine(
         TextResult(text="{}", observation=observation(input_tokens=0, output_tokens=0))
@@ -916,7 +916,7 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(
         ingest_context=_fixture_ingest_context("synthetic"),
     )
     assert result.failure_kind == "incomplete", result.diagnostics
-    stored = registry.get_extraction_run(tmp_path, result.run.run_id)
+    stored = registry.get_extraction_run(result.run.run_id)
     assert result.candidate_graph is None and stored.status == ExtractionRunStatus.FAILED
     assert "candidate_graph" not in stored.components
     assert not list(output.rglob("candidate_graph.json"))
@@ -1030,7 +1030,7 @@ def test_profile_budget_supports_nine_pass_recap_without_changing_deadlines():
 
 
 def node_handle_packet(source='Dr. Ari did not enter.\n\nShe waited unless Bea returned.'):
-    from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+    from graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
     return compile_source_sentence_packet(source, [
         {'source_span_ref_id': 'span:a', 'text': source.split('\n\n')[0], 'line_start': 1},
         {'source_span_ref_id': 'span:b', 'text': source.split('\n\n')[1], 'line_start': 3},
@@ -1048,8 +1048,8 @@ def node_handle_response(ids=None):
 @pytest.mark.usefixtures("application_state_dsn")
 @pytest.mark.parametrize("pass_name", ["actor_pass", "location_pass", "collective_pass", "object_pass", "thread_pass"])
 def test_node_handle_wire_materializes_canonical_evidence_and_retains_both(tmp_path, pass_name):
-    from src.graph_memory.extraction.category_candidate_graph_schema import category_pass_text_format_for_spec
-    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from graph_memory.extraction.category_candidate_graph_schema import category_pass_text_format_for_spec
+    from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     spec = next(p for p in RECAP_EXTRACTION_PROFILE.node_passes if p.pass_id == pass_name)
     from jsonschema import validate
     packet = node_handle_packet()
@@ -1116,10 +1116,10 @@ def test_actor_packet_swap_rejected_before_provider_call():
 
 
 def test_real_recap_producer_supplies_packet_to_ge_and_receives_canonical_result():
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions, extract_category_candidate_graph,
     )
-    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     packet = node_handle_packet()
 
     class PipelineEngine(Engine):
@@ -1151,12 +1151,16 @@ def test_real_recap_producer_supplies_packet_to_ge_and_receives_canonical_result
     assert '### Q001\nDr. Ari did not enter.' in actor.user_prompt
     assert '### Q002\nShe waited unless Bea returned.' in actor.user_prompt
     assert 'source_quote_ids' in actor.user_prompt
-    for request in engine.requests[:5]:
+    node_requests, edge_request = engine.requests[:-1], engine.requests[-1]
+    assert [request.schema_name for request in node_requests] == [
+        f"category_graph_{spec.pass_id}" for spec in RECAP_EXTRACTION_PROFILE.node_passes
+    ]
+    assert edge_request.schema_name == "category_graph_edge_pass"
+    for request in node_requests:
         refs_schema = request.json_schema['properties']['observation_nodes']['items']['properties']['evidence_refs']['items']
         assert refs_schema['properties']['source_quote_ids']['items']['enum'] == ['Q001', 'Q002']
         assert '### Q001\nDr. Ari did not enter.' in request.user_prompt
-    for request in engine.requests[5:]:
-        assert 'source_quote_ids' not in json.dumps(request.json_schema)
+    assert "source_quote_ids" not in json.dumps(edge_request.json_schema)
     refs = result.pass_outputs['actor_pass']['observation_nodes'][0]['evidence_refs']
     assert refs[0]['anchor_quotes'] == ['Dr. Ari did not enter.']
     assert refs[1]['source_span_ref_id'] == 'span:b'
@@ -1267,7 +1271,7 @@ def test_reasoning_deadline_headroom_rejects_invalid_limits(field, value):
 
 
 def test_advertised_node_ids_require_retention_and_are_local_to_each_client(monkeypatch):
-    from src.graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
+    from graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
     context = CompactEvidenceContext([
         {'source_span_ref_id': 'paragraph:45-45', 'text': 'A ferry arrived.', 'line_start': 45, 'line_end': 45},
     ], source_sha256='a' * 64).record()
@@ -1312,8 +1316,8 @@ def test_empty_advertised_node_source_is_retained_and_refused_before_dispatch(mo
 def test_advertised_node_ids_reach_real_ge_conformance_and_retain_invalid_attempt():
     from generationengine import GenerationClient
     from generationengine.providers.openrouter_text import OpenRouterTextProvider
-    from src.graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
-    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
+    from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     source = 'A ferry arrived.'
     import hashlib
     context = CompactEvidenceContext([

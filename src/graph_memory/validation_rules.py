@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from src.graph_memory.ontology_ir import GraphBundle, GraphEdge, GraphNode, ProvenanceRef, SourceRef, TaxonomyRef
+from graph_memory.ontology_ir import GraphBundle, GraphEdge, GraphNode, ProvenanceRef, SourceRef, TaxonomyRef
 
 ERROR_SEVERITIES = {"error", "fatal"}
 NON_ADMISSIBLE_EVIDENCE_ROLES = {

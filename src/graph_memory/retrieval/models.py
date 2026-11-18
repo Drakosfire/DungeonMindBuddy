@@ -13,7 +13,7 @@ import hashlib
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from graph_memory.projection.world_projection import (
@@ -288,7 +288,7 @@ class WorldGraphSourceAnchor(_RetrievalResponseModel):
     display_label: str | None = None
 
 
-class WorldGraphReviewedSourceObservationMatch(_RetrievalResponseModel):
+class _ReviewedSourceObservationMatch(_RetrievalResponseModel):
     """Native bounded discovery pointer, not a canonical assertion or claim."""
 
     assertion_id: str
@@ -300,8 +300,6 @@ class WorldGraphReviewedSourceObservationMatch(_RetrievalResponseModel):
     text_length: int = Field(ge=0)
     text_sha256: str
     entity_kind: str
-    review_id: str
-    contribution_id: str
     publication_revision_id: str
     source_artifact_id: str
     source_revision_id: str
@@ -312,7 +310,7 @@ class WorldGraphReviewedSourceObservationMatch(_RetrievalResponseModel):
     temporal_scope: dict[str, Any] | None
 
     @model_validator(mode="after")
-    def validate_excerpt_extent(self) -> "WorldGraphReviewedSourceObservationMatch":
+    def validate_excerpt_extent(self) -> "_ReviewedSourceObservationMatch":
         if not (self.excerpt_start <= self.excerpt_end <= self.text_length):
             raise ValueError("discovery excerpt offsets must lie within original text")
         if self.excerpt_end - self.excerpt_start != len(self.text_excerpt):
@@ -320,7 +318,20 @@ class WorldGraphReviewedSourceObservationMatch(_RetrievalResponseModel):
         return self
 
 
+class WorldGraphReviewedSourceObservationMatch(_ReviewedSourceObservationMatch):
+    review_id: str
+    contribution_id: str
+
+
+class WorldGraphNativeReviewedSourceObservationMatch(_ReviewedSourceObservationMatch):
+    publication_id: str
+
+
 class WorldGraphRetrievalResult(_RetrievalResponseModel):
+    _discovery_relationship_ids: tuple[str, ...] = PrivateAttr(default=())
+    _discovery_hops: tuple[tuple[str, str, str], ...] = PrivateAttr(default=())
+    _object_limit_pruned_ids: tuple[str, ...] = PrivateAttr(default=())
+    _object_limit_pruned_count: int = PrivateAttr(default=0)
     schema_: Literal[RETRIEVAL_RESULT_SCHEMA] = Field(
         alias="schema", default=RETRIEVAL_RESULT_SCHEMA
     )
@@ -330,7 +341,9 @@ class WorldGraphRetrievalResult(_RetrievalResponseModel):
     request_summary: dict[str, Any] = Field(default_factory=dict)
     matched_node_ids: list[str] = Field(default_factory=list)
     match_reasons: dict[str, list[str]] = Field(default_factory=dict)
-    reviewed_source_observation_matches: list[WorldGraphReviewedSourceObservationMatch] = Field(
+    reviewed_source_observation_matches: list[
+        WorldGraphReviewedSourceObservationMatch | WorldGraphNativeReviewedSourceObservationMatch
+    ] = Field(
         default_factory=list
     )
     requested_node_id: str | None = None

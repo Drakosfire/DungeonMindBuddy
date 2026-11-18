@@ -188,6 +188,8 @@ def map_draft_to_generate_request(
     request_id: str,
 ) -> dict[str, Any]:
     intent = draft.generation_intent
+    if intent.ruleset is None:
+        raise ThreatDraftStoreError("Choose a ruleset before generating a statblock candidate", status_code=422)
     context = draft.encounter_context
     return {
         "request_id": request_id,

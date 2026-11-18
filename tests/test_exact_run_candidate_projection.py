@@ -13,7 +13,7 @@ from apps.live_control_server.services.managed_world_graph_projection import (
     VerifiedManagedWorldBinding,
 )
 from apps.live_control_server.services.graph_run_registry import get_extraction_run
-from src.graph_memory.extraction import graph_preview_runner
+from graph_memory.extraction import graph_preview_runner
 from tests import test_recap_quote_integrity as fixture
 
 
@@ -112,7 +112,7 @@ def produced(tmp_path, monkeypatch, application_state_dsn, request):
             },
         )
     )
-    run = get_extraction_run(tmp_path, result.run.run_id)
+    run = get_extraction_run(result.run.run_id)
     assert str(run.status) == "reviewable", result.diagnostics
     binding = VerifiedManagedWorldBinding(
         "managed-a", "world:elderwyld", 1, "corpus/managed-a-markdown"
@@ -165,7 +165,7 @@ def test_actual_production_run_reads_all_local_candidates_without_mutation(
     assert node.candidate_node_id == "node:frank-sara"
     assert f"dmb-node:{node.view_key}" in result.projected_markdown
     assert result.node_views[node.view_key].role == "unpublished_candidate"
-    assert get_extraction_run(root, run.run_id) == run
+    assert get_extraction_run(run.run_id) == run
     assert snapshot(root) == before
     assert not list(root.rglob("promote_seals"))
 
@@ -370,10 +370,8 @@ def test_route_rejects_ambiguous_selectors_before_resolution(monkeypatch, query)
 ], ids=["current-source", "retired-native-name", "retired-binding", "irrelevant-generation"])
 def test_real_http_auth_and_read_only_exact_run(produced, monkeypatch, generation):
     from apps.live_control_server.routes import graph_preview
-    from apps.live_control_server.services.agent_graph_auth import (
-        authenticate_native_graph_principal,
-        NativeGraphPrincipal,
-    )
+    from apps.live_control_server.services import agent_graph_auth
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
 
     root, _, run = produced
     if generation is not None:
@@ -406,8 +404,9 @@ def test_real_http_auth_and_read_only_exact_run(produced, monkeypatch, generatio
             assert response.json()["nativeWorldId"] == binding.native_world_id
             assert response.json()["sourceMarkdown"] == fixture.SOURCE
             assert "runWorldBindingStatus" not in response.json()
-            app.dependency_overrides[authenticate_native_graph_principal] = lambda: (
-                NativeGraphPrincipal("player", "player", "local_operator")
+            monkeypatch.setattr(
+                agent_graph_auth, "authenticate_native_graph_principal",
+                lambda _request: NativeGraphPrincipal("player", "player", "local_operator"),
             )
             assert (await client.get(url)).status_code == 403
 
@@ -710,7 +709,7 @@ def test_http_candidate_reader_reopens_database_after_mirror_loss(produced, monk
     assert response.json()['sourceMarkdown']==fixture.SOURCE
     assert response.json()['trustBoundary']=='unpublished_candidate'
     assert len(source_reads)==1 and sorted(output_reads)==['candidate_graph','source_span_index']
-    assert snapshot(root)==before and get_extraction_run(root,run.run_id)==run
+    assert snapshot(root)==before and get_extraction_run(run.run_id)==run
 
 
 def test_candidate_keys_use_the_owning_digest_normalization(produced,monkeypatch):
@@ -746,7 +745,7 @@ def test_saved_v1_projection_keeps_its_identity_after_v2_generation(produced):
     projection=service.build_exact_run_candidate_projection(root,run_id,"managed-a")
     assert projection.profile_id=="recap_category_v1@1.0"
     assert projection.source_markdown==source.source_text
-    assert get_extraction_run(root,current.run_id)==current
+    assert get_extraction_run(current.run_id)==current
 
 @pytest.mark.parametrize("produced", [{"profile":"recap_category_encounter_job_preview@2.0"}], indirect=True)
 def test_supported_encounter_policy_has_the_same_source_only_reader(produced):

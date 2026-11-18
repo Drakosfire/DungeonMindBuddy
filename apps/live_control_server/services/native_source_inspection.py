@@ -99,3 +99,104 @@ def inspect(request, principal):
         section_catalog=None if sections is None else {"selector_policy": SELECTOR,
                          "sections": [row.model_dump(mode="json") for row in sections]},
     )
+
+def published_recap(request, principal):
+    return _published_recap_at_pin(request, principal)
+
+
+def _published_recap_at_pin(request, principal, expected_pin=None):
+    world = request.managed_world_id
+    binding = native.binding(world)
+    if expected_pin is None:
+        head = native.read_repository().get_head(binding["native_world_id"])
+        if head is None:
+            raise SourceInspectionUnavailable("native_published_recap_head_unavailable")
+        expected_pin = InspectionPin(
+            managed_world_id=world,
+            native_world_id=binding["native_world_id"],
+            binding_version=binding["binding_version"],
+            revision_id=head.head_revision_id,
+        )
+    elif expected_pin.managed_world_id != world:
+        raise SourceInspectionUnavailable("native_published_recap_binding_changed")
+    context, pin = _pinned(expected_pin, principal)
+    catalogue = list_admitted_native_text_sources(context.access)
+    if not catalogue.complete:
+        raise SourceInspectionUnavailable("native_published_recap_catalog_incomplete")
+    navigation = source_display_metadata(catalogue.sources, pin.managed_world_id)
+    matches = [
+        item for item, display in zip(catalogue.sources, navigation, strict=True)
+        if display["kind"] == "recap"
+        and display["status"] == "available"
+        and display["origin_matches_current_metadata"] is True
+        and display["campaign_id"] == request.campaign_id
+        and display["session_id"] == request.session_id
+    ]
+    if len(matches) != 1:
+        raise SourceInspectionUnavailable("native_published_recap_selection_unavailable")
+    item = matches[0]
+    for evidence_ref_id in sorted(item.evidence_ref_ids):
+        opened = open_admitted_native_text(context.access, evidence_ref_id)
+        if opened.status == "available":
+            if native.binding(world) != binding:
+                raise SourceInspectionUnavailable("native_published_recap_binding_changed")
+            return _response(
+                context, pin, schema="dmb_native_published_recap_v1",
+                campaign_id=request.campaign_id, session_id=request.session_id,
+                evidence_ref_ids=list(item.evidence_ref_ids),
+                source=opened.model_dump(mode="json"),
+            )
+    raise SourceInspectionUnavailable("native_published_recap_source_unavailable")
+
+
+def published_recap_objects(request, principal):
+    from apps.live_control_server.models.native_graph_inspection import InspectionRead
+    from apps.live_control_server.services import native_graph_inspection as graph
+
+    recap = _published_recap_at_pin(request, principal, request.scope)
+    source = recap["source"]
+    if (
+        recap["scope"] != request.scope.model_dump(mode="json")
+        or source["source_artifact_id"] != request.source_artifact_id
+        or source["source_revision_id"] != request.source_revision_id
+    ):
+        raise SourceInspectionUnavailable("native_published_recap_selection_changed")
+    pin = request.scope.model_copy(update={"scope_mode": "campaign", "campaign_id": request.campaign_id})
+    packet = graph.catalog(pin, principal)
+    evidence = set(recap["evidence_ref_ids"])
+    admitted = {entity["entity_id"] for entity in packet["catalogue"]["entities"]}
+    assertions = packet["assertions"]
+    ids = dict.fromkeys(
+        row["subject_entity_id"] for row in assertions
+        if row["subject_entity_id"] in admitted and evidence.intersection(row["metadata"]["evidence_ref_ids"])
+    )
+    labels = {entity_id: set() for entity_id in ids}
+    for row in assertions:
+        value = row["value"]
+        entity_id = row["subject_entity_id"]
+        if entity_id in labels and row["predicate"] == "dnd5e:name" and value["kind"] == "literal" and isinstance(value["value"], str):
+            labels[entity_id].add(value["value"])
+    if request.entity_id is not None:
+        if request.entity_id not in ids:
+            raise SourceInspectionUnavailable("native_published_recap_object_unavailable")
+        if len(labels[request.entity_id]) > 1:
+            selection = InspectionRead.model_validate({
+                "scope": pin, "selection": {"kind": "entity", "entity_id": request.entity_id},
+            })
+            return {"kind": "entity", "detail": graph.inspect(selection, principal)}
+        return {"kind": "complete", "detail": graph.complete_object(graph.NativeCompleteObjectRead.model_validate({
+            "scope": pin,
+            "request": {
+                "schema": "dmb_world_graph_object_projection_request_v1",
+                "worldId": pin.managed_world_id, "campaignId": request.campaign_id,
+                "scopeMode": "campaign", "revisionPin": pin.revision_id, "nodeId": request.entity_id,
+                "focus": {"kind": "session", "sessionId": request.session_id, "campaignId": request.campaign_id},
+                "admissibility": "gm",
+            },
+        }), principal)}
+    return {
+        "scope": pin.model_dump(mode="json"),
+        "objects": [{"id": entity_id, "label": " / ".join(sorted(names)) or entity_id, "ambiguous": len(names) > 1}
+                    for entity_id, names in labels.items()],
+        "partial": packet["catalogue"]["completeness"]["status"] == "partial",
+    }

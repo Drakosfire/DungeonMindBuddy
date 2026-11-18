@@ -25,3 +25,26 @@ it("offers native Plan links without carrying an old document selector",async()=
  expect(screen.queryByText("Open sessions →")).toBeNull();
  expect(listWorldContainers).toHaveBeenCalledOnce();
 });
+
+it.each([
+ ["plan", "/plan?world=elderwyld"],
+ ["play", "/play?world=elderwyld&choose=1"],
+] as const)("selects a World in %s without replacing the document", async (surface, expected) => {
+ window.history.replaceState({}, "", `/${surface}`);
+ vi.mocked(listWorldContainers).mockResolvedValue({records:[{world_id:"elderwyld",name:"Elderwyld"}]} as never);
+ render(<SurfaceWorldPicker surface={surface}/>);
+ const link = await screen.findByRole("link", {name:/Elderwyld/});
+ const onNavigate = vi.fn();
+ window.addEventListener("popstate", onNavigate);
+ try {
+  document.addEventListener("click", event => event.preventDefault(), {once:true});
+  fireEvent.click(link, {ctrlKey:true});
+  expect(onNavigate).not.toHaveBeenCalled();
+  fireEvent.click(link);
+  expect(window.location.pathname + window.location.search).toBe(expected);
+  expect(onNavigate).toHaveBeenCalledOnce();
+ } finally {
+  window.removeEventListener("popstate",onNavigate);
+  window.history.replaceState({}, "", "/");
+ }
+});

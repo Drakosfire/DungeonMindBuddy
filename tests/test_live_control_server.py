@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import json
 import shutil
 from pathlib import Path
@@ -9,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
+from apps.live_control_server import session_store
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.schema_validation import LiveRowValidationError, validate_before_append
@@ -18,10 +20,10 @@ from apps.live_control_server.services.citation_source_reader import (
     read_citation_source,
 )
 from apps.live_control_server.session_store import events_since
-from src.live_play.live_store import append_jsonl, load_json, write_json
+from live_store import append_jsonl, load_json, write_json
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_DIR = ROOT / "evals/c2_live_prep/live/schemas"
+SCHEMA_DIR = ROOT / "schemas/live"
 SEED_SESSION = ROOT / "evals/c2_live_prep/live/session_22"
 COMMITTED_EVENT_LOG = SEED_SESSION / "event_log.jsonl"
 COMMITTED_JOB_QUEUE = SEED_SESSION / "job_queue.jsonl"
@@ -43,8 +45,10 @@ def isolated_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture
-def client(isolated_session: Path) -> TestClient:
-    return TestClient(create_app())
+def client(isolated_session: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def test_query_weather_7_persists_event_and_job(
@@ -513,6 +517,27 @@ def test_get_surface_returns_catalog_layout_state(client: TestClient) -> None:
     assert body["state"]["derived"] is True
 
 
+def test_surface_session_views_reuse_loaded_session(client, isolated_session, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import live
+
+    load_session = Mock(wraps=live.load_session)
+    monkeypatch.setattr(live, "load_session", load_session)
+
+    response = client.get("/api/live/surface", params={"include_session_views": "true"})
+    assert response.status_code == 200
+    snapshot = response.json()
+
+    load_session.assert_called_once_with(isolated_session)
+    assert snapshot["events"] == live.get_live_events(since=None)["events"]
+    assert snapshot["jobs"] == live.get_live_jobs()["jobs"]
+    expected_plan = live.get_live_plan_view(world_id=None, scope_mode=None)
+    assert snapshot["plan_view"]["generated_at"]
+    assert {**snapshot["plan_view"], "generated_at": expected_plan["generated_at"]} == expected_plan
+    assert set(live.get_live_surface()) == {"catalog", "layout", "state"}
+
+
 def test_put_surface_layout_persists_valid_layout(
     client: TestClient,
     isolated_session: Path,
@@ -582,6 +607,41 @@ def test_complete_job_marks_queued_job_complete(client: TestClient, isolated_ses
     assert persisted["job_type"] == "benchmark_candidate"
 
 
+def test_queue_mutations_hold_the_same_lock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    queue = tmp_path / "job_queue.jsonl"
+    packet = {"campaign_id": "test", "session": 1}
+    append = session_store.append_jsonl
+    rewrite = session_store._rewrite_jsonl
+
+    def assert_locked(path: Path) -> None:
+        with path.with_name(f".{path.name}.lock").open("a") as handle:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def checked_append(path: Path, row: dict[str, Any]) -> None:
+        assert path == queue
+        assert_locked(path)
+        append(path, row)
+
+    def checked_rewrite(path: Path, rows: list[dict[str, Any]]) -> None:
+        assert_locked(path)
+        rewrite(path, rows)
+
+    monkeypatch.setattr(session_store, "append_jsonl", checked_append)
+    monkeypatch.setattr(session_store, "_rewrite_jsonl", checked_rewrite)
+    first = session_store.queue_packet_rebuild_job(tmp_path, packet)
+    second = session_store.queue_packet_rebuild_job(tmp_path, packet)
+    session_store.append_events_and_jobs(tmp_path, [], [{**second, "id": "third"}])
+    session_store.complete_job(tmp_path, first["id"])
+
+    rows = [json.loads(line) for line in queue.read_text().splitlines()]
+    assert [(row["id"], row["status"]) for row in rows] == [
+        (first["id"], "complete"),
+        (second["id"], "queued"),
+        ("third", "queued"),
+    ]
+
+
 def test_complete_job_returns_404_for_missing_id(client: TestClient) -> None:
     response = client.post("/api/live/jobs/job-does-not-exist/complete")
     assert response.status_code == 404
@@ -591,12 +651,8 @@ def test_resolve_roll_weather_16_without_append(
     client: TestClient,
     isolated_session: Path,
 ) -> None:
-    events_before = len(
-        (isolated_session / "event_log.jsonl").read_text(encoding="utf-8").strip().splitlines()
-    )
-    jobs_before = len(
-        (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8").strip().splitlines()
-    )
+    logs = [isolated_session / name for name in ("event_log.jsonl", "job_queue.jsonl")]
+    before = [path.read_bytes() for path in logs]
 
     response = client.post("/api/live/resolve-roll", json={"command": "Weather 16"})
     assert response.status_code == 200
@@ -605,14 +661,26 @@ def test_resolve_roll_weather_16_without_append(
     assert body["roll"] == 16
     assert "Fixed-distance front" in body["row_text"]
 
-    events_after = len(
-        (isolated_session / "event_log.jsonl").read_text(encoding="utf-8").strip().splitlines()
-    )
-    jobs_after = len(
-        (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8").strip().splitlines()
-    )
-    assert events_after == events_before
-    assert jobs_after == jobs_before
+    assert [path.read_bytes() for path in logs] == before
+
+
+def test_roll_preview_allows_unrelated_log_append(isolated_session, monkeypatch):
+    from apps.live_control_server.routes import live
+
+    resolve = live.resolve_roll_from_packet
+    event_log = isolated_session / "event_log.jsonl"
+    unrelated_event = b'{"id":"unrelated"}\n'
+
+    def resolve_with_append(*args, **kwargs):
+        result = resolve(*args, **kwargs)
+        with event_log.open("ab") as handle:
+            handle.write(unrelated_event)
+        return result
+
+    monkeypatch.setattr(live, "resolve_roll_from_packet", resolve_with_append)
+    assert live.post_resolve_roll(live.ResolveRollRequest(command="Weather 16"))["roll"] == 16
+    assert event_log.read_bytes() == unrelated_event
+    assert (isolated_session / "job_queue.jsonl").read_bytes() == b""
 
 
 def test_rebuild_packet_queues_packet_rebuild_job(
@@ -2138,3 +2206,52 @@ def test_live_query_http_rejects_surface_context_on_live_backend(
     assert response.status_code == 422
     body = response.json()
     assert body.get("code") == "surface_context_unsupported"
+
+
+def test_event_and_job_routes_read_only_their_logs(tmp_path, monkeypatch):
+    from apps.live_control_server.routes import live
+
+    monkeypatch.setattr(live, "session_dir", lambda: tmp_path)
+    assert live.get_live_events(since=None) == {"events": []}
+    assert live.get_live_jobs() == {"jobs": []}
+
+    (tmp_path / "event_log.jsonl").write_text('{"id":"one"}\n{"id":"two"}\n')
+    (tmp_path / "job_queue.jsonl").write_text('{"id":"job"}\n')
+    assert live.get_live_events(since=None) == {"events": [{"id": "one"}, {"id": "two"}]}
+    assert live.get_live_events(since="one") == {"events": [{"id": "two"}]}
+    assert live.get_live_events(since="unknown") == {"events": []}
+    assert live.get_live_jobs() == {"jobs": [{"id": "job"}]}
+
+
+def test_surface_refresh_reads_each_artifact_once(isolated_session, monkeypatch):
+    from apps.live_control_server.routes import live
+
+    reads = []
+
+    def count(reader):
+        def read(path):
+            reads.append(path.name)
+            return reader(path)
+        return read
+
+    monkeypatch.setattr(session_store, "load_json", count(session_store.load_json))
+    monkeypatch.setattr(session_store, "iter_jsonl", count(session_store.iter_jsonl))
+    result = live.get_live_surface()
+
+    assert reads == ["live_packet.json", "surface_layout.json", "event_log.jsonl", "job_queue.jsonl"]
+    assert result["state"] == load_json(isolated_session / "current_state.json")
+    assert result["catalog"] == load_json(isolated_session / "live_packet.json")["surface_catalog"]
+    assert result["layout"] == load_json(isolated_session / "surface_layout.json")
+
+
+def test_live_state_derivation_leaves_snapshot_bytes_untouched(isolated_session):
+    path = isolated_session / "current_state.json"
+    before = path.read_bytes()
+    derived = session_store.derive_current_state(*session_store.load_session(isolated_session))
+
+    assert path.read_bytes() == before
+    refreshed = session_store.refresh_current_state(isolated_session)
+    assert refreshed == load_json(path)
+    assert {k: v for k, v in derived.items() if k != "generated_at"} == {
+        k: v for k, v in refreshed.items() if k != "generated_at"
+    }

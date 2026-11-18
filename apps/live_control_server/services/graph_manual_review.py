@@ -22,7 +22,7 @@ MANUAL_REVIEW_SCHEMA = "dmb_graph_manual_review_v1"
 MANUAL_REVIEW_VERSION = "0.1"
 
 MANUAL_REVIEW_ARTIFACT_REL = (
-    "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/"
+    "evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/"
     "baseline_vs_edge_and_node_manual_review.json"
 )
 

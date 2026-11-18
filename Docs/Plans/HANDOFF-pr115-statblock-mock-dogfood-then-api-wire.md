@@ -14,7 +14,7 @@ related_design:
 related_plan:
   - Docs/Plans/PLAN-command-board-combat-statblock-generator-roadmap.md
 related_runbook:
-  - Docs/Runbooks/RUNBOOK-statblock-combat-dogfood.md
+  - Docs/Runbooks/archive/RUNBOOK-statblock-combat-dogfood.md
 supersedes_framing:
   - Docs/Plans/HANDOFF-command-board-combat-statblock-generator-design.md
 ---

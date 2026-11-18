@@ -1,5 +1,5 @@
+import type { AbilityName, RuleSection, StatblockDefinitionV1_Input } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { useState } from "react";
-import type { AbilityName, StatblockDefinitionV1_Output } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { ProtectedStructureBlock } from "./ProtectedStructureBlock";
 import {
   createEditorStateFromOutput,
@@ -13,7 +13,9 @@ import {
   setPrimaryArmorClassValue,
   setRuleElementName,
   setRuleElementRulesText,
+  updateWorkingCopy,
   type StatblockEditorState,
+  type EditableStatblockDefinition,
 } from "./statblockEditorState";
 import "./StatblockDefinitionEditor.css";
 
@@ -26,11 +28,12 @@ const ABILITY_NAMES: AbilityName[] = [
   "charisma",
 ];
 
-export type StatblockDefinitionEditorProps = {
-  output: StatblockDefinitionV1_Output;
+export type StatblockDefinitionEditorProps<D extends EditableStatblockDefinition = StatblockDefinitionV1_Input> = {
+  output: D;
   recoveryHint?: string;
-  editorState?: StatblockEditorState;
-  onEditorStateChange?: (state: StatblockEditorState) => void;
+  editRuleMechanics?: boolean;
+  editorState?: StatblockEditorState<D>;
+  onEditorStateChange?: (state: StatblockEditorState<D>) => void;
 };
 
 function readPrimaryArmorClassValue(defenses: StatblockEditorState["workingCopy"]["defenses"]): number {
@@ -67,18 +70,19 @@ function ruleElementProtectedStructure(
   return structure;
 }
 
-export function StatblockDefinitionEditor({
+export function StatblockDefinitionEditor<D extends EditableStatblockDefinition>({
   output,
   editorState: controlledState,
   onEditorStateChange,
   recoveryHint,
-}: StatblockDefinitionEditorProps) {
+  editRuleMechanics,
+}: StatblockDefinitionEditorProps<D>) {
   const [uncontrolledState, setUncontrolledState] = useState(() => createEditorStateFromOutput(output));
   const state = controlledState ?? uncontrolledState;
   const workingCopy = state.workingCopy;
   const uiStatus = getUiStatus(state);
 
-  const commit = (next: StatblockEditorState) => {
+  const commit = (next: StatblockEditorState<D>) => {
     if (controlledState !== undefined) {
       onEditorStateChange?.(next);
       return;
@@ -175,6 +179,46 @@ export function StatblockDefinitionEditor({
                 onChange={(event) => commit(setRuleElementName(state, element.key, event.target.value))}
               />
             </label>
+            {editRuleMechanics && <>
+              <label>Section for {element.name}
+                <select value={element.section} onChange={event => {
+                  const section = event.currentTarget.value as RuleSection;
+                  commit(updateWorkingCopy(state, current => ({
+                    ...current,
+                    rule_elements: current.rule_elements.map(rule =>
+                      rule.key === element.key ? { ...rule, section } : rule),
+                  })));
+                }}>
+                  <option value="trait">Trait</option>
+                  <option value="action">Action</option>
+                  <option value="bonus_action">Bonus action</option>
+                  <option value="reaction">Reaction</option>
+                  <option value="legendary_action">Legendary action</option>
+                  <option value="lair_action">Lair action</option>
+                  <option value="regional_effect">Regional effect</option>
+                </select>
+              </label>
+              {"attack_type" in element.mechanic && element.mechanic.reach != null &&
+                <button type="button" onClick={() => commit(updateWorkingCopy(state, current => ({
+                  ...current,
+                  rule_elements: current.rule_elements.map(rule =>
+                    rule.key === element.key && "attack_type" in rule.mechanic
+                      ? { ...rule, mechanic: { ...rule.mechanic, reach: null } }
+                      : rule),
+                })))}>Remove typed reach from {element.name}</button>}
+              {"attack_type" in element.mechanic && element.mechanic.hit_effects?.map((effect, index) =>
+                "phase_key" in effect && !workingCopy.phases?.some(phase => phase.key === effect.phase_key) &&
+                <button key={index} type="button" onClick={() => commit(updateWorkingCopy(state, current => ({
+                  ...current,
+                  rule_elements: current.rule_elements.map(rule =>
+                    rule.key === element.key && "attack_type" in rule.mechanic
+                      ? { ...rule, mechanic: { ...rule.mechanic, hit_effects: rule.mechanic.hit_effects?.filter(
+                        (_, effectIndex) => effectIndex !== index,
+                      ) } }
+                      : rule),
+                })))}>Remove unresolved phase “{effect.phase_key}” from {element.name}</button>
+              )}
+            </>}
             <label>
               Rules text
               <textarea

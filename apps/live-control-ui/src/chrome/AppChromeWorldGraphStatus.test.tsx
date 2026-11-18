@@ -24,14 +24,14 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-it.each(["index", "plan", "build", "ingest"] as const)("offers the route-appropriate Graph control on %s without prefetch", route => {
+it.each(["graph", "plan", "build", "ingest"] as const)("offers the route-appropriate Graph control on %s without prefetch", route => {
   render(<AgentInteractionProvider><AskPluginSlotProvider><SurfaceContextProvider><PeekRegionProvider><AppChrome activeRoute={route}><main>page</main></AppChrome></PeekRegionProvider></SurfaceContextProvider></AskPluginSlotProvider></AgentInteractionProvider>);
-  const launcher = route === "index"
+  const launcher = route === "graph"
     ? screen.getByRole("button", { name: "Focus Elderwyld graph canvas" })
     : screen.getByRole("button", { name: "Explore Elderwyld World graph" });
   expect(launcher).toHaveTextContent("Graph");
   expect(launcher).not.toHaveTextContent(/Ready|0 nodes/);
-  if (route === "index") {
+  if (route === "graph") {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   }
   expect(getNativeGraphCatalog).not.toHaveBeenCalled();
@@ -50,8 +50,8 @@ it("opens the existing native inspector directly from chrome", async () => {
   expect(postWorldGraphProjection).not.toHaveBeenCalled();
 });
 
-it("targets the canvas on the index without opening a separate graph dialog", () => {
-  render(<><AppChromeWorldGraphStatus activeRoute="index" /><main id="loaded-native-graph-canvas" tabIndex={-1}>Loaded graph</main></>);
+it("targets the canvas on the Graph page without opening a separate graph dialog", () => {
+  render(<><AppChromeWorldGraphStatus activeRoute="graph" /><main id="loaded-native-graph-canvas" tabIndex={-1}>Loaded graph</main></>);
   const target = screen.getByRole("button", { name: "Focus Elderwyld graph canvas" });
   const canvas = document.getElementById("loaded-native-graph-canvas");
   fireEvent.click(target);
@@ -82,7 +82,7 @@ it("does not invent a World when none is verified", () => {
 
 it("does not advertise a loaded graph workspace while the selected World is unresolved", () => {
   selected.world = { kind: "loading", requestedWorldId: "elderwyld" };
-  render(<AppChromeWorldGraphStatus activeRoute="index" />);
+  render(<AppChromeWorldGraphStatus activeRoute="graph" />);
   expect(screen.queryByRole("button")).not.toBeInTheDocument();
   expect(getNativeGraphCatalog).not.toHaveBeenCalled();
 });

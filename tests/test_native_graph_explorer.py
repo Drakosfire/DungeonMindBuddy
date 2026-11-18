@@ -1072,3 +1072,151 @@ def test_non_gm_and_unconfigured_auth_cannot_read_or_write(
     )
     assert response.status_code == 503
     assert response.json()["detail"]["code"] == "graph_auth_unavailable"
+
+
+def _presentation_catalogue():
+    bound = {"managed_world_id": "managed", "native_world_id": "native", "binding_version": 1}
+    catalogue = {
+        "scope": {**bound, "revision_id": "revision"},
+        "catalogue": {
+            "identity": {"space_id": "native", "revision_id": "revision", "graph_payload_sha256": "digest"},
+            "entities": [{"entity_id": "one"}, {"entity_id": "two"}],
+            "completeness": {"status": "complete"},
+        },
+        "assertions": [],
+    }
+    for index, (subject, predicate, value) in enumerate([
+        ("one", "dnd5e:name", {"kind": "literal", "value": name})
+        for name in ["Mira", " Ada ", "Mira", "ada"]
+    ] + [
+        ("two", "dnd5e:name", {"kind": "literal", "value": "Mira"}),
+        ("one", "dnd5e:classification", {"kind": "term_ref", "term": "dungeonbuddy:character"}),
+        ("one", "dnd5e:classification", {"kind": "term_ref", "term": "dnd5e:npc"}),
+    ]):
+        catalogue["assertions"].append({"assertion_id": str(index), "subject_entity_id": subject,
+                                        "predicate": predicate, "value": value})
+    return bound, catalogue
+
+
+def test_presentation_keeps_distinct_raw_values_and_identity_without_accounting_changes():
+    bound, catalogue = _presentation_catalogue()
+    before = copy.deepcopy(catalogue)
+    graph = service._safe_graph_from_catalogue(bound, catalogue, dungeonbuddy_dnd5e_semantic_profile())
+    nodes = {node["id"]: node for node in graph["nodes"]}
+    assert nodes["one"]["presentation"] == {
+        "recorded_names": [" Ada ", "Mira", "ada"],
+        "classification_terms": ["dnd5e:npc", "dungeonbuddy:character"],
+    }
+    assert nodes["one"]["name"] == "Multiple recorded names · one"
+    assert nodes["one"]["kind"] == "object"
+    assert nodes["two"]["presentation"]["recorded_names"] == ["Mira"]
+    assert nodes["two"]["id"] != nodes["one"]["id"]
+    assert graph["completeness"]["listed_assertions"] == 1
+    assert graph["completeness"]["omitted_assertions"] == 6
+    assert catalogue == before
+    catalogue["assertions"].reverse()
+    catalogue["catalogue"]["entities"].reverse()
+    assert service._safe_graph_from_catalogue(bound, catalogue, dungeonbuddy_dnd5e_semantic_profile()) == graph
+
+
+def test_presentation_is_included_in_existing_payload_limit(monkeypatch):
+    bound, catalogue = _presentation_catalogue()
+    profile = dungeonbuddy_dnd5e_semantic_profile()
+    graph = service._safe_graph_from_catalogue(bound, catalogue, profile)
+    size = len(service.canonical_json(graph).encode("utf-8"))
+    monkeypatch.setattr(service, "MAX_GRAPH_RESPONSE_BYTES", size)
+    assert service._safe_graph_from_catalogue(bound, catalogue, profile) == graph
+    monkeypatch.setattr(service, "MAX_GRAPH_RESPONSE_BYTES", size - 1)
+    with pytest.raises(service.NativeGraphExplorerError) as error:
+        service._safe_graph_from_catalogue(bound, catalogue, profile)
+    assert error.value.code == "native_graph_response_limit"
+    assert error.value.status == 413
+
+
+@pytest.mark.parametrize("field,value", [("managed_world_id", "other"), ("native_world_id", "other"), ("binding_version", 2)])
+def test_presentation_does_not_relax_catalogue_binding(field, value):
+    bound, catalogue = _presentation_catalogue()
+    catalogue["scope"][field] = value
+    with pytest.raises(service.NativeGraphExplorerError) as error:
+        service._safe_graph_from_catalogue(bound, catalogue, dungeonbuddy_dnd5e_semantic_profile())
+    assert error.value.code == "native_graph_integrity_failure"
+
+
+def test_presentation_read_uses_one_catalogue_and_never_writes(explorer, monkeypatch):
+    x = explorer
+    ids = _seed_objects(x)
+    before = _snapshot(x.lane.repo)
+    original = service.native_graph_inspection.presentation_catalog
+    calls = []
+
+    def catalog(scope, principal):
+        calls.append(scope)
+        return original(scope, principal)
+
+    repository_reads = []
+
+    def read_repository():
+        repository_reads.append(True)
+        return x.lane.repo
+
+    monkeypatch.setattr(service.native, "read_repository", read_repository)
+    monkeypatch.setattr(service.native_graph_inspection, "presentation_catalog", catalog)
+    response = _read(x)
+    assert response.status_code == 200, response.text
+    graph = response.json()["graph"]
+    nodes = {node["id"]: node for node in graph["nodes"]}
+    assert nodes[ids["alice"]]["presentation"] == {
+        "recorded_names": ["Alice"], "classification_terms": ["dnd5e:npc"],
+    }
+    assert nodes[ids["tower"]]["presentation"] == {
+        "recorded_names": [], "classification_terms": ["dnd5e:location"],
+    }
+    assert len(calls) == 1
+    assert len(repository_reads) == 1
+    assert _snapshot(x.lane.repo) == before
+
+
+def test_presentation_read_matches_full_assertion_projection(explorer, monkeypatch):
+    _seed_objects(explorer)
+    projected = _read(explorer)
+    assert projected.status_code == 200, projected.text
+    inspection = service.native_graph_inspection
+    monkeypatch.setattr(inspection, "presentation_catalog", inspection.catalog_with_profile)
+    full = _read(explorer)
+    assert full.status_code == 200, full.text
+    assert projected.content == full.content
+
+
+def test_repeat_graph_read_reuses_parsing_but_refetches_the_revision(explorer, monkeypatch):
+    from dungeonmind.application.vnext import native_source_access
+
+    x = explorer
+    _seed_objects(x)
+    repo = x.lane.repo
+    cache = native_source_access.NativeParsedRevisionCache()
+    monkeypatch.setattr(service.native_graph_inspection, "_shared_parsed_cache", cache)
+    parse_revision = native_source_access._parse_revision
+    get_revision = repo.get_revision
+    parsed = []
+    loaded = []
+
+    def count_parse(stored):
+        parsed.append(stored)
+        return parse_revision(stored)
+
+    def count_revision_load(space_id, revision_id):
+        loaded.append((space_id, revision_id))
+        return get_revision(space_id, revision_id)
+
+    monkeypatch.setattr(native_source_access, "_parse_revision", count_parse)
+    monkeypatch.setattr(repo, "get_revision", count_revision_load)
+    before = _snapshot(repo)
+    first = _read(x)
+    second = _read(x)
+
+    assert first.status_code == second.status_code == 200
+    assert first.content == second.content
+    assert len(parsed) == 1
+    revision = first.json()["graph"]["revision_id"]
+    assert loaded == [(x.bound["native_world_id"], revision)] * 2
+    assert _snapshot(repo) == before

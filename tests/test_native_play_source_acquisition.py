@@ -102,7 +102,7 @@ def acquired(application_state_dsn, monkeypatch, request):
     adapter.last_provider_attempt_id = provider.provider_attempt_id
     calls = []
     pin = t.GraphSourceScopeAnchorV2(
-        anchor_id="anchor:new",
+        anchor_id=("native-neighborhood:fixture" if getattr(request, "param", None) == "native_search" else "anchor:new"),
         evidence_ref_id="evidence:new",
         source_artifact_id="source:new",
         source_revision_id="revision:new",
@@ -174,7 +174,11 @@ def acquired(application_state_dsn, monkeypatch, request):
         lambda *_: pytest.fail("Native Play selected a predecessor read"),
     )
 
-    def source(arguments, *, receipt_version, root):
+    def source(arguments, *, receipt_version, root, **kwargs):
+        if getattr(request, "param", None) == "native_search":
+            assert kwargs == {"native_principal": adapter.native_principal, "native_authority": authority}
+        else:
+            assert not kwargs
         calls.append("source")
         assert receipt_version == 2 and arguments["anchorIds"] == [pin.anchor_id]
         rid = "synthetic-source-read"
@@ -463,3 +467,73 @@ def test_actual_play_provider_preparation_retains_only_exposed_source_reads(
         )
         assert text == "Bridge journal describes three lanterns."
     assert f.calls == ["graph", "source"]
+
+
+@pytest.mark.parametrize("acquired", ["native_search"], indirect=True)
+def test_scoped_play_search_persists_native_source_extension(acquired, monkeypatch):
+    from apps.live_control_server.services import native_graph_inspection
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from graph_memory.retrieval.models import WorldGraphRetrievalResult
+
+    f = acquired
+    authority = f.adapter.fence.turn.graph_context_receipt.graph_authority
+    monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", authority.managed_world_id)
+    f.adapter.native_principal = NativeGraphPrincipal(
+        subject="test:gm", role="gm", auth_method="local_operator",
+    )
+
+    def search(request, principal, **kwargs):
+        assert request.world_id == authority.managed_world_id
+        assert request.revision_pin == authority.graph_revision
+        assert principal == f.adapter.native_principal
+        assert kwargs == {
+            "include_source_pins": True,
+            "expected_native_world_id": authority.native_world_id,
+            "expected_binding_version": authority.binding_version,
+        }
+        result = WorldGraphRetrievalResult.model_validate({
+            "operation": "search", "outcome": "enough",
+            "snapshot": {
+                "world_id": authority.managed_world_id, "campaign_id": "",
+                "revision_id": authority.graph_revision, "head_revision_id": authority.graph_revision,
+                "is_head": True, "focus": {"kind": "none"}, "admissibility": "gm", "scope_mode": "world",
+            },
+            "source_anchors": [{
+                "anchor_id": f.pin.anchor_id, "revision_id": authority.graph_revision,
+                "evidence_ref_id": f.pin.evidence_ref_id, "source_artifact_id": f.pin.source_artifact_id,
+                "source_domain": "worldbuilding", "readable": True, "locator_kind": "source_span",
+            }],
+        })
+        pin = direct.ResolvedSourceAnchorMetadataV2(
+            **f.pin.model_dump(), graph_revision=authority.graph_revision,
+        )
+        return direct.ResolvedWorldGraphOperationV3(result, (pin,))
+
+    monkeypatch.setattr(native_graph_inspection, "shared_search", search)
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda *_: pytest.fail("classic search resolved"))
+    reply = f.adapter.broker_graph_operation({
+        "toolName": "expand_graph_retrieval",
+        "arguments": {"retrievalSessionId": f.session.id, "operation": "search", "queryText": "bridge"},
+    })
+    assert f.adapter.failure is None, reply
+    turn = f.adapter.fence.turn
+    reopened = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    event, extension = reopened.graph_context_execution.events[-2:]
+    assert isinstance(event, t.ValidatedGraphOperationEventV3)
+    assert isinstance(extension, t.SourceScopeExtensionEventV3)
+    assert extension.origin_graph_event_id == event.event_id
+    assert extension.pins == event.returned_source_pins == [f.pin]
+
+    response = f.adapter.broker_source_read({
+        "toolName": "read_graph_source",
+        "arguments": {"retrievalSessionId": f.session.id, "anchorIds": [f.pin.anchor_id], "maxChars": 1000},
+    })
+    assert json.loads(response["resultJson"]).get("content") == f.text, response["resultJson"]
+    reopened = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    authorization, read = reopened.graph_context_execution.events[-2:]
+    assert isinstance(authorization, t.SourceReadAuthorizationEventV2)
+    assert isinstance(read, t.ValidatedSourceReadEventV2)
+    assert authorization.anchors == [f.pin]
+    receipt, = read.receipts
+    assert receipt.source_revision_id == f.pin.source_revision_id
+    assert receipt.content_sha256 == sha256(f.text.encode()).hexdigest()

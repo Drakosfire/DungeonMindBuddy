@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json, re
 from pathlib import Path
-from src.graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict, validate_candidate_graph_preview, CANDIDATE_GRAPH_PREVIEW_SCHEMA, CANDIDATE_GRAPH_PREVIEW_VERSION
+from graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict, validate_candidate_graph_preview, CANDIDATE_GRAPH_PREVIEW_SCHEMA, CANDIDATE_GRAPH_PREVIEW_VERSION
 ROOT=Path(__file__).resolve().parents[2]
 FIXTURE=ROOT/'evals/graph_memory_layer/examples/candidate_graph_preview_minimal.json'
 SRC=ROOT/'evals/graph_memory_layer/examples/source_span_resolver_fixture.json'

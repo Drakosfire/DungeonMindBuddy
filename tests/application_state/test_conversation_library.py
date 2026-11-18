@@ -124,6 +124,10 @@ def test_archived_names_and_pagination_never_activate(application_state_dsn):
         "world-one", old, limit=2, before_sequence=page["next_before_sequence"]
     )
     assert [r["sequence"] for r in older["turns"]] == [1]
+    assert older["next_before_sequence"] is None
+    exact = library.read_turns("world-one", old, limit=3)
+    assert [r["sequence"] for r in exact["turns"]] == [1, 2, 3]
+    assert exact["next_before_sequence"] is None
     assert library.get_name("world-one", old).title == "Workshop project 0"
     library.rename(
         "world-one",
@@ -157,8 +161,8 @@ def test_uses_mixed_projection_answer_not_raw_completion(
     tid = uuid4()
     monkeypatch.setattr(
         AgentConversationService,
-        "list_turns",
-        lambda *a, **k: [
+        "list_turn_page",
+        lambda *a, **k: ([
             SimpleNamespace(
                 envelope=SimpleNamespace(
                     turn_id=tid,
@@ -169,7 +173,7 @@ def test_uses_mixed_projection_answer_not_raw_completion(
                 ),
                 assistant_text="Projected mixed answer",
             )
-        ],
+        ], False),
     )
     result = library.read_turns("world-one", cid)
     assert result["turns"][0]["assistant_text"] == "Projected mixed answer"
@@ -262,71 +266,15 @@ def test_additive_name_table_keeps_existing_agent_rows(
         )
 
 
-def test_persisted_object_only_questions_survive_archived_readback_without_pointer_write(
-    tmp_path, monkeypatch, application_state_dsn
-):
-    from tests.test_build_intentional_response import run_no_editor
-    turn, service, _, _ = run_no_editor(tmp_path, monkeypatch, application_state_dsn, "clarify_request")
-    page = library.read_turns(turn.world_id, turn.conversation_id)
-    assert page["schema"] == "dmb_conversation_library_turns_v3"
-    row = page["turns"][0]
-    assert row["assistant_text"] == ""
-    assert row["reply_object"] == {
-        "kind": "questions", "questions": [{"text": "Which shop should we develop?"}],
-        "source": {"world_id": turn.world_id, "conversation_id": str(turn.conversation_id),
-                   "turn_id": str(turn.turn_id), "document_id": turn.provenance.primary_work.object_id,
-                   "surface_id": "build"},
-    }
-    new(service, turn.world_id)
-    pointer = service.get_world_pointer(turn.world_id)
-    assert library.read_turns(turn.world_id, turn.conversation_id) == page
-    assert service.get_world_pointer(turn.world_id) == pointer
-    assert service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id) == turn
-    assert library._reply_object(turn, "foreign-world", turn.conversation_id) is None
-    assert library._reply_object(turn, turn.world_id, uuid4()) is None
+def test_unclaimed_mixed_rules_library_keeps_prose_without_reply_object(application_state_dsn):
+    from tests.application_state.test_rules_authority_reads import seed_read_fixture
 
-
-@pytest.mark.parametrize("approved", [False, True])
-def test_actual_mixed_library_keeps_accepted_prose_and_only_approved_base_object(
-    tmp_path, monkeypatch, application_state_dsn, approved
-):
-    import json
-    import httpx
-    import httpx2
-    from tests.test_rules_build_parent import build_case, RulesDecisionWire, RulesWriterWire, run_parent
-
-    case = build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
-
-    class Decision(RulesDecisionWire):
-        async def handle_async_request(self, request):
-            response = await super().handle_async_request(request)
-            raw, body = response.json(), json.loads(request.content)
-            if approved and "requested_work" in body["questions"]:
-                raw["answers"]["requested_work"].update(
-                    choice="clarify_request",
-                    probabilities={key: float(key == "clarify_request") for key in body["questions"]["requested_work"]["criteria"]},
-                )
-            return httpx2.Response(200, request=request, json=raw)
-
-    class Writer(RulesWriterWire):
-        async def handle_async_request(self, request):
-            response = await super().handle_async_request(request)
-            body = response.json()
-            raw = json.loads(body["output"][0]["content"][0]["text"])
-            if approved:
-                raw["base_output"]["collaboration"] = {"kind": "questions", "questions": [{"text": "Which route should we discuss?"}]}
-            body["output"][0]["content"][0]["text"] = json.dumps(raw)
-            return httpx.Response(200, request=request, json=body)
-
-    mixed, _, _, _, _ = run_parent(case, tmp_path, monkeypatch,
-        decision=Decision(dsn=application_state_dsn), writer=Writer(base=approved, dsn=application_state_dsn))
-    row = library.read_turns(mixed.envelope.world_id, mixed.envelope.conversation_id)["turns"][0]
-    assert row["assistant_text"] == mixed.assistant_text
-    if approved:
-        assert row["reply_object"]["questions"] == [{"text": "Which route should we discuss?"}]
-        assert row["reply_object"]["source"]["turn_id"] == str(mixed.envelope.turn_id)
-    else:
-        assert row["reply_object"] is None
+    turn, _ = seed_read_fixture(application_state_dsn, plan=True)
+    completed = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert completed.base_projection.kind == "unclaimed"
+    row, = library.read_turns(turn.world_id, turn.conversation_id)["turns"]
+    assert row["assistant_text"] == completed.assistant_text
+    assert row["reply_object"] is None
 
 
 def test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor(
@@ -347,7 +295,14 @@ def test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor(
     def audited(cursor, query, *args, **kwargs):
         if isinstance(query, str) and query.lstrip().lower().startswith("select"):
             from application_state.agent_conversation.authored_reference_preview import SELECT as reference_select
-            assert "graph_context_execution" not in query.replace(reference_select, "")
+            projections = query.replace(reference_select, "").replace(library._SAVED_STATBLOCK_PREVIEW_SELECT, "")
+            if "AS variant_approval_requested" in projections:
+                projection = library._VARIANT_APPROVAL_PREVIEW_SELECT
+                assert "jsonb_path_exists(t.graph_context_execution," in projection
+                assert projection.count("graph_context_execution") == 1
+                assert projections.count(projection) == 1
+                projections = projections.replace(library._VARIANT_APPROVAL_PREVIEW_SELECT, "")
+            assert "graph_context_execution" not in projections
             if "graph_context_execution" in query:
                 assert "AS authored_reference_inputs" in query
                 assert "jsonb_path_query_array" in query
@@ -406,3 +361,134 @@ def test_active_message_pointer_and_rows_are_one_snapshot(
         and absent["messages"] == []
         and absent["pointer_revision"] == 0
     )
+
+
+def test_retry_history_excludes_unrelated_turns(application_state_dsn):
+    service = AgentConversationService()
+    cid = archive(service, keep_active=True)
+    selected = service.list_turns("world-one", cid)[-1]
+    page = library.read_retry_attempts("world-one", cid, selected.turn_id, limit=1)
+
+    assert page["turns"] == []
+    assert page["next_before_sequence"] is None
+    other = new(service)
+    with pytest.raises(ApplicationStateNotFoundError):
+        library.read_retry_attempts("world-one", other, selected.turn_id)
+
+
+
+def test_retry_history_hydrates_populated_page(application_state_dsn, monkeypatch):
+    from application_state.agent_conversation.types import TurnFailure, TurnSubmission
+    from tests.application_state.test_agent_conversation_service import _ref, _submitted_intent
+
+    world = "world-one"
+    service = AgentConversationService()
+    cid = new(service)
+    provenance = _provenance().model_copy(update={"surface_id": "build", "primary_work": _ref("build", "draft", "revision")})
+
+    def accept():
+        return service.accept_turn(
+            TurnSubmission(
+                world_id=world,
+                conversation_id=cid,
+                idempotency_key=uuid4(),
+                expected_conversation_revision=service.get_conversation(world, cid).revision,
+                user_text="Workshop project",
+                provenance=provenance,
+                submitted_intent_v1=_submitted_intent(world, "Workshop project", surface_id="build"),
+            )
+        )
+
+    def interrupt(turn):
+        running = service.begin_turn(world, cid, turn.turn_id, expected_revision=turn.revision)
+        return service.fail_turn(
+            TurnFailure(
+                world_id=world,
+                conversation_id=cid,
+                turn_id=turn.turn_id,
+                expected_revision=running.revision,
+                failure_code="synthetic_before_dispatch",
+            ),
+            interrupted=True,
+        )
+
+    root = interrupt(accept())
+    middle = accept()
+
+    def link(previous, successor, ordinal):
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute(
+                """INSERT INTO agent.turn_retry
+                   (predecessor_id, successor_id, root_id, world_id, conversation_id,
+                    predecessor_revision, ordinal) VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                (previous.turn_id, successor.turn_id, root.turn_id, world, cid,
+                 previous.revision, ordinal),
+            )
+
+    link(root, middle, 1)
+    middle = interrupt(middle)
+    selected = accept()
+    link(middle, selected, 2)
+
+    page = library.read_retry_attempts(world, cid, selected.turn_id, limit=2)
+    assert [row["turn_id"] for row in page["turns"]] == [
+        str(root.turn_id), str(middle.turn_id)
+    ]
+    first = library.read_retry_attempts(world, cid, selected.turn_id, limit=1)
+    assert first["turns"] == page["turns"][1:]
+    assert first["next_before_sequence"] == middle.sequence
+    older = library.read_retry_attempts(
+        world, cid, selected.turn_id, limit=1, before_sequence=middle.sequence
+    )
+    assert older["turns"] == page["turns"][:1]
+    assert older["next_before_sequence"] is None
+
+    contexts = [row["retry_context"] for row in page["turns"]]
+    assert [context["ordinal"] for context in contexts] == [0, 1]
+    assert [context["successor_id"] for context in contexts] == [
+        str(middle.turn_id), str(selected.turn_id)
+    ]
+    assert all(context["reason"] == "inactive" for context in contexts)
+    from application_state.agent_conversation import repository, retry
+
+    page_connections = []
+    read_page = repository.list_turn_page
+    read_contexts = retry.library_contexts
+
+    def track_page(conn, *args, **kwargs):
+        page_connections.append(conn)
+        return read_page(conn, *args, **kwargs)
+
+    def check_snapshot(conn, *args, **kwargs):
+        assert page_connections == [conn]
+        assert conn.execute("SHOW transaction_isolation").fetchone() == ("repeatable read",)
+        assert conn.execute("SHOW transaction_read_only").fetchone() == ("on",)
+        return read_contexts(conn, *args, **kwargs)
+
+    monkeypatch.setattr(repository, "list_turn_page", track_page)
+    monkeypatch.setattr(retry, "library_contexts", check_snapshot)
+    transcript = library.read_turns(world, cid)
+    assert transcript["turns"][:2] == page["turns"]
+
+
+def test_transcript_without_build_turns_uses_one_transaction(
+    application_state_dsn, monkeypatch,
+):
+    conversation = archive(AgentConversationService(), 1)
+
+    original_unit_of_work = library.unit_of_work
+    transactions = []
+
+    def track_transaction(*args, **kwargs):
+        transactions.append(True)
+        return original_unit_of_work(*args, **kwargs)
+
+    monkeypatch.setattr(library, "unit_of_work", track_transaction)
+    page = library.read_turns("world-one", conversation)
+    row, = page["turns"]
+    assert row["retry_context"] is None
+
+    empty = library.read_turns("world-one", conversation, before_sequence=1)
+    assert empty["turns"] == []
+    assert empty["next_before_sequence"] is None
+    assert len(transactions) == 2

@@ -1,11 +1,11 @@
 ---
 document_id: dmb-design-interaction-layer-language
-title: Interaction Layer language — shell regions, peek, glance, Agent dock
+title: Interaction Layer language — shell regions, peek, glance, floating Buddy launcher
 document_class: product_design
 status: design_input
-version: 0.2
+version: 0.3
 created_at: "2026-09-10"
-updated_at: "2026-09-10"
+updated_at: "2026-11-16"
 workstream: UI-LANGUAGE
 architecture_authority: "../ARCHITECTURE-surface-interaction-layer.md"
 companion_designs:
@@ -26,7 +26,7 @@ evidence:
 
 # Interaction Layer language
 
-This is the **visual and interaction language** for DungeonBuddy’s shared shell: Nav, Tools, graph/object viewing, and the Agent dock.
+This is the **visual and interaction language** for DungeonBuddy’s shared shell: Nav, Tools, graph/object viewing, and the floating Buddy launcher.
 
 It is not a write lease and not a pixel spec. It does not replace [`ARCHITECTURE-surface-interaction-layer.md`](../ARCHITECTURE-surface-interaction-layer.md), which still owns **who owns the bars**. This document owns **how those bars should feel and compose**.
 
@@ -91,7 +91,7 @@ Compose **real layout regions**. Do not stack overlapping fixed layers and then 
 | **Nav** | Mode + campaign/session context | Cheap. Always visible. |
 | **Center** | The thing the GM is in (recap, Scene, canvas) | Expensive. Dominates. |
 | **Peek** | Tools, opened World object, Help, useful Ask | One right column, not a second page. X closes. Parent stays. |
-| **Agent dock** | Composer when Ask is actually available | Tiny pill / short bar. Not a reserved 64vh band. |
+| **Buddy conversation** | Open from the shared floating Buddy button where conversation is available | Reuse the shared conversation panel and its responsive behavior. |
 
 `SurfaceShell` / `SurfaceFrame` may only compose these regions. They still must not become bar owners.
 
@@ -187,11 +187,29 @@ Researched 2026-09-10 with Mobbin. One convention per search. Web first.
 | Thin icon/mode chrome; huge canvas; inspect as a slim rail; tools as a tray **on** the canvas | [Figma editor](https://mobbin.com/screens/ff5d32ce-2368-4734-b6fb-ef161f81a1a5) |
 | Glance anchored to the selected object; canvas and bottom tray stay | [Figma comment pin](https://mobbin.com/screens/e58021dc-ffd4-4f86-9a75-af2ea9d7ad17) |
 
-### Agent (parked as its own beast)
+### Buddy conversation
+
+The floating Buddy button is the shared conversation entry point across surfaces.
+When Graph gains conversation, use that same button and the existing conversation
+panel. Keep the active graph or chronology mounted as the conversation opens and
+closes. An action on a node can open the same composer with that node attached.
+
+In reply Details, show retrieval replay as a small, playable Graph thumbnail
+with an **Expand** control for a wide view. Reuse the Graph canvas renderer,
+circular nodes, object-type colors, and labels. Both sizes show only nodes
+recorded in that trace, with stable positions throughout playback.
+
+As JEV advances, the nodes it looked up come into focus. Previously visited
+nodes stay visible at lower emphasis. Briefly highlight a recorded relationship
+when JEV traverses it. A batch lookup lights up its nodes together. At thumbnail
+size, show the active object name or a short batch label and keep the controls
+compact. The wide view adds readable labels, the synchronized step list, and
+exact evidence links. Keep the selected step when switching sizes. Load the
+saved trace on demand and reuse its layout as playback advances.
 
 | Steal | Source |
 |---|---|
-| Collapsed Ask is a **tiny dock**, not a chrome band | Linear “Ask Linear” pill on [Pulse](https://mobbin.com/screens/d72f2b29-f2c7-4c5c-ba79-91225b6ae873) |
+| The shared floating Buddy button opens conversation | [Floating conversation handoff](../../Plans/HANDOFF-SURFACE-floating-conversation.md) |
 | Useful Ask is either a **right peek** or a **center mode** (left nav stays). Never a viewport cover over the current work. | [Chatting with AI](https://mobbin.com/flows/3cda8fdd-6bbf-4342-afc3-47baa533bf74); [chat history panel](https://mobbin.com/screens/51c2bd60-f22d-4879-8c28-c5800ac1f4b6) |
 | Document left, Agent column with its own composer | [Cofounder](https://mobbin.com/flows/d92842d7-885c-4606-a62c-54b2c6fbabbf); [Obvious](https://mobbin.com/flows/eba63b04-0e95-407e-b2a9-ba4024c165f3) |
 
@@ -217,7 +235,7 @@ Invariants:
 
 1. Recap stays the expensive center.
 2. Tools and the opened World object share **one right peek**. Top nav stays. Recap does not remount.
-3. Collapsed Ask is a **dock**. Unavailable Ask does not keep a sheet-sized `--app-chrome-bottom` reservation.
+3. Where Buddy conversation is available, the shared floating button remains its collapsed entry point.
 4. Chip glance stays token-anchored. Click opens the peek, not a new surface.
 
 Named successors remain false in that slice:
@@ -237,3 +255,7 @@ From root Backlog, still binding:
 - Eliminate overlapping fixed-position composition rather than adding z-index exceptions.
 - Converge on shared layout / typography / parchment / dark-chrome tokens when a slice touches paint.
 - Each cleanup is justified by this language or a bounded defect, not a whole-app rewrite.
+
+### Document viewers with editing or extraction
+
+Put navigation and actions in a persistent toolbar at the top of the view. Keep page navigation, selection actions, and the primary extraction action reachable while the document scrolls. Group optional settings and diagnostics into disclosures in the toolbar. The same rule applies when the viewer opens in a dialog or popover. Keep the source and captured previews in the reading area.

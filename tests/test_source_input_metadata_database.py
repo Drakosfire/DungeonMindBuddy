@@ -34,8 +34,8 @@ def test_metadata_is_exact_and_body_free_with_file_reads_denied(source, monkeypa
             pytest.fail("metadata opened file")
         return original(path, *args, **kwargs)
     monkeypatch.setattr(Path, "open", no_data_files)
-    assert registry.get_source_artifact(root, artifact.source_artifact_id) == artifact
-    assert registry.get_source_artifacts(root, {artifact.source_artifact_id, "unknown"}) == {artifact.source_artifact_id: artifact}
+    assert registry.get_source_artifact(artifact.source_artifact_id) == artifact
+    assert registry.get_source_artifacts({artifact.source_artifact_id, "unknown"}) == {artifact.source_artifact_id: artifact}
 
 
 def test_json_cannot_register_or_override_input(source):
@@ -44,9 +44,9 @@ def test_json_cannot_register_or_override_input(source):
     path.parent.mkdir(parents=True, exist_ok=True)
     foreign = artifact.model_copy(update={"source_artifact_id": "old:json:only", "world_id": "foreign"})
     path.write_text(json.dumps({"records": [foreign.model_dump(mode="json")]}))
-    assert registry.get_source_artifact(root, artifact.source_artifact_id) == artifact
+    assert registry.get_source_artifact(artifact.source_artifact_id) == artifact
     with pytest.raises(registry.SourceArtifactRegistryError, match="not registered in database"):
-        registry.get_source_artifact(root, foreign.source_artifact_id)
+        registry.get_source_artifact(foreign.source_artifact_id)
 
 
 def test_atomic_failure_rolls_back_body_and_descriptor(tmp_path, monkeypatch, application_state_dsn):
@@ -80,14 +80,14 @@ def test_conflicting_input_never_overwrites_or_leaves_new_body(tmp_path, applica
         updates["content_sha256"] = hashlib.sha256(new_text.encode()).hexdigest()
     with pytest.raises(registry.SourceArtifactRegistryError):
         registry._register_source_input(artifact=artifact.model_copy(update=updates), content=new_text)
-    assert registry.get_source_artifact(tmp_path, artifact.source_artifact_id) == artifact
+    assert registry.get_source_artifact(artifact.source_artifact_id) == artifact
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute("SELECT count(*) FROM source.revision WHERE source_artifact_id=%s", (artifact.source_artifact_id,)).fetchone()[0] == 1
 
 
 def test_unregistered_body_is_not_discovered_as_an_input(application_state_dsn, tmp_path):
     sources.persist_source_markdown(source_artifact_id="body-only", source_domain="worldbuilding", campaign_id=None, session_id=None, world_id="input-world", markdown="Body\n")
-    assert registry.get_source_artifacts(tmp_path, {"body-only"}) == {}
+    assert registry.get_source_artifacts({"body-only"}) == {}
 
 
 def test_malformed_or_retargeted_metadata_fails_closed(source, application_state_dsn):
@@ -95,7 +95,7 @@ def test_malformed_or_retargeted_metadata_fails_closed(source, application_state
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute("UPDATE source.artifact SET input_descriptor=jsonb_set(input_descriptor, '{world_id}', '\"foreign\"') WHERE source_artifact_id=%s", (artifact.source_artifact_id,))
     with pytest.raises(registry.SourceArtifactRegistryError, match="invalid registered source input"):
-        registry.get_source_artifact(root, artifact.source_artifact_id)
+        registry.get_source_artifact(artifact.source_artifact_id)
 
 
 def test_explicit_adoption_uses_existing_body_and_defaults_to_no_write(tmp_path):
@@ -106,9 +106,9 @@ def test_explicit_adoption_uses_existing_body_and_defaults_to_no_write(tmp_path)
     path = tmp_path / "explicit-export.json"
     path.write_text(json.dumps({"schema_version": "dmb_source_artifact_registry_v1", "records": [artifact.model_dump(mode="json")]}))
     assert adopt(path)[0]["status"] == "verified_no_write"
-    assert registry.get_source_artifacts(tmp_path, {artifact.source_artifact_id}) == {}
+    assert registry.get_source_artifacts({artifact.source_artifact_id}) == {}
     assert adopt(path, apply=True)[0]["status"] == "adopted"
-    assert registry.get_source_artifact(tmp_path, artifact.source_artifact_id) == artifact
+    assert registry.get_source_artifact(artifact.source_artifact_id) == artifact
 
 
 def test_adoption_preview_works_in_read_only_transaction(source, monkeypatch):
@@ -131,7 +131,7 @@ def test_malformed_descriptor_digest_is_not_metadata_authority(source, applicati
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute("UPDATE source.artifact SET input_descriptor=jsonb_set(input_descriptor, '{content_sha256}', '\"bad\"') WHERE source_artifact_id=%s", (artifact.source_artifact_id,))
     with pytest.raises(registry.SourceArtifactRegistryError, match="invalid registered source input"):
-        registry.get_source_artifact(root, artifact.source_artifact_id)
+        registry.get_source_artifact(artifact.source_artifact_id)
 
 
 def _source_rows(dsn):
@@ -182,7 +182,7 @@ def test_null_world_assignment_is_coherent_exact_and_previewable(unassigned, app
     applied = _save_scope(artifact, text, 'world-one', source_revision_id=first.source_revision_id, **extra)
     assert applied.model_copy(update={'world_id': None}) == first
     assert applied.markdown.encode() == text.encode()
-    assert registry.get_source_artifact(root, artifact.source_artifact_id) == artifact.model_copy(update={'world_id': 'world-one'})
+    assert registry.get_source_artifact(artifact.source_artifact_id) == artifact.model_copy(update={'world_id': 'world-one'})
     after = _source_rows(application_state_dsn)
     assert after[1] == before[1]
     assert _save_scope(artifact, text, 'world-one', **extra) == applied
@@ -221,7 +221,7 @@ def test_assignment_covers_all_revisions_without_changing_input_revision(unassig
             content_sha256=record.content_sha256, source_revision_id=record.source_revision_id)
         assert current.model_copy(update={'world_id': None}) == record
     # The descriptor still identifies its original producer input, not the later body.
-    assert registry.get_source_artifact(root, artifact.source_artifact_id) == artifact.model_copy(update={'world_id': 'world-one'})
+    assert registry.get_source_artifact(artifact.source_artifact_id) == artifact.model_copy(update={'world_id': 'world-one'})
 
 
 @pytest.mark.parametrize('change', [
@@ -282,7 +282,7 @@ def test_conflicting_world_assignment_is_serialized(application_state_dsn, monke
     if original is not None:
         assert current.model_copy(update={'world_id': None}) == original
     descriptor = sources.get_source_input_descriptors(source_artifact_ids=[artifact.source_artifact_id])[artifact.source_artifact_id]
-    assert descriptor['world_id'] == winner[1]
+    assert descriptor.world_id == winner[1]
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute('SELECT count(*) FROM source.artifact').fetchone() == (1,)
         assert conn.execute('SELECT count(*) FROM source.revision').fetchone() == (1,)

@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from src.live_play.manifest_context_query import (
+from live_play.manifest_context_query import (
     QueryConfig,
     QueryRequest,
     _session_number_from_path,
@@ -17,7 +17,7 @@ from src.live_play.manifest_context_query import (
     build_query_plan,
     load_manifest,
 )
-from src.live_play.session_paths import repo_root
+from live_play.session_paths import repo_root
 
 ROOT = repo_root()
 MANIFEST_PATH = ROOT / "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json"

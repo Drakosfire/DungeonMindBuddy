@@ -40,7 +40,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     list_workspace_documents,
     workspace_documents_path,
 )
-from live_play.live_store import load_json
+from live_store import load_json
 from product_continuity.inventory import (
     AuthorityCoordinates,
     Classification,

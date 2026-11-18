@@ -7,7 +7,7 @@ import type {
 } from "../../api/types";
 import { admitNativeRunbook } from "../runbook/nativeRunbookProjection";
 import type { RunbookMutationStatus } from "./playRunMutation";
-import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN } from "./breachDogfoodFixture";
+import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN } from "../../test/breachDogfoodFixture";
 import { PlayCurrentMomentCockpit } from "./PlayCurrentMomentCockpit";
 import appStyles from "../../styles.css?inline";
 import "../../ui/tokens.css";

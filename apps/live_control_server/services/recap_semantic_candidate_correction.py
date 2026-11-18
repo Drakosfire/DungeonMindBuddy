@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
+from graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
 
 import copy
 import json
@@ -197,7 +197,7 @@ def _correction_predicate_capabilities(profile_id: str) -> tuple[str, ...]:
     # Historical read-only v1 has no registered producer and no new capabilities.
     if profile_id == "recap_category_v1@1.0":
         return ()
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from graph_memory.extraction.extraction_profile import get_extraction_profile
     name, separator, version = profile_id.rpartition("@")
     if not separator or profile_id not in RECAP_READ_PROFILE_IDS:
         raise _reject("correction extraction profile is not admitted")
@@ -211,7 +211,7 @@ def _correction_predicate_capabilities(profile_id: str) -> tuple[str, ...]:
 
 
 def _correction_endpoint_reason(predicate, from_type, to_type, vocabulary, capabilities=()):
-    from src.graph_memory.predicate_catalog import (
+    from graph_memory.predicate_catalog import (
         RECAP_SOURCE_ORDER, SOURCE_PRECEDENCE_PREDICATE,
         source_precedence_endpoints_admitted,
     )
@@ -1675,7 +1675,7 @@ def inherited_pc_reference_proof(
         if lineage.get("manifest_sha256") != manifest_sha:
             raise _reject("inherited PC manifest digest changed", status_code=409)
         try:
-            parent = get_extraction_run(root, parent_id)
+            parent = get_extraction_run(parent_id)
         except GraphRunRegistryError as exc:
             raise _reject("inherited PC parent is unavailable", status_code=409) from exc
         if parent.run_id in seen:
@@ -1864,7 +1864,7 @@ def correct_recap_candidate(
     root = artifact_data_root(repo_root())
     try:
         resolved = resolve_promotable_ingest_run(request.parent_run_id, root=root)
-        parent = get_extraction_run(root, request.parent_run_id)
+        parent = get_extraction_run(request.parent_run_id)
     except (PromotableIngestRunError, GraphRunRegistryError) as exc:
         raise _reject(f"parent run is not reviewable: {exc}") from exc
     if (
@@ -2173,7 +2173,7 @@ def correct_recap_candidate(
         # revision and immutable identity that were used to construct the
         # deterministic child.
         try:
-            locked_parent = get_extraction_run(root, request.parent_run_id)
+            locked_parent = get_extraction_run(request.parent_run_id)
             locked_resolved = resolve_promotable_ingest_run(
                 request.parent_run_id, root=root,
             )
@@ -2241,7 +2241,7 @@ def correct_recap_candidate(
                 status_code=409,
             )
         try:
-            legacy_run = get_extraction_run(root, legacy_child_id)
+            legacy_run = get_extraction_run(legacy_child_id)
         except GraphRunRegistryError as exc:
             if exc.status_code != 404:
                 raise _reject(f"legacy child lookup failed: {exc}", status_code=409) from exc
@@ -2290,7 +2290,7 @@ def correct_recap_candidate(
             )
 
         try:
-            child = get_extraction_run(root, child_id)
+            child = get_extraction_run(child_id)
         except GraphRunRegistryError as exc:
             if exc.status_code != 404:
                 raise _reject(
@@ -2336,7 +2336,7 @@ def correct_recap_candidate(
                 )
             except GraphRunRegistryError as exc:
                 try:
-                    child = get_extraction_run(root, child_id)
+                    child = get_extraction_run(child_id)
                 except GraphRunRegistryError:
                     raise _reject(
                         f"source-binding child {child_id} DRAFT creation failed: {exc}; "
@@ -2374,7 +2374,7 @@ def correct_recap_candidate(
                         "held status preserved",
                         status_code=409,
                     ) from exc
-                child = get_extraction_run(root, child_id)
+                child = get_extraction_run(child_id)
         if child.status != ExtractionRunStatus.REVIEWABLE or not verify_child_replay(child, parent, root):
             raise _reject(
                 f"source-binding child {child_id} could not be replayed and sealed; "
@@ -2395,7 +2395,7 @@ def correct_recap_candidate(
             )
         # A disposition uses its own CAS and may complete during resolution.
         # Return the latest verified snapshot, never an earlier held snapshot.
-        child = get_extraction_run(root, child_id)
+        child = get_extraction_run(child_id)
         if child.status != ExtractionRunStatus.REVIEWABLE or not verify_child_replay(child, parent, root):
             raise _reject("correction child changed during final resolution", status_code=409)
         raw = child.lineage.get("semantic_disposition") or {}

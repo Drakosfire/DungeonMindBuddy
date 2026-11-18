@@ -1,3 +1,4 @@
+import { BuildPdfPreview } from "./BuildPdfPreview";
 import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useEffect, useRef, useState } from "react";
 import { BUILD_STUDIO_ACTION, type BuildStudioAction } from "./buildStudioActions";
@@ -5,6 +6,12 @@ import { BUILD_STUDIO_ACTION, type BuildStudioAction } from "./buildStudioAction
 import {
   SurfaceContextPopover,
 } from "../surfaceInteraction/contextHost";
+
+function isMarkdownImportText(value: string): boolean {
+  return Boolean(value.trim())
+    && !/^\uFEFF*%PDF-/.test(value)
+    && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value);
+}
 
 /** Explicit Build destination — never invent campaign/world identity from titles. */
 export type BuildSourceDestinationIntent =
@@ -106,6 +113,18 @@ export function BuildDocumentCreateControl({
   onRetryImport,
   disabled = false,
 }: BuildDocumentCreateControlProps) {
+  const [droppedPdf, setDroppedPdf] = useState<{ file: File; sequence: number }>();
+  useEffect(() => {
+    function openPdf(event: Event) {
+      if (disabled || creating) return;
+      const file = (event as CustomEvent<File>).detail;
+      setDroppedPdf(previous => ({file, sequence: (previous?.sequence ?? 0) + 1}));
+      setDestinationSelection({value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions), provenance: "derived"});
+      setImportOpen(true);
+    }
+    window.addEventListener("dmb:build-pdf-drop", openPdf);
+    return () => window.removeEventListener("dmb:build-pdf-drop", openPdf);
+  }, [creating, disabled, destinationOptions, suggestedDestinationValue]);
   const [createOpen, setCreateOpen] = useState(false);
   const [starter, setStarter] = useState(true);
   useEffect(() => {
@@ -119,6 +138,12 @@ export function BuildDocumentCreateControl({
     return () => window.removeEventListener(BUILD_STUDIO_ACTION, open);
   }, [disabled, creating]);
   const [importOpen, setImportOpen] = useState(false);
+  const [openPdfPreviewKey, setOpenPdfPreviewKey] = useState<string>();
+  function closeImport() {
+    setImportOpen(false);
+    setDroppedPdf(undefined);
+    setOpenPdfPreviewKey(undefined);
+  }
   const [destinationSelection, setDestinationSelection] = useState<DestinationSelection>(() => ({
     value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions),
     provenance: "derived",
@@ -126,6 +151,9 @@ export function BuildDocumentCreateControl({
   const [worldName, setWorldName] = useState("");
   const [title, setTitle] = useState("");
   const [importMarkdown, setImportMarkdown] = useState("");
+  const [importFileError, setImportFileError] = useState<string | null>(null);
+  const [readingImportFile, setReadingImportFile] = useState(false);
+  const importFileRead = useRef(0);
 
   const destinationValue = destinationSelection.value;
 
@@ -169,7 +197,7 @@ export function BuildDocumentCreateControl({
       provenance: "derived",
     });
     setCreateOpen(false);
-    setImportOpen(false);
+    closeImport();
   }, [
     activationError,
     createError,
@@ -194,11 +222,61 @@ export function BuildDocumentCreateControl({
     onSubmit({ title: trimmed, destination: resolvedDestination, starter });
   };
 
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    const read = ++importFileRead.current;
+    setReadingImportFile(true);
+    setImportFileError(null);
+    try {
+      if (!/\.(?:md|markdown)$/i.test(file.name)) {
+        throw new Error("Choose a .md or .markdown file.");
+      }
+      let markdown: string;
+      try {
+        markdown = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true })
+          .decode(await file.arrayBuffer());
+      } catch {
+        throw new Error("The file could not be read as UTF-8 text.");
+      }
+      if (!isMarkdownImportText(markdown)) {
+        throw new Error("Choose a non-empty Markdown text file.");
+      }
+      if (read === importFileRead.current) {
+        setImportMarkdown(markdown);
+      }
+    } catch (error) {
+      if (read === importFileRead.current) {
+        setImportFileError(error instanceof Error ? error.message : "Could not read the file.");
+      }
+    } finally {
+      if (read === importFileRead.current) setReadingImportFile(false);
+    }
+  };
+
+  const suggestedImportTitle = importMarkdown
+    .split(/\r?\n/)
+    .find(line => line.trim())
+    ?.trim().replace(/^#{1,6}\s+/, "").slice(0, 120) ?? "";
+  const importTitle = title.trim() || suggestedImportTitle;
+
+  const pdfWorldId = resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined;
+  const pdfPreviewKey = JSON.stringify([pdfWorldId, droppedPdf?.sequence]);
+  const pdfWorkspaceOpen = Boolean(droppedPdf) || openPdfPreviewKey === pdfPreviewKey;
+  useEffect(() => {
+    setOpenPdfPreviewKey(undefined);
+  }, [pdfPreviewKey]);
+
   const handleImportSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (disabled || creating || !resolvedDestination) return;
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle || importMarkdown.trim().length === 0) return;
+    const trimmedTitle = importTitle;
+    if (readingImportFile || importFileError || !trimmedTitle) return;
+    if (!isMarkdownImportText(importMarkdown)) {
+      setImportFileError("Enter non-empty Markdown text.");
+      return;
+    }
     onImportSubmit({
       title: trimmedTitle,
       destination: resolvedDestination,
@@ -211,23 +289,25 @@ export function BuildDocumentCreateControl({
   const canImportSubmit =
     !disabled &&
     !creating &&
-    Boolean(title.trim()) &&
+    Boolean(importTitle) &&
+    !readingImportFile &&
+    !importFileError &&
     importMarkdown.trim().length > 0 &&
     resolvedDestination != null;
 
-  const sharedFields = (
+  const worldFields = (
     <>
       <label className="build-document-create__field build-document-create__field--destination">
-        <span>Destination</span>
+        <span>World</span>
         <select
           data-testid="build-document-create-destination"
           value={destinationValue}
-          onChange={(event) =>
+          onChange={(event) => {
             setDestinationSelection({
               value: event.target.value,
               provenance: "explicit",
-            })
-          }
+            });
+          }}
           disabled={disabled || creating}
           required
         >
@@ -257,6 +337,10 @@ export function BuildDocumentCreateControl({
           />
         </label>
       ) : null}
+    </>
+  );
+
+  const titleField = (suggestion?: string) => (
       <label className="build-document-create__field build-document-create__field--title">
         <span>Title</span>
         <input
@@ -264,11 +348,10 @@ export function BuildDocumentCreateControl({
           data-testid="build-document-create-title"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="Ironveil Property"
+          placeholder={suggestion || "Ironveil Property"}
           disabled={disabled || creating}
         />
       </label>
-    </>
   );
 
   const createForm = (
@@ -278,7 +361,8 @@ export function BuildDocumentCreateControl({
       onSubmit={handleCreateSubmit}
     >
       <div className="build-document-create__controls">
-        {sharedFields}
+        {worldFields}
+        {titleField()}
         <div className="build-document-create__actions">
           <button
             type="button"
@@ -330,14 +414,38 @@ export function BuildDocumentCreateControl({
       onSubmit={handleImportSubmit}
     >
       <div className="build-document-create__controls">
-        {sharedFields}
+        {titleField(suggestedImportTitle)}
+        <label className="build-document-create__field">
+          <span>Choose Markdown file</span>
+          <input type="file" accept=".md,.markdown" onChange={handleImportFile}
+            disabled={disabled || creating} />
+        </label>
+        {importFileError && <p role="alert">{importFileError}</p>}
         <label className="build-document-create__field build-document-create__field--markdown">
           <span>Markdown</span>
           <textarea
             data-testid="build-document-import-markdown"
             value={importMarkdown}
-            onChange={(event) => setImportMarkdown(event.target.value)}
-            placeholder="# Source title&#10;&#10;Paste external Markdown here."
+            onChange={(event) => {
+              ++importFileRead.current;
+              setReadingImportFile(false);
+              setImportFileError(null);
+              setImportMarkdown(event.target.value);
+            }}
+            onDragOver={event => {
+              if (event.dataTransfer.types.includes("Files")) event.preventDefault();
+            }}
+            onDrop={event => {
+              const file = event.dataTransfer.files[0];
+              if (!file) return;
+              event.preventDefault();
+              if (!/\.pdf$/i.test(file.name)) {
+                setImportFileError("Drop a PDF or use the Markdown file picker.");
+                return;
+              }
+              setDroppedPdf(previous => ({ file, sequence: (previous?.sequence ?? 0) + 1 }));
+            }}
+            placeholder="Paste text or drop a PDF here"
             rows={8}
             disabled={disabled || creating}
           />
@@ -346,7 +454,12 @@ export function BuildDocumentCreateControl({
           <button
             type="button"
             data-testid="build-document-import-cancel"
-            onClick={() => setImportOpen(false)}
+            onClick={() => {
+              ++importFileRead.current;
+              setReadingImportFile(false);
+              setImportFileError(null);
+              closeImport();
+            }}
             disabled={disabled || creating}
           >
             Cancel
@@ -358,8 +471,14 @@ export function BuildDocumentCreateControl({
             <button
               type="button"
               data-testid="build-document-import-retry"
-              onClick={() => onRetryImport({ markdown: importMarkdown })}
-              disabled={disabled || creating || importMarkdown.trim().length === 0}
+              onClick={() => {
+                if (!isMarkdownImportText(importMarkdown)) {
+                  setImportFileError("Enter non-empty Markdown text.");
+                  return;
+                }
+                onRetryImport({ markdown: importMarkdown });
+              }}
+              disabled={disabled || creating || readingImportFile || Boolean(importFileError) || importMarkdown.trim().length === 0}
             >
               Retry import
             </button>
@@ -416,7 +535,10 @@ export function BuildDocumentCreateControl({
       </SurfaceContextPopover>
       <SurfaceContextPopover
         open={importOpen}
-        onOpenChange={setImportOpen}
+        onOpenChange={open => {
+          if (open) setImportOpen(true);
+          else if (!pdfWorkspaceOpen) closeImport();
+        }}
         title="Import source"
         align="end"
         placement="below"
@@ -429,7 +551,18 @@ export function BuildDocumentCreateControl({
           />
         }
       >
-        {importForm}
+        {!pdfWorkspaceOpen && worldFields}
+        <BuildPdfPreview
+          key={pdfPreviewKey}
+          worldId={pdfWorldId}
+          initialFile={droppedPdf?.file}
+          onPdfOpen={() => setOpenPdfPreviewKey(pdfPreviewKey)}
+          toolbarControls={pdfWorkspaceOpen ? <>
+            <button type="button" onClick={closeImport}>Close PDF import</button>
+            {worldFields}
+          </> : undefined}
+        />
+        {!pdfWorkspaceOpen && importForm}
       </SurfaceContextPopover>
     </div>
   );

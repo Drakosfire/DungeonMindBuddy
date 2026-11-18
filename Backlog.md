@@ -2,6 +2,8 @@
 
 This file is the **root dispatch inventory** for independent DungeonMindBuddy work that does not already have a sequencing owner.
 
+See the [Maintenance queue](Docs/Backlog/MAINTENANCE.md) for technical follow-ups, the [release rehearsal checklist](Docs/Runbooks/RELEASE-REHEARSAL-buddy-checklist.md) for deployment evidence, and [Backlog-DONE.md](Backlog-DONE.md) for retained implementation history.
+
 Cross-project / AI-tooling items live in `~/.cursor/learnings/Backlog.md` instead. Completed and superseded history remains in Git history and, when intentionally archived as a terminal implementation record, `Backlog-DONE.md`.
 
 ## Status contract
@@ -38,9 +40,47 @@ The old demo-ready roadmap and 2026-09-08 dispatch snapshot are historical.
 Do not infer a current blocker or READY assignment from them.
 
 ---
+## Product ideas at a glance
 
-# Independent ideas requiring re-verification
+One row per product idea. These rows are pointers, not separate status records. The referenced notes own their scope; the product roadmap owns sequencing.
 
+| Idea | Next useful slice or decision |
+| --- | --- |
+| [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | Design the first view and its entry points into the shared workspace. |
+| [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Audit every surface and identify the right empty canvas and next action. |
+| [Shared snapping page grid](#idea-high-priority--shared-grid-page-constructor) | Move and resize one image in Build; preserve writing and reading order. |
+| [Layered map editor](Docs/Backlog/IDEA-layered-map-editor.md) | One durable map with editable overlays. Share coordinates where justified, not a single UI with page layout. |
+| [Composable spatial workspace and themes](#deferred-composable-spatial-workspace-and-selectable-themes) | Select either saved canvas arrangements or a reversible theme, not both in one slice. |
+| [Connected campaign arcs](Docs/Backlog/IDEA-connected-campaign-arcs.md) | Explore the source-backed Wandering Forest arc across sessions; use unrelated material as a negative control. |
+| [Conversation search replay](Docs/Backlog/IDEA-conversation-search-replay.md) | Replay one recorded search and exact cited evidence inside Conversation Details. |
+| [AW workflow capabilities](Docs/Backlog/IDEA-aw-workflow-capabilities.md) | Start with editable conversation drafts, then reuse them for Meat Mind review and confirmation. |
+| [Campaign recap contributor](Docs/Backlog/IDEA-recap-contributor.md) | One campaign, two accounts, GM publication, and a spoiler-isolation witness. |
+| [Deeper Build document hierarchy](Docs/Backlog/IDEA-build-document-hierarchy.md) | Retain only if dogfood shows a navigation gap after the merged picker and recap browser. |
+| [Independent source archive and restore](#deferred-define-independent-source-artifact-archive-and-restore) | Define what discovery and old citations do before designing controls. |
+| [Background relationship suggestions](#deferred-background-suggestions-for-missing-world-graph-relationships) | One opt-in, source-backed suggested relationship with duplicate suppression. |
+| [Create a campaign inside an existing World](#deferred-create-a-campaign-inside-an-existing-world) | Define membership ownership and prove ordinary scoped creation. |
+| [Propose edits to a related page](#deferred-propose-edits-to-an-existing-related-page-from-the-current-workspace) | Target one existing passage without leaving or corrupting the current draft. |
+
+## [IDEA] Delightful Buddy landing page — captured 2026-11-16
+
+**Context:** Hosted Buddy sign-in dogfood surfaced the need for a welcoming first view.
+**Action:** Design a landing page that feels like Buddy and gives users clear entry points into the shared workspace. Check the first visit and the return visit with an existing World.
+**Surfaces when:** Revisiting Buddy Home, hosted entry, or onboarding.
+
+## [IDEA] Inviting canvases with no graph loaded — captured 2026-11-16
+
+**Context:** Hosted dogfood reached Buddy with no graph available to load.
+**Action:** Audit Home, Graph, Plan, Play, Ingest, Build, and Combat Tracker without a loaded graph. For each surface, check that the canvas feels open and inviting and offers the next action appropriate to that surface. Where a graph is optional, check that users can still start working. Check loading, access denial, and failure separately so those states remain understandable.
+**Surfaces when:** Reviewing shared navigation, World selection, or empty states across Buddy.
+
+## Research held for evidence or selection
+
+- [Answer-citation experiments](#idea-resume-answer-citation-experiments-after-fundamentals-settle--captured-2026-11-10) remain parked, distinct from retrieval-only work.
+- [Retrieval controller comparison](#deferred-compare-retrieval-controllers-using-existing-native-actions): use existing native actions and the ordinary benchmark harness if independent evaluation identifies a controller bottleneck. Keep 70/72 as the existing regression reference, not a fresh holdout or a release claim. Use fresh questions and keep the writer out of retrieval experiments.
+- [Frozen TL01 verbatim grounding](#deferred-verbatim-source-phrase-grounding-in-the-frozen-tl01-evaluation) resumes only when a real product consumer selects it.
+- **Party hubs in recap Graph preview:** Decide if inferred party hubs belong in author review and how they remain distinct from reviewed facts; [prior evidence and owner](https://github.com/Drakosfire/DungeonMindBuddy/blob/6b2d4844fd4e0045f55042c3c88dce5c00be583b/Backlog.md#L105).
+
+# Retained scope and dispatch conditions
 ## [IDEA] Resume answer-citation experiments after fundamentals settle — captured 2026-11-10
 **Kind:** RESEARCH / RESPONSE ASSESSMENT
 **Owner:** Buddy response composition
@@ -98,7 +138,6 @@ Do not infer a current blocker or READY assignment from them.
   semantic richness and fresh-World acceptance belong to the product roadmap and
   the owning knowledge contracts, not a duplicate root BLOCKED item.
 
-# IDEA
 
 ## [DEFERRED] Background suggestions for missing World graph relationships
 **Owner:** Buddy suggestions and review
@@ -127,7 +166,6 @@ Do not infer a current blocker or READY assignment from them.
 
 ---
 
-# DEFERRED
 
 ## [DEFERRED] Composable spatial workspace and selectable themes
 **Owner:** Buddy presentation
@@ -166,6 +204,20 @@ Do not infer a current blocker or READY assignment from them.
 
 **Refs:** [TL01 close decision](Docs/Design/DECISION-tl01-temporal-prompt-calibration-close.md), section 7; `evals/graph_memory_layer/temporal_shadow_grounding_path.py`; #1941, #1965.
 
+
+---
+
+## [DEFERRED] Propose edits to an existing related page from the current workspace
+**Owner:** Build authoring
+**Captured:** 2026-10-16
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** The operator asks to revise an existing related page while retaining the current workspace.
+
+**Current boundary:** Related saved-page context, connected-page creation and saved-source relationship reviews have shipped. Build text proposals still capture one page as their mutation target. A request for a different page returns a destination mismatch or requires handoff. The broad original ticket's connected-page and relationship portions are already covered.
+
+**Next slice on trigger:** Capture an explicit existing destination document and passage, show an editable proposal through the shared review host, and preserve the originating workspace. After saving, reuse the existing source and reviewed publication flow for any proposed Graph changes.
+
+**Refs:** `apps/live_control_server/services/build_document_proposal.py`; `src/application_state/agent_conversation/collaboration.py`; `src/application_state/agent_conversation/relationship_review.py`; #2127, #2129, #2273.
 
 ---
 
@@ -208,27 +260,10 @@ work is already recorded in the roadmap. Reproduce a residual before dispatching
 an old UI repair. Of Conks and other prototype evidence remain reference material;
 a prototype is not a new durable authority.
 
-## Hygiene history
-
-- 2026-11-10: reverified the next four entries. Retained the distinct residuals, removed already-shipped portions, and replaced the proposed controller environment with a comparison through existing native retrieval and evaluation.
-
-- 2026-11-10: audited the four oldest active entries against Buddy main `8a9ad7902` and DungeonMind main `430c1a6d`. Archived the broad ecology-pass proposal, retained the unresolved frozen TL01 defect, and reverified two deferred lifecycle gaps.
-
-- 2026-11-10: checked delivery through Buddy main `b0585f6d9`; archived the Build Statblock Workbench launcher, recorded completed image authoring slices, and corrected superseded roadmap pointers.
-
-- 2026-08-16 pass 1: 74 active headings → 29; see `Docs/Reports/BACKLOG-HYGIENE-2026-08-16.md`.
-- 2026-08-16 pass 2: converted root backlog from “worth doing” list to strict dispatch inventory; tracker-owned work delegated without duplicate status and READY reduced to seven bounded slices.
-- 2026-09-08 pass 3: re-anchored after PR #694 and the Stage 2A/2B durability work. Status-bearing headings reduced **17 → 7** (`2 READY`, `2 BLOCKED`, `3 DEFERRED`). Demo-Ready/CON-READY/Threat-owned work moved to pointer-only delegation; pre-cutover graph-authority assumptions were corrected; broad durability umbrellas were retired after real APP-STATE/World recovery proof; browser-local statblock persistence was retired as a product durability target.
 
 
-## [DEFERRED] Propose edits to an existing related page from the current workspace
-**Owner:** Build authoring
-**Captured:** 2026-10-16
-**Last verified:** 2026-11-10 @ `8a9ad7902`
-**Trigger:** The operator asks to revise an existing related page while retaining the current workspace.
+## Consolidation record
 
-**Current boundary:** Related saved-page context, connected-page creation and saved-source relationship reviews have shipped. Build text proposals still capture one page as their mutation target. A request for a different page returns a destination mismatch or requires handoff. The broad original ticket's connected-page and relationship portions are already covered.
-
-**Next slice on trigger:** Capture an explicit existing destination document and passage, show an editable proposal through the shared review host, and preserve the originating workspace. After saving, reuse the existing source and reviewed publication flow for any proposed Graph changes.
-
-**Refs:** `apps/live_control_server/services/build_document_proposal.py`; `src/application_state/agent_conversation/collaboration.py`; `src/application_state/agent_conversation/relationship_review.py`; #2127, #2129, #2273.
+- **2026-11-14 (operator local date):** Moved release checks and maintenance follow-ups out of the root inventory, retaining each owner's open gates and [the pinned original root evidence](https://github.com/Drakosfire/DungeonMindBuddy/blob/6b2d4844fd4e0045f55042c3c88dce5c00be583b/Backlog.md). Historical hygiene notes remain at [the transfer base](https://github.com/Drakosfire/DungeonMindBuddy/blob/6b2d4844fd4e0045f55042c3c88dce5c00be583b/Backlog.md#L295-L354).
+- Preserved [layered maps](https://github.com/Drakosfire/DungeonMindBuddy/pull/2383), [campaign arcs](https://github.com/Drakosfire/DungeonMindBuddy/pull/3328), [search replay](https://github.com/Drakosfire/DungeonMindBuddy/pull/3640), and [recap contributor](https://github.com/Drakosfire/DungeonMindBuddy/pull/3655) as separate, unscheduled captures. Split [#2389](https://github.com/Drakosfire/DungeonMindBuddy/pull/2389) into delivered Build browsing, the residual hierarchy question, and the existing extraction fix lane.
+- Adopted the historical evaluation corrections from [#3186](https://github.com/Drakosfire/DungeonMindBuddy/pull/3186), preserving the current native-action controller trigger and the frozen benchmark evidence. This changes backlog ownership/discoverability only, not implementation or acceptance.

@@ -138,3 +138,11 @@ export async function listCombatMechanicsAdoptions(worldId:string,encounterId:st
 export async function inspectCombatMechanicsAdoption(worldId:string,encounterId:string,operationId:string,scope?:RunEncounterScope):Promise<import('./combatTypes').MechanicsAdoptionOutcome|null> {
   return readJson(await fetchCombat(scopedPath(worldId,`/${encodeURIComponent(encounterId)}/mechanics-adoptions/${encodeURIComponent(operationId)}`,scope)));
 }
+
+export async function previewConversationVariantMechanics(
+  worldId: string, selection: import('./combatTypes').ConversationVariantCombatSelection,
+): Promise<import('./combatTypes').ConversationVariantCombatSnapshot> {
+  return readJson(await fetchCombat(scopedPath(worldId, '/conversation-variant/preview'), {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(selection),
+  }));
+}

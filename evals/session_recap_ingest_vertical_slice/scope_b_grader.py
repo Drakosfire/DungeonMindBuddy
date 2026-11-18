@@ -27,7 +27,7 @@ from evals.planner_slice.live_eval import (
 )
 from src.agent.planner import PlanningTurnDetail
 from src.agent.recap_context import RecapContext, RecapContextError, resolve_recap_context
-from src.agent.recap_ingest_helpers import assemble_recap
+from live_play.recap_ingest_helpers import assemble_recap
 from src.agent.recap_write_mechanical_payload import (
     build_recap_write_payload_from_ingest,
 )

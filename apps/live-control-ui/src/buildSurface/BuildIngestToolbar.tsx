@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useBuildExtraction } from "./useBuildExtraction";
 import {useSelectedWorld} from "../selectedWorld/SelectedWorldContext";
@@ -6,7 +6,9 @@ import type {SessionEvidenceRef} from "../playSurface/review/sessionEvidenceApi"
 import {BuildRecapConfiguration} from "./BuildRecapConfiguration";
 import { useBuildNativeWorldSourceEvidence } from "./useBuildNativeWorldSourceEvidence";
 
-const BuildRunReview = lazy(() => import("./BuildRunReview").then(module => ({default:module.BuildRunReview})));
+import { deferredComponent } from "../ui/deferredComponent";
+
+const BuildRunReview = deferredComponent(() => import("./BuildRunReview").then(module => ({default:module.BuildRunReview})), "review");
 
 interface BuildIngestToolbarProps {
   documentId: string;
@@ -158,8 +160,8 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
     <details ref={menuRef} className="build-extraction-menu"><summary>Extraction</summary>{content}</details>, target,
   ) : null;
   return <>{toolbar}{reviewMounted && reviewTarget && canOpenGraphReview && document && snapshot && handoff && run && sourceContentSha256
-    ? createPortal(<div hidden={!reviewOpen}><Suspense fallback={<p role="status">Opening review…</p>}>
+    ? createPortal(<div hidden={!reviewOpen}>
       <BuildRunReview document={document} currentRevision={snapshot.loaded_revision} run={run} handoff={handoff}
         sourceContentSha256={sourceContentSha256} onClose={()=>setReviewOpen(false)} onDerivedRun={adoptDerivedRun} onSemanticDecision={adoptSemanticDecision} onBusyChange={setReviewBusy} />
-    </Suspense></div>, reviewTarget) : null}</>;
+    </div>, reviewTarget) : null}</>;
 }

@@ -20,18 +20,18 @@ from graph_memory.source_span import (
     build_source_span_index_for_text,
     source_span_index_to_dict,
 )
-from src.graph_memory.extraction import graph_preview_runner
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction import graph_preview_runner
+from graph_memory.extraction.recap_extraction_profile import (
     RECAP_PROFILE_ID,
     RECAP_PROFILE_VERSION,
 )
-from src.graph_memory.extraction.recap_quote_integrity import (
+from graph_memory.extraction.recap_quote_integrity import (
     DEPENDENT_ITEM_REASON,
     NONLITERAL_QUOTE_REASON,
     RecapQuoteIntegrityError,
     validate_and_defer_nonliteral_recap_items,
 )
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
 
 
 SOURCE = "Frank and Sara live in Mirathorn and serve the Guard.\n\nThe north gate is closed.\n"
@@ -238,7 +238,7 @@ def _sanitize(graph: dict[str, Any], *, source_text: str = SOURCE):
 
 
 def test_cross_pass_deferred_ids_survive_ordinary_composition_and_quote_guard():
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         assemble_envelope, canonical_graph_for_runner, consolidate_category_outputs,
     )
 
@@ -258,7 +258,7 @@ def test_cross_pass_deferred_ids_survive_ordinary_composition_and_quote_guard():
         graph, source_text=SOURCE, source_artifact_id=artifact_id,
         source_sha256=digest, source_span_index=index,
     )
-    from src.graph_memory.candidate_graph_preview import (
+    from graph_memory.candidate_graph_preview import (
         candidate_graph_preview_from_dict, validate_candidate_graph_preview,
     )
     report = validate_candidate_graph_preview(candidate_graph_preview_from_dict(guarded))
@@ -644,7 +644,7 @@ def test_recap_runner_persists_sanitized_candidate_and_unchanged_private_respons
         )
     )
 
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     assert loaded.status == ExtractionRunStatus.REVIEWABLE
     from application_state.ingest.components import get_component_bytes
     candidate_ref = loaded.components["candidate_graph"]

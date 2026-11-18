@@ -72,6 +72,16 @@ uv run python -m evals.session_events_extraction_vertical_slice.step1_session_ev
 
 ### Recap-to-events -> events-to-timeline chained run
 
+Use `--runs-root` to place new timeline reports on an approved storage volume.
+Replace the example path with a writable directory on that volume. The runner
+creates a dated subdirectory there. Keep earlier runs cited by reports
+retrievable at their documented paths.
+
+```bash
+DUNGEONMIND_PLANNER_ALLOW_WRITES=1 uv run python -m evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run \
+  --n 5 --model gpt-5.4-mini --runs-root /mnt/storage/buddy-evals/timeline-runs
+```
+
 ```bash
 export DUNGEONMIND_PLANNER_ALLOW_WRITES=1
 # Campaign 2 Session 20 (default recap-to-events + default timeline-pass gold)
@@ -194,3 +204,20 @@ uv run pytest tests/test_session_events_grader.py tests/test_step2_timeline_from
 6. **Robustness against unseen recaps** — current evidence is N=5 on a single recap (Session 20) the prompts were tuned against. A blind run on Campaign 1 Session 1 would tell us whether the contracts generalize.
 
 7. **NPC + Location ingestion expansion** — same events-first scaffold should extend to NPC and Location updates, not just timelines.
+
+### Restore April 22, 2026 evidence
+
+The local Storage drive holds the 243 files cited by the historical session
+synthesis and timeline reports. With the Storage drive mounted, run from the
+repository root to restore the original report paths without replacing files.
+
+```bash
+(
+  set -euo pipefail
+  archive=/media/drakosfire/STORAGE/Projects/DungeonMindBuddy-Archive/session-events/2026-04-22.tar.gz
+  runs=evals/session_events_extraction_vertical_slice/artifacts/runs
+  printf '%s  %s\n' 3f37bddf7d89cc86ce9e05eaab617159e8895386fc0e16b317d7cfd132c79660 "$archive" | sha256sum --check
+  mkdir -p "$runs"
+  tar --skip-old-files -xzf "$archive" -C "$runs"
+)
+```

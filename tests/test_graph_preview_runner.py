@@ -18,19 +18,19 @@ from apps.live_control_server.services.source_artifact_registry import (
 from graph_memory.ingestion.extraction_run import ExtractionRunStatus
 from graph_memory.source_span import source_span_index_to_dict
 from apps.live_control_server.services.source_artifact_registry import load_source_span_index
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
-from src.graph_memory.extraction.graph_preview_runner import (
+from graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionRequest,
     run_production_extraction,
 )
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction.recap_extraction_profile import (
     RECAP_PROFILE_ID,
     RECAP_PROFILE_VERSION,
 )
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
-from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction.worldbuilding_plumbing_profile import (
     WORLDBUILDING_PLUMBING_PROFILE_ID,
     WORLDBUILDING_PLUMBING_PROFILE_VERSION,
 )
@@ -231,7 +231,7 @@ def test_unknown_profile_persists_failed_run(tmp_path: Path) -> None:
             initial_lineage=_recap_run_lineage(source),
         )
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     assert result.failure_kind == "profile"
     assert loaded.status == ExtractionRunStatus.FAILED
     assert loaded.lineage.get("failure_kind") == "profile"
@@ -252,7 +252,7 @@ def test_recap_fixture_extracts_reviewable_run(tmp_path: Path) -> None:
             initial_lineage=_recap_run_lineage(source),
         )
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     assert result.failure_kind is None
     assert loaded.status == ExtractionRunStatus.REVIEWABLE
     assert loaded.session_id == "session-24"
@@ -276,7 +276,7 @@ def test_recap_fixture_extracts_reviewable_run(tmp_path: Path) -> None:
         )
     )
     assert second.run.run_id != loaded.run_id
-    still_first = get_extraction_run(tmp_path, loaded.run_id)
+    still_first = get_extraction_run(loaded.run_id)
     assert still_first.status == ExtractionRunStatus.REVIEWABLE
     assert still_first == loaded
     assert get_component_bytes(run_id=loaded.run_id, kind=first_candidate.kind,
@@ -296,7 +296,7 @@ def test_worldbuilding_null_session_extracts(tmp_path: Path) -> None:
             category_client=FixtureClient(span_ref=span_ref),
         )
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     assert loaded.session_id is None
     assert loaded.status == ExtractionRunStatus.REVIEWABLE
     assert loaded.lineage.get("profile_id") == WORLDBUILDING_PLUMBING_PROFILE_ID
@@ -312,18 +312,18 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     from apps.live_control_server.services.graph_run_registry import (
         assert_immutable_component_refs,
     )
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         FixtureCategoryGraphPassClient,
         extract_category_candidate_graph,
     )
-    from src.graph_memory.extraction.bounded_recap_execution import (
+    from graph_memory.extraction.bounded_recap_execution import (
         BoundedRecapPassClient,
         DEEPSEEK_MODEL,
+        RecapExecutionLimits,
     )
-    from src.graph_memory.extraction.worldbuilding_gazetteer_scenario_scope import (
+    from graph_memory.extraction.worldbuilding_gazetteer_scenario_scope import (
         GAZETTEER_PREPARED_SCENARIO_PROFILE,
     )
-    from types import SimpleNamespace
 
     source_text = "\n\n".join([
         "#### Fantastic Livestock for the Exampleland",
@@ -380,11 +380,10 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     }
     class BoundedFixtureClient(BoundedRecapPassClient):
         def __init__(self):
-            self.limits = SimpleNamespace(
+            super().__init__(RecapExecutionLimits(
                 provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8,
-            )
+            ))
             self.fixture = FixtureCategoryGraphPassClient(outputs)
-            self.calls = []
 
         def run_pass(self, pass_name, **kwargs):
             result = self.fixture.run_pass(pass_name, **kwargs)
@@ -409,7 +408,7 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
         return dataclass_replace(result, consolidation_diagnostics=diagnostics)
 
     monkeypatch.setattr(
-        "src.graph_memory.extraction.graph_preview_runner.extract_category_candidate_graph",
+        "graph_memory.extraction.graph_preview_runner.extract_category_candidate_graph",
         extract_with_extra_review_qualifier,
     )
     result = run_production_extraction(
@@ -426,7 +425,7 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
 
     assert result.failure_kind is None
     assert result.run.status == ExtractionRunStatus.REVIEWABLE
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     diagnostics_ref = loaded.components["consolidation_diagnostics"]
     from application_state.ingest.components import get_component_bytes
     diagnostics_bytes = get_component_bytes(run_id=loaded.run_id, kind=diagnostics_ref.kind,
@@ -488,7 +487,7 @@ def test_failure_modes_persist(tmp_path: Path, mode: str, kind: str) -> None:
             initial_lineage=_recap_run_lineage(source),
         )
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     assert result.failure_kind == kind
     assert loaded.status == ExtractionRunStatus.FAILED
     assert loaded.lineage.get("failure_kind") == kind
@@ -512,7 +511,7 @@ def test_reviewable_candidate_evidence_binds_registered_artifact(tmp_path: Path)
             initial_lineage=_recap_run_lineage(source),
         )
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     assert loaded.status == ExtractionRunStatus.REVIEWABLE
     assert loaded.source_artifact_id == source.source_artifact_id
     assert ":" in source.source_artifact_id.split("session-24")[-1]
@@ -598,7 +597,7 @@ def test_in_repo_recap_admission_is_immutable_across_edits(tmp_path: Path) -> No
 
     _, first_text = load_registered_source_artifact_text(tmp_path, first.source_artifact_id)
     assert first_text == original.rstrip("\n") + "\n" or first_text.startswith("Alpha")
-    reloaded = get_extraction_run(tmp_path, first_run.run.run_id)
+    reloaded = get_extraction_run(first_run.run.run_id)
     assert reloaded.status == ExtractionRunStatus.REVIEWABLE
     from apps.live_control_server.services.graph_run_registry import load_run_source_input
     assert load_run_source_input(tmp_path, reloaded)[1].decode().startswith("Alpha")
@@ -656,7 +655,7 @@ def test_production_source_actor_uses_hydrated_spans_without_registry_suppressio
 
 
 def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None:
-    from src.graph_memory.candidate_graph_preview import (
+    from graph_memory.candidate_graph_preview import (
         candidate_graph_preview_from_dict,
         validate_candidate_graph_preview,
     )
@@ -673,7 +672,7 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
             category_client=FixtureClient(span_ref=span_ref),
         )
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     assert loaded.status == ExtractionRunStatus.REVIEWABLE
     nodes = (result.candidate_graph or {}).get("nodes") or []
     assert nodes
@@ -695,7 +694,7 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
         prepare_tiptap_markdown_write, commit_tiptap_markdown_write,
         TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
     )
-    artifact = get_source_artifact(tmp_path, loaded.source_artifact_id)
+    artifact = get_source_artifact(loaded.source_artifact_id)
     before = get_workspace_document_snapshot(tmp_path, artifact.workspace_document_id)
     updated_text = "Mirathorn changed after extraction.\n"
     prepared_write = prepare_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWritePrepareRequest(
@@ -709,6 +708,7 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
     reopened = get_reviewable_extraction_run(tmp_path, loaded.run_id)
     assert reopened.components["source_artifact"].sha256 == loaded.components["source_artifact"].sha256
     assert load_run_source_input(tmp_path, reopened)[1] == frozen_bytes
+    import os
     import subprocess
     import sys
     script = """import sys
@@ -718,8 +718,15 @@ review=load_reviewable_extraction_data(Path(sys.argv[1]),sys.argv[2])
 assert review.run.run_id==sys.argv[2] and review.source_bytes and review.candidate_bytes and review.span_bytes
 print('fresh-process registered components verified')
 """
-    proof = subprocess.run([sys.executable, "-c", script, str(tmp_path), loaded.run_id],
-                           check=True, capture_output=True, text=True)
+    checkout = Path(__file__).resolve().parents[1]
+    proof = subprocess.run(
+        [sys.executable, "-c", script, str(tmp_path), loaded.run_id],
+        cwd=checkout,
+        env={**os.environ, "PYTHONPATH": os.pathsep.join(map(str, (checkout / "src", checkout)))},
+        capture_output=True,
+        text=True,
+    )
+    assert proof.returncode == 0, proof.stderr
     assert "registered components verified" in proof.stdout
     from apps.live_control_server.services.graph_run_registry import (
         assert_run_reviewable_evidence,
@@ -760,7 +767,7 @@ def _run_recap_extraction(
 def _mutate_extracted_candidate(
     monkeypatch: pytest.MonkeyPatch, mutator: Any
 ) -> None:
-    from src.graph_memory.extraction import graph_preview_runner as runner
+    from graph_memory.extraction import graph_preview_runner as runner
 
     real = runner.extract_category_candidate_graph
 
@@ -841,7 +848,7 @@ def test_duplicate_ids_fail_generation_as_integrity(
             initial_lineage=_recap_run_lineage(source),
         )
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     item_ids = [
         item.get(id_key)
         for item in (result.candidate_graph or {}).get(collection) or []
@@ -862,14 +869,14 @@ def test_unexpected_typed_parse_exception_fails_closed(
         raise RuntimeError("unexpected typed parse")
 
     monkeypatch.setattr(
-        "src.graph_memory.candidate_document_integrity.candidate_graph_preview_from_dict",
+        "graph_memory.candidate_document_integrity.candidate_graph_preview_from_dict",
         _boom,
     )
     _source, result = _run_recap_extraction(
         tmp_path,
         client=FixtureClient(),
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     assert result.failure_kind == "validation"
     assert loaded.status == ExtractionRunStatus.FAILED
     assert loaded.lineage.get("reviewable") is False
@@ -882,7 +889,7 @@ def test_unsupported_sublocation_reaches_reviewable_unchanged(tmp_path: Path) ->
         tmp_path,
         client=FixtureClient(mode="unsupported_sublocation"),
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     frozen = copy.deepcopy(result.candidate_graph)
     assert result.failure_kind is None
     assert loaded.status == ExtractionRunStatus.REVIEWABLE
@@ -912,7 +919,7 @@ def test_reviewable_unsupported_candidate_is_exact_admission_input(
         tmp_path,
         client=FixtureClient(mode="unsupported_sublocation"),
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     assert loaded.status == ExtractionRunStatus.REVIEWABLE
     candidate = result.candidate_graph or {}
     frozen = copy.deepcopy(candidate)
@@ -933,7 +940,7 @@ def test_reviewable_unsupported_candidate_is_exact_admission_input(
         prepared_by="gm@test",
         world_id="world:elderwyld",
         source_artifact_id=source.source_artifact_id,
-        source_artifact=get_source_artifact(tmp_path, source.source_artifact_id),
+        source_artifact=get_source_artifact(source.source_artifact_id),
         campaign_scope="longmont-c2",
         candidate_graph_path=str(tmp_path / "candidate_graph.json"),
         repo_root=tmp_path,
@@ -972,7 +979,7 @@ def test_integrity_failure_outranks_unsupported_eligibility(
             initial_lineage=_recap_run_lineage(source),
         )
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     graph = result.candidate_graph or {}
     node_ids = [node.get("node_id") for node in graph.get("nodes") or []]
     assert result.failure_kind == "validation"
@@ -985,7 +992,7 @@ def test_integrity_failure_outranks_unsupported_eligibility(
 def test_valid_candidate_semantics_are_unchanged_by_integrity_classification(
     tmp_path: Path,
 ) -> None:
-    from src.graph_memory.candidate_document_integrity import (
+    from graph_memory.candidate_document_integrity import (
         classify_candidate_document_integrity,
     )
 
@@ -993,7 +1000,7 @@ def test_valid_candidate_semantics_are_unchanged_by_integrity_classification(
         tmp_path,
         client=FixtureClient(),
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     candidate = result.candidate_graph or {}
     frozen = copy.deepcopy(candidate)
     classification = classify_candidate_document_integrity(candidate)
@@ -1006,7 +1013,7 @@ def test_valid_candidate_semantics_are_unchanged_by_integrity_classification(
 def test_profile_post_extraction_validator_still_fails_generation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from src.graph_memory.extraction.extraction_profile import require_admitted_profile
+    from graph_memory.extraction.extraction_profile import require_admitted_profile
 
     real = require_admitted_profile
 
@@ -1018,14 +1025,14 @@ def test_profile_post_extraction_validator_still_fails_generation(
         )
 
     monkeypatch.setattr(
-        "src.graph_memory.extraction.graph_preview_runner.require_admitted_profile",
+        "graph_memory.extraction.graph_preview_runner.require_admitted_profile",
         _with_validator,
     )
     _source, result = _run_recap_extraction(
         tmp_path,
         client=FixtureClient(),
     )
-    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    loaded = get_extraction_run(result.run.run_id)
     assert result.failure_kind == "validation"
     assert loaded.status == ExtractionRunStatus.FAILED
     assert any("profile post-extraction validation failed" in item for item in result.diagnostics)

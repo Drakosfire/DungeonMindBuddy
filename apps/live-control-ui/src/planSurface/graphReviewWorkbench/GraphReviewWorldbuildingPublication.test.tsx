@@ -1,3 +1,5 @@
+import * as native from "../../api/nativeWorldbuildingPublicationApi";
+import {retainNativeWorldbuildingConfirmation} from "./worldbuildingPublicationRecovery";
 import { act, fireEvent, render, screen, waitFor, cleanup, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {ExtractPromoteApiError} from "../../api/extractPromoteApi";
@@ -377,4 +379,114 @@ it('holds publication safely when browser recovery storage is unreadable',()=>{
   expect(()=>render(<GraphReviewWorldbuildingPublication review={review}/>)).not.toThrow();
   expect(screen.getByRole('alert')).toHaveTextContent('storage denied');
   expect(api.prepareWorldbuilding).not.toHaveBeenCalled();expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+});
+
+it("replays a retained native publication when Graph Review reopens", async () => {
+  const packet = {
+    envelope: {
+      purpose: "dmb_native_worldbuilding_confirm_v1",
+      prepared_change_id: "change:a",
+      review: { managed_world_id: "world-a", run_id: "run-a" },
+    },
+    prepared: { operations: [] },
+    token: "signed-fixture",
+  };
+  await retainNativeWorldbuildingConfirmation(review, "world-a", packet);
+  const confirm = vi.spyOn(native, "confirmNativeWorldbuilding")
+    .mockResolvedValue({ recovered: true, result: { child_revision_id: "rev:child" } });
+  render(<GraphReviewWorldbuildingPublication review={review} />);
+  expect(confirm).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Retry saved publication" }));
+  await screen.findByText("Worldbuilding publication confirmed.");
+  expect(confirm).toHaveBeenCalledExactlyOnceWith(packet);
+  expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+});
+
+it.each([false, true])("prepares selected facts and confirms the exact packet (bind existing: %s)", async bindExisting => {
+  vi.stubEnv("VITE_NATIVE_WORLDBUILDING_WORLD", "world-a");
+  try {
+    const coordinates = {
+      managed_world_id: "world-a", run_id: "run-a", expected_run_revision: 1,
+      candidate_sha256: "a".repeat(64), expected_parent_revision_id: "rev:1",
+      expected_source_authority_epoch: 1, workspace_document_id: "doc-a",
+      workspace_document_revision: 1,
+    };
+    const packet = {
+      envelope: {
+        purpose: "dmb_native_worldbuilding_confirm_v1", prepared_change_id: "change:a",
+        review: { managed_world_id: "world-a", run_id: "run-a" },
+      },
+      prepared: { operations: [] }, token: "signed-fixture",
+    };
+    vi.spyOn(native, "getNativeWorldbuildingContext").mockResolvedValue({
+      prepareCoordinates: coordinates, nativeWorldId: "native-a",
+      records: [{ kind: "node", record_id: "npc:a", label: "Mara", fields: { label: "Mara", node_type: "npc" } },
+        {kind: "node", record_id: "town:a", label: "Town", fields: {label: "Town"}},
+        {kind: "edge", record_id: "edge:a", from_record_id: "npc:a", to_record_id: "town:a",
+          relationship_type: "located_in", fields: {}}],
+
+      sourceSupport: [{ evidence_ref_id: "support:a", text: "Mara arrived.", start_byte: 0, end_byte: 13 }],
+    });
+    const prepare = vi.spyOn(native, "prepareNativeWorldbuilding")
+      .mockResolvedValue({ status: "prepared", confirmation: packet, records: [] });
+    const confirm = vi.spyOn(native, "confirmNativeWorldbuilding")
+      .mockResolvedValue({ recovered: false, result: { child_revision_id: "rev:2" } });
+    const ui = render(<GraphReviewWorldbuildingPublication review={review} />);
+    fireEvent.change(await screen.findByLabelText("Candidate object"), { target: { value: "npc:a" } });
+    if (bindExisting) {
+      fireEvent.change(screen.getByLabelText("Object action"), { target: { value: "existing" } });
+      fireEvent.change(screen.getByLabelText("Existing object ID"), { target: { value: "ent:mara" } });
+    }
+    const facts = screen.getByLabelText("Facts") as HTMLSelectElement;
+    for (const option of facts.options) option.selected = true;
+    fireEvent.change(facts);
+    fireEvent.change(screen.getByLabelText("Supporting excerpt"), { target: { value: "support:a" } });
+    fireEvent.change(screen.getByLabelText("Candidate object"), {target: {value: "town:a"}});
+    fireEvent.change(screen.getByLabelText("Supporting excerpt"), {target: {value: "support:a"}});
+    expect(screen.getByRole("button", {name: "Prepare selected facts"})).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", {name: "Clear choices for this object"}));
+    expect(screen.getByRole("button", {name: "Prepare selected facts"})).toBeEnabled();
+    expect(screen.queryByLabelText("Relationships")).not.toBeInTheDocument();
+    if (bindExisting) {
+      fireEvent.change(screen.getByLabelText("Candidate object"), {target: {value: "town:a"}});
+      const townFacts = screen.getByLabelText("Facts") as HTMLSelectElement;
+      townFacts.options[0].selected = true;
+      fireEvent.change(townFacts);
+      fireEvent.change(screen.getByLabelText("Supporting excerpt"), {target: {value: "support:a"}});
+      const edges = screen.getByLabelText("Relationships") as HTMLSelectElement;
+      for (const option of edges.options) option.selected = true;
+      fireEvent.change(edges);
+      fireEvent.change(screen.getByLabelText("Relationship excerpt for edge:a"), {target: {value: "support:a"}});
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Prepare selected facts" }));
+    const submit = await screen.findByRole("button", { name: "Confirm native publication" });
+    const input = prepare.mock.calls[0][0];
+    expect({...input, selections: input.selections.slice(0, 1)}).toEqual({
+      ...coordinates,
+      selections: [{ kind: "node", record_id: "npc:a", action: bindExisting ? "use_existing" : "create",
+        ...(bindExisting ? {entity_id: "ent:mara"} : {}), facts: ["label", "node_type"].map(field => ({
+        field, metadata: {
+          evidence_ref_ids: ["support:a"],
+          visibility: { kind: "labels_any", labels: ["dungeonbuddy.visibility:gm"] },
+          epistemic_basis: "asserted", claim_mode: "dungeonbuddy.claim:fact",
+          standing: "provisional", temporal_scope: { kind: "timeless" },
+        },
+      })) }],
+    });
+    expect(input.selections.slice(1)).toEqual(bindExisting ? [
+      {kind: "node", record_id: "town:a", action: "create",
+        facts: [expect.objectContaining({field: "label"})]},
+      {kind: "edge", record_id: "edge:a", action: "create",
+        metadata: expect.objectContaining({evidence_ref_ids: ["support:a"]})},
+    ] : []);
+    expect(confirm).not.toHaveBeenCalled();
+    fireEvent.click(submit);
+    await screen.findByText("Worldbuilding publication confirmed.");
+    ui.rerender(<GraphReviewWorldbuildingPublication review={{...review}} />);
+    expect(screen.getByText("Worldbuilding publication confirmed.")).toBeInTheDocument();
+    expect(confirm).toHaveBeenCalledExactlyOnceWith(packet);
+    expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });

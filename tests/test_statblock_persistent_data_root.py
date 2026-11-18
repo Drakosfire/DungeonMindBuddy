@@ -29,7 +29,7 @@ def test_http_generation_acceptance_survives_code_root_switch(monkeypatch, tmp_p
     code_a, code_b, data, worlds = [tmp_path / name for name in ("code-a", "code-b", "data", "worlds")]
     for directory in (code_a, code_b, data, worlds):
         directory.mkdir()
-    world = create_world_container(worlds, name="Durable mechanics")
+    world = create_world_container(name="Durable mechanics")
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(data))
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(worlds))
     monkeypatch.setattr(drafts, "repo_root", lambda: code_a)
@@ -103,7 +103,7 @@ def test_http_generation_acceptance_survives_code_root_switch(monkeypatch, tmp_p
 def test_artifact_root_does_not_change_default_managed_registry(monkeypatch, tmp_path):
     code, data = tmp_path / "code", tmp_path / "data"
     code.mkdir(); data.mkdir()
-    world = create_world_container(code, name="Independent roots")
+    world = create_world_container(name="Independent roots")
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(data))
     monkeypatch.delenv("DMB_MANAGED_WORLD_DATA_ROOT", raising=False)
     monkeypatch.setattr(drafts, "repo_root", lambda: code)

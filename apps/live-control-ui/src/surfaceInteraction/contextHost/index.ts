@@ -6,7 +6,6 @@ export { SurfaceContextModule } from "./SurfaceContextModule";
 export {
   SurfaceContextAction,
   SurfaceContextBadge,
-  SurfaceContextLabel,
   SurfaceContextPopover,
   SurfaceContextSelect,
   SurfaceContextStatus,

@@ -68,11 +68,15 @@ from apps.live_control_server.session_store import (
     complete_job,
     events_since,
     load_session,
+    load_session_events,
+    load_session_jobs,
+    load_session_packet,
     queue_packet_rebuild_job,
     refresh_current_state,
+    refresh_loaded_current_state,
     validate_and_save_layout,
 )
-from src.live_play.projections import (
+from live_play.projections import (
     ArtifactReadResponse,
     CapabilityReadResponse,
     ProjectionCommand,
@@ -83,9 +87,13 @@ from src.live_play.projections import (
     execute_projection_command,
     read_artifact_for_target,
 )
-from src.live_play.projections.artifacts import ArtifactReadError
-from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
-from src.live_play.source_bundle import IngestionSourceBundle, build_ingestion_source_bundle
+from live_play.projections.artifacts import ArtifactReadError
+from live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
+from live_play.source_bundle import (
+    IngestionSourceBundle,
+    build_ingestion_source_bundle,
+    list_ingestion_source_sessions,
+)
 
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -345,6 +353,11 @@ def post_citation_freshness(body: CitationFreshnessRequest) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="citation freshness check failed") from exc
     return response.model_dump(mode="json")
 
+@router.get("/source-bundle/sessions")
+def get_ingestion_source_sessions(campaign_id: str = Query(min_length=1)) -> list[int]:
+    return list_ingestion_source_sessions(root=repo_root(), campaign_id=campaign_id)
+
+
 @router.get(
     "/source-bundle",
     response_model=IngestionSourceBundle,
@@ -352,70 +365,65 @@ def post_citation_freshness(body: CitationFreshnessRequest) -> dict[str, Any]:
 def get_ingestion_source_bundle(
     scope: str = Query(default="campaign-ingested", min_length=1),
     campaign_id: str | None = Query(default=None),
-) -> dict[str, Any]:
+) -> IngestionSourceBundle:
     try:
-        response = build_ingestion_source_bundle(
+        return build_ingestion_source_bundle(
             root=repo_root(),
             scope=scope,
             campaign_id=campaign_id,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail="source bundle build failed") from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
     "/locations/index",
     response_model=LocationCorpusIndexResponse,
 )
-def get_location_corpus_index() -> dict[str, Any]:
+def get_location_corpus_index() -> LocationCorpusIndexResponse:
     try:
-        response = build_location_corpus_index(root=repo_root())
+        return build_location_corpus_index(root=repo_root())
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="location corpus index failed"
         ) from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
     "/roll-tables/index",
     response_model=RollTableCorpusIndexResponse,
 )
-def get_roll_table_corpus_index() -> dict[str, Any]:
+def get_roll_table_corpus_index() -> RollTableCorpusIndexResponse:
     try:
-        response = build_roll_table_corpus_index(root=repo_root())
+        return build_roll_table_corpus_index(root=repo_root())
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="roll table corpus index failed"
         ) from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
     "/npcs/index",
     response_model=NpcCorpusIndexResponse,
 )
-def get_npc_corpus_index() -> dict[str, Any]:
+def get_npc_corpus_index() -> NpcCorpusIndexResponse:
     try:
-        response = build_npc_corpus_index(root=repo_root())
+        return build_npc_corpus_index(root=repo_root())
     except Exception as exc:
         raise HTTPException(status_code=500, detail="npc corpus index failed") from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
     "/statblocks/index",
     response_model=StatblockCorpusIndexResponse,
 )
-def get_statblock_corpus_index() -> dict[str, Any]:
+def get_statblock_corpus_index() -> StatblockCorpusIndexResponse:
     try:
-        response = build_statblock_corpus_index(root=repo_root())
+        return build_statblock_corpus_index(root=repo_root())
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="statblock corpus index failed"
         ) from exc
-    return response.model_dump(mode="json")
 
 
 @router.get(
@@ -776,6 +784,10 @@ def post_statblock_workbench_draft_retrieval_verify(
 def post_tiptap_markdown_write_prepare(
     body: TiptapMarkdownWritePrepareRequest, request: Request,
 ) -> dict[str, Any]:
+    if body.world_id is not None:
+        from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+        require_hosted_plan_world_context(request, body.world_id)
     try:
         if has_saved_media_references(body.markdown):
             enforce_native_graph_gm(request)
@@ -792,6 +804,10 @@ def post_tiptap_markdown_write_prepare(
 def post_tiptap_markdown_write_commit(
     body: TiptapMarkdownWriteCommitRequest, request: Request,
 ) -> dict[str, Any]:
+    if body.world_id is not None:
+        from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+        require_hosted_plan_world_context(request, body.world_id)
     try:
         if has_saved_media_references(body.markdown):
             enforce_native_graph_gm(request)
@@ -817,7 +833,7 @@ def post_live_query(body: LiveQueryRequest, request: Request) -> Any:
     managed_world = None
     if not legacy_shape:
         try:
-            managed_world = get_world_container(repo_root(), body.campaign_id)
+            managed_world = get_world_container(body.campaign_id)
         except WorldContainerRegistryError as exc:
             if exc.status_code != 404:
                 raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -887,7 +903,7 @@ def post_live_query(body: LiveQueryRequest, request: Request) -> Any:
         managed_packet = {"campaign_id": managed_world.world_id, "session": body.session}
 
     if managed_packet is None:
-        packet, _, _, _ = load_session(base)
+        packet = load_session_packet(base)
         if body.campaign_id != packet["campaign_id"] or body.session != packet["session"]:
             raise HTTPException(
                 status_code=400,
@@ -1039,39 +1055,46 @@ def get_live_state() -> dict[str, Any]:
 @router.get("/events")
 def get_live_events(since: str | None = Query(default=None)) -> dict[str, Any]:
     base = session_dir()
-    _, _, events, _ = load_session(base)
-    return {"events": events_since(events, since)}
+    return {"events": events_since(load_session_events(base), since)}
 
 
 @router.get("/jobs")
 def get_live_jobs() -> dict[str, Any]:
     base = session_dir()
-    _, _, _, jobs = load_session(base)
-    return {"jobs": jobs}
+    return {"jobs": load_session_jobs(base)}
 
 
 @router.get("/surface")
-def get_live_surface() -> dict[str, Any]:
+def get_live_surface(include_session_views: bool = False) -> dict[str, Any]:
     base = session_dir()
-    packet, layout, _, _ = load_session(base)
-    return {
+    packet, layout, events, jobs = load_session(base)
+    surface = {
         "catalog": packet["surface_catalog"],
         "layout": layout,
-        "state": refresh_current_state(base),
+        "state": refresh_loaded_current_state(base, packet, layout, events, jobs),
     }
+    if include_session_views:
+        surface["events"] = events_since(events, None)
+        surface["jobs"] = jobs
+        surface["plan_view"] = build_session_plan_projection(packet, events, jobs)
+    return surface
 
 
 @router.get("/plan-view")
 def get_live_plan_view(
     world_id: str | None = Query(default=None),
     scope_mode: Literal["world"] | None = Query(default=None),
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     if scope_mode == "world" and world_id is None:
         raise HTTPException(status_code=422, detail="world_id is required for World Plan context.")
     if world_id is not None:
         world_root = repo_root()
         try:
-            world = get_world_container(world_root, world_id)
+            world = get_world_container(world_id)
         except WorldContainerRegistryError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
         if scope_mode == "world":
@@ -1181,17 +1204,11 @@ def post_complete_job(job_id: str) -> dict[str, Any]:
 @router.post("/resolve-roll")
 def post_resolve_roll(body: ResolveRollRequest) -> dict[str, Any]:
     base = session_dir()
-    packet, _, events_before, jobs_before = load_session(base)
+    packet = load_session_packet(base)
     try:
         resolved = resolve_roll_from_packet(packet, body.command, root=repo_root())
     except RollResolveError as exc:
         raise HTTPException(status_code=422, detail=exc.diagnostic.message) from exc
-
-    _, _, events_after, jobs_after = load_session(base)
-    if len(events_after) != len(events_before) or len(jobs_after) != len(jobs_before):
-        raise HTTPException(
-            status_code=500, detail="resolve-roll must not append events or jobs"
-        )
 
     return {
         "table_id": resolved.table_id,
@@ -1224,7 +1241,7 @@ def _read_plan_action_prompt(request: Request, world_id: str, action_id: UUID, p
     if list(request.query_params.keys()) != ["world_id"] or len(request.query_params.getlist("world_id")) != 1:
         raise HTTPException(status_code=422, detail="Only one managed world_id is accepted")
     try:
-        get_world_container(repo_root(), world_id)
+        get_world_container(world_id)
         payload = (prompt_index(world_id, action_id) if provider_attempt_id is None
                    else prompt_body(world_id, action_id, provider_attempt_id))
         return JSONResponse(payload, headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
@@ -1249,12 +1266,22 @@ def get_plan_action_terminal_diagnostic(request: Request, action_id: UUID,
                                        world_id: str = Query(min_length=1, max_length=128)):
     from application_state.errors import ApplicationStateError
     from apps.live_control_server.services.plan_action_terminal_diagnostic import terminal_diagnostic
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     headers = {"Cache-Control": "no-store", "Pragma": "no-cache"}
     if list(request.query_params.keys()) != ["world_id"] or len(request.query_params.getlist("world_id")) != 1:
         raise HTTPException(status_code=422, detail="Only one managed world_id is accepted", headers=headers)
     try:
-        get_world_container(repo_root(), world_id)
-        return JSONResponse(terminal_diagnostic(world_id, action_id), headers=headers)
+        get_world_container(world_id)
+        diagnostic = terminal_diagnostic(world_id, action_id)
     except (ApplicationStateError, WorldContainerRegistryError) as exc:
         raise HTTPException(status_code=404, detail={"code": "action_diagnostic_unavailable"}, headers=headers) from exc
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    return JSONResponse(diagnostic, headers=headers)

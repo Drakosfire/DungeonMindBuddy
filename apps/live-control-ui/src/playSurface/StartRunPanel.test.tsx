@@ -27,7 +27,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     getCommittedWorkspaceRevision: vi.fn(),
     getWorldOwnedPlanCommittedRevision: vi.fn(),
     getWorldOwnedRunbookCommittedRevision: vi.fn(),
-    listWorldOwnedPlans: vi.fn(),
+    getWorldOwnedPlanSnapshot: vi.fn(),
     listWorldOwnedRunbooks: vi.fn(),
     putWorldPlayRun: vi.fn(),
     getWorldPlayRun: vi.fn(),
@@ -160,6 +160,18 @@ function worldRunbook(documentId: string = DOC_A, worldId: string = WORLD_ID): W
   };
 }
 
+function planSnapshot(record: ReturnType<typeof worldPlanRecord>): Awaited<ReturnType<typeof liveApi.getWorldOwnedPlanSnapshot>> {
+  return {
+    schema_version: "dmb_workspace_document_snapshot_v2",
+    record,
+    markdown: "",
+    content_sha256: SHA_A,
+    file_fingerprint: "postgres",
+    file_exists: true,
+    loaded_revision: 7,
+  };
+}
+
 function worldPlanRecord(documentId: string = DOC_A, worldId: string = WORLD_ID): WorldOwnedPlanRecordV2 {
   return {
     schema_version: "dmb_world_owned_plan_record_v2",
@@ -283,12 +295,7 @@ describe("StartRunPanel", () => {
       world_id: WORLD_ID,
       records: [],
     });
-    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v2",
-      scope_mode: "world",
-      world_id: WORLD_ID,
-      records: [],
-    });
+    vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockRejectedValue(new Error("Plan unavailable"));
     vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockImplementation(
       async (documentId) => worldPlanCommittedFor(documentId),
     );
@@ -650,12 +657,7 @@ describe("StartRunPanel", () => {
 
   it("starts only from the exact saved World Plan selected on the Plan surface", async () => {
     const onStarted = vi.fn();
-    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v2",
-      scope_mode: "world",
-      world_id: WORLD_ID,
-      records: [worldPlanRecord()],
-    });
+    vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue(planSnapshot(worldPlanRecord()));
     vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue(createdSession());
     const user = userEvent.setup();
     render(
@@ -678,7 +680,7 @@ describe("StartRunPanel", () => {
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith(RUN_ID));
     expect(tour.recordRunCreation).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({step:"play",target:expect.objectContaining({objectId:RUN_ID}),parent:expect.objectContaining({kind:"plan",objectId:DOC_A,revision:7,revisionId:WORLD_WORK_REVISION_ID,digest:SHA_A}),proof:expect.objectContaining({kind:"run-creation"})}),null);
     expect(tour.recordRunCreation.mock.invocationCallOrder[0]).toBeLessThan(onStarted.mock.invocationCallOrder[0]);
-    expect(liveApi.listWorldOwnedPlans).toHaveBeenCalledExactlyOnceWith(WORLD_ID);
+    expect(liveApi.getWorldOwnedPlanSnapshot).toHaveBeenCalledExactlyOnceWith(DOC_A);
     expect(liveApi.getWorldOwnedPlanCommittedRevision).toHaveBeenCalledWith(DOC_A);
     expect(liveApi.getWorldOwnedRunbookCommittedRevision).not.toHaveBeenCalled();
     expect(liveApi.listWorldOwnedRunbooks).not.toHaveBeenCalled();
@@ -686,12 +688,7 @@ describe("StartRunPanel", () => {
   });
 
   it("rejects Scene-first v1 for new World sessions", async () => {
-    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v2",
-      scope_mode: "world",
-      world_id: WORLD_ID,
-      records: [worldPlanRecord()],
-    });
+    vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue(planSnapshot(worldPlanRecord()));
     const sceneFirstRun = worldPlayRun();
     vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
       ...worldPlanCommittedFor(),
@@ -725,12 +722,7 @@ describe("StartRunPanel", () => {
   });
 
   it("blocks a saved World Plan without an authored Beat before calling the Run API", async () => {
-    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v2",
-      scope_mode: "world",
-      world_id: WORLD_ID,
-      records: [worldPlanRecord()],
-    });
+    vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue(planSnapshot(worldPlanRecord()));
     vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
       ...worldPlanCommittedFor(),
       markdown: [
@@ -762,12 +754,7 @@ describe("StartRunPanel", () => {
   });
 
   it("retains an unresolved World session when the returned receipt has different choices", async () => {
-    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v2",
-      scope_mode: "world",
-      world_id: WORLD_ID,
-      records: [worldPlanRecord()],
-    });
+    vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue(planSnapshot(worldPlanRecord()));
     vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue({...createdSession(),receipt:{...createdSession().receipt,request:{...sessionBody(),entry_scene_id:"scene:foreign"}}});
     const onStarted = vi.fn();
     const user = userEvent.setup();
@@ -794,12 +781,7 @@ describe("StartRunPanel", () => {
 
   it("blocks Plan start when its exact WorkRevision pin changed after Plan reopen", async () => {
     const onStarted = vi.fn();
-    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v2",
-      scope_mode: "world",
-      world_id: WORLD_ID,
-      records: [worldPlanRecord()],
-    });
+    vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue(planSnapshot(worldPlanRecord()));
     vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
       ...worldPlanCommittedFor(),
       revision_n: 8,
@@ -830,12 +812,9 @@ describe("StartRunPanel", () => {
   it("does not navigate after a Plan-start response arrives for an unmounted source selection", async () => {
     const onStarted = vi.fn();
     const pendingRun = deferred<ReturnType<typeof createdSession>>();
-    vi.mocked(liveApi.listWorldOwnedPlans).mockImplementation(async (worldId) => ({
-      schema_version: "dmb_workspace_document_registry_v2",
-      scope_mode: "world",
-      world_id: worldId,
-      records: [worldPlanRecord(DOC_A, worldId), worldPlanRecord(DOC_B, worldId)],
-    }));
+    vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockImplementation(
+      async (documentId) => planSnapshot(worldPlanRecord(documentId)),
+    );
     vi.mocked(liveApi.putWorldPlayRun).mockReturnValue(pendingRun.promise);
     function Source({ documentId }: { documentId: string }) {
       return (

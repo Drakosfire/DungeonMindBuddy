@@ -16,7 +16,7 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
-from src.token_resolution.contracts import (
+from .contracts import (
     ACTION_EXCLUDE,
     ACTION_INCLUDE,
     ACTION_SHADOW,

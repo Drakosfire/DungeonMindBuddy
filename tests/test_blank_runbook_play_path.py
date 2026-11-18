@@ -136,7 +136,7 @@ def test_http_blank_runbook_create_does_not_start_a_run_then_standard_start_seed
     progress = ready.json()["progress"]
     assert progress["current_beat_id"] == BEAT_ID
     assert progress["current_scene_id"] is None
-    persisted = get_play_run(tmp_path, RUN_ID)
+    persisted = get_play_run(RUN_ID)
     assert persisted.progress.current_beat_id == BEAT_ID
     assert persisted.progress.current_scene_id is None
 

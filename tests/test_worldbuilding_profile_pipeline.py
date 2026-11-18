@@ -15,15 +15,15 @@ from apps.live_control_server.services.source_artifact_registry import (
     load_source_span_index,
 )
 from graph_memory.source_span import source_span_index_to_dict
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     FixtureCategoryGraphPassClient,
 )
-from src.graph_memory.extraction.graph_preview_runner import (
+from graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionRequest,
     run_production_extraction,
 )
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
-from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
     validate_worldbuilding_candidate_bounds,
@@ -235,7 +235,7 @@ def test_pipeline_rejects_missing_evidence_as_non_reviewable(
     disables the promote projection drop so the production controller's
     missing-evidence gate (and profile validator) are exercised.
     """
-    from src.graph_memory.extraction import category_candidate_graph_extractor as extractor
+    from graph_memory.extraction import category_candidate_graph_extractor as extractor
 
     def _project_keep_empty_evidence(graph: dict, warning_count: int | None = None, **_kwargs: Any) -> dict:
         for edge in graph.get("edges") or []:
@@ -320,7 +320,7 @@ def test_pipeline_rejects_empty_edge_evidence_without_endpoint_inheritance(
 
 
 def test_profile_wires_executable_post_extraction_validator() -> None:
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from graph_memory.extraction.extraction_profile import get_extraction_profile
 
     profile = get_extraction_profile(
         WORLDBUILDING_PROFILE_ID, WORLDBUILDING_PROFILE_VERSION
@@ -335,7 +335,7 @@ def test_profile_wires_executable_post_extraction_validator() -> None:
 def test_pipeline_fails_closed_when_post_extraction_validator_raises(
     tmp_path: Path,
 ) -> None:
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from graph_memory.extraction.extraction_profile import get_extraction_profile
 
     def _boom(_graph: dict[str, Any]) -> list[str]:
         raise RuntimeError("validator bug")

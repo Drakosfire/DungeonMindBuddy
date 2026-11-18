@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from src.graph_memory.candidate_graph_preview import evidence_ref_from_dict
-from src.graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.candidate_graph_preview import evidence_ref_from_dict
+from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+from graph_memory.extraction.category_candidate_graph_extractor import (
     DEFAULT_SEMANTIC_STATE,
     PROMOTE_SAFE_PREVIEW_DIAGNOSTICS,
     assemble_envelope,
@@ -190,7 +190,7 @@ def test_project_candidate_graph_for_promote_party_anchors_do_not_block_typed_lo
         candidate_graph_preview_from_dict,
         validate_candidate_graph_preview,
     )
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CANDIDATE_GRAPH_SCHEMA,
         CANDIDATE_GRAPH_VERSION,
     )
@@ -294,13 +294,13 @@ def test_category_output_file_cannot_authorize_promotion(
         PromotableIngestRunError, resolve_promotable_ingest_run,
     )
     from graph_memory.candidate_graph_preview import validate_candidate_graph_preview
-    from src.graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
-    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+    from graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions,
         FixtureCategoryGraphPassClient,
         run_category_pipeline,
     )
-    from src.graph_memory.session_graph_context import PARTY_COLLECTIVE_NODE_ID
+    from graph_memory.session_graph_context import PARTY_COLLECTIVE_NODE_ID
     from tests.fixtures.graph_memory.category_extraction_helpers import (
         minimal_category_pass_outputs,
     )

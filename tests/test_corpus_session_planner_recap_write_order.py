@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.prompts.corpus_session_planner import build_corpus_session_planner_instructions
+from prompts.corpus_session_planner import build_corpus_session_planner_instructions
 
 # Exact anchors from **Session-recap creation flow:** numbered steps 3 and 5.
 # If wording changes intentionally, update these strings in the same commit as the prompt.

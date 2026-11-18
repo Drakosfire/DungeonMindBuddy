@@ -240,3 +240,16 @@ it.each(['build','play'] as const)('does not use Plan request admission on %s',s
   Object.assign(receipt,{assembled_input:structuredClone(openingWire.context.receipt.assembled_input)});
   expect(isSurfaceNativeReceipt(receipt,validateWork)).toBe(false);
 });
+
+it('accepts a source-grounded Build PDF claim only for its World',()=>{
+  const {receipt,completion}=authoredContext();
+  const scope={managed_world_id:receipt.work_context.source_basis.world_id,native_world_id:'native',
+    binding_version:1,revision_id:'rev:pdf',scope_mode:'world',campaign_id:null};
+  const answer={...completion,answer_context_status:'source_grounded',native_body_citations:[],
+    native_clause_citations:[],native_assertion_citations:[],saved_source_citations:[],
+    answer_segments:[{kind:'statblock_pdf_claim',text:'Hit Points 207',scope,
+      assertion_id:'assertion:fixture',evidence_ref_id:'pdf-region:fixture'}]};
+  expect(isSurfaceNativeCompletion(answer,receipt as SurfaceNativeContextReceiptV1)).toBe(true);
+  scope.managed_world_id='foreign';
+  expect(isSurfaceNativeCompletion(answer,receipt as SurfaceNativeContextReceiptV1)).toBe(false);
+});

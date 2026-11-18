@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.graph_memory import identity_resolution as ir
-from src.graph_memory import party_context as pc
+from graph_memory import identity_resolution as ir
+from graph_memory import party_context as pc
 
 
 # --------------------------------------------------------------------------- #
@@ -196,8 +196,8 @@ def test_related_hub_slugs_harvested_from_readme_crosslinks():
 
 def test_unmapped_campaign_has_no_local_identities_or_filesystem_reads(monkeypatch):
     import pytest
-    from src.graph_memory.extraction import known_entity_registry as known
-    from src.graph_memory import session_graph_context as session
+    from graph_memory.extraction import known_entity_registry as known
+    from graph_memory import session_graph_context as session
     def forbidden(*args, **kwargs):
         pytest.fail('unmapped campaign must not resolve or read a local corpus')
     for module in (pc, known, session):
@@ -220,7 +220,7 @@ def test_unmapped_campaign_has_no_local_identities_or_filesystem_reads(monkeypat
 
 def test_unmapped_campaign_explicit_registry_is_still_read(tmp_path):
     import json
-    from src.graph_memory.extraction.known_entity_registry import build_known_entity_registry
+    from graph_memory.extraction.known_entity_registry import build_known_entity_registry
     target = tmp_path / 'custom' / pc.PARTY_REGISTRY_BASENAME
     target.parent.mkdir()
     target.write_text(json.dumps({'schema': pc.PARTY_REGISTRY_SCHEMA,

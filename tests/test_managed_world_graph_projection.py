@@ -81,12 +81,12 @@ def test_active_binding_reads_native_world_and_returns_unchanged_projection(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    managed = create_world_container(tmp_path, name="The Glass Orchard")
+    managed = create_world_container(name="The Glass Orchard")
     bound = _record_with_binding(managed)
     monkeypatch.setattr(
         managed_projection,
         "get_world_container",
-        lambda _root, _world_id: bound,
+        lambda _world_id: bound,
     )
     native_projection = _native_projection()
     seen_requests: list[WorldGraphProjectionRequest] = []
@@ -120,10 +120,10 @@ def test_active_binding_reads_native_world_and_returns_unchanged_projection(
 def test_shared_binding_resolver_does_not_read_native_graph(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    managed = create_world_container(tmp_path, name="The Glass Orchard")
+    managed = create_world_container(name="The Glass Orchard")
     bound = _record_with_binding(managed)
     monkeypatch.setattr(
-        managed_projection, "get_world_container", lambda _root, _world_id: bound
+        managed_projection, "get_world_container", lambda _world_id: bound
     )
     monkeypatch.setattr(
         managed_projection, "project_world_graph",
@@ -146,7 +146,7 @@ def test_unresolvable_or_unverified_binding_fails_before_native_read(
     monkeypatch: pytest.MonkeyPatch,
     state: str,
 ) -> None:
-    managed = create_world_container(tmp_path, name="The Glass Orchard")
+    managed = create_world_container(name="The Glass Orchard")
     record = managed
     if state == "unbound":
         record = managed.model_copy(update={"native_graph_binding": None})
@@ -155,7 +155,7 @@ def test_unresolvable_or_unverified_binding_fails_before_native_read(
     elif state == "wrong-world":
         record = _record_with_binding(managed).model_copy(update={"world_id": "other-world"})
 
-    def resolve(_root: Path, _world_id: str) -> WorldContainerRecord:
+    def resolve(_world_id: str) -> WorldContainerRecord:
         if state == "missing-record":
             raise WorldContainerRegistryError("not found", status_code=404)
         return record
@@ -185,7 +185,7 @@ def test_binding_change_during_projection_discards_native_result(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    managed = create_world_container(tmp_path, name="The Glass Orchard")
+    managed = create_world_container(name="The Glass Orchard")
     initial = _record_with_binding(
         managed, native_world_id="eldyrwild", binding_version=1
     )
@@ -196,7 +196,7 @@ def test_binding_change_during_projection_discards_native_result(
     monkeypatch.setattr(
         managed_projection,
         "get_world_container",
-        lambda _root, _world_id: next(records),
+        lambda _world_id: next(records),
     )
     monkeypatch.setattr(
         managed_projection,
@@ -220,3 +220,110 @@ def test_client_cannot_select_native_identity_or_authority_fields() -> None:
         _request(admissibility="gm")
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+@pytest.mark.parametrize("revision_pin", [None, "historical"])
+def test_native_projection_support_uses_exact_revision(monkeypatch, revision_pin):
+    from types import SimpleNamespace
+
+    from dungeonmind.application.vnext import EntityReadService
+
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source
+
+    binding = SimpleNamespace(native_world_id="elderwyld")
+    repository = SimpleNamespace(
+        get_head=lambda space: SimpleNamespace(head_revision_id="current")
+    )
+    context = object()
+    support = object()
+
+    def read_context(repo, space, revision, campaign, *, scope_mode, parsed_cache):
+        assert parsed_cache is not None
+        assert repo is repository
+        assert (space, revision, campaign, scope_mode) == (
+            "elderwyld", revision_pin or "current", None, "world"
+        )
+        return context, None, None, None
+
+    def list_support(self, read_context):
+        assert read_context is context
+        return support
+
+    monkeypatch.setattr(native_registry_source, "read_repository", lambda: repository)
+    monkeypatch.setattr(native_registry_source, "read_context", read_context)
+    monkeypatch.setattr(EntityReadService, "list_entities_with_support", list_support)
+    assert managed_projection._read_native_projection_support(binding, revision_pin) == (
+        "current", context, None, support
+    )
+
+
+def test_source_views_do_not_copy_producer_session_to_unmatched_revision(monkeypatch):
+    from types import SimpleNamespace as Record
+
+    from apps.live_control_server.integrations.dungeonmind import vnext_world_projection as adapter
+
+    artifact = Record(
+        source_artifact_id="artifact", source_classification="buddy:recap",
+        domain_metadata=[], uri=None,
+    )
+    source_reader = Record(get_provenance_snapshot=lambda **_: Record(
+        get_artifact=lambda _: artifact,
+    ))
+    support = Record(evidence=[
+        Record(evidence_ref_id=key, source_artifact_id="artifact", locator=None,
+               source_span_ref_id=None)
+        for key in ("matched", "older")
+    ])
+    selected = Record(source_artifact=artifact, evidence_ref_ids=("matched",))
+
+    def select(access, *, evidence_ref_ids):
+        assert evidence_ref_ids == ["matched", "older"]
+        return Record(sources=(selected,))
+
+    monkeypatch.setattr(adapter, "list_admitted_native_text_sources", select)
+    monkeypatch.setattr(adapter, "source_display_metadata", lambda items, world: [
+        {"origin_matches_current_metadata": True, "campaign_id": "campaign",
+         "session_id": "session-9"}
+    ])
+    evidence, artifacts = adapter.project_source_views(
+        Record(source_reader=source_reader), support, access=object(), managed_world_id="world"
+    )
+    assert artifacts[0].session_id == "session-9"
+    assert [(row.campaign_id, row.session_id) for row in evidence] == [
+        ("campaign", "session-9"), (None, None)
+    ]
+
+
+@pytest.mark.parametrize("message, status", [
+    ("native source context revision is missing", 404),
+    ("native source context domain pin mismatch", None),
+])
+def test_native_projection_distinguishes_missing_pin_from_integrity_failure(
+    monkeypatch, message, status
+):
+    from types import SimpleNamespace
+
+    from dungeonmind.application.vnext.errors import KnowledgeReadContextIntegrityError
+
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source
+
+    repository = SimpleNamespace(
+        get_head=lambda space: SimpleNamespace(head_revision_id="current")
+    )
+    failure = KnowledgeReadContextIntegrityError(message)
+
+    def read_context(*args, **kwargs):
+        raise failure
+
+    monkeypatch.setattr(native_registry_source, "read_repository", lambda: repository)
+    monkeypatch.setattr(native_registry_source, "read_context", read_context)
+    binding = SimpleNamespace(native_world_id="elderwyld")
+    if status is None:
+        with pytest.raises(KnowledgeReadContextIntegrityError) as caught:
+            managed_projection._read_native_projection_support(binding, "missing")
+        assert caught.value is failure
+    else:
+        with pytest.raises(managed_projection.WorldGraphProjectionServiceError) as caught:
+            managed_projection._read_native_projection_support(binding, "missing")
+        assert caught.value.status_code == status
+        assert caught.value.code == "native_graph_revision_unavailable"

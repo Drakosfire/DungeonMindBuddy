@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from src.graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
+from graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
 
+from collections.abc import Callable
 import hashlib
 import json
 from uuid import NAMESPACE_URL, uuid5
@@ -97,8 +98,8 @@ def _canonical_bytes(value: object) -> bytes:
 
 
 def _qualify_payload(*, payload: dict, parent: ExtractionRun, source_prose: str, span_index: object) -> None:
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
-    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    from graph_memory.extraction.extraction_profile import get_extraction_profile
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE_ID,
         WORLDBUILDING_PROFILE_VERSION,
     )
@@ -299,6 +300,7 @@ def _apply_evidence_partitions(payload, request, *, source_prose, span_index):
 
 def correct_exact_run_evidence(
     request: WorldbuildingEvidenceCorrectionRequest,
+    *, authorize_write: Callable[[], None] | None = None,
 ) -> ExactRunEvidenceCorrectionResponse:
     """Derive an unpublished, completely qualified child from explicit frozen spans."""
     repo, data, parent, payload, source_prose, span_index = _worldbuilding_parent(request.parent_run_id)
@@ -336,11 +338,13 @@ def correct_exact_run_evidence(
         exists=True,
     )
     try:
-        child = get_extraction_run(repo, child_id)
+        child = get_extraction_run(child_id)
     except GraphRunRegistryError as exc:
         if exc.status_code != 404:
             raise _reject(f"derived run lookup failed: {exc}") from exc
         try:
+            if authorize_write is not None:
+                authorize_write()
             child = create_extraction_run(
                 repo,
                 run_id=child_id,
@@ -355,7 +359,7 @@ def correct_exact_run_evidence(
             )
         except GraphRunRegistryError:
             # An identical concurrent request may have won the create race.
-            child = get_extraction_run(repo, child_id)
+            child = get_extraction_run(child_id)
     if (
         child.lineage != lineage
         or child.components != components
@@ -370,16 +374,20 @@ def correct_exact_run_evidence(
 
     for kind, data in (("candidate_graph", child_bytes),
                        ("source_span_index", data.span_bytes)):
+        if authorize_write is not None:
+            authorize_write()
         persist_component_payload(run_id=child_id, expected_revision=child.revision,
                                   kind=kind, payload=data)
     for _ in range(8):
-        child = get_extraction_run(repo, child_id)
+        child = get_extraction_run(child_id)
         if child.status == ExtractionRunStatus.REVIEWABLE:
             break
         if child.status not in _LIFECYCLE:
             raise _reject("derived run is not in a sealable lifecycle state", status_code=409)
         next_status = _LIFECYCLE[_LIFECYCLE.index(child.status) + 1]
         try:
+            if authorize_write is not None:
+                authorize_write()
             child = update_extraction_run_status(
                 repo, child_id, status=next_status, expected_revision=child.revision
             )
@@ -515,7 +523,7 @@ def correct_recap_run_evidence(
         exists=True,
     )
     try:
-        child = get_extraction_run(repo, child_id)
+        child = get_extraction_run(child_id)
     except GraphRunRegistryError as exc:
         if exc.status_code != 404:
             raise _reject(f"derived run lookup failed: {exc}") from exc
@@ -533,7 +541,7 @@ def correct_recap_run_evidence(
                 lineage=lineage,
             )
         except GraphRunRegistryError:
-            child = get_extraction_run(repo, child_id)
+            child = get_extraction_run(child_id)
     identity_lineage = {
         key: child.lineage.get(key)
         for key in ("derivation", "parent_run_id", "parent_candidate_sha256", "correction_digest")
@@ -583,7 +591,7 @@ def correct_recap_run_evidence(
         persist_component_payload(run_id=child_id, expected_revision=child.revision,
                                   kind=kind, payload=payload_bytes)
     for _ in range(8):
-        child = get_extraction_run(repo, child_id)
+        child = get_extraction_run(child_id)
         if child.status == ExtractionRunStatus.REVIEWABLE:
             break
         if child.status not in _LIFECYCLE:

@@ -7,7 +7,7 @@ const tourImage=vi.hoisted(()=>({generated:vi.fn(),placed:vi.fn()}));
 vi.mock('../guidedTour/ImageObservations',()=>({useTourImage:()=>tourImage}));
 beforeEach(()=>{tourImage.placed.mockClear();});
 const wizard = vi.hoisted(() => ({ props: null as any }));
-vi.mock('./MediaImageWizard', () => ({ MediaImageWizard: (props: any) => { wizard.props = props;return <button onClick={props.onClose}>Close studio</button>; } }));
+vi.mock('./DeferredMediaImageWizard', () => ({ DeferredMediaImageWizard: (props: any) => { wizard.props = props;return <button onClick={props.onClose}>Close studio</button>; } }));
 const image = { asset_id: 'ac6c15cc-8c68-4732-8ae2-d9f3f051393a', state: 'ready' };
 const result = { prompt: 'Multiline prompt\nretained in the library' };
 function setup() {

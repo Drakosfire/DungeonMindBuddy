@@ -25,7 +25,7 @@ from apps.live_control_server.services.graph_authoring_visibility import (
     visibility_policy_visible_to_audience,
 )
 from graph_memory.projection.focus_overlay import GraphFocusOverlay
-from graph_memory.projection.recap_projection import RecapGraphProjection
+from graph_memory.projection.recap_projection_contracts import RecapGraphProjection
 from tests.test_graph_authoring_overlay_models import (
     CAMPAIGN_ID,
     STAMP,

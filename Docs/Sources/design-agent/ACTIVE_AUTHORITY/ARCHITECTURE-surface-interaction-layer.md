@@ -65,11 +65,14 @@ Runtime adapter / agent harness
 
 The Surface Interaction Layer never becomes a second World or source/evidence authority.
 
-The harness is not product architecture. Hermes is the current production
-adapter, PydanticAI is an existing challenger/experiment, and Pi/`pi-agent-core`
-is the preferred next adapter experiment. Those implementations remain
+The harness is not product architecture. Runtime selection is path-dependent:
+the [turn service](https://github.com/Drakosfire/DungeonMindBuddy/blob/main/apps/live_control_server/services/agent_turn_service.py)
+can use an injected runtime, chooses Jev for qualifying Build, Plan or Play
+turns, and otherwise falls back to Hermes. The [Agent context and runtime guide](https://github.com/Drakosfire/DungeonMindBuddy/blob/main/Docs/Guides/GUIDE-agent-context-and-runtime.md)
+routes contributors to the current selector and tests. Adapters remain
 replaceable behind DungeonBuddy's `AgentRuntime`; none owns Surface meaning,
-World authority, product tool semantics, or the Agent trace contract.
+World authority, product tool semantics, or the Agent trace contract. Merged
+selection logic does not establish the runtime deployed in a particular environment.
 
 The historical phrase “Campaign Supergraph / Kernel owns graph writes” is no longer sufficient. Current product code may route through Buddy `WorldGraphAuthority`-family ports, but durable World authority is DungeonMind.
 

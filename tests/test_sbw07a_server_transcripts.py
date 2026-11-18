@@ -7,6 +7,7 @@ tests in MANIFEST.json.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -37,6 +38,14 @@ def _transcript(name: str) -> dict:
     return json.loads((TRANSCRIPT_DIR / f"{name}.json").read_text(encoding="utf-8"))
 
 
+def test_capture_publication_is_complete() -> None:
+    marker = TRANSCRIPT_DIR / ".capture-in-progress"
+    assert not marker.exists(), (
+        f"Interrupted or active statblock capture: {marker}. "
+        "See the recovery steps in the transcript fixture README."
+    )
+
+
 def test_manifest_cites_clean_server_commit_fingerprint_and_fixture_hashes() -> None:
     manifest = json.loads((TRANSCRIPT_DIR / "MANIFEST.json").read_text(encoding="utf-8"))
     assert manifest["schema"] == "sbw07a_server_create_transcript_manifest_v1"
@@ -56,6 +65,22 @@ def test_manifest_cites_clean_server_commit_fingerprint_and_fixture_hashes() -> 
         fixtures["Docs/Design/fixtures/dungeonbuddy-statblock-v1/unknown_resource_pool.json"]
         == "sha256:56293e07c0786a7f751004a3e9b3c6561290bb16cbb55cf26099d94c5b3582d5"
     )
+    expected_leaves = {
+        "create-request.json",
+        "create-response.json",
+        "create-replay-second-response.json",
+        "create-idempotency-conflict.json",
+        "create-conflict-original-response.json",
+        "create-conflict-changed-request.json",
+        "exact-revision-response.json",
+        "create-persistence-validation-failed.json",
+        "create-invalid-request.json",
+    }
+    assert sorted(manifest["leaf_fixtures"]) == sorted(expected_leaves)
+    assert manifest["leaf_fixture_sha256"] == {
+        name: "sha256:" + hashlib.sha256((FIXTURE_DIR / name).read_bytes()).hexdigest()
+        for name in expected_leaves
+    }
     owned = manifest["server_owned_tests"]
     names = set(owned[0]["names"])
     assert "test_create_append_and_exact_replay" in names

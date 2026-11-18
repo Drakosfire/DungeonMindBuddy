@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+from collections.abc import Callable
 
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.extract_promote import (
@@ -123,7 +124,8 @@ def _require_first_world_admission(resolved) -> tuple[str, FirstWorldLineage]:
     except WorldGraphInitializationError as exc:
         raise _initialization_error(exc) from exc
     from apps.live_control_server.services.world_container_registry import get_world_container, NativeGraphProvisioningRecord
-    record = get_world_container(live_config.managed_world_data_root(live_config.repo_root()), world_id)
+    live_config.managed_world_data_root(live_config.repo_root())
+    record = get_world_container(world_id)
     recovering = isinstance(record.native_graph_binding, NativeGraphProvisioningRecord) and probed.initialization_id == target.provisioning_id
     if record.native_graph_binding.status == "active" or (probed.state == "initialized" and not recovering):
         raise ExtractPromoteError(
@@ -206,6 +208,7 @@ def _assert_materialized_evidence_matches_review(materialized, review):
 
 def prepare_first_world(
     request: FirstWorldGraphPrepareRequest,
+    *, authorize_world: Callable[[str], None] | None = None,
 ) -> FirstWorldGraphPlan:
     """Seal an inert first-world initialization plan (no production graph mutation)."""
     try:
@@ -215,6 +218,8 @@ def prepare_first_world(
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
+    if authorize_world is not None:
+        authorize_world(resolved.world_id or "")
     publication_input = _load_worldbuilding_publication_input(
         resolved, allow_gazetteer=False
     )
@@ -411,9 +416,7 @@ def _initialization_request(
     rematerialized,
     resolved,
 ) -> WorldGraphInitializationRequest:
-    artifact = get_source_artifact(
-        live_config.repo_root(), plan.source_artifact_id
-    )
+    artifact = get_source_artifact(plan.source_artifact_id)
     return WorldGraphInitializationRequest(
         world_id=plan.native_target.native_world_id,
         campaign_id=None,
@@ -461,6 +464,7 @@ def _first_world_confirm_receipt(
 
 def confirm_first_world(
     request: FirstWorldGraphConfirmRequest,
+    *, authorize_world: Callable[[str], None] | None = None,
 ) -> FirstWorldGraphConfirmReceipt:
     """Verify a sealed first-world plan and atomically initialize W."""
     plan = request.plan
@@ -498,6 +502,8 @@ def confirm_first_world(
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
+    if authorize_world is not None:
+        authorize_world(resolved.world_id or "")
     publication_input = _load_worldbuilding_publication_input(
         resolved, allow_gazetteer=False
     )
@@ -692,8 +698,9 @@ def confirm_first_world(
     except WorldGraphInitializationError as exc:
         raise _initialization_error(exc) from exc
     from apps.live_control_server.services.world_container_registry import get_world_container
+    live_config.managed_world_data_root(live_config.repo_root())
     current_binding = get_world_container(
-        live_config.managed_world_data_root(live_config.repo_root()), plan.world_id,
+        plan.world_id,
     ).native_graph_binding
     if current_binding.status == "active" and (
         probed.state != "initialized" or probed.initialization_id != target.provisioning_id
@@ -740,6 +747,9 @@ def confirm_first_world(
                 diagnostics=[_diagnostic("first_world_preflight_inexpressible", str(exc))],
                 failure_payload=proof.model_dump(mode="json", by_alias=True),
             ) from exc
+    if authorize_world is not None:
+        authorize_world(resolved_world)
+
     # Anything after this point may have reached initialization. No exception from
     # initialize can be converted into a nonapplication proof.
     try:
@@ -764,8 +774,9 @@ def confirm_first_world(
         activate_reviewed_native_graph, WorldGraphBindingError,
     )
     try:
+        live_config.managed_world_data_root(live_config.repo_root())
         activate_reviewed_native_graph(
-            live_config.managed_world_data_root(live_config.repo_root()), plan.world_id,
+            plan.world_id,
             target=target, receipt=port_receipt,
             plan_id=plan.plan_id, plan_digest=plan.plan_digest,
         )

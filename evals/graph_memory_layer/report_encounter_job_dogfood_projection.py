@@ -11,7 +11,7 @@ from evals.graph_memory_layer.encounter_job_dogfood_fixture import (
     run_glowkindle_encounter_job_dogfood,
 )
 
-DEFAULT_REPORT_PATH = Path("evals/graph_memory_layer/artifacts/encounter_job_dogfood_projection/c1s1_glowkindle_fixture_report.md")
+DEFAULT_REPORT_PATH = Path("out/graph_memory/encounter_job_dogfood_projection/c1s1_glowkindle_fixture_report.md")
 
 
 def _node_lines(nodes: list[dict[str, Any]]) -> list[str]:

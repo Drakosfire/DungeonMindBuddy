@@ -1,3 +1,5 @@
+import "../tiptap/pageComposer/apiPresentation";
+import { presentationFingerprint } from "../tiptap/pageComposer/presentation";
 import type { WorkspaceDocumentSnapshot } from "../api/types";
 import type { WorkspaceDocumentLocalState } from "../tiptap/state/tiptapLocalState";
 
@@ -23,6 +25,7 @@ function baseMatchesSnapshot(
   return (
     localState.base_revision === snapshot.loaded_revision
     && localState.base_content_sha256 === snapshot.content_sha256
+    && (localState.base_page_presentation_sha256 ?? null) === (snapshot.page_presentation_sha256 ?? null)
   );
 }
 
@@ -69,6 +72,8 @@ export function reconcileLocalDraft(
       if (
         localState.exported_markdown === snapshot.markdown
         && !localState.exported_markdown_authoritative
+        && !localState.page_presentation_pending
+        && presentationFingerprint(localState.page_presentation ?? null) === presentationFingerprint(snapshot.page_presentation ?? null)
       ) {
         return {
           kind: "clean-match",

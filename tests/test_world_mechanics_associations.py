@@ -27,9 +27,13 @@ FIXTURES=Path(__file__).parent/'fixtures/statblocks/v1'
 
 
 @pytest.fixture
-def prepared(application_state_dsn,monkeypatch,tmp_path):
+def prepared(application_state_dsn,monkeypatch,tmp_path,request):
     def fixture(name):return json.loads((FIXTURES/name).read_text())
     definition=fixture('create-request.json')['definition']
+    if getattr(request, "param", None) == "unspecified-source":
+        definition["ruleset"] = None
+        definition["movement"] = None
+        definition["challenge"]["proficiency_bonus"] = None
     digest=source_definition_digest_from_body(definition)
     exact=fixture('exact-revision-response.json')
     exact.update(definition=definition,canonical_definition=canonicalize_definition_dict(definition),definition_digest=digest)
@@ -71,9 +75,13 @@ def prepared(application_state_dsn,monkeypatch,tmp_path):
     monkeypatch.setattr(routes,'resolve_managed_world_binding',lambda world:binding)
     monkeypatch.setenv('DMB_AUTH_MODE','local_operator')
     monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT','development')
+    token = 'test-local-operator-credential-' + ('x' * 32)
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'development')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN', token)
     app=create_app();app.dependency_overrides[native_graph_gm_dependency]=lambda:NativeGraphPrincipal('gm-test','gm','local_operator')
     body=dict(request_id=str(uuid4()),draft_id=draft.draft_id,expected_draft_version=draft.version,target=target,expected_version=0,locator=draft.accepted_mechanics_ref.to_mechanics_locator().model_dump(mode="json"))
-    return SimpleNamespace(client=TestClient(app,client=('127.0.0.1',50000)),app=app,body=body,dms=dms,view=view,binding=binding,root=tmp_path,draft=draft,revision=revision)
+    return SimpleNamespace(client=TestClient(app,client=('127.0.0.1',50000),headers={'Authorization': f'Bearer {token}'}),app=app,body=body,dms=dms,view=view,binding=binding,root=tmp_path,draft=draft,revision=revision)
 
 
 def post(p,body=None):return p.client.post('/api/live/world-mechanics/associations?world_id=elderwyld',json=body or p.body)
@@ -86,12 +94,16 @@ def test_http_exact_proof_append_replay_and_reopen(prepared,monkeypatch):
     assert record['proof']['revision_operation_id'] is None
     assert record['request']['expected_draft_version']==2
     assert record['proof']['origin_acceptance_operation_id']
-    assert record['actor']=='gm-test' and p.dms.calls==1
+    assert record['actor']=='local_operator' and p.dms.calls==1
     monkeypatch.setattr(saved_revision,'get_threat_draft',lambda *a:pytest.fail('Replay read external state'))
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(p.root/'unavailable'))
     replay=post(p);assert replay.json()=={'association':record,'replayed':True}
     assert p.dms.calls==1
-    listed=p.client.get('/api/live/world-mechanics/associations?world_id=elderwyld')
+    path = '/api/live/world-mechanics/associations?world_id=elderwyld'
+    authorization = p.client.headers.pop('Authorization')
+    assert p.client.get(path).status_code == 401
+    p.client.headers['Authorization'] = authorization
+    listed = p.client.get(path)
     assert listed.json()==[record]
     changed={**p.body,'expected_draft_version':3}
     assert post(p,changed).status_code==409
@@ -211,3 +223,18 @@ def test_read_only_request_lookup_is_exact_and_world_scoped(prepared,monkeypatch
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT','development')
     monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN','a'*40)
     assert p.client.get(path+'?world_id=elderwyld').status_code==401
+
+
+def test_association_target_survives_only_graph_revision_change():
+    target = WorldMechanicsTarget(
+        managed_world_id="elderwyld", native_world_id="space:elderwyld",
+        binding_version=1, graph_revision_id="rev:old", node_id="creature:one",
+        label="Creature", kind="npc", role="", campaign_scope="campaign-c2",
+    )
+    current = target.model_copy(update={"graph_revision_id": "rev:new"})
+    assert target.matches_association_target(current)
+    for field, changed in (
+        ("binding_version", 2), ("node_id", "creature:other"),
+        ("campaign_scope", None), ("kind", "monster"), ("label", "Other creature"),
+    ):
+        assert not target.matches_association_target(current.model_copy(update={field: changed}))

@@ -279,7 +279,7 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
                 kind="plan",
                 expected_world_id=self.turn.basis.world_id,
             )
-            binding = get_world_container(self.root, self.turn.basis.world_id).native_graph_binding
+            binding = get_world_container(self.turn.basis.world_id).native_graph_binding
             if (
                 committed.object_revision != self.turn.basis.object_revision
                 or committed.work_revision_id != str(self.turn.basis.work_revision_id)

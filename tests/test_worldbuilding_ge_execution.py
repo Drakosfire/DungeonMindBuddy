@@ -242,10 +242,10 @@ def test_real_ge_service_composition_tracks_conformance_and_fails_closed(
         get_extraction_run,
         get_reviewable_extraction_run,
     )
-    from src.graph_memory.extraction.bounded_recap_execution import (
+    from graph_memory.extraction.bounded_recap_execution import (
         BoundedRecapPassClient,
     )
-    from src.graph_memory.ingestion.extraction_run import ExtractionRunStatus
+    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
 
     committed, artifact = _registered_source(tmp_path)
     provider_calls = multiprocessing.get_context("spawn").Value("i", 0)
@@ -328,7 +328,7 @@ def test_real_ge_service_composition_tracks_conformance_and_fails_closed(
     if fail_retention:
         from application_state.ingest.components import list_private_execution_events
         root = service.artifact_data_root(tmp_path)
-        incomplete = get_extraction_run(root, original.run.run_id)
+        incomplete = get_extraction_run(original.run.run_id)
         assert incomplete.status == ExtractionRunStatus.INCOMPLETE
         assert incomplete.lineage["execution_evidence_state"] == "needs_reconciliation"
         assert "execution_evidence_retention_failed" in incomplete.diagnostics.errors
@@ -358,7 +358,7 @@ def test_unknown_profile_rejects_before_source_or_provider_work(tmp_path, monkey
 @pytest.mark.usefixtures("application_state_dsn")
 def test_registered_source_owner_preserves_explicit_target_in_request(tmp_path, monkeypatch, provider, model):
     from apps.live_control_server.services import worldbuilding_ge_execution as service
-    from src.graph_memory.extraction.bounded_recap_execution import RecapExecutionLimits
+    from graph_memory.extraction.bounded_recap_execution import RecapExecutionLimits
     committed, artifact = _registered_source(tmp_path)
     captured = []
     _FakeBoundedClient.instances.clear()

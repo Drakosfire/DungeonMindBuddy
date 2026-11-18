@@ -18,7 +18,7 @@ from tests.test_managed_world_graph_projection import _native_projection, _recor
 
 
 def _without_corpus(root: Path, *, active: bool = False, relocated_hint: bool = False):
-    record = create_world_container(root, name="The Glass Orchard")
+    record = create_world_container(name="The Glass Orchard")
     if active:
         record = _record_with_binding(record)
     if relocated_hint:

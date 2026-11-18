@@ -661,7 +661,7 @@ def _grade_er5(
 
     # Lazy import so the grader works in environments without pydantic at
     # import time (the runner pulls it in regardless).
-    from src.contracts.npc_registry import NpcRegistryRecord  # noqa: WPS433
+    from contracts.npc_registry import NpcRegistryRecord  # noqa: WPS433
 
     registry_keys = (
         "slug",

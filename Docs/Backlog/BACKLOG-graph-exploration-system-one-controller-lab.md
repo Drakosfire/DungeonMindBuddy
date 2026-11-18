@@ -1,7 +1,7 @@
 ---
 document_id: dmb-backlog-graph-exploration-system-one-controller-lab
 title: Graph Exploration Controller Lab — Oracle Traces to System One Policy
-status: backlog
+status: historical
 document_class: research_proposal
 created_at: "2026-09-26"
 authority: none
@@ -16,9 +16,7 @@ promotion_gate: Re-anchor and decompose into independently useful capabilities b
 
 ## Status
 
-BACKLOG / RESEARCH PROPOSAL. This is not architecture authority, roadmap authority, or an implementation sequence.
-
-This proposal extends the existing Agent graph-query benchmark. It does not replace that benchmark and does not create a second status owner. Promotion requires re-anchoring against current main, including the post-CUTOVER DungeonMind/Buddy authority boundary.
+HISTORICAL RESEARCH PROPOSAL. The proposed new exploration environment is not the next step. The [root backlog](../../Backlog.md#deferred-compare-retrieval-controllers-using-existing-native-actions) owns the deferred controller comparison: test one ordinary request over the same existing native actions and [benchmark assessment](../../evals/buddy_benchmark/) only if independent evidence identifies a controller bottleneck. Preserve this document’s trace, cost, and failure-taxonomy ideas as research input, not an implementation sequence.
 
 ## 1. Idea in one sentence
 

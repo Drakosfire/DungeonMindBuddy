@@ -5,7 +5,7 @@ from pathlib import Path
 
 from evals.graph_memory_layer.mirathorn_city_candidate_graph_gold_fixture import *
 from evals.graph_memory_layer.mirathorn_city_world_doc_fixture import load_source_doc
-from src.graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
+from graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
 
 
 def test_manifest():
@@ -19,7 +19,7 @@ def test_manifest():
     assert m["source_fixture_id"] == "graph-memory:mirathorn-city-world-doc:v0"
     for k in ("source_manifest_path", "source_span_seed_refs_path", "candidate_graph_gold_path"):
         assert not Path(m[k]).is_absolute() and ".." not in Path(m[k]).parts
-    assert m["candidate_graph_gold_path"] == GOLD_GRAPH_PATH
+    assert m["candidate_graph_gold_path"] == LEGACY_GOLD_GRAPH_PATH
     assert all(v is False for k, v in m["diagnostics"].items() if k != "manual_gold_fixture")
 
 

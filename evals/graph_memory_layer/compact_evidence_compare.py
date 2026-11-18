@@ -16,8 +16,8 @@ import tempfile
 
 
 def paired_replay(*, source: str, index: dict, events: list, baseline_ref: str) -> tuple[dict, dict]:
-    from src.graph_memory.extraction import category_candidate_graph_extractor as current
-    from src.graph_memory.extraction.recap_quote_integrity import validate_and_defer_nonliteral_recap_items
+    from graph_memory.extraction import category_candidate_graph_extractor as current
+    from graph_memory.extraction.recap_quote_integrity import validate_and_defer_nonliteral_recap_items
     sha = hashlib.sha256(source.encode()).hexdigest()
     assert index['content_sha256'] == sha
     outputs, request_hashes = {}, {}
@@ -38,8 +38,8 @@ def paired_replay(*, source: str, index: dict, events: list, baseline_ref: str) 
         file = Path(folder)/'baseline_extractor.py'; file.write_text(old_source)
         spec = importlib.util.spec_from_file_location('_compact_baseline_extractor',file)
         old = importlib.util.module_from_spec(spec);sys.modules[spec.name]=old;spec.loader.exec_module(old)
-        from src.graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
-        from src.graph_memory.extraction.recap_source_authority import partition_recap_source_rows
+        from graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
+        from graph_memory.extraction.recap_source_authority import partition_recap_source_rows
         source_rows = current.source_packet_rows_from_span_index(index, source_text=source)
         admitted, _, _ = partition_recap_source_rows(source_rows, source)
         context = CompactEvidenceContext(admitted, source_sha256=sha)

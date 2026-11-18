@@ -61,7 +61,7 @@ def test_mounted_selection_route_with_all_files_removed(monkeypatch, tmp_path):
             assert body["permissions"] == {"graph_write": False, "candidate_write": False, "provider_call": False}
             assert body["scope"]["admitted_world_facts_included"] is False
     asyncio.run(exercise())
-    assert registry.get_extraction_run(tmp_path, run.run_id) == run
+    assert registry.get_extraction_run(run.run_id) == run
 
 
 @pytest.mark.parametrize("kind", ["candidate_graph", "source_span_index"])
@@ -76,4 +76,4 @@ def test_selection_rejects_bad_stored_output_despite_file_mirrors(monkeypatch, t
     with pytest.raises(ExtractPromoteError) as error:
         selection.resolve_ingest_selection_context(run.run_id, request, operator_subject="synthetic:operator")
     assert error.value.status_code == (409 if violation == "missing" else 500)
-    assert registry.get_extraction_run(tmp_path, run.run_id) == run
+    assert registry.get_extraction_run(run.run_id) == run

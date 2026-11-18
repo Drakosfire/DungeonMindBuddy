@@ -19,9 +19,9 @@ REPO_ROOT = PROJECT_ROOT.parent
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.ingestion.chunker import chunk_document  # noqa: E402
-from src.ingestion.entity_extractor import OpenAIResponsesEntityClient, run_entity_extraction  # noqa: E402
-from src.store import FactStore  # noqa: E402
+from ingestion.chunker import chunk_document  # noqa: E402
+from ingestion.entity_extractor import OpenAIResponsesEntityClient, run_entity_extraction  # noqa: E402
+from store import FactStore  # noqa: E402
 
 MIRATHORN_SOURCE = PROJECT_ROOT / Path(
     "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/"

@@ -297,7 +297,7 @@ def _embedding_rerank_evidence_hits(
     if not ranked_hits:
         return ranked_hits
     try:
-        from evals.mirathorn_vertical_slice.embedding_scorer import (
+        from src.agent.retrieval_embeddings import (
             embed_texts,
             embedding_available,
             load_embedding_model,

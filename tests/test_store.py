@@ -4,7 +4,7 @@ from pathlib import Path
 
 import blake3
 
-from src.store import FactStore
+from store import FactStore
 
 
 def _base_record() -> dict[str, str]:

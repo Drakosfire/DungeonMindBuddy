@@ -12,7 +12,7 @@ from apps.live_control_server.models.world_graph_contribution_models import (
     GraphContributionAssertion,
 )
 
-from src.graph_memory.extraction.worldbuilding_profile_catalog import (
+from graph_memory.extraction.worldbuilding_profile_catalog import (
     PUBLISHABLE_WORLDBUILDING_PROFILES,
 )
 

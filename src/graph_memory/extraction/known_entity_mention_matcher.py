@@ -10,11 +10,11 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from src.graph_memory.extraction.known_entity_mention_schema import (
+from graph_memory.extraction.known_entity_mention_schema import (
     KnownEntityMention,
     KnownEntityMentionSidecar,
 )
-from src.graph_memory.extraction.known_entity_registry import (
+from graph_memory.extraction.known_entity_registry import (
     KnownEntity,
     KnownEntityRegistry,
     normalize_match_surface,

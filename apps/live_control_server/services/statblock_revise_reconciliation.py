@@ -36,7 +36,7 @@ from apps.live_control_server.services.threat_draft_store import (
     _require_committed_draft_id,
     _store_lock,
 )
-from src.live_play.live_store import load_json, write_json
+from live_store import load_json, write_json
 
 DEFAULT_REVISE_REL = "out/statblock_revise_operations"
 LOCK_NAME = ".revise.lock"

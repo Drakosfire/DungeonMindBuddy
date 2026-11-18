@@ -180,6 +180,9 @@ uv run pytest -q \
 uv run ruff check <allowlist paths>
 ```
 
+Historical bootstrap coverage lives in the [pinned CLI test](https://github.com/Drakosfire/DungeonMindBuddy/blob/835c781b09d261708ed13308884c4ed269d228cd/tests/test_activate_eldyrwild_world_bootstrap_cli.py) and [its wrapper](https://github.com/Drakosfire/DungeonMindBuddy/blob/835c781b09d261708ed13308884c4ed269d228cd/scripts/activate_eldyrwild_world_bootstrap.py). Run that test from the pinned checkout.
+
+
 ### §14.5 smoke
 
 Activate Eldyrwild into `mktemp` root, project with `queryText: positional controller`,

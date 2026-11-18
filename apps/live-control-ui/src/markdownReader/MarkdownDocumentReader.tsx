@@ -36,6 +36,8 @@ export interface MarkdownSourceLineTarget {
 export interface MarkdownDocumentReaderProps {
   /** Exact saved Markdown (may include leading YAML frontmatter). */
   markdown: string;
+  /** Parsed body of the same source, with leading frontmatter removed. */
+  parsedBody?: ReturnType<typeof parseMarkdownAst>;
   className?: string;
   /** Hide canonical standalone Buddy structure comments in presentation only. */
   hidePlayableMarkers?: boolean;
@@ -531,6 +533,7 @@ function renderNode(node: RootContent | Content | PhrasingContent, ctx: RenderCo
  */
 export function MarkdownDocumentReader({
   markdown,
+  parsedBody,
   className,
   sourceLineTarget = null,
   hidePlayableMarkers = false,
@@ -538,11 +541,11 @@ export function MarkdownDocumentReader({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrolledTargetKeyRef = useRef<string | null>(null);
 
-  const bodyMarkdown = useMemo(
-    () => stripLeadingYamlFrontmatter(markdown).markdown,
-    [markdown],
+  const bodyMarkdown = useMemo(() => stripLeadingYamlFrontmatter(markdown).markdown, [markdown]);
+  const ast = useMemo(
+    () => parsedBody ?? parseMarkdownAst(bodyMarkdown),
+    [bodyMarkdown, parsedBody],
   );
-  const ast = useMemo(() => parseMarkdownAst(bodyMarkdown), [bodyMarkdown]);
   const definitions = useMemo(() => collectDefinitions(ast), [ast]);
   const highlightKeys = useMemo(
     () => resolveHighlightKeys(ast, markdown, sourceLineTarget),

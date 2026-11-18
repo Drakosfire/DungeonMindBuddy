@@ -35,3 +35,9 @@ PYTHONPATH=/tmp/dms-clean /path/to/DungeonMindServer/.venv/bin/python \
 Buddy client tests must replay these recorded response bodies. They must not
 invent Server idempotency or terminality by returning an unconditional success
 fixture.
+
+The capture stages files before replacing the destination files and publishes
+the manifest last. If `.capture-in-progress` is present, treat the fixture
+set as incomplete. Confirm the capture process has stopped, restore the prior
+fixture set from its known Git revision or saved copy, then remove the marker
+and rerun. For scratch captures, rerun into a new directory.

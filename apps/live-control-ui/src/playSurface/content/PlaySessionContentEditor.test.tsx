@@ -14,6 +14,21 @@ import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfac
 import { PlaySurfaceContext } from "../components/PlaySurfaceContext";
 import * as liveApi from "../../api/liveApi";
 
+const loads = vi.hoisted(() => ({ failVisual: false, image: 0 }));
+vi.mock("../../ui/deferredComponent", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../ui/deferredComponent")>();
+  const deferredComponent: typeof actual.deferredComponent = (load, label) =>
+    actual.deferredComponent(async () => {
+      if (label === "Image Studio") loads.image++;
+      if (label === "visual editor" && loads.failVisual) {
+        loads.failVisual = false;
+        throw new Error("Synthetic visual editor load failure");
+      }
+      return load();
+    }, label);
+  return { deferredComponent };
+});
+
 const mediaWizardCapture = vi.hoisted(() => ({ props: null as any }));
 vi.mock("../../media/MediaImageWizard", () => ({ MediaImageWizard: (props: any) => { mediaWizardCapture.props = props; return <div aria-label="Synthetic Image Studio" />; } }));
 afterEach(() => vi.restoreAllMocks());
@@ -40,6 +55,29 @@ beforeEach(async () => {
 });
 
 describe("Play session-copy editor", () => {
+  it("recovers a failed visual tool load without losing pending Markdown", async () => {
+    const user = userEvent.setup();
+    loads.failVisual = true;
+    loads.image = 0;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<PlaySessionContentEditor content={content} currentSceneId="scene:gate" originLabel="Saved Plan" onAcceptedContent={vi.fn()} onUnsubmittedChange={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Edit session" }));
+    const retry = await screen.findByRole("button", { name: "Retry visual editor" });
+    await user.click(retry);
+    await screen.findByRole("heading", { name: "Gate" });
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    const source = await screen.findByRole("textbox", { name: "Session copy Markdown" });
+    const draft = "# Gate\n\nPending prose.";
+    fireEvent.change(source, { target: { value: draft } });
+    loads.failVisual = true;
+    await user.click(screen.getByRole("button", { name: "Visual", exact: true }));
+    await user.click(await screen.findByRole("button", { name: "Retry visual editor" }));
+    await screen.findByRole("heading", { name: "Gate" });
+    await user.click(screen.getByRole("button", { name: "Markdown" }));
+    expect(screen.getByRole("textbox", { name: "Session copy Markdown" })).toHaveValue(draft);
+    expect(loads.image).toBe(0);
+  });
+
   it("keeps an editor draft mounted while shared surface controls toggle", async () => {
     function Harness() {
       const [panelOpen, setPanelOpen] = useState(false);
@@ -137,7 +175,7 @@ describe("Play session-copy editor", () => {
     const user = userEvent.setup();
     render(<PlaySessionContentEditor content={marked} currentSceneId="scene:gate" originLabel="Saved Plan" onAcceptedContent={vi.fn()} onUnsubmittedChange={vi.fn()} />);
     await user.click(screen.getByRole("button", { name: "Edit session" }));
-    const heading = screen.getByRole("heading", { name: "Gate" });
+    const heading = await screen.findByRole("heading", { name: "Gate" });
     const scroll = vi.fn();
     heading.scrollIntoView = scroll;
     await user.click(screen.getByRole("button", { name: "Go to current scene" }));

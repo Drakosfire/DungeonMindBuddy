@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from src.npc_statblock_pipeline.canonical_intent import IntentClassification, classify_intent
+from npc_statblock_pipeline.canonical_intent import IntentClassification, classify_intent
 
 # Cursor skill folder under ``.cursor/skills/<id>/SKILL.md`` in this repo.
 NPC_POWER_INCREASE_SKILL_ID = "npc-power-increase"

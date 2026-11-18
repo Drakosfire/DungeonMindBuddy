@@ -13,7 +13,7 @@ It is designed to be lifted into its own project: only ``contracts``,
 this repo should be imported from here.
 """
 
-from src.token_resolution.contracts import (
+from .contracts import (
     LEXICON_SCHEMA_V1,
     LEXICON_VERSION,
     RESOLVED_TOKENS_SCHEMA_V1,
@@ -26,7 +26,7 @@ from src.token_resolution.contracts import (
     ResolvedTokens,
     ScenarioOverrides,
 )
-from src.token_resolution.defaults import default_generic_defaults
+from .defaults import default_generic_defaults
 
 __all__ = [
     "LEXICON_SCHEMA_V1",

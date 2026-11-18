@@ -95,7 +95,8 @@ def git(repo, *args):
 
 
 def digest(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    with Path(path).open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
 @contextmanager
@@ -188,8 +189,12 @@ def stop_group(pgid):
         raise RuntimeError(f"owned process group {pgid} failed to stop")
 
 
+COMMAND_TIMEOUT_SECONDS = 1800
+
+
 def command(argv, cwd, log, env):
     started = time.monotonic()
+    timeout = None
     with Path(log).open("w") as stream:
         proc = subprocess.Popen(
             argv,
@@ -200,7 +205,10 @@ def command(argv, cwd, log, env):
             start_new_session=True,
         )
         try:
-            code = proc.wait(timeout=1800)
+            code = proc.wait(timeout=COMMAND_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired as exc:
+            timeout = exc.timeout
+            code = 1
         finally:
             stop_group(proc.pid)
             proc.wait(timeout=10)
@@ -209,34 +217,51 @@ def command(argv, cwd, log, env):
         "exit_code": code,
         "elapsed_seconds": round(time.monotonic() - started, 3),
         "log": Path(log).name,
+        **({"timeout_seconds": timeout} if timeout is not None else {}),
     }
 
 
-def frontend_plan(catalog, suite):
+def verified_command(report, argv, cwd, log, env):
+    step = command(argv, cwd, log, env)
+    if "timeout_seconds" in step:
+        report["timed_out_step"] = step
+        raise subprocess.TimeoutExpired(argv, step["timeout_seconds"])
+    return step
+
+
+def frontend_plan(catalog, suite, *, repo=None, sha=None):
     steps = catalog["contracts"]["hosted-frontend"]["steps"]
     if catalog["version"] != 1 or any(
         step["cwd"] != "apps/live-control-ui" for step in steps
     ):
         raise ValueError("unsupported frontend contract")
-    install = [step["argv"] for step in steps if step["argv"] == ["npm", "ci"]]
-    build = [step["argv"] for step in steps if step["argv"] == ["npm", "run", "build"]]
-    tests = [
-        step["argv"] for step in steps if step["argv"][:3] == ["npm", "test", "--"]
-    ]
+    commands = [step["argv"] for step in steps]
+    tests = commands[1:-1]
     if (
-        len(install) != 1
-        or len(build) != 1
-        or len(tests) + 2 != len(steps)
-        or not tests
+        not tests
+        or commands[0] != ["npm", "ci"]
+        or commands[-1] != ["npm", "run", "build"]
+        or any(command[:3] != ["npm", "test", "--"] for command in tests)
     ):
         raise ValueError(
-            "unclassified shared frontend command; update the verifier before running"
+            "unclassified or misordered shared frontend command; "
+            "expected install, tests, then build"
         )
+    if repo is not None:
+        entries = git(repo, "ls-tree", "-r", "-t", "--name-only", sha, "--", "apps/live-control-ui")
+        tracked = set(entries.splitlines())
+        for command in tests:
+            selectors = [arg for arg in command[3:] if arg.startswith("src/")]
+            if not selectors:
+                raise ValueError("shared frontend test command has no source selector")
+            for selector in selectors:
+                if f"apps/live-control-ui/{selector.rstrip('/')}" not in tracked:
+                    raise ValueError(f"missing pinned frontend test selector: {selector}")
     # Default discovery uses the SAME npm test script, without hosted allowlist filters.
     return (
-        install[0],
-        ([["npm", "test", "--"]] if suite == "discovered" else tests),
-        build[0],
+        commands[0],
+        [["npm", "test", "--"]] if suite == "discovered" else tests,
+        commands[-1],
     )
 
 
@@ -246,20 +271,10 @@ def inventory_keys(items, frontend):
     )
 
 
-def result_keys(result, frontend):
-    return Counter(
-        (
-            str(Path(file["name"]).relative_to(frontend)),
-            " > ".join([*case["ancestorTitles"], case["title"]]),
-        )
-        for file in result["testResults"]
-        for case in file["assertionResults"]
-    )
-
-
 def case_parity(expected, result, frontend, argv):
-    actual = result_keys(result, frontend)
+    actual = Counter()
     skipped = Counter()
+    passed = Counter()
     failed = 0
     for file in result["testResults"]:
         for case in file["assertionResults"]:
@@ -267,8 +282,11 @@ def case_parity(expected, result, frontend, argv):
                 str(Path(file["name"]).relative_to(frontend)),
                 " > ".join([*case["ancestorTitles"], case["title"]]),
             )
+            actual[key] += 1
             if case["status"] in {"skipped", "pending", "todo"}:
                 skipped[key] += 1
+            if case["status"] == "passed":
+                passed[key] += 1
             if case["status"] == "failed":
                 failed += 1
     extra = actual - expected
@@ -287,6 +305,8 @@ def case_parity(expected, result, frontend, argv):
         and (not extra or allowed),
         "reported_unselected_skips": sum(extra.values()) if allowed else 0,
         "failed_cases": failed,
+        "selected_passed_cases": sum((expected & passed).values()),
+        "selected_skipped_cases": sum((expected & skipped).values()),
     }
 
 
@@ -299,15 +319,23 @@ def validate(report_path, expected_sha, suite, max_age=86400):
         or report["suite"] != suite
     ):
         raise ValueError("stale or mismatched source/suite evidence")
-    receipt_path = path.parent / "run-receipt.json"
-    if report["artifacts"].get(receipt_path.name) != digest(receipt_path) or json.loads(
-        receipt_path.read_text()
-    ) != {key: value for key, value in report.items() if key != "artifacts"}:
-        raise ValueError("run receipt/source provenance mismatch")
-    provenance_path = path.parent / "source-provenance.json"
-    if report["artifacts"].get(provenance_path.name) != digest(provenance_path):
-        raise ValueError("unbound source provenance")
-    provenance = json.loads(provenance_path.read_text())
+    checked = set()
+
+    def read_artifact(name, error):
+        if Path(name).name != name or name not in report["artifacts"]:
+            raise ValueError(error)
+        data = (path.parent / name).read_bytes()
+        if hashlib.sha256(data).hexdigest() != report["artifacts"][name]:
+            raise ValueError(error)
+        checked.add(name)
+        return json.loads(data.decode("utf-8"))
+
+    receipt_error = "run receipt/source provenance mismatch"
+    if read_artifact("run-receipt.json", receipt_error) != {
+        key: value for key, value in report.items() if key != "artifacts"
+    }:
+        raise ValueError(receipt_error)
+    provenance = read_artifact("source-provenance.json", "unbound source provenance")
     if (
         provenance["sha"],
         provenance["suite"],
@@ -339,7 +367,9 @@ def validate(report_path, expected_sha, suite, max_age=86400):
         or hashlib.sha256(raw_lock).hexdigest() != report["package_lock_sha256"]
     ):
         raise ValueError("source contract/lockfile mismatch")
-    install, planned_tests, build = frontend_plan(json.loads(raw_catalog), suite)
+    install, planned_tests, build = frontend_plan(
+        json.loads(raw_catalog), suite, repo=ROOT, sha=expected_sha
+    )
     if len(planned_tests) != len(report["tests"]) or report["build"]["argv"] != build:
         raise ValueError("source command plan mismatch")
     workers = [f"--maxWorkers={report['workers']}", f"--minWorkers={report['workers']}"]
@@ -389,22 +419,15 @@ def validate(report_path, expected_sha, suite, max_age=86400):
         or report["build"]["exit_code"] != 0
     ):
         raise ValueError("test/build failure")
-    for name, expected in report["artifacts"].items():
-        if Path(name).name != name or digest(path.parent / name) != expected:
-            raise ValueError("missing or mismatched evidence artifact")
     frontend = Path(report["source_frontend_path"])
     for step in report["tests"]:
-        names = [step["inventory_file"], step["results_file"]]
-        if any(
-            Path(name).name != name or name not in report["artifacts"] for name in names
-        ):
-            raise ValueError("unbound test evidence")
         expected = inventory_keys(
-            json.loads((path.parent / names[0]).read_text()), frontend
+            read_artifact(step["inventory_file"], "missing or mismatched evidence artifact"),
+            frontend,
         )
         parity = case_parity(
             expected,
-            json.loads((path.parent / names[1]).read_text()),
+            read_artifact(step["results_file"], "missing or mismatched evidence artifact"),
             frontend,
             step["argv"],
         )
@@ -415,6 +438,11 @@ def validate(report_path, expected_sha, suite, max_age=86400):
             or sum(expected.values()) != step["discovered_cases"]
         ):
             raise ValueError("discovery/result mismatch")
+    for name, expected in report["artifacts"].items():
+        if name not in checked and (
+            Path(name).name != name or digest(path.parent / name) != expected
+        ):
+            raise ValueError("missing or mismatched evidence artifact")
     return report
 
 
@@ -424,8 +452,20 @@ def source_boundary(source, expected_sha, report, label):
     report.setdefault("source_boundaries", []).append(
         {"boundary": label, "sha": actual, "dirty": dirty}
     )
+    if label == "checkout":
+        report["source_dirty_before"] = dirty
     if actual != expected_sha or dirty:
         raise ValueError(f"exact source changed during {label}")
+
+
+SPARSE_FRONTEND_PATHS = (
+    "apps/live-control-ui",
+    "ci",
+    "tests/fixtures",
+    "evals/document_extraction_gold",
+    "evals/c2_live_prep/mireward-prep",
+    "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep",
+)
 
 
 def verify(args):
@@ -437,8 +477,10 @@ def verify(args):
         raise ValueError("a full existing commit SHA is required")
     workspace_root, out, workspace_uuid = allocation_paths(args, repo)
     out.mkdir(parents=True, exist_ok=False)
+    sparse = getattr(args, "sparse_checkout", False)
     report = {
         "version": 1,
+        "sparse_checkout": sparse,
         "verified_sha": args.sha,
         "workspace_root": str(workspace_root),
         "workspace_uuid": workspace_uuid,
@@ -511,17 +553,18 @@ def verify(args):
                             "worktree",
                             "add",
                             "--detach",
+                            *(["--no-checkout"] if sparse else []),
                             str(source),
                             args.sha,
                         ],
                         check=True,
                         env=env,
                     )
+                    if sparse:
+                        git(source, "sparse-checkout", "set", "--cone", *SPARSE_FRONTEND_PATHS)
+                        git(source, "reset", "--hard", args.sha)
                     frontend = source / "apps/live-control-ui"
                     report["source_frontend_path"] = str(frontend)
-                    report["source_dirty_before"] = bool(
-                        git(source, "status", "--porcelain")
-                    )
                     source_boundary(source, args.sha, report, "checkout")
                     report["package_lock_sha256"] = digest(
                         frontend / "package-lock.json"
@@ -530,6 +573,8 @@ def verify(args):
                     install, tests, build = frontend_plan(
                         json.loads((source / "ci/contracts.json").read_text()),
                         args.suite,
+                        repo=repo,
+                        sha=args.sha,
                     )
                     (out / "source-provenance.json").write_text(
                         json.dumps(
@@ -547,7 +592,8 @@ def verify(args):
                     )
                     for name in ("npm-user-config", "npm-global-config"):
                         (out / name).write_text("")
-                    report["install"] = command(
+                    report["install"] = verified_command(
+                        report,
                         [
                             *install,
                             f"--userconfig={out / 'npm-user-config'}",
@@ -570,7 +616,8 @@ def verify(args):
                     for index, test in enumerate(tests):
                         selected = test[3:]
                         inventory = out / f"inventory-{index}.json"
-                        listing = command(
+                        listing = verified_command(
+                            report,
                             [
                                 "node",
                                 "node_modules/vitest/vitest.mjs",
@@ -595,7 +642,8 @@ def verify(args):
                         except (ValueError, KeyError):
                             keys = Counter()
                         result_path = out / f"results-{index}.json"
-                        result = command(
+                        result = verified_command(
+                            report,
                             [
                                 *test,
                                 *worker_args,
@@ -619,11 +667,22 @@ def verify(args):
                                     result["argv"],
                                 )
                             )
-                        except (OSError, ValueError, KeyError):
+                        except (OSError, ValueError, KeyError, TypeError) as exc:
                             result["collection_parity"] = False
+                            if isinstance(exc, FileNotFoundError):
+                                reason = "missing"
+                            elif isinstance(exc, OSError):
+                                reason = "unreadable"
+                            elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError)):
+                                reason = "invalid JSON"
+                            else:
+                                reason = "unexpected report structure"
+                            result["results_error"] = reason
                         report["tests"].append(result)
                     # Even assertion failures must not suppress build/type evidence.
-                    report["build"] = command(build, frontend, out / "build.log", env)
+                    report["build"] = verified_command(
+                        report, build, frontend, out / "build.log", env
+                    )
                     source_boundary(source, args.sha, report, "build")
                     report["build_exit_code"] = report["build"]["exit_code"]
                     report["test_exit_code"] = next(
@@ -652,34 +711,36 @@ def verify(args):
                         report["runner_dirty"]
                         or report["source_dirty_before"]
                         or report["source_dirty_after"]
-                        or any(
-                            step["exit_code"]
-                            or not step["collection_parity"]
-                            or step.get("failed_cases", 0)
-                            for step in report["tests"]
-                        )
-                        or report["build"]["exit_code"] != 0
+                        or report["test_exit_code"] != 0
+                        or report["build_exit_code"] != 0
                     )
                 finally:
                     if source.exists():
-                        report["source_sha_after"] = git(source, "rev-parse", "HEAD")
-                        report["source_dirty_after"] = bool(
-                            git(source, "status", "--porcelain")
-                        )
-                        subprocess.run(
-                            [
-                                "git",
-                                "-C",
-                                str(repo),
-                                "worktree",
-                                "remove",
-                                "--force",
-                                str(source),
-                            ],
-                            check=True,
-                            env=env,
-                        )
-                    report["cleanup_complete"] = not source.exists()
+                        try:
+                            report["source_sha_after"] = git(source, "rev-parse", "HEAD")
+                            report["source_dirty_after"] = bool(
+                                git(source, "status", "--porcelain")
+                            )
+                        except (Exception, KeyboardInterrupt) as exc:
+                            report["source_inspection_error"] = str(exc) or type(exc).__name__
+                            raise
+                        finally:
+                            subprocess.run(
+                                [
+                                    "git",
+                                    "-C",
+                                    str(repo),
+                                    "worktree",
+                                    "remove",
+                                    "--force",
+                                    str(source),
+                                ],
+                                check=True,
+                                env=env,
+                            )
+                            report["cleanup_complete"] = not source.exists()
+                    else:
+                        report["cleanup_complete"] = True
         except (Exception, KeyboardInterrupt) as exc:
             report["error"] = str(exc) or type(exc).__name__
             report["exit_code"] = 1
@@ -696,8 +757,22 @@ def verify(args):
             report["artifacts"] = {
                 p.name: digest(p) for p in out.iterdir() if p.is_file()
             }
-            (out / "evidence.json").write_text(json.dumps(report, indent=2) + "\n")
+            publish_evidence(out / "evidence.json", report)
     return report["exit_code"]
+
+
+def publish_evidence(path: Path, report: dict) -> None:
+    payload = json.dumps(report, indent=2) + "\n"
+    temporary = tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=path.parent, prefix=".evidence-", delete=False
+    )
+    temporary_path = Path(temporary.name)
+    try:
+        with temporary:
+            temporary.write(payload)
+        temporary_path.replace(path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 
 def main():
@@ -709,6 +784,11 @@ def main():
     run.add_argument("--output", required=True)
     run.add_argument("--suite", choices=["discovered", "hosted"], default="discovered")
     run.add_argument("--workers", type=int, default=8)
+    run.add_argument(
+        "--sparse-checkout",
+        action="store_true",
+        help="materialize the UI and its known repository fixtures only",
+    )
     run.add_argument(
         "--workspace-root",
         default=str(DEFAULT_WORKSPACE_ROOT),

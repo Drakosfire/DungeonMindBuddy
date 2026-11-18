@@ -482,3 +482,49 @@ async def test_real_sdk_refusal_reaches_image_route_without_retry_or_retention(s
     assert 'PRIVATE_' not in result.text
     wire.assert_awaited_once()
     stage.assert_not_called()
+
+
+async def test_original_image_returns_owner_authorized_binary(setup, monkeypatch):
+    from hashlib import sha256
+    from uuid import UUID
+
+    from application_state.errors import ApplicationStateNotFoundError
+
+    asset = UUID("d3796b5d-d783-4195-b2cf-646debf276db")
+    content = b"\x89PNG\r\n\x1a\n"
+    digest = sha256(content).hexdigest()
+    seen = []
+
+    def metadata(asset_id, owner):
+        assert asset_id == asset and owner
+        seen.append(owner)
+        return {"mime_type": "image/png", "content_sha256": digest}
+
+    def read_original(asset_id, owner):
+        assert asset_id == asset and owner == seen[-1]
+        return content
+
+    monkeypatch.setattr(media_images.media, "get_asset", metadata)
+    monkeypatch.setattr(media_images.media, "read_staged_bytes", read_original)
+    app, _ = setup
+    path = f"/api/live/media/images/{asset}/original"
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 1234)),
+        base_url="http://test",
+    ) as http:
+        assert (await http.get(path)).status_code == 401
+        assert not seen
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        response = await http.get(path, headers=headers)
+        assert response.status_code == 200 and response.content == content
+        assert response.headers["content-type"] == "image/png"
+        assert response.headers["cache-control"] == "no-store"
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["x-media-content-sha256"] == digest
+
+        def refuse(*_):
+            raise ApplicationStateNotFoundError("Private source")
+        monkeypatch.setattr(media_images.media, "get_asset", refuse)
+        response = await http.get(path, headers=headers)
+        assert response.status_code == 404
+        assert "Private source" not in response.text

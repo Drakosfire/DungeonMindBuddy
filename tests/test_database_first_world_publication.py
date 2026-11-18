@@ -148,4 +148,4 @@ def test_database_failure_cannot_use_valid_mirrors_or_invoke_initialization(
         assert failure.value.code == "run_not_promotable"
     assert len(case.authority.preflights) == before
     assert case.authority.initializations == []
-    assert registry.get_extraction_run(tmp_path, case.resolved.run_id).status.value == "reviewable"
+    assert registry.get_extraction_run(case.resolved.run_id).status.value == "reviewable"

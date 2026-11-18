@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.ingestion.entity_extractor import (
+from ingestion.entity_extractor import (
     _build_entity_system_prompt,
     _build_entity_user_prompt,
     _build_recap_system_prompt,

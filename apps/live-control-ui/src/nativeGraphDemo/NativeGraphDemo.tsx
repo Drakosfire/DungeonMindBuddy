@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { downloadBlob } from "../shared/downloadBlob";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type {
   LocalObjectId,
   LocalRelationshipId,
@@ -20,12 +21,17 @@ import {
   type PrepareResult,
 } from "./nativeGraphDemoApi";
 import type { NativeGraphEntity } from "../api/nativeGraphInspection";
-import { NativeGraphObjectDetails } from "../graphLens/NativeGraphObjectDetails";
+import { nativeGraphPresentation } from "./nativeGraphPresentation";
+import { layoutGraphChronology, type ChronologyLayout } from "./graphChronologyLayout";
+import { GraphChronology, useGraphChronology } from "./GraphChronology";
+import { NativeGraphNodeExplorer } from "./GraphNodeExplorer";
+import { compactNodeLabel } from "./graphNodeExplorerModel";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
 import {
   SurfaceContextAction,
   SurfaceContextBadge,
   SurfaceContextModule,
+  SurfaceContextPopover,
   SurfaceContextStatus,
   SurfaceContextValue,
   useSurfaceContextContribution,
@@ -38,6 +44,10 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 const PREDICATE_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const PREDICATE_PATTERN_HTML = "[a-z0-9]+([._-][a-z0-9]+)*";
 const MAX_NATIVE_NAME_UTF8_BYTES = 128;
+
+function exceedsNativeNameByteLimit(name: string): boolean {
+  return new TextEncoder().encode(name.trim()).length > MAX_NATIVE_NAME_UTF8_BYTES;
+}
 const CUSTOM_PREDICATE_OPTION = "__custom_predicate__";
 const OBJECT_KINDS: readonly NativeObjectKind[] = ["person", "location", "event"];
 
@@ -69,6 +79,7 @@ interface StoredPlacementIntent {
 }
 
 interface LayoutState {
+  readonly writeFailed?: boolean;
   readonly worldId: string;
   readonly positions: Readonly<Record<string, { readonly x: number; readonly y: number }>>;
   readonly revision: number;
@@ -170,19 +181,14 @@ function safeReadDraft(worldId: string, stateScopeId?: string): StoredDraftEnvel
   }
 }
 
-function safeWriteDraft(worldId: string, draft: DemoFormDraft, pending: PendingNativeOperation | null, phase: "prepare" | "confirm" = "prepare", placement: StoredPlacementIntent | null | undefined = undefined, stateScopeId?: string): boolean {
+function safeWriteDraft(worldId: string, draft: DemoFormDraft, pending: PendingNativeOperation | null, phase: "prepare" | "confirm", placement: StoredPlacementIntent | null, stateScopeId?: string): boolean {
   try {
-    const retainedPlacement = placement === undefined ? safeReadDraft(worldId, stateScopeId)?.placement ?? null : placement;
-    const envelope: StoredDraftEnvelope = { version: STORAGE_VERSION, world_id: worldId, draft, pending, pending_phase: phase, placement: retainedPlacement };
+    const envelope: StoredDraftEnvelope = { version: STORAGE_VERSION, world_id: worldId, draft, pending, pending_phase: phase, placement };
     window.sessionStorage.setItem(storageKey("draft", worldId, stateScopeId), JSON.stringify(envelope));
     return true;
   } catch {
     return false;
   }
-}
-
-function safeClearDraft(worldId: string, draft: DemoFormDraft, stateScopeId?: string): boolean {
-  return safeWriteDraft(worldId, draft, null, "prepare", undefined, stateScopeId);
 }
 
 function readLayout(worldId: string, stateScopeId?: string): Readonly<Record<string, { readonly x: number; readonly y: number }>> {
@@ -194,7 +200,7 @@ function readLayout(worldId: string, stateScopeId?: string): Readonly<Record<str
     const positions: Record<string, { x: number; y: number }> = Object.create(null) as Record<string, { x: number; y: number }>;
     // Keep presentation coordinates for temporarily omitted native nodes in partial reads.
     // They remain inert unless a matching node ID appears in a later server readback.
-    for (const [id, value] of Object.entries(parsed).slice(0, 4096)) {
+    for (const [id, value] of Object.entries(parsed)) {
       if (!id || id.length > 512 || id === "__proto__" || id === "constructor" || id === "prototype" || !value || typeof value !== "object") continue;
       const candidate = value as Record<string, unknown>;
       if (typeof candidate.x !== "number" || !Number.isFinite(candidate.x) || typeof candidate.y !== "number" || !Number.isFinite(candidate.y)) continue;
@@ -223,26 +229,40 @@ function writeLayout(worldId: string, positions: Readonly<Record<string, { reado
  * native IDs are copied verbatim, the published revision comes from the server,
  * and browser state is limited to presentation layout and recoverable form drafts.
  */
-function toCanvasRecord(graph: NativeGraph, layout: LayoutState): LocalWorldRecord {
+function toCanvasSnapshot(graph: NativeGraph): LocalWorldRecord["snapshot"] {
   const worldId = graph.world_id as LocalWorldId;
   return {
-    snapshot: {
-      worldId,
-      title: "DungeonMind native graph",
-      objects: graph.nodes.map((node) => ({
-        id: node.id as LocalObjectId,
-        name: node.name,
-        kind: node.kind,
-        properties: {},
-      })),
-      relationships: graph.edges.map((edge) => ({
-        id: edge.id as LocalRelationshipId,
-        fromObjectId: edge.source_id as LocalObjectId,
-        toObjectId: edge.target_id as LocalObjectId,
-        kind: edge.predicate,
-        properties: {},
-      })),
-    },
+  worldId,
+  title: "DungeonMind native graph",
+  objects: graph.nodes.map((node) => {
+    const presentation = nativeGraphPresentation(node);
+    return {
+      id: node.id as LocalObjectId,
+      name: presentation.displayName,
+      kind: presentation.displayKind,
+      properties: {
+        recordedNames: [...presentation.recordedNames],
+        recordedClassifications: [...presentation.classificationTerms],
+      },
+    };
+  }),
+  relationships: graph.edges.map((edge) => ({
+    id: edge.id as LocalRelationshipId,
+    fromObjectId: edge.source_id as LocalObjectId,
+    toObjectId: edge.target_id as LocalObjectId,
+    kind: edge.predicate,
+    properties: {},
+  })),
+  };
+}
+
+function toCanvasRecord(
+  graph: NativeGraph,
+  snapshot: LocalWorldRecord["snapshot"],
+  layout: LayoutState,
+): LocalWorldRecord {
+  return {
+    snapshot,
     // This field exists only for the legacy canvas contract; it is not a native or local semantic revision.
     localRevision: 0,
     publishedRevisionId: graph.revision_id as PublishedRevisionId,
@@ -331,13 +351,13 @@ interface NativeGraphDemoContextProps {
   readonly hasPendingOperation: boolean;
   readonly pendingStatus: PendingStatus;
   readonly hasPlacementIntent: boolean;
-  readonly selectedNodeName: string | null;
-  readonly canCreate: boolean;
-  readonly canConnect: boolean;
   readonly onPanelChange: (panel: EmbeddedPanel) => void;
   readonly onRefresh: () => void;
   readonly onExport: () => void;
   readonly canRefresh: boolean;
+  readonly searchContent: ReactNode;
+  readonly neighborhoodContent: ReactNode;
+  readonly onControlsHost: (host: HTMLDivElement | null) => void;
 }
 
 function NativeGraphDemoContext({
@@ -350,14 +370,26 @@ function NativeGraphDemoContext({
   hasPendingOperation,
   pendingStatus,
   hasPlacementIntent,
-  selectedNodeName,
-  canCreate,
-  canConnect,
   onPanelChange,
   onRefresh,
   onExport,
   canRefresh,
+  searchContent,
+  neighborhoodContent,
+  onControlsHost,
 }: NativeGraphDemoContextProps) {
+  const controlsRowRef = useRef<HTMLDivElement>(null);
+  const [menu, setMenu] = useState<"find" | "more" | "focus" | null>(null);
+  const dismissMenu = useCallback(() => {
+    if (menu) controlsRowRef.current?.querySelector<HTMLButtonElement>(`[data-graph-menu="${menu}"]`)?.focus();
+    setMenu(null);
+  }, [menu]);
+  useLayoutEffect(() => {
+    if (menu === "focus" && !neighborhoodContent) {
+      setMenu(null);
+      controlsRowRef.current?.querySelector<HTMLButtonElement>('[data-graph-menu="find"]')?.focus();
+    }
+  }, [menu, neighborhoodContent]);
   const surfaceIdentity = useMemo(() => buildSurfaceInteractionIdentity({
     surfaceId: "index",
     instanceParts: ["buddy-native-graph-playground"],
@@ -372,25 +404,43 @@ function NativeGraphDemoContext({
     : "Buddy playground · private graph";
   const content = useMemo(() => (
     <SurfaceContextModule className="native-demo-context">
-      <div className="native-demo-context__row">
+      <div className="native-demo-context__row" ref={controlsRowRef} onKeyDown={(event) => {
+        if (event.key === "Escape" && menu) {
+          controlsRowRef.current?.querySelector<HTMLButtonElement>(`[data-graph-menu="${menu}"]`)?.focus();
+          setMenu(null);
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}>
         <SurfaceContextValue className="native-demo-context__identity" title={identity}>{identity}</SurfaceContextValue>
-        {graph ? <SurfaceContextBadge className="native-demo-context__counts">{completeness?.status === "partial" ? "Listed " : ""}{graph.nodes.length} objects · {completeness?.status === "partial" ? "listed " : ""}{graph.edges.length} relationships</SurfaceContextBadge> : null}
-        {completeness?.status === "partial" ? <SurfaceContextBadge className="native-demo-context__partial">Partial view</SurfaceContextBadge> : null}
-        {selectedNodeName ? <SurfaceContextBadge className="native-demo-context__selection">Selected · {selectedNodeName}</SurfaceContextBadge> : null}
+        <SurfaceContextAction className="native-demo-context__status-action" disabled={!graph} aria-pressed={activePanel === "info"}
+          title={graph ? `${graph.nodes.length} loaded objects · ${graph.edges.length} listed relationships. Open graph information.` : status}
+          onClick={() => onPanelChange(activePanel === "info" ? null : "info")}>
+          <SurfaceContextStatus tone={!graph && !loading ? "error" : hasPendingOperation || completeness?.status === "partial" ? "warning" : "neutral"}>
+            {refreshing ? "Refreshing…" : status}{completeness?.status === "partial" && (refreshing || status !== "Partial native read") ? " · partial read" : ""}
+          </SurfaceContextStatus>
+        </SurfaceContextAction>
         {hasPlacementIntent ? <SurfaceContextBadge className="native-demo-context__placement">Placement ready</SurfaceContextBadge> : null}
-        <SurfaceContextStatus className="native-demo-context__status" tone={!graph && !loading ? "error" : hasPendingOperation || completeness?.status === "partial" ? "warning" : "neutral"}>
-          {refreshing ? "Refreshing…" : status}
-        </SurfaceContextStatus>
-        <div className="native-demo-context__actions" aria-label={mode === "managed" ? "World graph controls" : "Graph playground controls"}>
-          <SurfaceContextAction className="native-demo-context__action" aria-pressed={activePanel === "create"} disabled={!canCreate || hasPendingOperation} title={!canCreate && graph ? "Object creation is read-only for this graph." : undefined} onClick={() => onPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>
-          <SurfaceContextAction className="native-demo-context__action" aria-pressed={activePanel === "connect"} disabled={!canConnect || hasPendingOperation} title={!canConnect && graph ? "Connections are read-only for this graph." : undefined} onClick={() => onPanelChange(activePanel === "connect" ? null : "connect")}>Connect</SurfaceContextAction>
-          <SurfaceContextAction className="native-demo-context__action" disabled={!canRefresh || loading || refreshing || hasPendingOperation} onClick={onRefresh}>Refresh</SurfaceContextAction>
-          <SurfaceContextAction className="native-demo-context__action" aria-pressed={activePanel === "info"} disabled={!graph || hasPendingOperation} onClick={() => onPanelChange(activePanel === "info" ? null : "info")}>Info</SurfaceContextAction>
-          <SurfaceContextAction className="native-demo-context__action" disabled={!graph} onClick={onExport}>Export snapshot</SurfaceContextAction>
-        </div>
+        <SurfaceContextPopover open={menu === "find"} onOpenChange={(open) => setMenu(open ? "find" : null)} title="Find an object"
+          trigger={<SurfaceContextAction disabled={!graph} aria-haspopup="dialog" data-graph-menu="find" aria-label={`Find an object${graph ? ` · ${graph.nodes.length} loaded` : ""}`} aria-expanded={menu === "find"} onClick={() => setMenu(menu === "find" ? null : "find")}>Find</SurfaceContextAction>}>
+          <div onClick={(event) => { if ((event.target as HTMLElement).closest("[data-graph-search-result]")) dismissMenu(); }}>{searchContent}</div>
+        </SurfaceContextPopover>
+        <div className="native-demo-context__canvas-controls" ref={onControlsHost} />
+        {neighborhoodContent ? <SurfaceContextPopover open={menu === "focus"} onOpenChange={(open) => setMenu(open ? "focus" : null)} title="Focused neighborhood"
+          trigger={<SurfaceContextAction aria-haspopup="dialog" data-graph-menu="focus" aria-label="Focused neighborhood" aria-expanded={menu === "focus"} onClick={() => setMenu(menu === "focus" ? null : "focus")}>Focus</SurfaceContextAction>}>
+          {neighborhoodContent}
+        </SurfaceContextPopover> : null}
+        <SurfaceContextPopover open={menu === "more"} onOpenChange={(open) => setMenu(open ? "more" : null)} title="Graph actions" align="end"
+          trigger={<SurfaceContextAction aria-haspopup="dialog" data-graph-menu="more" aria-label="More graph actions" aria-expanded={menu === "more"} onClick={() => setMenu(menu === "more" ? null : "more")}>More</SurfaceContextAction>}>
+          <div className="native-demo-context__menu-actions">
+            <SurfaceContextAction disabled={!canRefresh || loading || refreshing || hasPendingOperation} onClick={() => { dismissMenu(); onRefresh(); }}>Refresh</SurfaceContextAction>
+            <SurfaceContextAction disabled={!graph || hasPendingOperation} onClick={() => { dismissMenu(); onPanelChange(activePanel === "info" ? null : "info"); }}>Info</SurfaceContextAction>
+            <SurfaceContextAction disabled={!graph} onClick={() => { dismissMenu(); onExport(); }}>Export snapshot</SurfaceContextAction>
+          </div>
+        </SurfaceContextPopover>
       </div>
     </SurfaceContextModule>
-  ), [activePanel, canConnect, canCreate, canRefresh, completeness, graph, hasPendingOperation, hasPlacementIntent, identity, loading, mode, onExport, onPanelChange, onRefresh, pendingStatus, refreshing, selectedNodeName, status, worldTitle]);
+  ), [activePanel, canRefresh, completeness, dismissMenu, graph, hasPendingOperation, hasPlacementIntent, identity, loading, menu, neighborhoodContent, onControlsHost, onExport, onPanelChange, onRefresh, refreshing, searchContent, status]);
 
   useSurfaceContextContribution({
     id: "buddy-native-graph-playground",
@@ -412,12 +462,42 @@ export interface NativeGraphDemoProps {
   readonly stateScopeId?: string;
   /** Presentation limit only; does not authorize entity or source access. */
   readonly entityOnlyDetails?: boolean;
+  readonly readOnly?: boolean;
 }
 
-export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, entityOnlyDetails = false }: NativeGraphDemoProps) {
-  const graphHelpId = `native-graph-help-${useId().replace(/:/g, "")}`;
+export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, entityOnlyDetails = false, readOnly = false }: NativeGraphDemoProps) {
   const api = useMemo(() => providedApi ?? (mode === "managed" ? MISSING_MANAGED_API : createNativeGraphDemoApi()), [mode, providedApi]);
   const [graph, setGraph] = useState<NativeGraph | null>(null);
+  const [canvasLayout, setCanvasLayout] = useState<"graph" | ChronologyLayout>("graph");
+  const readChronology = api.readChronology;
+  const chronologyData = useGraphChronology(embedded && (!readOnly || canvasLayout !== "graph") ? graph : null, readChronology);
+  const chronologyLayout = useMemo(() => canvasLayout !== "graph" && chronologyData?.events
+    ? layoutGraphChronology(chronologyData.events, canvasLayout, chronologyData.graph)
+    : undefined, [canvasLayout, chronologyData]);
+  const graphNodes = graph?.nodes;
+  const nodesById = useMemo(() => new Map(graphNodes?.map((node) => [node.id, node])), [graphNodes]);
+  const chronologyLabels = useMemo(() => {
+    if (!chronologyLayout) return [];
+    const labels = chronologyLayout.markers.map(({ campaign, session, point }) => ({
+      key: `${campaign}:${session}`,
+      point,
+      text: `${nodesById.get(campaign)?.name ?? campaign} · Session ${session}`,
+    }));
+    if (chronologyLayout.unplacedMarker) {
+      labels.push({ key: "unplaced", point: chronologyLayout.unplacedMarker, text: "Unplaced" });
+    }
+    return labels;
+  }, [chronologyLayout, nodesById]);
+  const chronologyLabelBounds = useMemo(() => {
+    if (!chronologyLabels.length) return undefined;
+    return chronologyLabels.reduce((bounds, { point: { x, y }, text }) => ({
+      left: Math.min(bounds.left, x - 4),
+      top: Math.min(bounds.top, y - 32),
+      // Allow one em per character so fit also leaves room for wider glyphs.
+      right: Math.max(bounds.right, x + text.length * 28),
+      bottom: Math.max(bounds.bottom, y + 8),
+    }), { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity });
+  }, [chronologyLabels]);
   const graphRef = useRef<NativeGraph | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -441,28 +521,57 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const [activePanel, setActivePanel] = useState<EmbeddedPanel>(null);
   const [placementIntent, setPlacementIntent] = useState<StoredPlacementIntent | null>(null);
   const placementIntentRef = useRef<StoredPlacementIntent | null>(null);
+  const [focusedTimeline, setFocusedTimeline] = useState<{ worldId: string; nodeId: string } | null>(null);
+  const [chronology, setChronology] = useState<{ graph: NativeGraph } | null>(null);
+  const chronologyOpen = chronology !== null && chronology.graph === graph;
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const selectedNodeIdRef = useRef<string | null>(null);
+  const [inspectionHistory, setInspectionHistory] = useState<string[]>([]);
+  const inspectorHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const focusInspectorRef = useRef(false);
+  useLayoutEffect(() => {
+    if (focusInspectorRef.current) { inspectorHeadingRef.current?.focus(); focusInspectorRef.current = false; }
+  }, [selectedNodeId]);
   const [selectedNodeDetail, setSelectedNodeDetail] = useState<NativeGraphEntity | null>(null);
   const [selectedNodeDetailStatus, setSelectedNodeDetailStatus] = useState<"idle" | "loading" | "ready" | "unavailable" | "error">("idle");
   const [selectedNodeDetailError, setSelectedNodeDetailError] = useState<string | null>(null);
   const detailRequestGenerationRef = useRef(0);
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailGraphRef = useRef<NativeGraph | null>(null);
+  const searchId = useId();
+  const [objectQuery, setObjectQuery] = useState("");
+  const [objectPage, setObjectPage] = useState(0);
+  const compactPreferenceKey = mode === "managed" && stateScopeId
+    ? `dungeonmind-native-demo:compact-overview:${encodeURIComponent(stateScopeId)}`
+    : undefined;
+  const [compactPreference, setCompactPreference] = useState<{ key?: string; enabled: boolean }>();
+  const storedCompactOverview = useMemo(() => {
+    try {
+      return compactPreferenceKey !== undefined && window.localStorage.getItem(compactPreferenceKey) === "true";
+    } catch {
+      return false;
+    }
+  }, [compactPreferenceKey]);
+  const compactOverview = compactPreference && compactPreference.key === compactPreferenceKey
+    ? compactPreference.enabled : storedCompactOverview;
+  const [viewFocusId, setViewFocusId] = useState<LocalObjectId | null>(null);
+  const [neighborhoodDepth, setNeighborhoodDepth] = useState(1);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
-  const [cameraFocusRequest, setCameraFocusRequest] = useState<{ readonly nodeId: LocalObjectId | null; readonly requestId: number; readonly worldId: string } | undefined>(undefined);
+  const [createdNodeReveal, setCreatedNodeReveal] = useState<{ readonly nodeId: string; readonly worldId: string } | null>(null);
+  const pendingCreatedFocusRef = useRef<{ readonly nodeId: string; readonly graph: NativeGraph } | null>(null);
+  const [cameraFocusRequest, setCameraFocusRequest] = useState<{ readonly nodeId: LocalObjectId | null; readonly requestId: number; readonly worldId: string; readonly selectNode?: boolean } | undefined>(undefined);
   const cameraFocusRequestIdRef = useRef(0);
-  const [cameraFocusResetRequest, setCameraFocusResetRequest] = useState<number | undefined>(undefined);
+  const [cameraFocusResetRequest, setCameraFocusResetRequest] = useState<{readonly requestId: number; readonly fitView: boolean} | undefined>(undefined);
   const [clearSelectionRequest, setClearSelectionRequest] = useState<number | undefined>(undefined);
   const selectionClearRequestIdRef = useRef(0);
-  const [graphHelpOpen, setGraphHelpOpen] = useState(false);
-  const [graphHelpDismissed, setGraphHelpDismissed] = useState(false);
+  const [canvasControlsHost, setCanvasControlsHost] = useState<HTMLDivElement | null>(null);
   const createNameInputRef = useRef<HTMLInputElement | null>(null);
   const focusCreateInputAfterPlacementRef = useRef(false);
   const connectPredicateInputRef = useRef<HTMLInputElement | null>(null);
   const connectPredicateSelectRef = useRef<HTMLSelectElement | null>(null);
   const generationRef = useRef(0);
   const graphRequestGenerationRef = useRef(0);
+  const refreshControllerRef = useRef<AbortController | null>(null);
   const mountedOwnerRef = useRef<number | null>(null);
   const pendingActionRef = useRef<"confirm" | "edit" | null>(null);
   const componentScope = `${mode}:${stateScopeId ?? "default"}`;
@@ -496,7 +605,10 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     placementIntentRef.current = null;
     setPlacementIntent(null);
     setLayout({ worldId: "", positions: {}, revision: 0 });
+    setCreatedNodeReveal(null);
+    pendingCreatedFocusRef.current = null;
     setSelectedNodeId(null);
+    setInspectionHistory([]);
     setActivePanel(null);
     setStorageWarning(false);
     setNotice(null);
@@ -510,19 +622,35 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     detailRequestGenerationRef.current += 1;
     selectedNodeIdRef.current = null;
     setSelectedNodeId(null);
+    setInspectionHistory([]);
     setSelectedNodeDetail(null);
     setSelectedNodeDetailStatus("idle");
     setSelectedNodeDetailError(null);
     setFocusedNodeId(null);
+    setViewFocusId(null);
+    setNeighborhoodDepth(1);
+    setObjectQuery("");
+    setObjectPage(0);
     setCameraFocusRequest(undefined);
     cameraFocusRequestIdRef.current += 1;
-    setCameraFocusResetRequest(cameraFocusRequestIdRef.current);
+    setCameraFocusResetRequest({requestId: cameraFocusRequestIdRef.current, fitView: viewFocusId !== null});
     selectionClearRequestIdRef.current += 1;
     setClearSelectionRequest(selectionClearRequestIdRef.current);
     setActivePanel((current) => current === "details" ? null : current);
-  }, [graph]);
+    setCreatedNodeReveal((current) => current && graph?.world_id === current.worldId
+      && nodesById.has(current.nodeId) ? current : null);
+    const createdFocus = pendingCreatedFocusRef.current;
+    pendingCreatedFocusRef.current = null;
+    if (embedded && graph && createdFocus?.graph === graph) {
+      setCreatedNodeReveal({ nodeId: createdFocus.nodeId, worldId: graph.world_id });
+      cameraFocusRequestIdRef.current += 1;
+      setCameraFocusRequest({ nodeId: createdFocus.nodeId as LocalObjectId, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode: true });
+    }
+  }, [graph, embedded, nodesById]);
 
   const handleCanvasSelectionChange = useCallback((nodeId: LocalObjectId | null) => {
+    const previous = selectedNodeIdRef.current;
+    if (nodeId && previous && previous !== nodeId) setInspectionHistory((history) => [...history, previous].slice(-30));
     selectedNodeIdRef.current = nodeId;
     setSelectedNodeId(nodeId);
     setActivePanel((current) => nodeId ? "details" : current === "details" ? null : current);
@@ -533,10 +661,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (nodeId === null) setCameraFocusRequest(undefined);
   }, []);
 
-  const requestCameraFocus = useCallback((nodeId: string | null) => {
+  const requestCameraFocus = useCallback((nodeId: string | null, selectNode = true) => {
     if (!graph) return;
+    if (selectNode) {
+      setViewFocusId(nodeId as LocalObjectId | null);
+      setNeighborhoodDepth(1);
+    }
     cameraFocusRequestIdRef.current += 1;
-    setCameraFocusRequest({ nodeId: nodeId as LocalObjectId | null, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id });
+    setCameraFocusRequest({ nodeId: nodeId as LocalObjectId | null, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode });
   }, [graph]);
 
   const closeSelectedDetails = useCallback(() => {
@@ -544,6 +676,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     const previousSelection = selectedNodeIdRef.current;
     selectedNodeIdRef.current = null;
     setSelectedNodeId(null);
+    setInspectionHistory([]);
     setSelectedNodeDetail(null);
     setSelectedNodeDetailStatus("idle");
     setSelectedNodeDetailError(null);
@@ -580,6 +713,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }, [activePanel, closeSelectedDetails, embedded, pendingOperation, selectedNodeId]);
 
   const handleEmbeddedPanelChange = useCallback((panel: EmbeddedPanel) => {
+    setChronology(null);
     if (panel !== "details" && (focusedNodeId || cameraFocusRequest?.nodeId)) requestCameraFocus(null);
     setActivePanel(panel);
   }, [cameraFocusRequest?.nodeId, focusedNodeId, requestCameraFocus]);
@@ -614,7 +748,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         || detail.scope.native_world_id !== snapshot.world_id
         || detail.scope.scope_mode !== "world" || detail.scope.campaign_id !== null
         || !detail.scope.managed_world_id || !Number.isSafeInteger(detail.scope.binding_version) || detail.scope.binding_version < 1
-        || !snapshot.nodes.some((node) => node.id === selectedId)) {
+        || !nodesById.has(selectedId)) {
         throw new Error("The detail response did not match the selected object in this loaded World revision.");
       }
       setSelectedNodeDetail(detail);
@@ -629,7 +763,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       controller.abort();
       if (detailAbortRef.current === controller) detailAbortRef.current = null;
     };
-  }, [api, embedded, graph, mode, selectedNodeId]);
+  }, [api, embedded, graph, mode, nodesById, selectedNodeId]);
 
   useEffect(() => {
     if (!embedded || pendingOperation) return;
@@ -663,7 +797,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     draftRef.current = next;
     setDraft(next);
     if (!worldId || draftReadyWorldId !== worldId) return;
-    setStorageWarning(!safeWriteDraft(worldId, next, pendingRef.current, "prepare", undefined, stateScopeId));
+    setStorageWarning(!safeWriteDraft(
+      worldId, next, pendingRef.current, pendingPhaseRef.current, placementIntentRef.current, stateScopeId,
+    ));
   }, [draftReadyWorldId, graph?.world_id, stateScopeId]);
 
   const setPendingOperation = useCallback((operation: PendingNativeOperation | null, phase: "prepare" | "confirm" = "prepare") => {
@@ -713,9 +849,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     const created = committedGraph.nodes.find((node) => node.id === createdNodeId);
     if (!created) return "DungeonMind returned the new node ID, but this readback does not include it. The requested position was discarded; refresh the graph and arrange the node manually if it appears.";
     if (created.kind !== operation.object_kind) return `DungeonMind returned the exact new node ID, but its graph type is ${created.kind}, not ${operation.object_kind}. Its requested position was not applied.`;
-    if (!committedGraph.nodes.slice(0, 512).some((node) => node.id === createdNodeId)) {
-      return "DungeonMind returned the new node ID, but it is outside the 512-node canvas view. The requested position was discarded; arrange the node manually if it comes into view.";
-    }
     const currentScopeId = stateScopeIdRef.current;
     const positions = readLayout(committedGraph.world_id, currentScopeId);
     const nextPositions = { ...positions, [createdNodeId]: placement.position };
@@ -724,8 +857,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       positions: nextPositions,
       revision: layoutRef.current.worldId === committedGraph.world_id ? layoutRef.current.revision + 1 : 1,
     };
-    setLayout(nextLayout);
-    if (!writeLayout(committedGraph.world_id, nextPositions, currentScopeId)) {
+    const saved = writeLayout(committedGraph.world_id, nextPositions, currentScopeId);
+    setLayout({ ...nextLayout, writeFailed: !saved });
+    if (!saved) {
       setStorageWarning(true);
       return "DungeonMind saved the object. This browser could not save its requested canvas position, so drag it into place manually.";
     }
@@ -736,6 +870,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   async function clearRecoveredOperation(message: string, owner: number | null = mountedOwnerRef.current, completedOperation?: PendingNativeOperation, committedGraph?: NativeGraph, applyPlacement = true, createdNodeId: string | null = null) {
     if (!ownsMount(owner) || completedOperation && pendingRef.current?.operation_id !== completedOperation.operation_id) return;
     const currentGraph = graphRef.current;
+    if (embedded && applyPlacement && completedOperation?.kind === "create_object" && committedGraph
+      && committedGraph === currentGraph && createdNodeId
+      && committedGraph.nodes.some((node) => node.id === createdNodeId && node.kind === completedOperation.object_kind)) {
+      pendingCreatedFocusRef.current = { nodeId: createdNodeId, graph: committedGraph };
+    }
     let currentDraft = draftRef.current;
     const currentScopeId = stateScopeIdRef.current;
     const savedPlacement = placementIntentRef.current
@@ -832,9 +971,29 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     setNotice({ kind: "warning", text: "DungeonMind recorded an uncertain outcome. Do not retry or replace this operation ID. Check its status again when the service is available." });
   }
 
+  const restoreWorldState = useCallback((restoredGraph: NativeGraph) => {
+    const saved = readOnly ? null : safeReadDraft(restoredGraph.world_id, stateScopeId);
+    const restoredDraft = saved?.draft ?? EMPTY_DRAFT;
+    draftRef.current = restoredDraft;
+    setDraft(restoredDraft);
+    setCustomPredicateMode(Boolean(restoredGraph.capabilities.allows_custom_predicates && restoredDraft.predicate
+      && !restoredGraph.capabilities.allowed_predicates?.includes(restoredDraft.predicate)));
+    setDraftReadyWorldId(readOnly ? null : restoredGraph.world_id);
+    placementIntentRef.current = saved?.placement ?? null;
+    setPlacementIntent(saved?.placement ?? null);
+    setPendingOperation(saved?.pending ?? null, saved?.pending_phase ?? "prepare");
+    setLayout({
+      worldId: restoredGraph.world_id,
+      positions: readLayout(restoredGraph.world_id, stateScopeId),
+      revision: 0,
+    });
+    return saved?.pending ?? null;
+  }, [readOnly, setPendingOperation, stateScopeId]);
+
   useEffect(() => {
     const owner = ++generationRef.current;
     mountedOwnerRef.current = owner;
+    setRefreshing(false);
     const graphRequest = ++graphRequestGenerationRef.current;
     setLoading(true);
       if (mode === "managed" && !stateScopeId) {
@@ -844,66 +1003,41 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
           if (mountedOwnerRef.current === owner) mountedOwnerRef.current = null;
         };
       }
-    api.readGraph().then(async (loadedGraph) => {
+    const controller = new AbortController();
+    (api.readInitialGraph?.() ?? api.readGraph(controller.signal)).then(async (loadedGraph) => {
       if (!installReadGraph(loadedGraph, graphRequest, owner)) return;
-      const saved = safeReadDraft(loadedGraph.world_id, stateScopeId);
-      const restoredDraft = saved?.draft ?? EMPTY_DRAFT;
-      draftRef.current = restoredDraft;
-      setDraft(restoredDraft);
-      setCustomPredicateMode(Boolean(loadedGraph.capabilities.allows_custom_predicates && restoredDraft.predicate
-        && !loadedGraph.capabilities.allowed_predicates?.includes(restoredDraft.predicate)));
-      setDraftReadyWorldId(loadedGraph.world_id);
-      placementIntentRef.current = saved?.placement ?? null;
-      setPlacementIntent(saved?.placement ?? null);
-      setPendingOperation(saved?.pending ?? null);
-      pendingPhaseRef.current = saved?.pending_phase ?? "prepare";
-      setPendingPhaseState(saved?.pending_phase ?? "prepare");
-      pendingRef.current = saved?.pending ?? null;
-      setLayout({
-        worldId: loadedGraph.world_id,
-        positions: readLayout(loadedGraph.world_id, stateScopeId),
-        revision: 0,
-      });
+      const pending = restoreWorldState(loadedGraph);
       setLoading(false);
       setStorageWarning(false);
-      if (saved?.pending) await recoverOperation(saved.pending, null, owner);
+      if (pending) await recoverOperation(pending, null, owner);
     }).catch((error: unknown) => {
       if (!ownsMount(owner) || graphRequest !== graphRequestGenerationRef.current) return;
       setLoading(false);
       setNotice({ kind: "error", text: describeError(error) });
     });
     return () => {
+      controller.abort();
+      refreshControllerRef.current?.abort();
+      refreshControllerRef.current = null;
       if (mountedOwnerRef.current === owner) mountedOwnerRef.current = null;
     };
-  }, [api, componentScope, recoverOperation, stateScopeId]);
+  }, [api, componentScope, recoverOperation, restoreWorldState, stateScopeId]);
 
   const refreshGraph = useCallback(async () => {
     const owner = mountedOwnerRef.current;
-    if (!ownsMount(owner) || refreshing || pendingRef.current) return;
+    if (!ownsMount(owner) || refreshControllerRef.current || pendingRef.current) return;
+    const controller = new AbortController();
+    refreshControllerRef.current = controller;
     const graphRequest = ++graphRequestGenerationRef.current;
     setRefreshing(true);
     try {
-      const nextGraph = await api.readGraph();
+      const nextGraph = await api.readGraph(controller.signal);
       if (!ownsMount(owner) || pendingRef.current) return;
       if (!installReadGraph(nextGraph, graphRequest, owner)) return;
       if (nextGraph.world_id !== layout.worldId) {
-        const positions = readLayout(nextGraph.world_id, stateScopeId);
-        setLayout({ worldId: nextGraph.world_id, positions, revision: 0 });
-        setDraftReadyWorldId(nextGraph.world_id);
-        const saved = safeReadDraft(nextGraph.world_id, stateScopeId);
-        const nextDraft = saved?.draft ?? EMPTY_DRAFT;
-        draftRef.current = nextDraft;
-        setDraft(nextDraft);
-        setCustomPredicateMode(Boolean(nextGraph.capabilities.allows_custom_predicates && nextDraft.predicate
-          && !nextGraph.capabilities.allowed_predicates?.includes(nextDraft.predicate)));
-        placementIntentRef.current = saved?.placement ?? null;
-        setPlacementIntent(saved?.placement ?? null);
-        setPendingOperation(saved?.pending ?? null);
-        pendingPhaseRef.current = saved?.pending_phase ?? "prepare";
-        setPendingPhaseState(saved?.pending_phase ?? "prepare");
-        pendingRef.current = saved?.pending ?? null;
-        setPendingStatus(saved?.pending ? "checking" : "none");
-        if (saved?.pending) await recoverOperation(saved.pending, null, owner);
+        const pending = restoreWorldState(nextGraph);
+        setPendingStatus(pending ? "checking" : "none");
+        if (pending) await recoverOperation(pending, null, owner);
       }
       if (!ownsMount(owner)) return;
       setNotice({ kind: "success", text: "Latest graph revision loaded from DungeonMind. Your current form draft is preserved." });
@@ -911,9 +1045,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       if (!ownsMount(owner) || graphRequest !== graphRequestGenerationRef.current) return;
       setNotice({ kind: "error", text: `The latest graph could not be loaded. Your draft is unchanged: ${describeError(error)}` });
     } finally {
-      if (ownsMount(owner)) setRefreshing(false);
+      if (refreshControllerRef.current === controller) {
+        refreshControllerRef.current = null;
+        if (ownsMount(owner)) setRefreshing(false);
+      }
     }
-  }, [api, installServerGraph, layout, recoverOperation, refreshing, setPendingOperation, setPendingPhase, stateScopeId]);
+  }, [api, layout.worldId, recoverOperation, restoreWorldState]);
 
   function updateDraft(patch: Partial<DemoFormDraft>) {
     setDraftAndPersist({ ...draftRef.current, ...patch });
@@ -994,7 +1131,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (!graph || pendingRef.current || !graph.capabilities.create || !isNativeKindSupported(graph, draft.objectKind)) return;
     const name = draft.objectName.trim();
     if (!name) return;
-    if (new TextEncoder().encode(name).length > MAX_NATIVE_NAME_UTF8_BYTES) {
+    if (exceedsNativeNameByteLimit(name)) {
       setNotice({ kind: "warning", text: `Names must use ${MAX_NATIVE_NAME_UTF8_BYTES} UTF-8 bytes or fewer. Your draft is still editable.` });
       return;
     }
@@ -1011,7 +1148,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   async function submitConnect(event: FormEvent) {
     event.preventDefault();
     if (!graph || pendingRef.current || !canConnectGraph(graph)) return;
-    if (!graph.nodes.some((node) => node.id === draft.sourceId) || !graph.nodes.some((node) => node.id === draft.targetId)) return;
+    if (!nodesById.has(draft.sourceId) || !nodesById.has(draft.targetId)) return;
     const predicate = draft.predicate.trim();
     if (!predicate || !isPredicateAllowed(graph, predicate)) return;
     if (embedded) setActivePanel(null);
@@ -1033,7 +1170,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     const owner = mountedOwnerRef.current;
     if (!ownsOperation(owner, operation.operation_id)) return;
     setReviewSummary(null);
-    if (!graph || !safeWriteDraft(graph.world_id, draftRef.current, operation, "prepare", undefined, stateScopeId)) {
+    if (!graph || !safeWriteDraft(graph.world_id, draftRef.current, operation, "prepare", placementIntentRef.current, stateScopeId)) {
       setPendingStatus("not_sent");
       setStorageWarning(true);
       setNotice({ kind: "error", text: "This browser still cannot save the recovery draft, so the request was not sent." });
@@ -1071,7 +1208,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (!operation || pendingStatus !== "prepared" || !reviewSummary || !ownsOperation(owner, operation.operation_id) || pendingActionRef.current !== null) return;
     pendingActionRef.current = "confirm";
     const currentGraph = graphRef.current;
-    if (!currentGraph || !safeWriteDraft(currentGraph.world_id, draftRef.current, operation, "confirm", undefined, stateScopeId)) {
+    if (!currentGraph || !safeWriteDraft(currentGraph.world_id, draftRef.current, operation, "confirm", placementIntentRef.current, stateScopeId)) {
       setStorageWarning(true);
       setNotice({ kind: "error", text: "This browser could not save the confirmation recovery step, so confirmation was not sent." });
       pendingActionRef.current = null;
@@ -1139,7 +1276,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         await applyOperationLookup(after, operation, null, owner);
         return;
       }
-      if (!safeClearDraft(latestGraph.world_id, draftRef.current, stateScopeId)) {
+      if (!safeWriteDraft(latestGraph.world_id, draftRef.current, null, "prepare",
+        latestGraph.world_id === layout.worldId
+          ? placementIntentRef.current
+          : safeReadDraft(latestGraph.world_id, stateScopeId)?.placement ?? null,
+        stateScopeId)) {
         setPendingStatus("prepared");
         setStorageWarning(true);
         setReviewSummary(after.review?.summary ?? reviewSummary);
@@ -1192,7 +1333,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       if (freshGraph.world_id !== layout.worldId) {
         setLayout({ worldId: freshGraph.world_id, positions: readLayout(freshGraph.world_id, stateScopeId), revision: 0 });
       }
-      const cleared = safeClearDraft(freshGraph.world_id, draftRef.current, stateScopeId);
+      const cleared = safeWriteDraft(freshGraph.world_id, draftRef.current, null, "prepare",
+        freshGraph.world_id === layout.worldId
+          ? placementIntentRef.current
+          : safeReadDraft(freshGraph.world_id, stateScopeId)?.placement ?? null,
+        stateScopeId);
       setStorageWarning(!cleared);
       setPendingOperation(null);
       setPendingStatus("none");
@@ -1206,34 +1351,105 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     }
   }
 
-  const record = graph ? toCanvasRecord(graph, layout) : null;
+  const canvasSnapshot = useMemo(() => graph ? toCanvasSnapshot(graph) : null, [graph]);
+  const overviewSnapshot = useMemo(() => {
+    if (!embedded || mode !== "managed" || !canvasSnapshot) return canvasSnapshot;
+    const relationships = canvasSnapshot.relationships.filter(({ kind }) =>
+      kind !== "on_timeline" && kind !== "precedes"
+      && kind !== "dungeonbuddy.custom:on_timeline" && kind !== "dungeonbuddy.custom:precedes",
+    );
+    return { ...canvasSnapshot, relationships };
+  }, [embedded, mode, canvasSnapshot]);
+  const focusedEventIds = useMemo(() => {
+    if (!embedded || mode !== "managed" || !graph || !api.readChronology || !viewFocusId
+      || neighborhoodDepth !== 1) return null;
+    const focus = graph.nodes.find(node => node.id === viewFocusId);
+    if (!focus || nativeGraphPresentation(focus).displayKind === "event") return null;
+    const neighbors = new Set<string>();
+    for (const edge of graph.edges) {
+      if (edge.source_id === viewFocusId) neighbors.add(edge.target_id);
+      if (edge.target_id === viewFocusId) neighbors.add(edge.source_id);
+    }
+    const events = new Set(graph.nodes.filter(node => neighbors.has(node.id)
+      && nativeGraphPresentation(node).displayKind === "event").map(node => node.id));
+    return events.size ? events : null;
+  }, [api.readChronology, embedded, graph, mode, neighborhoodDepth, viewFocusId]);
+  const focusedSnapshot = useMemo(() => {
+    if (!canvasSnapshot || !focusedEventIds) return canvasSnapshot;
+    return {
+      ...canvasSnapshot,
+      objects: canvasSnapshot.objects.filter(node => !focusedEventIds.has(node.id)),
+      relationships: canvasSnapshot.relationships.filter(edge =>
+        !focusedEventIds.has(edge.fromObjectId) && !focusedEventIds.has(edge.toObjectId)),
+    };
+  }, [canvasSnapshot, focusedEventIds]);
+  const displayedSnapshot = viewFocusId ? focusedSnapshot : overviewSnapshot;
+  const record = useMemo(
+    () => graph && displayedSnapshot ? toCanvasRecord(graph, displayedSnapshot, layout) : null,
+    [graph, displayedSnapshot, layout],
+  );
+  const connectionOptions = useMemo(() => graph?.nodes.map((node) => {
+    const { displayName, displayKind } = nativeGraphPresentation(node);
+    return { id: node.id, label: `${displayName} · ${displayKind}` };
+  }) ?? [], [graph?.nodes]);
+  const searchNodes = graph?.nodes;
+  const objectSearchIndex = useMemo(() => searchNodes?.map((node) => {
+    const presentation = nativeGraphPresentation(node);
+    return {
+      node,
+      names: [node.name, presentation.displayName, ...presentation.recordedNames]
+        .map(name => name.trim().toLocaleLowerCase()),
+      text: `${node.name} ${node.kind} ${node.id} ${presentation.displayName} ${presentation.displayKind} ${presentation.recordedNames.join(" ")}`.toLocaleLowerCase(),
+    };
+  }) ?? [], [searchNodes]);
+  const matchingObjects = useMemo(() => {
+    const query = objectQuery.trim().toLocaleLowerCase();
+    if (!query) return searchNodes ?? [];
+    const exact = [];
+    const partial = [];
+    for (const { node, names, text } of objectSearchIndex) {
+      if (names.includes(query)) exact.push(node);
+      else if (text.includes(query)) partial.push(node);
+    }
+    return exact.concat(partial);
+  }, [objectQuery, objectSearchIndex, searchNodes]);
+  const searchPageSize = 20;
+  const lastObjectPage = Math.max(0, Math.ceil(matchingObjects.length / searchPageSize) - 1);
+  const currentObjectPage = Math.min(objectPage, lastObjectPage);
+  const visibleSearchObjects = matchingObjects.slice(currentObjectPage * searchPageSize, (currentObjectPage + 1) * searchPageSize);
   const limitations = graph ? detailLimitations(graph) : [];
 
   const saveLayout = useCallback(async (_record: LocalWorldRecord, changedPositions: Readonly<Record<string, { readonly x: number; readonly y: number }>>): Promise<WriteLayoutResult> => {
-    if (!graph) return { status: "missing" };
-    const current = layout.worldId === graph.world_id ? layout : { worldId: graph.world_id, positions: {}, revision: 0 };
+    if (!graph || !displayedSnapshot) return { status: "missing" };
+    const current: LayoutState = layout.worldId === graph.world_id ? layout : { worldId: graph.world_id, positions: {}, revision: 0 };
     const mergedPositions: Record<string, { x: number; y: number }> = { ...current.positions };
-    const allowedIds = new Set(graph.nodes.map((node) => node.id));
+    let changed = false;
     for (const [id, position] of Object.entries(changedPositions)) {
-      if (!allowedIds.has(id) || !Number.isFinite(position.x) || !Number.isFinite(position.y)) continue;
-      mergedPositions[id] = {
+      if (!nodesById.has(id) || !Number.isFinite(position.x) || !Number.isFinite(position.y)) continue;
+      const nextPosition = {
         x: Math.max(0, Math.min(MAX_COORDINATE, position.x)),
         y: Math.max(0, Math.min(MAX_COORDINATE, position.y)),
       };
+      const previous = mergedPositions[id];
+      changed ||= previous?.x !== nextPosition.x || previous?.y !== nextPosition.y;
+      mergedPositions[id] = nextPosition;
     }
-    const nextLayout: LayoutState = { worldId: graph.world_id, positions: mergedPositions, revision: current.revision + 1 };
+    if (!changed && !current.writeFailed) {
+      return { status: "written", record: toCanvasRecord(graph, displayedSnapshot, current) };
+    }
+    const saved = writeLayout(graph.world_id, mergedPositions, stateScopeId);
+    const nextLayout: LayoutState = { worldId: graph.world_id, positions: mergedPositions, revision: current.revision + 1, writeFailed: !saved };
     setLayout(nextLayout);
-    const nextRecord = toCanvasRecord(graph, nextLayout);
-    if (!writeLayout(graph.world_id, mergedPositions, stateScopeId)) {
+    const nextRecord = toCanvasRecord(graph, displayedSnapshot, nextLayout);
+    if (!saved) {
       return { status: "error", message: "This arrangement is visible for now, but the browser could not save its presentation-only layout." };
     }
     return { status: "written", record: nextRecord };
-  }, [graph, layout, stateScopeId]);
+  }, [graph, displayedSnapshot, nodesById, layout, stateScopeId]);
 
   const creationKinds = graph?.capabilities.create
     ? graph.capabilities.object_kinds.map((kind) => ({ kind, label: kind.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) }))
     : [];
-  const selectedNodeName = graph?.nodes.find((node) => node.id === selectedNodeId)?.name ?? null;
 
   function handleCanvasCreateRequest(intent: { readonly kind: string; readonly position: { readonly x: number; readonly y: number } }) {
     if (!graph || pendingRef.current || !graph.capabilities.create || !isNativeKindSupported(graph, intent.kind as NativeObjectKind)
@@ -1252,6 +1468,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     setPlacementIntent(nextIntent);
     focusCreateInputAfterPlacementRef.current = true;
     setStorageWarning(!safeWriteDraft(graph.world_id, nextDraft, pendingRef.current, pendingPhaseRef.current, nextIntent, stateScopeId));
+    setChronology(null);
     setActivePanel("create");
     setNotice({ kind: "info", text: `Choose a name for the ${kind}. Its requested spot is saved locally and will be applied only after DungeonMind confirms the new node.` });
   }
@@ -1274,16 +1491,17 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
   function handleConnectRequest(intent: { readonly sourceId: string; readonly targetId: string }) {
     if (!graph || pendingRef.current || !canConnectGraph(graph)
-      || !graph.nodes.some((node) => node.id === intent.sourceId)
-      || !graph.nodes.some((node) => node.id === intent.targetId)) return;
+      || !nodesById.has(intent.sourceId)
+      || !nodesById.has(intent.targetId)) return;
     updateDraft({ sourceId: intent.sourceId, targetId: intent.targetId });
+    setChronology(null);
     setActivePanel("connect");
     setNotice({ kind: "info", text: "Add a relationship label, then review it with DungeonMind before confirming." });
   }
 
   const exportSnapshot = useCallback(() => {
     if (!graph) return;
-    const positions = readLayout(graph.world_id, stateScopeId);
+    const currentLayout = layout.worldId === graph.world_id ? layout : null;
     const snapshot = {
       format: "dungeonmind-index-graph-snapshot-v1",
       kind: "read-only-revision-pinned-snapshot",
@@ -1293,23 +1511,43 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       revision_id: graph.revision_id,
       graph_sha256: graph.graph_sha256,
       graph,
-      presentation: { layout_revision: layout.worldId === graph.world_id ? layout.revision : 0, positions },
+      presentation: { layout_revision: currentLayout?.revision ?? 0, positions: currentLayout?.positions ?? {} },
       ...(mode === "managed" ? { selected_world_title: worldTitle ?? null } : {}),
     };
     try {
-      const url = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" }));
-      const anchor = document.createElement("a");
       const slug = (mode === "managed" ? worldTitle ?? "world" : "playground").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "graph";
-      anchor.href = url;
-      anchor.download = `dungeonmind-${slug}-${graph.revision_id}.json`;
-      anchor.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      downloadBlob(new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" }),
+        `dungeonmind-${slug}-${graph.revision_id}.json`);
       setNotice({ kind: "success", text: `Read-only snapshot of revision ${graph.revision_id} downloaded with this browser's canvas layout. It is not a restorable World backup.` });
     } catch (error) {
       setNotice({ kind: "error", text: `The snapshot could not be downloaded: ${describeError(error)}` });
     }
-  }, [graph, layout, mode, stateScopeId, worldTitle]);
+  }, [graph, layout, mode, worldTitle]);
   const refreshFromContext = useCallback(() => { void refreshGraph(); }, [refreshGraph]);
+
+  const searchContent = <div className="native-demo-context__search">
+              <label htmlFor={searchId}>Search loaded objects</label>
+              <input autoFocus id={searchId} type="search" value={objectQuery} placeholder="Name, type or ID"
+                disabled={Boolean(pendingOperation)} onChange={(event) => { setObjectQuery(event.target.value); setObjectPage(0); }} />
+              <p>{matchingObjects.length} matching objects. Search includes every loaded object.</p>
+              <ul aria-label="Matching graph objects">{visibleSearchObjects.map((node) => <li key={node.id}>
+                <button type="button" data-graph-search-result disabled={Boolean(pendingOperation)} aria-label={`Explore ${nativeGraphPresentation(node).displayName} (${node.id})`}
+                  onClick={() => { handleCanvasSelectionChange(node.id as LocalObjectId); requestCameraFocus(node.id); }}>
+                  {nativeGraphPresentation(node).displayName} <small>{nativeGraphPresentation(node).displayKind} · {node.id}</small>
+                </button>
+              </li>)}</ul>
+              {!matchingObjects.length ? <p>No loaded objects match this search.</p> : null}
+              {lastObjectPage > 0 ? <div role="group" aria-label="Object search pages">
+                <button type="button" disabled={currentObjectPage === 0 || Boolean(pendingOperation)} onClick={() => setObjectPage(currentObjectPage - 1)}>Previous objects</button>
+                <span>Page {currentObjectPage + 1} of {lastObjectPage + 1}</span>
+                <button type="button" disabled={currentObjectPage === lastObjectPage || Boolean(pendingOperation)} onClick={() => setObjectPage(currentObjectPage + 1)}>Next objects</button>
+              </div> : null}
+  </div>;
+  const neighborhoodContent = viewFocusId && graph ? <div className="world-graph-canvas__neighborhood" role="group" aria-label="Neighborhood controls">
+              <span>Neighborhood: {neighborhoodDepth} {neighborhoodDepth === 1 ? "step" : "steps"} from {nodesById.get(viewFocusId)?.name}. Focused view limit: 512 objects. The overview shows connected objects; objects without listed connections remain available in search or with the reveal control.</span>
+              <button type="button" disabled={neighborhoodDepth >= graph.nodes.length || Boolean(pendingOperation)} onClick={() => setNeighborhoodDepth((depth) => depth + 1)}>Expand neighborhood</button>
+              <button type="button" disabled={Boolean(pendingOperation)} onClick={() => requestCameraFocus(null)}>Show overview</button>
+            </div> : null;
 
   const embeddedContext = embedded ? (
     <NativeGraphDemoContext
@@ -1322,16 +1560,48 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       hasPendingOperation={Boolean(pendingOperation)}
       pendingStatus={pendingStatus}
       hasPlacementIntent={Boolean(placementIntent)}
-      selectedNodeName={selectedNodeName}
-      canCreate={Boolean(graph?.capabilities.create && graph.capabilities.object_kinds.length)}
-      canConnect={canConnectGraph(graph)}
       onPanelChange={handleEmbeddedPanelChange}
       onRefresh={refreshFromContext}
       onExport={exportSnapshot}
       canRefresh={mode !== "managed" || Boolean(stateScopeId)}
+      searchContent={searchContent}
+      neighborhoodContent={neighborhoodContent}
+      onControlsHost={setCanvasControlsHost}
     />
   ) : null;
 
+
+  const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) ?? null : null;
+  const timelineVisible = focusedTimeline?.worldId === graph?.world_id
+    && focusedTimeline?.nodeId === viewFocusId;
+  const selectedStripEvent = selectedNodeId && focusedEventIds?.has(selectedNodeId)
+    ? selectedNodeId : undefined;
+  const stripConnections = useMemo(() => {
+    const connected = new Set<string>();
+    if (!focusedEventIds || !selectedNodeId || !graph) return connected;
+    for (const edge of graph.edges) {
+      if (edge.source_id === selectedNodeId) connected.add(edge.target_id);
+      if (edge.target_id === selectedNodeId) connected.add(edge.source_id);
+    }
+    return connected;
+  }, [focusedEventIds, graph, selectedNodeId]);
+  const stripHighlightRules = selectedStripEvent && typeof globalThis.CSS?.escape === "function"
+    ? [...stripConnections].map(id =>
+      `#loaded-native-graph-canvas [data-node-id=${CSS.escape(id)}] .world-graph-canvas__node-circle`,
+    ).join(", ")
+    : "";
+
+  const graphEdges = graph?.edges;
+  const selectedLabels = useMemo(
+    () => new Map(graphNodes?.map((node) => [node.id, compactNodeLabel(node)])),
+    [graphNodes],
+  );
+  const selectedConnections = useMemo(
+    () => selectedNodeId
+      ? graphEdges?.filter((edge) => edge.source_id === selectedNodeId || edge.target_id === selectedNodeId) ?? []
+      : [],
+    [graphEdges, selectedNodeId],
+  );
 
   if (loading && !graph) {
     return <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
@@ -1361,16 +1631,21 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const partialReadSummary = completeness?.status === "partial"
     ? `Partial native graph read: ${completeness.omitted_entities} entities omitted, ${completeness.unexamined_entities} unexamined; ${completeness.omitted_assertions} assertions omitted, ${completeness.unexamined_assertions} unexamined.`
     : null;
+  const graphNavigationHelp = embedded
+    ? "Drag anywhere to pan. Choose Move nodes to fix a bubble in place; unpinned bubbles settle around it."
+    : "Drag the background to pan and nodes to arrange them.";
+  const graphZoomHelp = "Use the graph controls to zoom or fit. With the graph focused, +/− zoom and 0 fits; hold Ctrl and scroll over the graph to zoom around the pointer.";
   const graphHelpText = pendingOperation
     ? "The graph is paused while this review is resolved. Use the review controls above."
     : graph.capabilities.create && canConnectGraph(graph)
-      ? "Drag the background to pan and nodes to arrange this browser-only view. Use Place node to choose where a new node should go, or drag a connector dot to another node to draft a relationship. Use the canvas controls to zoom or fit."
+      ? `${graphNavigationHelp} Use Place node to choose where a new node should go, or drag a connector dot to another node to draft a relationship. ${graphZoomHelp}`
       : graph.capabilities.create
-        ? "Drag the background to pan and nodes to arrange this browser-only view. Use Place node to choose where a new node should go, and use the canvas controls to zoom or fit."
+        ? `${graphNavigationHelp} Use Place node to choose where a new node should go. ${graphZoomHelp}`
         : canConnectGraph(graph)
-          ? "Drag the background to pan and nodes to arrange this browser-only view. Drag a connector dot to another node to draft a relationship, and use the canvas controls to zoom or fit."
-          : "Drag the background to pan and nodes to arrange this browser-only view. Use the canvas controls to zoom or fit.";
+          ? `${graphNavigationHelp} Drag a connector dot to another node to draft a relationship. ${graphZoomHelp}`
+          : `${graphNavigationHelp} ${graphZoomHelp}`;
 
+  const nameExceedsByteLimit = exceedsNativeNameByteLimit(draft.objectName);
   const createPanel = (
     <section className="native-demo-action-card" aria-labelledby="native-demo-create-title">
       <p className="native-demo-eyebrow">AUTHOR A NODE</p>
@@ -1385,7 +1660,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         <label htmlFor="native-demo-name">Name</label>
         <input ref={createNameInputRef} id="native-demo-name" name="name" autoComplete="off" maxLength={120} required value={draft.objectName}
           onChange={(event) => updateDraft({ objectName: event.target.value })} disabled={Boolean(pendingOperation)} placeholder="e.g. Mara" />
-        {new TextEncoder().encode(draft.objectName.trim()).length > MAX_NATIVE_NAME_UTF8_BYTES
+        {nameExceedsByteLimit
           ? <p className="native-demo-limitation" role="alert">Names must use {MAX_NATIVE_NAME_UTF8_BYTES} UTF-8 bytes or fewer. Shorten this draft to prepare a review.</p>
           : null}
         <label htmlFor="native-demo-kind">Type</label>
@@ -1396,7 +1671,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         </select>
         {graph.capabilities.create && !graph.capabilities.object_kinds.length ? <p className="native-demo-limitation">This graph profile has no supported object types to create.</p> : null}
         {!isNativeKindSupported(graph, "event") ? <p className="native-demo-limitation">{embedded ? "Event typing is not supported by this DungeonMind profile." : "Event typing is not supported by this DungeonMind profile yet. This demo is incomplete until the native profile accepts it."}</p> : null}
-        <button className="native-demo-button native-demo-button--gold" type="submit" disabled={!graph.capabilities.create || !isNativeKindSupported(graph, draft.objectKind) || new TextEncoder().encode(draft.objectName.trim()).length > MAX_NATIVE_NAME_UTF8_BYTES || Boolean(pendingOperation) || pendingStatus === "not_sent"}>
+        <button className="native-demo-button native-demo-button--gold" type="submit" disabled={!graph.capabilities.create || !isNativeKindSupported(graph, draft.objectKind) || nameExceedsByteLimit || Boolean(pendingOperation) || pendingStatus === "not_sent"}>
           {pendingOperation?.kind === "create_object" ? "Review is in progress" : "Prepare object"}
         </button>
       </form>
@@ -1425,13 +1700,13 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         <select id="native-demo-source" value={draft.sourceId} required disabled={Boolean(pendingOperation)}
           onChange={(event) => updateDraft({ sourceId: event.target.value })}>
           <option value="">Choose an object</option>
-          {graph.nodes.map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
+          {connectionOptions.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
         </select>
         <label htmlFor="native-demo-target">To</label>
         <select id="native-demo-target" value={draft.targetId} required disabled={Boolean(pendingOperation)}
           onChange={(event) => updateDraft({ targetId: event.target.value })}>
           <option value="">Choose an object</option>
-          {graph.nodes.map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
+          {connectionOptions.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
         </select>
         <label htmlFor={showPredicateOptions ? "native-demo-predicate-choice" : "native-demo-predicate"}>Relationship</label>
         {showPredicateOptions ? (
@@ -1506,13 +1781,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       <p className="native-demo-copy">{mode === "managed"
         ? "This is the selected World graph from DungeonMind. Semantic edits stay behind the native review and confirmation flow."
         : "This private synthetic graph is backed by DungeonMind. It does not edit or publish your account Worlds."}</p>
-      <p className="native-demo-limit-detail">Drag the background to pan, move nodes to arrange this view, and use the canvas controls to zoom or fit. The arrangement is saved in this browser only.</p>
+      <p className="native-demo-limit-detail">The arrangement is saved in this browser only.</p>
       <ul>
         <li className={graph.capabilities.create ? "is-available" : "is-unavailable"}>{graph.capabilities.create ? `Create ${graph.capabilities.object_kinds.map((kind) => kind.replace(/[_-]+/g, " ")).join(", ") || "supported native objects"}` : "Object creation is read-only here"}</li>
         <li className={canConnectGraph(graph) ? "is-available" : "is-unavailable"}>{!graph.capabilities.connect ? "Connections are read-only here" : !canConnectGraph(graph) ? "No approved relationship labels are available" : finitePredicateOptions ? `Connect using ${allowedPredicates.length} approved relationship label${allowedPredicates.length === 1 ? "" : "s"}` : allowsCustomPredicates ? "Use registered relationship labels or plain labels in DungeonMind’s approved custom namespace" : "Connect objects with a predicate"}</li>
         <li className="is-unavailable">Rename is unavailable</li>
         <li className="is-unavailable">Delete is unavailable</li>
       </ul>
+      <p className="native-demo-copy">{graphHelpText}</p>
       <p className="native-demo-limit-detail">Rename and delete are not part of the native operation contract.</p>
       {completeness?.status === "partial" ? (
         <div className="native-demo-completeness native-demo-completeness--info" role="status">
@@ -1528,40 +1804,50 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     </section>
   );
 
-  const selectedNode = graph.nodes.find((node) => node.id === selectedNodeId) ?? null;
-  const selectedLabels = new Map(graph.nodes.map((node) => [node.id, node.name]));
-  const selectedConnections = selectedNode ? graph.edges.filter((edge) => edge.source_id === selectedNode.id || edge.target_id === selectedNode.id) : [];
-  const detailsPanel = selectedNode ? (
-    <section className="native-demo-action-card native-demo-object-details" aria-labelledby="native-demo-selected-object-title">
-      <p className="native-demo-eyebrow">{mode === "managed" ? "LOADED WORLD REVISION" : "LOADED SNAPSHOT"}</p>
-      <h2 id="native-demo-selected-object-title">{mode === "managed" ? "Object details" : selectedNode.name}</h2>
-      <p className="native-demo-copy">{mode === "managed" ? `${selectedNode.name} · ` : ""}{selectedNode.kind} · revision <code>{graph.revision_id}</code></p>
-      <div className="native-demo-object-details__actions">
-        <button className="native-demo-button native-demo-button--light" type="button" onClick={() => requestCameraFocus(selectedNode.id)}>Focus</button>
-        {focusedNodeId ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => requestCameraFocus(null)}>Exit focus</button> : null}
-        <button className="native-demo-button native-demo-button--quiet" type="button" onClick={closeSelectedDetails}>Close details</button>
-      </div>
-      {mode === "managed" ? (
-        selectedNodeDetailStatus === "loading" ? <p role="status">Loading this object from the loaded World revision…</p>
-          : selectedNodeDetailStatus === "ready" && selectedNodeDetail
-            ? <NativeGraphObjectDetails detail={selectedNodeDetail} entityId={selectedNode.id} label={selectedNode.name} labels={selectedLabels} entityOnly={entityOnlyDetails} />
-            : selectedNodeDetailStatus === "unavailable" || selectedNodeDetailStatus === "error"
-              ? <p role={selectedNodeDetailStatus === "error" ? "alert" : "status"}>{selectedNodeDetailError}</p>
-              : <p role="status">Select this object to inspect its loaded World revision.</p>
-      ) : (
-        <section className="native-demo-object-details__connections" aria-labelledby="native-demo-selected-connections-title">
-          <h3 id="native-demo-selected-connections-title">Connections in this loaded snapshot</h3>
-          {selectedConnections.length ? <ul>{selectedConnections.map((edge) => {
-            const outgoing = edge.source_id === selectedNode.id;
-            const otherId = outgoing ? edge.target_id : edge.source_id;
-            const otherName = selectedLabels.get(otherId) ?? "Unknown object in this snapshot";
-            return <li key={edge.id}>{outgoing ? `${edge.predicate} → ${otherName}` : `${otherName} → ${edge.predicate} → ${selectedNode.name}`}</li>;
-          })}</ul> : <p>No listed connections for this object in this loaded snapshot.</p>}
-          {completeness?.status === "partial" ? <p role="status">This graph read is partial, so additional connections may not be listed.</p> : null}
-        </section>
-      )}
-    </section>
+  const authoringPanelOpen = activePanel === "create" || activePanel === "connect";
+  const chronologyPanel = chronologyOpen && api.readChronology ? (
+    <div className="native-demo-inspector-timeline">
+      <h2>{embedded && selectedNode ? `Chronology · ${compactNodeLabel(selectedNode)}` : `World chronology · ${worldTitle?.trim() || "Selected World"}`}</h2>
+      <GraphChronology relatedTo={embedded ? selectedNode?.id : undefined} graph={graph} read={api.readChronology} shared={embedded && (!readOnly || canvasLayout !== "graph") ? { result: chronologyData } : undefined} strip
+        onExplore={nodeId => {
+          if (pendingRef.current) return;
+          if (embedded) {
+            requestCameraFocus(nodeId, false);
+          } else {
+            setChronology(null);
+            focusInspectorRef.current = true;
+            handleCanvasSelectionChange(nodeId as LocalObjectId);
+            requestCameraFocus(nodeId);
+          }
+        }} />
+    </div>
   ) : null;
+
+  const detailsPanel = selectedNode ? <>
+    <NativeGraphNodeExplorer
+    key={`${graph.world_id}:${graph.revision_id}:${selectedNode.id}`}
+    node={selectedNode} revision={graph.revision_id} detail={selectedNodeDetail} labels={selectedLabels}
+    mode={mode} status={selectedNodeDetailStatus} error={selectedNodeDetailError} connections={selectedConnections}
+    entityOnly={entityOnlyDetails} sourceReads={Boolean(api.readChronology)} partial={completeness?.status === "partial"} navigationDisabled={Boolean(pendingOperation)}
+    headingRef={inspectorHeadingRef} onFocus={() => requestCameraFocus(selectedNode.id)}
+    onExitFocus={focusedNodeId ? () => requestCameraFocus(null) : undefined} onClose={closeSelectedDetails}
+    previousLabel={selectedLabels.get(inspectionHistory[inspectionHistory.length - 1]!)}
+    onBack={inspectionHistory.length ? () => {
+      const previous = inspectionHistory[inspectionHistory.length - 1];
+      if (!previous || pendingOperation || !nodesById.has(previous)) return;
+      focusInspectorRef.current = true;
+      setInspectionHistory((history) => history.slice(0, -1));
+      selectedNodeIdRef.current = previous;
+      setSelectedNodeId(previous);
+      requestCameraFocus(previous);
+    } : undefined}
+    onExplore={(nodeId) => {
+      if (pendingOperation || !nodesById.has(nodeId)) return;
+      focusInspectorRef.current = true;
+      handleCanvasSelectionChange(nodeId as LocalObjectId);
+      requestCameraFocus(nodeId);
+    }}
+  /></> : null;
 
 
   return (
@@ -1599,7 +1885,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         {notice ? <div className={`native-demo-notice native-demo-notice--${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}>{notice.text}</div> : null}
         {storageWarning ? <div className="native-demo-storage-note" role="status">Browser storage is unavailable. Form drafts may not survive a page reload, and new requests will wait until a recovery draft can be saved.</div> : null}
 
-        <div className={`native-demo-workspace${embedded ? ` native-demo-workspace--embedded${pendingOperation || activePanel ? " has-panel" : ""}` : ""}`}>
+        <div className={`native-demo-workspace${embedded ? ` native-demo-workspace--embedded has-panel` : ""}`}>
           <section className={`native-demo-graph-card${embedded ? " native-demo-graph-card--embedded" : ""}`} aria-labelledby="native-demo-graph-heading">
             {embedded ? (
               <h2 id="native-demo-graph-heading" className="native-demo-sr-only">DungeonMind graph</h2>
@@ -1614,31 +1900,34 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 </button>
               </div>
             )}
-            {embedded ? <div className="native-demo-canvas-help" data-open={graphHelpOpen} data-dismissed={graphHelpDismissed}
-              onMouseEnter={() => setGraphHelpDismissed(false)}>
-              <button className="native-demo-canvas-help__trigger" type="button" aria-label="Graph interaction help" aria-describedby={graphHelpId}
-                aria-expanded={graphHelpOpen}
-                onFocus={() => setGraphHelpDismissed(false)}
-                onClick={() => {
-                  if (graphHelpOpen) {
-                    setGraphHelpOpen(false);
-                    setGraphHelpDismissed(true);
-                  } else {
-                    setGraphHelpDismissed(false);
-                    setGraphHelpOpen(true);
+            {!embedded && api.readChronology && <button type="button" className="native-demo-button native-demo-button--quiet"
+              aria-expanded={chronologyOpen} onClick={() => setChronology(chronologyOpen ? null : { graph })}>Chronology</button>}
+            {embedded && !viewFocusId && !chronologyOpen && graph.nodes.length > 64 && (
+              <button type="button" className="native-demo-button native-demo-button--quiet"
+                aria-pressed={compactOverview} onClick={() => {
+                  const enabled = !compactOverview;
+                  setCompactPreference({ key: compactPreferenceKey, enabled });
+                  try {
+                    if (compactPreferenceKey) window.localStorage.setItem(compactPreferenceKey, String(enabled));
+                  } catch {
+                    // Keep the current view usable when browser storage is unavailable.
                   }
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== "Escape" || (!graphHelpOpen && graphHelpDismissed)) return;
-                  setGraphHelpOpen(false);
-                  setGraphHelpDismissed(true);
-                  event.preventDefault();
-                  event.stopPropagation();
+                  cameraFocusRequestIdRef.current += 1;
+                  setCameraFocusResetRequest({ requestId: cameraFocusRequestIdRef.current, fitView: true });
                 }}>
-                <span aria-hidden="true">i</span>
+                Compact overview
               </button>
-              <div className="native-demo-canvas-help__tooltip" id={graphHelpId} role="tooltip">{graphHelpText}</div>
-            </div> : null}
+            )}
+            {focusedEventIds && viewFocusId && !chronologyOpen && (
+              <button type="button" className="native-demo-button native-demo-button--quiet"
+                aria-expanded={timelineVisible}
+                onClick={() => setFocusedTimeline(timelineVisible ? null : { worldId: graph.world_id, nodeId: viewFocusId })}>
+                Timeline
+              </button>
+            )}
+            {stripHighlightRules && <style>{`${stripHighlightRules} {
+              stroke: #a05b09; stroke-width: 5; paint-order: stroke fill;
+            }`}</style>}
             {record ? (
               <WorldGraphCanvas
                 key={graph.world_id}
@@ -1647,11 +1936,38 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 onMoveObjects={saveLayout}
                 {...(embedded ? {
                   nodeShape: "circle" as const,
-                  projectionOptions: { maxNodes: 512, maxEdges: 1024 },
+                  externalControls: true,
+                  controlsHost: canvasControlsHost,
+                  alternatePositions: chronologyLayout?.positions,
+                  layoutControls: readChronology ? (
+                    <div role="group" aria-label="Graph layout">
+                      {(["graph", "line", "spiral"] as const).map(mode =>
+                        <SurfaceContextAction key={mode} aria-pressed={canvasLayout === mode}
+                          disabled={mode !== "graph" && !readOnly && !chronologyData?.events}
+                          onClick={() => setCanvasLayout(mode)}>
+                          {mode === "graph" ? "Graph" : mode === "line" ? "Line" : "Spiral"}
+                        </SurfaceContextAction>)}
+                    </div>
+                  ) : undefined,
+                  layoutMarkerBounds: chronologyLabelBounds,
+                  layoutMarkers: chronologyLayout ? <g pointerEvents="none">
+                    {[...new Set(chronologyLayout.markers.map(marker => marker.campaign))].map(campaign =>
+                      <polyline key={campaign} fill="none" stroke="#8a734b" strokeWidth={5}
+                        points={chronologyLayout.markers.filter(marker => marker.campaign === campaign)
+                          .map(({ point }) => `${point.x},${point.y}`).join(" ")} />)}
+                    {chronologyLabels.map(({ key, point, text }) =>
+                      <text key={key} x={point.x} y={point.y} fontSize={28}>{text}</text>)}
+                  </g> : undefined,
+                  toolActions: !readOnly ? <>
+                    <SurfaceContextAction disabled={!graph.capabilities.create || !graph.capabilities.object_kinds.length || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>
+                    <SurfaceContextAction disabled={!canConnectGraph(graph) || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "connect" ? null : "connect")}>Connect</SurfaceContextAction>
+                  </> : undefined,
+                  projectionOptions: { fullCorpus: true, compactOverview: !chronologyLayout && compactOverview, maxNodes: 512, maxEdges: 1024, focusObjectId: chronologyLayout ? null : viewFocusId, revealObjectIds: chronologyLayout?.eventIds as LocalObjectId[] | undefined, neighborhoodDepth },
                   creationKinds,
-                  onCanvasCreateRequest: graph.capabilities.create ? handleCanvasCreateRequest : undefined,
-                  onConnectRequest: canConnectGraph(graph) ? handleConnectRequest : undefined,
+                  onCanvasCreateRequest: !readOnly && graph.capabilities.create ? handleCanvasCreateRequest : undefined,
+                  onConnectRequest: !readOnly && canConnectGraph(graph) ? handleConnectRequest : undefined,
                   onSelectionChange: handleCanvasSelectionChange,
+                  revealObjectId: createdNodeReveal?.worldId === graph.world_id ? createdNodeReveal.nodeId as LocalObjectId : null,
                   cameraFocusRequest: cameraFocusRequest?.worldId === graph.world_id ? cameraFocusRequest : undefined,
                   clearCameraFocusRequest: cameraFocusResetRequest,
                   clearSelectionRequest,
@@ -1667,21 +1983,38 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               <span><strong>{graph.edges.length}</strong> {completeness?.status === "partial" ? "listed relationships" : "relationships"}</span>
               {!embedded ? <span className="native-demo-meta-ellipsis" title={graph.revision_id}>Revision <code>{graph.revision_id}</code></span> : null}
             </div> : null}
-            {partialReadSummary ? <div className="native-demo-completeness" role="status"><strong>Partial native graph read</strong><span>{partialReadSummary}</span>{completeness?.reasons.map((reason) => <span key={reason}>{completenessReasonLabel(reason)}</span>)}</div> : null}
+            {!embedded && partialReadSummary ? <div className="native-demo-completeness" role="status"><strong>Partial native graph read</strong><span>{partialReadSummary}</span>{completeness?.reasons.map((reason) => <span key={reason}>{completenessReasonLabel(reason)}</span>)}</div> : null}
           </section>
 
           {embedded ? (
-            pendingOperation ? (
-              <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label="Pending graph review">
-                {reviewPanel}
-              </aside>
-            ) : activePanel && (activePanel !== "details" || selectedNode) ? (
-              <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label={activePanel === "info" ? "Graph information" : activePanel === "details" ? "Selected object details" : "Graph actions"}>
-                {activePanel === "create" ? createPanel : activePanel === "connect" ? connectPanel : activePanel === "details" ? detailsPanel : infoPanel}
-              </aside>
-            ) : null
+            <aside className="native-demo-side-panel native-demo-side-panel--embedded"
+              aria-label={pendingOperation ? "Pending graph review" : chronologyOpen ? "Chronology" : authoringPanelOpen ? "Graph actions" : activePanel !== "info" && selectedNode ? "Selected object details" : "Graph information"}>
+              {pendingOperation ? reviewPanel : <>
+                {api.readChronology && <nav className="native-demo-sidebar-switch" aria-label="Graph sidebar">
+                  <button type="button" className="native-demo-button" aria-pressed={chronologyOpen}
+                    onClick={() => setChronology({ graph })}>Chronology</button>
+                  <button type="button" className="native-demo-button" aria-pressed={!chronologyOpen && !authoringPanelOpen}
+                    onClick={() => handleEmbeddedPanelChange(selectedNode ? "details" : "info")}>Node details</button>
+                </nav>}
+                {chronologyOpen ? chronologyPanel : activePanel === "create" ? createPanel
+                  : activePanel === "connect" ? connectPanel : activePanel === "info" ? infoPanel : <>
+                    {timelineVisible && focusedEventIds && viewFocusId && api.readChronology &&
+                      <div className="native-demo-inspector-timeline">
+                        <GraphChronology graph={graph} read={api.readChronology} relatedTo={viewFocusId} strip
+                          selectedEvent={selectedStripEvent} connectedIds={stripConnections}
+                          onExplore={nodeId => {
+                            if (pendingRef.current) return;
+                            focusInspectorRef.current = true;
+                            handleCanvasSelectionChange(nodeId as LocalObjectId);
+                          }} />
+                      </div>}
+                    {selectedNode ? detailsPanel : infoPanel}
+                  </>}
+              </>}
+            </aside>
           ) : (
             <aside className="native-demo-side-panel" aria-label="Native graph actions">
+              {chronologyPanel}
               {createPanel}
               {connectPanel}
               {reviewPanel}

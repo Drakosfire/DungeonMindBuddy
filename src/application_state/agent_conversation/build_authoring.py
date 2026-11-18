@@ -110,22 +110,29 @@ def normalize_native_authoring(conn,turn,rules_execution,proof,*,trace,work_proo
     return completion,{},text
 
 
-def validate_stored_proposal(conn, turn, completion):
+def _stored_proposal_payload(conn, world_id, action_id, proposal_payloads):
+    if proposal_payloads is not None:
+        return proposal_payloads.get(action_id)
+    row = conn.execute(
+        "SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s",
+        (world_id, action_id),
+    ).fetchone()
+    return row[0] if row is not None else None
+
+
+def validate_stored_proposal(conn, turn, completion, *, proposal_payloads=None):
     """Same APP transaction as completion/reload; never call a provider here."""
     from .types import BuildImagePreparationCompletionV1
 
     if isinstance(completion, BuildImagePreparationCompletionV1):
-        return validate_stored_image(conn, turn, completion)
+        return validate_stored_image(conn, turn, completion, proposal_payloads=proposal_payloads)
     if not isinstance(completion, BuildAuthoringCompletionV1):
         return
-    row = conn.execute(
-        "SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s",
-        (turn.world_id, completion.action_id),
-    ).fetchone()
+    payload = _stored_proposal_payload(conn, turn.world_id, completion.action_id, proposal_payloads)
     try:
-        if row is None:
+        if payload is None:
             raise ValueError("Proposal owner record is missing")
-        record = BuildProposalRecord.model_validate(row[0])
+        record = BuildProposalRecord.model_validate(payload)
         reservation, receipt = record.reservation, turn.graph_context_receipt
         origin, auth = reservation.origin, record.authorization
         basis = reservation.basis
@@ -355,17 +362,14 @@ def _validate_native_image(turn,completion,image):
         raise ValueError('Native image preparation differs from its source/selection/writer')
 
 
-def validate_stored_image(conn, turn, completion):
+def validate_stored_image(conn, turn, completion, *, proposal_payloads=None):
     from application_state.build_proposal.types import BuildImagePreparation
     from application_state.build_proposal.types import ImageDirection, ImageDirectionV2
     from .types import BuildJevActionSelectionV1, BuildImageActionPolicyV1
 
     try:
-        row = conn.execute(
-            "SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s",
-            (turn.world_id, completion.action_id),
-        ).fetchone()
-        image = BuildImagePreparation.model_validate(row[0] if row else None)
+        payload = _stored_proposal_payload(conn, turn.world_id, completion.action_id, proposal_payloads)
+        image = BuildImagePreparation.model_validate(payload)
         from .native_context import SurfaceNativeContextReceiptV1
         if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
             return _validate_native_image(turn,completion,image)

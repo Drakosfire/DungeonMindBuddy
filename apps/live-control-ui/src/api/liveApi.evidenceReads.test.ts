@@ -78,11 +78,17 @@ it('does not attach evidence credentials to a near-miss endpoint', async () => {
 })
 
 const buildPaths = [
+  '/api/live/agent/worlds/world%2Fa/build-pdf-sources/ocr',
   '/api/live/agent/worlds/world%2Fa/build-proposals',
   '/api/live/agent/worlds/world%2Fa/build-proposals?conversation_id=conversation',
   '/api/live/agent/worlds/world%2Fa/build-proposals/action',
   '/api/live/agent/worlds/world%2Fa/build-proposals/action/prompt',
   '/api/live/agent/worlds/world%2Fa/build-proposals/action/inserted?expected_revision=5',
+  '/api/live/agent/worlds/world%2Fa/build-pdf-sources?admission_id=fixture',
+  '/api/live/agent/worlds/world%2Fa/build-pdf-sources/open',
+  '/api/live/agent/worlds/world%2Fa/build-pdf-sources/review',
+  '/api/live/agent/worlds/world%2Fa/build-pdf-sources/statblock-reviews/11111111-1111-4111-8111-111111111111/from-regions',
+  '/api/live/agent/worlds/world%2Fa/build-pdf-sources/statblock-reviews/11111111-1111-4111-8111-111111111111/creature-draft?expected_revision=2',
 ]
 it.each(buildPaths)('guards the exact Build endpoint %s', async path => {
   const api = await setup(); api.setNativeGraphAccessToken('synthetic-build-token')
@@ -106,20 +112,55 @@ it('recovers a trusted pre-dispatch session rejection with identical Compose byt
     expect(new Headers(init?.headers).get('X-DMB-Graph-CSRF')).toBe('csrf')
     return calls === 1 ? Response.json({ detail: { code: 'graph_auth_csrf_rejected' } }, { status: 403 }) : Response.json({})
   })
-  await api.authenticatedApiFetch(buildPaths[0], { method: 'POST', body })
+  await api.authenticatedApiFetch(buildPaths[1], { method: 'POST', body })
   expect(calls).toBe(2)
 })
+it('renews local CSRF and replays only the exact pre-dispatch PDF statblock review request', async () => {
+  const api = await setup();
+  const path = '/api/live/agent/worlds/world%2Fa/build-pdf-sources/statblock-reviews/11111111-1111-4111-8111-111111111111/from-regions';
+  const body = JSON.stringify({ regions: [{ source_revision_id: 'srev:test', page: 1 }], instruction: '' });
+  let sessionBoots = 0;
+  let requestCalls = 0;
+  const requestBodies: string[] = [];
+  const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+    if (String(url) === '/api/live/agent/local-session') {
+      if (init?.method === 'POST') {
+        sessionBoots++;
+        return Response.json({ status: 'active', csrf_token: `csrf-${sessionBoots}` });
+      }
+      return new Response(null, { status: 401 });
+    }
+    expect(String(url)).toBe(path);
+    requestCalls++;
+    requestBodies.push(String(init?.body));
+    expect(new Headers(init?.headers).get('X-DMB-Graph-CSRF')).toBe(`csrf-${sessionBoots}`);
+    return requestCalls === 1
+      ? Response.json({ detail: { code: 'graph_auth_csrf_rejected' } }, { status: 403 })
+      : Response.json({ revision: 1 });
+  });
+
+  await expect(api.authenticatedApiFetch(path, { method: 'POST', body }))
+    .resolves.toMatchObject({ response: { ok: true } });
+  expect(sessionBoots).toBe(2);
+  expect(requestCalls).toBe(2);
+  expect(requestBodies).toEqual([body, body]);
+  expect(fetch.mock.calls.filter(([url]) => String(url) === path)).toHaveLength(2);
+});
+
 it('does not repeat Compose after an uncertain network failure', async () => {
   const api = await setup(); api.setNativeGraphAccessToken('synthetic-build-token')
   const fetch = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Unknown outcome'))
-  await expect(api.authenticatedApiFetch(buildPaths[0], { method: 'POST', body: '{}' })).rejects.toThrow('Unknown outcome')
+  await expect(api.authenticatedApiFetch(buildPaths[1], { method: 'POST', body: '{}' })).rejects.toThrow('Unknown outcome')
   expect(fetch).toHaveBeenCalledTimes(1)
 })
 it('does not authorize a near-miss Build endpoint', async () => {
   const api = await setup(); api.setNativeGraphAccessToken('synthetic-build-token')
   const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({}))
   await api.authenticatedApiFetch('/api/live/agent/worlds/world/build-proposals/action/export')
-  expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false)
+  await api.authenticatedApiFetch('/api/live/agent/worlds/world/build-pdf-sources/statblock-reviews/review/from-regions/export', { method: 'POST', body: '{}' })
+  for (const [, init] of fetch.mock.calls) {
+    expect(new Headers(init?.headers).has('Authorization')).toBe(false)
+  }
 })
 
 it.each(['export', '0/export', '-1', '1.5'])('does not authorize a near-miss passage selector %s', async selector => {

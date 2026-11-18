@@ -5,23 +5,23 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
-from src.statblocks.lifecycle_artifact import (
+from statblocks.lifecycle_artifact import (
     StatblockBreadcrumb,
     StatblockCreatedBy,
     StatblockDraftArtifact,
     artifact_from_draft_response,
 )
-from src.statblocks.lifecycle_commands import (
+from statblocks.lifecycle_commands import (
     STATBLOCK_DRAFT_GENERATE,
     STATBLOCK_DRAFT_RENDER,
     STATBLOCK_GENERATOR_HEALTH,
 )
-from src.statblocks.v2_client import (
+from statblocks.v2_client import (
     StatBlockGeneratorClientConfigError,
     StatBlockGeneratorHTTPError,
     StatBlockGeneratorProvider,
 )
-from src.statblocks.v2_contract import (
+from statblocks.v2_contract import (
     ContractError,
     StatBlockDraftRenderRequest,
     StatBlockDraftRequest,

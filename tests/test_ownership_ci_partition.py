@@ -18,6 +18,13 @@ def test_workflow_retains_every_original_selector_once_except_partitioned_module
     expected = Counter(json.loads((ROOT / "tests/fixtures/ownership_ci_selectors.json").read_text()))
     expected[partition.MODULE] = 3
     expected["tests/test_ownership_ci_partition.py"] = 1
+    expected.update([
+        "tests/integration/test_recap_evidence_append.py",
+        "tests/test_category_candidate_graph_extractor.py",
+        "tests/test_recap_object_dispositions.py",
+        "tests/test_recap_quote_integrity.py",
+        "tests/test_recap_semantic_candidate_correction.py",
+    ])
     assert actual == expected
     assert len(commands) == 4
     assert all("scripts.ownership_ci_partition" in c for c in commands)

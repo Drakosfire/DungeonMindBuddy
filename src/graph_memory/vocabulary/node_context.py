@@ -20,6 +20,7 @@ NODE_PASS_KIND_TARGETS: dict[str, tuple[EntityKind, ...]] = {
         "session_beat",
         "unknown",
     ),
+    "event_pass": ("event",),
     "encounter_job_pass": ("combat_encounter", "thread", "actor", "place"),
 }
 

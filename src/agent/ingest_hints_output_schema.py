@@ -263,7 +263,7 @@ def ingest_hints_output_json_schema() -> dict[str, Any]:
 def ingest_hints_text_format(*, strict: bool = True) -> dict[str, Any]:
     """``text=`` argument for ``client.responses.create`` on ingest-hints sidecar calls.
 
-    Pair with :func:`src.prompts.ingest_hints_sidecar.build_ingest_hints_messages`.
+    Pair with :func:`prompts.ingest_hints_sidecar.build_ingest_hints_messages`.
     """
     return {
         "format": {

@@ -1,4 +1,4 @@
-import './BuddyContextTrace.css'
+import './BuddyEvidence.css'
 import { useEffect, useState } from 'react'
 import { PreparedRequestInspector } from './PreparedRequestInspector'
 import { useBuddyPromptReader } from './BuddyTurnInspection'

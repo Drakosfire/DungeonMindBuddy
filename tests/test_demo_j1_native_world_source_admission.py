@@ -30,7 +30,7 @@ def _committed_source(
     provisioned: bool = False,
 ):
     if world is None:
-        world = create_world_container(root, name="J1 Test World")
+        world = create_world_container(name="J1 Test World")
     if not provisioned:
         world = store_world(world.model_copy(update={"native_graph_binding": {
             "native_world_id": world.world_id, "binding_version": 1,
@@ -494,6 +494,72 @@ def test_binding_change_before_source_publication_rejects(tmp_path, monkeypatch,
     assert error.value.code == "native_graph_binding_changed"
 
 
+@pytest.mark.parametrize("boundary", ["head", "descriptors"])
+def test_revoked_world_owner_cannot_initialize_or_publish(tmp_path, monkeypatch, memory_repository, boundary):
+    world, record = _committed_source(tmp_path)
+    snapshot = native.get_committed_page_snapshot(tmp_path, record.document_id)
+    authorized = True
+
+    def authorize_world(world_id):
+        assert world_id == world.world_id
+        if not authorized:
+            raise PermissionError("World ownership revoked")
+
+    def revoke_after(original):
+        def read(*args, **kwargs):
+            nonlocal authorized
+            result = original(*args, **kwargs)
+            authorized = False
+            return result
+        return read
+
+    if boundary == "head":
+        monkeypatch.setattr(memory_repository, "get_head", revoke_after(memory_repository.get_head))
+        monkeypatch.setattr(native, "initialize_empty_knowledge_space",
+                            lambda **kwargs: pytest.fail("revoked owner initialized source space"))
+    else:
+        monkeypatch.setattr(native, "_descriptors", revoke_after(native._descriptors))
+    monkeypatch.setattr(native, "publish_native_text_source_evidence",
+                        lambda **kwargs: pytest.fail("revoked owner published source"))
+
+    with pytest.raises(PermissionError, match="World ownership revoked"):
+        native.admit_native_world_source(
+            tmp_path, record.document_id, expected_revision=snapshot.loaded_revision,
+            expected_body_sha256=snapshot.content_sha256, authorize_world=authorize_world,
+        )
+
+
+def test_revocation_inside_native_admission_does_not_publish(tmp_path, monkeypatch, memory_repository):
+    world, record = _committed_source(tmp_path)
+    snapshot = native.get_committed_page_snapshot(tmp_path, record.document_id)
+    space = world.native_graph_binding.native_world_id
+    native._ensure_native_source_space(memory_repository, world.world_id, space)
+    before = memory_repository.get_head(space)
+
+    read_receipt = memory_repository.get_native_source_admission_receipt
+    reads = 0
+
+    def revoke_during_receipt(*args):
+        nonlocal reads
+        reads += 1
+        return read_receipt(*args)
+
+    def authorize_world(world_id):
+        assert world_id == world.world_id
+        if reads >= 2:
+            raise PermissionError("World ownership revoked")
+
+    monkeypatch.setattr(memory_repository, "get_native_source_admission_receipt", revoke_during_receipt)
+    with pytest.raises(PermissionError, match="World ownership revoked"):
+        native.admit_native_world_source(
+            tmp_path, record.document_id, expected_revision=snapshot.loaded_revision,
+            expected_body_sha256=snapshot.content_sha256, authorize_world=authorize_world,
+        )
+
+    assert reads == 2
+    assert memory_repository.get_head(space) == before
+
+
 @pytest.mark.parametrize("state", ["inactive", "missing"])
 def test_unavailable_binding_blocks_status_and_admission(tmp_path, monkeypatch, state):
     world, record = _committed_source(tmp_path)
@@ -559,7 +625,7 @@ def test_ordinary_fresh_world_source_admission_needs_no_active_graph(
 ) -> None:
     from apps.live_control_server.services.world_container_registry import get_world_container
     world, record = _committed_source(tmp_path, provisioned=True)
-    reservation = get_world_container(tmp_path, world.world_id).native_graph_binding
+    reservation = get_world_container(world.world_id).native_graph_binding
     assert reservation.status == "provisioning"
     before = world_snapshot()
     assert memory_repository.get_head(reservation.native_world_id) is None
@@ -569,7 +635,7 @@ def test_ordinary_fresh_world_source_admission_needs_no_active_graph(
     assert admitted.space_id == reservation.native_world_id != world.world_id
     assert _admit(tmp_path, record.document_id) == admitted
     assert world_snapshot() == before
-    assert get_world_container(tmp_path, world.world_id).native_graph_binding == reservation
+    assert get_world_container(world.world_id).native_graph_binding == reservation
 
 
 def test_reserved_operation_change_during_admission_fails_closed(

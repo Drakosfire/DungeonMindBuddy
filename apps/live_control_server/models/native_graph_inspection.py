@@ -3,6 +3,8 @@
 from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from apps.live_control_server.models.world_graph_object_projection import WorldGraphObjectProjectionRequest
+
 Text = Annotated[str, Field(min_length=1, pattern=r"\S")]
 
 
@@ -41,6 +43,23 @@ class SourceSelection(Closed):
     evidence_ref_id: Text
 
 
+class ChronologySelection(Closed):
+    kind: Literal["chronology"]
+
+
+class NeighborhoodSelection(Closed):
+    kind: Literal["neighborhood"]
+    seed_node_ids: list[Text] = Field(min_length=1, max_length=8)
+    max_depth: Literal[1, 2] = 1
+    max_nodes: int = Field(default=8, ge=1, le=12)
+    max_relationships: int = Field(default=16, ge=1, le=24)
+
+
 class InspectionRead(Closed):
     scope: InspectionPin
-    selection: Annotated[EntitySelection | SourceSelection, Field(discriminator="kind")]
+    selection: Annotated[EntitySelection | SourceSelection | ChronologySelection | NeighborhoodSelection, Field(discriminator="kind")]
+
+
+class NativeCompleteObjectRead(Closed):
+    scope: InspectionPin | None = None
+    request: WorldGraphObjectProjectionRequest

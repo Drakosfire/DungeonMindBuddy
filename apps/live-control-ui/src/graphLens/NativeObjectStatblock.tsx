@@ -3,7 +3,7 @@ import type {InspectionPin} from '../api/nativeGraphInspection';
 import type {WorldMechanicsAssociation} from '../api/worldMechanicsTypes';
 import {listWorldMechanicsAssociations} from '../api/liveApi';
 import {SavedStatblockButton} from '../statblocks/SavedStatblockSession';
-import {savedStatblockHref} from '../statblocks/savedStatblockLocation';
+import {buildSavedStatblockHref} from '../statblocks/savedStatblockLocation';
 import {interceptPrimaryNavigationClick} from '../chrome/appNavigation';
 
 /** Read existing APP links; a preview never adopts mechanics or changes Graph facts. */
@@ -31,7 +31,7 @@ export function NativeObjectStatblock({pin,entityId,inlineHost,onInlineOpened}:{
     <p>Saved statblock · {record.request.target.campaign_scope??'World'}</p>
     <SavedStatblockButton {...target} label="Preview and edit statblock"/>
     {inlineHost&&<SavedStatblockButton {...target} inlineHost={inlineHost} onOpened={onInlineOpened} label="Edit here"/>}
-    <a href={savedStatblockHref(target)} onClick={interceptPrimaryNavigationClick}>Open full statblock</a>
+    <a href={buildSavedStatblockHref(target)} onClick={interceptPrimaryNavigationClick}>Open full statblock</a>
     <details><summary>Link details</summary><p>Saved version: {target.revisionId}</p><p>Linked at Graph revision: {record.request.target.graph_revision_id}</p><p>This link does not adopt mechanics into an encounter.</p></details>
    </section>;
   })}

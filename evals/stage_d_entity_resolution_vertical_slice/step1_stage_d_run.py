@@ -63,7 +63,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from pydantic import BaseModel, Field  # noqa: E402
 
-from src.contracts.npc_registry import NpcRegistryRecord, load_npc_registry  # noqa: E402
+from contracts.npc_registry import NpcRegistryRecord, load_npc_registry  # noqa: E402
 
 from evals.stage_d_entity_resolution_vertical_slice.grader import grade_stage_d  # noqa: E402
 from evals.stage_d_entity_resolution_vertical_slice.stage_d_run_report import (  # noqa: E402

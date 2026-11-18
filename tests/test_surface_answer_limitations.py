@@ -80,3 +80,20 @@ def test_existing_surface_iterable_decoding_and_native_array_requirement(gaps):
     else:
         with pytest.raises(ValueError):
             project_surface_limitations([],gaps,strict_gap_array=True,**kwargs)
+
+
+def test_unbound_optional_gaps_keep_generic_notice_for_cited_answer():
+    gaps = [{"question_phrase": "first"}, {"question_phrase": "paraphrased detail"}]
+    result = project_surface_limitations([], gaps, user_question="first and second",
+        derive_missing=True, host_partial=True, empty_answer=False, strict_gap_array=True,
+        allow_generic_gap=True)
+    assert [(row.code, row.question_phrase) for row in result] == [
+        ("missing_requested_details", None), ("partial_retrieval", None)]
+
+
+def test_unbound_gap_cannot_hide_unsafe_later_entry():
+    gaps = [{"question_phrase": "absent"}, {"question_phrase": " bad "}]
+    with pytest.raises(ValueError, match="bounded displayable detail"):
+        project_surface_limitations([], gaps, user_question="first",
+            derive_missing=True, host_partial=False, empty_answer=False, strict_gap_array=True,
+            allow_generic_gap=True)

@@ -332,7 +332,7 @@ Runner script added to reproduce or repeat on another recap:
 
 The sections above are a manual/qualitative read. To answer "did edge quality actually move the
 needle" with a number instead of an eyeball, this run was scored against the hand-authored C1S1
-gold fixture (`evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json`,
+gold fixture (`evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/candidate_graph_gold.json`,
 24 gold edges / 26 gold nodes) using the real identity-resolution comparator
 (`evals.graph_memory_layer.live_vs_gold_compare.compare_parts`, the same best-match-assignment +
 predicate-family-folding engine used for the S23 gold work), run directly against the raw candidate

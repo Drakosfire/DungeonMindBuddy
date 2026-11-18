@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from src.graph_memory.session_memory_materialize import (
+from graph_memory.session_memory_materialize import (
     ADMITTED_SOURCE_FAMILY,
     load_session_memory_jsonl,
     materialize_validate_and_report_session_memory,

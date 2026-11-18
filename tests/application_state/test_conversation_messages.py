@@ -70,6 +70,11 @@ def test_preview_preserves_exact_text_order_and_cursor_without_turn_hydration(
         "list_turns",
         lambda *a, **k: pytest.fail("Text preview hydrated full execution records"),
     )
+    monkeypatch.setattr(
+        library,
+        "_one",
+        lambda *a: pytest.fail("Text preview hydrated a conversation summary"),
+    )
     page = library.read_messages("world-one", cid, limit=2)
     assert page["messages"] == expected[1:] and page["next_before_sequence"] == 2
     earlier = library.read_messages("world-one", cid, limit=2, before_sequence=2)

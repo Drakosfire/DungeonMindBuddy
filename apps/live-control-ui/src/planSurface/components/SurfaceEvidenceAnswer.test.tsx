@@ -2,8 +2,8 @@ import sharedWire from '../../test/surface-native-http.json';
 import {render,screen,fireEvent} from '@testing-library/react';
 import {it,expect,vi} from 'vitest';
 import {webcrypto,createHash} from 'node:crypto';
-import {getAgentSourcePassage,getAgentNativeSourceClause,getAgentNativeAssertionSource} from '../../api/liveApi';
-vi.mock('../../api/liveApi',()=>({getAgentSourcePassage:vi.fn(),getAgentNativeSourceClause:vi.fn(),getAgentNativeAssertionSource:vi.fn()}));
+import {getAgentSourcePassage,getAgentNativeSourceClause,getAgentNativeAssertionSource,getNativeRelatedRecaps,readNativeRecapPage} from '../../api/liveApi';
+vi.mock('../../api/liveApi',()=>({getAgentSourcePassage:vi.fn(),getAgentNativeSourceClause:vi.fn(),getAgentNativeAssertionSource:vi.fn(),getNativeRelatedRecaps:vi.fn(),readNativeRecapPage:vi.fn()}));
 import {SurfaceEvidenceAnswer} from './SurfaceEvidenceAnswer';
 import type {SurfaceEvidenceCompletionV1} from '../../api/types';
 function evidence():SurfaceEvidenceCompletionV1 {
@@ -125,4 +125,37 @@ it('keeps raw native qualifications out of the answer while preserving supported
  expect(screen.queryByText('Qualifications',{exact:true})).toBeNull();
  expect(JSON.stringify(completion)).toBe(original);
  expect(screen.getByLabelText('World Graph fact')).toHaveTextContent('Reviewed World Graph');
+});
+
+it.each([false, true])('verifies native recap pages before displaying text (changed bytes: %s)', async changed => {
+  vi.stubGlobal('crypto', webcrypto);
+  const {context, source} = structuredClone(sharedWire);
+  const completion = context.completion as import('../../api/types').SurfaceNativeCompletionV1;
+  const citation = source.citation;
+  const scope = {
+    managed_world_id: citation.managed_world_id, native_world_id: citation.native_world_id,
+    revision_id: citation.read_revision_id, binding_version: 1, scope_mode: 'world' as const, campaign_id: null,
+  };
+  const selection = {kind: 'source' as const, assertion_id: citation.assertion_id, evidence_ref_id: citation.evidence_ref_id};
+  const metadata = {source_artifact_id: citation.source_artifact_id, source_revision_id: citation.source_revision_id};
+  vi.mocked(getNativeRelatedRecaps).mockResolvedValue({scope, targets: [{selection, ...metadata}]});
+  const page = {
+    schema: 'dmb_native_graph_source_v1' as const, scope,
+    source: {
+      ...metadata, status: 'available' as const, text: source.content.slice(0, 3),
+      body_sha256: citation.body_sha256, span_sha256: citation.span_sha256,
+      span_start_byte: citation.start_byte, span_end_byte: citation.end_byte, source_authority_epoch: 1,
+    },
+    next_continuation: 'next',
+  };
+  vi.mocked(readNativeRecapPage).mockResolvedValueOnce(page).mockResolvedValueOnce({
+    ...page, source: {...page.source, text: (changed ? '!' : source.content[3]) + source.content.slice(4)},
+    next_continuation: null,
+  });
+  render(<SurfaceEvidenceAnswer completion={completion} worldId={source.world_id} turnId={source.turn_id} nativeScope={scope}/>);
+  fireEvent.click(screen.getByRole('button', {name: 'Open related session recap'}));
+  await screen.findByText(changed
+    ? 'The exact cited section is unavailable. No newer text has been substituted.'
+    : source.content.trim());
+  expect(readNativeRecapPage).toHaveBeenLastCalledWith(scope, selection, 'next');
 });

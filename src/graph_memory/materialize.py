@@ -10,8 +10,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from src.graph_memory.ontology_ir import GraphBundle, GraphEdge, GraphNode, ProvenanceRef, SourceRef, TaxonomyRef, ValidationStatus
-from src.graph_memory.validation_rules import validate_bundle_against_taxonomy
+from graph_memory.ontology_ir import GraphBundle, GraphEdge, GraphNode, ProvenanceRef, SourceRef, TaxonomyRef, ValidationStatus
+from graph_memory.validation_rules import validate_bundle_against_taxonomy
 
 SCHEMA_VERSION = "0.1"
 TAXONOMY_REGISTRY_VERSION = "0.1"

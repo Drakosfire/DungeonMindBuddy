@@ -6,9 +6,12 @@ continuity tools. Live Page/Plan/Runbook reads and writes use Content only.
 
 from __future__ import annotations
 
+from application_state.content.page_presentation import PagePresentation
+
 import re
 import uuid
 from datetime import UTC, datetime
+from uuid import UUID
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
@@ -252,6 +255,8 @@ class WorkspaceDocumentSnapshot(BaseModel):
         "dmb_workspace_document_snapshot_v1"
     )
     record: WorkspaceDocumentRecord
+    page_presentation: PagePresentation | None = None
+    page_presentation_sha256: str | None = None
     committed_markdown: str | None = None
     committed_content_sha256: str | None = None
     markdown: str
@@ -385,6 +390,8 @@ def list_workspace_documents(
     campaign_id: str | None = None,
     kind: Literal["plan", "runbook", "worldbuilding_source"] | None = None,
     status: Literal["active", "discarded"] | None = "active",
+    limit: int | None = None,
+    before: tuple[datetime, UUID] | None = None,
 ) -> list[WorkspaceDocumentRecord]:
     from application_state.content import pages
     from application_state.content.service import list_plans, list_runbooks
@@ -394,13 +401,21 @@ def list_workspace_documents(
         raise WorkspaceDocumentRegistryError(
             "world_id inventory requires kind=worldbuilding_source", status_code=422
         )
+    paged = limit is not None or before is not None
+    if paged and kind != "worldbuilding_source":
+        raise WorkspaceDocumentRegistryError(
+            "Only authored-page inventory supports paging", status_code=422
+        )
     records = []
     try:
         if kind in (None, "worldbuilding_source"):
             records.extend(
                 _record_from_page(state)
                 for state in pages.page_inventory(
-                    world_id=world_id, campaign_id=campaign_id, status=status
+                    world_id=world_id,
+                    campaign_id=campaign_id,
+                    status=status,
+                    **({"limit": limit, "before": before} if paged else {}),
                 )
             )
         if kind in (None, "plan"):
@@ -416,8 +431,23 @@ def list_workspace_documents(
             )
     except ApplicationStateError as exc:
         raise _map_application_state_error(exc) from exc
-    records.sort(key=lambda row: row.updated_at, reverse=True)
+    if not paged:
+        records.sort(key=lambda row: row.updated_at, reverse=True)
     return records
+
+
+def list_workspace_page_campaign_tags(
+    *, world_id: str | None, campaign_id: str | None, status: str | None
+) -> list[str]:
+    from application_state.content.pages import page_inventory_campaign_tags
+    from application_state.errors import ApplicationStateError
+
+    try:
+        return page_inventory_campaign_tags(
+            world_id=world_id, campaign_id=campaign_id, status=status
+        )
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
 
 
 def _validate_world_id(world_id: str) -> str:
@@ -611,7 +641,7 @@ def create_world_owned_plan_v2(
     from application_state.errors import ApplicationStateError
 
     try:
-        world = get_world_container(root, cleaned_world)
+        world = get_world_container(cleaned_world)
         if world.world_id != cleaned_world:
             raise WorkspaceDocumentRegistryError(
                 "selected World identity does not match the managed World record",
@@ -640,7 +670,12 @@ def create_world_owned_plan_v2(
 
 
 def list_world_owned_plans_v2(
-    root: Path, *, world_id: str, status: str | None = "active"
+    root: Path,
+    *,
+    world_id: str,
+    status: str | None = "active",
+    limit: int | None = None,
+    before: tuple[datetime, UUID] | None = None,
 ) -> WorldOwnedPlansResponseV2:
     cleaned_world = _validate_world_id(world_id)
     from apps.live_control_server.services.world_container_registry import (
@@ -651,7 +686,7 @@ def list_world_owned_plans_v2(
     from application_state.errors import ApplicationStateError
 
     try:
-        world = get_world_container(root, cleaned_world)
+        world = get_world_container(cleaned_world)
         if world.world_id != cleaned_world:
             raise WorkspaceDocumentRegistryError(
                 "selected World identity does not match the managed World record",
@@ -659,7 +694,9 @@ def list_world_owned_plans_v2(
             )
         records = [
             _record_from_work_object(obj)
-            for obj in list_plans(world_id=cleaned_world, status=status)
+            for obj in list_plans(
+                world_id=cleaned_world, status=status, limit=limit, before=before
+            )
         ]
     except WorldContainerRegistryError as exc:
         raise WorkspaceDocumentRegistryError(
@@ -688,7 +725,7 @@ def create_world_owned_runbook_v2(
     from application_state.errors import ApplicationStateError
 
     try:
-        world = get_world_container(root, cleaned_world)
+        world = get_world_container(cleaned_world)
         if world.world_id != cleaned_world:
             raise WorkspaceDocumentRegistryError(
                 "selected World identity does not match the managed World record",
@@ -725,7 +762,7 @@ def list_world_owned_runbooks_v2(
     from application_state.unit_of_work import unit_of_work
 
     try:
-        world = get_world_container(root, cleaned_world)
+        world = get_world_container(cleaned_world)
         if world.world_id != cleaned_world:
             raise WorkspaceDocumentRegistryError(
                 "selected World identity does not match the managed World record",
@@ -768,7 +805,7 @@ def get_world_owned_runbook_v2(
     )
 
     try:
-        world = get_world_container(root, cleaned_world)
+        world = get_world_container(cleaned_world)
         if world.world_id != cleaned_world:
             raise WorkspaceDocumentRegistryError(
                 "selected World identity does not match the managed World record",
@@ -838,6 +875,10 @@ def get_workspace_document_snapshot(
         return WorkspaceDocumentSnapshot(
             record=_record_from_page(snap, from_working_copy=snap.from_working_copy),
             markdown=snap.markdown,
+            page_presentation=snap.presentation,
+            page_presentation_sha256=snap.presentation.fingerprint()
+            if snap.presentation
+            else None,
             content_sha256=snap.content_sha256,
             committed_markdown=snap.committed_revision.markdown
             if snap.committed_revision
@@ -1282,6 +1323,10 @@ def get_committed_page_snapshot(
         revision = snap.revision
         return WorkspaceDocumentSnapshot(
             record=_record_from_page(snap),
+            page_presentation=snap.presentation,
+            page_presentation_sha256=snap.presentation.fingerprint()
+            if snap.presentation
+            else None,
             markdown=revision.markdown if revision else "",
             content_sha256=revision.content_sha256 if revision else sha256_utf8(""),
             committed_markdown=revision.markdown if revision else None,

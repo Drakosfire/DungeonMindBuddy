@@ -4,6 +4,7 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
@@ -215,12 +216,29 @@ def _install_projection(
 ) -> dict[str, object]:
     captured: dict[str, object] = {"calls": 0}
     monkeypatch.setattr(projection_service, "world_graph_root", lambda: tmp_path / "world-root")
-    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _root, _id: run)
+    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _id: run)
     monkeypatch.setattr(
         projection_service.source_service,
         "get_source_markdown",
         lambda **_kwargs: source,
     )
+
+    context = run.lineage.get("world_campaign_ingest_context", {})
+    if revision_pin := context.get("head_revision_id"):
+        def get_revision(world_id, revision_id):
+            assert world_id == context["native_world_id"]
+            assert revision_id == revision_pin
+            return SimpleNamespace(revision=SimpleNamespace(
+                graph_schema=context["graph_schema"],
+                graph_payload_sha256=context["graph_payload_sha256"],
+            ))
+
+        monkeypatch.setattr(projection_service, "direct_services_from_config", lambda _:
+                            SimpleNamespace(bundle=SimpleNamespace(
+                                world_graph=SimpleNamespace(get_revision=get_revision))))
+        world = world.model_copy(update={"snapshot": world.snapshot.model_copy(update={
+            "revision_id": revision_pin, "is_head": False,
+        })})
 
     def fake_project(request, *, root):
         captured["calls"] = int(captured["calls"]) + 1
@@ -238,7 +256,7 @@ def test_exact_run_projection_uses_durable_source_and_current_world(
 ) -> None:
     world_root = tmp_path / "world-root"
     monkeypatch.setattr(projection_service, "world_graph_root", lambda: world_root)
-    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _root, _id: _run())
+    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _id: _run())
     monkeypatch.setattr(
         projection_service.source_service,
         "get_source_markdown",
@@ -311,7 +329,7 @@ def test_exact_run_projection_fails_closed_when_source_was_not_adopted(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _root, _id: _run())
+    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _id: _run())
     monkeypatch.setattr(
         projection_service.source_service,
         "get_source_markdown",
@@ -332,7 +350,7 @@ def test_exact_run_projection_preserves_dungeonmind_failure_boundary(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _root, _id: _run())
+    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _id: _run())
     monkeypatch.setattr(
         projection_service.source_service,
         "get_source_markdown",
@@ -364,7 +382,7 @@ def test_exact_run_projection_fails_closed_without_world_binding(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _root, _id: _run())
+    monkeypatch.setattr(projection_service, "get_extraction_run", lambda _id: _run())
     monkeypatch.setattr(
         projection_service.source_service,
         "get_source_markdown",
@@ -443,6 +461,15 @@ def test_scoped_projection_uses_frozen_managed_binding_and_native_world(
         world=_world(),
     )
 
+    if shape == "source_scope":
+        with pytest.raises(projection_service.HistoricalRecapProjectionError) as error:
+            projection_service.build_historical_recap_world_projection(
+                tmp_path, RUN_ID, managed_world_id="elderwyld",
+            )
+        assert error.value.code == "historical_graph_revision_unavailable"
+        assert captured["calls"] == 0
+        return
+
     response = projection_service.build_historical_recap_world_projection(
         tmp_path,
         RUN_ID,
@@ -454,6 +481,8 @@ def test_scoped_projection_uses_frozen_managed_binding_and_native_world(
     assert response.world_id == "eldyrwild"
     assert response.snapshot.world_id == "eldyrwild"
     assert captured["request"].world_id == "eldyrwild"
+    assert captured["request"].revision_pin == response.snapshot.revision_id == "rev:fixture-head"
+    assert response.snapshot.head_revision_id != response.snapshot.revision_id
     assert resolutions == []
 
 
@@ -764,3 +793,21 @@ def test_cross_artifact_evidence_does_not_attach_selected_source_text(
     assert relationship.evidence_ref_ids == ["evidence:c2s25:orik-brin"]
     assert relationship.source_excerpt is None
     assert WAREHOUSE_LINE not in (relationship.source_excerpt or "")
+
+
+def test_retained_graph_digest_mismatch_stops_before_projection(monkeypatch, tmp_path):
+    captured = _install_projection(
+        monkeypatch, tmp_path, run=_managed_run(), source=_source(), world=_world(),
+    )
+    revision = SimpleNamespace(graph_schema="dm_graph_v1", graph_payload_sha256="c" * 64)
+    graph = SimpleNamespace(get_revision=lambda *_: SimpleNamespace(revision=revision))
+    monkeypatch.setattr(
+        projection_service, "direct_services_from_config",
+        lambda _: SimpleNamespace(bundle=SimpleNamespace(world_graph=graph)),
+    )
+
+    with pytest.raises(projection_service.HistoricalRecapProjectionError) as error:
+        projection_service.build_historical_recap_world_projection(tmp_path, RUN_ID)
+
+    assert error.value.code == "historical_graph_revision_mismatch"
+    assert captured["calls"] == 0

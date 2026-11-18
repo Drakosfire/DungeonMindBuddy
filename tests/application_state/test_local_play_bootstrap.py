@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import importlib.util
-import sys
 import uuid
 from collections.abc import Iterator
-from pathlib import Path
 from urllib.parse import urlparse
 
 import pytest
+
+from application_state import local_play_bootstrap as bootstrap
 
 from apps.live_control_server.services.play_run_registry import (
     create_or_replay_play_run,
@@ -32,7 +31,6 @@ from tests.application_state.conftest import (
 )
 from tests.application_state.play_runtime_helpers import RUN_ID_A
 
-_BOOTSTRAP_PATH = Path(__file__).resolve().parents[2] / "scripts" / "bootstrap_local_play.py"
 
 V2_BREACH_MARKDOWN = "\n".join(
     [
@@ -58,18 +56,6 @@ V2_BREACH_MARKDOWN = "\n".join(
 )
 
 SECRET_PASSWORD = "super-secret-df0-password"
-
-
-def load_bootstrap():
-    spec = importlib.util.spec_from_file_location("bootstrap_local_play", _BOOTSTRAP_PATH)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-bootstrap = load_bootstrap()
 
 
 def _database_exists(admin_dsn: str, name: str) -> bool:
@@ -217,7 +203,7 @@ def test_check_reports_missing_database_without_creating(
     _assert_no_secrets(output, dsn)
 
 
-def test_check_reports_schema_behind_without_migrating(
+def test_check_reports_schema_missing_without_migrating(
     provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     dsn, name, admin = provisionable_dsn
@@ -225,11 +211,11 @@ def test_check_reports_schema_behind_without_migrating(
     code = bootstrap.main(["check"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
-    assert "status: behind" in output
+    assert "status: missing" in output
     assert "PLAY READINESS: NEEDS BOOTSTRAP" in output
     current, head, status = bootstrap._schema_status(dsn)
     assert current is None
-    assert status == "behind"
+    assert status == "missing"
     assert head
     _assert_no_secrets(output, dsn)
 
@@ -329,14 +315,14 @@ def test_apply_uses_existing_safe_database_without_drop(
     assert code == 2
 
 
-def test_apply_upgrades_schema_behind_to_head(
+def test_apply_upgrades_schema_missing_to_head(
     provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     dsn, name, admin = provisionable_dsn
     _create_database(admin, name)
     current, _head, status = bootstrap._schema_status(dsn)
     assert current is None
-    assert status == "behind"
+    assert status == "missing"
     code = bootstrap.main(["apply"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
@@ -354,7 +340,6 @@ def test_second_apply_does_not_mutate_existing_run(
     document_id = str(record.work_object_id)
     committed = get_committed_playable_revision(document_id)
     created = create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=document_id,
         expected_playable_revision=committed.revision_n,
@@ -365,9 +350,9 @@ def test_second_apply_does_not_mutate_existing_run(
     for _ in range(2):
         assert bootstrap.main(["apply"], load_env=False) == 0
         capsys.readouterr()
-        assert get_play_run(tmp_path, RUN_ID_A) == ready
+        assert get_play_run(RUN_ID_A) == ready
         assert get_committed_playable_revision(document_id) == committed
-    assert list_play_runs(tmp_path)[0].run_id == created.run_id
+    assert list_play_runs()[0].run_id == created.run_id
 
 
 def test_bootstrap_then_normal_content_to_native_ready_play(
@@ -387,7 +372,6 @@ def test_bootstrap_then_normal_content_to_native_ready_play(
     assert bootstrap.main(["check"], load_env=False) == 0
     capsys.readouterr()
     create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=document_id,
         expected_playable_revision=committed.revision_n,
@@ -400,7 +384,7 @@ def test_bootstrap_then_normal_content_to_native_ready_play(
     assert ready.progress.current_scene_id is None
     assert bootstrap.main(["apply"], load_env=False) == 0
     capsys.readouterr()
-    assert get_play_run(tmp_path, RUN_ID_A) == ready
+    assert get_play_run(RUN_ID_A) == ready
 
 
 @pytest.mark.parametrize("with_content", [False, True])
@@ -453,3 +437,36 @@ def test_check_and_apply_never_print_full_dsn(
     assert "username:" in apply_out
     assert "host:" in apply_out
     assert "database:" in apply_out
+
+
+def test_schema_readiness_can_skip_runbook_inventory(
+    application_state_dsn: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = []
+    monkeypatch.setattr(bootstrap, "count_startable_runbooks", lambda: calls.append(1) or 1)
+
+    import psycopg
+
+    connect = psycopg.connect
+    connections = []
+
+    def record_connection(dsn, **kwargs):
+        connections.append(kwargs)
+        return connect(dsn, **kwargs)
+
+    monkeypatch.setattr(psycopg, "connect", record_connection)
+    periodic = bootstrap.inspect_readiness(
+        load_env=False, include_runbooks=False, periodic=True
+    )
+    assert connections == [
+        {"autocommit": True, "connect_timeout": 2, "options": "-c statement_timeout=1000"}
+    ]
+    connections.clear()
+    assert periodic.schema_status == "ready"
+    assert periodic.startable_runbooks is None
+    assert calls == []
+
+    operator = bootstrap.inspect_readiness(load_env=False)
+    assert operator.startable_runbooks == 1
+    assert len(connections) == 2
+    assert calls == [1]

@@ -1,9 +1,0 @@
-# Large / binary originals (keep local; text + pipeline JSON still tracked)
-*.pdf
-*.docx
-*.glb
-*.stl
-
-# RulesIngestion per-page raster + OCR scratch (markdown/JSON live outside these paths)
-**/ocr_raw/
-**/*_p*.png

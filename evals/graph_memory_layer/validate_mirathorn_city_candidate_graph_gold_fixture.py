@@ -4,7 +4,7 @@ import json
 
 from evals.graph_memory_layer.mirathorn_city_world_doc_fixture import load_manifest, validate_manifest, load_source_doc
 from evals.graph_memory_layer.mirathorn_city_candidate_graph_gold_fixture import *
-from src.graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
+from graph_memory.candidate_graph_preview import COMMITTED_ACTIONS
 
 
 def _assert(c, msg):

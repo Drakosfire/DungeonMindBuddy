@@ -11,6 +11,9 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
 construction_sink: ContextVar[Callable[[dict], None] | None] = ContextVar('construction_sink', default=None)
+deferred_construction_sink: ContextVar[Callable[[Callable[[], dict]], None] | None] = ContextVar(
+    'deferred_construction_sink', default=None,
+)
 _running: set[asyncio.Task] = set()
 
 
@@ -21,6 +24,17 @@ def observe(value: dict) -> None:
             sink(value)
         except Exception:
             pass  # Delivery cannot change authorization, persistence or retry policy.
+
+
+def observe_deferred(build: Callable[[], dict]) -> None:
+    try:
+        sink = deferred_construction_sink.get()
+        if sink is not None:
+            sink(build)
+        elif construction_sink.get() is not None:
+            observe(build())
+    except Exception:
+        pass  # Preview construction cannot change the durable result.
 
 
 class MarkdownStringProgress:
@@ -172,6 +186,7 @@ def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingRe
 
         def work():
             token = construction_sink.set(publish)
+            deferred_token = deferred_construction_sink.set(publish)
             result = {'kind': 'error', 'status': 500, 'detail': {'code': 'turn_stream_failed',
                       'message': 'The saved request needs checking. No automatic retry was sent.'}}
             try:
@@ -181,6 +196,7 @@ def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingRe
             except Exception:
                 pass  # The route/service already owns durable uncertainty and diagnostics.
             finally:
+                deferred_construction_sink.reset(deferred_token)
                 construction_sink.reset(token)
                 publish(result, final=True)
 
@@ -200,6 +216,11 @@ def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingRe
                     value, latest = latest, None
                     end = terminal
                     wake_pending = False
+                if callable(value):
+                    try:
+                        value = value()
+                    except Exception:
+                        value = None
                 if value is not None:
                     yield 'data: ' + json.dumps({'schema': 'dmb_build_turn_stream_v1',
                         'client_turn_id': client_turn_id, 'kind': 'construction', 'progress': value}) + '\n\n'

@@ -190,6 +190,8 @@ export function EditHost({
     if (!isOpen || !hasInventory) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
+      // Native top-layer dialogs own Escape; leave the underlying drawer intact.
+      if (event.target instanceof Element && event.target.closest("dialog[open][data-native-escape-owner]")) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       setHostOpen(false, "dismiss");

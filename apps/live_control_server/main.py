@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+import logging
 import os
+import re
 from pathlib import Path
+from time import perf_counter
 from urllib.parse import urlencode
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from fastapi.responses import (
     FileResponse,
     JSONResponse,
@@ -33,13 +37,11 @@ from apps.live_control_server.routes.live import router as live_router
 from apps.live_control_server.routes.party_registry import router as party_registry_router
 from apps.live_control_server.routes.play_runs import router as play_runs_router
 from apps.live_control_server.routes.source_statements import router as source_statements_router
+from apps.live_control_server.routes.pdf_adventure_events import router as pdf_adventure_events_router
 from apps.live_control_server.routes.native_graph_inspection import router as native_graph_inspection_router
 from apps.live_control_server.routes.native_source_inspection import router as native_source_inspection_router
 from apps.live_control_server.routes.play_prepared_tables import router as play_prepared_tables_router
-from apps.live_control_server.routes.recap_ingest import (
-    router as recap_ingest_router,
-    resolve_native_recap_hosted_world,
-)
+from apps.live_control_server.routes.recap_ingest import router as recap_ingest_router
 from apps.live_control_server.routes.world_graph_bootstrap import (
     router as world_graph_bootstrap_router,
 )
@@ -117,13 +119,55 @@ from apps.live_control_server.services.hosted_auth import (
 )
 from apps.live_control_server.services.trusted_cookie_origin import require_cookie_write_origin
 from apps.live_control_server.services.hosted_native_graph_access import (
+    BUILD_PDF_SOURCES_PATH,
+    BUILD_PAGE_INVENTORY_PATH,
     EXPLORER_PREFIX,
+    FIRST_WORLD_CONFIRM_PATH,
+    FIRST_WORLD_PREPARE_PATH,
+    COMPLETE_OBJECT_PATH,
     INSPECTION_READ_PATH,
     WORLD_COLLECTION_PATH,
+    WORLD_LOOKUP_PATH,
     hosted_owner_collection,
+    resolve_hosted_build_pdf_world,
+    resolve_hosted_saved_artwork,
+    resolve_hosted_build_extraction,
+    resolve_hosted_worldbuilding_evidence_correction,
+    resolve_hosted_exact_extraction_read,
+    resolve_hosted_saved_recap,
+    resolve_hosted_build_page,
+    resolve_hosted_build_native_source,
+    resolve_hosted_statblock_inventory,
+    resolve_hosted_saved_statblock,
+    resolve_hosted_statblock_revision_save,
+    resolve_hosted_combat_encounter,
+    resolve_hosted_connected_page,
+    resolve_hosted_conversation_world,
+    resolve_hosted_native_creature,
+    resolve_hosted_mechanics_association,
+    resolve_hosted_image_history,
+    resolve_hosted_image_world,
+    resolve_hosted_chat_turn,
+    resolve_hosted_build_page_create,
+    resolve_hosted_build_page_inventory,
     resolve_hosted_explorer_world,
+    resolve_hosted_threat_hydration,
+    resolve_hosted_first_world,
+    resolve_hosted_manual_knowledge,
+    resolve_hosted_native_relationship,
+    resolve_hosted_plan_world_context,
+    resolve_hosted_committed_plan,
+    resolve_hosted_plan_create,
+    resolve_hosted_play_preparation,
+    resolve_hosted_play_creation,
+    resolve_hosted_play_read,
+    resolve_hosted_recap_name_review,
+    resolve_hosted_play_scene_proposal,
+    resolve_hosted_play_table_roll,
+    resolve_hosted_play_command,
+    resolve_hosted_world_lookup,
 )
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 
 load_dungeonmindbuddy_dotenv()
 
@@ -150,11 +194,167 @@ HOSTED_WORLD_COLLECTION_AUTHORIZERS = {
     ("GET", WORLD_COLLECTION_PATH): hosted_owner_collection,
 }
 
+PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
+PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
+
 HOSTED_WORLD_SCOPE_RESOLVERS = {
-    ("POST", "/api/live/recap-ingest"): resolve_native_recap_hosted_world,
+    ("POST", "/api/live/threats/query-hydration"): resolve_hosted_threat_hydration,
+    ("POST", "/api/live/recap-name-review"): resolve_hosted_recap_name_review,
+    ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): resolve_hosted_conversation_world,
+    ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}/continue"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"): resolve_hosted_plan_world_context,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/connected-pages/{operation_id}"): resolve_hosted_connected_page,
+    ("POST", "/api/live/connected-pages/prepare"): resolve_hosted_connected_page,
+    ("POST", "/api/live/connected-pages/confirm"): resolve_hosted_connected_page,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/prompt/{provider_attempt_id}"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/prompts"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/media/images/capabilities"): resolve_hosted_image_world,
+    ("POST", "/api/live/media/images/generate"): resolve_hosted_image_world,
+    ("POST", "/api/live/media/images/preparations/{action_id}/asset"): resolve_hosted_image_world,
+    ("POST", "/api/live/graph-authoring/prepare"): resolve_hosted_manual_knowledge,
+    ("POST", "/api/live/graph-authoring/commit"): resolve_hosted_manual_knowledge,
+    ("GET", "/api/live/graph-authoring/object-kinds"): resolve_hosted_plan_world_context,
+    ("POST", "/api/live/graph-authoring/document-relationship/request"): resolve_hosted_native_relationship,
+    ("POST", "/api/live/graph-authoring/document-relationship/native-prepare"): resolve_hosted_native_relationship,
+    ("POST", "/api/live/graph-authoring/document-relationship/native-confirm"): resolve_hosted_native_relationship,
+    ("GET", "/api/live/media/images/preparations/list"): resolve_hosted_image_history,
+    ("POST", "/api/live/agent/turn"): resolve_hosted_chat_turn,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/conversation/new"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolve"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolutions/{operation_id}"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/variant-approval"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): resolve_hosted_conversation_world,
+    ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}/variant-reviews/{review_id}"): resolve_hosted_conversation_world,
+    ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}/variant-reviews/{review_id}"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}/variant-reviews/{review_id}/saved"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}/variant-reviews/{review_id}/confirm"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-assertion-sources/{citation_index}"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-clauses/{citation_index}"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/plan-view"): resolve_hosted_plan_world_context,
+    ("GET", "/api/live/workspace-documents/world-plans"): resolve_hosted_plan_world_context,
+    ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): resolve_hosted_committed_plan,
+    ("GET", "/api/live/workspace-documents/{document_id}/committed-revision/{revision_n}"): resolve_hosted_committed_plan,
+    ("POST", "/api/live/workspace-documents/world-plans"): resolve_hosted_plan_create,
+    ("POST", "/api/live/world-play-runs/v2/preparation"): resolve_hosted_play_preparation,
+    ("PUT", "/api/live/world-play-runs/v2/{run_id}"): resolve_hosted_play_creation,
+    ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): resolve_hosted_play_command,
+    ("PUT", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): resolve_hosted_play_command,
+    ("PUT", "/api/live/world-play-runs/v2/{run_id}/review/commands/{command_id}"): resolve_hosted_play_command,
+    ("GET", "/api/live/world-play-runs/v2"): resolve_hosted_play_read,
+    ("GET", "/api/live/world-play-runs/v2/active"): resolve_hosted_play_read,
+    ("PUT", "/api/live/world-play-runs/v2/active"): resolve_hosted_play_command,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}"): resolve_hosted_play_read,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}/reference-manifest"): resolve_hosted_play_read,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}/review"): resolve_hosted_play_read,
+    ("GET", "/api/live/world-session-evidence"): resolve_hosted_plan_world_context,
+    ("GET", "/api/live/world-session-evidence/{run_id}/revisions/{revision}"): resolve_hosted_play_read,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals"): resolve_hosted_play_read,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}"): resolve_hosted_play_read,
+    ("POST", "/api/live/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}"): resolve_hosted_play_scene_proposal,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}/content"): resolve_hosted_play_read,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables"): resolve_hosted_play_read,
+    ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): resolve_hosted_play_table_roll,
+    ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): resolve_hosted_play_creation,
+    ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): resolve_hosted_play_creation,
+    ("GET", "/api/live/media/images/{asset_id}/metadata"): resolve_hosted_saved_artwork,
+    ("POST", "/api/live/media/images/{asset_id}/save"): resolve_hosted_saved_artwork,
+    ("POST", "/api/live/media/images/{asset_id}/regenerate"): resolve_hosted_saved_artwork,
+    ("GET", "/api/live/media/images/{asset_id}/original"): resolve_hosted_saved_artwork,
+    ("POST", FIRST_WORLD_PREPARE_PATH): resolve_hosted_first_world,
+    ("POST", FIRST_WORLD_CONFIRM_PATH): resolve_hosted_first_world,
+    ("POST", "/api/live/worlds/{world_id}/pdf-adventure-events/prepare"): resolve_hosted_build_pdf_world,
+    ("POST", "/api/live/worlds/{world_id}/pdf-adventure-events/confirm"): resolve_hosted_build_pdf_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/build-source-withdrawals"): resolve_hosted_conversation_world,
+    ("GET", PDF_STATBLOCK_REVIEWS_PATH): resolve_hosted_build_pdf_world,
+    ("GET", PDF_STATBLOCK_REVIEW_PATH): resolve_hosted_build_pdf_world,
+    ("GET", f"{PDF_STATBLOCK_REVIEW_PATH}/publication"): resolve_hosted_build_pdf_world,
+    ("GET", f"{PDF_STATBLOCK_REVIEW_PATH}/publication/statblock"): resolve_hosted_build_pdf_world,
+    ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/publication"): resolve_hosted_build_pdf_world,
+    ("PUT", PDF_STATBLOCK_REVIEW_PATH): resolve_hosted_build_pdf_world,
+    ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/from-regions"): resolve_hosted_build_pdf_world,
+    ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/validate"): resolve_hosted_build_pdf_world,
+    ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/creature-draft"): resolve_hosted_build_pdf_world,
+    ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/accept/{{draft_id}}"): resolve_hosted_build_pdf_world,
+    ("POST", f"{PDF_STATBLOCK_REVIEW_PATH}/append/{{draft_id}}"): resolve_hosted_build_pdf_world,
+    ("POST", f"{BUILD_PDF_SOURCES_PATH}/statblock:validate"): resolve_hosted_build_pdf_world,
+    ("GET", BUILD_PDF_SOURCES_PATH): resolve_hosted_build_pdf_world,
+    ("POST", BUILD_PDF_SOURCES_PATH): resolve_hosted_build_pdf_world,
+    ("POST", f"{BUILD_PDF_SOURCES_PATH}/open"): resolve_hosted_build_pdf_world,
+    ("POST", f"{BUILD_PDF_SOURCES_PATH}/region:validate"): resolve_hosted_build_pdf_world,
+    ("GET", BUILD_PAGE_INVENTORY_PATH): resolve_hosted_build_page_inventory,
+    ("POST", "/api/live/workspace-documents"): resolve_hosted_build_page_create,
+    ("GET", "/api/live/workspace-documents/{document_id}"): resolve_hosted_build_page,
+    ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): resolve_hosted_build_page,
+    ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): resolve_hosted_build_native_source,
+    ("POST", "/api/live/workspace-documents/{document_id}/native-world-source"): resolve_hosted_build_native_source,
+    ("GET", "/api/live/threat-drafts"): resolve_hosted_statblock_inventory,
+    ("GET", "/api/live/combat/encounters"): resolve_hosted_combat_encounter,
+    ("POST", "/api/live/combat/encounters"): resolve_hosted_combat_encounter,
+    ("POST", "/api/live/combat/encounters/saved-mechanics/preview"): resolve_hosted_combat_encounter,
+    ("POST", "/api/live/combat/encounters/accepted-mechanics/preview"): resolve_hosted_combat_encounter,
+    ("POST", "/api/live/combat/encounters/conversation-variant/preview"): resolve_hosted_combat_encounter,
+    ("POST", "/api/live/combat/encounters/world-mechanics/preview"): resolve_hosted_combat_encounter,
+    ("GET", "/api/live/combat/encounters/{encounter_id}"): resolve_hosted_combat_encounter,
+    ("POST", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions"): resolve_hosted_combat_encounter,
+    ("POST", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions:cancel"): resolve_hosted_combat_encounter,
+    ("GET", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions/{operation_id}"): resolve_hosted_combat_encounter,
+    ("GET", "/api/live/combat/encounters/{encounter_id}/mechanics-adoptions"): resolve_hosted_combat_encounter,
+    ("PUT", "/api/live/combat/encounters/{encounter_id}"): resolve_hosted_combat_encounter,
+    ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): resolve_hosted_saved_statblock,
+    ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): resolve_hosted_saved_statblock,
+    ("GET", "/api/live/threat-drafts/{draft_id}/native-creature"): resolve_hosted_native_creature,
+    ("POST", "/api/live/threat-drafts/{draft_id}/native-creature/prepare"): resolve_hosted_native_creature,
+    ("POST", "/api/live/threat-drafts/{draft_id}/native-creature/confirm"): resolve_hosted_native_creature,
+    ("DELETE", "/api/live/threat-drafts/{draft_id}/saved-statblock"): resolve_hosted_saved_statblock,
+    ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): resolve_hosted_statblock_revision_save,
+    ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}"): resolve_hosted_saved_statblock,
+    ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover"): resolve_hosted_saved_statblock,
+    ("GET", "/api/live/world-mechanics/associations"): resolve_hosted_statblock_inventory,
+    ("POST", "/api/live/world-mechanics/associations"): resolve_hosted_mechanics_association,
+    ("GET", "/api/live/world-mechanics/associations/creatures"): resolve_hosted_plan_world_context,
+    ("GET", "/api/live/world-mechanics/associations/requests/{request_id}"): resolve_hosted_plan_world_context,
+    ("POST", "/api/live/tiptap/markdown-write/prepare"): resolve_hosted_build_page,
+    ("POST", "/api/live/tiptap/markdown-write/commit"): resolve_hosted_build_page,
+    ("POST", "/api/live/graph-preview/extraction-runs"): resolve_hosted_build_extraction,
+    ("GET", "/api/live/graph-preview/extraction-runs"): resolve_hosted_saved_recap,
+    ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): resolve_hosted_saved_recap,
+    ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): resolve_hosted_saved_recap,
+    ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): resolve_hosted_exact_extraction_read,
+    ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): resolve_hosted_build_extraction,
+    ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): resolve_hosted_build_extraction,
+    ("GET", "/api/live/extract-promote/runs/{run_id}/frozen-source-spans"): resolve_hosted_build_extraction,
+    ("POST", "/api/live/extract-promote/runs/{run_id}/evidence-corrections"): resolve_hosted_worldbuilding_evidence_correction,
+    ("GET", WORLD_LOOKUP_PATH): resolve_hosted_world_lookup,
+    ("POST", COMPLETE_OBJECT_PATH): resolve_hosted_explorer_world,
+    ("POST", "/api/live/native-graph-inspection/authoring-identities"): resolve_hosted_explorer_world,
     ("POST", INSPECTION_READ_PATH): resolve_hosted_explorer_world,
-    **{("POST", f"{EXPLORER_PREFIX}/{suffix}"): resolve_hosted_explorer_world
-       for suffix in ("graph", "prepare", "confirm", "operations/read")},
+    ("POST", "/api/live/native-graph-inspection/catalog"): resolve_hosted_explorer_world,
+    ("POST", "/api/live/native-source-inspection/catalog"): resolve_hosted_explorer_world,
+    ("POST", "/api/live/native-source-inspection/read"): resolve_hosted_explorer_world,
+    ("POST", "/api/live/native-source-inspection/published-recap"): resolve_hosted_explorer_world,
+    ("POST", "/api/live/native-source-inspection/published-recap/objects"): resolve_hosted_explorer_world,
+    ("POST", f"{EXPLORER_PREFIX}/graph"): resolve_hosted_explorer_world,
 }
 
 
@@ -190,13 +390,49 @@ async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
             await dms_http_client.aclose()
 
 
+class HostedRequestTiming:
+    """Log application time to response headers using bounded route templates."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+        self.logger = logging.getLogger("uvicorn.error")
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        started = perf_counter()
+        status = 500
+        headers_at = None
+
+        async def observe(message: Message) -> None:
+            nonlocal status, headers_at
+            if message["type"] == "http.response.start":
+                status = message["status"]
+                headers_at = perf_counter()
+            await send(message)
+
+        try:
+            await self.app(scope, receive, observe)
+        finally:
+            route = getattr(scope.get("route"), "path", "<unmatched>")
+            elapsed_ms = ((headers_at if headers_at is not None else perf_counter()) - started) * 1000
+            self.logger.info(
+                "buddy_request method=%s route=%s status=%d response_start_ms=%.1f",
+                scope["method"], route, status, elapsed_ms,
+            )
+
+
 def create_app() -> FastAPI:
     graph_preview_router = _load_graph_preview_router()
+    hosted = deployment_environment() == PRODUCTION_ENVIRONMENT
     application = FastAPI(
         title="DungeonMindBuddy Live Control",
         version="0.1.0",
         description="L3 live-play API over file-backed session state (query spine + surface/jobs).",
         lifespan=lifespan,
+        openapi_url=None if hosted else "/openapi.json",
     )
     application.include_router(live_router)
     application.include_router(conversation_library_router)
@@ -217,6 +453,7 @@ def create_app() -> FastAPI:
     application.include_router(world_graph_bootstrap_router)
     application.include_router(extract_promote_router)
     application.include_router(source_statements_router)
+    application.include_router(pdf_adventure_events_router)
     application.include_router(native_graph_inspection_router)
     application.include_router(native_source_inspection_router)
     application.include_router(world_graph_projection_router)
@@ -241,6 +478,8 @@ def create_app() -> FastAPI:
         application, world_scope_resolvers=HOSTED_WORLD_SCOPE_RESOLVERS,
         collection_authorizers=HOSTED_WORLD_COLLECTION_AUTHORIZERS,
     )
+    if hosted:
+        application.add_middleware(HostedRequestTiming)
 
     @application.get(CURRENT_USER_PATH, include_in_schema=False)
     async def current_user(request: Request) -> dict[str, str]:
@@ -295,7 +534,14 @@ def create_app() -> FastAPI:
             return JSONResponse(status_code=503, content={"status": "unavailable"})
         result = await resolver.resolve(request)
         if result.status == "authenticated" and result.principal is not None:
-            return JSONResponse(content={"status": "authenticated", "subject": result.principal.subject}, headers={"Cache-Control": "no-store"})
+            return JSONResponse(
+                content={
+                    "status": "authenticated",
+                    "subject": result.principal.subject,
+                    "display_name": result.principal.display_name,
+                },
+                headers={"Cache-Control": "no-store"},
+            )
         if result.status == "signed_out":
             return JSONResponse(status_code=401, content={"status": "signed_out"})
         return JSONResponse(status_code=503, content={"status": "unavailable"})
@@ -362,7 +608,10 @@ def create_app() -> FastAPI:
         from apps.live_control_server.services.runtime_preflight import run_runtime_preflight
         from apps.live_control_server.config import repo_root
 
-        report = run_runtime_preflight(repo_root=repo_root(), load_env=False)
+        report = run_runtime_preflight(
+            repo_root=repo_root(), load_env=False, include_runbooks=False,
+            include_operator_diagnostics=False,
+        )
         if report.status != "READY":
             return JSONResponse(
                 status_code=503,
@@ -381,9 +630,16 @@ def create_app() -> FastAPI:
         if not requested.is_relative_to(static_root):
             return PlainTextResponse("Not found", status_code=404)
         if requested.is_file():
-            return FileResponse(requested)
+            cache_control = "no-cache"
+            if requested.parent == static_root / "assets" and re.fullmatch(
+                r".+-[A-Za-z0-9_-]{8}\.[A-Za-z0-9]+", requested.name
+            ):
+                cache_control = "public, max-age=31536000, immutable"
+            return FileResponse(requested, headers={"Cache-Control": cache_control})
+        if spa_path == "assets" or spa_path.startswith("assets/"):
+            return PlainTextResponse("Not found", status_code=404)
         if request.headers.get("accept", "").lower().find("text/html") >= 0:
-            return FileResponse(index_path)
+            return FileResponse(index_path, headers={"Cache-Control": "no-cache"})
         return PlainTextResponse("Not found", status_code=404)
 
     application.add_api_route(
@@ -397,4 +653,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

@@ -14,8 +14,11 @@ from fastapi.routing import APIRoute
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.integrations.dungeonmind.native_recap_source_admission import NativeRecapError
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import NativeWorldSourceAdmissionError
-from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest, NativeRecapConfirmRequest
+from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest, NativeRecapConfirmRequest, NativeWorldbuildingContextRequest
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
+from apps.live_control_server.services.hosted_native_graph_access import (
+    first_world_authorizer, worldbuilding_evidence_authorizer,
+)
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
 from apps.live_control_server.models.worldbuilding_publication_coverage import WorldbuildingPublicationCoverage
@@ -215,7 +218,12 @@ def get_extract_promote_exact_run_review(
 def get_exact_run_frozen_source_spans(request_context: Request, run_id: str):
     try:
         _reject_selector_query(request_context)
-        return get_worldbuilding_frozen_spans(run_id).model_dump(mode="json", by_alias=True)
+        catalog = get_worldbuilding_frozen_spans(run_id)
+        result = catalog.model_dump(mode="json", by_alias=True)
+        authorize = worldbuilding_evidence_authorizer(request_context, catalog.world_id)
+        if authorize is not None:
+            authorize()
+        return result
     except ExtractPromoteError as exc:
         return _error_response(exc)
 
@@ -235,7 +243,17 @@ def post_exact_run_evidence_corrections(
                 code="invalid_request",
                 status_code=422,
             )
-        response = correct_exact_run_evidence(request)
+        authorize_write = worldbuilding_evidence_authorizer(request_context, request.world_id)
+        if authorize_write is None:
+            response = correct_exact_run_evidence(request)
+        else:
+            response = correct_exact_run_evidence(request, authorize_write=authorize_write)
+        result = response.model_dump(mode="json", by_alias=True)
+        if authorize_write is not None:
+            authorize_write()
+        return result
+    except HTTPException:
+        raise
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -247,7 +265,6 @@ def post_exact_run_evidence_corrections(
                 status_code=500,
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
 
 
 @router.post(
@@ -521,13 +538,14 @@ def post_worldbuilding_write_plan_confirm(
 def post_first_world_prepare(
     request_context: Request,
     request: FirstWorldGraphPrepareRequest,
-    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_selector_query(request_context)
-        response = prepare_first_world(request)
+        response = prepare_first_world(request, authorize_world=first_world_authorizer(request_context))
     except ExtractPromoteError as exc:
         return _error_response(exc)
+    except HTTPException:
+        raise
     except Exception:
         correlation_id = uuid.uuid4().hex[:12]
         logger.exception(
@@ -558,13 +576,14 @@ def post_first_world_prepare(
 def post_first_world_confirm(
     request_context: Request,
     request: FirstWorldGraphConfirmRequest,
-    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_selector_query(request_context)
-        response = confirm_first_world(request)
+        response = confirm_first_world(request, authorize_world=first_world_authorizer(request_context))
     except ExtractPromoteError as exc:
         return _error_response(exc)
+    except HTTPException:
+        raise
     except Exception:
         correlation_id = uuid.uuid4().hex[:12]
         logger.exception(
@@ -687,5 +706,21 @@ router.add_api_route(
 )
 router.add_api_route(
     "/native-confirm", confirm_native_recap, methods=["POST"],
+    route_class_override=StrictJSONRoute,
+)
+
+
+def native_worldbuilding_context(
+    body: NativeWorldbuildingContextRequest,
+    request: Request,
+    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+):
+    from apps.live_control_server.services.native_recap_preparation import worldbuilding_review_context
+
+    return _native_recap_operation(body, request, principal, worldbuilding_review_context)
+
+
+router.add_api_route(
+    "/native-worldbuilding-context", native_worldbuilding_context, methods=["POST"],
     route_class_override=StrictJSONRoute,
 )

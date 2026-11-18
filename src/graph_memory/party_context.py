@@ -43,7 +43,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from src.ingestion.frontmatter import split_frontmatter
+from ingestion.frontmatter import split_frontmatter
 
 PARTY_REGISTRY_SCHEMA = "party_registry_v1"
 PARTY_REGISTRY_V2_SCHEMA = "party_registry_v2"

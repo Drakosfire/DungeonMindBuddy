@@ -39,11 +39,16 @@ class SchemaEngine:
 def ordinary(monkeypatch, tmp_path, application_state_dsn):
     from tests.test_recap_managed_standing_context import seed_binding
     from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact
-    from src.graph_memory.extraction import bounded_recap_execution as adapter
+    from graph_memory.extraction import bounded_recap_execution as adapter
     import httpx
 
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
     seed_binding(tmp_path, "managed-fixture-world", "world:synthetic")
+    from apps.live_control_server.services import known_character_context
+    monkeypatch.setattr(known_character_context, "read_known_character_catalog", lambda *_: {
+        "status": "no_native_head", "entities": [],
+        "native_pin": {"native_world_id": "world:synthetic", "binding_version": 1},
+    })
     artifact = create_recap_source_artifact(
         tmp_path, world_id="world:synthetic", campaign_id="synthetic",
         session_id="session-1", recap_text="Ari guarded the gate.\n",
@@ -90,7 +95,7 @@ def test_default_ge_route_and_private_evidence(ordinary, monkeypatch):
     assert len(engine.requests) == 7
     for request in engine.requests:
         assert (request.provider, request.model) == ("openrouter", service.DEEPSEEK_MODEL)
-        assert request.provider_route.order == ("DeepSeek",)
+        assert request.provider_route.order == ("deepinfra/fp8",)
         assert request.provider_route.allow_fallbacks is False
         assert request.max_transport_retries == 0
         assert request.reasoning_effort == "low"
@@ -170,7 +175,7 @@ def test_retention_failure_remains_incomplete_before_candidate_or_review(ordinar
 
 
 def test_injected_client_does_not_construct_default_ge(ordinary, monkeypatch):
-    from src.graph_memory.extraction.category_candidate_graph_extractor import FixtureCategoryGraphPassClient
+    from graph_memory.extraction.category_candidate_graph_extractor import FixtureCategoryGraphPassClient
     _, engine, _ = ordinary
     monkeypatch.setattr(service, "BoundedRecapPassClient", lambda *a, **k: pytest.fail("default GE constructed"))
     result = invoke(ordinary, category_client=FixtureCategoryGraphPassClient({}))
@@ -194,13 +199,13 @@ def test_ordinary_passes_delegate_output_capacity_and_preserve_deadlines(ordinar
     assert len(engine.requests) == 7
     assert [request.max_output_tokens for request in engine.requests] == [None] * 7
     assert all(request.reasoning_effort == 'low' for request in engine.requests)
-    assert all(120000 < request.deadline_ms <= 240000 for request in engine.requests)
+    assert all(request.deadline_ms == 0 for request in engine.requests)
     ledger = component(result, "pass_telemetry")
     assert ledger["limits"]["max_output_tokens"] is None
     assert ledger["limits"]["edge_max_output_tokens"] is None
-    assert ledger["limits"]["per_call_deadline_ms"] == 240000
-    assert ledger["limits"]["run_deadline_ms"] == 900000
+    assert ledger["limits"]["per_call_deadline_ms"] is None
+    assert ledger["limits"]["run_deadline_ms"] is None
     assert [call["max_output_tokens"] for call in ledger["calls"]] == [None] * 7
     assert ledger['attempt_counts']['provider_attempts']['total'] == 7
     assert ledger['attempt_counts']['conformance_retries']['total'] == 0
-    assert all(120000 < call["deadline_ms"] <= 240000 for call in ledger["calls"])
+    assert all(call["deadline_ms"] == 0 for call in ledger["calls"])

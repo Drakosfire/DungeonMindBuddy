@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { authenticatedApiFetch } from '../api/liveApi';
 import type { BuildComposeBridge, CapturedBuildInsertion } from '../buildSurface/buildComposeBridge';
 import type { BuildProposalBasis } from '../api/buildDocumentProposalApi';
-import { MediaImageWizard, type GeneratedMediaImage } from './MediaImageWizard';
+import type { GeneratedMediaImage } from './MediaImageWizard';
+import { DeferredMediaImageWizard } from './DeferredMediaImageWizard';
 import { mediaMarkdown } from './mediaReferences';
 
 export type PreparedImage = {schema_version:'dmb_build_image_preparation_v2';action_id:string;prompt:string;alt:string;purpose?:'illustration'|'map'|null;revision:number;
@@ -61,7 +62,7 @@ export function PreparedBuildImage({record,bridge,active}: {record:PreparedImage
       if(capture.basis.world_id!==expected.world_id || capture.basis.document_id!==expected.document_id || capture.basis.registry_revision!==expected.registry_revision || capture.basis.content_sha256!==expected.content_sha256) throw new Error('Place this image on the page used for its image direction.');
       const asset=await mediaRequest(image.asset_id+'/metadata',undefined,placement.signal);
       if(asset.asset_id!==image.asset_id || !['staged','ready'].includes(asset.state)) throw new Error('The retained image is unavailable. Reopen it before placing it.');
-      const selected=await mediaRequest('preparations/'+prepared.action_id+'/asset',{asset_id:image.asset_id,expected_revision:prepared.revision},placement.signal) as PreparedImage;
+      const selected=await mediaRequest('preparations/'+prepared.action_id+'/asset?world_id='+encodeURIComponent(prepared.reservation.basis.world_id),{asset_id:image.asset_id,expected_revision:prepared.revision},placement.signal) as PreparedImage;
       setPrepared(selected);
       placement.signal.throwIfAborted();
       if(!mounted.current || studioEpoch.current!==epoch || !current.current.active || current.current.record.action_id!==start.record.action_id || current.current.bridge!==start.bridge) throw new Error('The page changed. Place the image again.');
@@ -75,7 +76,7 @@ export function PreparedBuildImage({record,bridge,active}: {record:PreparedImage
     {inserted ? <p role="status">Image inserted into your draft. Save the page when ready.</p>
       : <button type="button" disabled={!active || !bridge} onClick={()=>void showStudio()}>Open Image Studio</button>}
     {error&&<p role="alert">{error}</p>}
-    {open&&active&&<aside className="build-media-studio"><MediaImageWizard initialPrompt={prepared.prompt} initialPurpose={prepared.purpose??'illustration'} preparationId={prepared.action_id}
+    {open&&active&&<aside className="build-media-studio"><DeferredMediaImageWizard initialPrompt={prepared.prompt} initialPurpose={prepared.purpose??'illustration'} preparationId={prepared.action_id}
       onClose={()=>{studioEpoch.current++;captured.current=null;setOpen(false);}} onChoose={(image,_result,placement)=>insert(image,placement)} /></aside>}
   </article>;
 }

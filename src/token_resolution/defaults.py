@@ -6,7 +6,7 @@ the lexicon artifact (auto-derived) or a hub frontmatter alias (canon-attached).
 
 from __future__ import annotations
 
-from src.token_resolution.contracts import GenericDefaults
+from .contracts import GenericDefaults
 
 _STRUCTURAL_ROUTE_STOPWORDS: frozenset[str] = frozenset(
     {

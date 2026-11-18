@@ -84,7 +84,7 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
     parent._test_span_index = span_index
     child_store: dict[str, SimpleNamespace] = {}
 
-    def get_run(_repo, run_id):
+    def get_run(run_id):
         if run_id == "parent":
             return parent
         if run_id in child_store:
@@ -122,7 +122,7 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
     monkeypatch.setattr(candidate_graph_admission, "validate_candidate_document_integrity", typed)
     monkeypatch.setattr(correction, "repo_root", lambda: tmp_path)
     def load_data(repo, run_id):
-        run = get_run(repo, run_id)
+        run = get_run(run_id)
         if run.status != ExtractionRunStatus.REVIEWABLE:
             raise GraphRunRegistryError("not reviewable", status_code=422)
         candidate_bytes = parent_path.read_bytes() if run_id == "parent" else payloads[(run_id, "candidate_graph")]

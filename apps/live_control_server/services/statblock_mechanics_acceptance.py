@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import (
     DungeonMindStatblockV1Client,
     StatblockV1Client,
@@ -20,7 +22,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.generated impo
     CreateStatblockRequestV1,
     ValidationReceiptV1,
 )
-from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import (
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
     ValidationSeverity,
     ValidationStatus,
 )
@@ -451,7 +453,15 @@ def begin_or_resume_acceptance(
     draft_id: str,
     request: AcceptThreatDraftMechanicsRequestV1,
     client: StatblockV1Client | None = None,
+    pdf_review: dict[str, Any] | None = None,
 ) -> AcceptThreatDraftMechanicsResponseV1:
+    if PDF_REVIEW_PROVENANCE in (request.accepted_through or {}):
+        return _blocked(draft_id=draft_id, operation_id=request.operation_id,
+                        message="PDF review provenance must come from a saved review")
+    if pdf_review is not None:
+        request = request.model_copy(update={
+            "accepted_through": {PDF_REVIEW_PROVENANCE: pdf_review},
+        })
     # Build the canonical create body before deciding whether validation is required.
     # Existing-operation conflict/resume must be local — zero validation / create calls.
     request_body = _build_create_body(request)

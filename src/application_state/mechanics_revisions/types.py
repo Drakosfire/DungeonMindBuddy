@@ -8,6 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from application_state.world_mechanics.types import MechanicsLocator
 
 
+PDF_REVIEW_PROVENANCE = "buddy_pdf_statblock_review"
+
+
 def digest(value):
     return 'sha256:' + sha256(json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()).hexdigest()
 
@@ -40,7 +43,7 @@ class RevisionOperation(BaseModel):
         submitted=dict(operation_id=str(self.operation_id),world_id=self.world_id,base=self.base.model_dump(mode='json'),
             definition=self.request_body.get('definition'),change_summary=self.request_body.get('change_summary'))
         through=self.request_body.get('accepted_through')
-        if (not isinstance(through,dict) or set(through)-{'buddy_manual_revision','buddy_portrait_asset_id'}
+        if (not isinstance(through,dict) or set(through)-{'buddy_manual_revision','buddy_portrait_asset_id',PDF_REVIEW_PROVENANCE}
             or through.get('buddy_manual_revision')!=str(self.operation_id)):
             raise ValueError('Revision acceptance metadata changed')
         if 'buddy_portrait_asset_id' in through:
@@ -48,6 +51,18 @@ class RevisionOperation(BaseModel):
             if not isinstance(selected,str) or str(UUID(selected))!=selected:
                 raise ValueError('Selected portrait identity changed')
             submitted['portrait_asset_id']=selected
+        if PDF_REVIEW_PROVENANCE in through:
+            review = through[PDF_REVIEW_PROVENANCE]
+            if (not isinstance(review, dict)
+                or set(review) != {"world_id", "review_id", "revision", "regions"}
+                or review["world_id"] != self.world_id
+                or not isinstance(review["review_id"], str)
+                or str(UUID(review["review_id"])) != review["review_id"]
+                or type(review["revision"]) is not int or review["revision"] < 1
+                or not isinstance(review["regions"], list) or not review["regions"]
+                or any(not isinstance(region, dict) for region in review["regions"])):
+                raise ValueError("Saved PDF review identity changed")
+            submitted["pdf_review"] = review
         if digest(submitted)!=self.input_digest:
             raise ValueError('Submitted input digest changed')
         if digest(self.request_body)!=self.request_digest:

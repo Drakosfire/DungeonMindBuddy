@@ -9,6 +9,7 @@ narrower write projection does not change canonical read/digest semantics.
 from __future__ import annotations
 
 import hashlib
+from copy import deepcopy
 import json
 import unicodedata
 from collections.abc import Mapping
@@ -145,16 +146,38 @@ def compute_definition_digest(definition: StatblockDefinitionV1Input) -> str:
     return f"{DIGEST_ALGORITHM}:{hashlib.sha256(payload).hexdigest()}"
 
 
+def omit_empty_explains(definition: dict[str, Any]) -> None:
+    """Apply the create transport projection to a serialized definition copy."""
+    for element in definition["rule_elements"]:
+        if element.get("explains") == []:
+            del element["explains"]
+
+
 def source_definition_digest_from_body(source_definition: dict[str, Any]) -> str:
     """Digest the current full contract using DMS-owned v1 semantics."""
     text = canonicalize_definition_dict(source_definition)
     return f"{DIGEST_ALGORITHM}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 
 
+
+def matches_accepted_definition_digest(
+    definition: dict[str, Any], *, validation_digest: str, accepted_digest: str,
+) -> bool:
+    """Verify the submitted definition and its historical create projection."""
+    if source_definition_digest_from_body(definition) != validation_digest:
+        return False
+    if validation_digest == accepted_digest:
+        return True
+    projected_definition = deepcopy(definition)
+    omit_empty_explains(projected_definition)
+    return source_definition_digest_from_body(projected_definition) == accepted_digest
+
+
 __all__ = [
     "CANONICALIZER_VERSION",
     "DIGEST_ALGORITHM",
     "canonicalize_definition_dict",
+    "matches_accepted_definition_digest",
     "canonicalize_definition_payload",
     "compute_definition_digest",
     "source_definition_digest_from_body",

@@ -11,21 +11,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TextIO
 
-from scripts.materialize_normalized_recaps import (
+from live_play.normalized_recaps import (
     _build_normalized_content,
     _clean_body,
     _extract_recap_raw,
     _parse_minimal_frontmatter,
 )
-from scripts.materialize_session_memory import (
+from live_play.session_memory_materializer import (
     _check_one,
     _expected_session_memory_outputs,
     _materialize_one,
 )
-from src.agent.recap_frontmatter_seed import build_frontmatter_seed
-from src.agent.corpus_writer import is_writable_corpus_path, write_corpus_file
-from src.agent.recap_ingest_helpers import assemble_recap
-from src.corpus.session_recap_paths import (
+from live_play.recap_frontmatter_seed import build_frontmatter_seed
+from corpus.corpus_writer import is_writable_corpus_path, write_corpus_file
+from live_play.recap_ingest_helpers import assemble_recap
+from corpus.session_recap_paths import (
     breadcrumbed_relpath,
     canonical_recap_candidates,
     frontmatter_seed_relpath,
@@ -38,8 +38,8 @@ from src.corpus.session_recap_paths import (
     session_memory_meta_relpath,
     session_recaps_prefix,
 )
-from src.live_play.recap_ingest_status import RecapIngestStatus
-from src.live_play.recap_derivative_provenance import (
+from live_play.recap_ingest_status import RecapIngestStatus
+from live_play.recap_derivative_provenance import (
     archive_existing,
     provenance_path,
     record_archived_artifacts,
@@ -47,8 +47,8 @@ from src.live_play.recap_derivative_provenance import (
     sha256_bytes,
     sha256_file,
 )
-from src.live_play.recap_stage_paths import RecapStagePaths, corpus_root
-from src.session_memory.breadcrumb_normalize import BreadcrumbNormalizeError
+from live_play.recap_stage_paths import RecapStagePaths, corpus_root
+from session_memory.breadcrumb_normalize import BreadcrumbNormalizeError
 
 _GENERIC_RECAP_TITLE_RE = re.compile(r"^Session\s+\d+\s*(?:-\s*)?Recap\s*:?\s*$", re.IGNORECASE)
 _SESSION_TITLE_RE = re.compile(r"^Session\s+\d+\s*(?:-\s*)?(.+?)\s*$", re.IGNORECASE)
@@ -1094,7 +1094,7 @@ def reconcile_normalized_recap(
     Moves rejected artifacts into sibling ``_archive`` folders (reversible, no deletes),
     then returns a fresh read-only status probe so the caller can prove the result.
     """
-    from src.corpus.session_recap_paths import campaign_number_from_id
+    from corpus.session_recap_paths import campaign_number_from_id
 
     corpus_dir = (corpus or corpus_root()).resolve()
     campaign_number = campaign_number_from_id(campaign_id)

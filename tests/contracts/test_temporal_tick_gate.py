@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.contracts.temporal_tick_gate import (
+from contracts.temporal_tick_gate import (
     campaign_temporal_quality_summary,
     campaign_temporal_consistency_violations,
     campaign_temporal_tick_violations,

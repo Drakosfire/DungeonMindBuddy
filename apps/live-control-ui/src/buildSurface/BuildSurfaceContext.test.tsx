@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { announceWorkspaceInventoryChange } from "../workspaceLifecycle/workspaceInventoryChange";
-import { act } from "@testing-library/react";
+import { act, fireEvent } from "@testing-library/react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,9 +14,13 @@ import type { MarkdownCanvasSessionValue } from "../markdownCanvas/MarkdownCanva
 import { BuildSurfaceContext } from "./BuildSurfaceContext";
 
 const recoveryDialogPrototype = Object.getPrototypeOf(document.createElement("dialog"));
+const originalRecoveryClose = Object.getOwnPropertyDescriptor(recoveryDialogPrototype, "close");
+beforeAll(() => Object.defineProperty(recoveryDialogPrototype, "close", { configurable: true, value(this: HTMLDialogElement) { this.removeAttribute("open"); } }));
 const originalRecoveryShowModal = Object.getOwnPropertyDescriptor(recoveryDialogPrototype, "showModal");
 beforeAll(() => Object.defineProperty(recoveryDialogPrototype, "showModal", { configurable: true, value(this: HTMLDialogElement) { this.setAttribute("open", ""); } }));
 afterAll(() => {
+  if (originalRecoveryClose) Object.defineProperty(recoveryDialogPrototype, "close", originalRecoveryClose);
+  else Reflect.deleteProperty(recoveryDialogPrototype, "close");
   if (originalRecoveryShowModal) Object.defineProperty(recoveryDialogPrototype, "showModal", originalRecoveryShowModal);
   else Reflect.deleteProperty(recoveryDialogPrototype, "showModal");
 });
@@ -26,6 +30,8 @@ vi.mock("../selectedWorld/SelectedWorldContext", async original => ({
   ...await original<typeof import("../selectedWorld/SelectedWorldContext")>(),
   useSelectedWorld: () => selectedWorldMock.managed ? {kind:"managed", worldId:"elderwyld", name:"Elderwyld", documentId:null} : {kind:"legacy"},
 }));
+
+vi.mock("../graphLens/NativeSourceInspection", () => ({ NativeSourceInspection: ({worldId, initialKind}: {worldId:string; initialKind:string}) => <section aria-label="Shared source browser">{worldId} {initialKind}</section> }));
 
 const DOC_A = "11111111-1111-4111-8111-111111111111";
 
@@ -157,6 +163,13 @@ describe("BuildSurfaceContext", () => {
     sessionMock.current = makeSession();
   });
 
+  it.each([true, false])("uses the document picker for recaps (loaded=%s)", loaded => {
+    selectedWorldMock.managed = true;
+    renderBuildContext(loaded ? {} : {activeDocumentId:null,activeRecord:null});
+    expect(screen.queryByRole("button", { name: "Browse recaps" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open document" })).toBeInTheDocument();
+  });
+
   it("explains blocked Save and exposes protected-draft review in the real navbar", async () => {
     const prepare = vi.fn(() => ({ documentId: DOC_A, fence: "fence", editorText: "Local draft", preservedMarkdown: "# Preserved source" }));
     Object.assign(sessionMock.current!, { dirty: true, phase: "ready_dirty", documentId: DOC_A,
@@ -188,7 +201,7 @@ describe("BuildSurfaceContext", () => {
     expect(within(host).queryByText("DOCUMENT")).not.toBeInTheDocument();
     expect(within(host).getByTestId("build-navbar-save")).toBeEnabled();
     expect(within(host).getByText("Source actions")).toBeInTheDocument();
-    expect(within(host).getByTestId("build-document-select")).toHaveValue(DOC_A);
+    expect(within(host).getByTestId("build-document-select")).toHaveAttribute("aria-haspopup", "dialog");
     expect(within(host).getByText("C1")).toBeInTheDocument();
     expect(within(host).getByText("faction")).toBeInTheDocument();
     const saveStatus = within(host).getByTestId("build-document-status");
@@ -227,8 +240,8 @@ describe("BuildSurfaceContext", () => {
     });
 
     const host = screen.getByTestId("surface-context-host");
-    expect(within(host).getByText("No source loaded")).toBeInTheDocument();
-    expect(within(host).getByRole("option", { name: "Choose source" })).toBeInTheDocument();
+    expect(within(host).queryByText("Source actions")).not.toBeInTheDocument();
+    expect(within(host).getByRole("button", { name: "Open document" })).toBeInTheDocument();
     expect(within(host).queryByTestId("build-document-rename-open")).not.toBeInTheDocument();
   });
 
@@ -267,13 +280,14 @@ describe("BuildSurfaceContext", () => {
     });
     expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Renamed On Canvas");
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved changes");
+    fireEvent.click(screen.getByTestId("build-document-select"));
     expect(
-      within(screen.getByTestId("build-document-select")).getByRole("option", {
+      within(screen.getByRole("dialog", { name: "Open document" })).getByRole("button", {
         name: "Renamed On Canvas",
       }),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByTestId("build-document-select")).queryByRole("option", {
+      within(screen.getByRole("dialog", { name: "Open document" })).queryByRole("button", {
         name: "Stale List Title",
       }),
     ).not.toBeInTheDocument();

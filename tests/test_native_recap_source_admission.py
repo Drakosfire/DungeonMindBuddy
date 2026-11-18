@@ -102,7 +102,7 @@ def lane(tmp_path, monkeypatch, application_state_dsn, native_core_dsn):
         config, "world_graph_authority_database_url", lambda: native_core_dsn
     )
     world = create_world_container(
-        tmp_path, name="Native recap fixture", owner_subject="recap-owner"
+        name="Native recap fixture", owner_subject="recap-owner"
     )
     native = world.native_graph_binding.native_world_id
     repo = PostgresNativeSourceEvidenceRepository(PostgresDatabase(native_core_dsn))
@@ -604,6 +604,15 @@ def hosted_client(lane, monkeypatch, subject="recap-owner"):
             }
         ),
     )
+    # Exercise the deferred recap policy in isolation. The production launch
+    # boundary excludes this route and has its own app-level regression test.
+    from apps.live_control_server.routes.recap_ingest import resolve_native_recap_hosted_world
+
+    monkeypatch.setitem(
+        main.HOSTED_WORLD_SCOPE_RESOLVERS,
+        ("POST", "/api/live/recap-ingest"),
+        resolve_native_recap_hosted_world,
+    )
     application = main.create_app()
     assert not any(
         getattr(r, "path", "").startswith("/api/live/graph-preview/")
@@ -673,7 +682,6 @@ def test_hosted_boundary_refuses_before_sensitive_IO_and_never_falls_back(
     )
 
     grant_world_access(
-        lane.root,
         lane.world.world_id,
         actor_subject="recap-owner",
         subject="recap-reader",
@@ -734,7 +742,7 @@ def test_hosted_boundary_refuses_before_sensitive_IO_and_never_falls_back(
 def test_hosted_status_cannot_use_owned_world_to_read_foreign_run(lane, monkeypatch):
     value = native(post(lane))
     foreign = create_world_container(
-        lane.root, name="Other owned World", owner_subject="recap-owner"
+        name="Other owned World", owner_subject="recap-owner"
     )
     client = hosted_client(lane, monkeypatch)
     monkeypatch.setenv(

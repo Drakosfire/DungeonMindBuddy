@@ -86,9 +86,10 @@ describe("appNavigation helpers", () => {
   });
 
   it("preserves existing non-primary route fallbacks", () => {
+    expect(appRouteFromPathname("/graph")).toBe("graph");
     expect(appRouteFromPathname("/surface")).toBe("surface");
-    expect(appRouteFromPathname("/live-control")).toBe("surface");
-    expect(appRouteFromPathname("/tiptap-callout-spike")).toBe("tiptap-callout-spike");
+    expect(appRouteFromPathname("/live-control")).toBe("index");
+    expect(appRouteFromPathname("/tiptap-callout-spike")).toBe("index");
     expect(appRouteFromPathname("/unknown")).toBe("index");
     expect(appRouteFromPathname("/combat/")).toBe("combat");
     expect(normalizeAppPathname("/plan/")).toBe("/plan");
@@ -240,7 +241,7 @@ describe("App same-document primary navigation", () => {
     expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/play");
 
-    fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Index" }));
+    fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Home" }));
     expect(await screen.findByRole("heading", { name: "Buddy Surface" })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/");
     expect(within(commandBoardNav()).getByRole("link", { name: "Combat Tracker" })).toHaveAttribute(

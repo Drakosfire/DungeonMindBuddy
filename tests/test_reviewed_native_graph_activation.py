@@ -21,7 +21,7 @@ from apps.live_control_server.services.world_graph_binding import (
 
 
 def _fixture(root):
-    world = create_world_container(root, name="Activation proof")
+    world = create_world_container(name="Activation proof")
     reservation = world.native_graph_binding
     target = FirstWorldNativeTarget(
         native_world_id=reservation.native_world_id,
@@ -82,7 +82,6 @@ def _fixture(root):
 
 def _activate(root, world, target, receipt, services, validator=None):
     return activate_reviewed_native_graph(
-        root,
         world.world_id,
         target=target,
         receipt=receipt,
@@ -162,7 +161,7 @@ def test_invalid_reviewed_proof_never_activates(tmp_path, damage):
         _activate(tmp_path, world, target, receipt, services)
     assert world_snapshot() == before
     assert (
-        get_world_container(tmp_path, world.world_id).native_graph_binding.status
+        get_world_container(world.world_id).native_graph_binding.status
         == "provisioning"
     )
 
@@ -171,7 +170,7 @@ def test_other_world_change_during_validation_does_not_block_activation(tmp_path
     world, target, receipt, _, _, services = _fixture(tmp_path)
 
     def concurrent_write(_):
-        create_world_container(tmp_path, name="Concurrent legitimate World")
+        create_world_container(name="Concurrent legitimate World")
         return services
 
     active = _activate(tmp_path, world, target, receipt, services, concurrent_write)
@@ -188,7 +187,7 @@ def test_same_world_revision_change_during_validation_requires_original_retry(tm
     with pytest.raises(WorldGraphBindingError):
         _activate(tmp_path, world, target, receipt, services, concurrent_write)
     assert (
-        get_world_container(tmp_path, world.world_id).native_graph_binding.status
+        get_world_container(world.world_id).native_graph_binding.status
         == "provisioning"
     )
     assert (
@@ -213,5 +212,5 @@ def test_active_replay_rejects_same_world_metadata_aba(tmp_path):
 
     with pytest.raises(WorldGraphBindingError):
         _activate(tmp_path, world, target, receipt, services, aba)
-    assert get_world_container(tmp_path, world.world_id) == active
+    assert get_world_container(world.world_id) == active
     assert _activate(tmp_path, world, target, receipt, services) == active

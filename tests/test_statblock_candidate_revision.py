@@ -1212,7 +1212,7 @@ def test_persisted_reconciled_applied_fails_closed_on_reload_and_replay(
         ReviseReconciliationError,
         _record_path,
     )
-    from src.live_play.live_store import write_json
+    from live_store import write_json
 
     draft = _create_draft(tmp_path)
     req = _service_request(draft)
@@ -1331,7 +1331,7 @@ def test_replay_fails_when_generated_from_diverges_from_journal(
     tmp_path: Path,
 ) -> None:
     """Readable draft with mismatched generated_from is integrity, not success."""
-    from src.live_play.live_store import write_json
+    from live_store import write_json
 
     draft = _create_draft(tmp_path)
     req = _service_request(draft)
@@ -1379,7 +1379,7 @@ def test_pending_applied_source_status_rejected_by_model_and_load(
         mark_cache_stored_ref_pending,
         record_candidate_received,
     )
-    from src.live_play.live_store import write_json
+    from live_store import write_json
 
     draft = _create_draft(tmp_path)
     req = _service_request(draft)
@@ -1450,7 +1450,7 @@ def test_pending_applied_source_status_rejected_by_model_and_load(
 
 
 def test_corrupt_draft_on_reconciled_replay_is_unavailable(tmp_path: Path) -> None:
-    from src.live_play.live_store import write_json
+    from live_store import write_json
 
     draft = _create_draft(tmp_path)
     req = _service_request(draft)

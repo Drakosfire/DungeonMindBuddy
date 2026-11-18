@@ -1,6 +1,6 @@
 ---
 description: Dispatch guards enforce policy at runtime; graders verify the guard worked + the model recovered. Apply when working on planner_skill_dispatch_guards.py, scope_b_grader.py, or any new (guard, grader) pair.
-globs: src/agent/planner_skill_dispatch_guards.py,src/agent/planner_skill_dispatch.py,evals/**/scope_*_grader.py,evals/**/grader.py
+globs: src/agent/planner_skill_dispatch_guards.py,evals/**/scope_*_grader.py,evals/**/grader.py
 alwaysApply: false
 ---
 

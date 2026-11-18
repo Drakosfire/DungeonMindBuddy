@@ -18,7 +18,7 @@ from apps.live_control_server.services.workspace_document_registry import (get_w
 @pytest.fixture
 def source(tmp_path, monkeypatch):
     from apps.live_control_server.services.world_container_registry import create_world_container
-    create_world_container(tmp_path, name='Elderwyld')
+    create_world_container(name='Elderwyld')
     (tmp_path / 'corpus/elderwyld-markdown').mkdir(parents=True)
     record = create_page_fixture(tmp_path, title='Mirathorn', campaign_id='elderwyld', world_id='elderwyld',
         kind='worldbuilding_source', source_domain='worldbuilding', document_class='lore', authority_state='draft', visibility_state='internal')

@@ -2548,7 +2548,7 @@ def test_concurrent_route_both_miss_dispatches_provider_once(
         create_world_container,
     )
 
-    world = create_world_container(tmp_path, name="Concurrent Receipt World")
+    world = create_world_container(name="Concurrent Receipt World")
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "sessions")
     service = AgentConversationService()
@@ -2640,7 +2640,7 @@ def test_agent_route_persists_shared_world_history_and_provider_segments(
     )
 
     assert application_state_dsn
-    world = create_world_container(tmp_path, name="Conversation Route World")
+    world = create_world_container(name="Conversation Route World")
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "sessions")
     token = "test-local-operator-token-with-adequate-length"
@@ -2935,7 +2935,7 @@ def test_late_plan_completion_keeps_frozen_revision_and_plan_segment(
     )
 
     assert application_state_dsn
-    world = create_world_container(tmp_path, name="Late Plan Completion World")
+    world = create_world_container(name="Late Plan Completion World")
     plan_a = create_world_plan(title="Plan A", world_id=world.world_id)
     plan_b = create_world_plan(title="Plan B", world_id=world.world_id)
     object_a_v1, revision_a_v1 = commit_plan(
@@ -3133,7 +3133,7 @@ def test_interrupted_provider_attempt_can_retry_same_durable_turn(
     )
 
     assert application_state_dsn
-    world = create_world_container(tmp_path, name="Interrupted Agent Turn World")
+    world = create_world_container(name="Interrupted Agent Turn World")
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "sessions")
     service = AgentConversationService()
@@ -3953,6 +3953,26 @@ def test_terminal_reset_actual_lock_race_and_delayed_post(application_state_dsn,
         assert conn.execute("SELECT count(*) FROM agent.conversation WHERE world_id=%s", (command.world_id,)).fetchone()[0] == 1
 
 
+def test_terminal_resolution_authorization_blocks_write_and_replay(application_state_dsn):
+    service = AgentConversationService()
+    original = ConversationCommand(
+        world_id="terminal-authorization-world", command_id=uuid4(),
+        expected_pointer_revision=0, expected_active_conversation_id=None,
+    )
+    request = _resolution_request(original)
+
+    def revoke():
+        raise PermissionError("World ownership changed")
+
+    with pytest.raises(PermissionError, match="World ownership changed"):
+        service.resolve_new_conversation(request, actor="test-gm", authorize_world=revoke)
+    assert service.get_command_resolution(request) is None
+    record = service.resolve_new_conversation(request, actor="test-gm")
+    with pytest.raises(PermissionError, match="World ownership changed"):
+        service.resolve_new_conversation(request, actor="test-gm", authorize_world=revoke)
+    assert service.get_command_resolution(request) == record
+
+
 @pytest.mark.parametrize("outcome", ["confirmed", "retired", "submitted_binding_blocked"])
 def test_terminal_records_fresh_readback_immutable_and_downgrade_refused(application_state_dsn, outcome):
     import psycopg
@@ -4015,7 +4035,10 @@ def test_terminal_resolution_actual_http_binding_readback_and_auth(application_s
     from apps.live_control_server.routes import agent as route
     command = ConversationCommand(world_id="terminal-http-world", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
     request = _resolution_request(command)
-    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="http-gm"))
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+
+    principal = NativeGraphPrincipal("http-gm", "gm", "local_operator")
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: principal)
     monkeypatch.setattr(route, "_verified_world_id", lambda world: world)
     monkeypatch.setattr(route, "_conversation_service", lambda _request: AgentConversationService())
     app = FastAPI()

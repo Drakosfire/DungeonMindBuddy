@@ -22,29 +22,29 @@ from graph_memory.source_span import (
     build_source_span_index_for_text,
     source_span_index_to_dict,
 )
-from src.graph_memory.candidate_document_integrity import (
+from graph_memory.candidate_document_integrity import (
     classify_candidate_document_integrity,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
     CategoryGraphExtractionOptions,
     CategoryGraphPassClient,
     extract_category_candidate_graph,
     resolve_category_graph_model,
 )
-from src.graph_memory.extraction.extraction_profile import (
+from graph_memory.extraction.extraction_profile import (
     InadmissibleExtractionProfileError,
     UnknownExtractionProfileError,
     require_admitted_profile,
 )
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
-from src.graph_memory.extraction import worldbuilding_profile_catalog as _worldbuilding_catalog  # noqa: F401
-from src.graph_memory.vocabulary.model import ContextVocabularyPacket
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction import worldbuilding_profile_catalog as _worldbuilding_catalog  # noqa: F401
+from graph_memory.vocabulary.model import ContextVocabularyPacket
 
 # Ensure profiles register on import.
-from src.graph_memory.extraction import recap_extraction_profile as _recap_profiles  # noqa: F401
-from src.graph_memory.extraction import worldbuilding_plumbing_profile as _wb_profiles  # noqa: F401
-from src.graph_memory.extraction import (  # noqa: F401
+from graph_memory.extraction import recap_extraction_profile as _recap_profiles  # noqa: F401
+from graph_memory.extraction import worldbuilding_plumbing_profile as _wb_profiles  # noqa: F401
+from graph_memory.extraction import (  # noqa: F401
     worldbuilding_extraction_profile as _wb_bounded_profiles,
 )
 
@@ -189,7 +189,7 @@ def _create_draft_run(
     from apps.live_control_server.services.graph_run_registry import create_extraction_run, get_extraction_run
 
     if reserved_run is not None:
-        current = get_extraction_run(repo_root, reserved_run.run_id)
+        current = get_extraction_run(reserved_run.run_id)
         if (current.status != ExtractionRunStatus.DRAFT or current.revision != reserved_run.revision
                 or current.source_artifact_id != source.source_artifact_id
                 or current.source_domain != source.source_domain or current.campaign_id != source.campaign_id
@@ -337,7 +337,7 @@ def run_production_extraction(
             failure_kind="profile",
             lineage={**(request.initial_lineage or {}), "failure_kind": "profile"},
         )
-        loaded = get_extraction_run(request.repo_root, failed.run_id)
+        loaded = get_extraction_run(failed.run_id)
         return ProductionExtractionResult(
             run=loaded,
             failure_kind="profile",
@@ -381,7 +381,7 @@ def run_production_extraction(
     )
 
     if not request.allow_llm and request.category_client is None:
-        loaded = get_extraction_run(request.repo_root, prepared.run_id)
+        loaded = get_extraction_run(prepared.run_id)
         return ProductionExtractionResult(
             run=loaded,
             source_span_index=span_payload,
@@ -422,7 +422,7 @@ def run_production_extraction(
         ),
     )
 
-    from src.graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient
+    from graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient
 
     bounded = request.category_client if isinstance(request.category_client, BoundedRecapPassClient) else None
     if bounded is not None:
@@ -462,7 +462,7 @@ def run_production_extraction(
             },
         )
         return ProductionExtractionResult(
-            run=get_extraction_run(request.repo_root, failed.run_id),
+            run=get_extraction_run(failed.run_id),
             source_span_index=span_payload, failure_kind=failure_kind,
             diagnostics=[message], model_id=model_id,
             profile_id=profile.profile_id, profile_version=profile.profile_version,
@@ -479,7 +479,7 @@ def run_production_extraction(
     if extraction.private_response_evidence is not None and bounded is None:
         # Validate the versioned success bundle before storing private evidence
         # or advancing a candidate.
-        from src.graph_memory.extraction.worldbuilding_edge_review import json_copy
+        from graph_memory.extraction.worldbuilding_edge_review import json_copy
 
         try:
             bundle = json_copy(json.loads(extraction.private_response_evidence))
@@ -501,7 +501,7 @@ def run_production_extraction(
     candidate_graph = extraction.candidate_graph
     consolidation_diagnostics = dict(extraction.consolidation_diagnostics)
     if profile.admitted_source_domains == frozenset({"recap"}):
-        from src.graph_memory.extraction.recap_quote_integrity import (
+        from graph_memory.extraction.recap_quote_integrity import (
             RecapQuoteIntegrityError,
             validate_and_defer_nonliteral_recap_items,
         )
@@ -549,7 +549,7 @@ def run_production_extraction(
                     "recap_quote_integrity_error": exc.code,
                 },
             )
-            loaded = get_extraction_run(request.repo_root, failed.run_id)
+            loaded = get_extraction_run(failed.run_id)
             return ProductionExtractionResult(
                 run=loaded,
                 candidate_graph=(
@@ -620,7 +620,7 @@ def run_production_extraction(
                 "reviewable": False,
             },
         )
-        loaded = get_extraction_run(request.repo_root, failed.run_id)
+        loaded = get_extraction_run(failed.run_id)
         return ProductionExtractionResult(
             run=loaded,
             candidate_graph=candidate_graph,
@@ -650,7 +650,7 @@ def run_production_extraction(
                 "reviewable": False,
             },
         )
-        loaded = get_extraction_run(request.repo_root, failed.run_id)
+        loaded = get_extraction_run(failed.run_id)
         return ProductionExtractionResult(
             run=loaded,
             candidate_graph=candidate_graph,
@@ -690,7 +690,7 @@ def run_production_extraction(
                 "typed_issue_count": typed_issue_count,
             },
         )
-        loaded = get_extraction_run(request.repo_root, failed.run_id)
+        loaded = get_extraction_run(failed.run_id)
         return ProductionExtractionResult(
             run=loaded,
             candidate_graph=candidate_graph,
@@ -731,7 +731,7 @@ def run_production_extraction(
                     "profile_validator_exception": type(exc).__name__,
                 },
             )
-            loaded = get_extraction_run(request.repo_root, failed.run_id)
+            loaded = get_extraction_run(failed.run_id)
             return ProductionExtractionResult(
                 run=loaded,
                 candidate_graph=candidate_graph,
@@ -760,7 +760,7 @@ def run_production_extraction(
                     "profile_validation_error_count": len(profile_errors),
                 },
             )
-            loaded = get_extraction_run(request.repo_root, failed.run_id)
+            loaded = get_extraction_run(failed.run_id)
             return ProductionExtractionResult(
                 run=loaded,
                 candidate_graph=candidate_graph,
@@ -798,7 +798,7 @@ def run_production_extraction(
             "reviewable": True,
         },
     )
-    loaded = get_extraction_run(request.repo_root, reviewable.run_id)
+    loaded = get_extraction_run(reviewable.run_id)
     return ProductionExtractionResult(
         run=loaded,
         candidate_graph=candidate_graph,

@@ -159,7 +159,7 @@ GOLD_SCORE_THRESHOLDS = {
 
 5. **Docs and handoffs** (optional / separate)
    - `Docs/Design/SCHEMA-document-temporal-metadata-v0.2.md` (new)
-   - `report/REPORT-current-status.md`
+   - [Historical status report](https://github.com/Drakosfire/DungeonMindBuddy/blob/3fbf800e0f134ba9a1396156c22c18c614c8f72d/report/REPORT-current-status.md)
    - Handoff files
 
 **Files to NOT commit:**
@@ -225,4 +225,4 @@ Gate G metrics after threshold hardening:
 | Document metadata schema | `schemas/v0.1/document_metadata.schema.json` (v0.2) |
 | Entity schema | `schemas/v0.1/entity.schema.json` |
 | Evidence schema | `schemas/v0.1/evidence_unit.schema.json` |
-| Status report | `report/REPORT-current-status.md` |
+| Status report | [Historical status report](https://github.com/Drakosfire/DungeonMindBuddy/blob/3fbf800e0f134ba9a1396156c22c18c614c8f72d/report/REPORT-current-status.md) |

@@ -401,7 +401,7 @@ def test_dungeonmind_internal_imports_are_explicit_debt() -> None:
 
 def test_model_policy_remains_buddy_owned_transition_policy() -> None:
     """E1B authority stays Buddy-local; E5A does not delete or rewrite the file."""
-    from src.model_policy import buddy_model_policy_path, load_buddy_model_policy
+    from model_policy import buddy_model_policy_path, load_buddy_model_policy
 
     path = buddy_model_policy_path()
     assert path.is_file()

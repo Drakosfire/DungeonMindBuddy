@@ -259,3 +259,5 @@ Boots of Crowing Wings from the geomantic drake nest — what does the table kno
 -
 
 ---
+
+[Original May 23 capture set](https://github.com/Drakosfire/DungeonMindBuddy/tree/6fdc5cdeeed2af21424b85c6a9a464ea87d841a6/evals/c2_live_prep/artifacts/runs/2026-05-23)

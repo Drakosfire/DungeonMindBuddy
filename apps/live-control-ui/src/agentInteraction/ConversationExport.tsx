@@ -4,17 +4,20 @@ import {collectConversationExport,downloadConversationExport,type ConversationEx
 export function ConversationExport({worldId,conversationId}:{worldId:string;conversationId:string}){
  const binding=JSON.stringify([worldId,conversationId]);
  const owner=useRef({binding});if(owner.current.binding!==binding)owner.current={binding};
+ const request=useRef<AbortController|null>(null);
  const mounted=useRef(true),busyRef=useRef(false);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
- useEffect(()=>{busyRef.current=false;setBusy(false);setNotice('');setError('');},[binding]);
+ useEffect(()=>{busyRef.current=false;setBusy(false);setNotice('');setError('');return()=>request.current?.abort();},[binding]);
  async function save(format:ConversationExportFormat){
   if(busyRef.current)return;const captured=owner.current;
+  const controller=new AbortController();
+  request.current=controller;
   const check=()=>{if(!mounted.current||owner.current!==captured)throw new Error('Export selection retired.');};
   busyRef.current=true;setBusy(true);setNotice('');setError('');
-  try{const file=await collectConversationExport(worldId,conversationId,format,check);check();downloadConversationExport(file);setNotice('Conversation download prepared.');}
+  try{const file=await collectConversationExport(worldId,conversationId,format,check,controller.signal);check();downloadConversationExport(file);setNotice('Conversation download prepared.');}
   catch(reason){if(mounted.current&&owner.current===captured)setError(reason instanceof Error?reason.message:'Conversation export is unavailable.');}
-  finally{if(mounted.current&&owner.current===captured){busyRef.current=false;setBusy(false);}}
+  finally{if(request.current===controller)request.current=null;if(mounted.current&&owner.current===captured){busyRef.current=false;setBusy(false);}}
  }
  return <div role="group" aria-label="Export conversation">
   <button type="button" disabled={busy} onClick={()=>void save('readable')}>Export conversation</button>

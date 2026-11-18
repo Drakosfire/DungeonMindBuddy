@@ -57,11 +57,10 @@ def _map_direct_error(exc: DirectWorldGraphReadError) -> WorldGraphObjectProject
     )
 
 
-def _hydrate_adjacency(
+def hydrate_adjacency_excerpts(
     node: WorldGraphProjectionNodeView,
     *,
     bindings_by_evidence: dict[str, WorldGraphObjectProjectionSourceBinding],
-    markdown_by_digest: dict[tuple[str, str], Any],
 ) -> WorldGraphProjectionNodeView:
     adjacency = []
     for candidate in node.adjacency:
@@ -193,16 +192,14 @@ def project_complete_world_object(
     hydrate_started = time.perf_counter()
     source_bindings = _apply_durable_bindings(authority, records=records)
     bindings_by_evidence = {row.evidence_ref_id: row for row in source_bindings}
-    node = _hydrate_adjacency(
+    node = hydrate_adjacency_excerpts(
         authority.node,
         bindings_by_evidence=bindings_by_evidence,
-        markdown_by_digest=records,
     )
     related_nodes = [
-        _hydrate_adjacency(
+        hydrate_adjacency_excerpts(
             related,
             bindings_by_evidence=bindings_by_evidence,
-            markdown_by_digest=records,
         )
         for related in authority.related_nodes
     ]

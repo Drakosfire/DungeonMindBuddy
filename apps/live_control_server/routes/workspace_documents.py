@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.live_control_server.config import (
@@ -18,6 +19,11 @@ from apps.live_control_server.integrations.dungeonmind.native_world_source_admis
     NativeWorldSourceAdmissionStatus,
     admit_native_world_source,
     get_native_world_source_status as read_native_world_source_status,
+)
+from apps.live_control_server.services.hosted_native_graph_access import (
+    require_hosted_build_page_inventory,
+    require_hosted_build_native_source,
+    require_hosted_plan_world_context,
 )
 from apps.live_control_server.services.workspace_document_registry import (
     CreateWorkspaceDocumentRequest,
@@ -43,6 +49,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document_snapshot,
     get_committed_page_snapshot,
     list_workspace_documents,
+    list_workspace_page_campaign_tags,
     list_world_owned_plans_v2,
     create_world_owned_plan_v2,
     create_world_owned_runbook_v2,
@@ -120,6 +127,53 @@ def get_workspace_documents(
     return WorkspaceDocumentsListResponse(records=records).model_dump(mode="json")
 
 
+class WorkspacePageInventoryResponse(WorkspaceDocumentsListResponse):
+    campaign_tags: list[str] | None = None
+    next_before_updated_at: str | None = None
+    next_before_document_id: str | None = None
+
+
+@router.get("/workspace-documents/pages/inventory", response_model=WorkspacePageInventoryResponse)
+def get_workspace_page_inventory(
+    request: Request,
+    response: Response,
+    world_id: Annotated[str | None, Query()] = None,
+    campaign_id: Annotated[str | None, Query()] = None,
+    status: Annotated[Literal["active", "discarded"] | None, Query()] = "active",
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    before_updated_at: datetime | None = None,
+    before_document_id: UUID | None = None,
+) -> WorkspacePageInventoryResponse:
+    require_hosted_build_page_inventory(request, world_id)
+    before = None
+    if before_updated_at is not None or before_document_id is not None:
+        if before_updated_at is None or before_document_id is None or before_updated_at.utcoffset() is None:
+            raise HTTPException(422, "Provide both cursor values with a timezone-aware timestamp.")
+        before = (before_updated_at, before_document_id)
+    try:
+        inventory = list_workspace_documents(
+            repo_root(), world_id=world_id, campaign_id=campaign_id,
+            kind="worldbuilding_source", status=status, limit=limit + 1, before=before,
+        )
+        campaign_tags = None
+        if before is None:
+            campaign_tags = list_workspace_page_campaign_tags(
+                world_id=world_id, campaign_id=campaign_id, status=status,
+            )
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_hosted_build_page_inventory(request, world_id)
+    response.headers["Cache-Control"] = "no-store"
+    records = inventory[:limit]
+    boundary = records[-1] if len(inventory) > limit else None
+    return WorkspacePageInventoryResponse(
+        records=records,
+        campaign_tags=campaign_tags,
+        next_before_updated_at=boundary.updated_at if boundary else None,
+        next_before_document_id=boundary.document_id if boundary else None,
+    )
+
+
 @router.post("/workspace-documents", response_model=WorkspaceDocumentRecord)
 def post_workspace_document(body: CreateWorkspaceDocumentRequest) -> dict[str, Any]:
     try:
@@ -148,6 +202,7 @@ def get_world_owned_plans(
     world_id: Annotated[str, Query(min_length=1)],
     request: Request,
 ) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, world_id)
     unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
     if unsupported:
         raise HTTPException(
@@ -164,8 +219,42 @@ def get_world_owned_plans(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
+class WorldPlanInventoryPage(WorldOwnedPlansResponseV2):
+    next_before_updated_at: str | None = None
+    next_before_document_id: str | None = None
+
+
+@router.get("/workspace-documents/world-plans/page", response_model=WorldPlanInventoryPage)
+def get_world_plan_inventory_page(
+    world_id: Annotated[str, Query(min_length=1)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    before_updated_at: datetime | None = None,
+    before_document_id: UUID | None = None,
+) -> WorldPlanInventoryPage:
+    before = None
+    if before_updated_at is not None or before_document_id is not None:
+        if before_updated_at is None or before_document_id is None or before_updated_at.utcoffset() is None:
+            raise HTTPException(422, "Provide both cursor values with a timezone-aware timestamp.")
+        before = (before_updated_at, before_document_id)
+    try:
+        inventory = list_world_owned_plans_v2(
+            _managed_world_root(), world_id=world_id, limit=limit + 1, before=before,
+        )
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    records = inventory.records[:limit]
+    boundary = records[-1] if len(inventory.records) > limit else None
+    return WorldPlanInventoryPage(
+        world_id=inventory.world_id,
+        records=records,
+        next_before_updated_at=boundary.updated_at if boundary else None,
+        next_before_document_id=boundary.document_id if boundary else None,
+    )
+
+
 @router.post("/workspace-documents/world-plans", response_model=WorldOwnedPlanRecordV2)
-def post_world_owned_plan(body: CreateWorldOwnedPlanRequestV2) -> dict[str, Any]:
+def post_world_owned_plan(body: CreateWorldOwnedPlanRequestV2, request: Request) -> dict[str, Any]:
+    require_hosted_plan_world_context(request, body.world_id)
     try:
         record = create_world_owned_plan_v2(
             _managed_world_root(), world_id=body.world_id, title=body.title
@@ -422,7 +511,7 @@ def get_workspace_document_route(document_id: str) -> dict[str, Any]:
     response_model=WorkspaceDocumentSnapshotAny,
 )
 def get_workspace_document_snapshot_route(
-    document_id: str, view: Literal["editor", "committed"] = "editor"
+    document_id: str, view: Literal["editor", "committed"] = "editor", request: Request = None
 ) -> dict[str, Any]:
     try:
         reader = get_committed_page_snapshot if view == "committed" else get_workspace_document_snapshot
@@ -434,6 +523,8 @@ def get_workspace_document_snapshot_route(
             status_code=404,
             detail="World-owned Runbooks require the World-scoped V2 route",
         )
+    if isinstance(snapshot.record, WorldOwnedPlanRecordV2):
+        require_hosted_plan_world_context(request, snapshot.record.world_id)
     return snapshot.model_dump(mode="json")
 
 
@@ -442,12 +533,15 @@ def get_workspace_document_snapshot_route(
     response_model=WorkspaceCommittedRevisionAny,
 )
 def get_workspace_document_current_committed_revision(
-    document_id: str,
+    document_id: str, request: Request = None,
 ) -> dict[str, Any]:
     try:
         committed = get_committed_playable_revision(document_id)
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_hosted_plan_world_context(
+        request, getattr(committed, "world_id", None) if committed.kind == "plan" else None
+    )
     return committed.model_dump(mode="json")
 
 
@@ -456,12 +550,15 @@ def get_workspace_document_current_committed_revision(
     response_model=WorkspaceCommittedRevisionAny,
 )
 def get_workspace_document_exact_committed_revision(
-    document_id: str, revision_n: int
+    document_id: str, revision_n: int, request: Request = None
 ) -> dict[str, Any]:
     try:
         committed = get_committed_playable_revision(document_id, revision_n=revision_n)
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_hosted_plan_world_context(
+        request, getattr(committed, "world_id", None) if committed.kind == "plan" else None
+    )
     return committed.model_dump(mode="json")
 
 
@@ -589,11 +686,14 @@ def post_workspace_document_source_artifact(
 def get_native_world_source_status(
     document_id: str,
     expected_revision: Annotated[int | None, Query(ge=1)] = None,
+    request: Request = None,
 ) -> dict[str, Any]:
     try:
-        return read_native_world_source_status(
+        status = read_native_world_source_status(
             repo_root(), document_id, expected_revision=expected_revision
-        ).model_dump(mode="json")
+        )
+        require_hosted_build_native_source(request, status.world_id)
+        return status.model_dump(mode="json")
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(
             status_code=exc.status_code,
@@ -608,6 +708,7 @@ def get_native_world_source_status(
 def post_native_world_source_admission(
     document_id: str,
     body: NativeWorldSourceAdmissionRequest,
+    request: Request = None,
 ) -> dict[str, Any]:
     try:
         return admit_native_world_source(
@@ -615,6 +716,7 @@ def post_native_world_source_admission(
             document_id,
             expected_revision=body.expected_revision,
             expected_body_sha256=body.expected_body_sha256,
+            authorize_world=lambda world: require_hosted_build_native_source(request, world),
         ).model_dump(mode="json")
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(
@@ -640,28 +742,41 @@ _CONNECTED_ERRORS = (ConnectedGraphError,ConnectedPageError, WorkspaceDocumentRe
     WorldGraphProjectionServiceError) + NATIVE_ERRORS
 
 
+def _connected_page_principal(request: Request, world_id: str):
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        conversation_graph_principal, require_conversation_access,
+    )
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+
+    def authorize():
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+
+    return principal, {"authorize": authorize} if principal.auth_method == "hosted_owner" else {}
+
+
 @router.post('/connected-pages/prepare')
 def post_connected_page_prepare(body: ConnectedPageRequest, request: Request):
-    principal = enforce_native_graph_gm(request)
+    principal, guard = _connected_page_principal(request, body.world_id)
     try:
-        return prepare_connected_page(_managed_world_root(), body, principal=principal)
+        return prepare_connected_page(_managed_world_root(), body, principal=principal, **guard)
     except _CONNECTED_ERRORS as exc:
         raise HTTPException(status_code=getattr(exc, 'status_code', 409), detail=str(exc)) from exc
 
 
 @router.post('/connected-pages/confirm')
 def post_connected_page_confirm(body: ConnectedPageConfirmation, request: Request):
-    principal = enforce_native_graph_gm(request)
+    principal, guard = _connected_page_principal(request, body.world_id)
     try:
-        return confirm_connected_page(_managed_world_root(), body.operation_id, body.world_id, body.confirm_token, principal=principal)
+        return confirm_connected_page(_managed_world_root(), body.operation_id, body.world_id, body.confirm_token, principal=principal, **guard)
     except _CONNECTED_ERRORS as exc:
         raise HTTPException(status_code=getattr(exc, 'status_code', 409), detail=str(exc)) from exc
 
 
 @router.get('/connected-pages/{operation_id}')
 def read_connected_page(operation_id: UUID, world_id: str, request: Request):
-    enforce_native_graph_gm(request)
+    principal, guard = _connected_page_principal(request, world_id)
     try:
-        return get_connected_page(_managed_world_root(), operation_id, world_id)
+        return get_connected_page(_managed_world_root(), operation_id, world_id, principal=principal, **guard)
     except _CONNECTED_ERRORS as exc:
         raise HTTPException(status_code=getattr(exc, 'status_code', 409), detail=str(exc)) from exc

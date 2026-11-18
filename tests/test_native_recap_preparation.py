@@ -59,18 +59,29 @@ def lane(monkeypatch, tmp_path, request):
     monkeypatch.setenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", "synthetic-native-recap-review-key")
     seed = _repository(evidence=False, v3=getattr(request, "param", None) != "source_order_closed")
     snapshot = seed.get_revision(SPACE_ID, seed.get_head(SPACE_ID).head_revision_id)
+    profile_ref = snapshot.revision.semantic_profile_ref
+    if getattr(request, "param", None) in {"source_order_observation", "reviewed_observation"}:
+        from graph_memory.vnext.domain_runtime import (
+            DUNGEONBUDDY_OBSERVATION_PROFILE_DIGEST,
+            DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION,
+        )
+
+        profile_ref = profile_ref.model_copy(update={
+            "profile_revision": DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION,
+            "descriptor_sha256": DUNGEONBUDDY_OBSERVATION_PROFILE_DIGEST,
+        })
     repo = InMemoryNativeSourceEvidenceRepository()
     repo.publish_revision(PublishKnowledgeRevisionCommand(
         space_id=SPACE_ID, operation_ids=["fixture-genesis"],
         graph_schema=snapshot.revision.graph_schema, graph_payload=snapshot.graph_payload,
         domain_contract_ref=snapshot.revision.domain_contract_ref,
-        semantic_profile_ref=snapshot.revision.semantic_profile_ref,
+        semantic_profile_ref=profile_ref,
         created_at=datetime(2026, 10, 31, tzinfo=UTC),
     ))
     bound = {"native_world_id": SPACE_ID, "binding_version": 3}
     source_id = "artifact:recap:v2:review-fixture"
     text = "A traveller met Pippa near the towér.\r\n\r\nThe traveller brought a lantern.\r\n\r\nAnother unrelated episode.\r\n"
-    source_order = getattr(request, "param", None) in {"source_order", "source_order_closed"}
+    source_order = getattr(request, "param", None) in {"source_order", "source_order_closed", "source_order_observation"}
     if source_order:
         text = ("An arrival happened. A discussion happened. Each occurred before a departure. "
                 "Their relative order is not stated. Pippa is a person.\r\n\r\n"
@@ -159,7 +170,7 @@ def lane(monkeypatch, tmp_path, request):
         app_body_sha256=digest, native_world_id=SPACE_ID, binding_version=3,
         evidence_ref_id=receipt.bindings[0].evidence_ref_id, admission_id=receipt.admission_id,
         source_artifact_id=receipt.source_artifact_id, source_revision_id=receipt.source_revision_id)
-    monkeypatch.setattr(service.config, "artifact_data_root", lambda: tmp_path)
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
     monkeypatch.setattr(service, "load_reviewable_extraction_data", lambda *_: data)
     monkeypatch.setattr(service.sources, "get_source_markdown", lambda **_: source)
     monkeypatch.setattr(service.admission, "inspect", lambda *_: admitted)
@@ -1292,7 +1303,7 @@ def _source_order_candidate(lane):
     assert not document.is_document_integrity_failure, (document.parse_error, document.integrity_issues)
 
 
-@pytest.mark.parametrize("lane", ["source_order"], indirect=True)
+@pytest.mark.parametrize("lane", ["source_order", "source_order_observation"], indirect=True)
 def test_source_order_description_only_events_publish_and_open_real_evidence(lane):
     _source_order_candidate(lane)
     packet = confirmation(lane)
@@ -1467,3 +1478,322 @@ def test_source_order_postgres_confirm_and_fresh_readback(
     assert reads and not unavailable
     assert all(row.spans[0].evidence_ref_id == x.support_ids["first"] for row in reads)
     assert confirm(x, packet).json()["result"] == result
+
+
+@pytest.fixture
+def persistent_world_core(description_native_core_dsn, monkeypatch):
+    from dungeonmind.infrastructure.postgres import (
+        PostgresDatabase,
+        PostgresNativeSourceEvidenceRepository,
+    )
+
+    repository = PostgresNativeSourceEvidenceRepository(PostgresDatabase(description_native_core_dsn))
+    monkeypatch.setattr(
+        __name__ + ".InMemoryNativeSourceEvidenceRepository", lambda: repository
+    )
+    return repository
+
+
+def test_worldbuilding_postgres_confirmation_replays_one_head_advance(
+    persistent_world_core, request,
+):
+    lane = request.getfixturevalue("world_lane")
+    assert lane.repo is persistent_world_core
+    parent = lane.repo.get_head(SPACE_ID)
+    events = lane.repo.head_events(SPACE_ID)
+    context = lane.client.post(
+        "/api/live/extract-promote/native-worldbuilding-context",
+        json={
+            "managed_world_id": lane.body["managed_world_id"],
+            "run_id": lane.body["run_id"],
+            "source_artifact_id": lane.source.source_artifact_id,
+            "source_sha256": lane.source.content_sha256,
+        },
+        headers={"Authorization": "Bearer " + TOKEN},
+    )
+    assert context.status_code == 200, context.text
+    prepared = lane.post({
+        **context.json()["prepare_coordinates"], "selections": lane.body["selections"],
+    })
+    assert prepared.status_code == 200, prepared.text
+    packet = {key: prepared.json()[key] for key in ("envelope", "prepared", "token")}
+    assert lane.repo.get_head(SPACE_ID) == parent
+    assert lane.repo.head_events(SPACE_ID) == events
+
+    first = confirm(lane, packet)
+    assert first.status_code == 200, first.text
+    result = first.json()["result"]
+    child = lane.repo.get_head(SPACE_ID)
+    assert child.head_revision_id == result["child_revision_id"]
+    assert child != parent
+
+    retry = confirm(lane, packet)
+    assert retry.status_code == 200, retry.text
+    assert retry.json()["result"] == result
+    assert lane.repo.get_head(SPACE_ID) == child
+    assert len(lane.repo.head_events(SPACE_ID)) == len(events) + 1
+
+
+def test_worldbuilding_context_binds_saved_source_and_native_prepare(world_lane):
+    x = world_lane
+    path = "/api/live/extract-promote/native-worldbuilding-context"
+    request = {
+        "managed_world_id": x.body["managed_world_id"],
+        "run_id": x.body["run_id"],
+        "source_artifact_id": x.source.source_artifact_id,
+        "source_sha256": x.source.content_sha256,
+    }
+    headers = {"Authorization": "Bearer " + TOKEN}
+    assert x.client.post(path, json=request).status_code == 401
+    before = x.repo.head_events(SPACE_ID)
+    response = x.client.post(path, json=request, headers=headers)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["schema"] == "dmb_native_worldbuilding_review_context_v1"
+    assert result["binding"] == x.bound
+    assert result["prepare_coordinates"] == {
+        key: value for key, value in x.body.items() if key != "selections"
+    }
+    supports = {row["evidence_ref_id"]: row for row in result["source_support"]}
+    support = supports[x.evidence_id]
+    assert support["text"].encode() == x.source.markdown.encode()[
+        support["start_byte"]:support["end_byte"]
+    ]
+    records = {(row["kind"], row["record_id"]): row for row in result["records"]}
+    for selection in x.body["selections"]:
+        record = records[selection["kind"], selection["record_id"]]
+        for fact in selection.get("facts", ()):
+            field = fact["field"]
+            if fact.get("index") is not None:
+                field = f'{field}:{fact["index"]}'
+            assert field in record["fields"]
+    edges = [row for row in records.values() if row["kind"] == "edge"]
+    assert edges
+    assert all(
+        ("node", row["from_record_id"]) in records
+        and ("node", row["to_record_id"]) in records
+        and row["relationship_type"]
+        for row in edges
+    )
+    wrong = x.client.post(path, json={**request, "source_sha256": "0" * 64}, headers=headers)
+    assert wrong.status_code == 409, wrong.text
+    assert x.repo.head_events(SPACE_ID) == before
+
+@pytest.mark.parametrize("lane", ["reviewed_observation"], indirect=True)
+def test_worldbuilding_publishes_explicit_observation_with_exact_support(persistent_world_core, lane, request):
+    x = request.getfixturevalue("world_lane")
+    assert x.repo is persistent_world_core
+    node = x.payload["nodes"][0]
+    x.payload["version"] = "0.2"
+    x.payload["source_observations"] = [{
+        "observation_id": "observation:one",
+        "subject_candidate_node_id": node["node_id"],
+        "title": "Recorded encounter",
+        "description": "A traveller met Pippa",
+        "semantic_state": node["semantic_state"],
+        "evidence_refs": node["evidence_refs"],
+        "confidence": "high",
+    }]
+    x.refresh()
+    x.body["selections"].append(dict(
+        kind="source_observation", record_id="observation:one", action="create",
+        metadata={**META, "evidence_ref_ids": [x.evidence_id]},
+    ))
+    metadata = x.body["selections"][-1]["metadata"]
+    metadata["domain_metadata"] = [{
+        "schema_term": service.WORLD_CONTEXT,
+        "payload": {service.OBSERVATION_PUBLICATION: "forged"},
+    }]
+    parent = x.repo.get_head(SPACE_ID)
+    refused = x.post()
+    assert refused.status_code == 409, refused.text
+    assert "candidate_description_provenance_reserved" in refused.text
+    assert x.repo.get_head(SPACE_ID) == parent
+    del metadata["domain_metadata"]
+
+    packet = confirmation(x)
+    result = confirm(x, packet)
+    assert result.status_code == 200, result.text
+    child = x.repo.get_revision(SPACE_ID, result.json()["result"]["child_revision_id"])
+    observation, = [row for row in child.graph_payload["assertions"]
+                    if row["predicate"] == "dungeonbuddy:reviewed_source_observation"]
+    assert observation["value"] == {"kind": "literal", "value": "A traveller met Pippa"}
+    assert observation["metadata"]["evidence_ref_ids"] == [x.evidence_id]
+    assert confirm(x, packet).json()["result"] == result.json()["result"]
+
+    from dungeonmind.application.vnext.prospective import get_prospective_publication
+
+    context, = [item["payload"] for item in observation["metadata"]["domain_metadata"]
+                if item["schema"] == service.WORLD_CONTEXT]
+    publication_id = context[service.OBSERVATION_PUBLICATION]
+    publication = get_prospective_publication(SPACE_ID, publication_id, repository=x.repo)
+    assert publication.publication_receipt.published_revision_id == child.revision.revision_id
+    assert any(
+        binding.result_kind == "assertion" and binding.durable_id == observation["assertion_id"]
+        for binding in publication.prospective_result.results
+    )
+
+    from apps.live_control_server.routes.world_graph_retrieval import router
+
+    x.monkeypatch.setattr(service.native, "read_repository", lambda: x.repo)
+    x.monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", x.world.world_id)
+    x.client.app.include_router(router)
+    base = "/api/live/world-graph/retrieval"
+    headers = {"Authorization": "Bearer " + TOKEN}
+    scope = {"worldId": x.world.world_id, "campaignId": x.world.world_id}
+    searched = x.client.post(base + "/search", headers=headers, json={
+        **scope, "schema": "dmb_world_graph_search_request_v1", "queryText": "traveller",
+    })
+    assert searched.status_code == 200, searched.text
+    payload = searched.json()
+    match, = payload["reviewedSourceObservationMatches"]
+    assert match["publicationId"] == publication_id
+    assert match["assertionId"] == observation["assertion_id"]
+    assert match["publicationRevisionId"] == child.revision.revision_id
+    anchor = next(row for row in payload["sourceAnchors"]
+                  if observation["assertion_id"] in row["supportingAssertionIds"])
+    opened = x.client.post(base + "/source-anchor/read", headers=headers, json={
+        **scope, "schema": "dmb_world_graph_source_anchor_read_request_v1",
+        "revisionPin": anchor["revisionId"], "anchorId": anchor["anchorId"],
+    })
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["content"] == x.text.splitlines(keepends=True)[0]
+
+
+@pytest.mark.parametrize("decisions", ["missing", "fabricated_witness", "omitted_event"])
+def test_cohort_prepare_refuses_unaccounted_relationships(lane, decisions):
+    lane.payload["nodes"][0]["node_type"] = "event"
+    lane.refresh()
+    body = copy.deepcopy(lane.body)
+    body["selections"] = [
+        choice(record_id, action="use_existing", entity_id="ent:pippa", fields=())
+        for record_id in ("new", "existing")
+    ]
+    edge_decisions = []
+    if decisions == "fabricated_witness":
+        edge_decisions.append(dict(
+            edge_id="edge", decision="already_present", assertion_id="asrt:absent",
+            subject_entity_id="ent:pippa", target_entity_id="ent:pippa",
+            evidence_ref_ids=[lane.support_ids["first"]],
+        ))
+    body["cohort_edge_review"] = dict(
+        event_ids=[] if decisions == "omitted_event" else ["new"],
+        edge_decisions=edge_decisions,
+        prepare_pin={key: value for key, value in body.items() if key != "selections"},
+    )
+
+    response = lane.post(body)
+
+    assert response.status_code == 409, response.text
+    assert "candidate_cohort_edge_review_invalid" in response.text
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == body["expected_parent_revision_id"]
+
+
+def test_cohort_prepare_keeps_relationship_to_new_event(lane):
+    from scripts.check_recap_cohort_edges import publish_cohort
+    from tests.test_native_recap_event_placement import _declare_campaign
+
+    lane.payload["nodes"][0]["node_type"] = "event"
+    lane.refresh()
+    _declare_campaign(lane, 1)
+    body = copy.deepcopy(lane.body)
+    body["selections"].pop()
+    body["selections"].append({
+        "kind": "placement", "record_id": "new", "action": "create",
+        "metadata": copy.deepcopy(META) | {
+            "claim_mode": "dungeonbuddy.claim:observed_event",
+            "temporal_scope": {
+                "kind": "domain_ref",
+                "schema_term": "dungeonbuddy.time:fictional_anchor_v1",
+                "payload": {"start": {"session": 8}},
+            },
+        },
+    })
+    manifest = dict(
+        event_ids=["new"],
+        placement_ids=["new"],
+        edge_decisions=[dict(
+            edge_id="edge", decision="publish", subject_candidate_node_id="new",
+            target_entity_id="ent:pippa", evidence_ref_ids=META["evidence_ref_ids"],
+            metadata=META,
+        )],
+        prepare_pin={key: value for key, value in body.items() if key != "selections"},
+    )
+
+    lane.client.headers["Authorization"] = "Bearer " + TOKEN
+    with pytest.raises(ValueError, match="Missing decisions"):
+        publish_cohort(lane.client, lane.payload, manifest | {"edge_decisions": []}, body)
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == body["expected_parent_revision_id"]
+
+    result = publish_cohort(lane.client, lane.payload, manifest, body)
+    child = lane.repo.get_revision(SPACE_ID, result["result"]["child_revision_id"])
+    assertions = child.graph_payload["assertions"]
+    relationship, = [
+        assertion for assertion in assertions
+        if assertion["predicate"] == "dungeonbuddy.custom:met_at"
+    ]
+    assert relationship["value"] == {"kind": "entity_ref", "entity_id": "ent:pippa"}
+    assert relationship["metadata"]["evidence_ref_ids"] == [lane.support_ids["first"]]
+    placement, = [
+        assertion for assertion in assertions
+        if assertion["predicate"] == "dungeonbuddy.custom:on_timeline"
+    ]
+    assert placement["subject_entity_id"] == relationship["subject_entity_id"]
+    assert placement["value"] == {"kind": "entity_ref", "entity_id": "ent:pippa"}
+    assert placement["metadata"]["temporal_scope"]["payload"] == {"start": {"session": 8}}
+    assert any(
+        assertion["subject_entity_id"] == relationship["subject_entity_id"]
+        and assertion["value"].get("term") == "dungeonbuddy:event"
+        for assertion in assertions
+    )
+
+
+def test_cohort_prepare_refuses_matching_witness_from_another_campaign(lane, monkeypatch):
+    lane.payload["nodes"][0]["node_type"] = "event"
+    lane.refresh()
+    committed = confirm(lane, confirmation(lane))
+    assert committed.status_code == 200, committed.text
+    parent_id = committed.json()["result"]["child_revision_id"]
+    parent = lane.repo.get_revision(SPACE_ID, parent_id)
+    witness, = [a for a in parent.graph_payload["assertions"]
+                if a["predicate"] == "dungeonbuddy.custom:met_at"]
+    subject = witness["subject_entity_id"]
+    target = witness["value"]["entity_id"]
+    body = copy.deepcopy(lane.body)
+    body["expected_parent_revision_id"] = parent_id
+    body["selections"] = [
+        choice("new", action="use_existing", entity_id=subject, fields=()),
+        choice("existing", action="use_existing", entity_id=target, fields=()),
+    ]
+    body["cohort_edge_review"] = dict(
+        event_ids=["new"],
+        edge_decisions=[dict(
+            edge_id="edge", decision="already_present", assertion_id=witness["assertion_id"],
+            subject_entity_id=subject, target_entity_id=target,
+            evidence_ref_ids=[lane.support_ids["first"]],
+        )],
+        prepare_pin={key: value for key, value in body.items() if key != "selections"},
+    )
+    accepted = lane.post(body)
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["prepared"] is None
+    assert accepted.json()["publication"] == "not_performed"
+    body["cohort_edge_review"]["edge_decisions"][0]["evidence_ref_ids"] = [lane.support_ids["second"]]
+    wrong_evidence = lane.post(body)
+    assert wrong_evidence.status_code == 409, wrong_evidence.text
+    assert "candidate_cohort_edge_review_invalid" in wrong_evidence.text
+    body["cohort_edge_review"]["edge_decisions"][0]["evidence_ref_ids"] = [lane.support_ids["first"]]
+    assertion_contract = service.native.assertion_contract
+
+    def foreign_campaign(parsed):
+        assertion = assertion_contract(parsed)
+        return assertion.model_copy(update={"metadata": assertion.metadata.model_copy(update={
+            "scope": (SimpleNamespace(axis=service.CAMPAIGN_SCOPE_AXIS, value="another-campaign"),),
+        })})
+
+    monkeypatch.setattr(service.native, "assertion_contract", foreign_campaign)
+    response = lane.post(body)
+
+    assert response.status_code == 409, response.text
+    assert "candidate_cohort_edge_review_invalid" in response.text
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == parent_id

@@ -93,7 +93,7 @@ def test_selected_live_candidate_is_excluded(monkeypatch):
 
 
 def test_endpoint_does_not_mutate_gold_fixture_file():
-    fixture = Path("evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json")
+    fixture = Path("evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/candidate_graph_gold.json")
     before = fixture.read_bytes()
     client = TestClient(app)
     response = client.post(

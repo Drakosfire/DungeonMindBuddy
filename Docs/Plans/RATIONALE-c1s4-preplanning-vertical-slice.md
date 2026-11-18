@@ -7,7 +7,7 @@ related_documents:
     role: canonical_super_plan
   - path: Docs/Plans/CHECKLIST-c1s4-preplanning-vertical-slice.md
     role: operational_tracker
-  - path: Docs/Plans/HANDOFF-next-c1s4-preplanning-vertical-slice-scaffold.md
+  - path: Docs/Plans/archive/2026-05-22/handoffs/HANDOFF-next-c1s4-preplanning-vertical-slice-scaffold.md
     role: implementation_handoff
 ---
 

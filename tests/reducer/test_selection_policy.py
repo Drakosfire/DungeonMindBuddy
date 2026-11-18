@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.reducer.canon_projection import project_entity_state
+from reducer.canon_projection import project_entity_state
 
 
 def _evidence(

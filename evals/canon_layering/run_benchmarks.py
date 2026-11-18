@@ -4,30 +4,31 @@ import hashlib
 import json
 import sys
 import time
+import os
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 try:
-    from src.contracts.schema_validation import validate_many
-    from src.reducer.canon_projection import project_entity_state
-    from src.reducer.projection_compare import (
+    from contracts.schema_validation import validate_many
+    from reducer.canon_projection import project_entity_state
+    from reducer.projection_compare import (
         assert_attribute_keys_match_golden_contract,
         normalize_projection_for_compare,
     )
 except ModuleNotFoundError:
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
-    from src.contracts.schema_validation import validate_many
-    from src.reducer.canon_projection import project_entity_state
-    from src.reducer.projection_compare import (
+    from contracts.schema_validation import validate_many
+    from reducer.canon_projection import project_entity_state
+    from reducer.projection_compare import (
         assert_attribute_keys_match_golden_contract,
         normalize_projection_for_compare,
     )
 
 EVAL_DIR = ROOT / "evals" / "canon_layering"
 SCENARIOS_DIR = EVAL_DIR / "scenarios"
-OUT_DIR = ROOT / "out" / "evals" / "canon_layering"
+OUT_DIR = Path(os.environ["TMPDIR"]) / "canon_layering"
 THRESHOLDS_PATH = EVAL_DIR / "thresholds.json"
 MANIFEST_PATH = EVAL_DIR / "scenario_manifest.json"
 

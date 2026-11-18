@@ -9,17 +9,17 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.schema_validation import validate_before_append
-from src.live_play.live_store import append_jsonl
-from src.live_play.projections.artifacts import file_state_token_for_text
-from src.live_play.projections.commands import ProjectionCommand
-from src.live_play.projections.invalidation import ProjectionInvalidation
-from src.live_play.projections.targets import ProjectionTarget
-from src.live_play.projections.write_results import (
+from live_store import append_jsonl
+from live_play.projections.artifacts import file_state_token_for_text
+from live_play.projections.commands import ProjectionCommand
+from live_play.projections.invalidation import ProjectionInvalidation
+from live_play.projections.targets import ProjectionTarget
+from live_play.projections.write_results import (
     ProjectionConflict,
     ProjectionWriteResult,
     ProjectionWriteStatus,
 )
-from src.live_play.roll_table_registry import RollTableRef, parse_roll_table_text
+from live_play.roll_table_registry import RollTableRef, parse_roll_table_text
 
 ALLOWED_PATCH_PAYLOAD_KEYS = frozenset(
     {"expected_file_state_token", "old_text", "new_text", "rationale", "dry_run"}

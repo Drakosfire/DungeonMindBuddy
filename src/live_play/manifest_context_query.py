@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from src.live_play.session_paths import repo_root
+from live_play.session_paths import repo_root
 
 PLAY_FACT_USE = "play_facts"
 PLAY_FACT_ALLOWED_AUTHORITIES = frozenset({"canon_play", "derived_memory"})

@@ -20,7 +20,7 @@ from evals.graph_memory_layer.category_graph_model_study import (
     write_run_artifacts,
 )
 from src.agent.synthesis import _load_api_key
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 
 
 def main() -> None:

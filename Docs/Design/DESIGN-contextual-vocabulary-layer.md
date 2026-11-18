@@ -432,7 +432,7 @@ GM-facing metrics:
 
 Known graph-memory fixtures from current anchors:
 
-- `evals/graph_memory_layer/examples/session_23_candidate_graph_gold/` — Session 23 candidate graph gold.
+- `evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-23/` — Session 23 candidate graph gold.
 - `evals/graph_memory_layer/examples/session_24_manual_projection_dogfood/` — Session 24 projection dogfood, not candidate extraction gold.
 - `evals/graph_memory_layer/artifacts/category_graph_model_study/2026-06-26/anchor_quote_n3/` — Session 22 category pipeline validation.
 - `evals/graph_memory_layer/examples/session_22_recap_ingest/` — Session 22 mechanical recap ingest fixture.

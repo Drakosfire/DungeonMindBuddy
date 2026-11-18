@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
@@ -19,7 +19,9 @@ import type {
 
 type NotesStatus = "loading" | "ready" | "dirty" | "saving" | "saved" | "conflict" | "error";
 
-const MarkdownEditorCore = lazy(() => import("../../tiptap/MarkdownEditorCore").then((module) => ({ default: module.MarkdownEditorCore })));
+import { deferredComponent } from "../../ui/deferredComponent";
+
+const MarkdownEditorCore = deferredComponent(() => import("../../tiptap/MarkdownEditorCore").then((module) => ({ default: module.MarkdownEditorCore })), "Markdown editor");
 
 export interface LocalWorldNotesEditorProps {
   readonly repository: LocalWorldPackageRepository;
@@ -427,7 +429,6 @@ export function LocalWorldNotesEditor({
       </div> : null}
       {showEditor ? <div className="local-world-notes__editor">
         {unsupportedSource ? <p className="local-world-notes__message">This imported Markdown includes features the editor cannot preserve yet. The original stays intact and read-only; it remains available in package export.</p> : null}
-        <Suspense fallback={<p role="status">Opening the Markdown editor…</p>}>
           <MarkdownEditorCore
             content={content}
             editable={!disabled && status !== "loading" && status !== "conflict" && selectedConflictId === null && !unsupportedSource}
@@ -435,7 +436,6 @@ export function LocalWorldNotesEditor({
             onUpdate={onUpdate}
             dataTestId="local-world-notes-editor"
           />
-        </Suspense>
       </div> : null}
       {conflictCandidates.length > 0 ? <div className="local-world-notes__conflicts" aria-label="Recovered World notes drafts">
         <p>{conflictCandidates.length} saved conflict {conflictCandidates.length === 1 ? "draft" : "drafts"} need an explicit choice.</p>

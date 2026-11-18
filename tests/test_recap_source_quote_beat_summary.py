@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from typing import Any
 
 import pytest
 
-from src.graph_memory.candidate_graph_preview import (
+from graph_memory.candidate_graph_preview import (
     candidate_graph_preview_from_dict,
     candidate_graph_preview_to_dict,
 )
-from src.graph_memory.candidate_graph_to_contribution import candidate_graph_to_contribution
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.candidate_graph_to_contribution import candidate_graph_to_contribution
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     FixtureCategoryGraphPassClient,
     extract_category_candidate_graph,
@@ -139,8 +140,23 @@ def _extract(
         "beat_pass": {"observation_beats": beats},
         "edge_pass": {"observation_edges": []},
     }
+    from graph_memory.extraction.extraction_profile import ExtractionPassSpec
+    from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+
+    historical_profile = replace(
+        RECAP_EXTRACTION_PROFILE,
+        node_passes=tuple(spec for spec in RECAP_EXTRACTION_PROFILE.node_passes if spec.pass_id != "event_pass"),
+        beat_pass=ExtractionPassSpec(
+            pass_id="beat_pass",
+            default_node_type=None,
+            instruction="Extract source-local beats.",
+            progress_label="Extracting session beats",
+            kind="beat",
+        ),
+    )
     result = extract_category_candidate_graph(
         CategoryGraphExtractionOptions(
+            profile=historical_profile,
             campaign_id="synthetic",
             session_id="session-01",
             session_number=None,

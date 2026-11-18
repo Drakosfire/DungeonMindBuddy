@@ -25,7 +25,7 @@ from apps.live_control_server.models.build_document_proposal import BuildDocumen
 from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
 from apps.live_control_server.services.world_container_registry import get_world_container
 from apps.live_control_server.config import managed_world_data_root
-from src.model_policy import load_buddy_model_policy
+from model_policy import load_buddy_model_policy
 
 # A written artifact can stream beyond GE's generic 60-second operation budget.
 # This is a host-owned total deadline, not a token limit or model instruction.
@@ -117,7 +117,7 @@ def _model():
 
 def _source(request):
     root = managed_world_data_root()
-    get_world_container(root, request.basis.world_id)
+    get_world_container(request.basis.world_id)
     snapshot = get_committed_page_snapshot(root, request.basis.document_id)
     record = snapshot.record
     basis = request.basis
@@ -299,24 +299,29 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
         else:
             advance({"sending": "sdk_entered", "response_received": "response_received", "outcome_unknown": "unknown"}[event.outcome])
         return True
-    from .build_construction_stream import MarkdownStringProgress, observe
-    projection = MarkdownStringProgress()
+    from .build_construction_stream import MarkdownStringProgress, construction_sink, observe_deferred
+    projection = MarkdownStringProgress() if construction_sink.get() is not None else None
     sequence = 0
 
     def progress(status="building", markdown=None):
         nonlocal sequence
         origin = reservation.origin
-        if origin is None or record.authorization is None:
+        if projection is None or origin is None or record.authorization is None:
             return
         sequence += 1
-        observe({"schema": "dmb_build_construction_v1", "action_id": str(record.action_id),
-            "reservation_sha256": record.request_fingerprint,
+        published_sequence = sequence
+        line_count = len(projection.lines)
+        authorization = record.authorization
+        action_id = str(record.action_id)
+        fingerprint = record.request_fingerprint
+        observe_deferred(lambda: {"schema": "dmb_build_construction_v1", "action_id": action_id,
+            "reservation_sha256": fingerprint,
             "conversation_id": str(reservation.conversation_id),
             "basis": reservation.basis.model_dump(mode="json"),
             "origin": origin.model_dump(mode="json"),
-            "provider_attempt_id": str(record.authorization.provider_attempt_id),
-            "sequence": sequence, "status": status,
-            "markdown": projection.markdown if markdown is None else markdown})
+            "provider_attempt_id": str(authorization.provider_attempt_id),
+            "sequence": published_sequence, "status": status,
+            "markdown": "".join(projection.lines[:line_count]) if markdown is None else markdown})
 
     class ObservedProvider:
         def __init__(self, provider):
@@ -337,7 +342,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
                         advance("response_received", raw_response=selected)
                         if _native_output_capture is not None:
                             _native_output_capture(event)
-                    elif isinstance(event, TextDelta):
+                    elif isinstance(event, TextDelta) and projection is not None:
                         try:
                             changed = projection.feed(event.text)
                             if changed:

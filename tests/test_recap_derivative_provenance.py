@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.live_play.recap_derivative_provenance import (
+from live_play.recap_derivative_provenance import (
     archive_existing,
     provenance_path,
     read_provenance_state,

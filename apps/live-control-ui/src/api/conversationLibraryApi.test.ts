@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-import {readConversationTurns,resumeConversation,changeConversationLifecycle,readConversationMessages,readActiveConversationMessages} from './conversationLibraryApi';
+import {readConversationTurns,readExportTurns,resumeConversation,changeConversationLifecycle,readConversationMessages,readActiveConversationMessages} from './conversationLibraryApi';
 import {authenticatedApiFetch} from './liveApi';
 vi.mock('./liveApi',async original=>({...await original<typeof import('./liveApi')>(),authenticatedApiFetch:vi.fn()}));
 const cid='11111111-1111-4111-8111-111111111111',tid='22222222-2222-4222-8222-222222222222';
@@ -60,6 +60,16 @@ it('admits only scoped active-message metadata without execution or action grant
  response({...v,conversation_state:'absent',conversation_id:null,active_conversation_id:null,messages:[],next_before_sequence:null});expect((await readActiveConversationMessages('world')).conversation_state).toBe('absent');
 });
 
+it('validates saved statblock links as scoped display metadata',async()=>{
+ const reference={name:'Meat Mind',world_id:'world',draft_id:'33333333-3333-4333-8333-333333333333',revision_id:'rev_dda9582a88ad4724997306791736975b'};
+ const v={schema:'dmb_active_conversation_messages_v4',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
+  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'completed',user_text:'Find the Meat Mind statblock',assistant_text:'Found it',citation_preview:null,reply_object:null,authored_references:null,provenance:{world_id:'world',surface_id:'plan'},saved_statblocks:[reference]}],next_before_sequence:null};
+ response(v);expect((await readActiveConversationMessages('world')).messages[0]?.saved_statblocks).toEqual([reference]);
+ for(const bad of [{...reference,world_id:'foreign'},{...reference,draft_id:'not-a-uuid'},{...reference,revision_id:'latest'},{...reference,extra:true}]){
+  response({...v,messages:[{...v.messages[0],saved_statblocks:[bad]}]});await expect(readActiveConversationMessages('world')).rejects.toThrow('invalid');
+ }
+});
+
 it('loads saved selections in the lightweight contract and rejects foreign or forged input',async()=>{
  const ref={schema:'dmb_authored_graph_reference_v1',managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'pinned',node_id:'node',label:'Selected object'};
  const bundle={schema:'dmb_authored_references_v2',references:[ref]};
@@ -84,4 +94,33 @@ it('admits a scoped Plan connected-page descriptor but rejects other surfaces or
  }
  const {reply_object:_,...old}=row;response({...page,messages:[old]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
  response({...page,schema:'dmb_active_conversation_messages_v3'});await expect(readActiveConversationMessages('world')).rejects.toThrow();
+});
+
+it('requires the transcript cursor to advance to the first turn of a nonempty page', async () => {
+ const value = page();
+ response({...value, next_before_sequence: 1});
+ expect((await readConversationTurns('world', cid, 2)).next_before_sequence).toBe(1);
+ response({...value, next_before_sequence: 2});
+ await expect(readConversationTurns('world', cid, 2)).rejects.toThrow('Transcript cursor');
+ response({...value, turns: [], next_before_sequence: 2});
+ await expect(readConversationTurns('world', cid, 2)).rejects.toThrow('Transcript cursor');
+ response({...value, turns: []});
+ expect((await readConversationTurns('world', cid, 2)).turns).toEqual([]);
+});
+
+it.each([422, 403])('negotiates legacy export only for the selector rejection (status %i)', async status => {
+ const fetch = vi.mocked(authenticatedApiFetch);
+ response(page());
+ fetch.mockResolvedValueOnce({
+  response: Response.json({detail: 'Unexpected or repeated conversation selector'}, {status}),
+ } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+ const result = readExportTurns('world', cid);
+ if (status === 422) {
+  await expect(result).resolves.toEqual({...page(), page_sha256: null});
+  expect(fetch.mock.calls.map(([url]) => new URLSearchParams(String(url).split('?')[1]).get('view')))
+   .toEqual(['full', null]);
+ } else {
+  await expect(result).rejects.toMatchObject({status});
+  expect(fetch).toHaveBeenCalledTimes(1);
+ }
 });

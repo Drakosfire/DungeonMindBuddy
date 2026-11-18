@@ -15,7 +15,7 @@ from apps.live_control_server.services.runtime_preflight import (  # noqa: E402
     format_runtime_preflight_report,
     run_runtime_preflight,
 )
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
+from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:

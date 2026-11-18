@@ -154,6 +154,26 @@ def test_source_only_selection_has_no_object_closure_or_query_hash(monkeypatch, 
     assert object_record_ids(q, handles, assertion=assertion) == ()
 
 
+def test_record_validation_builds_one_catalog_per_invocation(monkeypatch):
+    from application_state.agent_conversation import native_plan_assertions
+
+    q = query()
+    handle = object_selection_handle(q, q.discovered_entity_ids[0])
+    selected = execution(q, ('asrt:0', 'asrt:2'), handles=(handle,))
+    original = native_plan_assertions.object_record_catalog
+    builds = []
+
+    def count_catalog(query):
+        builds.append(query)
+        return original(query)
+
+    monkeypatch.setattr(native_plan_assertions, 'object_record_catalog', count_catalog)
+    validate_selected_record_events(q, selected)
+    assert builds == [q]
+    validate_selected_record_events(q, selected)
+    assert builds == [q, q]
+
+
 def test_mixed_source_and_object_selection_retains_exact_closure():
     q = query()
     handle = object_selection_handle(q, q.discovered_entity_ids[0])

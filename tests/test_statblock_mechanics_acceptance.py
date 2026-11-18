@@ -175,6 +175,117 @@ def test_validation_gate_blocks_without_claim(mock_validate, tmp_path: Path) -> 
 
 
 @patch.object(acceptance, "validate_definition", side_effect=_validate_ok)
+def test_pdf_review_provenance_is_host_owned(mock_validate, tmp_path: Path) -> None:
+    draft = _create_draft(tmp_path)
+    request = _accept_request(draft)
+    provenance = {"world_id": draft.world_id, "review_id": "review-a", "revision": 3, "regions": []}
+    key = acceptance.PDF_REVIEW_PROVENANCE
+    client = FakeStatblockClient(result=_create_result())
+    forged = request.model_copy(update={"accepted_through": {key: provenance}})
+    refused = begin_or_resume_acceptance(
+        tmp_path, draft_id=draft.draft_id, request=forged, client=client,
+    )
+    assert refused.result_label == "acceptance_blocked"
+    assert not client.create_calls
+    accepted = begin_or_resume_acceptance(
+        tmp_path, draft_id=draft.draft_id, request=request, client=client, pdf_review=provenance,
+    )
+    assert accepted.result_label == "mechanics_saved"
+    operation = get_acceptance_operation(
+        tmp_path, draft_id=draft.draft_id, operation_id=request.operation_id,
+    )
+    assert operation.request_body["accepted_through"] == {key: provenance}
+    replay = acceptance.recover_acceptance_operation(
+        tmp_path, draft_id=draft.draft_id, operation_id=request.operation_id, client=client,
+    )
+    assert replay.result_label == "mechanics_saved"
+    assert len(client.create_calls) == 1
+    assert mock_validate.call_count == 1
+
+
+@pytest.mark.parametrize("interruption", ["none", "dispatch", "reconciliation"])
+def test_pdf_acceptance_rejects_stale_review_and_replays_original(tmp_path, monkeypatch, interruption):
+    from uuid import UUID
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from apps.live_control_server.routes import agent, statblock_storage
+
+    draft = _create_draft(tmp_path)
+    request = _accept_request(draft)
+    review_id = UUID("813957cd-06ce-4a3e-9795-811194409517")
+    review = {"revision": 2, "definition": request.definition.model_dump(mode="json"), "regions": []}
+    client = FakeStatblockClient(result=_create_result())
+    begin = acceptance.begin_or_resume_acceptance
+    recover = acceptance.recover_acceptance_operation
+    monkeypatch.setattr(agent, "enforce_native_graph_gm", lambda _: None)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
+    monkeypatch.setattr(agent, "get_pdf_statblock_review", lambda *_: review)
+    monkeypatch.setattr(statblock_storage, "statblock_data_root", lambda _: tmp_path)
+    monkeypatch.setattr(acceptance, "validate_definition", _validate_ok)
+    monkeypatch.setattr(acceptance, "begin_or_resume_acceptance", lambda *a, **kw: begin(*a, client=client, **kw))
+    monkeypatch.setattr(acceptance, "recover_acceptance_operation", lambda *a, **kw: recover(*a, client=client, **kw))
+    app = FastAPI()
+    app.include_router(agent.router)
+    path = f"/agent/worlds/{draft.world_id}/build-pdf-sources/statblock-reviews/{review_id}/accept/{draft.draft_id}"
+    payload = request.model_dump(mode="json", include={
+        "operation_id", "expected_draft_version", "validation_receipt", "validation_definition_digest",
+    })
+    with TestClient(app) as http:
+        assert http.post(path, json={**payload, "expected_revision": 1}).status_code == 409
+        assert not client.create_calls
+        if interruption == "dispatch":
+            client.error = downstream_timeout()
+            interrupted_result = http.post(path, json={**payload, "expected_revision": 2})
+            assert interrupted_result.json()["result_label"] == "dispatched_unknown"
+            assert get_threat_draft(tmp_path, draft.draft_id).accepted_mechanics_ref is None
+            client.error = None
+        if interruption == "reconciliation":
+            with monkeypatch.context() as crash:
+                def stop_before_reconciliation(*args, **kwargs):
+                    raise RuntimeError("interrupted after draft attachment")
+
+                crash.setattr(acceptance, "_phase2_reconcile", stop_before_reconciliation)
+                with pytest.raises(RuntimeError, match="interrupted after draft attachment"):
+                    http.post(path, json={**payload, "expected_revision": 2})
+            attached = get_threat_draft(tmp_path, draft.draft_id)
+            assert attached.accepted_mechanics_ref is not None
+            journal = get_acceptance_operation(
+                tmp_path, draft_id=draft.draft_id, operation_id=payload["operation_id"],
+            )
+            assert journal is not None and journal.authority_state == "server_committed"
+            payload["expected_draft_version"] = attached.version
+        accepted = http.post(path, json={
+            **payload, "expected_revision": 2,
+            "operation_id": "e33a3855-e6d7-44d6-8c23-db120c3076c8" if interruption != "none" else payload["operation_id"],
+        })
+        assert accepted.json()["operation_id"] == payload["operation_id"]
+        assert accepted.json()["result_label"] == "mechanics_saved", accepted.text
+        payload["expected_draft_version"] = draft.version
+        review["revision"] = 3
+        assert http.post(path, json={**payload, "expected_revision": 3}).status_code == 409
+        replay = http.post(path, json={**payload, "expected_revision": 2})
+        assert replay.json()["result_label"] == "mechanics_saved", replay.text
+        saved_draft = get_threat_draft(tmp_path, draft.draft_id)
+        recovered = http.post(path, json={
+            **payload, "expected_revision": 2, "operation_id": "77921349-192e-4da9-8850-eb1956e552e5",
+            "expected_draft_version": saved_draft.version,
+        })
+        assert recovered.json()["result_label"] == "mechanics_saved", recovered.text
+        assert recovered.json()["locator"] == accepted.json()["locator"]
+        refused = http.post(path, json={
+            **payload, "expected_revision": 3, "operation_id": "3d4053fa-8f0f-40f5-98d1-8d48384dfe52",
+            "expected_draft_version": saved_draft.version,
+        })
+        assert refused.status_code == 409, refused.text
+        assert refused.json()["detail"]["code"] == "pdf_statblock_draft_already_has_mechanics"
+        assert len(client.create_calls) == (2 if interruption == "dispatch" else 1)
+        if interruption == "dispatch":
+            assert client.create_calls[0] == client.create_calls[1]
+
+
+@patch.object(acceptance, "validate_definition", side_effect=_validate_ok)
 def test_success_mechanics_saved(mock_validate, tmp_path: Path) -> None:
     draft = _create_draft(tmp_path)
     request = _accept_request(draft)

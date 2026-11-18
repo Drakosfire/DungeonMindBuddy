@@ -4,7 +4,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Literal, Sequence
 
-from src.graph_memory.predicate_catalog import exact_predicate_ids, predicate_family_ids
+from graph_memory.predicate_catalog import exact_predicate_ids, predicate_family_ids
 
 PASS_NAMES = (
     "actor_pass",
@@ -227,7 +227,7 @@ def schema_for_pass_spec(pass_spec: Any) -> dict[str, Any]:
     if kind == "beat":
         return category_beat_pass_json_schema()
     if kind == "edge_review":
-        from src.graph_memory.extraction.worldbuilding_edge_review import (
+        from graph_memory.extraction.worldbuilding_edge_review import (
             ConstrainedEdgeReviewPassSpec, constrained_edge_ids,
         )
         selection = {"type": "array", "items": {"type": "string"}}

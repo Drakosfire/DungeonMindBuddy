@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.graph_memory.extraction.known_entity_registry import (
+from graph_memory.extraction.known_entity_registry import (
     KnownEntity,
     KnownEntityRegistry,
     build_known_entity_registry,

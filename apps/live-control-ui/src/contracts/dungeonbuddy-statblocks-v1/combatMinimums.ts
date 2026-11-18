@@ -6,7 +6,7 @@ export type CombatMinimums = {
   hit_points: number | null;
   hit_point_formula: { count: number; die: number; modifier?: number } | null;
   challenge_rating: string;
-  proficiency_bonus: number;
+  proficiency_bonus: number | null;
   speed: Array<{ mode: MovementModeKind; distance: Distance }>;
   human_adjudicated_elements: string[];
 };
@@ -24,7 +24,7 @@ export function combatMinimums(definition: StatblockDefinitionV1_Output): Combat
     hit_point_formula: hp.formula ?? null,
     challenge_rating: definition.challenge.rating,
     proficiency_bonus: definition.challenge.proficiency_bonus,
-    speed: definition.movement.modes.map((mode) => ({
+    speed: (definition.movement?.modes ?? []).map((mode) => ({
       mode: mode.mode,
       distance: mode.distance,
     })),

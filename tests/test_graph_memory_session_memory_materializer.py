@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from src.graph_memory.ontology_ir import GraphBundle
-from src.graph_memory.session_memory_materialize import (
+from graph_memory.ontology_ir import GraphBundle
+from graph_memory.session_memory_materialize import (
     CREATED_BY,
     SCHEMA_VERSION,
     TAXONOMY_REGISTRY_VERSION,
@@ -17,7 +17,7 @@ from src.graph_memory.session_memory_materialize import (
     materialize_validate_and_report_session_memory,
     session_memory_coverage,
 )
-from src.graph_memory.validation_rules import load_taxonomy_registry, validate_bundle_against_taxonomy
+from graph_memory.validation_rules import load_taxonomy_registry, validate_bundle_against_taxonomy
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "examples" / "session_memory_sentence_units_minimal.jsonl"
@@ -30,8 +30,8 @@ REAL_CAMPAIGN_TERMS = {
     "Stonebridge", "Stone Bridge", "Rivers Edge", "River's Edge", "Mireward", "Hester", "Glowkindle", "Grishna",
 }
 FORBIDDEN_IMPORT_SNIPPETS = {
-    "src.agent.session_memory_query", "src.agent.planner_retrieval_router", "src.live_play.manifest_context_query",
-    "src.session_memory.capture", "src.session_memory.breadcrumb_normalize", "src.corpus.session_recap_paths",
+    "src.agent.session_memory_query", "src.agent.planner_retrieval_router", "live_play.manifest_context_query",
+    "src.session_memory.capture", "src.session_memory.breadcrumb_normalize", "corpus.session_recap_paths",
     "scripts.materialize_session_memory", "openai", "anthropic",
 }
 

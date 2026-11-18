@@ -1,4 +1,4 @@
-import type { NativeGraphEntity } from "../api/nativeGraphInspection";
+import type { NativeGraphChronology, NativeGraphEntity } from "../api/nativeGraphInspection";
 
 export type NativeObjectKind = "person" | "location" | "event";
 
@@ -6,6 +6,10 @@ export interface NativeGraphNode {
   readonly id: string;
   readonly name: string;
   readonly kind: string;
+  readonly presentation?: {
+    readonly recorded_names: readonly string[];
+    readonly classification_terms: readonly string[];
+  };
 }
 
 export interface NativeGraphEdge {
@@ -111,11 +115,14 @@ type CapabilityReader = () => string;
  * Transport injection keeps the native DTO validation shared while allowing
  * Buddy to establish its own browser-scoped session and CSRF header.
  */
-export type NativeGraphDemoTransport = (path: string, init: RequestInit) => Promise<Response>;
+export type NativeGraphDecodedResponse = { status: number; ok: boolean; body: unknown };
+export type NativeGraphDemoTransport = (path: string, init: RequestInit) => Promise<Response | NativeGraphDecodedResponse>;
 
 export interface NativeGraphDemoApi {
-  readGraph(): Promise<NativeGraph>;
+  readInitialGraph?(): Promise<NativeGraph>;
+  readGraph(signal?: AbortSignal): Promise<NativeGraph>;
   /** Read native records from this exact returned graph snapshot, when supported. */
+  readChronology?(graph: NativeGraph, signal: AbortSignal): Promise<NativeGraphChronology>;
   inspectNode?(graph: NativeGraph, nodeId: string, signal?: AbortSignal): Promise<NativeGraphEntity>;
   prepare(input: NativePrepareRequest): Promise<PrepareResult>;
   confirm(operationId: string): Promise<ConfirmResult>;
@@ -140,6 +147,13 @@ function record(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function isPresentation(value: unknown): boolean {
+  return record(value) && Array.isArray(value.recorded_names)
+    && value.recorded_names.every((name) => typeof name === "string")
+    && Array.isArray(value.classification_terms)
+    && value.classification_terms.every((term) => typeof term === "string");
+}
+
 function isNativeGraph(value: unknown): value is NativeGraph {
   if (!record(value) || typeof value.world_id !== "string" || !value.world_id
     || typeof value.revision_id !== "string" || !value.revision_id
@@ -147,7 +161,8 @@ function isNativeGraph(value: unknown): value is NativeGraph {
     || !Array.isArray(value.nodes) || !Array.isArray(value.edges) || !Array.isArray(value.limitations)
     || !value.limitations.every((item) => typeof item === "string") || !record(value.capabilities)) return false;
   if (!value.nodes.every((node) => record(node) && typeof node.id === "string" && Boolean(node.id)
-    && typeof node.name === "string" && typeof node.kind === "string")) return false;
+    && typeof node.name === "string" && typeof node.kind === "string"
+    && (node.presentation === undefined || isPresentation(node.presentation)))) return false;
   if (!value.edges.every((edge) => record(edge) && typeof edge.id === "string" && Boolean(edge.id)
     && typeof edge.source_id === "string" && typeof edge.target_id === "string" && typeof edge.predicate === "string")) return false;
   const capabilities = value.capabilities;
@@ -223,7 +238,7 @@ export function createNativeGraphDemoApi(options: {
       headers.set("X-Demo-Capability", capability);
     }
 
-    let response: Response;
+    let response: Response | NativeGraphDecodedResponse;
     try {
       const requestInit: RequestInit = {
         ...init,
@@ -242,15 +257,15 @@ export function createNativeGraphDemoApi(options: {
       );
     }
 
-    const body: unknown = await response.json().catch(() => null);
+    const body: unknown = "json" in response ? await response.json().catch(() => null) : response.body;
     if (!response.ok) throw errorFromBody(body, response.status);
     if (body === null) throw new NativeGraphDemoApiError("The native graph service returned an unreadable response.", "invalid_response", response.status);
     return body as T;
   }
 
   return {
-    async readGraph() {
-      const value = await request<unknown>("/api/graph");
+    async readGraph(signal) {
+      const value = await request<unknown>("/api/graph", { signal });
       if (!isNativeGraph(value)) throw invalidResponse();
       return value;
     },

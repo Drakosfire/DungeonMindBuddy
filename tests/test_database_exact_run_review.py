@@ -21,7 +21,7 @@ def _review_client(monkeypatch, tmp_path):
 
 def test_ordinary_review_survives_deleted_files_and_denied_file_reads(monkeypatch, tmp_path):
     source, result = _run_recap_extraction(tmp_path, client=FixtureClient())
-    run = graph_run_registry.get_extraction_run(tmp_path, result.run.run_id)
+    run = graph_run_registry.get_extraction_run(result.run.run_id)
     assert run.status.value == "reviewable"
     with _review_client(monkeypatch, tmp_path) as client:
         for path in tmp_path.rglob("*"):
@@ -40,7 +40,7 @@ def test_ordinary_review_survives_deleted_files_and_denied_file_reads(monkeypatc
     assert review["worldId"] == "world:elderwyld"
     assert review["inspectionStatus"] == "ready"
     assert review["assertions"]
-    assert graph_run_registry.get_extraction_run(tmp_path, run.run_id) == run
+    assert graph_run_registry.get_extraction_run(run.run_id) == run
 
 
 @pytest.mark.parametrize("kind", ["candidate_graph", "source_span_index"])

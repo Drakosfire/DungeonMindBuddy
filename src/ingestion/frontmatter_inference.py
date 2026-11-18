@@ -7,8 +7,8 @@ from typing import Any
 from generationengine import GenerationClient, TextRequest
 from pydantic import BaseModel
 
-from src.ingestion.frontmatter import DocumentMetadata
-from src.llm.generation_sync import run_awaitable_sync
+from ingestion.frontmatter import DocumentMetadata
+from llm.generation_sync import run_awaitable_sync
 
 _SCHEMA_NAME = "frontmatter_metadata_proposal"
 
@@ -63,7 +63,7 @@ def _source_class_for(document_class: str) -> str:
 
 
 def _load_model_id() -> str:
-    from src.model_policy import load_buddy_model_policy
+    from model_policy import load_buddy_model_policy
 
     payload = load_buddy_model_policy(strict=True)
     if not payload:

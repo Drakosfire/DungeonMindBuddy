@@ -2,10 +2,11 @@ import { LoadedWorldGraphExplorer } from "../graphLens/LoadedWorldGraphExplorer"
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import type { AppRouteKey } from "./appChromeConfig";
 
-/** Index targets its loaded canvas; other surfaces retain the published Graph browser. */
+/** Graph targets its loaded canvas; other surfaces retain the published Graph browser. */
 export function AppChromeWorldGraphStatus({ activeRoute = "surface" }: { activeRoute?: AppRouteKey } = {}) {
   const world = useSelectedWorld();
-  if (activeRoute === "index") {
+  if (activeRoute === "index") return null;
+  if (activeRoute === "graph") {
     if (world.kind !== "managed") return null;
     return <button className="app-world-graph-status__trigger" data-testid="app-chrome-world-graph-status"
       type="button" aria-label={`Focus ${world.name} graph canvas`}

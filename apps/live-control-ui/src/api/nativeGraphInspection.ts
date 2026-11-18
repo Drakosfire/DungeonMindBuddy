@@ -1,3 +1,5 @@
+import type {PdfLocator} from "./retainedPdfRegions";
+
 /** Native Core records, not the classic WorldGraphProjection dialect. */
 export type InspectionScope={managed_world_id:string;scope_mode:'world'|'campaign';campaign_id:string|null};
 export type InspectionPin=InspectionScope&{native_world_id:string;binding_version:number;revision_id:string};
@@ -24,3 +26,8 @@ export const sameInspectionPin=(a:InspectionPin,b:InspectionPin)=>a.managed_worl
 export function isCatalogForWorld(packet:NativeGraphCatalog,worldId:string):boolean {
  return packet.schema==='dmb_native_graph_catalog_v1'&&packet.scope.managed_world_id===worldId&&packet.scope.scope_mode==='world'&&packet.scope.campaign_id===null&&packet.catalogue.identity.space_id===packet.scope.native_world_id&&packet.catalogue.identity.revision_id===packet.scope.revision_id;
 }
+
+export type NativeGraphPdfRegion={schema:"dmb_native_graph_pdf_region_v1";scope:InspectionPin;
+ evidence_ref_id:string;region:PdfLocator;png_base64:string};
+
+export type NativeGraphChronology = {schema:"dmb_native_graph_chronology_v1";scope:InspectionPin;assertions:NativeAssertion[];completeness:{status:"complete"|"partial"}};

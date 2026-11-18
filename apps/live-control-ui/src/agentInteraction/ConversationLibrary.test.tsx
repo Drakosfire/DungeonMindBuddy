@@ -30,9 +30,17 @@ it('keeps an uncertain typed name and retries its exact revision',async()=>{
  fireEvent.click(screen.getByRole('button',{name:'Save name'}));await screen.findByRole('alert');expect(screen.getByLabelText('Conversation name')).toHaveValue('Keep name');
  fireEvent.click(screen.getByRole('button',{name:'Save name'}));await screen.findByText('Name saved.');expect(vi.mocked(api.renameConversation).mock.calls).toEqual([['world-one',current,'Keep name',0],['world-one',current,'Keep name',0]]);
 });
+it('reuses the initial list summary and refreshes an explicitly selected row',async()=>{
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
+ await screen.findByText('Current question');
+ expect(api.readConversationName).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:/Archived piece/}));
+ await screen.findByText('Archived question');
+ expect(api.readConversationName).toHaveBeenCalledExactlyOnceWith('world-one',old,expect.any(AbortSignal));
+});
 it('ignores departed World reads even after A B A',async()=>{
  let finish!:(v:api.ConversationSummary)=>void;vi.mocked(api.readConversationName).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
- const view=render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);await waitFor(()=>expect(api.readConversationName).toHaveBeenCalled());
+ const view=render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);await screen.findByText('Current question');fireEvent.click(screen.getByRole('button',{name:/Archived piece/}));await waitFor(()=>expect(api.readConversationName).toHaveBeenCalled());
  view.rerender(<ConversationLibrary worldId="world-two" onClose={()=>{}}/>);await screen.findByText('Current question');view.rerender(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);await screen.findByText('Current question');
  await act(async()=>{finish({...meta(),title:'STALE NAME'});});expect(screen.queryByDisplayValue('STALE NAME')).not.toBeInTheDocument();expect(screen.queryByText('STALE NAME')).not.toBeInTheDocument();
 });
@@ -43,7 +51,7 @@ it('ignores a late transcript after another selection',async()=>{
 });
 it('loads earlier turns and traces only on request',async()=>{
  vi.mocked(api.readConversationMessages).mockResolvedValueOnce({...messages(),messages:[{...messages().messages[0],sequence:51}],next_before_sequence:51}).mockResolvedValueOnce({...messages(),messages:[{...messages().messages[0],turn_id:'44444444-4444-4444-8444-444444444444',user_text:'Earlier question'}]});
- render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);fireEvent.click(await screen.findByRole('button',{name:'Earlier messages'}));await screen.findByText('Earlier question');expect(api.readConversationMessages).toHaveBeenLastCalledWith('world-one',current,51);
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);fireEvent.click(await screen.findByRole('button',{name:'Earlier messages'}));await screen.findByText('Earlier question');expect(api.readConversationMessages).toHaveBeenLastCalledWith('world-one',current,51,expect.any(AbortSignal));
  expect(screen.queryByText('Explicit trace')).not.toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Load saved details'}));await screen.findByText('Full saved details');fireEvent.click(screen.getAllByText('Trace')[0]);await screen.findByText('Explicit trace');
 });
 
@@ -112,7 +120,7 @@ it('retries uncertain Trash using the same command and does not substitute Resto
 
 it('keeps previews lightweight and loads full saved detail only on request',async()=>{
  render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);await screen.findByText('Current question');expect(api.readConversationMessages).toHaveBeenCalled();expect(api.readConversationTurns).not.toHaveBeenCalled();expect(screen.queryByText('Trace')).not.toBeInTheDocument();
- fireEvent.click(screen.getByRole('button',{name:'Load saved details'}));await screen.findByText('Full saved details');expect(api.readConversationTurns).toHaveBeenCalledWith('world-one',current,undefined);expect(screen.getByText('Trace')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Load saved details'}));await screen.findByText('Full saved details');expect(api.readConversationTurns).toHaveBeenCalledWith('world-one',current,undefined,expect.any(AbortSignal));expect(screen.getByText('Trace')).toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:'Show message preview'}));await screen.findByText(/Saved-message preview/);expect(screen.queryByText('Trace')).not.toBeInTheDocument();
 });
 
@@ -132,4 +140,60 @@ it('disables exports while full details are loading and enables them after the o
  render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);await screen.findByText('Current question');fireEvent.click(screen.getByRole('button',{name:'Load saved details'}));fireEvent.click(screen.getByText('•••'));
  expect(screen.getByRole('button',{name:'Export conversation',exact:true})).toBeDisabled();expect(screen.getByRole('button',{name:'Export with diagnostics'})).toBeDisabled();expect(screen.getByRole('button',{name:'Rename conversation'})).toBeDisabled();
  await act(async()=>finish(page()));await waitFor(()=>expect(screen.getByRole('button',{name:'Export conversation',exact:true})).not.toBeDisabled());
+});
+
+it('aborts a superseded list read on filter change and the active read on close',()=>{
+ const requests: AbortSignal[]=[];
+ vi.mocked(api.listConversations).mockImplementation((_world,_status,_before,signal)=>{
+  requests.push(signal!);
+  return new Promise(()=>{});
+ });
+ const {unmount}=render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
+ fireEvent.change(screen.getByLabelText('Show'),{target:{value:'archived'}});
+ expect(requests.map(signal=>signal.aborted)).toEqual([true,false]);
+ unmount();
+ expect(requests.map(signal=>signal.aborted)).toEqual([true,true]);
+});
+
+it('cancels a pending detail read when the library closes', async () => {
+ let pendingSignal: AbortSignal | undefined;
+ vi.mocked(api.readConversationMessages).mockImplementation((_world,_id,_before,signal)=>{
+  pendingSignal=signal;
+  return new Promise(()=>{});
+ });
+ const {unmount}=render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
+ await waitFor(()=>expect(pendingSignal).toBeDefined());
+ expect(pendingSignal?.aborted).toBe(false);
+ unmount();
+ expect(pendingSignal?.aborted).toBe(true);
+});
+
+it('loads each view without refetching the selected conversation name',async()=>{
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
+ await screen.findByText('Current question');
+ fireEvent.click(screen.getByRole('button',{name:'Load saved details'}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Show message preview'})).toBeEnabled());
+ expect(api.readConversationTurns).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole('button',{name:'Show message preview'}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Load saved details'})).toBeEnabled());
+ expect(api.readConversationMessages).toHaveBeenCalledTimes(2);
+ expect(api.readConversationName).not.toHaveBeenCalled();
+});
+
+it('waits for the pending rename before allowing a view change',async()=>{
+ let finish!:(value:api.ConversationSummary)=>void;
+ vi.mocked(api.renameConversation).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
+ await screen.findByText('Current question');
+ fireEvent.click(screen.getByText('•••'));
+ fireEvent.click(screen.getByRole('button',{name:'Rename conversation'}));
+ fireEvent.change(screen.getByLabelText('Conversation name'),{target:{value:'Updated name'}});
+ fireEvent.click(screen.getByRole('button',{name:'Save name'}));
+ const toggle=screen.getByRole('button',{name:'Load saved details'});
+ expect(toggle).toBeDisabled();
+ await act(async()=>finish({...meta(),title:'Updated name',name_revision:1}));
+ expect(toggle).toBeEnabled();
+ fireEvent.click(toggle);
+ await waitFor(()=>expect(api.readConversationTurns).toHaveBeenCalledTimes(1));
+ expect(screen.getByRole('button',{name:/Updated name/})).toBeInTheDocument();
 });

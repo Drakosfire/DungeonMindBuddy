@@ -71,7 +71,7 @@ def test_valid_files_cannot_rescue_missing_or_corrupt_database_snapshot(tmp_path
                          (b"corrupt", data.run.run_id, kind))
     with pytest.raises(correction.ExtractPromoteError):
         correction._preflight_source_snapshot(data.run, resolved, tmp_path)
-    assert registry.get_extraction_run(tmp_path, data.run.run_id) == data.run
+    assert registry.get_extraction_run(data.run.run_id) == data.run
 
 
 @pytest.mark.parametrize("field,value", [("run_id", "foreign-run"), ("source_artifact_id", "foreign-source"),

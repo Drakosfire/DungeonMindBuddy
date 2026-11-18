@@ -64,13 +64,18 @@ def producing_case(context, record, candidate, *, work=None):
 
 @pytest.mark.parametrize('surface',['build','plan'])
 @pytest.mark.parametrize('full',[False,True])
-def test_actual_sdk_native_body_answer_roundtrips_with_exact_original_citation(lane,surface,full):
+@pytest.mark.parametrize('invalid_gap',[False,True])
+def test_actual_sdk_native_body_answer_roundtrips_with_exact_original_citation(lane,surface,full,invalid_gap):
     context,record,read=body_case(surface,lane,full=full)
     handle=model_frame(context,record)['native_body_evidence']['excerpts'][0]['excerpt_handle']
-    candidate=answer([dict(kind='native_body_claim',text='The check revealed an origin beyond this plane.',excerpt_handles=[handle])])
+    candidate=answer([dict(kind='native_body_claim',text='The check revealed an origin beyond this plane.',excerpt_handles=[handle])],
+        gaps=[{"question_phrase": "an invented paraphrase"}] if invalid_gap else [])
     stored,auth,proof=producing_case(context,record,candidate)
     result=normalize_output(context,stored,auth,**proof)
     assert result.surface_id==surface and result.answer_context_status=='source_grounded_partial'
+    assert any(getattr(row, "code", None) == "missing_requested_details"
+               for row in result.answer_segments) == invalid_gap
+    assert all(getattr(row, "question_phrase", None) is None for row in result.answer_segments)
     assert result.producing_provider_attempt_id==auth.provider_attempt_id
     (citation,)=result.native_body_citations
     assert citation.read_event_id==read.event_id and citation.provider_attempt_id==auth.provider_attempt_id

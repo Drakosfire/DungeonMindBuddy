@@ -6,6 +6,7 @@ automatic adoption or native source/publication authority is provided here.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -17,6 +18,8 @@ from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
 from application_state.content import repository as repo
 from application_state.content import service as content
+from application_state.content import page_presentation as presentation
+from application_state.content.page_presentation import PagePresentation
 from application_state.content.types import (
     AuthoredPageObject,
     WorkRevision,
@@ -47,11 +50,13 @@ class PageState(BaseModel):
 
 
 class CommittedPageSnapshot(PageState):
+    presentation: PagePresentation | None = None
     revision: WorkRevision | None
     working_copy_revision: int | None
 
 
 class PageSnapshot(PageState):
+    presentation: PagePresentation | None = None
     committed_revision: WorkRevision | None
     markdown: str
     content_sha256: str
@@ -186,6 +191,7 @@ def _editor_snapshot(conn, state: PageState) -> PageSnapshot:
         from_working_copy=working,
         working_copy_revision=copy.working_copy_revision if copy else None,
         committed_revision=committed,
+        presentation=presentation.read(conn, committed),
     )
 
 
@@ -235,6 +241,18 @@ def save_draft(
 ) -> PageState:
     with unit_of_work(_dsn()) as conn:
         state = _state(conn, document_id, world_id, lock=True)
+        if (
+            presentation.read(
+                conn,
+                repo.get_work_revision(conn, state.page.current_revision_id)
+                if state.page.current_revision_id
+                else None,
+            )
+            is not None
+        ):
+            raise ApplicationStateValidationError(
+                "composed Page cannot use Markdown-only working-copy save"
+            )
         _basis(conn, state.page, expected_revision, expected_working_copy_revision)
         content._autosave_in_connection(
             conn,
@@ -253,15 +271,28 @@ def commit_page(
     world_id: str,
     expected_revision: int,
     expected_working_copy_revision: int | None,
+    page_presentation=presentation.UNSET,
+    authorize_world=None,
 ) -> tuple[PageState, WorkRevision]:
     _basis_values(expected_revision, expected_working_copy_revision)
     with unit_of_work(_dsn()) as conn:
         state = _state(conn, document_id, world_id, lock=True)
+        current_revision = (
+            repo.get_work_revision(conn, state.page.current_revision_id)
+            if state.page.current_revision_id
+            else None
+        )
+        current_presentation = presentation.read(conn, current_revision)
+        proposed = presentation.candidate(
+            page_presentation, normalize_markdown(markdown), current_presentation
+        )
+        changed = current_presentation != proposed
         copy = repo.get_working_copy(conn, state.page.work_object_id)
         # An identical immediate retry may recover the shared committed result;
         # any intervening draft/metadata change invalidates this basis.
         replay = (
-            type(expected_revision) is int
+            not changed
+            and type(expected_revision) is int
             and state.page.object_revision == expected_revision + 1
             and copy is not None
             and copy.working_copy_revision == (expected_working_copy_revision or 0) + 1
@@ -270,13 +301,21 @@ def commit_page(
         )
         if not replay:
             _basis(conn, state.page, expected_revision, expected_working_copy_revision)
+        if authorize_world is not None:
+            authorize_world(state.page.world_id)
         _page, revision = content._commit_in_connection(
             conn,
             document_id,
             markdown,
             kind="worldbuilding_source",
             expected_revision=expected_revision,
+            page_presentation_changed=changed,
         )
+        if (
+            current_revision is None
+            or current_revision.work_revision_id != revision.work_revision_id
+        ):
+            presentation.insert(conn, revision, proposed)
         copy = repo.get_working_copy(conn, state.page.work_object_id)
         if copy is not None and copy.content_sha256 != revision.content_sha256:
             # Saving the already committed text explicitly discards a divergent
@@ -385,8 +424,12 @@ def find_page(document_id: str) -> PageState | None:
 
 
 def page_inventory(
-    *, world_id: str | None = None, campaign_id: str | None = None,
-    status: str | None = "active"
+    *,
+    world_id: str | None = None,
+    campaign_id: str | None = None,
+    status: str | None = "active",
+    limit: int | None = None,
+    before: tuple[datetime, UUID] | None = None,
 ) -> list[PageState]:
     """Workspace inventory over the same Page owner; campaign is only a tag."""
     if status not in {None, "active", "discarded"}:
@@ -403,11 +446,20 @@ def page_inventory(
         if status is not None:
             clauses.append("w.status=%s")
             params.append(status)
+        if before is not None:
+            clauses.append("(w.updated_at, w.work_object_id) < (%s, %s)")
+            params.extend(before)
+        order = " ORDER BY w.updated_at DESC"
+        if limit is not None or before is not None:
+            order += ", w.work_object_id DESC"
+        if limit is not None:
+            order += " LIMIT %s"
+            params.append(limit)
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 "SELECT w.*,m.document_class,m.authority_state,m.visibility_state,m.connected_page_operation_id "
                 "FROM content.work_object w LEFT JOIN content.page_metadata m ON m.work_object_id=w.work_object_id "
-                "WHERE " + " AND ".join(clauses) + " ORDER BY w.updated_at DESC",
+                "WHERE " + " AND ".join(clauses) + order,
                 params,
             )
             rows = cur.fetchall()
@@ -427,6 +479,32 @@ def page_inventory(
         return result
 
 
+def page_inventory_campaign_tags(
+    *, world_id: str | None, campaign_id: str | None, status: str | None
+) -> list[str]:
+    """Return campaign tags visible under the same authored-page filters."""
+    if status not in {None, "active", "discarded"}:
+        raise ApplicationStateValidationError("invalid page status")
+    clauses = ["kind = 'worldbuilding_source'", "campaign_id IS NOT NULL"]
+    params = []
+    for column, value in (
+        ("world_id", world_id),
+        ("campaign_id", campaign_id),
+        ("status", status),
+    ):
+        if value is not None:
+            clauses.append(f"{column} = %s")
+            params.append(value)
+    with unit_of_work(_dsn()) as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT campaign_id FROM content.work_object WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY campaign_id",
+            params,
+        ).fetchall()
+    return [row[0] for row in rows]
+
+
 def _committed_snapshot(conn, state: PageState) -> CommittedPageSnapshot:
     revision = None
     if state.page.current_revision_id is not None:
@@ -438,6 +516,7 @@ def _committed_snapshot(conn, state: PageState) -> CommittedPageSnapshot:
     return CommittedPageSnapshot(
         **state.model_dump(),
         revision=revision,
+        presentation=presentation.read(conn, revision),
         working_copy_revision=copy.working_copy_revision if copy else None,
     )
 

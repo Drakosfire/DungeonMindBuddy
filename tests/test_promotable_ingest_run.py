@@ -461,7 +461,7 @@ def test_resolve_prefers_canonical_extraction_run_over_legacy_manifest(
     repo.mkdir()
     monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
     run_id, _source = _write_reviewable_extraction_run(repo)
-    run = get_extraction_run(repo, run_id)
+    run = get_extraction_run(run_id)
     canonical_artifact = run.source_artifact_id
 
     # Plant a legacy graph-ingest manifest that reuses the same run_id but a
@@ -525,3 +525,52 @@ def test_resolve_carries_run_pinned_noncanonical_span_index_path(tmp_path: Path)
         for span in load_source_span_index(repo, resolved.source_artifact_id).spans
     }
     assert pinned_ids.isdisjoint(canonical_ids)
+
+
+def test_historical_discovery_matches_recap_from_one_manifest_read(tmp_path, monkeypatch):
+    from apps.live_control_server.services.graph_ingest_run_registry import discover_graph_ingest_runs
+
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    _, _, source = _write_promotable_run(tmp_path)
+    original_read = Path.read_text
+    manifest_reads = []
+
+    def read_text(path, *args, **kwargs):
+        content = original_read(path, *args, **kwargs)
+        if path.name == "graph_ingest_run_manifest.json":
+            manifest_reads.append(path)
+            path.write_text("[]", encoding="utf-8")
+        return content
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    rows = discover_graph_ingest_runs(
+        tmp_path, source_recap_path=source.relative_to(tmp_path).as_posix()
+    )
+    assert len(rows) == 1
+    assert len(manifest_reads) == 1
+
+
+def test_historical_discovery_skips_manifest_removed_after_read(tmp_path, monkeypatch):
+    from apps.live_control_server.services.graph_ingest_run_registry import (
+        discover_graph_ingest_runs,
+    )
+
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    _, _, source = _write_promotable_run(tmp_path, session_id="21")
+    _write_promotable_run(tmp_path, session_id="22")
+    _write_promotable_run(tmp_path, session_id="23")
+    vanished = source.parent / "graph_ingest_run_manifest.json"
+    expected = [row.manifest_path for row in discover_graph_ingest_runs(tmp_path)]
+    assert len(expected) == 3
+    original_read = Path.read_text
+
+    def read_text(path, *args, **kwargs):
+        content = original_read(path, *args, **kwargs)
+        if path == vanished:
+            path.unlink()
+        return content
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    assert [row.manifest_path for row in discover_graph_ingest_runs(tmp_path)] == [
+        path for path in expected if path != vanished.relative_to(tmp_path).as_posix()
+    ]

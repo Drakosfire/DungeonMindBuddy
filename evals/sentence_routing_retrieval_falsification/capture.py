@@ -1,3 +1,3 @@
-"""Compatibility shim — canonical implementation: ``src.session_memory.capture``."""
+"""Compatibility shim — canonical implementation: ``session_memory.capture``."""
 
-from src.session_memory.capture import *  # noqa: F403
+from session_memory.capture import *  # noqa: F403

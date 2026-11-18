@@ -40,7 +40,7 @@ function observe(a:boolean,b:boolean) {
 beforeEach(()=>{
   refresh='initial'; window.history.replaceState({},'', '/play');
   api.setNativeGraphAccessToken('demand-test');
-  vi.spyOn(api,'getSourceBundle').mockResolvedValue({schema:'dmb_ingestion_source_bundle_v1',campaigns:{}} as never);
+  vi.spyOn(api,"getSourceSessions").mockResolvedValue([]);
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();api.setNativeGraphAccessToken(null)});
 

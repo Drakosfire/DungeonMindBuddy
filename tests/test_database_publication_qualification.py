@@ -56,7 +56,7 @@ def test_canonical_failure_cannot_fall_back_to_valid_files(monkeypatch, tmp_path
     with pytest.raises(publication.ExtractPromoteError) as failure:
         publication._load_worldbuilding_publication_input(resolved)
     assert failure.value.status_code == (500 if violation == "corrupt" and kind != "source_artifact" else 422)
-    assert registry.get_extraction_run(tmp_path, data.run.run_id) == data.run
+    assert registry.get_extraction_run(data.run.run_id) == data.run
 
 
 @pytest.mark.parametrize("field,value", [

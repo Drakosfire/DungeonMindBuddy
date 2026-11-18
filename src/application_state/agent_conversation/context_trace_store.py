@@ -29,6 +29,8 @@ from application_state.errors import (
     ApplicationStateValidationError,
 )
 from application_state.unit_of_work import unit_of_work
+from .native_replay import native_assertion_steps, native_discovery_replay
+from .neighborhood_replay import replay_exclusion_steps
 
 
 def _load_trace(payload: object) -> TurnContextTraceV1:
@@ -421,7 +423,7 @@ class TurnContextTraceStore:
 
         with unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
-                "SELECT graph_context_execution, conversation_id FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+                "SELECT graph_context_execution, conversation_id, graph_context_receipt FROM agent.turn WHERE world_id=%s AND turn_id=%s",
                 (world_id, turn_id),
             ).fetchone()
             if turn is None:
@@ -432,7 +434,7 @@ class TurnContextTraceStore:
                 (turn_id,),
             ).fetchall()
         traces = [_load_trace(row[0]) for row in rows]
-        for trace, row in zip(traces, rows, strict=True):
+        for index, (trace, row) in enumerate(zip(traces, rows, strict=True)):
             if trace.attempt != row[1]:
                 raise ApplicationStateValidationError("stored trace attempt differs from its row")
             if trace.world_id != world_id or trace.turn_id != turn_id or trace.conversation_id != turn[1]:
@@ -442,7 +444,67 @@ class TurnContextTraceStore:
                     validate_authored_reference_observation(observation, turn[0], trace)
                 if isinstance(observation, TracePromptReference):
                     validate_prompt_authorization(observation, turn[0], trace.execution_start_sequence)
+            next_start = traces[index + 1].execution_start_sequence if index + 1 < len(traces) else None
+            native_steps = native_assertion_steps(
+                turn[0], turn[2], start=trace.execution_start_sequence, stop=next_start,
+            )
+            exclusion_steps = replay_exclusion_steps(
+                turn[0], start=trace.execution_start_sequence, stop=next_start,
+            )
+            graph_order = None
+            if native_steps or exclusion_steps:
+                sequences = {event["event_id"]: event["sequence"] for event in turn[0].get("events", [])}
+                graph_order = {
+                    event.sequence: sequences[str(event.execution_event_id)]
+                    for event in trace.observations if isinstance(event, TraceGraphTool)
+                    and str(event.execution_event_id) in sequences
+                }
+            traces[index] = trace.model_copy(update={
+                "writer_evidence_sequences": _writer_evidence_sequences(trace, turn[0], next_start),
+                "native_assertion_steps": native_steps or None,
+                "native_discovery_replay": native_discovery_replay(turn[2]) if trace.attempt == 1 else None,
+                "retrieval_exclusion_steps": exclusion_steps or None,
+                "graph_replay_order": graph_order,
+            })
         return traces
+
+
+def _writer_evidence_sequences(
+    trace: TurnContextTraceV1, execution: object, next_start: int | None,
+) -> list[int] | None:
+    """Project recorded writer input onto this completed attempt's lookup steps."""
+    if trace.terminal_status != "completed" or not isinstance(execution, dict):
+        return None
+    events = [
+        event for event in execution.get("events", [])
+        if event["sequence"] >= trace.execution_start_sequence
+        and (next_start is None or event["sequence"] < next_start)
+    ]
+    completions = [event for event in events if event["kind"] == "completion_binding"]
+    if len(completions) != 1:
+        return None
+    completion = completions[0]
+    writers = [
+        event for event in events
+        if event["kind"] in {
+            "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
+            "plan_native_writer_authorized_v1", "plan_native_writer_authorized_v2",
+            "native_writer_authorized_v1", "native_build_writer_authorized_v2",
+        }
+        and event["provider_attempt_id"] == completion["provider_attempt_id"]
+        and event["sequence"] < completion["sequence"]
+    ]
+    if len(writers) != 1:
+        return None
+    writer = writers[0]
+    graph_ids = set(writer["included_graph_event_ids"])
+    source_ids = set(writer.get("included_source_read_event_ids", []))
+    source_ids.update(writer.get("included_source_reuse_event_ids", []))
+    return [
+        item.sequence for item in trace.observations
+        if (isinstance(item, TraceGraphTool) and str(item.execution_event_id) in graph_ids)
+        or (isinstance(item, TraceSourcePassage) and str(item.source_read_event_id) in source_ids)
+    ]
 
 
 def _historical_sources_available(conn, trace: TurnContextTraceV1,
@@ -545,6 +607,18 @@ def _validate_graph_tool_observation(observation: TraceGraphTool, execution: obj
         raise ApplicationStateValidationError(
             "graph trace result scope or coverage differs from its execution receipt"
         )
+    neighborhood = event.get("neighborhood_replay")
+    if result.neighborhood_replay is not None:
+        retained_ids = set(result.discovery_relationship_ids)
+        if neighborhood is None or result.neighborhood_replay.model_dump(mode="json") != {
+            **neighborhood,
+            "hops": [hop for hop in neighborhood["hops"] if hop["relationship_id"] in retained_ids],
+        }:
+            raise ApplicationStateValidationError("trace neighborhood provenance differs from the execution receipt")
+    elif neighborhood is not None:
+        raise ApplicationStateValidationError("trace is missing recorded neighborhood provenance")
+    if not set(result.discovery_relationship_ids).issubset(event.get("discovery_relationship_ids", [])):
+        raise ApplicationStateValidationError("trace discovery edges differ from the execution receipt")
     for field, event_field in (
         ("claim_ids", "assertion_ids"),
         ("relationship_ids", "relationship_ids"),

@@ -8,6 +8,7 @@ revisions or manifest identity.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -29,7 +30,7 @@ from graph_memory.ingestion.extraction_run import (
     ExtractionRunStatus,
     normalize_content_digest,
 )
-from src.graph_memory.candidate_document_integrity import (
+from graph_memory.candidate_document_integrity import (
     classify_candidate_document_integrity,
 )
 
@@ -296,6 +297,56 @@ def _scoped_recap_runs(
     )
 
 
+def _event_placement_proposals(preview, data) -> list[dict[str, Any]]:
+    from apps.live_control_server.services.extract_promote import (
+        ExtractPromoteError,
+        project_candidate_record_evidence,
+    )
+
+    from apps.live_control_server.services.native_recap_preparation import is_explicit_prep_event
+
+    artifact = data.source_artifact
+    session = re.fullmatch(r"session-([1-9][0-9]*)", artifact.session_id or "")
+    scope_matches = (
+        session is not None
+        and bool(artifact.campaign_id)
+        and preview.campaign_id == data.run.campaign_id == artifact.campaign_id
+        and preview.session_id == data.run.session_id == artifact.session_id
+    )
+    source = data.source_bytes.decode("utf-8")
+    proposals = []
+    for node in preview.nodes:
+        if node.node_type != "event":
+            continue
+        proposal = {"candidate_node_id": node.node_id, "status": "held"}
+        if not scope_matches:
+            proposal["reason"] = "recap_scope_unverified"
+        elif is_explicit_prep_event(node):
+            proposal["reason"] = "not_played_history"
+        else:
+            try:
+                witness = project_candidate_record_evidence(
+                    assertion_id=node.node_id, kind="object", label=node.label,
+                    summary="", evidence_refs=node.evidence_refs, source_prose=source,
+                    source_artifact_id=artifact.source_artifact_id, span_index=data.span_index,
+                )
+            except ExtractPromoteError as exc:
+                if exc.code != "run_not_promotable":
+                    raise
+                proposal["reason"] = "source_support_unverified"
+            else:
+                proposal.update(
+                    status="needs_review",
+                    campaign_id=artifact.campaign_id,
+                    start={"session": int(session[1])},
+                    source_span_ids=list(dict.fromkeys(
+                        evidence.source_span_ref_id for evidence in witness.evidence
+                    )),
+                )
+        proposals.append(proposal)
+    return proposals
+
+
 def project_recap_extraction_run(
     *,
     root: Path,
@@ -314,7 +365,7 @@ def project_recap_extraction_run(
             # output bytes from any run. Unselected outputs grant no authority
             # and cannot block the requested source; matching bytes are still
             # fully verified below by the existing source/component owner.
-            source = get_source_artifact(root, run.source_artifact_id)
+            source = get_source_artifact(run.source_artifact_id)
             if normalize_content_digest(
                 source.content_sha256
             ) != normalize_content_digest(source_content_sha256):
@@ -371,6 +422,7 @@ def project_recap_extraction_run(
                     "candidate_node_count": len(preview.nodes),
                     "candidate_edge_count": len(preview.edges),
                     "candidate_beat_count": len(preview.beats),
+                    "event_placement_proposals": _event_placement_proposals(preview, data),
                     "evidence_ref_count": sum(
                         len(row.evidence_refs)
                         for row in (
@@ -464,8 +516,17 @@ def reusable_recap_extraction(
     profile_id: str,
     model_id: str,
     supplemental_evidence: dict | None,
+    name_review_record: dict | None = None,
 ) -> dict[str, Any] | None:
+    def review_identity(record: dict | None):
+        if record is None:
+            return None
+        return record.get("review"), sorted(record.get("decisions", ()), key=lambda item: item["id"])
+
+    expected_review = review_identity(name_review_record)
     for run in _scoped_recap_runs(campaign_id, session_id, context):
+        if review_identity(run.lineage.get("name_review")) != expected_review:
+            continue
         status = project_recap_extraction_run(
             root=root,
             run=run,

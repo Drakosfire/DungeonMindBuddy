@@ -304,7 +304,7 @@ def turn_provenance(row, references):
 
 
 def _turn_from_row(
-    conn: psycopg.Connection, row: dict[str, Any], *, references=None
+    conn: psycopg.Connection, row: dict[str, Any], *, references=None, proposal_payloads=None
 ) -> TurnReadModel:
     from .rules_authority_reads import (
         CompletedTurnEnvelopeV1,
@@ -420,7 +420,7 @@ def _turn_from_row(
             raise
         from .build_authoring import validate_stored_proposal
 
-        validate_stored_proposal(conn, turn, turn.completion)
+        validate_stored_proposal(conn, turn, turn.completion, proposal_payloads=proposal_payloads)
         return turn
     if marker!='rules_mixed_v1':
         raise ApplicationStateIntegrityError('mixed turn has missing or invalid accepted Rules summary')
@@ -442,7 +442,7 @@ def _turn_from_row(
             base_turn = Turn(**(fields | {"assistant_text": base_text}))
             from .build_authoring import validate_stored_proposal
 
-            validate_stored_proposal(conn, base_turn, base_turn.completion)
+            validate_stored_proposal(conn, base_turn, base_turn.completion, proposal_payloads=proposal_payloads)
             projection = {"kind": "approved", "turn": base_turn}
         elif binding.base_disposition == "absent":
             if any(
@@ -810,22 +810,31 @@ def advance_conversation_for_turn(
     return None if row is None else (int(row[0]), int(row[1]))
 
 
-def get_active_conversation(
+def get_active_conversation_snapshot(
     conn: psycopg.Connection, world_id: str
-) -> Conversation | None:
+) -> tuple[WorldPointer | None, Conversation | None]:
+    columns = ", ".join(f"c.{column.strip()}" for column in _CONVERSATION_COLS.split(","))
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
-            SELECT c.{_CONVERSATION_COLS.replace(", ", ", c.")}
+            SELECT w.active_conversation_id, w.pointer_revision, {columns}
             FROM agent.world_state AS w
-            JOIN agent.conversation AS c
+            LEFT JOIN agent.conversation AS c
               ON c.conversation_id = w.active_conversation_id AND c.world_id = w.world_id
             WHERE w.world_id = %s
             """,
             (world_id,),
         )
         row = cur.fetchone()
-    return None if row is None else Conversation.model_validate(row)
+    if row is None:
+        return None, None
+    pointer = WorldPointer(
+        world_id=world_id,
+        active_conversation_id=row.pop("active_conversation_id"),
+        revision=row.pop("pointer_revision"),
+    )
+    owner = Conversation.model_validate(row) if row["conversation_id"] is not None else None
+    return pointer, owner
 
 
 def get_turn_by_world_key(
@@ -875,20 +884,21 @@ def lock_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnRea
     return None if row is None else _turn_from_row(conn, row)
 
 
-def list_turns(
+def list_turn_page(
     conn: psycopg.Connection,
     world_id: str,
     conversation_id: UUID,
     *,
     limit: int,
     before_sequence: int | None,
-) -> list[TurnReadModel]:
+    lookahead: bool,
+) -> tuple[list[TurnReadModel], bool]:
     clauses = ["world_id = %s", "conversation_id = %s"]
     params: list[Any] = [world_id, conversation_id]
     if before_sequence is not None:
         clauses.append("sequence < %s")
         params.append(before_sequence)
-    params.append(limit)
+    params.append(limit + int(lookahead))
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -898,8 +908,87 @@ def list_turns(
             params,
         )
         rows = cur.fetchall()
-    references = _turn_reference_page(conn, rows)
-    return [_turn_from_row(conn, row, references=references[row["turn_id"]]) for row in reversed(rows)]
+    page = rows[:limit]
+    references = _turn_reference_page(conn, page)
+    action_ids = set()
+    for row in page:
+        completion = row["completion"]
+        if not isinstance(completion, dict) or completion.get("schema") not in {
+            "dmb_build_authoring_completion_v1", "dmb_build_image_preparation_completion_v1",
+        }:
+            continue
+        try:
+            action_ids.add(UUID(completion["action_id"]))
+        except (KeyError, ValueError, TypeError, AttributeError):
+            # The turn codec owns malformed completion errors.
+            continue
+    proposal_payloads = {}
+    if action_ids:
+        proposal_payloads = dict(conn.execute(
+            "SELECT action_id, payload FROM agent.build_proposal "
+            "WHERE world_id=%s AND action_id=ANY(%s)",
+            (world_id, list(action_ids)),
+        ).fetchall())
+    turns = [
+        _turn_from_row(
+            conn, row, references=references[row["turn_id"]],
+            proposal_payloads=proposal_payloads,
+        )
+        for row in reversed(page)
+    ]
+    return turns, len(rows) > limit
+
+
+def get_retry_history_anchor(
+    conn: psycopg.Connection, world_id: str, conversation_id: UUID, turn_id: UUID
+) -> tuple[int, UUID] | None:
+    return conn.execute(
+        """
+        SELECT t.sequence, COALESCE(r.root_id, t.turn_id)
+        FROM agent.turn t
+        JOIN agent.conversation c USING (world_id, conversation_id)
+        LEFT JOIN agent.turn_retry r
+          ON r.successor_id = t.turn_id AND r.world_id = t.world_id
+          AND r.conversation_id = t.conversation_id
+        WHERE t.world_id = %s AND t.conversation_id = %s AND t.turn_id = %s
+        """,
+        (world_id, conversation_id, turn_id),
+    ).fetchone()
+
+
+def list_retry_attempt_page(
+    conn: psycopg.Connection,
+    world_id: str,
+    conversation_id: UUID,
+    root_id: UUID,
+    *,
+    before_sequence: int,
+    limit: int,
+) -> tuple[list[TurnReadModel], bool]:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            SELECT {_TURN_COLS_T}
+            FROM (
+                SELECT successor_id AS turn_id FROM agent.turn_retry
+                WHERE root_id = %s AND world_id = %s AND conversation_id = %s
+                UNION ALL SELECT %s::uuid
+            ) lineage
+            JOIN agent.turn t ON t.turn_id = lineage.turn_id
+            WHERE t.world_id = %s AND t.conversation_id = %s AND t.sequence < %s
+            ORDER BY t.sequence DESC LIMIT %s
+            """,
+            (root_id, world_id, conversation_id, root_id,
+             world_id, conversation_id, before_sequence, limit + 1),
+        )
+        rows = cur.fetchall()
+    page = rows[:limit]
+    references = _turn_reference_page(conn, page)
+    turns = [
+        _turn_from_row(conn, row, references=references[row["turn_id"]])
+        for row in reversed(page)
+    ]
+    return turns, len(rows) > limit
 
 
 def list_retained_graph_tools(conn, world_id, conversation_id, turn_ids, authority):

@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from fastapi.encoders import jsonable_encoder
+from pydantic_core import to_jsonable_python
 from dungeonmind.contracts.vnext.domain import Assertion
 
 from dungeonmind.application.vnext import open_native_text_source_access_context
@@ -77,14 +78,24 @@ def read_repository():
     ))
 
 
-def read_context(repo, space, revision, campaign, role="gm", *, scope_mode="campaign"):
+def read_context(repo, space, revision, campaign, role="gm", *, scope_mode="campaign", parsed_cache=None):
     from graph_memory.vnext.domain_runtime import (
         DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context,
     )
-    domain, profile = descriptors(repo, space, revision)
+    def resolve_domain(domain_ref, profile_ref):
+        domain, _ = resolve_dungeonbuddy_descriptors(
+            domain_ref=domain_ref, profile_ref=profile_ref,
+        )
+        return domain
+
     access = open_native_text_source_access_context(
-        repository=repo, space_id=space, revision_id=revision, domain_contract=domain,
+        repository=repo, space_id=space, revision_id=revision, domain_contract=resolve_domain,
+        parsed_cache=parsed_cache,
         audience_labels=(GM_LABEL, PLAYER_LABEL) if role == "gm" else (PLAYER_LABEL,),
+    )
+    domain, profile = resolve_dungeonbuddy_descriptors(
+        domain_ref=access.parsed.domain_contract_ref,
+        profile_ref=access.parsed.semantic_profile_ref,
     )
     read = build_dungeonbuddy_read_context(
         parsed_revision=access.parsed,
@@ -99,7 +110,11 @@ def read_context(repo, space, revision, campaign, role="gm", *, scope_mode="camp
 
 def assertion_contract(parsed):
     """Project an admitted immutable record into Core's public wire contract."""
-    payload = jsonable_encoder(parsed, sqlalchemy_safe=False)
+    # Use the native serializer for parsed dataclasses. Core's immutable
+    # JSON mappings still need FastAPI's generic mapping conversion.
+    payload = to_jsonable_python(
+        parsed, fallback=lambda value: jsonable_encoder(value, sqlalchemy_safe=False)
+    )
     # Parsed literal records cache their canonical text; it is not a wire field.
     payload["value"].pop("canonical_json_text", None)
     return Assertion.model_validate(payload)

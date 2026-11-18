@@ -10,10 +10,10 @@ from dataclasses import dataclass
 
 import pytest
 
-from src.graph_memory.extraction.bounded_recap_execution import (
+from graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient, DEEPSEEK_MODEL, RecapExecutionLimits,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionError
+from graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionError
 from tests.test_bounded_recap_execution import private_capture
 
 
@@ -189,7 +189,7 @@ class AttemptGEFactory:
                 return result
             components._persist_payload = blocked_commit
         if self.mode == "malformed_receipt":
-            from src.graph_memory.extraction import _recap_inference_worker as worker
+            from graph_memory.extraction import _recap_inference_worker as worker
             def malformed(path, receipt):
                 path.write_text("not a receipt")
             worker._write_receipt = malformed

@@ -34,7 +34,7 @@ def test_canonical_spans_ignore_missing_or_forged_mirror(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "read_bytes", lambda *a, **k: pytest.fail("source index read a file"))
     monkeypatch.setattr(Path, "read_text", lambda *a, **k: pytest.fail("source index read a file"))
     assert registry.load_source_span_index(tmp_path, artifact.source_artifact_id) == expected
-    assert registry.get_source_artifact(tmp_path, artifact.source_artifact_id) == artifact
+    assert registry.get_source_artifact(artifact.source_artifact_id) == artifact
 
 
 def _write_valid_old_mirror(root, artifact):
@@ -80,7 +80,7 @@ def test_registration_needs_no_span_index_directory(tmp_path, monkeypatch, domai
     else:
         from tests.test_graph_preview_runner import _admit_worldbuilding
         source = _admit_worldbuilding(tmp_path, BODY)
-        artifact = registry.get_source_artifact(tmp_path, source.source_artifact_id)
+        artifact = registry.get_source_artifact(source.source_artifact_id)
         expected = source.source_text.encode()
 
     assert registry.load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id) == (

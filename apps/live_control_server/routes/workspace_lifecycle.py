@@ -101,7 +101,7 @@ def mutate_world_session_trash(
     enforce_native_graph_gm(request)
     try:
         root = _root()
-        world = get_world_container(root, world_id)
+        world = get_world_container(world_id)
         if world.world_id != world_id:
             raise WorkspaceDocumentRegistryError(
                 "World identity mismatch", status_code=404

@@ -125,8 +125,7 @@ def _stored_world(world_id: str) -> StoredWorld:
     return stored
 
 
-def list_world_containers(root: Path) -> list[WorldContainerRecord]:
-    del root  # Artifact paths cannot select a different metadata catalog.
+def list_world_containers() -> list[WorldContainerRecord]:
     try:
         records = [stored.record for stored in catalog.list_worlds()]
     except ApplicationStateError as exc:
@@ -134,8 +133,7 @@ def list_world_containers(root: Path) -> list[WorldContainerRecord]:
     return sorted(records, key=lambda record: (record.name.casefold(), record.world_id))
 
 
-def get_world_container(root: Path, world_id: str) -> WorldContainerRecord:
-    del root
+def get_world_container(world_id: str) -> WorldContainerRecord:
     return _stored_world(world_id).record
 
 
@@ -143,15 +141,14 @@ def find_world_container_by_normalized_name(root: Path, name: str) -> WorldConta
     needle = normalize_world_name_for_compare(name)
     if not needle:
         return None
-    for record in list_world_containers(root):
+    for record in list_world_containers():
         if normalize_world_name_for_compare(record.name) == needle:
             return record
     return None
 
 
-def create_world_container(root: Path, *, name: str, owner_subject: str | None = None) -> WorldContainerRecord:
+def create_world_container(*, name: str, owner_subject: str | None = None) -> WorldContainerRecord:
     """Create/reconcile exact metadata and reservation; never adopt a directory."""
-    del root
     try:
         return catalog.create_world(name=name, owner_subject=owner_subject).record
     except ApplicationStateError as exc:
@@ -195,7 +192,7 @@ def authorize_world_access(
     permission: WorldPermission | str, resource_world_id: str | None = None,
 ) -> WorldContainerRecord:
     try:
-        record = get_world_container(root, world_id)
+        record = get_world_container(world_id)
     except (TypeError, AttributeError, WorldContainerRegistryError) as exc:
         raise WorldAccessDenied("World access denied") from exc
     return require_world_permission(record, subject=subject, permission=permission,
@@ -249,11 +246,10 @@ def _prune_delegated_grants(record: WorldContainerRecord) -> WorldContainerRecor
 
 
 def grant_world_access(
-    root: Path, world_id: str, *, actor_subject: str | None, subject: str,
+    world_id: str, *, actor_subject: str | None, subject: str,
     permissions: tuple[WorldPermission | str, ...] | list[WorldPermission | str],
 ) -> WorldContainerRecord:
     """Apply the one product grant policy to the latest locked World grants."""
-    del root
     try:
         actor = _validate_subject(actor_subject)
         target = _validate_subject(subject)
@@ -301,10 +297,9 @@ def grant_world_access(
 
 
 def revoke_world_access(
-    root: Path, world_id: str, *, actor_subject: str | None, subject: str,
+    world_id: str, *, actor_subject: str | None, subject: str,
 ) -> WorldContainerRecord:
     """Revoke and cascade using the same serialized access-policy boundary."""
-    del root
     try:
         actor = _validate_subject(actor_subject)
         target = _validate_subject(subject)

@@ -15,7 +15,7 @@ pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
 @pytest.mark.parametrize("mode,expected", [("ok", Status.REVIEWABLE), ("schema", Status.FAILED)])
 def test_controller_transitions_after_all_artifact_files_removed(monkeypatch, tmp_path, mode, expected):
-    from src.graph_memory.extraction import graph_preview_runner as runner
+    from graph_memory.extraction import graph_preview_runner as runner
 
     real = runner._advance_run
     removed = []
@@ -33,7 +33,7 @@ def test_controller_transitions_after_all_artifact_files_removed(monkeypatch, tm
     class Client(FixtureClient):
         def run_pass(self, pass_name, **kwargs):
             if mode == "schema":
-                from src.graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionError
+                from graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionError
                 raise CategoryGraphExtractionError("schema failure", pass_name=pass_name,
                     raw_model_response="actual captured invalid JSON — 测试")
             return super().run_pass(pass_name, **kwargs)
@@ -64,7 +64,7 @@ def test_valid_files_cannot_rescue_bad_database_output(application_state_dsn, tm
     with pytest.raises(registry.GraphRunRegistryError) as error:
         registry.update_extraction_run_status(tmp_path, child.run_id, status=Status.REVIEWABLE, expected_revision=child.revision)
     assert error.value.status_code == (422 if violation == "missing" else 500)
-    assert registry.get_extraction_run(tmp_path, child.run_id) == child
+    assert registry.get_extraction_run(child.run_id) == child
 
 
 def test_direct_reviewable_construction_and_successor_are_rejected(tmp_path):
@@ -73,4 +73,4 @@ def test_direct_reviewable_construction_and_successor_are_rejected(tmp_path):
         registry.create_extraction_run(tmp_path, source_artifact_id=parent.source_artifact_id, source_domain=parent.source_domain, status=Status.REVIEWABLE, components=parent.components)
     with pytest.raises(registry.GraphRunRegistryError, match="staged successor"):
         registry.supersede_extraction_run(tmp_path, child.run_id, expected_revision=child.revision, status=Status.REVIEWABLE, components=child.components)
-    assert registry.get_extraction_run(tmp_path, child.run_id) == child
+    assert registry.get_extraction_run(child.run_id) == child

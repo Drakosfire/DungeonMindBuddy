@@ -155,15 +155,14 @@ def _exercise_full_play_chain(root: Path) -> dict:
     snapshot = create_committed_runbook(root, name="as5-absent")
     created = create_run(root, snapshot)
     _assert_play_dir_absent(root)
-    manifest = seal_or_replay_play_run_reference_manifest(root, RUN_ID_A)
-    loaded_manifest = get_play_run_reference_manifest(root, RUN_ID_A)
+    manifest = seal_or_replay_play_run_reference_manifest(RUN_ID_A)
+    loaded_manifest = get_play_run_reference_manifest(RUN_ID_A)
     assert loaded_manifest == manifest
-    listed = list_play_runs(root)
-    loaded = get_play_run(root, RUN_ID_A)
+    listed = list_play_runs()
+    loaded = get_play_run(RUN_ID_A)
     assert listed == [loaded]
     assert loaded.run_id == created.run_id
     progressed = replace_play_run_progress(
-        root,
         run_id=RUN_ID_A,
         expected_run_revision=created.run_revision,
         progress=gate_progress(),
@@ -179,14 +178,13 @@ def _exercise_full_play_chain(root: Path) -> dict:
     later = get_workspace_document_snapshot(root, snapshot.record.document_id)
     target_revision, target_sha = playable_of(later)
     rebased = rebase_or_replay_play_run(
-        root,
         run_id=RUN_ID_A,
         expected_run_revision=progressed.run_revision,
         target_playable_revision=target_revision,
         target_playable_content_sha256=target_sha,
     )
-    selected = set_play_active_run(root, run_id=RUN_ID_A)
-    resumed = get_play_active_run(root)
+    selected = set_play_active_run(run_id=RUN_ID_A)
+    resumed = get_play_active_run()
     assert resumed == selected
     historical = get_committed_playable_revision(
         snapshot.record.document_id,
@@ -243,8 +241,8 @@ def test_full_play_chain_with_play_dir_absent(
     assert restarted.status_code == 200
     assert restarted.json() == first.json() == result["selected"].model_dump(mode="json")
 
-    resumed = get_play_run(other_root, RUN_ID_A)
-    manifest = get_play_run_reference_manifest(other_root, RUN_ID_A)
+    resumed = get_play_run(RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
     assert resumed.run_revision == result["rebased"].run_revision
     assert resumed.progress.model_dump(mode="json") == gate_progress().model_dump(mode="json")
     assert resumed.playable_revision == result["target_revision"]
@@ -272,15 +270,14 @@ def test_hostile_play_sentinel_is_untouched(
     snapshot = create_committed_runbook(tmp_path, name="as5-hostile")
     created = create_run(tmp_path, snapshot)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=created.run_revision,
         progress=gate_progress(),
     )
-    set_play_active_run(tmp_path, run_id=RUN_ID_A)
-    assert get_play_run(tmp_path, RUN_ID_A).progress.current_beat_id == "beat:arrival"
-    assert get_play_active_run(tmp_path).run_id == RUN_ID_A
-    assert list_play_runs(tmp_path)[0].run_id == RUN_ID_A
+    set_play_active_run(run_id=RUN_ID_A)
+    assert get_play_run(RUN_ID_A).progress.current_beat_id == "beat:arrival"
+    assert get_play_active_run().run_id == RUN_ID_A
+    assert list_play_runs()[0].run_id == RUN_ID_A
 
     after = sentinel.stat()
     assert sentinel.is_file()
@@ -295,7 +292,7 @@ def test_db_down_does_not_read_or_mutate_contradictory_legacy_files(
 ) -> None:
     snapshot = create_committed_runbook(tmp_path, name="as5-down")
     create_run(tmp_path, snapshot, run_id=RUN_ID_A)
-    selected = set_play_active_run(tmp_path, run_id=RUN_ID_A)
+    selected = set_play_active_run(run_id=RUN_ID_A)
     _hand_write_legacy_runtime(
         tmp_path,
         snapshot=snapshot,
@@ -311,23 +308,22 @@ def test_db_down_does_not_read_or_mutate_contradictory_legacy_files(
     monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, DOWN_DSN)
 
     with pytest.raises(PlayRunRegistryError) as get_exc:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
     assert get_exc.value.status_code == 503
     with pytest.raises(PlayRunRegistryError) as list_exc:
-        list_play_runs(tmp_path)
+        list_play_runs()
     assert list_exc.value.status_code == 503
     with pytest.raises(PlayRunReferenceManifestError) as manifest_exc:
-        get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+        get_play_run_reference_manifest(RUN_ID_A)
     assert manifest_exc.value.status_code == 503
     with pytest.raises(PlayActiveRunError) as active_exc:
-        get_play_active_run(tmp_path)
+        get_play_active_run()
     assert active_exc.value.status_code == 503
     with pytest.raises(PlayActiveRunError) as set_exc:
-        set_play_active_run(tmp_path, run_id=RUN_ID_B)
+        set_play_active_run(run_id=RUN_ID_B)
     assert set_exc.value.status_code == 503
     with pytest.raises(PlayRunRebaseError) as rebase_exc:
         rebase_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
             target_playable_revision=2,
@@ -350,8 +346,8 @@ def test_db_down_does_not_read_or_mutate_contradictory_legacy_files(
         if path.is_file()
     }
     assert after == before
-    assert get_play_active_run(tmp_path) == selected
-    assert get_play_run(tmp_path, RUN_ID_A).run_id == RUN_ID_A
+    assert get_play_active_run() == selected
+    assert get_play_run(RUN_ID_A).run_id == RUN_ID_A
     assert fetch_play_active_run_row(application_state_dsn)["run_id"] == RUN_ID_A
 
 
@@ -424,9 +420,9 @@ def test_predecessor_import_then_as5_head_reads_same_db_without_files(
     shutil.rmtree(_play_dir(tmp_path))
     _assert_play_dir_absent(tmp_path)
 
-    loaded = get_play_run(tmp_path, RUN_ID_A)
-    manifest = get_play_run_reference_manifest(tmp_path, RUN_ID_A)
-    active = get_play_active_run(tmp_path)
+    loaded = get_play_run(RUN_ID_A)
+    manifest = get_play_run_reference_manifest(RUN_ID_A)
+    active = get_play_active_run()
     committed = get_committed_playable_revision(loaded.playable_artifact_id, kind="runbook")
     assert loaded.progress.model_dump(mode="json") == gate_progress().model_dump(mode="json")
     assert loaded.playable_revision == playable_of(snapshot)[0]
@@ -436,7 +432,6 @@ def test_predecessor_import_then_as5_head_reads_same_db_without_files(
     assert committed.revision_n == loaded.playable_revision
     assert committed.content_sha256 == loaded.playable_content_sha256
     replayed = create_or_replay_play_run(
-        tmp_path,
         run_id=RUN_ID_A,
         playable_artifact_id=loaded.playable_artifact_id,
         expected_playable_revision=loaded.playable_revision,
@@ -491,7 +486,7 @@ def test_play_production_modules_do_not_depend_on_file_locks_or_live_store() -> 
         "registry_mutation_lock",
         "registry_token",
         "live_store",
-        "from src.live_play.live_store import",
+        "from live_store import",
         "out/runtime/play",
         "PLAY_RUNS_REL",
         "PLAY_RUN_REFERENCE_MANIFESTS_REL",
@@ -551,7 +546,7 @@ def test_play_production_modules_do_not_depend_on_file_locks_or_live_store() -> 
         "registry_mutation_lock",
         "registry_token",
         "live_store",
-        "from src.live_play.live_store import",
+        "from live_store import",
         "out/runtime/play",
         "PLAY_RUNS_REL",
         "PLAY_RUN_REFERENCE_MANIFESTS_REL",

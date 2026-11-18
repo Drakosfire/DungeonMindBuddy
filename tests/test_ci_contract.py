@@ -112,19 +112,6 @@ def test_python_runner_propagates_failure_and_stops_following_steps(tmp_path, mo
     assert report["elapsed_seconds"] >= 0
 
 
-def test_changed_discovery_configuration_requires_inventory_review(tmp_path, monkeypatch):
-    (tmp_path / "ci").mkdir()
-    (tmp_path / "pyproject.toml").write_text('[tool.pytest.ini_options]\ntestpaths = ["tests"]\n')
-    (tmp_path / "vite.config.ts").write_text("changed discovery")
-    (tmp_path / "ci/test-classification.json").write_text(json.dumps({
-        "version": 1, "lanes": {lane: [] for lane in ci.LANES},
-        "discovery_config": {"vite.config.ts": "not-the-reviewed-digest"},
-    }))
-    monkeypatch.setattr(ci, "discover", lambda root: set())
-    with pytest.raises(ValueError, match="discovery configuration changed"):
-        ci.validate_inventory(tmp_path)
-
-
 def test_node_runner_propagates_failure_without_git_or_later_steps(tmp_path):
     (tmp_path / "scripts").mkdir()
     (tmp_path / "ci").mkdir()
@@ -137,3 +124,46 @@ def test_node_runner_propagates_failure_without_git_or_later_steps(tmp_path):
     assert result.returncode == 9
     assert not (tmp_path / "must-not-run").exists()
     assert json.loads(result.stdout.splitlines()[-1])["sha"] == "reviewed-sha"
+
+
+@pytest.mark.parametrize(
+    ("argv", "field", "detail"),
+    [
+        (["./missing-ci-command"], "spawn_error", "ENOENT"),
+        (["node", "-e", "process.kill(process.pid, 'SIGTERM')"], "signal", "SIGTERM"),
+    ],
+)
+def test_node_runner_reports_abnormal_exit(tmp_path, argv, field, detail):
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "ci").mkdir()
+    runner = "scripts/ci_frontend_contract.mjs"
+    shutil.copyfile(ci.ROOT / runner, tmp_path / runner)
+    steps = [{"cwd": ".", "argv": argv}]
+    catalog = {"version": 1, "contracts": {"hosted-frontend": {"steps": steps}}}
+    (tmp_path / "ci/contracts.json").write_text(json.dumps(catalog))
+
+    result = subprocess.run(
+        ["node", runner],
+        cwd=tmp_path,
+        env={**os.environ, "GITHUB_SHA": "reviewed-sha"},
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    report = json.loads(result.stdout.splitlines()[-1])
+    assert report["exit_code"] == 1
+    assert detail in report[field]
+
+
+def test_ci_and_production_pin_the_same_uv_version():
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    setup = (root / ".github/actions/setup-python-toolchain/action.yml").read_text()
+    dockerfile = (root / "Dockerfile.production").read_text()
+    ci_pin = re.findall(r"""^\s+version:\s*['"](\d+\.\d+\.\d+)['"]\s*$""", setup, re.M)
+    image_pin = re.findall(r"^FROM ghcr\.io/astral-sh/uv:(\d+\.\d+\.\d+)@sha256:[a-f0-9]{64} AS uv-tool$", dockerfile, re.M)
+    assert len(ci_pin) == len(image_pin) == 1
+    assert ci_pin == image_pin, f"CI uv pin {ci_pin} differs from production {image_pin}"

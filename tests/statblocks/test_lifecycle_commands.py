@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.statblocks import lifecycle_commands as commands
+from statblocks import lifecycle_commands as commands
 
 
 def test_statblock_lifecycle_command_values() -> None:
@@ -28,7 +28,7 @@ def test_statblock_lifecycle_command_values_are_unique() -> None:
 
 
 def test_package_exports_agent_command_constants_and_status_types() -> None:
-    import src.statblocks as statblocks
+    import statblocks as statblocks
 
     assert statblocks.STATBLOCK_DRAFT_GENERATE == "statblock.draft.generate"
     assert "statblock.draft.render" in statblocks.STATBLOCK_LIFECYCLE_COMMANDS

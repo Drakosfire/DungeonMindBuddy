@@ -28,6 +28,7 @@ describe("protected read acquisition",()=>{
   unmount();
  });
  it.each([
+  ["World catalog",()=>api.listWorldContainers(),"/api/live/world-containers"],
   ["Plan action history",()=>api.getWorldPlanDocumentEditActions("elderwyld","doc-1"),"/api/live/world-plan-edit/actions?world_id=elderwyld&document_id=doc-1"],
   ["Plan conversation action history",()=>api.getWorldPlanConversationActions("elderwyld","conversation-1"),"/api/live/world-plan-edit/conversation-actions?world_id=elderwyld&conversation_id=conversation-1"],
 ])("coalesces concurrent %s refreshes and fetches fresh data after settlement",async(_label,read,path)=>{
@@ -48,7 +49,7 @@ describe("protected read acquisition",()=>{
  it("does not repeat mounted graph acquisition on its own cold session bootstrap",async()=>{
   window.history.replaceState({},"","/?world=elderwyld");
   vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
-  vi.spyOn(api,"getSourceBundle").mockResolvedValue({schema:"dmb_ingestion_source_bundle_v1",campaigns:{}} as never);
+  vi.spyOn(api,"getSourceSessions").mockResolvedValue([]);
   const gate=deferred<Response>();
   const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async url=>String(url).endsWith("local-session")?Response.json({status:"active",csrf_token:"test-csrf"}):gate.promise);
   const wrapper=({children}:{children:ReactNode})=>createElement(SelectedWorldProvider,{locationSnapshot:window.location.href},createElement(WorldGraphLensProvider,{planCampaignId:"elderwyld"},createElement(WorldGraphLensProjectionProvider,{defaultCampaignId:"elderwyld"},children)));
@@ -63,7 +64,7 @@ describe("protected read acquisition",()=>{
   api.setNativeGraphAccessToken('reset-session');api.setNativeGraphAccessToken(null);
   window.history.replaceState({},"","/?world=elderwyld");
   vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
-  vi.spyOn(api,"getSourceBundle").mockResolvedValue({schema:"dmb_ingestion_source_bundle_v1",campaigns:{}} as never);
+  vi.spyOn(api,"getSourceSessions").mockResolvedValue([]);
   let sessions=0;
   const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async url=>{
     if(String(url).endsWith("local-session")) return ++sessions===1
@@ -85,7 +86,7 @@ describe("protected read acquisition",()=>{
   api.setNativeGraphAccessToken('reset-recovery');api.setNativeGraphAccessToken(null);
   window.history.replaceState({},"","/?world=elderwyld");
   vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
-  vi.spyOn(api,"getSourceBundle").mockResolvedValue({schema:"dmb_ingestion_source_bundle_v1",campaigns:{}} as never);
+  vi.spyOn(api,"getSourceSessions").mockResolvedValue([]);
   let sessions=0,projections=0;
   const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async url=>{
     if(String(url).endsWith("local-session")) return Response.json({status:"active",csrf_token:++sessions===1?'old-csrf':'fresh-csrf'});
@@ -100,7 +101,7 @@ describe("protected read acquisition",()=>{
  it.each(['rotation','release'] as const)("rejects late projection JSON body after %s with the real API transport",async transition=>{
   api.setNativeGraphAccessToken('body-old');window.history.replaceState({},"","/?world=elderwyld");
   vi.spyOn(api,"listWorldContainers").mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{schema_version:"dmb_world_container_record_v1",world_id:"elderwyld",name:"World",source_root_relpath:"corpus/world",created_at:"2026-01-01"}]} as never);
-  vi.spyOn(api,"getSourceBundle").mockResolvedValue({schema:"dmb_ingestion_source_bundle_v1",campaigns:{}} as never);
+  vi.spyOn(api,"getSourceSessions").mockResolvedValue([]);
   let body!:ReadableStreamDefaultController<Uint8Array>;let projections=0;
   const stream=new ReadableStream<Uint8Array>({start(controller){body=controller}});
   const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async()=>++projections===1 ? new Response(stream,{headers:{'Content-Type':'application/json'}}) : Response.json(managedPacket('current')));
@@ -317,5 +318,21 @@ describe("protected read acquisition",()=>{
   const reads=[api.getWorldAgentConversationHistory("elderwyld"),api.getWorldAgentConversationHistory("elderwyld")];await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));gate.resolve(Response.json({detail:{code:"downstream_failed",message:"Read unavailable"}},{status:503}));
   const results=await Promise.allSettled(reads);expect(results.every(r=>r.status==="rejected"&&r.reason.status===503&&r.reason.code==="downstream_failed")).toBe(true);
   const page={conversation_id:null,turns:[],next_cursor:null};fetch.mockResolvedValueOnce(Response.json(page));expect(await api.getWorldAgentConversationHistory("elderwyld")).toEqual(page);expect(fetch).toHaveBeenCalledTimes(2);
+ });
+ it("keeps the local World catalog accessible after native Graph revocation", async () => {
+  api.setNativeGraphAccessToken("catalog-revocation");
+  const catalog = { records: [] };
+  const fetch = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ csrf_token: "test-csrf" }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    .mockResolvedValueOnce(Response.json(catalog));
+  try {
+   await api.revokeNativeGraphSession();
+   await expect(api.listWorldContainers()).resolves.toEqual(catalog);
+   expect(fetch).toHaveBeenCalledTimes(3);
+  } finally {
+   fetch.mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "restored-csrf" }));
+   await api.connectNativeGraphSession();
+  }
  });
 });

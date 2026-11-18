@@ -274,7 +274,7 @@ def test_navigation_is_read_only(client: TestClient, root: Path) -> None:
     markdown = "# Hesta\n\nFirst paragraph.\n\nSecond paragraph for evidence.\n\nThird.\n"
     artifact_id, document_id, span_id, _, _ = _setup_glass_orchard_source(root, markdown)
 
-    before_source_metadata = get_source_artifact(root, artifact_id)
+    before_source_metadata = get_source_artifact(artifact_id)
     before_page = get_committed_page_snapshot(root, document_id)
 
     for _ in range(2):
@@ -282,5 +282,5 @@ def test_navigation_is_read_only(client: TestClient, root: Path) -> None:
         assert response.status_code == 200
         assert response.json()["status"] == "exact"
 
-    assert get_source_artifact(root, artifact_id) == before_source_metadata
+    assert get_source_artifact(artifact_id) == before_source_metadata
     assert get_committed_page_snapshot(root, document_id) == before_page

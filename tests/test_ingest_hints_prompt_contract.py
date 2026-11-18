@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.prompts import ingest_hints_sidecar as mod
+from prompts import ingest_hints_sidecar as mod
 
 
 def test_ingest_hints_prompt_includes_not_the_recap_writer() -> None:

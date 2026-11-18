@@ -31,9 +31,9 @@ def api(tmp_path, monkeypatch, application_state_dsn):
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", TOKEN)
-    world = create_world_container(tmp_path, name="Edition Test World")
+    world = create_world_container(name="Edition Test World")
     assert world.world_id == WORLD
-    create_world_container(tmp_path, name="Other World")
+    create_world_container(name="Other World")
     monkeypatch.setattr(routes, "_root", lambda: tmp_path)
     app = FastAPI()
     app.include_router(routes.router)

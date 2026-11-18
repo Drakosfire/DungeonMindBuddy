@@ -60,7 +60,7 @@ def fixture_source(root, monkeypatch):
     registry_root = root / "managed-registry"
     registry_root.mkdir()
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(registry_root))
-    world = create_world_container(registry_root, name="Managed World")
+    world = create_world_container(name="Managed World")
     assert world.world_id == "managed-world"
     store_world(world.model_copy(update={"native_graph_binding": {
         "native_world_id": "native-world",

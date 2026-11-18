@@ -126,7 +126,7 @@ uv run pytest tests/test_live_control_server.py -q
 
 - Branch: `pr80-l5b-plan-view` → `main`
 - Handoff: `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-pr80-l5b-plan-view-projection.md`
-- Added schema: `evals/c2_live_prep/live/schemas/plan_view.schema.json`
+- Added schema: `schemas/live/plan_view.schema.json`
 - Added sample: `evals/c2_live_prep/live/session_22/plan_view.sample.json`
 - Added builder: `src/live_play/projections/plan_view.py`
 - Added endpoint: `GET /api/live/plan-view` in `apps/live_control_server/routes/live.py`
@@ -172,8 +172,8 @@ uv run pytest tests/test_live_control_server.py -q
   - `evals/c2_live_prep/live/session_22/live_packet.json`
   - `evals/c2_live_prep/live/session_22/surface_layout.json`
   - `evals/c2_live_prep/live/session_22/current_state.json`
-  - `evals/c2_live_prep/live/schemas/live_packet.schema.json`
-  - `evals/c2_live_prep/live/schemas/live_surface_layout.schema.json`
+  - `schemas/live/live_packet.schema.json`
+  - `schemas/live/live_surface_layout.schema.json`
 - `cd apps/live-control-ui && npm test && npm run build` → 5 files passed / 18 tests passed; build succeeded
 - `uv run pytest tests/test_live_play_schemas.py -q` → 19 passed
 - `uv run pytest tests/test_live_control_server.py -q` → 18 passed

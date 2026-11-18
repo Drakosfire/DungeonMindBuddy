@@ -3,14 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from docx import Document
 
-from src.ingestion.chunker import (
+from ingestion.chunker import (
     _build_heading_tree,
     _infer_session_from_section_path,
     _segment_blocks,
     chunk_document,
 )
-from src.ingestion.source_anchor import hash_source_bytes, slice_file_lines_to_bytes
+from ingestion.source_anchor import hash_source_bytes, slice_file_lines_to_bytes
 
 
 def test_build_heading_tree_nests_children() -> None:
@@ -57,26 +58,24 @@ def test_chunk_document_merges_small_sections(tmp_path: Path) -> None:
         assert anchors[0]["content_hash"] == hash_source_bytes(raw)
 
 
-def test_chunk_document_outputs_schema_valid_units_for_mirathorn() -> None:
-    mirathorn_path = Path(
-        "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/"
-        "Eldyrwild and Campaign Context/Elderwyld/Cities and Towns/Mirathorn/"
-        "The City of Mirathorn.docx"
-    )
-    if not mirathorn_path.exists():
-        pytest.skip("Mirathorn corpus docx is not present on this machine")
+def test_chunk_document_outputs_schema_valid_units_for_docx(tmp_path: Path) -> None:
+    document_path = tmp_path / "city.docx"
+    document = Document()
+    document.add_heading("City Overview", level=1)
+    document.add_paragraph("The city was built beside a river.")
+    document.save(document_path)
 
     units = chunk_document(
-        docx_path=mirathorn_path,
-        document_id="doc_city_of_mirathorn",
-        document_title="The City of Mirathorn",
+        docx_path=document_path,
+        document_id="doc_city",
+        document_title="The City",
         canon_layer="world",
         campaign_id=None,
         source_class="seed_reference",
     )
 
     assert units
-    assert any("Mirathorn Overview" in unit["section_path"] for unit in units)
+    assert any("City Overview" in unit["section_path"] for unit in units)
     assert all(unit["schema_version"] == "0.1.0" for unit in units)
 
 

@@ -66,7 +66,7 @@ def one_run(
         campaign_id=None,
         scope_mode=None,
         session_id=f"synthetic-{variant}-{uuid.uuid4()}",
-        root=Path("/tmp"),
+        root=Path(os.environ["TMPDIR"]).resolve(),
         capability_policy=default_conversation_only_capability_policy(),
     )
     model_calls = []

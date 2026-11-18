@@ -77,7 +77,7 @@ describe("GraphProjectionReader", () => {
     expect(details).not.toHaveAttribute("open");
     fireEvent.click(screen.getByText("Source formatting", { exact: true }));
     expect(screen.getByText("Only saved Buddy image references are supported.")).toBeVisible();
-    expect(screen.getByText("Ordinary Markdown links require an absolute HTTP/HTTPS URL, text label, and no title.")).toBeVisible();
+    expect(screen.getByText("Ordinary Markdown links require an admitted URL, text label, and a plain-text optional title.")).toBeVisible();
   });
 
   it("does not render graph authoring UI when authoring is disabled", async () => {

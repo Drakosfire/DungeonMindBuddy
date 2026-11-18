@@ -13,17 +13,17 @@ from apps.live_control_server.services.source_artifact_registry import (
     load_source_span_index,
 )
 from graph_memory.source_span import source_span_index_to_dict
-from src.graph_memory.extraction.bounded_recap_execution import (
+from graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient,
     DEEPSEEK_MODEL,
     RecapExecutionLimits,
 )
-from src.graph_memory.extraction.graph_preview_runner import (
+from graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionRequest,
     ProductionExtractionResult,
     run_production_extraction,
 )
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
 
 
 PROFILE_ID = "worldbuilding_gazetteer_v1"

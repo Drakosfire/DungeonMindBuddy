@@ -17,7 +17,7 @@ vi.mock("../ui/deferredComponent", async importOriginal => {
     }, label) };
 });
 vi.mock("./NativeGraphInspection", () => ({ NativeGraphInspection: ({ worldId }: { worldId: string }) => <section aria-label="Native inspector">{worldId}</section> }));
-vi.mock("./NativeSourceInspection", () => ({ NativeSourceInspection: ({worldId}:{worldId:string}) => <section aria-label="Native source browser">{worldId}</section> }));
+vi.mock("./NativeSourceInspection", () => ({ NativeSourceInspection: ({worldId,initialKind}:{worldId:string;initialKind?:string}) => <section aria-label="Native source browser">{worldId} {initialKind}</section> }));
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
@@ -90,4 +90,24 @@ it("opens the source-only browser through the shared World dialog", async () => 
  expect(screen.queryByRole('region',{name:'Native inspector'})).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:'Objects'}));await screen.findByRole('region',{name:'Native inspector'});
  expect(screen.queryByRole('region',{name:'Native source browser'})).not.toBeInTheDocument();
+});
+
+
+it("opens recaps directly, resets Sources on repeated launch, and returns focus", async () => {
+  render(<LoadedWorldGraphExplorer entry="recaps" />);
+  const launcher = screen.getByRole("button", { name: "Browse recaps" });
+  expect(screen.queryByRole("region")).not.toBeInTheDocument();
+  fireEvent.click(launcher);
+  expect(await screen.findByRole("region", { name: "Native source browser" })).toHaveTextContent("elderwyld recap");
+  expect(screen.getByRole("button", { name: "Sources" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.queryByRole("region", { name: "Native inspector" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Objects" }));
+  await screen.findByRole("region", { name: "Native inspector" });
+  fireEvent.click(screen.getByRole("button", { name: "Close sources" }));
+  expect(launcher).toHaveFocus();
+  fireEvent.click(launcher);
+  await screen.findByRole("region", { name: "Native source browser" });
+  fireEvent(screen.getByRole("dialog", { name: "Elderwyld World sources" }), new Event("cancel", { cancelable: true }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(launcher).toHaveFocus();
 });

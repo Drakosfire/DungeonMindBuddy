@@ -211,7 +211,7 @@ Include only the matrices that apply; otherwise write `Not applicable — <reaso
 
 ## §7 Evidence required to merge
 
-Every material invariant clause needs proof at its owning boundary.
+Before dispatch, list the checks that will prove each material invariant at its owning boundary. Record results as the work runs and require them for the applicable review, merge, or delivery gate. Do not treat missing implementation results as an activation blocker. Evidence of an actual prerequisite belongs in the activation gate above.
 
 | Guarantee / invariant clause | Owning boundary | Evidence class | Command or manual scenario | Expected evidence | Stop condition |
 |---|---|---|---|---|---|

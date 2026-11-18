@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from dungeonmind.application.vnext.admission import AlwaysAdmitPolicy
 from dungeonmind.application.vnext import (
     KnowledgeProvenanceSnapshot,
     KnowledgeReadContext,
@@ -235,6 +236,23 @@ def dungeonbuddy_dnd5e_custom_predicate_profile() -> SemanticProfileDescriptorV3
     return SemanticProfileDescriptorV3.model_validate(descriptor)
 
 
+DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION = "3"
+DUNGEONBUDDY_OBSERVATION_PREDICATE = "dungeonbuddy:reviewed_source_observation"
+DUNGEONBUDDY_OBSERVATION_PROFILE_DIGEST = "5f06b5a7ef94b3d612fd10207f25a38172e406f74f0840e07c72a3edba0c721e"
+
+
+def dungeonbuddy_dnd5e_observation_profile() -> SemanticProfileDescriptorV3:
+    """Add reviewed source observations to the existing custom predicate profile."""
+    descriptor = dungeonbuddy_dnd5e_custom_predicate_profile().model_dump(mode="json")
+    descriptor["profile_revision"] = DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION
+    descriptor["predicates"].append({
+        "term": DUNGEONBUDDY_OBSERVATION_PREDICATE,
+        "allowed_value_kinds": ["literal"],
+        "literal_schema": {"type": "string", "minLength": 1},
+    })
+    return SemanticProfileDescriptorV3.model_validate(descriptor)
+
+
 class DungeonBuddyDescriptorError(ValueError):
     """A selected immutable descriptor is unsupported, mismatched, or has drifted."""
 
@@ -273,6 +291,10 @@ def resolve_dungeonbuddy_descriptors(
             DUNGEONBUDDY_CUSTOM_PROFILE_DIGEST,
         ),
     }
+    profiles[(DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_OBSERVATION_PROFILE_REVISION)] = (
+        dungeonbuddy_dnd5e_observation_profile,
+        DUNGEONBUDDY_OBSERVATION_PROFILE_DIGEST,
+    )
     selected = profiles.get((profile_ref.profile_id, profile_ref.profile_revision))
     if selected is None:
         raise DungeonBuddyDescriptorError(
@@ -330,7 +352,7 @@ def build_dungeonbuddy_read_context(
         domain_ref=parsed_revision.domain_contract_ref,
         profile_ref=parsed_revision.semantic_profile_ref,
     )
-    policy = DungeonBuddyWorldAdmissionPolicy()
+    policy = AlwaysAdmitPolicy(policy_id=DUNGEONBUDDY_POLICY_ID)
     if policy.policy_id != domain_contract.admission_policy_id:
         raise ValueError("DungeonBuddy policy identity does not match DomainContract")
     return KnowledgeReadContext(

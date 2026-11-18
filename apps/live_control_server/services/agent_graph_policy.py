@@ -105,8 +105,8 @@ def resolve_agent_graph_openai_inference(
     DungeonBuddy product turns use OpenAI only — never Hermes auto-detect,
     which prefers Anthropic when ``ANTHROPIC_API_KEY`` is ambient in the shell.
     """
-    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
-    from src.model_policy import load_buddy_model_policy
+    from bootstrap_env import load_dungeonmindbuddy_dotenv
+    from model_policy import load_buddy_model_policy
 
     load_dungeonmindbuddy_dotenv()
     has_openai = bool((os.environ.get("OPENAI_API_KEY") or "").strip())

@@ -5,19 +5,6 @@ import type {
 } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-interface SurfaceContextLabelProps {
-  children: ReactNode;
-  className?: string;
-}
-
-export function SurfaceContextLabel({ children, className }: SurfaceContextLabelProps) {
-  const labelClassName = className
-    ? `surface-context-label ${className}`
-    : "surface-context-label";
-
-  return <span className={labelClassName}>{children}</span>;
-}
-
 interface SurfaceContextValueProps {
   children: ReactNode;
   title?: string;

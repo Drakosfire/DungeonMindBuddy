@@ -24,7 +24,7 @@ from application_state.world_catalog.service import world_source_root_relpath
 from tests.application_state.world_catalog_fixtures import store_world
 
 from scripts.preflight_local_graph_profile import inspect_local_graph_profile, main
-from src.bootstrap_env import LOCAL_GRAPH_PROFILE_ENV
+from bootstrap_env import LOCAL_GRAPH_PROFILE_ENV
 
 
 def _operator_root(tmp_path: Path) -> Path:
@@ -70,12 +70,11 @@ def test_existing_world_registry_reopens_from_two_code_checkouts(
     for name in ("checkout-a", "checkout-b"):
         checkout = tmp_path / name
         checkout.mkdir()
-        monkeypatch.setattr(world_routes, "repo_root", lambda checkout=checkout: checkout)
         assert not (checkout / "out/registries/world_containers.json").exists()
         assert managed_world_data_root(checkout) == operator
         records = world_routes.get_world_containers()["records"]
         assert [record["world_id"] for record in records] == ["elderwyld"]
-        assert get_world_container(managed_world_data_root(checkout), "elderwyld").native_graph_binding.status == "active"
+        assert get_world_container("elderwyld").native_graph_binding.status == "active"
     monkeypatch.delenv(MANAGED_WORLD_DATA_ROOT_ENV)
     assert managed_world_data_root(tmp_path / "checkout-a") == tmp_path / "checkout-a"
 
@@ -154,15 +153,17 @@ def test_opted_in_launcher_refuses_unowned_service_listener(
         spare_b = unused_b.getsockname()[1]
         unused_a.close()
         unused_b.close()
+        spare_ports = iter((spare_a, spare_b))
+        service_ports = {
+            name: str(port if name == occupied_port_env else next(spare_ports))
+            for name in ("BUDDY_API_PORT", "BUDDY_UI_PORT", "DUNGEONMIND_SERVER_PORT")
+        }
         env = dict(os.environ)
         env.update({
             LOCAL_GRAPH_PROFILE_ENV: str(private),
             MANAGED_WORLD_DATA_ROOT_ENV: str(operator),
             "DUNGEONMIND_SERVER_ROOT": str(server),
-            "BUDDY_API_PORT": str(spare_a),
-            "BUDDY_UI_PORT": str(spare_b),
-            "DUNGEONMIND_SERVER_PORT": str(spare_b),
-            occupied_port_env: str(port),
+            **service_ports,
         })
         result = subprocess.run(
             ["bash", "run"], cwd=Path(__file__).resolve().parents[1],

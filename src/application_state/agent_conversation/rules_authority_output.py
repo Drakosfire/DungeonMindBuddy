@@ -176,8 +176,12 @@ def producing_rules_frame(prepared_request_json: str):
 
 def parse_producing_answer(raw: str, prepared_request_json: str,
                            supplied_refs: tuple[RulesSupportRefV1, ...]) -> RulesWriterAnswerV1:
+    return parse_answer_against_frame(raw, producing_rules_frame(prepared_request_json), supplied_refs)
+
+
+def parse_answer_against_frame(raw, frame, supplied_refs):
+    """Resolve output aliases against the producer-verified Rules frame."""
     from .rules_authority_plan_packet import ModelRulesFrame
-    frame = producing_rules_frame(prepared_request_json)
     if isinstance(frame, ModelRulesFrame):
         if tuple(row.support_id for row in frame.supports) != tuple(f"rule_{i}" for i in range(len(supplied_refs))):
             raise ValueError("Rules aliases differ from the complete producing support map")

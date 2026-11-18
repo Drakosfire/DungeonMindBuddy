@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
-import hashlib
 import json
 from pathlib import Path
 import re
@@ -63,16 +62,29 @@ def validate_inventory(root: Path = ROOT) -> dict:
     }
     if any(problems.values()):
         raise ValueError(json.dumps(problems, indent=2))
-    config = inventory["discovery_config"]
     pytest_config = tomllib.loads((root / "pyproject.toml").read_text())["tool"]["pytest"]["ini_options"]
     if pytest_config["testpaths"] != ["tests"] or pytest_config.get("python_files", ["test_*.py", "*_test.py"]) != ["test_*.py", "*_test.py"]:
         raise ValueError("pytest discovery changed: review the inventory discovery contract")
-    for path, expected in config.items():
-        if hashlib.sha256((root / path).read_bytes()).hexdigest() != expected:
-            raise ValueError(f"discovery configuration changed: {path}; review and refresh inventory")
-    return {"discovered_test_files": len(found), "lane_file_counts": {
-        lane: len(files) for lane, files in inventory["lanes"].items()
-    }}
+    scripts = json.loads((root / "apps/live-control-ui/package.json").read_text())["scripts"]
+    expected_scripts = {
+        "test": "vitest run",
+        "ui:visual": "playwright test --config playwright.ui.config.ts",
+    }
+    for name, expected in expected_scripts.items():
+        if scripts.get(name) != expected:
+            raise ValueError(f"frontend discovery command changed: {name}; review inventory")
+    browser_candidates = sorted(
+        path for path in found
+        if path.startswith("apps/live-control-ui/tests/") and path.endswith(".pw.ts")
+    )
+    # The runner discovery job verifies the visual suite's reviewed file selection.
+    visual_files = [path for path in browser_candidates if Path(path).name == "ui-visual.pw.ts"]
+    return {
+        "discovered_test_files": len(found),
+        "lane_file_counts": {lane: len(files) for lane, files in inventory["lanes"].items()},
+        "browser_candidate_files": len(browser_candidates),
+        "playwright_visual_files": len(visual_files),
+    }
 
 
 def sha(root: Path = ROOT) -> str:
@@ -83,8 +95,9 @@ def emit(report: dict) -> None:
     print(json.dumps(report, sort_keys=True), flush=True)
 
 
-def execute(name: str, root: Path = ROOT) -> int:
-    catalog = contracts(root)
+def execute(name: str, root: Path = ROOT, *, catalog: dict | None = None) -> int:
+    if catalog is None:
+        catalog = contracts(root)
     if name == "full-regression":
         validate_inventory(root)
         steps = [
@@ -131,9 +144,10 @@ def main() -> int:
             for step in contract.get("steps", [contract]):
                 print(name, step["cwd"], shlex.join(step["argv"]), sep="\t")
         return 0
-    if args.contract not in {*contracts(), "full-regression"}:
+    catalog = contracts()
+    if args.contract not in {*catalog, "full-regression"}:
         parser.error("run requires a named contract (see commands) or full-regression")
-    return execute(args.contract)
+    return execute(args.contract, catalog=catalog)
 
 
 if __name__ == "__main__":

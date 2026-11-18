@@ -43,14 +43,8 @@ export async function restoreStagedLocalWorldPackage(
   const pathError = validateLocalWorldPackageMemberPaths(paths);
   if (pathError) return { status: "error", message: pathError };
 
-  // Capture caller-controlled map contents synchronously before parsing awaits.
-  let members: Map<string, Uint8Array>;
-  try {
-    members = new Map([...staged.members].map(([path, bytes]) => [path, new Uint8Array(bytes)]));
-  } catch {
-    return { status: "error", message: "The staged package members could not be copied safely." };
-  }
-  const parsed = await parseLocalWorldPackageV1(members);
+  // The parser snapshots the bounded members synchronously before its first await.
+  const parsed = await parseLocalWorldPackageV1(staged.members);
   if (parsed.status !== "staged") return { status: "error", message: parsed.message };
   const candidate = parsed.candidate;
   const worldId = candidate.record.snapshot.worldId;

@@ -2,6 +2,7 @@
 
 **Status:** ACTIVE, documentation design/policy slice
 **Base:** `ec646dab173deb1ddc6075226a496b400afc8eb5` (DungeonMindBuddy `main`, verified 2026-11-11)
+**Re-anchor:** `0cfb050489884580c20e709aa4dc5fa7545f8cd1` (current Buddy `main`, 2026-11-18). Preserve the newer ACTIVE-handoff and verification rules.
 **Branch:** `codex/retire-standing-steward-role`
 **Owner:** explicitly assigned documentation/policy slice owner
 **Topology:** serial implementation; coordinating owner publishes this one reviewable draft after independent review
@@ -60,6 +61,8 @@ Byte-for-byte export mirrors, updated after canonical sources:
 - Other directly corresponding active export copies, only if the canonical file is changed
 
 ## Exclusions
+
+The original dispatch restrictions below are historical: on 2026-11-18 the user explicitly authorized updating, reviewing and merging PR #2406. The scope and other exclusions remain applicable.
 
 `Backlog.md` is explicitly deferred because open PRs #2389, #2383, and #2087 overlap that path; re-anchor and coordinate after those PRs settle. This deferral does not transfer ownership. Do not change historical embedded evidence, status/sequence judgments, archived copies, historical reports or underlying archived content. On superseded wrappers, change only the current DEMO destination label. Do not change or rename filenames, URLs or technical identifiers. Preserve all unrelated text. Preserve all `agent_steward` literals, preflight script/test names and hash-sensitive values. Do not change runtime, service, provider, database or model settings. This worker must not open a PR, publish externally, or communicate externally. After independently reviewing the committed head, the coordinating owner may publish this bounded slice as a reviewable draft. Do not alter or close existing PRs, and do not merge any PR. Do not introduce legacy `.cursor` rules as policy gates where current `AGENTS.md` says they are not. Do not substitute PRIME (or another agent) as the default owner. Do not weaken independent review, approval gates, explicit assignment scope, or existing limits on merge/runtime/model authority.
 

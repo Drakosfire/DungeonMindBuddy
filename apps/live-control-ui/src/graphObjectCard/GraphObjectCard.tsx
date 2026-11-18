@@ -173,7 +173,7 @@ function RelationshipRowBody({
   );
 }
 
-export function GraphObjectRelationships({
+function GraphObjectRelationships({
   model,
   onSelectRelationship,
   selectedRelationshipId,

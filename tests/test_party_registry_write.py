@@ -14,12 +14,12 @@ from apps.live_control_server.services.party_registry_write import (
     commit_party_registry_session_roster_write,
     prepare_party_registry_session_roster_write,
 )
-from src.graph_memory.party_context import PARTY_REGISTRY_BASENAME
+from graph_memory.party_context import PARTY_REGISTRY_BASENAME
 
 
 @pytest.fixture
 def isolated_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    campaign_rel = "Longmont Campaign/Campaign 2"
+    campaign_rel = "Longmont Campaign/Campaign 42"
     campaign_dir = tmp_path / campaign_rel
     campaign_dir.mkdir(parents=True)
     registry = {
@@ -42,7 +42,7 @@ def isolated_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         lambda: tmp_path,
     )
     monkeypatch.setattr(
-        "src.graph_memory.party_context.CAMPAIGN_CORPUS",
+        "graph_memory.party_context.CAMPAIGN_CORPUS",
         {"longmont-c2": (tmp_path, campaign_rel)},
     )
     return campaign_dir / PARTY_REGISTRY_BASENAME

@@ -1,5 +1,6 @@
 """Plan parent owns acquisitions; Jev selects semantic catalog entries only."""
 import json
+import re
 from contextlib import nullcontext
 
 from application_state.agent_conversation import types as t
@@ -38,7 +39,32 @@ class PlanJevDriver:
                 self.saved_page_catalog=saved_section_catalog(adapter.work.build_source.markdown,receipt.work_context.source_basis)
         self._refresh_related_catalog()
         self.attempted_related_pages = set()
+        self.saved_statblocks = {}
+        self.prior_statblock_read = None
+        self.attempted_statblocks = set()
+        if (adapter.request.surface.surface_id == "build"
+                and adapter.fence is not None
+                and isinstance(adapter.fence.turn.graph_context_receipt, t.SurfaceNativeContextReceiptV1)
+                and getattr(getattr(adapter, "native_principal", None), "role", None) == "gm"):
+            from apps.live_control_server.routes.statblock_storage import statblock_data_root
+            from .statblock_saved_revision import iter_saved_mechanics
+            self.statblock_root = statblock_data_root(adapter.root)
+            self.statblock_world = adapter.fence.turn.world_id
+            from application_state.agent_conversation.authored_graph_references import object_selections
+            references = object_selections(adapter.request.build_authored_references)
+            entries = self._referenced_statblocks(references) if references else None
+            if adapter.request.build_authored_references is None:
+                entries = self._prior_bound_statblock() or entries
+            if entries is None:
+                entries = (iter_saved_mechanics(self.statblock_root, world_id=self.statblock_world)
+                           if re.search(r"\b(?:stat[ -]?blocks?|saved mechanics)\b", adapter.request.message, re.IGNORECASE)
+                           else ())
+            self.saved_statblocks = {
+                f"saved-statblock:{index}": entry for index, entry in enumerate(entries)
+            }
         self.finished = False
+        self.continuation_candidates = None
+        self.continuation_reviewed = False
         self.calls = []
         self.gaps = []
         self.current = None
@@ -78,8 +104,51 @@ class PlanJevDriver:
                     handle=handle, label=row["label"],
                     kind=f"World entity: {kind}" if kind is not None else "World entity"))
 
+    def _anchored_discussion(self):
+        adapter = self.adapter
+        if adapter.request.surface.surface_id != "build":
+            return False
+        from application_state.agent_conversation.build_intentional_response import is_anchored_discussion, selected_action
+
+        execution = adapter._broker_execution()
+        if not any(isinstance(event, t.BuildRequestedWorkResolutionV1) for event in execution.events):
+            return False
+        return is_anchored_discussion(selected_action(execution))
+
+    def _variant_approval(self):
+        if self.adapter.request.surface.surface_id != "build":
+            return False
+        from application_state.agent_conversation.build_intentional_response import is_variant_approval
+
+        return any(is_variant_approval(event) for event in self.adapter._broker_execution().events)
+
+    def _anchored_variant_draft(self):
+        if self.adapter.request.surface.surface_id != "build" or len(self.saved_statblocks) != 1:
+            return False
+        # Only a statblock bound through an explicit or carried World reference
+        # qualifies. A catalog hit from the generic mechanics search does not.
+        entry, = self.saved_statblocks.values()
+        if len(entry) != 4:
+            return False
+        events = self.adapter._broker_execution().events
+        return (
+            any(isinstance(event, t.BuildDraftContextCapturedV1) for event in events)
+            and any(
+                isinstance(event, t.BuildRequestedWorkResolutionV1)
+                and event.requested_work == "draft_in_conversation"
+                and event.resolution.get("source_scope") == "anchored"
+                for event in events
+            )
+        )
+
     def offered(self):
-        if self.finished:return ()
+        if self.finished or self._variant_approval():
+            return ()
+        if self._anchored_variant_draft():
+            return self._saved_statblock_candidates()
+        if self._anchored_discussion():
+            rules = (rules_candidate(),) if self.rules is not None and not self.rules.selected else ()
+            return rules + self._saved_build_sections() + self._saved_statblock_candidates()
         result = [candidate for node, candidate in self.catalog.values() if node not in self.attempted_nodes]
         from .plan_jev_acquisition import query_identity, read_subject_labels
         seen = set(self.attempted_queries)
@@ -105,12 +174,22 @@ class PlanJevDriver:
             result.extend(RetrievalCandidate(handle=assertion_handle(query, match), label=match.label,
                 kind='Reviewed native Graph assertion; select to read its qualifications and exact supporting evidence')
                 for match in query.assertion_matches if match.assertion_id not in self.native_assertion_attempts)
-        result.extend(candidate for handle,(candidate,_range) in self.saved_page_catalog.items() if handle not in self.attempted_saved_pages)
+        result.extend(self._saved_build_sections())
         result.extend(RetrievalCandidate(handle=handle, label=page.title,
             kind="Saved authored Worldbuilding page; read its exact current saved text, not played truth. New connected-page review needs a relevant saved page origin.")
             for handle,page in self.related_saved_pages.items() if handle not in self.attempted_related_pages)
+        result.extend(self._saved_statblock_candidates())
         result.extend(self.native_sources.offered())
         return tuple(result)
+
+    def _saved_build_sections(self):
+        return tuple(candidate for handle, (candidate, _range) in self.saved_page_catalog.items()
+                     if handle not in self.attempted_saved_pages)
+
+    def _saved_statblock_candidates(self):
+        return tuple(RetrievalCandidate(handle=handle, label=entry[0],
+                     kind="Saved statblock; open its exact saved mechanics revision")
+                     for handle, entry in self.saved_statblocks.items() if handle not in self.attempted_statblocks)
 
     def _graph_read(self, operation, node=None, *, query=None):
         a = self.adapter
@@ -232,7 +311,9 @@ class PlanJevDriver:
             for index, handle in enumerate(selected.selected_handles):
                 if handle in handled_sources:
                     continue
-                if handle in self.related_saved_pages:
+                if handle in self.saved_statblocks:
+                    self._read_saved_statblock(handle, dispatch.selection_event)
+                elif handle in self.related_saved_pages:
                     if handle in self.attempted_related_pages:
                         raise ValueError('Related saved page cannot be reacquired')
                     self.attempted_related_pages.add(handle)
@@ -271,6 +352,12 @@ class PlanJevDriver:
             turn = self.adapter.fence.turn
             if selected_read_closure(turn.graph_context_receipt, turn.graph_context_execution,
                     admitted.event_id) is not None:
+                if not self.continuation_reviewed:
+                    continuation = self.native_sources.continuation_offers()
+                    if continuation:
+                        self.continuation_reviewed = True
+                        self.continuation_candidates = {candidate.handle for candidate in continuation}
+                        return
                 from uuid import uuid4
                 self.adapter.turn, fresh = self.adapter.fence.commit('conclude_native_read_batch',
                     event_id=uuid4(), selection_event_id=admitted.event_id)
@@ -279,6 +366,236 @@ class PlanJevDriver:
                 self.finished = True
             return
         self._read_new_sources(operations)
+
+    def _prior_bound_statblock(self):
+        from application_state.agent_conversation.authored_graph_references import native_references, object_selections
+        from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+
+        adapter = self.adapter
+        turn = adapter.fence.turn
+        if turn.sequence <= 1:
+            return ()
+        prior = adapter.service.list_turns(
+            self.statblock_world, turn.conversation_id, limit=12, before_sequence=turn.sequence,
+        )
+        for previous in reversed(prior):
+            if not isinstance(previous, t.Turn) or previous.status != "completed":
+                return ()
+            receipt = previous.graph_context_receipt
+            if (not isinstance(receipt, t.SurfaceNativeContextReceiptV1)
+                    or receipt.work_context.surface_id != "build"
+                    or receipt.work_context.source_basis != turn.graph_context_receipt.work_context.source_basis
+                    or previous.graph_context_execution is None):
+                return ()
+            events = previous.graph_context_execution.events
+            reads = [event for event in events if isinstance(event, BuildSavedStatblockReadV1)]
+            captures = [event for event in events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
+            if reads:
+                if len(reads) != 1 or len(captures) > 1:
+                    return ()
+                break
+            if captures or native_references(previous.graph_context_execution) is not None or not any(
+                isinstance(event, t.BuildRequestedWorkResolutionV1) and event.requested_work == "discuss"
+                for event in events
+            ):
+                return ()
+        else:
+            return ()
+        read = reads[0]
+        reference = self._published_statblock_reference(read.draft_id, read.locator)
+        if reference is None:
+            return ()
+        if read.association_anchor is None:
+            if not captures:
+                return ()
+        elif read.association_anchor != self._current_statblock_anchor(reference, read.draft_id, read.locator):
+            return ()
+        if captures and not any(
+            (selected.managed_world_id, selected.native_world_id, selected.binding_version, selected.node_id)
+            == (reference.managed_world_id, reference.native_world_id, reference.binding_version, reference.node_id)
+            for selected in object_selections(captures[0].references)
+        ):
+            return ()
+        self.prior_statblock_read = (previous, read)
+        return ((reference.label, read.draft_id, read.locator, reference),)
+
+    def _referenced_statblocks(self, references):
+        from application_state.world_mechanics.service import list_current
+        from .world_creature_selection import catalog
+
+        records = list_current(world_id=self.statblock_world)
+        selected_nodes = {ref.node_id for ref in references if ref.managed_world_id == self.statblock_world}
+        records = [record for record in records if record.request.target.node_id in selected_nodes]
+        if not records:
+            return None
+
+        entries = []
+        for ref in references:
+            if ref.managed_world_id != self.statblock_world or not any(
+                record.request.target.node_id == ref.node_id for record in records
+            ):
+                continue
+            view = catalog(self.statblock_world, revision_id=ref.graph_revision)
+            if view.revision_id != view.head_revision_id:
+                continue
+            if (view.native_world_id, view.binding_version, view.revision_id) != (
+                ref.native_world_id, ref.binding_version, ref.graph_revision
+            ):
+                continue
+            matches = [
+                (target, record)
+                for target in view.targets if target.node_id == ref.node_id
+                for record in records if record.request.target.matches_association_target(target)
+            ]
+            if len(matches) == 1:
+                target, record = matches[0]
+                entries.append((target.label, record.request.draft_id, record.proof.locator, ref))
+        return entries
+
+    def _published_statblock_reference(self, draft_id, locator):
+        from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1
+        from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+        from application_state.world_mechanics.service import list_current
+        from .world_creature_selection import catalog
+
+        authority = self.adapter.fence.turn.graph_context_receipt.source_authority
+        if not isinstance(authority, NativeCorpusAuthorityV1):
+            return None
+        records = [
+            record for record in list_current(world_id=self.statblock_world)
+            if str(record.request.draft_id) == str(draft_id) and record.proof.locator == locator
+        ]
+        if not records:
+            return None
+        view = catalog(self.statblock_world, revision_id=authority.revision_id)
+        if (view.native_world_id, view.binding_version, view.revision_id) != (
+            authority.native_world_id, authority.binding_version, authority.revision_id
+        ) or view.revision_id != view.head_revision_id:
+            return None
+        matches = [
+            target for record in records for target in view.targets
+            if record.request.target.matches_association_target(target)
+        ]
+        if len(matches) != 1:
+            return None
+        target = matches[0]
+        return AuthoredGraphReferenceV1(
+            managed_world_id=view.managed_world_id, native_world_id=view.native_world_id,
+            binding_version=view.binding_version, graph_revision=view.revision_id,
+            node_id=target.node_id, label=target.label,
+        )
+
+    def _current_statblock_anchor(self, reference, draft_id, locator):
+        from application_state.agent_conversation.build_saved_statblock import SavedStatblockAssociationAnchor
+        from application_state.world_mechanics.service import list_current
+
+        if reference is None or reference.managed_world_id != self.statblock_world:
+            return None
+        matches = [
+            record for record in list_current(world_id=self.statblock_world)
+            if str(record.request.draft_id) == str(draft_id) and record.proof.locator == locator
+            and (record.request.target.managed_world_id, record.request.target.native_world_id,
+                 record.request.target.binding_version, record.request.target.node_id)
+            == (reference.managed_world_id, reference.native_world_id,
+                reference.binding_version, reference.node_id)
+        ]
+        if len(matches) != 1:
+            return None
+        return SavedStatblockAssociationAnchor(
+            association_id=matches[0].association_id, node_id=reference.node_id,
+        )
+
+    def _read_saved_statblock(self, handle, selection):
+        from uuid import UUID, uuid4
+        from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+        from .agent_turn_service import _require_fresh_execution_append
+        from .statblock_saved_revision import open_version
+
+        if handle in self.attempted_statblocks:
+            raise ValueError("Saved statblock cannot be reacquired")
+        self.attempted_statblocks.add(handle)
+        _, draft_id, locator, *references = self.saved_statblocks[handle]
+        adapter = self.adapter
+        event_id = uuid4()
+        sequence = len(adapter._broker_execution().events)
+
+        from application_state.agent_conversation.build_saved_statblock import validate_prior_read
+        from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+        from apps.live_control_server.integrations.dungeonmind import native_registry_source
+        from .native_graph_inspection import InspectionUnavailable, statblock_pdf_support
+        from .native_pdf_evidence import reviewed_pdf_regions
+
+        current = adapter.fence.turn
+        authority = getattr(current.graph_context_receipt, "source_authority", None)
+        epoch = authority.acquisition_epoch if isinstance(authority, NativeCorpusAuthorityV1) else None
+
+        def current_epoch():
+            return native_registry_source.read_repository().open_native_source_view(authority.native_world_id).epoch
+
+        fields = dict(event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
+                      handle=handle, world_id=self.statblock_world, draft_id=UUID(str(draft_id)), locator=locator)
+        reference = references[0] if references else None
+        anchor = self._current_statblock_anchor(reference, draft_id, locator) if epoch is not None else None
+        prior = self.prior_statblock_read
+        event = None
+        if prior is not None and prior[1].continuity_verified and anchor is not None:
+            previous, record = prior
+            candidate = BuildSavedStatblockReadV1(
+                **fields, definition=record.definition, pdf_support=record.pdf_support,
+                continuity_verified=True, association_anchor=anchor, reused_from_turn_id=previous.turn_id,
+            )
+            try:
+                validate_prior_read(candidate, current, previous)
+            except ValueError:
+                pass
+            else:
+                if current_epoch() == epoch:
+                    event = candidate
+        if event is None:
+            opened = open_version(self.statblock_root, world_id=self.statblock_world,
+                                  draft_id=draft_id, revision_id=locator.revision_id)
+            if (opened["locator"] != locator.model_dump(mode="json")
+                    or opened["world_id"] != fields["world_id"]
+                    or UUID(str(opened["draft_id"])) != fields["draft_id"]):
+                raise ValueError("Opened statblock differs from its selected saved revision")
+            regions = reviewed_pdf_regions(opened["resource"], world_id=self.statblock_world)
+            pdf_support = None
+            verified = False
+            if regions:
+                if reference is None:
+                    reference = self._published_statblock_reference(draft_id, locator)
+                    anchor = self._current_statblock_anchor(reference, draft_id, locator) if epoch is not None else None
+                if reference is not None:
+                    if epoch is not None:
+                        try:
+                            pdf_support = statblock_pdf_support(
+                                reference, regions, adapter.native_principal, expected_source_epoch=epoch,
+                            )
+                        except InspectionUnavailable:
+                            pdf_support = statblock_pdf_support(reference, regions, adapter.native_principal)
+                        else:
+                            verified = True
+                    else:
+                        pdf_support = statblock_pdf_support(reference, regions, adapter.native_principal)
+            elif anchor is not None:
+                verified = current_epoch() == epoch
+            event = BuildSavedStatblockReadV1(
+                **fields, definition=opened["resource"]["definition"], pdf_support=pdf_support,
+                continuity_verified=verified and anchor is not None,
+                association_anchor=anchor if verified else None,
+            )
+
+        def materialize():
+            if event.continuity_verified:
+                if current_epoch() != epoch:
+                    raise ValueError("Saved statblock source authority changed before admission")
+                if self._current_statblock_anchor(reference, draft_id, locator) != event.association_anchor:
+                    raise ValueError("Saved statblock World association changed before admission")
+            return event
+
+        adapter.turn = _require_fresh_execution_append(adapter.fence.append(
+            "record_build_saved_statblock", "event", event, materializer=materialize,
+        ))
 
     def _read_native(self, record_kind, identities):
         from uuid import uuid4
@@ -422,12 +739,29 @@ class PlanJevDriver:
 
     def decision_arguments(self):
         """One actual catalog producer for opening and subsequent decisions."""
-        operations = (('select_candidates', 'finish_retrieval') if self.discovered else
-            ('select_candidates', 'discover_more', 'finish_retrieval'))
+        if self._variant_approval():
+            return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
+                        allowed_operations=("select_candidates", "finish_retrieval"))
+        operations = (
+            ('select_candidates', 'finish_retrieval')
+            if self.discovered or self._anchored_discussion() or self._anchored_variant_draft()
+            else ('select_candidates', 'discover_more', 'finish_retrieval')
+        )
         examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
         if self.rules is not None and self.rules.selected:
             examined.append(rules_candidate())
         examined.extend(self.saved_page_catalog[h][0] for h in sorted(self.attempted_saved_pages))
+        if self.attempted_statblocks:
+            from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+
+            examined.extend(
+                RetrievalCandidate(
+                    handle=event.handle, label=self.saved_statblocks[event.handle][0],
+                    kind="Saved statblock: acquired exact mechanics in this turn",
+                )
+                for event in self.adapter._broker_execution().events
+                if isinstance(event, BuildSavedStatblockReadV1) and event.handle in self.saved_statblocks
+            )
         examined.extend(self.native_sources.examined())
         from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
         if isinstance(getattr(self.adapter, 'native_query', None), NativeGraphQueryV4):
@@ -435,7 +769,12 @@ class PlanJevDriver:
         else:
             examined.extend(self._native_statement_examined())
             examined.extend(self._native_assertion_examined())
-        return dict(candidates=self.offered(), dialogue=self.dialogue,
+        candidates = self.offered()
+        if self.continuation_candidates is not None:
+            candidates = tuple(candidate for candidate in candidates
+                               if candidate.handle in self.continuation_candidates)
+            operations = ('select_candidates', 'finish_retrieval')
+        return dict(candidates=candidates, dialogue=self.dialogue,
             examined_candidates=examined, allowed_operations=operations)
 
     async def run(self, *, transport=None, api_key=None):

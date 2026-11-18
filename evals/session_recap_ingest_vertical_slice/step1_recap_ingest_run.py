@@ -105,7 +105,7 @@ from src.agent.planner_cache import load_or_build_planner_instructions  # noqa: 
 from src.agent.planner_telemetry import maybe_full_text, text_sig  # noqa: E402
 from src.agent.recap_context import RecapContextError, resolve_recap_context  # noqa: E402
 from src.agent.synthesis import _load_api_key  # noqa: E402
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
+from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 
 _SLICE_DIR = Path(__file__).resolve().parent
 _GOLD_SCENARIO = _SLICE_DIR / "gold" / "scope_b_session_20.json"
@@ -693,7 +693,7 @@ def main() -> None:
         dest="detach",
         help=(
             "Spawn the same run in a background subprocess (same flags except --detach) "
-            "and exit immediately. Logs stdout+stderr to --detach-log (default under /tmp). "
+            "and exit immediately. Logs stdout+stderr to --detach-log (default under task scratch). "
             "Requires OPENAI_API_KEY (same as the synchronous run)."
         ),
     )
@@ -703,7 +703,7 @@ def main() -> None:
         default=None,
         metavar="PATH",
         help=(
-            "Log file for a detached run. Default: /tmp/recap_ingest_detach_<UTC>.log. "
+            "Log file for a detached run. Default in task scratch: recap_ingest_detach_<UTC>.log. "
             "Not used when --detach is absent."
         ),
     )
@@ -746,7 +746,7 @@ def main() -> None:
             log_path = args.detach_log.expanduser()
         else:
             compact = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-            log_path = Path("/tmp") / f"recap_ingest_detach_{compact}.log"
+            log_path = Path(os.environ["TMPDIR"]) / f"recap_ingest_detach_{compact}.log"
         proc = _spawn_detached_benchmark_child(log_path=log_path)
         abs_log = log_path.resolve()
         print(

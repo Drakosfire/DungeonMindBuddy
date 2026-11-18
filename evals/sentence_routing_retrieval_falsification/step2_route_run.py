@@ -390,7 +390,7 @@ def _call_llm_for_routes(
 ) -> tuple[dict[str, Any], float, str]:
     from openai import OpenAI
 
-    from src.agent.planner_pricing import usage_cost_usd
+    from llm.planner_pricing import usage_cost_usd
 
     client = OpenAI()
     resp = client.chat.completions.create(
@@ -722,7 +722,7 @@ def main() -> int:
 
     if not args.no_llm and n >= 1:
         from src.agent.synthesis import _load_api_key
-        from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+        from bootstrap_env import load_dungeonmindbuddy_dotenv
 
         load_dungeonmindbuddy_dotenv()
         if not (_load_api_key() or "").strip():

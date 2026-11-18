@@ -11,6 +11,7 @@ Callers that historically swallowed parse/read failures use the default.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -20,12 +21,13 @@ _POLICY_NAME = "MODEL_POLICY.json"
 
 def buddy_repo_root() -> Path:
     """Return the DungeonMindBuddy repository root."""
-    return _BUDDY_ROOT
+    root = os.environ.get("DMB_MODEL_POLICY_ROOT")
+    return Path(root).resolve() if root else _BUDDY_ROOT
 
 
 def buddy_model_policy_path() -> Path:
     """Return the Buddy-owned ``MODEL_POLICY.json`` path (may not exist)."""
-    return _BUDDY_ROOT / _POLICY_NAME
+    return buddy_repo_root() / _POLICY_NAME
 
 
 def load_buddy_model_policy(*, strict: bool = False) -> dict[str, Any]:

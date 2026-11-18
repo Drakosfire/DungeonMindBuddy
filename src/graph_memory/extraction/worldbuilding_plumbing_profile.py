@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from src.graph_memory.extraction.extraction_profile import (
+from graph_memory.extraction.extraction_profile import (
     ExtractionPassSpec,
     ExtractionProfile,
     register_extraction_profile,
 )
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction.recap_extraction_profile import (
     DEFAULT_SEMANTIC_STATE,
     EVIDENCE_RULE,
 )

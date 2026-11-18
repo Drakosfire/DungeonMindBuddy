@@ -75,7 +75,7 @@ Governing consequences:
 
 1. [`Docs/Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
 2. [`Docs/Roadmaps/ROADMAP-surface-integration.md`](../Roadmaps/ROADMAP-surface-integration.md)
-3. [`Docs/Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)
+3. [Of Conks end-to-end evidence (historical in-progress snapshot)](https://github.com/Drakosfire/DungeonMindBuddy/blob/b40d893f58f4aeeb0de605b7b13a3b18389a0908/Docs/Reports/REPORT-of-conks-end-to-end-dogfood.md)
 
 CON-READY is the GM-visible acceptance authority. SURFACE-INTEGRATION exists because Of Conks demonstrated that individually green stations can still assemble into an untrustworthy product.
 

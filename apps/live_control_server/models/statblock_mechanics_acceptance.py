@@ -270,6 +270,19 @@ class AcceptThreatDraftMechanicsRequestV1(StrictModel):
         return validate_operation_id(value)
 
 
+class AcceptPdfStatblockReviewRequestV1(StrictModel):
+    operation_id: str
+    expected_draft_version: int = Field(ge=1, strict=True)
+    expected_revision: int = Field(ge=1, strict=True)
+    validation_receipt: ValidationReceiptV1
+    validation_definition_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+    @field_validator("operation_id")
+    @classmethod
+    def _operation_id(cls, value: str) -> str:
+        return validate_operation_id(value)
+
+
 class AcceptThreatDraftMechanicsResponseV1(StrictModel):
     schema_name: Literal["dmb_accept_threat_draft_mechanics_response_v1"] = Field(
         default="dmb_accept_threat_draft_mechanics_response_v1",

@@ -162,7 +162,7 @@ Stub pointers remain at former paths.
 | `Docs/Design/INDEX-hermes-campaign-authoring-foundation.md` | Hermes active document set | **ACTIVE PROPOSED** | Current Hermes design index |
 | `Docs/Design/ANCHOR-agent-interaction-hermes.md` | Superseded agent boundary | **ARCHIVED STUB** | Historical source is under the 2026-07-15 Hermes reset archive |
 | `Docs/Design/RESEARCH-graph-visualization-exploration.md` | Viz research | **RESEARCH_ONLY** / **KEEP** | Research only |
-| `Docs/Reports/GRAPH-MEMORY-CROSS-CLASS-BLOCKED-DIAGNOSTICS.md` | Collision diagnostics | **KEEP** | Identity-safety evidence |
+| [`Docs/Reports/GRAPH-MEMORY-CROSS-CLASS-BLOCKED-DIAGNOSTICS.md`](https://github.com/Drakosfire/DungeonMindBuddy/blob/db96ce3cd8329114d2cb2d91c32f9c8f19d5c8fa/Docs/Reports/GRAPH-MEMORY-CROSS-CLASS-BLOCKED-DIAGNOSTICS.md) | Collision diagnostics | **KEEP** | Identity-safety evidence |
 | `Docs/Reports/archive/2026-06-28/graph-memory/GRAPH-MEMORY-SHARED-SOURCE-VOCABULARY-CONTRACT.md` | Full vocab contract copy | **KEEP** | Prefer Design CONTRACT as canonical |
 | `Docs/Reports/archive/2026-06-28/graph-memory/GRAPH-MEMORY-SURFACE-VOCABULARY-BOUNDARY.md` | Surface vs graph vocab | **KEEP** | Boundary rules |
 | `Docs/Anchors/CORPUS-ANCHOR.md` | Corpus path index | **SOURCE_ANCHOR** / **KEEP** | Corpus navigation |

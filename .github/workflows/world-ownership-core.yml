@@ -43,22 +43,9 @@ jobs:
           clean: true
           persist-credentials: false
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: "3.13"
+      - uses: ./.github/actions/setup-python-toolchain
 
-      - name: Set up pinned uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          version: "0.13.5"
-          enable-cache: false
-
-      - name: Prepare pinned patched Hermes source
-        run: python scripts/prepare_patched_hermes.py
-
-      - name: Install locked dependencies
-        run: uv sync --locked
+      - uses: ./.github/actions/install-locked-python
 
       - name: Inventory and validate CI contracts
         if: matrix.suite == 'world-and-content'

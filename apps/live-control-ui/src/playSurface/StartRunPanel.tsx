@@ -12,7 +12,7 @@ import {
   getPlayRun,
   getPlayRunReferenceManifest,
   getCommittedWorkspaceRevision,
-  listWorldOwnedPlans,
+  getWorldOwnedPlanSnapshot,
   listWorldOwnedRunbooks,
   listWorkspaceDocuments,
   putWorldPlayRun,
@@ -278,18 +278,12 @@ export function StartRunPanel({
     planListRequestRef.current = request;
     setPlanStatus("loading");
     setPlanDetail(null);
-    void listWorldOwnedPlans(scope.worldId).then((inventory) => {
+    void getWorldOwnedPlanSnapshot(initialPlanId).then((snapshot) => {
       if (!isCurrentScope(scope) || planListRequestRef.current !== request) return;
+      const record = snapshot.record;
       if (
-        inventory.schema_version !== "dmb_workspace_document_registry_v2"
-        || inventory.scope_mode !== "world"
-        || inventory.world_id !== scope.worldId
-      ) {
-        throw new TypeError("World Plan inventory does not match the selected World.");
-      }
-      const record = inventory.records.find((candidate) => candidate.document_id === initialPlanId);
-      if (
-        record == null
+        snapshot.schema_version !== "dmb_workspace_document_snapshot_v2"
+        || record.document_id !== initialPlanId
         || record.schema_version !== "dmb_world_owned_plan_record_v2"
         || record.world_id !== scope.worldId
         || record.campaign_id !== null

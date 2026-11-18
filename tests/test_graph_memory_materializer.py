@@ -5,9 +5,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from src.graph_memory.materialize import materialize_fixture_file
-from src.graph_memory.ontology_ir import GraphBundle
-from src.graph_memory.validation_rules import load_taxonomy_registry, validate_bundle_against_taxonomy
+from graph_memory.materialize import materialize_fixture_file
+from graph_memory.ontology_ir import GraphBundle
+from graph_memory.validation_rules import load_taxonomy_registry, validate_bundle_against_taxonomy
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "examples" / "materializer_input_minimal.json"
@@ -21,7 +21,7 @@ REAL_CAMPAIGN_TERMS = {
 FORBIDDEN_IMPORT_SNIPPETS = {
     "src.agent.session_memory_query",
     "src.agent.planner_retrieval_router",
-    "src.live_play.manifest_context_query",
+    "live_play.manifest_context_query",
     "src.session_memory.capture",
     "src.session_memory.breadcrumb_normalize",
     "openai",

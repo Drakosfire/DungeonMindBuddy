@@ -311,3 +311,106 @@
   .native-demo-graph-card--embedded .world-graph-canvas { padding: 6px; }
   .native-demo-graph-card--embedded .world-graph-canvas__viewport { min-height: 180px; }
 }
+
+/* Graph surface: the rail owns persistent controls; the canvas owns geometry. */
+.app-chrome-header .surface-context-host .native-demo-context__row { gap: .3rem; }
+.app-chrome-header .surface-context-host .native-demo-context__identity { max-width: 12rem; }
+.native-demo-context__canvas-controls { display: flex; flex: 1 1 auto; align-items: center; gap: .3rem; min-width: 0; }
+.native-demo-context__status-action { white-space: nowrap; }
+.native-demo-context__menu-actions { display: grid; gap: .4rem; }
+.native-demo-context__search { display: grid; gap: .5rem; min-width: 0; }
+.native-demo-context__search input { min-width: 0; width: 100%; }
+.native-demo-context__search p { margin: 0; font-size: .8rem; }
+.native-demo-context__search ul { list-style: none; padding: 0; margin: 0; max-height: min(45vh, 25rem); overflow: auto; }
+.native-demo-context__search li > button { width: 100%; text-align: left; white-space: normal; padding: .45rem; }
+.native-demo-context__search small { display: block; font-size: .7rem; overflow-wrap: anywhere; opacity: .75; }
+.native-demo-context__search [role="group"] { display: flex; align-items: center; gap: .4rem; font-size: .8rem; }
+.native-demo-graph-card.native-demo-graph-card--embedded { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.native-demo-graph-card--embedded .world-graph-canvas { padding: 0; border: 0; background: transparent; }
+.native-demo-graph-card--embedded .world-graph-canvas__viewport { border-radius: 12px; }
+@media (max-width: 640px) {
+  .app-chrome-header .surface-context-host .native-demo-context__identity { flex-basis: auto; max-width: 10rem; }
+  .native-demo-context__canvas-controls { flex: 1 1 auto; }
+  .native-demo-context__status-action { font-size: .72rem; }
+}
+
+.graph-node-explorer__menu > summary { list-style: none; cursor: pointer; min-width: 28px; min-height: 28px; display: grid; place-items: center; border: 1px solid #62604e; border-radius: 5px; background: #2c3029; color: #e7dec9; }
+.graph-node-explorer__menu > summary::-webkit-details-marker { display: none; }
+.graph-node-explorer__menu > summary:focus-visible { outline: 2px solid #dfb65f; outline-offset: 2px; }
+.graph-node-explorer__menu-content { position: absolute; right: 8px; top: 100%; width: min(300px, calc(100% - 16px)); max-height: 60vh; overflow: auto; padding: 12px; border: 1px solid #62604e; border-radius: 6px; background: #202522; box-shadow: 0 6px 16px #0006; font-size: 12px; overflow-wrap: anywhere; }
+.graph-node-explorer__menu-content summary { cursor: pointer; }
+.native-demo-object-details .graph-node-explorer__navbar button { display: inline-flex; align-items: center; justify-content: center; }
+
+.native-demo-event-strip {
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+}
+
+.native-demo-event-strip ul {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  list-style: none;
+  margin: 0.25rem 0;
+  padding: 0.25rem;
+}
+
+.native-demo-event-strip li {
+  flex: 0 0 12rem;
+}
+
+.native-demo-event-strip small {
+  display: block;
+}
+
+.native-demo-event-strip button[aria-pressed="true"],
+.native-demo-event-strip button[data-connected="true"] {
+  outline: 2px solid #dfb65f;
+  outline-offset: 1px;
+}
+
+.native-demo-event-strip button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.native-demo-event-strip button {
+  color: #fff8e9;
+  background: #303c50;
+}
+
+.native-demo-inspector-timeline .native-demo-event-strip ul {
+  flex-direction: column;
+  border-inline-start: 1px solid #ad8a4b;
+  padding-inline-start: 0.75rem;
+}
+
+.native-demo-inspector-timeline .native-demo-event-strip li {
+  flex: 0 0 auto;
+}
+
+.native-demo-inspector-timeline .native-demo-event-strip button {
+  width: 100%;
+  text-align: start;
+}
+
+.native-demo-sidebar-switch {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  background: #202522;
+}
+
+.native-demo-sidebar-switch button[aria-pressed="true"] {
+  border-color: #ad8a4b;
+}
+
+.native-demo-session-heading {
+  margin: 0.8rem 0 0.35rem;
+  padding-block-start: 0.45rem;
+  border-block-start: 1px solid #65563c;
+  font-size: 0.9rem;
+}

@@ -1020,7 +1020,7 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         **({'authored_references':t.AuthoredReferencesV2(references=references).model_dump(mode='json',by_alias=True)}
           if references else {}))))
     monkeypatch.setattr('apps.live_control_server.services.world_container_registry.get_world_container',
-        lambda root,world_id:SimpleNamespace(world_id=world_id,name="Synthetic Play World"))
+        lambda world_id:SimpleNamespace(world_id=world_id,name="Synthetic Play World"))
     monkeypatch.setattr(agent,'_managed_world_root',lambda:tmp_path)
     monkeypatch.setattr('apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference',
         lambda **_:('openai-api','gpt-6-luna','https://api.openai.com/v1'))

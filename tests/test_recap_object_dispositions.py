@@ -6,15 +6,15 @@ from dataclasses import replace
 import pytest
 from jsonschema import Draft202012Validator
 
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     consolidate_category_outputs,
     render_category_pass_prompts,
 )
-from src.graph_memory.extraction.category_candidate_graph_schema import (
+from graph_memory.extraction.category_candidate_graph_schema import (
     category_pass_text_format_for_spec,
 )
-from src.graph_memory.extraction.extraction_profile import get_extraction_profile
-from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+from graph_memory.extraction.extraction_profile import get_extraction_profile
+from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
 
 
 @pytest.mark.parametrize('profile', [

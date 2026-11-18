@@ -22,7 +22,7 @@ from apps.live_control_server.services.world_container_registry import create_wo
 def test_managed_world_plan_context_v2_is_exact_and_non_authoritative(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    world = create_world_container(tmp_path, name="Plan Contract World")
+    world = create_world_container(name="Plan Contract World")
     monkeypatch.setattr(live, "repo_root", lambda: tmp_path)
 
     response = live.get_live_plan_view(world_id=world.world_id, scope_mode="world")
@@ -40,7 +40,7 @@ def test_managed_world_plan_context_v2_is_exact_and_non_authoritative(
 def test_legacy_managed_plan_context_remains_v1_compatibility_shape(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    world = create_world_container(tmp_path, name="Plan Contract World")
+    world = create_world_container(name="Plan Contract World")
     monkeypatch.setattr(live, "repo_root", lambda: tmp_path)
 
     response = live.get_live_plan_view(world_id=world.world_id)
@@ -117,7 +117,7 @@ def test_world_plan_inventory_and_create_use_managed_root_with_app_state_identit
     managed_root.mkdir()
     monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(managed_root))
 
-    world = create_world_container(managed_root, name="Split Root Plan World")
+    world = create_world_container(name="Split Root Plan World")
     registry_bytes_before = world_snapshot()
     existing = create_world_plan(title="Existing saved Plan", world_id=world.world_id)
     client = _client(monkeypatch, code_root)
@@ -186,7 +186,7 @@ def test_world_plan_inventory_defaults_to_code_root_when_managed_root_is_unset(
     application_state_dsn: str,
 ) -> None:
     monkeypatch.delenv(MANAGED_WORLD_DATA_ROOT_ENV, raising=False)
-    world = create_world_container(tmp_path, name="Default Root Plan World")
+    world = create_world_container(name="Default Root Plan World")
     plan = create_world_plan(title="Default-root Plan", world_id=world.world_id)
     client = _client(monkeypatch, tmp_path)
 
@@ -217,7 +217,7 @@ def test_world_plan_revision_and_mutation_routes_emit_v2_and_reject_session(
     monkeypatch: pytest.MonkeyPatch,
     application_state_dsn: str,
 ) -> None:
-    world = create_world_container(tmp_path, name="Revision route world")
+    world = create_world_container(name="Revision route world")
     client = _client(monkeypatch, tmp_path)
     created = client.post(
         "/api/live/workspace-documents/world-plans",

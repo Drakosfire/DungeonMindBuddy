@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
@@ -11,7 +10,6 @@ import type {
   WorkspaceCommittedRevision,
   WorkspaceDocumentSnapshot,
 } from "./api/types";
-import type { AppChromeTools, AppChromeToolsGeneration } from "./chrome/AppChrome";
 import { fixtureWorkspaceDocumentRecord, FIXTURE_DOC_ID } from "./planSurface/config/planSessionDescriptor";
 import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRunbookDescriptors";
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
@@ -42,37 +40,6 @@ vi.mock("./selectedWorld/SelectedWorldContext", async importOriginal => {
     playShellHarness.active ? <>{props.children}</> : <actual.SelectedWorldProvider {...props} /> };
 });
 
-const stableTiptapAction = () => undefined;
-const stableTiptapEditorTools: AppChromeTools = {
-  pinnedActions: [
-    {
-      id: "tiptap-lock-editor",
-      eyebrow: "Edit state",
-      label: "Lock editor",
-      onClick: stableTiptapAction,
-    },
-  ],
-  sections: [
-    {
-      id: "tiptap-insert-blocks",
-      title: "Insert blocks",
-      defaultOpen: true,
-      actions: [
-        {
-          id: "insert-gm",
-          eyebrow: "Insert",
-          label: "GM Note",
-          onClick: stableTiptapAction,
-        },
-      ],
-    },
-  ],
-};
-const stableTiptapEditorToolsGeneration: AppChromeToolsGeneration = {
-  target: { kind: "spike", id: "tiptap-callout-spike" },
-  tools: stableTiptapEditorTools,
-};
-
 const indexGraph = {
   world_id: "private-app-test-space",
   revision_id: "revision-app-test-1",
@@ -86,27 +53,6 @@ const indexGraph = {
   limitations: ["Event typing is not available in this native profile."],
   capabilities: { create: true, connect: true, rename: false, delete: false, object_kinds: ["person", "location"] },
 };
-
-vi.mock("./tiptap/TiptapCalloutBridgeSpike", () => ({
-  TiptapCalloutBridgeSpike({
-    onEditorToolsChange,
-  }: {
-    onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
-  }) {
-    useEffect(() => {
-      onEditorToolsChange?.(stableTiptapEditorToolsGeneration);
-      return () => onEditorToolsChange?.(null);
-    }, [onEditorToolsChange]);
-    return (
-      <main className="tiptap-spike-page">
-        <header className="tiptap-spike-header">
-          <h1>Tiptap Session Runbook Editor</h1>
-        </header>
-        <div data-testid="tiptap-editor" />
-      </main>
-    );
-  },
-}));
 
 vi.mock("./api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./api/liveApi")>();
@@ -332,14 +278,17 @@ describe("App inspector integration", () => {
     );
   });
 
-  it("renders the Buddy graph at the root route with older browser Worlds kept secondary", async () => {
+  it("renders the Buddy graph at /graph with older browser Worlds kept secondary", async () => {
+    window.history.pushState({}, "", "/graph");
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /buddy graph playground/i })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
     expect(screen.getByText("Buddy playground · private graph")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Graph tools" }));
     expect(screen.getByRole("button", { name: "Add object" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More graph actions" }));
     expect(screen.getByRole("button", { name: "Export snapshot" })).toBeInTheDocument();
     expect(screen.getByText("Existing browser-only Worlds and notes")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "My World" })).not.toBeInTheDocument();
@@ -358,24 +307,28 @@ describe("App inspector integration", () => {
     expect(screen.queryByRole("link", { name: /retrieval/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /tiptap|developer spike/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Graph tools" }));
     expect(within(screen.getByTestId("surface-context-module")).getByRole("button", { name: "Add object" })).toBeInTheDocument();
     await userEvent.setup().type(screen.getByLabelText("Create a World"), "Chrome-owned World");
     await userEvent.setup().click(screen.getByRole("button", { name: "Create World" }));
     expect(await screen.findByRole("heading", { name: "Chrome-owned World" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Graph tools" }));
     expect(within(screen.getByTestId("surface-context-module")).getByRole("button", { name: "Add object" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Projection" })).not.toBeInTheDocument();
     expect(liveApi.getSurface).not.toHaveBeenCalled();
   });
 
-  it("keeps primary site nav to core product surfaces", () => {
+  it("links the landing page to core product surfaces and opens Graph", async () => {
     render(<App />);
 
     const nav = screen.getByRole("navigation", { name: "Command board navigation" });
     fireEvent.click(within(nav).getByRole("button", { name: "Open navigation" }));
     const links = within(nav).getAllByRole("link");
+    expect(screen.getByRole("heading", { name: "DungeonMind Buddy" })).toBeInTheDocument();
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/",
+      "/graph",
       "/plan",
       "/play",
       "/ingest",
@@ -385,6 +338,9 @@ describe("App inspector integration", () => {
     expect(within(nav).queryByRole("link", { name: "Live Control" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "Live play" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "Tiptap Spike" })).not.toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("main")).getByRole("link", { name: "Graph" }));
+    expect(window.location.pathname).toBe("/graph");
+    expect(await screen.findByRole("heading", { name: /buddy graph playground/i })).toBeInTheDocument();
   });
   it("opens empty inspector from app chrome control", async () => {
     const user = userEvent.setup();
@@ -612,45 +568,6 @@ describe("App inspector integration", () => {
       expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
       expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
     });
-  });
-
-  it("renders the shared editor toolbar collapsed on the Tiptap spike route", async () => {
-    const runbookRecord = fixtureWorkspaceDocumentRecord({
-      document_id: FIXTURE_DOC_ID,
-      kind: "runbook",
-      title: "North Gate Session Runbook",
-      target_relpath: NORTH_GATE_RUNBOOK_TARGET_RELPATH,
-      target_session: 23,
-      revision: 1,
-    });
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v1",
-      records: [runbookRecord],
-    });
-    vi.mocked(liveApi.getWorkspaceDocument).mockResolvedValue(runbookRecord);
-    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(runbookRecord);
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
-      fixtureSnapshot({
-        record: runbookRecord,
-        loaded_revision: runbookRecord.revision,
-        markdown: "",
-      }),
-    );
-
-    window.history.pushState({}, "", "/tiptap-callout-spike");
-    render(<App />);
-
-    // Authority-safe open: runbook kind accepted; editor shell mounts under App chrome.
-    expect(await screen.findByRole("heading", { name: "Tiptap Session Runbook Editor" })).toBeInTheDocument();
-    expect(screen.getByTestId("tiptap-editor")).toBeInTheDocument();
-    expect(screen.queryByText(/wrong document kind|Failed to load runbook/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Plan", hidden: true })).toHaveAttribute("href", "/plan");
-    expect(screen.queryByRole("link", { name: "Live play" })).not.toBeInTheDocument();
-
-    const editToggle = await screen.findByRole("button", { name: "Edit" });
-    expect(editToggle).toHaveAttribute("aria-expanded", "false");
   });
 
   describe("current Play shell", () => {

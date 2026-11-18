@@ -18,13 +18,24 @@
 @media (max-width: 480px) {
   .app-site-nav.app-site-nav--compact { gap: 6px; padding: 6px; }
   .app-nav-world-context { gap: 5px; }
-  .app-nav-world-context .app-world-selector > button { max-width: min(150px, 100%); font-size: .75rem; }
+  .app-nav-world-context .app-world-selector > button { max-width: min(150px, 100%); }
   .app-nav-world-context .app-world-graph-status__prefix { display: none; }
 }
 
-.app-nav-world-context > button { flex: 0 0 auto; font-size: .8rem; padding: .35rem .55rem; }
+.app-nav-primary-actions:empty { display: none; }
+.app-nav-primary-actions { display: flex; align-items: center; flex: 0 1 auto; min-width: 0; flex-wrap: wrap; gap: 6px; }
+.app-site-nav--compact :is(.app-nav-tour, .app-nav-primary-actions [aria-haspopup="dialog"], .app-nav-world-context > button, .app-world-selector > button, .app-world-graph-status__trigger) {
+  box-sizing: border-box;
+  min-height: 32px;
+  padding: .35rem .55rem;
+  font-weight: 400;
+  font-family: inherit;
+  font-size: .8rem;
+  line-height: 1.2;
+}
+.app-nav-world-context > button { flex: 0 0 auto; }
 
-.app-site-nav--compact .app-nav-tour { flex: 0 0 auto; margin-left: auto; padding: .4rem .65rem; color: #f2d28b; background: #25251f; border: 1px solid #776239; border-radius: 6px; white-space: nowrap; cursor: pointer; }
+.app-site-nav--compact .app-nav-tour { flex: 0 0 auto; margin-left: auto; color: #f2d28b; background: #25251f; border: 1px solid #776239; border-radius: 6px; white-space: nowrap; cursor: pointer; }
 .app-site-nav--compact .app-nav-tour:hover { background: #363026; }
 .app-site-nav--compact .app-nav-tour:focus-visible { outline: 2px solid #d9a840; outline-offset: 2px; }
 .app-site-nav--compact .app-nav-tour + .app-nav-world-context { margin-left: 0; }

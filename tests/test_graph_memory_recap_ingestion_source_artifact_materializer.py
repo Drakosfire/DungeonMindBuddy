@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from src.graph_memory.recap_ingestion_materialize import (
+from graph_memory.recap_ingestion_materialize import (
     CREATED_BY,
     INPUT_MODE,
     SCHEMA,

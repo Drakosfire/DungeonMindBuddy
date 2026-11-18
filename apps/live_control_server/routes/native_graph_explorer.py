@@ -57,7 +57,16 @@ def graph(
         NativeGraphPrincipal, Depends(native_graph_explorer_dependency)
     ],
 ):
-    return _call(service.graph, body, principal)
+    result = _call(service.graph, body, principal)
+    if principal.auth_method == "hosted_owner":
+        result["graph"]["capabilities"] = {
+            "create": False,
+            "connect": False,
+            "rename": False,
+            "delete": False,
+            "object_kinds": [],
+        }
+    return result
 
 
 @router.post("/prepare")

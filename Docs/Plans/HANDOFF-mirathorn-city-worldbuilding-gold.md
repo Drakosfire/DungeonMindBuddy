@@ -41,8 +41,8 @@ EXCEPT the spoiler entities (`node:the-wolf`, `node:thalia-ashenvale`,
 2. `evals/graph_memory_layer/examples/mirathorn_city_world_doc/source_span_seed_refs.json`
 3. `evals/graph_memory_layer/examples/mirathorn_city_world_doc/mirathorn_city_world_doc_manifest.json`
 4. `evals/graph_memory_layer/examples/mirathorn_city_world_doc/README.md` (short)
-5. `evals/graph_memory_layer/examples/mirathorn_city_candidate_graph_gold/candidate_graph_gold.json`
-6. `evals/graph_memory_layer/examples/mirathorn_city_candidate_graph_gold/mirathorn_city_candidate_graph_gold_manifest.json`
+5. `evals/graph_benchmark_gold/candidate_graph/world/eldyrwild/mirathorn-city/candidate_graph_gold.json`
+6. `evals/graph_benchmark_gold/candidate_graph/world/eldyrwild/mirathorn-city/source_manifest.json`
 7. `evals/graph_memory_layer/mirathorn_city_world_doc_fixture.py` (loader: source artifact + span seeds; mirror `session_1_recap_ingest_fixture.py` but NO assemble_recap / paragraph index — the source is the snapshot file read directly)
 8. `evals/graph_memory_layer/mirathorn_city_candidate_graph_gold_fixture.py` (mirror `session_1_candidate_graph_gold_fixture.py`, incl. a `HIGH_RISK_EVIDENCE_AUDIT`)
 9. `evals/graph_memory_layer/validate_mirathorn_city_world_doc_fixture.py`
@@ -74,7 +74,7 @@ EXCEPT the spoiler entities (`node:the-wolf`, `node:thalia-ashenvale`,
 - Add the Mirathorn entry: `fixture_key: "mirathorn-city"`, `session_number: None`,
   `campaign_id: None`, `session_id: None`, `gold_fixture_id`, `load_gold_manifest`,
   `load_gold_graph_dict`, `gold_dir_rel:
-  "evals/graph_memory_layer/examples/mirathorn_city_candidate_graph_gold"`.
+  "evals/graph_benchmark_gold/candidate_graph/world/eldyrwild/mirathorn-city"`.
 - Change `_gold_manifest_rel_path` (and any seed-ref resolution branch) to use the
   entry's `gold_dir_rel` / a `fixture_key` switch instead of computing from
   `session_number`. Add a Mirathorn branch to the seed-ref resolver that calls the

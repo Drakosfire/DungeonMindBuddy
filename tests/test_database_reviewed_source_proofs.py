@@ -106,7 +106,7 @@ def test_database_failure_cannot_fall_back_to_valid_files(monkeypatch, tmp_path,
     assert failure.value.code == "source_unavailable"
     with pytest.raises(history.SourceSubjectProofError):
         history._source_run(tmp_path, case.data.run.run_id)
-    assert registry.get_extraction_run(tmp_path, case.data.run.run_id) == case.data.run
+    assert registry.get_extraction_run(case.data.run.run_id) == case.data.run
 
 
 @pytest.mark.parametrize("pin", ["source_body_sha256", "candidate_graph_sha256", "source_span_index_sha256", "candidate_admission_digest"])

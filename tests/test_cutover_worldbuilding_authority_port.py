@@ -43,7 +43,7 @@ from graph_memory.worldbuilding_write_plan import (
     WorldbuildingWritePlanError,
     build_worldbuilding_write_plan,
 )
-from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+from graph_memory.extraction.worldbuilding_extraction_profile import (
     DEFAULT_SEMANTIC_STATE,
 )
 from tests._cutover_d3a_blocker_safe_fixtures import _candidate_graph_payload
@@ -710,7 +710,7 @@ def _install_worldbuilding_repo(monkeypatch, tmp_path: Path, native_id=DEFAULT_W
     repo = tmp_path / "repo"
     repo.mkdir()
     from apps.live_control_server.services.world_container_registry import create_world_container
-    world = create_world_container(repo, name="Publication Managed")
+    world = create_world_container(name="Publication Managed")
     store_world(world.model_copy(update={"native_graph_binding": {
         "native_world_id": native_id, "binding_version": 1,
         "status": "active", "validated_at": "2026-10-14T00:00:00Z",
@@ -725,13 +725,13 @@ def _install_worldbuilding_repo(monkeypatch, tmp_path: Path, native_id=DEFAULT_W
     monkeypatch.setattr(promotable_mod, "repo_root", lambda: repo)
     monkeypatch.setattr(live_config, "world_graph_root", lambda: absent)
     from apps.live_control_server.services import graph_run_registry
-    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
-    from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+    from graph_memory.extraction.graph_preview_runner import _build_prepared_components
+    from graph_memory.extraction.source_adapter import NormalizedExtractionSource
     original_update = graph_run_registry.update_extraction_run_status
     def update_with_frozen_source(root, run_id, **kwargs):
         components = kwargs.get("components")
         if components and "source_artifact" in components:
-            run = graph_run_registry.get_extraction_run(root, run_id)
+            run = graph_run_registry.get_extraction_run(run_id)
             source_component = components["source_artifact"]
             _artifact, body = graph_run_registry.load_run_source_input(root, run)
             frozen_components, _ = _build_prepared_components(NormalizedExtractionSource(
@@ -770,7 +770,7 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
         TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
     )
     frozen = resolve_promotable_ingest_run(run_id, root=repo)
-    artifact = get_source_artifact(repo, frozen.source_artifact_id)
+    artifact = get_source_artifact(frozen.source_artifact_id)
     before = get_workspace_document_snapshot(repo, artifact.workspace_document_id)
     updated_text = before.markdown + "\nLater document edit, absent from the frozen extraction.\n"
     prepared_write = prepare_tiptap_markdown_write(root=repo, request=TiptapMarkdownWritePrepareRequest(
@@ -1731,7 +1731,7 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
 
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path, native_id="native-alpha")
     managed_a = "publication-managed"
-    managed_b = create_world_container(repo, name="Second Publication Managed").world_id
+    managed_b = create_world_container(name="Second Publication Managed").world_id
     managed_to_native = {
         managed_a: "native-alpha",
         managed_b: "native-beta",
@@ -1788,7 +1788,7 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
         )
 
         resolved = resolve_promotable_ingest_run(run_id, root=repo)
-        artifact = get_source_artifact(repo, resolved.source_artifact_id)
+        artifact = get_source_artifact(resolved.source_artifact_id)
         marker = marker_by_managed[managed_id]
         from graph_memory.source_span import source_span_index_to_dict
         index = source_span_index_to_dict(load_source_span_index(repo, artifact.source_artifact_id))

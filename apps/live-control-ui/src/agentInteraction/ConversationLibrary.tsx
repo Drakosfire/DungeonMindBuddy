@@ -21,6 +21,8 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  useEffect(()=>{pendingResume.current=null;pendingOperation.current=null;continueInFlight.current=false;setContinuing(false);},[worldId]);
  const dialog=useRef<HTMLDialogElement>(null),mounted=useRef(true),scope=useRef({worldId});
  if(scope.current.worldId!==worldId)scope.current={worldId};
+ const detailRequest=useRef<AbortController|null>(null);
+ const listRequest=useRef<AbortController|null>(null);
  const listEpoch=useRef(0),detailEpoch=useRef(0),pageBusy=useRef(false);
  const [filter,setFilter]=useState<'all'|'archived'|'trashed'>('all'),[items,setItems]=useState<ConversationSummary[]>([]),[listOwner,setListOwner]=useState(worldId);
  const [next,setNext]=useState<string|null>(null),[listing,setListing]=useState(true),[listError,setListError]=useState('');
@@ -29,37 +31,67 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  const [title,setTitle]=useState(''),[saving,setSaving]=useState(false),[notice,setNotice]=useState('');
  useEffect(()=>{mounted.current=true;dialog.current?.showModal();return()=>{mounted.current=false;listEpoch.current++;detailEpoch.current++;};},[]);
  const alive=(owner:typeof scope.current)=>mounted.current&&scope.current===owner;
- async function readPage(id:string,before?:number,details=fullDetails){
-  if(details)return readConversationTurns(worldId,id,before);
-  const page=await readConversationMessages(worldId,id,before);
+ function startDetailRead(){
+  detailRequest.current?.abort();
+  const request=new AbortController();
+  detailRequest.current=request;
+  return request;
+ }
+ async function readPage(id:string,before?:number,details=fullDetails,signal?:AbortSignal){
+  if(details)return readConversationTurns(worldId,id,before,signal);
+  const page=await readConversationMessages(worldId,id,before,signal);
   return {turns:page.messages.map(row=>({...row,reply_object:null,retry_context:null})),next_before_sequence:page.next_before_sequence};
  }
- async function select(id:string,details=fullDetails){
+ async function select(id:string,details=fullDetails,summary?:ConversationSummary){
   const owner=scope.current,epoch=++detailEpoch.current;
   setSelected(id);setRenaming(false);if(id!==selected||detail?.world_id!==worldId)setDetail(null);setTurns([]);setBefore(null);setLoading(true);setSaving(false);setError('');setNotice('');
-  try{const [meta,page]=await Promise.all([readConversationName(worldId,id),readPage(id,undefined,details)]);
+  const request=startDetailRead();
+  try{const [meta,page]=await Promise.all([summary ?? readConversationName(worldId,id,request.signal),readPage(id,undefined,details,request.signal)]);
    if(!alive(owner)||epoch!==detailEpoch.current)return;setDetail(meta);setTitle(meta.title);setTurns(page.turns);setBefore(page.next_before_sequence);
   }catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason));}
-  finally{if(alive(owner)&&epoch===detailEpoch.current)setLoading(false);}
+  finally{if(detailRequest.current===request){request.abort();detailRequest.current=null;}if(alive(owner)&&epoch===detailEpoch.current)setLoading(false);}
  }
  async function loadList(older=false){
   if(older&&pageBusy.current)return;
   const owner=scope.current,epoch=++listEpoch.current;pageBusy.current=true;setListing(true);setListError('');
-  try{const page=await listConversations(worldId,filter,older?next??undefined:undefined);
+  listRequest.current?.abort();
+  const request=new AbortController();
+  listRequest.current=request;
+  try{const page=await listConversations(worldId,filter,older?next??undefined:undefined,request.signal);
    if(!alive(owner)||epoch!==listEpoch.current)return;
    setListOwner(worldId);setItems(old=>older?[...new Map([...old,...page.items].map(item=>[item.conversation_id,item])).values()]:page.items);setNext(page.next_before);
-   if(!older&&page.items.length)void select(page.items.find(item=>item.status==='active')?.conversation_id??page.items[0].conversation_id);
+   if(!older&&page.items.length){
+    const initial=page.items.find(item=>item.status==='active')??page.items[0];
+    void select(initial.conversation_id,fullDetails,initial);
+   }
   }catch(reason){if(alive(owner)&&epoch===listEpoch.current)setListError(message(reason));}
-  finally{if(alive(owner)&&epoch===listEpoch.current){setListing(false);pageBusy.current=false;}}
+  finally{if(listRequest.current===request)listRequest.current=null;if(alive(owner)&&epoch===listEpoch.current){setListing(false);pageBusy.current=false;}}
  }
- useEffect(()=>{detailEpoch.current++;setItems([]);setSelected(null);setDetail(null);setTurns([]);setNext(null);void loadList();return()=>{listEpoch.current++;detailEpoch.current++;};},[worldId,filter]);
+ useEffect(()=>{detailEpoch.current++;setItems([]);setSelected(null);setDetail(null);setTurns([]);setNext(null);void loadList();return()=>{listEpoch.current++;detailEpoch.current++;listRequest.current?.abort();detailRequest.current?.abort();};},[worldId,filter]);
  async function olderTurns(){
   if(!selected||before===null||loading)return;
   const owner=scope.current,epoch=detailEpoch.current,id=selected,cursor=before;setLoading(true);setError('');
-  try{const page=await readPage(id,cursor);if(!alive(owner)||epoch!==detailEpoch.current)return;
-   setTurns(old=>[...new Map([...page.turns,...old].map(turn=>[turn.turn_id,turn])).values()].sort((a,b)=>a.sequence-b.sequence));setBefore(page.next_before_sequence);
+  const request=startDetailRead();
+  try{const page=await readPage(id,cursor,fullDetails,request.signal);if(!alive(owner)||epoch!==detailEpoch.current)return;
+   setTurns(old => {
+    const incomingIds = new Set(page.turns.map(turn => turn.turn_id));
+    if (
+      incomingIds.size === page.turns.length &&
+      (!old.length || !page.turns.length || page.turns[page.turns.length - 1].sequence < old[0].sequence) &&
+      old.every(turn => {
+       if (incomingIds.has(turn.turn_id)) return false;
+       incomingIds.add(turn.turn_id);
+       return true;
+      })
+    ) {
+      return [...page.turns, ...old];
+    }
+    return [...new Map([...page.turns, ...old].map(turn => [turn.turn_id, turn])).values()]
+      .sort((a, b) => a.sequence - b.sequence);
+   });
+   setBefore(page.next_before_sequence);
   }catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason));}
-  finally{if(alive(owner)&&epoch===detailEpoch.current)setLoading(false);}
+  finally{if(detailRequest.current===request){request.abort();detailRequest.current=null;}if(alive(owner)&&epoch===detailEpoch.current)setLoading(false);}
  }
  async function save(){
   if(!detail||saving)return;
@@ -71,8 +103,11 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  }
  async function reloadName(){
   if(!selected)return;const owner=scope.current,epoch=++detailEpoch.current,id=selected;setSaving(false);setError('');setNotice('');
-  try{const meta=await readConversationName(worldId,id);if(alive(owner)&&epoch===detailEpoch.current){setDetail(meta);setTitle(meta.title);}}
+  const request=startDetailRead();
+  setLoading(false);
+  try{const meta=await readConversationName(worldId,id,request.signal);if(alive(owner)&&epoch===detailEpoch.current){setDetail(meta);setTitle(meta.title);}}
   catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason));}
+  finally{if(detailRequest.current===request)detailRequest.current=null;}
  }
  async function continueSelected(operation:'reopen'|ConversationLifecycleOperation='reopen'){
   if(!detail||!pointer||continueInFlight.current||continuing||continueDisabledReason)return;
@@ -117,7 +152,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
     {ownDetail.status==='trashed'&&<p className="conversation-library__availability">Restore to history, then choose Continue when ready.</p>}
    </header>}
    {ownDetail&&renaming&&<form className="conversation-library__rename" onSubmit={event=>{event.preventDefault();void save();}}><label>Conversation name<input autoFocus value={title} onChange={event=>setTitle(event.target.value)} maxLength={160} disabled={saving}/></label><button type="submit" disabled={saving||!title.trim()}>{saving?'Saving…':'Save name'}</button><button type="button" disabled={saving} onClick={()=>{setTitle(ownDetail.title);setRenaming(false);}}>Cancel</button>{error&&<button type="button" onClick={()=>void reloadName()}>Reload saved name</button>}</form>}
-   {ownDetail&&<div className="conversation-library__view-bar"><span>{fullDetails?'Full saved details':'Saved-message preview'}</span><button type="button" disabled={loading||continuing} title={fullDetails?'Return to the saved messages.':'Include references, saved objects and previous attempts.'} onClick={()=>{const details=!fullDetails;setFullDetails(details);void select(ownDetail.conversation_id,details);}}>{fullDetails?'Show message preview':'Load saved details'}</button></div>}
+   {ownDetail&&<div className="conversation-library__view-bar"><span>{fullDetails?'Full saved details':'Saved-message preview'}</span><button type="button" disabled={loading||continuing||saving} title={fullDetails?'Return to the saved messages.':'Include references, saved objects and previous attempts.'} onClick={()=>{const details=!fullDetails;setFullDetails(details);void select(ownDetail.conversation_id,details,ownDetail);}}>{fullDetails?'Show message preview':'Load saved details'}</button></div>}
    <div className="conversation-library__transcript" aria-busy={loading}>
    {notice&&<p role="status">{notice}</p>}
    {error&&<p role="alert">{error}</p>}{loading&&<p role="status">Loading messages…</p>}

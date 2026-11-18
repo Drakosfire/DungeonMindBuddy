@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from jsonschema import Draft202012Validator
 
-from src.live_play.planning_corpus_manifest import (
+from live_play.planning_corpus_manifest import (
     AUTHORITIES,
     DOGFOOD_FULL_SCHEMA_ID,
     SCHEMA_ID,
@@ -20,11 +20,11 @@ from src.live_play.planning_corpus_manifest import (
     main,
     render_manifest_markdown,
 )
-from src.live_play.session_bootstrap import bootstrap_session_workspace
-from src.live_play.session_paths import live_sessions_root
+from live_play.session_bootstrap import bootstrap_session_workspace
+from live_play.session_paths import live_sessions_root
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_PATH = ROOT / "evals/c2_live_prep/live/schemas/planning_corpus_manifest.schema.json"
+SCHEMA_PATH = ROOT / "schemas/live/planning_corpus_manifest.schema.json"
 ARTIFACT_PATH = ROOT / "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json"
 DOGFOOD_ARTIFACT_PATH = ROOT / "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json"
 CORPUS_ROOT = ROOT / "corpus/eldyrwild-markdown"

@@ -9,7 +9,7 @@ from typing import Any
 
 from application_state.errors import ApplicationStateError
 
-from src.graph_memory.extraction.bounded_recap_execution import (
+from graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient,
     DEEPSEEK_MODEL,
     RecapExecutionLimits,
@@ -22,20 +22,20 @@ from apps.live_control_server.services.source_artifact_registry import (
     load_source_span_index,
 )
 from graph_memory.source_span import source_span_index_to_dict
-from src.graph_memory.extraction.graph_preview_runner import (
+from graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionRequest,
     ProductionExtractionResult,
     run_production_extraction,
 )
-from src.graph_memory.extraction.recap_extraction_profile import (
+from graph_memory.extraction.recap_extraction_profile import (
     resolve_legacy_graph_extraction_profile,
 )
-from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
-from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+from graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
 )
-from src.graph_memory.vocabulary.model import ContextVocabularyPacket
+from graph_memory.vocabulary.model import ContextVocabularyPacket
 
 
 def _normalized_from_registered(
@@ -101,9 +101,10 @@ def run_recap_production_extraction(
     ingest_context: Any | None = None,
     supplemental_evidence: dict | None = None,
     reserved_run: Any | None = None,
+    name_review_record: dict | None = None,
 ) -> ProductionExtractionResult:
     profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from graph_memory.extraction.extraction_profile import get_extraction_profile
     selected_profile = get_extraction_profile(profile_id, profile_version)
     repo_root = artifact_data_root(repo_root)
     native_world_id, frozen_context = _source_scope_lineage(
@@ -179,8 +180,8 @@ def run_recap_production_extraction(
             model=DEEPSEEK_MODEL,
             max_calls=pass_budget,
             # Provider owns model capacity; do not truncate reasoning or JSON.
-            per_call_deadline_ms=240_000,
-            run_deadline_ms=900_000,
+            per_call_deadline_ms=None,
+            run_deadline_ms=None,
             reasoning_effort="low",
         )
     bounded = None
@@ -237,7 +238,8 @@ def run_recap_production_extraction(
             enable_node_vocabulary_packet=enable_node_vocabulary_packet,
             enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
             initial_lineage={**(reserved_run.lineage if reserved_run is not None else {}),
-                "world_campaign_ingest_context": frozen_context,**supplement_lineage},
+                "world_campaign_ingest_context": frozen_context, **supplement_lineage,
+                **({"name_review": name_review_record} if name_review_record is not None else {})},
             reserved_run=reserved_run,
         )
     )

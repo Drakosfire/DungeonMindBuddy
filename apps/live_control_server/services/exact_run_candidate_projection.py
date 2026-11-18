@@ -27,7 +27,7 @@ from apps.live_control_server.services.source_artifact_registry import (
     get_source_artifact,
 )
 from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
-from src.graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
+from graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
 from graph_memory.ingestion.extraction_run import normalize_content_digest
 from graph_memory.projection.markdown_mentions import (
     LocatedMentionBinding,
@@ -161,7 +161,7 @@ def _build(
     root: Path, run_id: str, managed_world_id: str
 ) -> ExactRunCandidateProjection:
     root = root.resolve(strict=True)
-    run = get_extraction_run(root, run_id)
+    run = get_extraction_run(run_id)
     if str(run.status) not in {"reviewable", "promoted"}:
         _fail("Only a sealed reviewable or promoted candidate can be inspected.")
     if run.source_domain != "recap" or run.profile_id not in RECAP_READ_PROFILE_IDS:
@@ -353,11 +353,11 @@ def _build(
         if _map_span(start, end, segments) is not None
     ]
     if (
-        get_extraction_run(root, run_id) != run
+        get_extraction_run(run_id) != run
         or resolve_managed_world_binding(managed_world_id) != binding
     ):
         _fail("The run or World binding changed during inspection.")
-    current_artifact = get_source_artifact(root, run.source_artifact_id)
+    current_artifact = get_source_artifact(run.source_artifact_id)
     if current_artifact != artifact:
         _fail("The registered source changed during inspection.")
     return ExactRunCandidateProjection(

@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 from apps.live_control_server.routes.native_source_inspection import router
 from apps.live_control_server.services import native_source_inspection as service
 from apps.live_control_server.services import managed_world_graph_projection as owner
-from apps.live_control_server.services.agent_graph_auth import (
-    native_graph_gm_dependency,
+from apps.live_control_server.services.hosted_native_graph_access import (
+    native_graph_explorer_dependency,
 )
 from tests.test_native_corpus_source_access import lane as source_lane, admit, BODY  # noqa: F401
 
@@ -186,7 +186,7 @@ def test_unauthenticated_and_player_requests_cannot_browse_sources(inspection):
         PATH + "/catalog", json=SCOPE, headers={"Authorization": "Bearer wrong"}
     )
     assert response.status_code == 401
-    inspection.app.dependency_overrides[native_graph_gm_dependency] = lambda: (
+    inspection.app.dependency_overrides[native_graph_explorer_dependency] = lambda: (
         SimpleNamespace(role="player")
     )
     assert inspection.client.post(PATH + "/catalog", json=SCOPE).status_code == 409
@@ -451,3 +451,44 @@ def test_blank_native_source_remains_readable_without_section_selectors(inspecti
     assert response.status_code == 200
     assert response.json()["source"]["body_text"] == text
     assert response.json()["section_catalog"] is None
+
+
+@pytest.mark.parametrize(
+    "copies,rebind,complete,expected",
+    [(0, False, True, 409), (1, False, True, 200), (2, False, True, 409),
+     (1, True, True, 409), (1, False, False, 409)],
+)
+def test_published_recap_requires_one_verified_match(
+    inspection, monkeypatch, copies, rebind, complete, expected,
+):
+    receipt = admit(inspection.lane)
+    binding = {
+        "native_world_id": "world:test",
+        "binding_version": inspection.lane.bound.binding_version,
+    }
+    bindings = iter([binding, {**binding, "binding_version": binding["binding_version"] + int(rebind)}])
+    monkeypatch.setattr(service.native, "binding", lambda _: next(bindings))
+    catalog = service.list_admitted_native_text_sources
+
+    def catalog_with_matches(access):
+        result = catalog(access)
+        return replace(result, sources=result.sources * copies, complete=complete)
+
+    monkeypatch.setattr(service, "list_admitted_native_text_sources", catalog_with_matches)
+    monkeypatch.setattr(service, "source_display_metadata", lambda items, _: [{
+        "kind": "recap", "status": "available", "origin_matches_current_metadata": True,
+        "campaign_id": "campaign-a", "session_id": "session-1",
+    } for item in items])
+    body = {"managed_world_id": "managed", "campaign_id": "campaign-a", "session_id": "session-1"}
+    response = inspection.client.post(PATH + "/published-recap", json=body)
+    assert response.status_code == expected, response.text
+    if expected == 200:
+        packet = response.json()
+        assert packet["scope"]["revision_id"] == receipt.published_revision_id
+        assert packet["source"]["body_sha256"] == sha256(BODY.encode()).hexdigest()
+    else:
+        assert "body_text" not in response.text
+    if rebind:
+        assert response.json()["detail"]["code"] == "native_published_recap_binding_changed"
+    if not complete:
+        assert response.json()["detail"]["code"] == "native_published_recap_catalog_incomplete"

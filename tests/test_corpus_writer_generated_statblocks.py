@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.agent.corpus_writer import is_writable_corpus_path, write_corpus_file
+from corpus.corpus_writer import is_writable_corpus_path, write_corpus_file
 
 ALLOWED_GENERATED_STATBLOCK = (
     "Longmont Campaign/Campaign 2/Statblocks/generated/generated_obsidian_thornling.md"

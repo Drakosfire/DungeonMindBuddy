@@ -108,7 +108,7 @@ def context(monkeypatch, tmp_path):
     monkeypatch.setattr(service, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(service, "artifact_data_root", lambda root: root)
 
-    def get_run(root, run_id):
+    def get_run(run_id):
         if run_id != run.run_id:
             raise GraphRunRegistryError("missing run")
         return run
@@ -401,7 +401,7 @@ def test_unbound_context_cannot_fall_back_to_worldless_review(context):
 def test_concurrent_run_change_rejects_context(context, monkeypatch):
     count = 0
 
-    def changed_run(root, run_id):
+    def changed_run(run_id):
         nonlocal count
         count += 1
         return (

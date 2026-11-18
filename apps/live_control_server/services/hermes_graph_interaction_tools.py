@@ -332,12 +332,17 @@ def execute_query_threat_mechanics_hydration(
     query_text = str(
         arguments.get("queryText") or arguments.get("query_text") or ""
     ).strip()
-    if not world_id or not campaign_id or not revision_pin:
+    scope_mode = arguments.get("scopeMode", arguments.get("scope_mode", "campaign"))
+    if (
+        not world_id or not revision_pin
+        or scope_mode not in ("world", "campaign")
+        or (scope_mode == "campaign") != bool(campaign_id)
+    ):
         return {
             "schema": "dmb_threat_query_hydration_error_v1",
             "resultLabel": "threat_query_hydration_unavailable",
             "message": (
-                "exact worldId, campaignId, and revisionPin are required "
+                "exact worldId, scopeMode, and revisionPin are required, with campaignId for campaign scope "
                 "(server-injected from turn scope)"
             ),
             "diagnostics": ["missing_exact_scope"],
@@ -360,7 +365,8 @@ def execute_query_threat_mechanics_hydration(
     request = ThreatQueryHydrationRequestV1(
         schema="dmb_threat_query_hydration_request_v1",
         world_id=world_id,
-        campaign_id=campaign_id,
+        campaign_id=campaign_id or None,
+        scope_mode=scope_mode,
         revision_pin=revision_pin,
         query_text=query_text,
         focus_node_ids=list(focus_raw or []),

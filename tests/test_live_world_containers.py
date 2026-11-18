@@ -24,10 +24,6 @@ def root(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def client(root: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setattr(
-        "apps.live_control_server.routes.world_containers.repo_root",
-        lambda: root,
-    )
     monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     return TestClient(create_app(), client=("127.0.0.1", 50000))
@@ -99,7 +95,7 @@ def test_directory_does_not_claim_world_identity_over_http(client: TestClient, r
 
 
 def test_service_create_visible_to_http_list(client: TestClient, root: Path) -> None:
-    create_world_container(root, name="Seeded")
+    create_world_container(name="Seeded")
     body = client.get("/api/live/world-containers").json()
     assert len(body["records"]) == 1
     assert body["records"][0]["name"] == "Seeded"
@@ -110,7 +106,7 @@ def test_http_list_uses_explicit_operator_root_across_checkouts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     operator = tmp_path / "operator"
-    create_world_container(operator, name="Operator World")
+    create_world_container(name="Operator World")
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(operator))
 
     response = client.get("/api/live/world-containers")
@@ -146,13 +142,12 @@ def test_list_ignores_legacy_registry_without_migration_or_mind_call(
         '"created_at":"2026-01-01T00:00:00Z"}]}'
     ).encode("utf-8")
     path.write_bytes(original)
-    monkeypatch.setattr(world_containers, "repo_root", lambda: root)
     monkeypatch.setattr(
         "apps.live_control_server.services.world_graph_binding._validate_with_mind",
         lambda _world_id: pytest.fail("WorldContainer list must not contact MIND"),
     )
 
-    response = world_containers.get_world_containers()
+    response = world_containers.get_world_containers().model_dump(mode="json")
 
     assert response["records"] == []
     assert path.read_bytes() == original

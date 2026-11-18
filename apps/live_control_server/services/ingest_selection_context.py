@@ -142,7 +142,7 @@ def resolve_ingest_selection_context(
     operator_subject: str,
 ) -> dict:
     root = artifact_data_root(repo_root())
-    run = get_extraction_run(root, run_id)
+    run = get_extraction_run(run_id)
     if run.revision != request.expected_run_revision:
         _reject("selected run revision changed", conflict=True)
     if run.status != ExtractionRunStatus.REVIEWABLE:
@@ -327,7 +327,7 @@ def resolve_ingest_selection_context(
     if request.inspect_source_support:
         response["source_revision_id"] = str(source.source_revision_id)
     # A concurrent lifecycle change must not be hidden by an otherwise valid stored snapshot.
-    if get_extraction_run(root, run_id).revision != run.revision:
+    if get_extraction_run(run_id).revision != run.revision:
         _reject("selected run changed while resolving context", conflict=True)
     current_source = source_service.get_source_markdown(
         source_artifact_id=source.source_artifact_id,

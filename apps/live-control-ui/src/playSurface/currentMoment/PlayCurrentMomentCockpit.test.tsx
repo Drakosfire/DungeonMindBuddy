@@ -16,7 +16,7 @@ import { admitNativeRunbook, overlayRuntimeOnV2Ready } from "../runbook/nativeRu
 import type { RunbookMutationStatus } from "./playRunMutation";
 import { PlayCurrentMomentCockpit } from "./PlayCurrentMomentCockpit";
 import { SurfaceContextHost, SurfaceContextProvider } from "../../surfaceInteraction/contextHost";
-import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN, breachDogfoodManifestV2 } from "./breachDogfoodFixture";
+import { BREACH_DOGFOOD_RUNBOOK_MARKDOWN, breachDogfoodManifestV2 } from "../../test/breachDogfoodFixture";
 
 // Read retained source/context through the same More action used by the UI.
 function playDetails(testId: string) {

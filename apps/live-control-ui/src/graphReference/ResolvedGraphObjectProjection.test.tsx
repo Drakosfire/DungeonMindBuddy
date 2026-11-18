@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
 import { adaptWorldGraphNodeView } from "../worldGraph/worldGraphNodeViewAdapter";
-import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../test/worldGraphRecapFixture";
 import type { GraphReferenceResolution } from "./types";
 import { CompleteWorldObjectAdvancedDetails } from "./CompleteWorldObjectAdvancedDetails";
 import { ResolvedGraphObjectProjection } from "./ResolvedGraphObjectProjection";

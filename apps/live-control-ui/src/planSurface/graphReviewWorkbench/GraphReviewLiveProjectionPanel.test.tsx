@@ -208,6 +208,29 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(screen.queryByTestId("graph-review-projection-layout")).not.toBeInTheDocument();
   });
 
+  it("aborts pending gold reads as review lanes are replaced", () => {
+    const load = vi.mocked(getGoldGraphProjection);
+    load.mockImplementation(() => new Promise(() => {}));
+    const first = renderGraphReviewLiveHarness({
+      hasGold: true,
+      sessionId: "session-23",
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+    const firstSignal = load.mock.calls[0][1];
+    expect(firstSignal?.aborted).toBe(false);
+    first.unmount();
+    const second = renderGraphReviewLiveHarness({
+      hasGold: true,
+      sessionId: "session-24",
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+    expect(firstSignal?.aborted).toBe(true);
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(load.mock.calls[1][1]?.aborted).toBe(false);
+    second.unmount();
+    expect(load.mock.calls[1][1]?.aborted).toBe(true);
+  });
+
   it("switches from candidate projection to committed panel after receipt adoption", async () => {
 
     const committed: WorldGraphProjection = {

@@ -21,7 +21,7 @@ from application_state.errors import (  # noqa: E402
 )
 from application_state.ingest.import_legacy import import_extraction_runs_from_registry  # noqa: E402
 from application_state.ingest.service import inspect_ingest_authority  # noqa: E402
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
+from bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 
 
 def _repo_root() -> Path:

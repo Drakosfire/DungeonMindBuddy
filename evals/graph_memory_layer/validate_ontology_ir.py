@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
-from src.graph_memory.ontology_ir import GraphBundle, TaxonomyRef, validate_scalar_properties
+from graph_memory.ontology_ir import GraphBundle, TaxonomyRef, validate_scalar_properties
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

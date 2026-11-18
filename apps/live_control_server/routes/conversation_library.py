@@ -1,11 +1,15 @@
 """Authenticated conversation history and explicit APP-owned continuation."""
 
+from hashlib import sha256
+import json
+from typing import Literal
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query, Request
 from application_state.agent_conversation import library
 from application_state.errors import ApplicationStateError
 from application_state.agent_conversation.retry import AuthoringRetryRequiredError
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
 from apps.live_control_server.routes.agent import _verified_world_id, _conversation_service
 from application_state.agent_conversation.types import ReopenCommand, ConversationCommandReceipt, ConversationTrashCommand
 
@@ -16,7 +20,7 @@ router = APIRouter(
 
 
 def scope(request, world, allowed):
-    enforce_native_graph_gm(request)
+    require_conversation_access(request, world, authorize_local=enforce_native_graph_gm)
     if set(request.query_params) - set(allowed) or any(
         len(request.query_params.getlist(k)) != 1 for k in request.query_params
     ):
@@ -61,7 +65,7 @@ def active_messages(
     )
 
 
-@router.get("/{conversation_id}/messages")
+@router.get("/{conversation_id:uuid}/messages")
 def messages(
     world_id: str,
     conversation_id: UUID,
@@ -80,15 +84,30 @@ def turns(
     request: Request,
     limit: int = Query(50, ge=1, le=100),
     before_sequence: int | None = Query(None, gt=0),
+    view: Literal["full", "digest"] | None = Query(None),
 ):
-    world = scope(request, world_id, {"limit", "before_sequence"})
-    return call(
+    world = scope(request, world_id, {"limit", "before_sequence", "view"})
+    page = call(
         library.read_turns,
         world,
         conversation_id,
         limit=limit,
         before_sequence=before_sequence,
     )
+
+    if view is None:
+        return page
+    encoded = json.dumps(page, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    digest = sha256(encoded.encode("ascii")).hexdigest()
+    if view == "full":
+        return {**page, "page_sha256": digest}
+    return {
+        "schema": "dmb_conversation_library_turn_digest_v1",
+        "world_id": page["world_id"],
+        "conversation_id": page["conversation_id"],
+        "next_before_sequence": page["next_before_sequence"],
+        "page_sha256": digest,
+    }
 
 
 @router.get("/{conversation_id}/name")

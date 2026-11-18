@@ -258,7 +258,7 @@ def _mock_atomic_play_context_snapshot(monkeypatch: Any) -> None:
     from apps.live_control_server.services import agent_play_surface_context as play
 
     def snapshot(*, run_id: str, world_id: str):
-        record = play.get_world_play_run(Path("."), world_id=world_id, run_id=run_id)
+        record = play.get_world_play_run(world_id=world_id, run_id=run_id)
         committed = play.get_committed_playable_revision(
             record.playable_artifact_id, revision_n=record.playable_revision,
             expected_sha256=record.playable_content_sha256, kind=None,
@@ -472,7 +472,7 @@ def test_world_play_http_turn_replays_without_current_run_or_provider(
     monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
     monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
-    monkeypatch.setattr(route, "get_world_container", lambda _root, _world: SimpleNamespace(world_id="world-a", name="World A"))
+    monkeypatch.setattr(route, "get_world_container", lambda _world: SimpleNamespace(world_id="world-a", name="World A"))
     runtime = FakeRuntime()
     app = create_app()
     app.state.agent_turn_runtime = runtime
@@ -574,7 +574,7 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
 
     assert application_state_dsn
     monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
-    managed = create_world_container(tmp_path, name="Play Graph World")
+    managed = create_world_container(name="Play Graph World")
     assert managed.world_id != NATIVE_ID
     (tmp_path / world_source_root_relpath(managed.world_id)).mkdir(parents=True, exist_ok=True)
     binding = NativeGraphBindingRecord(
@@ -584,15 +584,15 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
     current = {"record": managed.model_copy(update={"native_graph_binding": binding})}
     monkeypatch.setattr(
         world_container_registry, "get_world_container",
-        lambda _root, world_id: current["record"] if world_id == managed.world_id else None,
+        lambda world_id: current["record"] if world_id == managed.world_id else None,
     )
     monkeypatch.setattr(
         route, "get_world_container",
-        lambda _root, world_id: current["record"] if world_id == managed.world_id else None,
+        lambda world_id: current["record"] if world_id == managed.world_id else None,
     )
     monkeypatch.setattr(
         managed_world_graph_projection, "get_world_container",
-        lambda _root, world_id: current["record"] if world_id == managed.world_id else None,
+        lambda world_id: current["record"] if world_id == managed.world_id else None,
     )
     graph = InMemoryWorldGraphRepository()
     first = graph.publish_revision(PublishRevisionCommand(
@@ -1000,7 +1000,7 @@ def test_pending_play_http_retry_uses_frozen_moment_after_run_advances(
     monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
     monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
     monkeypatch.setattr(route, "_conversation_service", lambda _request: service)
-    monkeypatch.setattr(route, "get_world_container", lambda _root, _world: SimpleNamespace(world_id="world-a", name="World A"))
+    monkeypatch.setattr(route, "get_world_container", lambda _world: SimpleNamespace(world_id="world-a", name="World A"))
     runtime = FakeRuntime()
     app = create_app()
     app.state.agent_turn_runtime = runtime
@@ -1281,7 +1281,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         _receipt, _seed_sources,
     )
 
-    managed = create_world_container(tmp_path, name="Managed World")
+    managed = create_world_container(name="Managed World")
     assert managed.world_id != NATIVE_ID
     (tmp_path / world_source_root_relpath(managed.world_id)).mkdir(
         parents=True, exist_ok=True
@@ -1356,7 +1356,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(
         world_container_registry, "get_world_container",
-        lambda _root, world_id: bound if world_id == managed.world_id else None,
+        lambda world_id: bound if world_id == managed.world_id else None,
     )
     payload = _payload()
     payload.update({
@@ -2433,7 +2433,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             assert len(graph_reads) == before_history_reads
             monkeypatch.setattr(
                 world_container_registry, "get_world_container",
-                lambda _root, world_id: (
+                lambda world_id: (
                     bound.model_copy(update={"native_graph_binding": None})
                     if world_id == managed.world_id else None
                 ),
@@ -2445,7 +2445,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             assert len(graph_reads) == before_history_reads
             monkeypatch.setattr(
                 world_container_registry, "get_world_container",
-                lambda _root, world_id: bound if world_id == managed.world_id else None,
+                lambda world_id: bound if world_id == managed.world_id else None,
             )
             from application_state.errors import ApplicationStateError
 
@@ -3820,7 +3820,7 @@ def test_plan_agent_route_dispatches_only_atomic_committed_content(
         create_world_container,
     )
 
-    managed_world = create_world_container(tmp_path, name="Plan Ask World")
+    managed_world = create_world_container(name="Plan Ask World")
     markdown = "# Saved Plan\n\nThe keeper waits below the black arch.\n"
     basis = {
         "world_id": managed_world.world_id,
@@ -3908,7 +3908,7 @@ def test_plan_agent_route_rejects_stale_pin_before_runtime_dispatch(
         create_world_container,
     )
 
-    managed_world = create_world_container(tmp_path, name="Stale Plan Ask World")
+    managed_world = create_world_container(name="Stale Plan Ask World")
 
     def stale_read(*_args: Any, **_kwargs: Any) -> Any:
         raise agent_route.WorkspaceDocumentRegistryError(
@@ -3965,7 +3965,7 @@ def test_plan_agent_route_reads_actual_committed_content_and_excludes_divergent_
     )
 
     assert application_state_dsn
-    managed_world = create_world_container(tmp_path, name="Atomic Plan Ask World")
+    managed_world = create_world_container(name="Atomic Plan Ask World")
     created = create_world_plan(
         title="Atomic Plan Ask",
         world_id=managed_world.world_id,
@@ -4074,7 +4074,7 @@ def test_campaign_id_equal_to_world_id_is_not_world_plan_ownership(
         create_world_container,
     )
 
-    managed_world = create_world_container(tmp_path, name="World Alias Test")
+    managed_world = create_world_container(name="World Alias Test")
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(
         agent_route,
@@ -4310,7 +4310,7 @@ def test_verified_world_projection_reaches_runtime_through_full_http_route(
         _seed_sources,
     )
 
-    managed_world = create_world_container(tmp_path, name="Agent Projection Test World")
+    managed_world = create_world_container(name="Agent Projection Test World")
     world_root = tmp_path / "isolated-world-root"
     auth_token = "test-local-operator-token-with-adequate-length"
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
@@ -4443,7 +4443,7 @@ def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, lega
     from apps.live_control_server.services import world_container_registry as registry
     from apps.live_control_server.services.agent_turn_service import _freeze_policy_receipt, _plan_message
     services, request, revision = _selected_native_fixture(unrelated=0 if legacy else 513, unavailable=unavailable, claims=claims, neighbor=neighbor)
-    managed = registry.create_world_container(tmp_path, name="Selected consumer fixture")
+    managed = registry.create_world_container(name="Selected consumer fixture")
     (tmp_path / managed.source_root_relpath).mkdir(parents=True, exist_ok=True)
     binding = registry.NativeGraphBindingRecord(native_world_id=request.world_id, binding_version=1,
         status="active", validated_at="2026-10-08T00:00:00Z", validated_head_revision_id=revision)
@@ -4456,7 +4456,7 @@ def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, lega
         container = container.model_copy(update={"source_root_relpath": "retained/older-layout"})
     monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
 
-    def registered_world(_root, world):
+    def registered_world(world):
         if not registered or world != managed.world_id:
             raise registry.WorldContainerRegistryError("World not found")
         return container

@@ -13,12 +13,12 @@ from tests.test_worldbuilding_profile_pipeline import (
     _load_fixture,
     _pass_outputs_for_span,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     FixtureCategoryGraphPassClient,
     CategoryGraphExtractionError,
 )
-from src.graph_memory.extraction import graph_preview_runner as runner
-from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+from graph_memory.extraction import graph_preview_runner as runner
+from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
 )
@@ -82,7 +82,7 @@ import hashlib,sys
 from pathlib import Path
 from apps.live_control_server.services.graph_run_registry import get_extraction_run
 from application_state.ingest.components import get_component_bytes
-root=Path(sys.argv[1]); run=get_extraction_run(root,sys.argv[2])
+root=Path(sys.argv[1]); run=get_extraction_run(sys.argv[2])
 assert run.status.value=='failed'
 ref=run.components['raw_model_response']
 data=get_component_bytes(run_id=run.run_id,kind=ref.kind,content_sha256=ref.sha256)

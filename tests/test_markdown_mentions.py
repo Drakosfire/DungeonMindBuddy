@@ -441,13 +441,10 @@ def test_free_text_equal_length_binding_order_opt_in_preserves_caller_order() ->
     assert diagnostics == []
 
 
-def test_splice_node_link_spans_is_importable_from_both_modules() -> None:
-    """The recap re-export shim keeps existing service importers unchanged."""
-    from graph_memory.projection.recap_projection import (
-        splice_node_link_spans as reexported,
-    )
+def test_splice_node_link_spans_is_exported_by_projection_package() -> None:
+    from graph_memory.projection import splice_node_link_spans as exported
 
-    assert reexported is splice_node_link_spans
+    assert exported is splice_node_link_spans
 
 
 def test_located_binding_links_plain_prose_with_exact_offsets() -> None:

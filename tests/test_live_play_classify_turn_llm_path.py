@@ -6,18 +6,18 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from src.live_play.classify_live_turn import (
+from live_play.classify_live_turn import (
     TurnClassification,
     _resolve_classifier_model,
     build_live_turn_classifier_sequence_client,
     classify_live_turn,
 )
-from src.live_play.live_turn_classification_schema import (
+from live_play.live_turn_classification_schema import (
     LiveTurnClassificationModel,
     live_turn_classification_json_schema,
 )
-from src.live_play.live_turn_classifier_client import SequenceLiveTurnClassifierClient
-from src.live_play.prompts.live_turn_classifier import LIVE_TURN_CLASSIFIER_INSTRUCTIONS
+from live_play.live_turn_classifier_client import SequenceLiveTurnClassifierClient
+from live_play.prompts.live_turn_classifier import LIVE_TURN_CLASSIFIER_INSTRUCTIONS
 
 
 def _context_lookup() -> TurnClassification:

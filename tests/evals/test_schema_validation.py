@@ -4,7 +4,7 @@ import copy
 
 import pytest
 
-from src.contracts.schema_validation import list_validation_failures, validate_many
+from contracts.schema_validation import list_validation_failures, validate_many
 from tests.evals.scenario_utils import load_json, load_manifest, scenario_paths
 
 

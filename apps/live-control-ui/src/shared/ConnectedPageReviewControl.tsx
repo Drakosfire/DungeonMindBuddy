@@ -7,12 +7,11 @@ import {createPortal} from 'react-dom';
 import type {MarkdownCanvasSessionValue} from '../markdownCanvas/markdownCanvasTypes';
 import {useOptionalAgentInteraction} from '../agentInteraction/AgentInteractionProvider';
 import {SurfaceSelectionActions,captureSurfaceTextSelection} from '../surfaceInteraction/SurfaceSelectionActions';
-import {prepareConnectedPage,confirmConnectedPage,recoverConnectedPage,type ConnectedPageIntent,type ConnectedPageOperation} from '../api/connectedPageApi';
+import {prepareConnectedPage,confirmConnectedPage,recoverConnectedPage,readConnectedPageForPage,validConnectedPageIntent,type ConnectedPageIntent,type ConnectedPageOperation} from '../api/connectedPageApi';
 import {getNativeGraphCatalog} from '../api/liveApi';
 import {connectedPageIdentities,type ConnectedPageIdentity} from '../buildSurface/nativeConnectedPageIdentities';
 import {readConnectedPageRecovery,retainConnectedPageRequest,clearConnectedPageRequest,queueConnectedPageBuildOut} from '../buildSurface/connectedPageAuthoring';
 import {publishConnectedPageReviewHost,type ConnectedPageReviewSeed} from './connectedPageReviewHost';
-import {validConnectedPageIntent} from '../api/connectedPageApi';
 import {canonical,isCollaboration} from '../shared/sourcePassageProtocol';
 import './ConnectedPageReviewControl.css';
 const errorText=(reason:unknown)=>reason instanceof Error?reason.message:'The page request could not finish.';
@@ -76,8 +75,7 @@ export function ConnectedPageReviewControl(props:Props){
     if(!id||!world||!documentId)return;
     // The operation's full exact intent is recovered by its source tab request
     // for retries. A scoped read for the newly-created page is resolved below.
-    void import('../api/connectedPageApi').then(async api=>{
-      const result=await api.readConnectedPageForPage(id,world,documentId);
+    void readConnectedPageForPage(id,world,documentId).then(result=>{
       if(active)setPageOperation(result);
     }).catch(reason=>{if(active)setError(errorText(reason));});
     return()=>{active=false;};

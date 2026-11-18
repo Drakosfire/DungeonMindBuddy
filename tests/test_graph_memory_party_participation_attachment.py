@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.graph_memory import party_context as pc
-from src.graph_memory.session_graph_context import (
+from graph_memory import party_context as pc
+from graph_memory.session_graph_context import (
     attach_party_participation_edges,
     merge_party_anchor_nodes,
     merge_party_collective,

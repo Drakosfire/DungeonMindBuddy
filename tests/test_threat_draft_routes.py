@@ -120,7 +120,7 @@ def _world_payload(root: Path, name: str = "World A") -> dict:
     payload = _payload()
     payload.update(
         scope_mode="world", campaign_id=None,
-        world_id=create_world_container(root, name=name).world_id,
+        world_id=create_world_container(name=name).world_id,
         graph_context_snapshot={
             "graph_revision_id": None, "selected_node_ids": [],
             "admitted_source_anchor_ids": [],

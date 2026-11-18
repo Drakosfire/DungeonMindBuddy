@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { baseCandidateDefinition, complexCandidateDefinition } from "./editorFixtures";
+import { baseCandidateDefinition, complexCandidateDefinition } from "../../test/statblockEditorFixtures";
 import { StatblockDefinitionEditor } from "./StatblockDefinitionEditor";
 import {
   createEditorStateFromOutput,

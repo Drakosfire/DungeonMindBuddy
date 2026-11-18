@@ -6,7 +6,7 @@ from application_state.errors import ApplicationStateIntegrityError
 from apps.live_control_server.config import artifact_data_root, repo_root
 from apps.live_control_server.services.threat_draft_store import get_threat_draft, locked_threat_drafts
 from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
-from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import source_definition_digest_from_body
+from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import matches_accepted_definition_digest
 from application_state.combat_encounters.types import CombatMechanicsSelection, CombatMechanicsSnapshot
 from application_state.errors import ApplicationStateConflictError
 from application_state.world_mechanics import service as associations
@@ -21,7 +21,7 @@ def preview(*, world_id: str, selection: CombatMechanicsSelection, records=None,
     records = associations.list_current(world_id=world_id) if records is None else records
     record = next((r for r in records if r.association_id == selection.association_id), None)
     if (record is None or record.version != selection.association_version
-        or record.request.target.model_dump() != selection.target.model_dump()):
+        or not record.request.target.matches_association_target(selection.target)):
         raise ApplicationStateConflictError("Creature mechanics changed; load and confirm again")
     view = creature_view or creatures.catalog(world_id)
     creatures.require_target(selection.target, view, head=True)
@@ -60,8 +60,10 @@ def prepare_accepted_snapshot(*, world_id: str, selection: AcceptedCombatMechani
         and op.source_draft_id == draft.draft_id
         and op.source_draft_version == accepted.accepted_from_draft_version
         and op.source_candidate_id == accepted.accepted_from_candidate_id
-        and op.validation_receipt_digest == accepted.definition_digest
-        and source_definition_digest_from_body(op.request_body['definition']) == accepted.definition_digest
+        and matches_accepted_definition_digest(
+            op.request_body["definition"], validation_digest=op.validation_receipt_digest,
+            accepted_digest=accepted.definition_digest,
+        )
         and op.locator is not None and same_mechanics_locator(op.locator, accepted.to_mechanics_locator())
     )]
     if len(matches) != 1:
@@ -137,3 +139,24 @@ def adopt_saved_override(*,world_id,encounter_id,request,scope=None):
     draft,origin,snapshot=prepare_saved_override(world_id=world_id,draft_id=request.draft_id,locator=request.locator)
     with accepted_drafts_guard([draft]):
         return adoption.apply_verified(world_id=world_id,encounter_id=encounter_id,request=request,snapshot=snapshot,origin=origin,scope=scope)
+
+
+def preview_conversation_variant(*, world_id, selection):
+    from application_state.agent_conversation.service import AgentConversationService
+    from application_state.combat_encounters.types import ConversationVariantCombatSnapshot
+    from .conversation_variant_save import open_saved_variant
+
+    opened = open_saved_variant(
+        AgentConversationService(), world_id, selection.conversation_id, selection.turn_id,
+        review_id=selection.review_id,
+    )
+    payload = {
+        **selection.model_dump(mode="json"),
+        "origin": "conversation_variant_mechanics_v1",
+        "managed_world_id": world_id,
+        "locator": opened["locator"],
+        "resource": opened["revision"],
+    }
+    return ConversationVariantCombatSnapshot(
+        **payload, snapshot_digest=ConversationVariantCombatSnapshot.digest_payload(payload),
+    )

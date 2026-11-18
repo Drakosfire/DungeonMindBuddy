@@ -1,7 +1,7 @@
 export type AppRouteKey =
   | "index"
+  | "graph"
   | "surface"
-  | "tiptap-callout-spike"
   | "plan"
   | "play"
   | "ingest"
@@ -20,7 +20,12 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   {
     route: "index",
     href: "/",
-    label: "Index",
+    label: "Home",
+  },
+  {
+    route: "graph",
+    href: "/graph",
+    label: "Graph",
   },
   {
     route: "plan",
@@ -50,7 +55,8 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
 ];
 
 export const APP_ROUTE_LABELS: Record<AppRouteKey, string> = {
-  index: "Command Board",
+  index: "Home",
+  graph: "Graph",
   surface: "Live Control",
   plan: "Plan",
   play: "Play",
@@ -58,7 +64,6 @@ export const APP_ROUTE_LABELS: Record<AppRouteKey, string> = {
   build: "Build",
   combat: "Combat",
   statblock: "Statblock",
-  "tiptap-callout-spike": "Tiptap callout bridge",
 };
 
 /** Default campaign for shared World Graph lens when URL has no campaigns yet. */

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from src.graph_memory.vocabulary import load_vocabulary_artifact_bundle
+from graph_memory.vocabulary import load_vocabulary_artifact_bundle
 
 FIXTURE_DIR = Path("evals/graph_memory_layer/examples/vocabulary_contract_fixtures")
 

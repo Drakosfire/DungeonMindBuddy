@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from src.graph_memory.extraction.worldbuilding_gazetteer_trade_context import (
+from graph_memory.extraction.worldbuilding_gazetteer_trade_context import (
     GAZETTEER_TRADE_CONTEXT_PROFILE,
     PROFILE,
     _apply_trade_context,
     compile_gazetteer_trade_context,
 )
-from src.graph_memory.extraction.worldbuilding_profile_catalog import (
+from graph_memory.extraction.worldbuilding_profile_catalog import (
     PUBLISHABLE_WORLDBUILDING_PROFILES,
 )
 

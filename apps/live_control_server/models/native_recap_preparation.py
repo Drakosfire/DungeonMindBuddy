@@ -77,7 +77,7 @@ class SelectedDescriptionExtent(Closed):
 
 
 class RecordSelection(Closed):
-    kind: Literal["node", "edge", "beat"]
+    kind: Literal["node", "edge", "beat", "placement", "source_observation"]
     record_id: Text
     action: Literal["create", "use_existing", "defer", "reject"]
     entity_id: Text | None = None
@@ -93,9 +93,9 @@ class RecordSelection(Closed):
         if self.action in {"defer", "reject"}:
             if self.facts or self.metadata:
                 raise ValueError("deferred/rejected records cannot carry selected facts")
-        elif self.kind == "edge":
+        elif self.kind in {"edge", "placement", "source_observation"}:
             if self.action != "create" or self.facts or self.metadata is None:
-                raise ValueError("edges require create and explicit relationship metadata")
+                raise ValueError("relationships and observations require create and explicit metadata")
         elif self.metadata is not None or (self.action == "create" and not self.facts):
             raise ValueError("objects require per-fact review; create cannot be empty")
         keys = [(fact.field, fact.index) for fact in self.facts]
@@ -124,6 +124,14 @@ class _CandidatePrepareRequest(Closed):
 class NativeRecapPrepareRequest(_CandidatePrepareRequest):
     campaign_id: Text
     source_admission_run_id: Text
+    cohort_edge_review: dict[str, JsonValue] | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
+class NativeWorldbuildingContextRequest(Closed):
+    managed_world_id: Text
+    run_id: Text
+    source_artifact_id: Text
+    source_sha256: Digest
 
 
 class NativeWorldbuildingPrepareRequest(_CandidatePrepareRequest):

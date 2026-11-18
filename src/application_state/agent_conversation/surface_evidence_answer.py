@@ -324,11 +324,12 @@ def _current_carrier(text, submission_id):
 
 def status_for(segments):
     from .build_draft_answer import DraftDiscussionV1
+    from .native_completion import StatblockPdfClaim
     partial = any(isinstance(s, t.SurfaceLimitationV1) for s in segments)
     if any(isinstance(s, (t.PlanWorldGraphClaimSegmentV1, t.NativeAssertionClaimV1)) for s in segments): base = 'graph_grounded'
     elif any(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim)) for s in segments):
         base = 'authored_grounded'
-    elif any(isinstance(s, (t.SourcePassageClaimV1,t.SavedSourceClaimV1)) for s in segments): base = 'source_grounded'
+    elif any(isinstance(s, (t.SourcePassageClaimV1,t.SavedSourceClaimV1,StatblockPdfClaim)) for s in segments): base = 'source_grounded'
     elif any(isinstance(s, (t.SurfaceAuthoredQuoteV1, t.SessionSummaryV1)) for s in segments): base = 'authored_grounded'
     elif any(isinstance(s, t.PlanWorldGraphProposalSegmentV1) for s in segments): return 'creative_proposal'
     elif any(isinstance(s,DraftDiscussionV1) for s in segments) and not partial:

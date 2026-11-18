@@ -1,1 +1,23 @@
-.saved-statblock-page { max-inline-size: 80rem; margin-inline: auto; padding: 1rem; min-inline-size: 0; }
+.saved-statblock-page { box-sizing: border-box; inline-size: 100%; max-inline-size: 80rem; margin-inline: auto; padding: 1rem; min-inline-size: 0; }
+.app-wrap[data-workspace-layout="bounded"] .saved-statblock-page { min-block-size: 0; overflow: auto; }
+
+.saved-statblock-navbar { display: flex; align-items: center; gap: .5rem; }
+.saved-statblock-navbar > details { position: relative; }
+.saved-statblock-navbar > details > summary {
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: .8rem;
+  padding: .4rem .5rem;
+}
+.saved-statblock-navbar__tools {
+  position: absolute;
+  z-index: 5;
+  inset-inline-end: 0;
+  width: min(25rem, calc(100vw - 2rem));
+  max-height: 65dvh;
+  overflow: auto;
+  padding: .8rem;
+  border: 1px solid #394760;
+  border-radius: 8px;
+  background: #192231;
+}

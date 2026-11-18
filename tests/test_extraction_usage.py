@@ -214,7 +214,7 @@ def test_missing_receipt_is_unavailable_and_wrong_receipt_binding_is_rejected(la
 
 
 def test_private_attempt_and_operation_receipts_retain_price_without_exposing_text():
-    from src.graph_memory.extraction.bounded_recap_execution import (
+    from graph_memory.extraction.bounded_recap_execution import (
         _private_response_envelope,
     )
 

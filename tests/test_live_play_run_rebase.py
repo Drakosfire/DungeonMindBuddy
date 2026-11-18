@@ -207,7 +207,7 @@ def test_http_rebase_round_trip_and_replay(client: TestClient, root: Path) -> No
     fetched = client.get(f"/api/live/play-runs/{RUN_ID_A}")
     assert fetched.status_code == 200
     assert fetched.json() == body
-    record_before = get_play_run(root, RUN_ID_A)
+    record_before = get_play_run(RUN_ID_A)
 
     replay = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/rebase",
@@ -215,7 +215,7 @@ def test_http_rebase_round_trip_and_replay(client: TestClient, root: Path) -> No
     )
     assert replay.status_code == 200
     assert replay.json() == body
-    assert get_play_run(root, RUN_ID_A) == record_before
+    assert get_play_run(RUN_ID_A) == record_before
     assert not leftover_rebase_intent_path(root, RUN_ID_A).exists()
 
     current = client.put(
@@ -242,7 +242,7 @@ def test_http_removed_refs_are_409(client: TestClient, root: Path) -> None:
         },
     )
     assert progress.status_code == 200
-    run_before = get_play_run(root, RUN_ID_A)
+    run_before = get_play_run(RUN_ID_A)
     target = _commit_record(root, source.record, REPLACED_TARGET_MARKDOWN)
     response = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/rebase",
@@ -250,7 +250,7 @@ def test_http_removed_refs_are_409(client: TestClient, root: Path) -> None:
     )
     assert response.status_code == 409
     assert "current_scene_id" in response.json()["detail"]
-    assert get_play_run(root, RUN_ID_A) == run_before
+    assert get_play_run(RUN_ID_A) == run_before
     assert not leftover_rebase_intent_path(root, RUN_ID_A).exists()
 
 
@@ -281,7 +281,7 @@ def test_http_completed_replay_requires_intact_manifest(client: TestClient, root
         json=_rebase_body(target, expected_run_revision=1),
     )
     assert first.status_code == 200
-    manifest_before = get_play_run_reference_manifest(root, RUN_ID_A)
+    manifest_before = get_play_run_reference_manifest(RUN_ID_A)
     leftover = leftover_manifest_path(root, RUN_ID_A)
     leftover.parent.mkdir(parents=True, exist_ok=True)
     leftover.write_text("{}\n", encoding="utf-8")
@@ -291,5 +291,5 @@ def test_http_completed_replay_requires_intact_manifest(client: TestClient, root
     )
     assert replay.status_code == 200
     assert replay.json() == first.json()
-    assert get_play_run_reference_manifest(root, RUN_ID_A) == manifest_before
+    assert get_play_run_reference_manifest(RUN_ID_A) == manifest_before
     assert client.get(f"/api/live/play-runs/{RUN_ID_A}").json()["run_revision"] == 2

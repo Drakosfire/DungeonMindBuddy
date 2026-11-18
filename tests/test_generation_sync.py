@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from src.llm.generation_sync import run_awaitable_sync
+from llm.generation_sync import run_awaitable_sync
 
 
 async def _ok() -> int:

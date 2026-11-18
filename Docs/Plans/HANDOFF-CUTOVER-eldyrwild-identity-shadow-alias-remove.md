@@ -20,6 +20,8 @@ pr_body_template: |
 
 # HANDOFF — retire Eldyrwild identity-shadow aliases
 
+> Run historical commands from the [pre-cutover checkout](https://github.com/Drakosfire/DungeonMindBuddy/blob/30008dc473bd80144a46c035d09b56ad1deb2928/scripts/apply_eldyrwild_identity_shadow_alias_remove.py) with the retained World inputs.
+
 **Created:** 2026-08-13  
 **Status:** DONE / HISTORICAL — do not redispatch  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-eldyrwild-identity-shadow-alias-remove.md`  

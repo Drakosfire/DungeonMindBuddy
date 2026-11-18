@@ -25,8 +25,8 @@ Purpose: classify graph-memory and adjacent benchmark fixtures by what they can 
 
 | Path | Session/campaign | Authority class | Candidate graph comparison? | Proves | Must not be used for | Notes |
 |---|---|---|---:|---|---|---|
-| `evals/graph_memory_layer/examples/session_23_candidate_graph_gold/` | Longmont C2 S23 | `candidate_graph_gold` | yes | Hand-authored candidate graph target for nodes/edges/beats using Session 23 recap evidence. | Canon promotion, stable global-node truth, projection UX scoring, or exact `node_id` identity claims. | Manifest declares `authoring_mode: hand_authored_gold` and points at Session 23 recap ingest span refs. |
-| `evals/graph_memory_layer/examples/session_22_candidate_graph_gold/` | Longmont C2 S22 | `candidate_graph_gold` | yes | Candidate graph target used by category extraction study comparison. | Projection gold, canon promotion, or generated-output authority. | Present on branch during inventory; keep separate from category-study generated artifacts. |
+| `evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-23/` | Longmont C2 S23 | `candidate_graph_gold` | yes | Hand-authored candidate graph target for nodes/edges/beats using Session 23 recap evidence. | Canon promotion, stable global-node truth, projection UX scoring, or exact `node_id` identity claims. | Manifest declares `authoring_mode: hand_authored_gold` and points at Session 23 recap ingest span refs. |
+| `evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-22/` | Longmont C2 S22 | `candidate_graph_gold` | yes | Candidate graph target used by category extraction study comparison. | Projection gold, canon promotion, or generated-output authority. | Present on branch during inventory; keep separate from category-study generated artifacts. |
 
 ## Projection gold / projection dogfood
 

@@ -130,7 +130,6 @@ def _create_run(
     except WorkspaceDocumentRegistryError:
         revision_n, sha = snapshot.loaded_revision, snapshot.content_sha256
     return create_or_replay_play_run(
-        root,
         run_id=run_id,
         playable_artifact_id=snapshot.record.document_id,
         expected_playable_revision=revision_n,
@@ -210,7 +209,7 @@ def test_same_run_id_different_binding_fails_without_overwrite(tmp_path: Path) -
         _create_run(tmp_path, snapshot_b)
 
     assert exc_info.value.status_code == 409
-    assert get_play_run(tmp_path, RUN_ID_A) == first
+    assert get_play_run(RUN_ID_A) == first
     assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -229,7 +228,6 @@ def test_stale_revision_after_real_workspace_commit_fails_without_run(
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         create_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=old.record.document_id,
             expected_playable_revision=old_revision,
@@ -247,7 +245,6 @@ def test_stale_sha_with_current_revision_fails_without_run(tmp_path: Path) -> No
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
         create_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=snapshot.record.document_id,
             expected_playable_revision=_playable(snapshot)[0],
@@ -313,8 +310,8 @@ def test_fresh_reads_recover_persisted_run_and_list(tmp_path: Path) -> None:
     snapshot = _create_committed_runbook(tmp_path, name="restart")
     created = _create_run(tmp_path, snapshot)
 
-    loaded = get_play_run(tmp_path, RUN_ID_A)
-    listed = list_play_runs(tmp_path)
+    loaded = get_play_run(RUN_ID_A)
+    listed = list_play_runs()
 
     assert loaded == created
     assert listed == [created]
@@ -330,7 +327,7 @@ def test_different_run_ids_may_bind_same_playable_revision(tmp_path: Path) -> No
     assert run_a.playable_revision == run_b.playable_revision
     assert run_a.playable_content_sha256 == run_b.playable_content_sha256
     assert run_a.run_id != run_b.run_id
-    assert {record.run_id for record in list_play_runs(tmp_path)} == {
+    assert {record.run_id for record in list_play_runs()} == {
         RUN_ID_A,
         RUN_ID_B,
     }
@@ -342,10 +339,10 @@ def test_malformed_persisted_run_fails_get_and_whole_list(tmp_path: Path) -> Non
     path.write_text("{not-json\n", encoding="utf-8")
 
     with pytest.raises(PlayRunRegistryError) as get_exc:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
     assert get_exc.value.status_code == 404
 
-    assert list_play_runs(tmp_path) == []
+    assert list_play_runs() == []
     assert path.read_text(encoding="utf-8") == "{not-json\n"
 
 
@@ -375,7 +372,7 @@ def test_list_is_created_descending_then_run_id_ascending(
     _create_run(tmp_path, snapshot, run_id=RUN_ID_C)
     _create_run(tmp_path, snapshot, run_id=RUN_ID_D)
 
-    assert [record.run_id for record in list_play_runs(tmp_path)] == [
+    assert [record.run_id for record in list_play_runs()] == [
         RUN_ID_C,
         RUN_ID_A,
         RUN_ID_B,
@@ -389,9 +386,8 @@ def test_list_filters_by_campaign_and_playable_artifact(tmp_path: Path) -> None:
     _create_run(tmp_path, snapshot_a, run_id=RUN_ID_A)
     _create_run(tmp_path, snapshot_b, run_id=RUN_ID_B)
 
-    by_campaign = list_play_runs(tmp_path, campaign_id="longmont-c2")
+    by_campaign = list_play_runs(campaign_id="longmont-c2")
     by_artifact = list_play_runs(
-        tmp_path,
         playable_artifact_id=snapshot_a.record.document_id,
     )
 
@@ -401,11 +397,11 @@ def test_list_filters_by_campaign_and_playable_artifact(tmp_path: Path) -> None:
 
 def test_invalid_and_unknown_run_ids_fail_closed(tmp_path: Path) -> None:
     with pytest.raises(PlayRunRegistryError) as invalid:
-        get_play_run(tmp_path, "not-a-uuid")
+        get_play_run("not-a-uuid")
     assert invalid.value.status_code == 422
 
     with pytest.raises(PlayRunRegistryError) as unknown:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
     assert unknown.value.status_code == 404
 
 
@@ -416,7 +412,6 @@ def test_noncanonical_uuid_and_sha_are_rejected_before_workspace_read(
 
     with pytest.raises(PlayRunRegistryError) as uuid_exc:
         create_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A.upper(),
             playable_artifact_id=snapshot.record.document_id,
             expected_playable_revision=_playable(snapshot)[0],
@@ -426,7 +421,6 @@ def test_noncanonical_uuid_and_sha_are_rejected_before_workspace_read(
 
     with pytest.raises(PlayRunRegistryError) as sha_exc:
         create_or_replay_play_run(
-            tmp_path,
             run_id=RUN_ID_A,
             playable_artifact_id=snapshot.record.document_id,
             expected_playable_revision=_playable(snapshot)[0],

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.reducer.canon_projection import attach_scope_relevance_metadata
+from reducer.canon_projection import attach_scope_relevance_metadata
 
 
 def _projection_fixture() -> dict:

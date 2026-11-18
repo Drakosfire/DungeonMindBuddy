@@ -13,8 +13,9 @@ from pydantic import ConfigDict, Discriminator, Tag, Field, ValidationInfo, fiel
 
 from application_state.build_proposal.types import BuildWriteCapability
 from . import types as t
-from .build_intentional_response import Capabilities, RESOLVER_DIGEST, known_menu
+from .build_intentional_response import Capabilities, known_semantics
 from .build_related_pages import PagePointer
+from .build_saved_statblock import BuildSavedStatblockReadV1, validate_read as validate_saved_statblock_read
 from .native_context import (
     SurfaceNativeContextReceiptV1, BuildWorkContextV1, PlanWorkContextV1,
     PlayWorkContextV1, NativeProviderInputV1, NativeReviewedActionInputV1, NativePlanRequestAdmissionV1, work_world_id,
@@ -60,8 +61,7 @@ class NativeBuildActionV1(Strict):
 
     @model_validator(mode="after")
     def captured_work(self):
-        if (not known_menu(self.requested_work_menu_sha256)
-                or self.response_resolver_sha256 != RESOLVER_DIGEST):
+        if not known_semantics(self.requested_work_menu_sha256, self.response_resolver_sha256):
             raise ValueError("Unknown frozen Build semantic menu or resolver")
         cap = self.write_capability
         # Match the existing owner hash recipe, including its default field names.
@@ -288,7 +288,7 @@ SurfaceNativeEvent = Annotated[
     | t.BuildSectionReadAuthorizationV1 | t.ValidatedBuildSectionReadV1
     | t.BuildRequestedWorkResolutionV1 | t.BuildReviewedActionSelectionV2 | t.BuildReviewedActionSelectionV1
     | t.BuildWriterEvidenceSelectionV1 | t.BuildWriterEvidenceSelectionV2 | t.BuildPlanOutputContractV2
-    | t.RelatedPagesSelection | t.RelatedPageRead
+    | t.RelatedPagesSelection | t.RelatedPageRead | BuildSavedStatblockReadV1
     | t.BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV2
     | BuildAuthoredReferenceReadV2 | BuildAuthoredReferenceReadV3 | NativePlanAssertionReadObservedV2,
     Field(discriminator="kind"),
@@ -300,7 +300,7 @@ _BUILD_WORK_EVENTS = (
     t.BuildSectionReadAuthorizationV1, t.ValidatedBuildSectionReadV1,
     t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1,
     t.BuildWriterEvidenceSelectionV1, t.BuildPlanOutputContractV2,
-    t.RelatedPagesSelection,
+    t.RelatedPagesSelection, BuildSavedStatblockReadV1,
 )
 _PLAN_WORK_EVENTS = (t.PlanRequestedWorkAuthorizedV2, t.PlanRequestedWorkSelectedV2)
 
@@ -334,6 +334,8 @@ class SurfaceNativeExecutionV1(Strict):
                     raise ValueError('Shared native writer response requires its exact selected output acknowledgement')
             if isinstance(event, _BUILD_WORK_EVENTS) and not isinstance(self.policy.action, NativeBuildActionV1):
                 raise ValueError("Build work event cannot acquire another action family")
+            if isinstance(event, BuildSavedStatblockReadV1):
+                validate_saved_statblock_read(event, self)
             if isinstance(event, t.RelatedPageRead) and type(self.policy.action) not in (NativeBuildActionV1, NativePlanActionV2):
                 raise ValueError("Saved-page read lacks its actual surface capability")
             if isinstance(event, _PLAN_WORK_EVENTS) and not isinstance(self.policy.action, NativePlanActionV1):
@@ -448,6 +450,22 @@ def _join_context_binding(context, execution):
         from .build_world_context import validate_work_intent
         validate_work_intent(work.source_basis, action.intent)
         for event in execution.events:
+            if isinstance(event, BuildSavedStatblockReadV1) and event.pdf_support is not None:
+                from .authored_graph_references import native_references, object_selections
+                from .native_corpus import NativeCorpusAuthorityV1
+
+                pin = event.pdf_support.scope
+                identity = (pin.managed_world_id, pin.native_world_id, pin.binding_version, pin.revision_id)
+                authority = context.source_authority
+                source_matches = isinstance(authority, NativeCorpusAuthorityV1) and identity == (
+                    authority.managed_world_id, authority.native_world_id,
+                    authority.binding_version, authority.revision_id,
+                )
+                if not source_matches and not any(
+                    identity == (ref.managed_world_id, ref.native_world_id, ref.binding_version, ref.graph_revision)
+                    for ref in object_selections(native_references(execution))
+                ):
+                    raise ValueError("Saved statblock PDF support differs from its admitted Graph pin")
             if isinstance(event,t.BuildDraftContextCapturedV1) and event.record.snapshot.saved_basis() != work.source_basis.model_dump(mode='json',by_alias=True):
                 raise ValueError('Working draft differs from its frozen Build source basis')
             if isinstance(event,(t.BuildSectionReadAuthorizationV1,t.ValidatedBuildSectionReadV1)) and event.source_basis != work.source_basis:

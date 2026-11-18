@@ -1,3 +1,12 @@
+import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
+import { pdfRegionKey, retainedPdfKey, type RetainedPdf } from "../api/retainedPdfRegions";
+import type { ReactNode } from "react";
+vi.mock("./BuildPdfPreview", () => ({
+  BuildPdfPreview: ({ initialFile, initialRetained, toolbarControls }: {
+    initialFile?: File; initialRetained?: RetainedPdf; toolbarControls?: ReactNode;
+  }) => <>{initialFile?.name ?? initialRetained?.name}{toolbarControls}</>,
+}));
+import { fireEvent } from "@testing-library/react";
 import { StrictMode, useState } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -13,7 +22,7 @@ import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
-import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../test/worldGraphRecapFixture";
 import { LegacyProjectionHostAdapter } from "../planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
 import {
@@ -30,7 +39,7 @@ import type { BuildReferenceContextBinding } from "./reference/buildBuildSurface
 import { BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./reference/buildReferenceIds";
 import { BuildReferenceCapability } from "./reference/BuildReferenceCapability";
 
-function renderBuildPage({ withConversationDock = false }: { withConversationDock?: boolean } = {}) {
+function renderBuildPage({ withConversationDock = false, managedWorld = false }: { withConversationDock?: boolean; managedWorld?: boolean } = {}) {
   const page = <>
     <SurfaceContextProvider>
       <PeekRegionProvider>
@@ -42,7 +51,8 @@ function renderBuildPage({ withConversationDock = false }: { withConversationDoc
   </>;
   return render(
     <AgentInteractionProvider>
-      {withConversationDock ? <AskPluginSlotProvider>{page}</AskPluginSlotProvider> : page}
+      {managedWorld ? <SelectedWorldProvider locationSnapshot={window.location.href}>{page}</SelectedWorldProvider>
+        : withConversationDock ? <AskPluginSlotProvider>{page}</AskPluginSlotProvider> : page}
     </AgentInteractionProvider>,
   );
 }
@@ -109,7 +119,8 @@ vi.mock("../api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     createWorkspaceDocument: vi.fn(),
-    listWorkspaceDocuments: vi.fn(),
+    listWorkspacePageInventory: vi.fn(),
+    listWorldContainers: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
     getCommittedPageSnapshot: vi.fn(),
     updateWorkspaceDocumentMetadata: vi.fn(),
@@ -214,10 +225,48 @@ describe("BuildSurfacePage", () => {
     localStorage.clear();
     sessionStorage.clear();
     window.history.pushState({}, "", "/build");
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [],
     });
+  });
+
+  it("opens a retained PDF directly in Build from its saved document URL", async () => {
+    const locator = { source_revision_id: "saved-pdf", content_sha256: "digest",
+      page: 1, left: 0, top: 0, right: 1, bottom: 1 };
+    const key = retainedPdfKey("elderwyld") + pdfRegionKey(locator);
+    localStorage.setItem(key, JSON.stringify({ name: "MeatMindNode.pdf", locator }));
+    window.history.replaceState({}, "", "/build?world=elderwyld&pdf=saved-pdf");
+    vi.mocked(liveApi.listWorldContainers).mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{ schema_version: "dmb_world_container_record_v1", world_id: "elderwyld",
+        name: "Elderwyld", source_root_relpath: "", created_at: "" }],
+    });
+    try {
+      renderBuildPage({ managedWorld: true });
+      expect(await screen.findByRole("region", { name: "PDF workspace" }))
+        .toHaveTextContent("MeatMindNode.pdf");
+      expect(within(screen.getByRole("navigation", { name: "Command board navigation" }))
+        .getByRole("button", { name: "Open document" })).toBeInTheDocument();
+    } finally {
+      localStorage.removeItem(key);
+    }
+  });
+
+  it("opens the PDF import viewer on a canvas file drop", async () => {
+    window.history.replaceState({}, "", "/build?world=elderwyld");
+    vi.mocked(liveApi.listWorldContainers).mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{schema_version: "dmb_world_container_record_v1", world_id: "elderwyld", name: "Elderwyld", source_root_relpath: "", created_at: ""}],
+    });
+    renderBuildPage({managedWorld: true});
+    await screen.findByRole("button", {name: "Switch World: Elderwyld"});
+    const canvas = await screen.findByRole("heading", {name: /Start with a spark/});
+    fireEvent.drop(canvas, {dataTransfer: {files: [new File(["%PDF"], "creature.pdf", {type: "application/pdf"})]}});
+    expect(await screen.findByRole("region", {name: "PDF workspace"})).toHaveTextContent("creature.pdf");
+    expect(canvas).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Close PDF"}));
+    expect(screen.queryByText("creature.pdf")).not.toBeInTheDocument();
   });
 
   it("E2: bare /build shows a framed landing and shared conversation dock without creating", async () => {
@@ -388,7 +437,7 @@ describe("BuildSurfacePage", () => {
   it("opens a saved source directly editable with live outline and formatting beside it", async () => {
     const user = userEvent.setup();
     const snapshot = buildLongmontSnapshot(DOC_ID, "Mirathorn", "# Mirathorn\n\n## Guard headquarters\n");
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v1", records: [snapshot.record] });
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null, schema_version: "dmb_workspace_document_registry_v1", records: [snapshot.record] });
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
     window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
     renderBuildPage();
@@ -532,7 +581,7 @@ describe("BuildSurfacePage", () => {
         visibility_state: "internal" as const,
       },
     ];
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records,
     });
@@ -579,12 +628,16 @@ describe("BuildSurfacePage", () => {
       expect(screen.getByTestId("build-document-status")).toHaveTextContent(/Unsaved|dirty|local/i);
     });
 
-    await user.selectOptions(screen.getByTestId("build-document-select"), DOC_B);
+    await user.click(screen.getByTestId("build-document-select"));
+    await user.click(screen.getByRole("button", { name: "Pages", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Source B", exact: true }));
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Source B");
     });
 
-    await user.selectOptions(screen.getByTestId("build-document-select"), DOC_ID);
+    await user.click(screen.getByTestId("build-document-select"));
+    await user.click(screen.getByRole("button", { name: "Pages", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Source A", exact: true }));
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Source A");
     });
@@ -1216,7 +1269,7 @@ describe("BuildSurfacePage", () => {
     };
     const snapshot = buildLongmontSnapshot(DOC_ID, "Ironveil Property", "# Ironveil Property\n");
 
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [snapshot.record],
     });
@@ -1240,13 +1293,14 @@ describe("BuildSurfacePage", () => {
     window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
 
     // Hold registry refresh so the list stays stale after rename; selector must overlay live title.
-    let resolveList: ((value: Awaited<ReturnType<typeof liveApi.listWorkspaceDocuments>>) => void) | null =
+    let resolveList: ((value: Awaited<ReturnType<typeof liveApi.listWorkspacePageInventory>>) => void) | null =
       null;
     let listCalls = 0;
-    vi.mocked(liveApi.listWorkspaceDocuments).mockImplementation(() => {
+    vi.mocked(liveApi.listWorkspacePageInventory).mockImplementation(() => {
       listCalls += 1;
       if (listCalls === 1) {
         return Promise.resolve({
+          campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
           schema_version: "dmb_workspace_document_registry_v1",
           records: [snapshot.record],
         });
@@ -1289,8 +1343,9 @@ describe("BuildSurfacePage", () => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
     });
     // Stale list still held — selector must already show Canvas title.
+    fireEvent.click(screen.getByTestId("build-document-select"));
     expect(
-      within(screen.getByTestId("build-document-select")).getByRole("option", {
+      within(screen.getByRole("dialog", { name: "Open document" })).getByRole("button", {
         name: "Ironveil Manufactory Grounds",
       }),
     ).toBeInTheDocument();
@@ -1360,7 +1415,7 @@ describe("BuildSurfacePage", () => {
         content_status: "committed",
       },
     });
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [
         {
@@ -1386,6 +1441,7 @@ describe("BuildSurfacePage", () => {
 
     // Avoid leaking the held list promise.
     resolveList?.({
+      campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [
         {
@@ -1401,7 +1457,7 @@ describe("BuildSurfacePage", () => {
   it("rename does not cold-reload native object inspection", async () => {
     const user = userEvent.setup();
     const snapshot = buildLongmontSnapshot(DOC_ID, "Ironveil Property");
-    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+    vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({ campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
       schema_version: "dmb_workspace_document_registry_v1",
       records: [snapshot.record],
     });

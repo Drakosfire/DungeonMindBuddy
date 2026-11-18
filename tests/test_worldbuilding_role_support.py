@@ -1,6 +1,6 @@
 from copy import deepcopy
 import pytest
-from src.graph_memory.extraction.worldbuilding_role_support import (
+from graph_memory.extraction.worldbuilding_role_support import (
     compile_role_support,
     REASON,
 )

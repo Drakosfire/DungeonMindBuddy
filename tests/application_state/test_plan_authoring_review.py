@@ -13,6 +13,7 @@ from application_state.content.service import current_committed_revision, get_pl
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 from application_state.plan_action_dialogue import authoring_review as owner
 from application_state.unit_of_work import unit_of_work
+from tests.test_hosted_native_graph_access import hosted, recap_lane  # noqa: F401
 from tests.test_plan_jev_authoring import authoring_writer
 from tests.test_plan_jev_writer import WriterWire, graph_answer
 
@@ -241,7 +242,8 @@ def test_http_review_requires_auth_before_world_and_app_reads(completed_proposal
     assert touched == ["auth", "auth"]
 
 
-def test_http_review_snapshot_and_commands_use_actual_plan_owner(completed_proposal, monkeypatch):
+@pytest.mark.parametrize("hosted_mode", [False, True], ids=["local", "hosted"])
+def test_http_review_snapshot_and_commands_use_actual_plan_owner(completed_proposal, monkeypatch, hosted_mode, request):
     from fastapi.testclient import TestClient
     from apps.live_control_server.main import create_app
     from apps.live_control_server.routes import agent as routes
@@ -253,7 +255,24 @@ def test_http_review_snapshot_and_commands_use_actual_plan_owner(completed_propo
     monkeypatch.setattr(routes, "_verified_world_id", lambda world: world)
     path = f"/api/live/agent/worlds/{proposal.capture.world_id}/plan-proposals/{proposal.origin.action_id}/review"
     with TestClient(create_app(), base_url="http://127.0.0.1", client=("127.0.0.1", 50000)) as client:
-        snapshot = client.get(path)
+        get, post = client.get, client.post
+        if hosted_mode:
+            from tests.test_hosted_native_graph_access import HOSTED_WORLD_ACCESS_ENV, OWNER, _record
+
+            hosted = request.getfixturevalue("hosted")
+            world = proposal.capture.world_id
+            hosted.records[world] = _record(world, OWNER, "native-plan-fixture")
+            # The older Plan fixture uses a colon-delimited World ID. Substitute
+            # its catalog record at the registry seam while keeping owner checks.
+            monkeypatch.setattr(
+                "apps.live_control_server.services.hosted_native_graph_access.get_world_container",
+                hosted.records.__getitem__,
+            )
+            monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+            get = lambda path, **kwargs: hosted.client.request("GET", path, **kwargs)
+            post = lambda path, **kwargs: hosted.client.request("POST", path, **kwargs)
+            assert get(path, session="other-session").status_code == 403
+        snapshot = get(path)
         assert snapshot.status_code == 200, snapshot.text
         assert snapshot.json() == {
             "schema": "dmb_plan_authoring_review_snapshot_v1",
@@ -263,16 +282,50 @@ def test_http_review_snapshot_and_commands_use_actual_plan_owner(completed_propo
             "review": None,
         }
         payload = command(proposal, None, "open")
-        opened_response = client.post(path, json=json.loads(json.dumps(payload, default=str)))
+        opened_response = post(path, json=json.loads(json.dumps(payload, default=str)))
         assert opened_response.status_code == 200, opened_response.text
         body = opened_response.json()
         assert body["state"] == "editing" and body["revision"] == 1
-        assert client.get(path).json()["review"] == body
+        assert get(path).json()["review"] == body
+        if hosted_mode:
+            edit = {
+                "operation": "save", "command_id": str(uuid4()), "origin_sha256": proposal.origin.sha256,
+                "expected_revision": 1, "markdown": "## Revised approach\n\nAsk about the pond first.",
+            }
+            assert post(path, json=edit, origin=None).status_code == 403
+            from application_state.plan_action_dialogue import authoring_review
+            from tests.test_hosted_native_graph_access import OTHER_OWNER
+
+            owner_record = hosted.records[world]
+            read_owner = authoring_review._owner
+
+            def transfer_after_lookup(*args, **kwargs):
+                result = read_owner(*args, **kwargs)
+                hosted.records[world] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+                return result
+
+            with monkeypatch.context() as patch:
+                patch.setattr(authoring_review, "_owner", transfer_after_lookup)
+                denied = get(path)
+                assert denied.status_code == 403, denied.text
+            hosted.records[world] = owner_record
+            with monkeypatch.context() as patch:
+                patch.setattr(authoring_review, "_owner", transfer_after_lookup)
+                denied = post(path, json=edit)
+                assert denied.status_code == 403, denied.text
+            hosted.records[world] = owner_record
+            assert get(path).json()["review"] == body
+            saved = post(path, json=edit)
+            assert saved.status_code == 200, saved.text
+            assert saved.json()["revision"] == 2
+            assert post(path, json=edit).json() == saved.json()
+            assert get(path).json()["review"] == saved.json()
+
         stale = command(proposal, None, "discard")
-        assert client.post(path, json=json.loads(json.dumps(stale, default=str))).status_code == 409
+        assert post(path, json=json.loads(json.dumps(stale, default=str))).status_code == 409
         foreign = path.replace(proposal.capture.world_id, "foreign-world")
-        assert client.get(foreign).status_code == 404
-        assert owner.read_review(proposal.capture.world_id, proposal.origin.action_id).review.revision == 1
+        assert get(foreign).status_code == (403 if hosted_mode else 404)
+        assert owner.read_review(proposal.capture.world_id, proposal.origin.action_id).review.revision == (2 if hosted_mode else 1)
 
 
 def inspected_capture(proposal, *, obj=None, revision=None, pointer=None):

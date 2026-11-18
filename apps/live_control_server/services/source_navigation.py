@@ -138,7 +138,7 @@ def resolve_build_source_navigation(
         )
 
     try:
-        artifact = get_source_artifact(root, cleaned_artifact_id)
+        artifact = get_source_artifact(cleaned_artifact_id)
     except SourceArtifactRegistryError as exc:
         raise SourceNavigationError(
             str(exc),

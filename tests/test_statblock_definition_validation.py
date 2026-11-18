@@ -159,7 +159,8 @@ def test_validate_definition_route(monkeypatch) -> None:
         "DungeonMindStatblockV1Client",
         lambda: FakeClient(),
     )
-    client = TestClient(create_app())
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
     response = client.post(
         "/api/live/statblock-definitions:validate",
         json={"definition": _fixture("candidate-response.json")["definition"]},
@@ -172,10 +173,11 @@ def test_validate_definition_route(monkeypatch) -> None:
     assert body["validation_receipt"]["status"] == "invalid"
 
 
-def test_validate_definition_route_rejects_extra_definition_fields() -> None:
+def test_validate_definition_route_rejects_extra_definition_fields(monkeypatch) -> None:
     definition = _fixture("candidate-response.json")["definition"]
     definition = {**definition, "unexpected_top_level": True}
-    client = TestClient(create_app())
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
     response = client.post(
         "/api/live/statblock-definitions:validate",
         json={"definition": definition},

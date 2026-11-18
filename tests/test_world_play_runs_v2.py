@@ -219,8 +219,8 @@ def test_world_runbook_v2_crud_tiptap_and_exact_revision(
     world_client: TestClient,
     tmp_path: Path,
 ) -> None:
-    world_a = create_world_container(tmp_path, name="Runbook Owner A")
-    world_b = create_world_container(tmp_path, name="Runbook Owner B")
+    world_a = create_world_container(name="Runbook Owner A")
+    world_b = create_world_container(name="Runbook Owner B")
 
     created_response = world_client.post(
         "/api/live/workspace-documents/world-runbooks",
@@ -416,8 +416,8 @@ def test_world_runbook_routes_use_managed_root_with_separate_code_root(
     split_root_world_client: tuple[TestClient, Path, Path],
 ) -> None:
     client, code_root, managed_root = split_root_world_client
-    world = create_world_container(managed_root, name="Split Root Runbook World")
-    other_world = create_world_container(managed_root, name="Other Split Root World")
+    world = create_world_container(name="Split Root Runbook World")
+    other_world = create_world_container(name="Other Split Root World")
     registry_bytes_before = world_snapshot()
     code_resource = code_root / "out/config/keep.txt"
     code_resource.parent.mkdir(parents=True)
@@ -509,8 +509,8 @@ def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
     from tests.test_play_run_reference_manifest import C2S27_SHAPED_V2_MARKDOWN
     from apps.live_control_server.services.play_run_edition_structure import structure_signature
 
-    world_a = create_world_container(tmp_path, name="Play Context Owner A")
-    world_b = create_world_container(tmp_path, name="Play Context Owner B")
+    world_a = create_world_container(name="Play Context Owner A")
+    world_b = create_world_container(name="Play Context Owner B")
     created = world_client.post(
         "/api/live/workspace-documents/world-runbooks",
         json={

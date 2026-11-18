@@ -15,19 +15,19 @@ from typing import Any, Mapping
 from jsonschema import ValidationError as JsonSchemaValidationError
 from jsonschema import validate as validate_json_schema
 
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
-from src.graph_memory.extraction._recap_inference_worker import (
+from bootstrap_env import load_dungeonmindbuddy_dotenv
+from graph_memory.extraction._recap_inference_worker import (
     _execute_in_owned_process, _WorkerStartFailure,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
-from src.graph_memory.extraction.category_candidate_graph_schema import (
+from graph_memory.extraction.category_candidate_graph_schema import (
     category_pass_text_format,
     category_pass_text_format_for_spec,
 )
 
-from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+from graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
 
 DEEPSEEK_MODEL = "deepseek/deepseek-v4.1-flash-1017"
 SUPPORTED_INGESTION_PROVIDERS = frozenset({"openai", "openrouter", "vercel"})
@@ -215,8 +215,8 @@ class RecapExecutionLimits:
     provider: str = "openai"
     model: str = "gpt-6-luna"
     max_calls: int = 8
-    per_call_deadline_ms: int = 120_000
-    run_deadline_ms: int = 480_000
+    per_call_deadline_ms: int | None = 120_000
+    run_deadline_ms: int | None = 480_000
     max_output_tokens: int | None = None
     edge_max_output_tokens: int | None = None
     reasoning_effort: str | None = None
@@ -245,6 +245,8 @@ class RecapExecutionLimits:
             ("run_deadline_ms", 900_000),
         ):
             value = getattr(self, name)
+            if value is None:
+                continue
             if type(value) is not int or not 1 <= value <= ceiling:
                 raise ValueError(f"{name} must be 1..{ceiling}")
         # Explicit finite settings remain valid for pinned historical/experiment
@@ -493,14 +495,15 @@ class BoundedRecapPassClient:
 
         wall_started = time.monotonic()
 
-        remaining = self.limits.run_deadline_ms - int(
-            (self._clock() - self._started) * 1000
-        )
+        deadline_ms = self.limits.per_call_deadline_ms
+        if self.limits.run_deadline_ms is not None:
+            remaining = self.limits.run_deadline_ms - int((self._clock() - self._started) * 1000)
+            deadline_ms = remaining if deadline_ms is None else min(deadline_ms, remaining)
         if (
             self._stopped
             or model_id != self.limits.model
             or len(self.calls) >= self.limits.max_calls
-            or remaining <= 0
+            or (deadline_ms is not None and deadline_ms <= 0)
         ):
             self._stopped = True
             raise CategoryGraphExtractionError(
@@ -529,12 +532,12 @@ class BoundedRecapPassClient:
             and source_evidence_packet is None
         )
         if advertised_node_schema:
-            from src.graph_memory.extraction.category_candidate_graph_schema import node_schema_with_advertised_spans
+            from graph_memory.extraction.category_candidate_graph_schema import node_schema_with_advertised_spans
             fmt["schema"] = node_schema_with_advertised_spans(
                 canonical_schema, self._advertised_node_span_ids,
             )
         if source_evidence_packet is not None:
-            from src.graph_memory.extraction.source_sentence_evidence import node_wire_schema
+            from graph_memory.extraction.source_sentence_evidence import node_wire_schema
             if ((pass_spec is not None and pass_spec.kind != "node")
                     or pass_name not in {p.pass_id for p in RECAP_EXTRACTION_PROFILE.node_passes}):
                 raise CategoryGraphExtractionError("source handles require a recap node pass", pass_name=pass_name)
@@ -553,7 +556,7 @@ class BoundedRecapPassClient:
             from generationengine.types import ProviderRoute
 
             route = ProviderRoute(
-                order=("DeepSeek",),
+                order=("deepinfra/fp8",),
                 allow_fallbacks=False,
                 require_parameters=True,
             )
@@ -578,7 +581,7 @@ class BoundedRecapPassClient:
                 and self.limits.edge_max_output_tokens is not None
                 else self.limits.max_output_tokens
             ),
-            "deadline_ms": min(remaining, self.limits.per_call_deadline_ms),
+            "deadline_ms": 0 if deadline_ms is None else deadline_ms,
         }
         if deepseek:
             request_kwargs.update(
@@ -635,7 +638,10 @@ class BoundedRecapPassClient:
             try:
                 outcome = _execute_in_owned_process(
                     self._engine_factory, request_payload,
-                    deadline=wall_started + request.deadline_ms / 1000,
+                    deadline=(
+                        None if deadline_ms is None
+                        else wall_started + deadline_ms / 1000
+                    ),
                     attempt_evidence=(
                         {"binding": self.execution_binding,
                          "pass_ordinal": len(self.calls), "pass_name": pass_name,
@@ -726,7 +732,7 @@ class BoundedRecapPassClient:
             if deepseek or source_evidence_packet is not None or advertised_node_schema:
                 validate_json_schema(parsed, fmt["schema"])
             if source_evidence_packet is not None:
-                from src.graph_memory.extraction.source_sentence_evidence import materialize_node_evidence
+                from graph_memory.extraction.source_sentence_evidence import materialize_node_evidence
                 parsed = materialize_node_evidence(
                     source_evidence_packet, parsed,
                     expected_packet_id=context_hashes["node_source_packet"],

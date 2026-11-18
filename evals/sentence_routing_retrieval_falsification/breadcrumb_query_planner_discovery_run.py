@@ -53,7 +53,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_query_llm import 
     resolve_breadcrumb_query_llm_model,
     synthesize_answer_from_hit_context,
 )
-from src.agent.corpus_path_tools import (
+from corpus.tool_trace import (
     read_paths_from_tool_trace,
     unit_ids_from_query_session_memory_trace,
 )
@@ -66,7 +66,7 @@ from src.agent.planner import (
 )
 from src.agent.planner_cache import load_or_build_planner_instructions
 from src.agent.synthesis import _load_api_key
-from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from bootstrap_env import load_dungeonmindbuddy_dotenv
 
 
 def norm_rel_path(path: str) -> str:

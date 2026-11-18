@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from src.agent.recap_ingest_helpers import assemble_recap
+from live_play.recap_ingest_helpers import assemble_recap
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RAW_NOTES = REPO_ROOT / "Session 20 Recap.txt"

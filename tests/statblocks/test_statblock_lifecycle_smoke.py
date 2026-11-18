@@ -5,7 +5,7 @@ import json
 import pytest
 
 from scripts import statblock_lifecycle_smoke
-from src.statblocks.v2_contract import StatBlockGeneratorHealth
+from statblocks.v2_contract import StatBlockGeneratorHealth
 
 
 def _json_from_stdout(stdout: str) -> dict[str, object]:

@@ -1,22 +1,22 @@
 """Explicit manual revision Save, producer CAS and durable exact-key recovery."""
 from datetime import UTC,datetime
-from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import ValidationStatus,ValidationSeverity,AssetBindingV1Input,AssetRefV1,ProviderKind,Role
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated import ValidationStatus,ValidationSeverity,AssetBindingV1Input,AssetRefV1,ProviderKind,Role
 from uuid import UUID
 from application_state.errors import ApplicationStateConflictError,ApplicationStateIntegrityError,ApplicationStateUnavailableError
 from application_state import media
 from application_state.mechanics_revisions import service as operations
-from application_state.mechanics_revisions.types import RevisionOperation,digest
+from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE,RevisionOperation,digest
 from application_state.world_mechanics.types import MechanicsLocator
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import build_statblock_v1_client,verify_exact_revision_mechanics_integrity
-from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import source_definition_digest_from_body
+from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import matches_accepted_definition_digest, source_definition_digest_from_body
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import locator_from_exact_revision,same_mechanics_locator
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
-from apps.live_control_server.services.threat_draft_store import get_threat_draft
+from apps.live_control_server.services.threat_draft_store import get_threat_draft, saved_mechanics_draft_ids
 from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
 from apps.live_control_server.services.statblock_definition_validation import validate_definition
 
 
-def _origin(root,world_id,draft_id):
+def _origin_with_proof(root,world_id,draft_id):
     draft=get_threat_draft(root,str(draft_id))
     if draft.schema_name!='dmb_threat_draft_v2' or draft.world_id!=world_id or draft.workflow_state!='mechanics_saved' or draft.accepted_mechanics_ref is None:
         raise ApplicationStateConflictError('Select saved mechanics from this World')
@@ -26,10 +26,17 @@ def _origin(root,world_id,draft_id):
         and same_mechanics_locator(op.locator,ref.to_mechanics_locator())
         and op.source_draft_version==ref.accepted_from_draft_version
         and op.source_candidate_id==ref.accepted_from_candidate_id
-        and op.validation_receipt_digest==ref.definition_digest
-        and source_definition_digest_from_body(op.request_body['definition'])==ref.definition_digest)]
+        and matches_accepted_definition_digest(
+            op.request_body["definition"], validation_digest=op.validation_receipt_digest,
+            accepted_digest=ref.definition_digest,
+        ))]
     if len(matches)!=1:raise ApplicationStateIntegrityError('Original mechanics have no unique acceptance proof')
-    return draft,MechanicsLocator.model_validate(ref.to_mechanics_locator().model_dump()),matches[0].operation_id
+    return draft,MechanicsLocator.model_validate(ref.to_mechanics_locator().model_dump()),matches[0]
+
+
+def _origin(root, world_id, draft_id):
+    draft, locator, proof = _origin_with_proof(root, world_id, draft_id)
+    return draft, locator, proof.operation_id
 
 
 def _selected(root,world_id,draft_id,revision_id):
@@ -76,9 +83,41 @@ def open_version(root,*,world_id,draft_id,revision_id,client=None):
         if owns:active.close()
 
 
-def _resume(record,client):
+def iter_saved_mechanics(root, *, world_id):
+    """Yield verified names and exact saved locators without opening mechanics."""
+    for draft_id in saved_mechanics_draft_ids(root, world_id=world_id):
+        draft, locator, proof = _origin_with_proof(root, world_id, draft_id)
+        yield proof.request_body["definition"]["identity"]["name"], draft.draft_id, locator
+
+
+def find_saved_version(root, *, world_id, name, client=None):
+    """Open a uniquely named saved definition within the caller's authorized World."""
+    if not world_id or not name.strip():
+        raise ValueError("World and statblock name are required")
+    normalized_name = " ".join(name.casefold().split())
+    match = None
+    for saved_name, draft_id, locator in iter_saved_mechanics(root, world_id=world_id):
+        if " ".join(saved_name.casefold().split()) != normalized_name:
+            continue
+        if match is not None:
+            return {"status": "ambiguous"}
+        match = (draft_id, locator)
+    if match is None:
+        return {"status": "not_found"}
+    draft_id, locator = match
+    opened = open_version(root, world_id=world_id, draft_id=draft_id,
+                          revision_id=locator.revision_id, client=client)
+    if opened["locator"] != locator.model_dump(mode="json"):
+        raise ApplicationStateIntegrityError("Opened mechanics differ from the selected saved locator")
+    return {"status": "found", **opened}
+
+
+
+def _resume(record,client,authorize=None):
+    if authorize is not None:authorize()
     if record.state in {'committed','refused'}:return record
     if record.state=='prepared':record=operations.settle(record,state='outcome_unknown')
+    if authorize is not None:authorize()
     try:
         result=client.append_revision(record.base.statblock_id,record.request_body)
         verify_exact_revision_mechanics_integrity(result)
@@ -90,7 +129,7 @@ def _resume(record,client):
             or not isinstance(accepted_through,dict)
             or accepted_through.get('buddy_manual_revision')!=str(record.operation_id)
             or accepted_through!=record.request_body['accepted_through']
-            or result.definition.ruleset.model_dump(mode='json')!=record.request_body['definition']['ruleset']
+            or result.definition.model_dump(mode='json')['ruleset']!=record.request_body['definition']['ruleset']
             or [b.model_dump(mode='json',exclude_none=True) for b in result.asset_bindings or []]
                 != [AssetBindingV1Input.model_validate(b).model_dump(mode='json',exclude_none=True) for b in record.request_body['asset_bindings']]):
             raise ApplicationStateIntegrityError('Appended result differs from its exact saved intent')
@@ -125,23 +164,27 @@ def _asset_bindings(exact,asset_id,owner):
     return [binding.model_dump(mode='json') for binding in [*kept,portrait]]
 
 
-def save(root,*,draft_id,request,client=None,media_owner=None):
+def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None,authorize=None):
     # No selection means the existing Save intent, not a new null-valued edit.
     intent=request.model_dump(mode='json',exclude={'portrait_asset_id'} if request.portrait_asset_id is None else set())
+    if pdf_review is not None:
+        intent["pdf_review"] = pdf_review
     existing=operations.read(world_id=request.world_id,draft_id=draft_id,operation_id=request.operation_id)
     if existing and existing.input_digest!=digest(intent):
         raise ApplicationStateConflictError('Save key already belongs to different edits; recover its original outcome')
-    if existing and existing.state in {'committed','refused'}:return summary(existing)
+    if existing and existing.state in {'committed','refused'}:
+        if authorize is not None:authorize()
+        return summary(existing)
     owns=client is None;active=client or build_statblock_v1_client()
     try:
-        if existing:return summary(_resume(existing,active))
+        if existing:return _authorized_resume(existing,active,authorize)
         if operations.unresolved(world_id=request.world_id,draft_id=draft_id):
             raise ApplicationStateConflictError('Recover the unresolved Save before making another version')
         draft,origin,anchor,base=_selected(root,request.world_id,draft_id,request.base.revision_id)
         if not same_mechanics_locator(base.model_dump(),request.base):
             raise ApplicationStateConflictError('Selected source version changed')
         exact=_exact(active,base)
-        if request.definition.ruleset.model_dump(mode='json')!=exact.definition.ruleset.model_dump(mode='json'):
+        if exact.definition.ruleset is not None and request.definition.ruleset != exact.definition.ruleset:
             raise ApplicationStateConflictError('Manual revision cannot change the creature ruleset')
         bindings=_asset_bindings(exact,request.portrait_asset_id,media_owner)
         validation=validate_definition(definition=request.definition,client=active)
@@ -153,8 +196,10 @@ def save(root,*,draft_id,request,client=None,media_owner=None):
         expected=source_definition_digest_from_body(intent['definition'])
         if validation.definition_digest!=expected or validation.validation_receipt.definition_digest!=expected:
             raise ApplicationStateIntegrityError('Validation receipt differs from the edited definition')
-        from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import AppendRevisionRequestV1
+        from apps.live_control_server.integrations.dungeonmind_statblocks.generated import AppendRevisionRequestV1
         accepted_through={'buddy_manual_revision':str(request.operation_id)}
+        if pdf_review is not None:
+            accepted_through[PDF_REVIEW_PROVENANCE] = pdf_review
         if request.portrait_asset_id is not None:
             accepted_through['buddy_portrait_asset_id']=str(request.portrait_asset_id)
         body=AppendRevisionRequestV1(idempotency_key=str(request.operation_id),parent_revision_id=base.revision_id,
@@ -165,18 +210,59 @@ def save(root,*,draft_id,request,client=None,media_owner=None):
         record=RevisionOperation(operation_id=request.operation_id,world_id=request.world_id,draft_id=UUID(draft.draft_id),
             origin=origin,origin_acceptance_operation_id=anchor,base=base,input_digest=digest(intent),request_body=payload,
             request_digest=digest(payload),definition_digest=expected,created_at=now,updated_at=now)
-        record,_=operations.claim(record)
-        return summary(_resume(record,active))
+        if authorize is None:
+            record,_=operations.claim(record)
+        else:
+            authorize()
+            record,_=operations.claim(record,authorize=authorize)
+        return _authorized_resume(record,active,authorize)
     finally:
         if owns:active.close()
 
 
-def recover(root,*,world_id,draft_id,operation_id,client=None):
-    record=operations.cancel_if_absent(world_id=world_id,draft_id=draft_id,operation_id=operation_id)
+
+def append_pdf_review(root, *, draft_id, world_id, review_id, request, load_review, authorize=None):
+    from apps.live_control_server.models.statblock_saved_revision import SaveMechanicsRevisionRequest
+
+    identity = {"world_id": world_id, "review_id": str(review_id), "revision": request.expected_revision}
+    existing = operations.read(world_id=world_id, draft_id=draft_id, operation_id=request.operation_id)
+    if existing is not None:
+        recorded = existing.request_body["accepted_through"].get(PDF_REVIEW_PROVENANCE, {})
+        if (
+            any(recorded.get(key) != value for key, value in identity.items())
+            or not same_mechanics_locator(existing.base.model_dump(), request.base)
+        ):
+            raise ApplicationStateConflictError("Save key already belongs to a different PDF review or base")
+        return recover(root, world_id=world_id, draft_id=draft_id, operation_id=request.operation_id, authorize=authorize)
+
+    review = load_review()
+    if review["revision"] != request.expected_revision:
+        raise ApplicationStateConflictError("The saved PDF review changed")
+    return save(
+        root, draft_id=draft_id,
+        request=SaveMechanicsRevisionRequest(
+            operation_id=request.operation_id, world_id=world_id, base=request.base,
+            definition=review["definition"], change_summary="Append saved PDF statblock review",
+        ),
+        pdf_review={**identity, "regions": review["regions"]}, authorize=authorize,
+    )
+
+def _authorized_resume(record, client, authorize):
+    result = _resume(record, client, authorize)
+    if authorize is not None:
+        authorize()
+    return summary(result)
+
+
+def recover(root,*,world_id,draft_id,operation_id,client=None,authorize=None):
+    if authorize is not None:authorize()
+    guard = {"authorize": authorize} if authorize is not None else {}
+    record=operations.cancel_if_absent(world_id=world_id,draft_id=draft_id,operation_id=operation_id,**guard)
+    if authorize is not None:authorize()
     if record is None:return None
     if record.state in {'committed','refused'}:return summary(record)
     owns=client is None;active=client or build_statblock_v1_client()
-    try:return summary(_resume(record,active))
+    try:return _authorized_resume(record,active,authorize)
     finally:
         if owns:active.close()
 

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -14,7 +15,20 @@ from apps.live_control_server.services.world_graph_object_projection import (
     project_complete_world_object,
 )
 from apps.live_control_server.services.agent_graph_auth import (
+    enforce_native_graph_gm,
     native_graph_gm_dependency,
+)
+from apps.live_control_server.routes.native_graph_inspection import (
+    complete_object as native_complete_object,
+)
+from apps.live_control_server.models.native_graph_inspection import NativeCompleteObjectRead
+from apps.live_control_server.services.native_graph_inspection import (
+    InspectionUnavailable,
+    open_neighborhood_anchor,
+    shared_exact_object,
+    shared_evidence,
+    shared_neighborhood,
+    shared_search,
 )
 from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectProjectionRequest,
@@ -119,9 +133,14 @@ def post_world_graph_retrieval_search(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        response = search_campaign_graph(request)
+        if request.world_id == os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip():
+            response = shared_search(request, enforce_native_graph_gm(request_context))
+        else:
+            response = search_campaign_graph(request)
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
+    except HTTPException:
+        raise
     except Exception:
         return _error_response(
             WorldGraphRetrievalServiceError(
@@ -140,9 +159,15 @@ def post_world_graph_retrieval_object(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        response = get_campaign_object(request)
+        native_world = os.environ.get("DMB_NATIVE_EXACT_OBJECT_WORLD", "").strip()
+        if native_world and request.world_id == native_world:
+            response = shared_exact_object(request, enforce_native_graph_gm(request_context))
+        else:
+            response = get_campaign_object(request)
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
+    except HTTPException:
+        raise
     except Exception:
         return _error_response(
             WorldGraphRetrievalServiceError(
@@ -161,6 +186,13 @@ def post_world_graph_complete_object(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
+    except WorldGraphRetrievalServiceError as exc:
+        return _error_response(exc)
+    native_world = os.environ.get("DMB_NATIVE_COMPLETE_OBJECT_WORLD", "").strip()
+    if native_world and request.world_id == native_world:
+        principal = enforce_native_graph_gm(request_context)
+        return native_complete_object(NativeCompleteObjectRead(request=request), principal)
+    try:
         response = project_complete_world_object(request)
     except WorldGraphObjectProjectionServiceError as exc:
         return _error_response(exc)
@@ -184,9 +216,15 @@ def post_world_graph_retrieval_neighborhood(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        response = get_object_neighborhood(request)
+        native_world = os.environ.get("DMB_NATIVE_NEIGHBORHOOD_WORLD", "").strip()
+        if native_world and request.world_id == native_world:
+            response = shared_neighborhood(request, enforce_native_graph_gm(request_context))
+        else:
+            response = get_object_neighborhood(request)
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
+    except HTTPException:
+        raise
     except Exception:
         return _error_response(
             WorldGraphRetrievalServiceError(
@@ -205,7 +243,10 @@ def post_world_graph_retrieval_evidence(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        response = get_object_evidence(request)
+        if request.world_id == os.environ.get("DMB_NATIVE_EVIDENCE_WORLD", "").strip():
+            response = shared_evidence(request, enforce_native_graph_gm(request_context))
+        else:
+            response = get_object_evidence(request)
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
     except Exception:
@@ -226,9 +267,22 @@ def post_world_graph_retrieval_source_anchor_read(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        response = read_source_anchor(request)
+        native_world = os.environ.get("DMB_NATIVE_NEIGHBORHOOD_WORLD", "").strip()
+        exact_world = os.environ.get("DMB_NATIVE_EXACT_OBJECT_WORLD", "").strip()
+        evidence_world = os.environ.get("DMB_NATIVE_EVIDENCE_WORLD", "").strip()
+        search_world = os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip()
+        native_worlds = {world for world in (native_world, exact_world, evidence_world, search_world) if world}
+        if request.world_id in native_worlds and request.anchor_id.startswith("native-neighborhood:"):
+            try:
+                response = open_neighborhood_anchor(request, enforce_native_graph_gm(request_context))
+            except InspectionUnavailable:
+                response = WorldGraphSourceAnchorReadResult(outcome="empty", anchor_id=request.anchor_id)
+        else:
+            response = read_source_anchor(request)
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
+    except HTTPException:
+        raise
     except Exception:
         return _error_response(
             WorldGraphRetrievalServiceError(

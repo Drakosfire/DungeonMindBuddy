@@ -5,6 +5,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import replace_generated_block
+
 from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import (
     iter_target_questions,
     load_beat_question_targets,
@@ -868,11 +870,9 @@ def render_generated_block(payload: dict[str, Any]) -> str:
 
 
 def update_canvas_text(canvas_text: str, generated_block: str) -> str:
-    b, e = canvas_text.find(CANVAS_BLOCK_BEGIN), canvas_text.find(CANVAS_BLOCK_END)
-    if b == -1 or e == -1 or e < b:
-        raise ValueError("Canvas markers missing: expected generated block markers for Step 2D")
-    e += len(CANVAS_BLOCK_END)
-    return canvas_text[:b] + generated_block + canvas_text[e:]
+    return replace_generated_block(
+        canvas_text, generated_block, begin=CANVAS_BLOCK_BEGIN, end=CANVAS_BLOCK_END
+    )
 
 
 def validate_payload(payload: dict[str, Any]) -> list[str]:

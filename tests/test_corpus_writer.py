@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from src.agent.corpus_writer import (
+from corpus.corpus_writer import (
     append_timeline_row,
     is_writable_corpus_path,
     write_corpus_file,
@@ -864,7 +864,7 @@ def test_commit_returns_new_fingerprint(tmp_path: Path) -> None:
 def test_update_step0_expected_fingerprint_rewrites_json(tmp_path: Path) -> None:
     import json as _json
 
-    from src.agent.corpus_writer import update_step0_expected_fingerprint
+    from corpus.corpus_writer import update_step0_expected_fingerprint
 
     step0 = tmp_path / "step0.json"
     step0.write_text(

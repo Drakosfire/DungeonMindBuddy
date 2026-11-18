@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from src.graph_memory import party_context as pc
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
+from graph_memory import party_context as pc
+from graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     FixtureCategoryGraphPassClient,
     run_category_pipeline,
 )
-from src.graph_memory import identity_resolution as ir
-from src.graph_memory.session_graph_context import (
+from graph_memory import identity_resolution as ir
+from graph_memory.session_graph_context import (
     PARTY_COLLECTIVE_LABEL,
     PARTY_COLLECTIVE_NODE_ID,
     build_session_graph_context,

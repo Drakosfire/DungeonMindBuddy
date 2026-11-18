@@ -1689,7 +1689,8 @@ class _ClaimFence:
                 if (method_name == 'record_plan_requested_work_selection' and fresh
                         and type(self.service) is AgentConversationService and eligible(updated)):
                     session_owned = True
-                    self.renewer._session = NativePlanSession(updated)
+                    self.renewer._session = NativePlanSession(updated,
+                        measure=self.trace.measure_host_work if self.trace is not None else None)
             except BaseException as exc:
                 if session_owned:
                     if self.renewer._session is not None:
@@ -1770,6 +1771,7 @@ class _PolicyExecutionAdapter:
         expected_conversation_id: UUID | None = None,
         native_corpus_context=None,
         native_source_authority=None,
+        native_principal=None,
         native_query_context=None, native_query=None,
     ) -> None:
         self.rules_runtime = None
@@ -1785,6 +1787,7 @@ class _PolicyExecutionAdapter:
         self.bootstrap = bootstrap
         self.native_corpus_context = native_corpus_context
         self.native_source_authority = native_source_authority
+        self.native_principal = native_principal
         self.native_query_context, self.native_query = native_query_context, native_query
         if native_source_authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
@@ -3480,14 +3483,27 @@ class _PolicyExecutionAdapter:
             if services is not None and request.operation != "observations":
                 return denied("native_acquisition_operation_mismatch", 409)
             plan_services = getattr(self, "_plan_graph_read_services", None)
+            native_subject_search = False
             if plan_services is not None:
                 from .plan_jev_acquisition import SubjectSearch
                 allowed_operation = "search" if isinstance(plan_services, SubjectSearch) else "object"
                 if (services is not None or request.operation != allowed_operation
                         or not isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1)):
                     return denied("native_acquisition_operation_mismatch", 409)
-                services = plan_services.resolve()
-            if services is None:
+                native_subject_search = (
+                    isinstance(plan_services, SubjectSearch)
+                    and common["worldId"] == os.environ.get("DMB_NATIVE_PLAN_SUBJECT_SEARCH_WORLD", "").strip()
+                )
+                if not native_subject_search:
+                    services = plan_services.resolve()
+            native_shared_search = (
+                request.operation == "search"
+                and plan_services is None
+                and isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1))
+                and self._broker_graph_receipt().graph_authority.managed_world_id
+                == os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip()
+            )
+            if services is None and not (native_subject_search or native_shared_search):
                 services = direct_services_from_config(self.bootstrap.world_scope.world_id)
             reviewed = None
             if request.operation == "observations":
@@ -3556,11 +3572,29 @@ class _PolicyExecutionAdapter:
                     "queryText": request.query_text or session.question,
                     "seedNodeIds": target_ids[:8],
                 })
-                resolved = (
-                    search_world_graph_direct_v3(services, effective_request)
-                    if isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1)) else None
-                )
-                result = resolved.result if resolved is not None else search_world_graph_direct(services, effective_request)
+                if native_subject_search:
+                    from .native_graph_inspection import plan_subject_search
+                    result = plan_subject_search(effective_request, self.native_principal)
+                    resolved = None
+                elif native_shared_search:
+                    from .native_graph_inspection import shared_search
+
+                    authority = self._broker_graph_receipt().graph_authority
+                    resolved = shared_search(
+                        effective_request.model_copy(update={"world_id": authority.managed_world_id}),
+                        self.native_principal, include_source_pins=True,
+                        expected_native_world_id=authority.native_world_id,
+                        expected_binding_version=authority.binding_version,
+                    )
+                    result = resolved.result.model_copy(update={
+                        "snapshot": resolved.result.snapshot.model_copy(update={"world_id": authority.native_world_id}),
+                    })
+                else:
+                    resolved = (
+                        search_world_graph_direct_v3(services, effective_request)
+                        if isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1)) else None
+                    )
+                    result = resolved.result if resolved is not None else search_world_graph_direct(services, effective_request)
             # Selected-label searches are navigation only. Native search can
             # return supported records/anchors; those require a subsequent
             # explicitly selected object read in this Plan discovery lane.
@@ -3632,7 +3666,7 @@ class _PolicyExecutionAdapter:
             # Plan Jev's fixed acquisition contract cannot open related recap
             # routes, and its writer never receives them. Do not derive an
             # unused context index or re-read target evidence for this owner.
-            if (sufficient and not truncated
+            if (sufficient and not truncated and not native_shared_search
                     and not isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1)):
                 offers = self._related_recap_offers(result, services)
                 if offers:
@@ -3652,7 +3686,18 @@ class _PolicyExecutionAdapter:
                 if isinstance(self._broker_execution(), (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1))
                 else graph_types.ValidatedGraphOperationEventV1
             )
+            neighborhood_replay = None
+            if request.operation == "neighborhood":
+                neighborhood_replay = {
+                    "hops": [
+                        {"relationship_id": edge, "from_node_id": start, "to_node_id": end}
+                        for edge, start, end in result._discovery_hops
+                    ],
+                    "object_limit_pruned_ids": list(result._object_limit_pruned_ids),
+                    "object_limit_pruned_count": result._object_limit_pruned_count,
+                }
             event_fields = dict(
+                neighborhood_replay=neighborhood_replay,
                 event_id=event_id,
                 sequence=len(self._broker_execution().events),
                 operation_id=uuid4(), operation="expand_graph_retrieval",
@@ -3661,6 +3706,9 @@ class _PolicyExecutionAdapter:
                 result_packet_sha256=_canonical_sha256(result_payload),
                 assertion_ids=assertion_ids,
                 relationship_ids=relationship_ids,
+                discovery_relationship_ids=(
+                    list(result._discovery_relationship_ids) if request.operation == "neighborhood" else []
+                ),
                 evidence_ref_ids=evidence_ids,
                 evidence_sufficiency_status=(
                     "sufficient" if sufficient else "insufficient"
@@ -4051,12 +4099,13 @@ class _PolicyExecutionAdapter:
                 error = source_authorization_error(self.fence.turn, request.anchor_ids)
                 if error is not None:
                     return denied(error, 409)
+            authority = self._broker_graph_receipt().graph_authority
             scope = execution.policy.source_read_scope
             session = get_session(scope.retrieval_session_id)
             if (
                 request.retrieval_session_id != scope.retrieval_session_id
                 or session.snapshot.world_id
-                != self._broker_graph_receipt().graph_authority.native_world_id
+                != authority.native_world_id
                 or session.snapshot.campaign_id != (scope.campaign_id or "")
                 or session.snapshot.revision_id != scope.graph_revision
             ):
@@ -4089,6 +4138,15 @@ class _PolicyExecutionAdapter:
                 or request.max_chars > execution.policy.max_chars_per_source_read
             ):
                 return denied("source_read_over_budget", 413)
+            scoped_native_source = (
+                authority.managed_world_id == os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip()
+                and any(anchor_id.startswith("native-neighborhood:") for anchor_id in request.anchor_ids)
+            )
+            if scoped_native_source:
+                if self.native_principal is None:
+                    return denied("native_source_principal_unavailable", 403)
+                if not all(anchor_id.startswith("native-neighborhood:") for anchor_id in request.anchor_ids):
+                    return denied("mixed_source_authority", 422)
             read_call_id = uuid4()
             authorization = graph_types.SourceReadAuthorizationEventV2(
                 event_id=uuid4(), sequence=len(execution.events),
@@ -4108,6 +4166,7 @@ class _PolicyExecutionAdapter:
             internal = execute_read_graph_source(
                 request.model_dump(mode="json", by_alias=True), receipt_version=2,
                 root=self.root,
+                **({"native_principal": self.native_principal, "native_authority": authority} if scoped_native_source else {}),
                 **({"native_services": self._build_native_acquisition_services}
                    if getattr(self, "_build_native_acquisition_services", None) is not None else {}),
             )
@@ -5765,6 +5824,24 @@ def _completed_turn_replay(
             "trace": final_trace,
         },
     )
+    execution_owner = turn
+    if mixed:
+        projection = turn.base_projection
+        execution_owner = projection.turn if projection.kind == "approved" else projection
+    execution = getattr(execution_owner, "graph_context_execution", None)
+    if request.surface.surface_id == "build" and execution is not None:
+        from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+        from apps.live_control_server.models.agent_turn import SavedStatblockAnswerReference
+        references = tuple(
+            SavedStatblockAnswerReference(
+                name=event.definition["identity"]["name"], world_id=event.world_id,
+                draft_id=event.draft_id, revision_id=event.locator.revision_id,
+            )
+            for event in execution.events
+            if isinstance(event, BuildSavedStatblockReadV1)
+        )
+        if references:
+            response.answer.saved_statblocks = references
     from application_state.agent_conversation.native_statement_input import NativeStatementContextReceiptV1
     if not mixed and isinstance(turn.graph_context_receipt, NativeStatementContextReceiptV1):
         from apps.live_control_server.models.agent_turn import AgentNativeStatementTurnResponseV1
@@ -7655,6 +7732,7 @@ def execute_agent_turn(
             expected_conversation_id=policy_conversation_id,
             native_corpus_context=native_corpus_context,
             native_source_authority=native_source_authority,
+            native_principal=native_principal,
             native_query_context=native_query_context, native_query=native_query,
         )
         if isinstance(selected_runtime, BuildJevHarness):
