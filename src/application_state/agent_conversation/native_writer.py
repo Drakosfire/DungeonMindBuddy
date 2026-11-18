@@ -137,6 +137,7 @@ class NativeWriterEvidence:
     variant_edits: bool = False
     variant_visible_reply: bool = False
     variant_witnesses: bool = False
+    variant_carried_condition: bool = False
 
 
 def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_proof,
@@ -345,10 +346,10 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     play_local = semantic_play(work_frame)
     authored_local = semantic_work(work_frame) or play_local
     from .native_build_work_view import is_semantic_frame as semantic_build, semantic_frame as build_work_view
-    from .native_build_work_view import VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT
+    from .native_build_work_view import VARIANT_CARRIED_CONDITION_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT
     build_local = semantic_build(work_frame)
     format_name = body.get("text", {}).get("format", {}).get("name")
-    variant_edits = format_name in {VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT}
+    variant_edits = format_name in {VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT}
     variant_format = variant_edits or format_name == VARIANT_WRITER_FORMAT
     expected_wire_work = (build_work_view(expected_work,prefix,include_variant=variant_format,
         variant_edits=variant_edits) if build_local
@@ -397,8 +398,9 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     return NativeWriterEvidence(frame=schema_frame,work_frame=expected_work,output_work_frame=expected_work if build_local else expected_work | expected_wire_work,
         authored=authored,idempotency_key=idempotency_key,
         authored_local=authored_local,build_local=build_local,variant_format=variant_format,variant_edits=variant_edits,
-        variant_visible_reply=format_name in {VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT},
-        variant_witnesses=format_name == VARIANT_WITNESS_FORMAT,
+        variant_visible_reply=format_name in {VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT},
+        variant_witnesses=format_name in {VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT},
+        variant_carried_condition=format_name == VARIANT_CARRIED_CONDITION_FORMAT,
         saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
         **read_evidence_records(prefix,expected,passages_only=prose_frame is not None))
 

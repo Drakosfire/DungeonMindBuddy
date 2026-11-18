@@ -312,3 +312,27 @@ def test_variant_witness_binds_unique_authored_clause_to_containing_rule(quotes,
         result = normalize_statblock_variant({"statblock_variant": proposal}, work,
                                              variant_edits=True, variant_witnesses=True)
         assert result.definition.model_dump()["rule_elements"][-1] == added
+
+
+def test_carried_condition_binds_identical_text_to_playable_trigger_and_display():
+    from application_state.agent_conversation.native_completion import _unwrap_witnessed_edits
+
+    clause = "The gate opens only after the second bell."
+    effect = "The guard steps aside."
+    row = {
+        "carried_condition": clause,
+        "authored_quotes": [],
+        "rule": {
+            "activation": {"trigger": {"condition_text": "After a bell."}},
+            "rules_text": effect,
+        },
+    }
+    assembled, = _unwrap_witnessed_edits([row], clause, carried_condition=True)
+    assert assembled["activation"]["trigger"]["condition_text"] == clause
+    assert assembled["rules_text"] == f"{clause}\n\n{effect}"
+    assert row["rule"]["rules_text"] == effect
+    for bad_source in ("", f"{clause}\n{clause}"):
+        with pytest.raises(ValueError, match="exact authored text"):
+            _unwrap_witnessed_edits([row], bad_source, carried_condition=True)
+    with pytest.raises(ValueError, match="requires a typed trigger"):
+        _unwrap_witnessed_edits([row | {"rule": {"rules_text": effect}}], clause, carried_condition=True)
