@@ -590,6 +590,13 @@ def is_anchored_discussion(selection):
             and selection.resolution.get("source_scope") == "anchored")
 
 
+def is_variant_approval(selection):
+    from .types import BuildRequestedWorkResolutionV1
+
+    return (isinstance(selection, BuildRequestedWorkResolutionV1)
+            and selection.requested_work == "review_variant_approval")
+
+
 def selected_action(execution):
     from .types import BuildRequestedWorkResolutionV1, BuildReviewedActionSelectionV1
     choices=[e for e in execution.events if isinstance(e,(BuildRequestedWorkResolutionV1,BuildReviewedActionSelectionV1))]

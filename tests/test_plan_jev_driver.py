@@ -605,3 +605,29 @@ def test_subject_offer_excludes_failed_packets_and_duplicate_query_labels(plan_a
     events[events.index(event)]=event.model_copy(update={"result_packet_sha256":canonical_sha256(canonical)})
     a.operation_payloads[identity]=json.dumps(packet)
     assert not any(c.handle.startswith('mentions:') for c in driver.offered())
+
+
+def test_resolved_variant_approval_offers_no_optional_retrieval():
+    from types import SimpleNamespace
+    from application_state.agent_conversation import types
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+
+    selection = types.BuildRequestedWorkResolutionV1.model_construct(
+        requested_work="review_variant_approval",
+        resolution={"source_scope": "source_lookup"},
+    )
+    execution = SimpleNamespace(events=(selection,))
+    driver = PlanJevDriver.__new__(PlanJevDriver)
+    driver.adapter = SimpleNamespace(
+        request=SimpleNamespace(surface=SimpleNamespace(surface_id="build")),
+        _broker_execution=lambda: execution,
+    )
+    driver.finished = False
+    driver.dialogue = ()
+    assert driver.offered() == ()
+    assert driver.decision_arguments() == {
+        "candidates": (),
+        "dialogue": (),
+        "examined_candidates": (),
+        "allowed_operations": ("select_candidates", "finish_retrieval"),
+    }
