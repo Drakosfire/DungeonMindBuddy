@@ -30,7 +30,7 @@ export function BuddyHome() {
       <a className="buddy-home__brand" href={worldScopedSurfaceHref("/", world.kind === "managed" ? world.worldId : null)} onClick={interceptPrimaryNavigationClick}><Compass /><span>DungeonMind <span className="buddy-home__brand-buddy">Buddy</span></span></a>
       <nav aria-label="Buddy introduction"><a href="#buddy-about">What is Buddy?</a><a className="buddy-home__back" href="https://www.dungeonmind.net/">← DungeonMind.net</a></nav>
     </header>
-    <main id="buddy-home-main">
+    <main id="buddy-home-main" tabIndex={-1}>
       <section className="buddy-home__hero" aria-labelledby="buddy-home-title">
         <div className="buddy-home__invitation">
           <p className="buddy-home__eyebrow">Your campaign companion</p>

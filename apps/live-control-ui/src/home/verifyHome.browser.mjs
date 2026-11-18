@@ -24,6 +24,14 @@ try {
     await page.goto('http://127.0.0.1:5187/');
     await page.getByRole('heading', { name: 'Your world, ready for the table.' }).waitFor();
     await page.locator('.buddy-home__preview img').evaluate(img => img.decode());
+    const skip = page.getByRole('link', { name: 'Skip to content' });
+    assert.ok((await skip.boundingBox()).y + (await skip.boundingBox()).height <= 0);
+    await skip.focus();
+    assert.ok((await skip.boundingBox()).y >= 0);
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('#buddy-home-main').evaluate(el => el === document.activeElement), true);
+    await page.goto('http://127.0.0.1:5187/');
+    await page.getByRole('heading', { name: 'Your world, ready for the table.' }).waitFor();
     assert.equal(await page.getByRole('link', { name: 'Sign in with DungeonMind' }).getAttribute('href'), '/api/auth/login?return_to=%2F');
     for (const link of await page.getByRole('link', { name: /DungeonMind.net/ }).all()) {
       assert.equal(await link.getAttribute('href'), 'https://www.dungeonmind.net/');

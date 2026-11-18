@@ -9,7 +9,7 @@
 .buddy-home *, .buddy-home *::before, .buddy-home *::after { box-sizing: border-box; }
 .buddy-home a { color: inherit; }
 .buddy-home :is(a, button, summary):focus-visible { outline: 3px solid var(--home-gold); outline-offset: 5px; }
-.buddy-home__skip { position: absolute; left: 20px; transform: translateY(-300%); padding: 12px; background: var(--ui-background-chrome); z-index: 10; }
+.buddy-home__skip { position: fixed; top: 0; left: 20px; transform: translateY(-300%); padding: 12px; background: var(--ui-background-chrome); z-index: 10000; }
 .buddy-home__skip:focus { transform: none; }
 .buddy-home__masthead { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 26px 0; border-bottom: 1px solid #d9a44140; }
 .buddy-home__brand { display: flex; align-items: center; gap: 12px; font: 600 clamp(20px, 2.2vw, 28px)/1.2 Georgia, serif; text-decoration: none; }
