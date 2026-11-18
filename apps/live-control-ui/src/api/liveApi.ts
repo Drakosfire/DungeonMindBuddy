@@ -433,6 +433,11 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  const terminalDiagnostic = /^\/api\/live\/world-plan-edit\/actions\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/terminal-diagnostic\?([^#]+)$/i.exec(path);
+  if (terminalDiagnostic) {
+    const query = new URLSearchParams(terminalDiagnostic[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
   const savedEvidence = /^\/api\/live\/agent\/worlds\/[^/?#%]+\/(?:conversation\/turns|plan-proposals)\/[0-9a-f-]+\/graph-evidence\?([^#]+)$/.exec(path);
   if (savedEvidence) {
     const query = new URLSearchParams(savedEvidence[1]);

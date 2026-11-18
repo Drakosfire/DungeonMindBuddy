@@ -334,6 +334,7 @@ def hosted(monkeypatch, request):
                if "/variant-reviews/{review_id}" in key[1]
                or key[1] == "/api/live/native-source-inspection/published-recap"
                or key[1] == "/api/live/native-source-inspection/published-recap/objects"
+               or key[1] == "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"
                or key[1] == "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence"
                or key[1] == "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence"},
             **{
@@ -4077,3 +4078,35 @@ def test_saved_action_evidence_resolves_target_from_exact_plan_action(monkeypatc
     with pytest.raises(passages.SourcePassageOpenError, match="source_passage_not_found"):
         passages.open_saved_plan_action_graph_evidence(**selectors, claim_id="other")
     open_anchor.assert_called_once_with(target)
+
+
+def test_hosted_plan_terminal_diagnostic_reads_owned_action(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import live
+    from apps.live_control_server.services import plan_action_terminal_diagnostic
+
+    read = Mock(return_value={"availability": "unavailable"})
+    monkeypatch.setattr(plan_action_terminal_diagnostic, "terminal_diagnostic", read)
+    monkeypatch.setattr(live, "get_world_container", lambda world: world)
+    action = uuid4()
+    path = f"/api/live/world-plan-edit/actions/{action}/terminal-diagnostic?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    read.assert_called_once_with("managed", action)
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"diagnostic": "Private saved diagnostic"}
+
+    read.side_effect = transfer_during_read
+    denied = hosted.client.request("GET", path)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert "Private saved diagnostic" not in denied.text
