@@ -2547,6 +2547,25 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert denied.status_code == 403
     assert reflections not in denied.text
 
+    from application_state.play import session_evidence
+
+    owner = hosted.records["managed"]
+
+    def transfer_after_read(read):
+        def lookup(**kwargs):
+            result = read(**kwargs)
+            hosted.records["managed"] = owner.model_copy(update={"owner_subject": OTHER_OWNER})
+            return result
+        return lookup
+
+    for path, name in ((evidence_path, "recent_session_evidence_index"), (revision_path, "read_session_evidence")):
+        hosted.records["managed"] = owner
+        with pytest.MonkeyPatch.context() as transfer:
+            transfer.setattr(session_evidence, name, transfer_after_read(getattr(session_evidence, name)))
+            denied = hosted.client.request("GET", path)
+        assert denied.status_code == 403, denied.text
+        assert reflections not in denied.text
+
 
 def test_hosted_statblock_picker_reads_only_owned_world(hosted, application_state_dsn, tmp_path, monkeypatch):
     from apps.live_control_server.models.threat_draft import CreateWorldThreatDraftRequest
