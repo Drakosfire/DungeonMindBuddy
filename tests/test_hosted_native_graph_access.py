@@ -296,6 +296,9 @@ def hosted(monkeypatch, request):
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
+    from apps.live_control_server.routes import native_source_inspection
+
+    app.include_router(native_source_inspection.router)
     app.include_router(live.router)
     app.include_router(graph_preview.router)
     from apps.live_control_server.routes import pdf_adventure_events
@@ -324,7 +327,9 @@ def hosted(monkeypatch, request):
         app,
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
-               if "/variant-reviews/{review_id}" in key[1]},
+               if "/variant-reviews/{review_id}" in key[1]
+               or key[1] == "/api/live/native-source-inspection/published-recap"
+               or key[1] == "/api/live/native-source-inspection/published-recap/objects"},
             **{
                 (
                     "POST",
@@ -3874,3 +3879,81 @@ def test_hosted_play_progress_binds_world_run_and_origin(hosted, monkeypatch):
     assert write.call_args.kwargs["world_id"] == "managed"
     assert write.call_args.kwargs["run_id"] == run_id
     assert write.call_args.kwargs["expected_run_revision"] == 2
+
+
+def test_hosted_published_recap_requires_owned_world(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.services import native_source_inspection
+
+    read = Mock(return_value={"source": {"status": "available"}})
+    monkeypatch.setattr(native_source_inspection, "published_recap", read)
+    path = "/api/live/native-source-inspection/published-recap"
+    body = {"managed_world_id": "managed", "campaign_id": "campaign", "session_id": "session"}
+    assert hosted.client.request("POST", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", path, origin=None, json=body).status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    selector, principal = read.call_args.args
+    assert selector.managed_world_id == principal.managed_world_id == "managed"
+    assert (selector.campaign_id, selector.session_id) == ("campaign", "session")
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"source": {"text": "Private published recap"}}
+
+    read.side_effect = transfer_during_read
+    denied = hosted.client.request("POST", path, json=body)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert "Private published recap" not in denied.text
+
+
+def test_hosted_recap_objects_checks_source_pin_and_admitted_evidence(hosted, monkeypatch):
+    from apps.live_control_server.services import native_graph_inspection as graph, native_source_inspection as source
+
+    pin = {"managed_world_id": "managed", "native_world_id": "native-managed", "binding_version": 1,
+           "revision_id": "rev-1", "scope_mode": "world", "campaign_id": None}
+    recap = {"scope": pin, "source": {"source_artifact_id": "source", "source_revision_id": "source-rev"},
+             "evidence_ref_ids": ["recap-evidence"]}
+    def assertion(identity, evidence):
+        return {"subject_entity_id": identity, "predicate": "dnd5e:name",
+                "value": {"kind": "literal", "value": identity.title()},
+                "metadata": {"evidence_ref_ids": [evidence]}}
+
+    def pinned_recap(request, principal, expected_pin):
+        assert expected_pin.model_dump(mode="json") == pin
+        return recap
+
+    monkeypatch.setattr(source, "_published_recap_at_pin", pinned_recap)
+    def catalog(scope, principal):
+        assert scope.scope_mode == "campaign" and scope.campaign_id == "campaign"
+        return {"catalogue": {"entities": [{"entity_id": "included"}, {"entity_id": "unrelated"}],
+                              "completeness": {"status": "complete"}},
+                "assertions": [assertion("included", "recap-evidence"), assertion("unrelated", "different-evidence")]}
+
+    details = []
+    def complete(body, principal):
+        details.append(body.request.node_id)
+        return {"found": True}
+
+    monkeypatch.setattr(graph, "catalog", catalog)
+    monkeypatch.setattr(graph, "complete_object", complete)
+    path = "/api/live/native-source-inspection/published-recap/objects"
+    payload = {"managed_world_id": "managed", "campaign_id": "campaign", "session_id": "session-1",
+               "scope": pin, **recap["source"]}
+    assert hosted.client.request("POST", path, json=payload, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**payload, "source_revision_id": "other"}).status_code == 409
+    assert hosted.client.request("POST", path, json={**payload, "entity_id": "unrelated"}).status_code == 409
+    assert not details
+    listing = hosted.client.request("POST", path, json=payload)
+    assert listing.status_code == 200, listing.text
+    assert listing.json()["objects"] == [{"id": "included", "label": "Included", "ambiguous": False}]
+    selected = hosted.client.request("POST", path, json={**payload, "entity_id": "included"})
+    assert selected.status_code == 200, selected.text
+    assert selected.json() == {"kind": "complete", "detail": {"found": True}}
+    assert details == ["included"]

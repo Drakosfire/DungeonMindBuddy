@@ -116,6 +116,7 @@ const entityInspectionBody = {
   selection: { kind: "entity", entity_id: "entity-a" },
 };
 const hostedRoutes = [
+  ["published Plan recap", "/api/live/native-source-inspection/published-recap", { managed_world_id: "managed-a", campaign_id: "campaign-a", session_id: "session-a" }],
   ["connected-page prepare", "/api/live/connected-pages/prepare", { world_id: "managed-a", operation_id: "11111111-1111-4111-8111-111111111111" }],
   ["connected-page confirm", "/api/live/connected-pages/confirm", { world_id: "managed-a", operation_id: "11111111-1111-4111-8111-111111111111", confirm_token: "fixture" }],
   ["Image Studio save", "/api/live/media/images/11111111-1111-4111-8111-111111111111/save", {}],
@@ -1013,5 +1014,26 @@ it("saves Play editions with hosted cookies and the exact commit schema", async 
   expect(sent).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
   expect(new Headers(sent?.headers).has("Authorization")).toBe(false);
   await expect(api.authenticatedApiFetch(path, { ...init, body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("uses hosted transport only for recap object requests with a matching World pin", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const path = "/api/live/native-source-inspection/published-recap/objects";
+  const body = {
+    managed_world_id: "managed", campaign_id: "campaign", session_id: "session",
+    source_artifact_id: "source", source_revision_id: "revision",
+    scope: { managed_world_id: "managed", scope_mode: "world", campaign_id: null,
+      native_world_id: "native", revision_id: "graph-revision", binding_version: 1 },
+  };
+  await api.authenticatedApiFetch(path, { method: "POST", body: JSON.stringify(body) });
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", cache: "no-store", redirect: "error" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path, {
+    method: "POST", body: JSON.stringify({ ...body, managed_world_id: "foreign" }),
+  })).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
