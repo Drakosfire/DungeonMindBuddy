@@ -1,6 +1,8 @@
 # DOCS: source-to-World implementation status
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: ACTIVE. Authorized by the documentation goal. PR topology: parallel-independent.
+
+Concurrent lane: `codex/docs-link-check`, based on current main, checks maintained documentation links. Its expected paths are `scripts/check_docs_links.py`, `tests/test_check_docs_links.py`, and `Docs/Plans/HANDOFF-DOCS-link-check.md`; they do not overlap this slice and neither lane depends on the other. Both use the shared verification lock for frontend checks.
 
 Base: Buddy main `28a707a44ba66bde753f6a38676fd15d08b0f128`, after #3980. Branch: `codex/docs-source-world-status`.
 
