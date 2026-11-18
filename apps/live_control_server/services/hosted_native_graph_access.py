@@ -1179,6 +1179,7 @@ async def resolve_hosted_recap_correction(request: Request) -> str:
     except CandidateProjectionError:
         raise _denied() from None
     request.state.hosted_saved_recap_world = world.world_id
+    request.state.hosted_native_graph_world = world.world_id
     request.state.hosted_recap_correction_binding = world.native_graph_binding
     return world.world_id
 

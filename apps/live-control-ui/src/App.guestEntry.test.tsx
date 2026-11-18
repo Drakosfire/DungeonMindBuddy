@@ -563,6 +563,26 @@ describe("canonical local guest entry", () => {
     expect(fetchMock.mock.calls.map(([path]) => String(path))).toEqual(["/api/auth/session"]);
   });
 
+  it.each(["/", "/#buddy-about", "/#buddy-home-main"])("keeps Home and its introductory anchors public at %s", async location => {
+    const fetchMock = nativeIndexFetch(guestGraph, "signed_out");
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.replaceState({}, "", location);
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Your world, ready for the table." })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign in with DungeonMind" })).toHaveAttribute("href", `/api/auth/login?return_to=${encodeURIComponent(location)}`);
+    expect(screen.getByRole("link", { name: "What is Buddy?" })).toHaveAttribute("href", "#buddy-about");
+    fireEvent.click(screen.getByRole("button", { name: "Mara Venn" }));
+    expect(screen.getByRole("heading", { name: "Mara Venn" })).toBeInTheDocument();
+    expect(screen.getByText(/miller's apprentice/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close note" }));
+    expect(screen.queryByRole("region", { name: "Sample note" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mara Venn" })).toHaveFocus();
+    for (const link of screen.getAllByRole("link", { name: /DungeonMind.net/ })) {
+      expect(link).toHaveAttribute("href", "https://www.dungeonmind.net/");
+    }
+    expect(fetchMock.mock.calls.map(([path]) => String(path))).toEqual(["/api/auth/session"]);
+  });
+
   it("never treats an unavailable authentication check as signed out or as a playground", async () => {
     const fetchMock = vi.fn(async () => response(503, { status: "unavailable" }));
     vi.stubGlobal("fetch", fetchMock);
@@ -596,6 +616,27 @@ describe("canonical local guest entry", () => {
       expect(fetchMock.mock.calls.some(([path]) => String(path).startsWith("/api/live/index-graph/"))).toBe(false);
     },
   );
+
+  it("offers verified World entry on authenticated Home", async () => {
+    vi.stubEnv("PROD", true);
+    window.history.replaceState({}, "", "/?world=world-a");
+    vi.stubGlobal("fetch", managedServerFetch({ authStatus: "authenticated" }));
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "Open your World" })).toHaveAttribute("href", "/graph?world=world-a");
+    expect(screen.getByRole("link", { name: "DungeonMind Buddy" })).toHaveAttribute("href", "/?world=world-a");
+    expect(screen.queryByRole("link", { name: "Sign in with DungeonMind" })).not.toBeInTheDocument();
+    expect(screen.getByText("Continue in World A.")).toBeInTheDocument();
+  });
+
+  it("offers the existing World chooser on authenticated Home without a selection", async () => {
+    vi.stubEnv("PROD", true);
+    window.history.replaceState({}, "", "/");
+    vi.stubGlobal("fetch", managedServerFetch({ authStatus: "authenticated" }));
+    render(<App />);
+    expect(await screen.findByText("Your next story starts with a World.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "World: Choose" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open your World" })).not.toBeInTheDocument();
+  });
 
   it("keeps an empty authenticated selection in an explicit playground with a World chooser", async () => {
     vi.stubEnv("PROD", true);

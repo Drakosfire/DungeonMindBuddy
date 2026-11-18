@@ -5,10 +5,8 @@ import { createBuddyIndexGraphApi } from "./nativeGraphDemo/buddyIndexGraphApi";
 import { AppChrome } from "./chrome/AppChrome";
 import {
   appRouteFromLocationSnapshot,
-  interceptPrimaryNavigationClick,
 } from "./chrome/appNavigation";
-import { worldScopedSurfaceHref } from "./selectedWorld/worldSelectionNavigation";
-import { APP_NAV_ITEMS } from "./chrome/appChromeConfig";
+import { BuddyHome } from "./home/BuddyHome";
 import { deferredComponent } from "./ui/deferredComponent";
 import { dungeonMindLoginHref, useHostedAuthStatus } from "./auth/HostedAuthGate";
 
@@ -40,22 +38,10 @@ const StatblockPage = deferredComponent(() => import("./statblocks/StatblockPage
 const CombatSurfacePage = deferredComponent(() => import("./combat/CombatSurfacePage").then(module => ({ default: module.CombatSurfacePage })), "Combat");
 const MemoryIngestPage = deferredComponent(() => import("./ingestSurface/MemoryIngestPage").then(module => ({ default: module.MemoryIngestPage })), "Ingest");
 function BuddyLandingPage() {
-  const world = useSelectedWorld();
   const auth = useHostedAuthStatus();
   return (
     <AppChrome activeRoute="index" localOnlyNavigation={auth.status === "signed_out"} workspaceLayout="bounded">
-      <main className="app-status">
-        <h1>DungeonMind Buddy</h1>
-        {auth.status === "signed_out" && <a href={dungeonMindLoginHref("/")}>Sign in with DungeonMind</a>}
-        <ul>
-          {APP_NAV_ITEMS.filter((item) => item.route !== "index").map((item) => (
-            <li key={item.href}>
-              <a href={world.kind === "managed" ? worldScopedSurfaceHref(item.href, world.worldId) : item.href}
-                onClick={interceptPrimaryNavigationClick}>{item.label}</a>
-            </li>
-          ))}
-        </ul>
-      </main>
+      <BuddyHome />
     </AppChrome>
   );
 }

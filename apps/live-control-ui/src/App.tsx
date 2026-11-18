@@ -21,7 +21,8 @@ function subscribeSelectedWorldLocation(onChange: () => void): () => void {
 function isCanonicalLocalGuestEntry(locationSnapshot: string): boolean {
   try {
     const url = new URL(locationSnapshot, "http://localhost");
-    return (url.pathname === "/" || url.pathname === "/graph") && url.search === "" && url.hash === "";
+    const homeAnchor = url.pathname === "/" && ["", "#buddy-about", "#buddy-home-main"].includes(url.hash);
+    return url.search === "" && (homeAnchor || url.pathname === "/graph" && url.hash === "");
   } catch {
     return false;
   }

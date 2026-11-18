@@ -85,7 +85,9 @@ from apps.live_control_server.services.exact_run_evidence_correction import (
     correct_recap_run_evidence,
 )
 from apps.live_control_server.services.recap_semantic_candidate_correction import correct_recap_candidate
-from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency, require_explorer_access
+from apps.live_control_server.services.hosted_native_graph_access import (
+    HostedOwnerGraphPrincipal, native_graph_explorer_dependency, require_explorer_access,
+)
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
     native_graph_gm_dependency,
@@ -391,14 +393,30 @@ def post_recap_semantic_disposition(
     request_context: Request,
     run_id: str,
     request: RecapSemanticDecisionRequest,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """GM-only exact-child decision; caller cannot supply reviewer or time."""
+    authorize = None
+    if isinstance(principal, HostedOwnerGraphPrincipal):
+        world_id = request_context.query_params.get("managed_world_id", "")
+
+        def authorize() -> None:
+            require_explorer_access(principal, world_id)
+            recap_candidate_correction_access(request_context, world_id)
+
+        authorize()
     try:
-        _reject_selector_query(request_context)
-        response = decide_recap_semantic_disposition(
-            run_id, request, reviewer_id=principal.subject
-        )
+        if authorize is None:
+            _reject_selector_query(request_context)
+            response = decide_recap_semantic_disposition(
+                run_id, request, reviewer_id=principal.subject,
+            )
+        else:
+            response = decide_recap_semantic_disposition(
+                run_id, request, reviewer_id=principal.subject, authorize_write=authorize,
+            )
+    except HTTPException:
+        raise
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -409,7 +427,10 @@ def post_recap_semantic_disposition(
                 code="extract_promote_internal_error", status_code=500,
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
+    result = response.model_dump(mode="json", by_alias=True)
+    if authorize is not None:
+        authorize()
+    return result
 
 
 @router.post("/runs/{run_id}/selection-context", response_model=None)

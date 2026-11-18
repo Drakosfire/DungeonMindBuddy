@@ -2123,6 +2123,7 @@ def _split_http_app(monkeypatch):
     app = FastAPI()
     app.include_router(routes.router)
     app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(subject="test_gm", role="gm", auth_method="local_session")
+    app.dependency_overrides[routes.native_graph_explorer_dependency] = app.dependency_overrides[native_graph_gm_dependency]
     app.dependency_overrides[routes.recap_candidate_correction_access] = lambda: None
     return app
 

@@ -869,6 +869,7 @@ def decide_recap_semantic_disposition(
     request: RecapSemanticDecisionRequest,
     *,
     reviewer_id: str,
+    authorize_write: Callable[[], None] | None = None,
 ) -> RecapSemanticDecisionResponse:
     """Record an explicit operator decision without altering evidence or World."""
     from application_state.errors import ApplicationStateError
@@ -995,6 +996,8 @@ def decide_recap_semantic_disposition(
             review_decision_ref=request.review_decision_ref,
             reviewer_id=reviewer_id,
         )
+        if authorize_write is not None:
+            authorize_write()
         decided = record_recap_semantic_disposition(
             run_id, expected_revision=request.expected_revision,
             basis=basis, decision=decision,
