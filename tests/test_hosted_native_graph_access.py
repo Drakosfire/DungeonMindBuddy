@@ -2680,6 +2680,42 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert denied.status_code == 403
     assert reflections not in denied.text
 
+    from application_state.play import service as play_service
+
+    owner = hosted.records["managed"]
+    progress_path = f"{base}/progress?world_id=managed"
+    current = hosted.client.request("GET", run_path).json()
+    progress = {
+        **current["progress"],
+        "notes_by_element_id": {edit.scene_id: "Private Play note"},
+    }
+    progress_request = {"expected_run_revision": current["run_revision"], "progress": progress}
+    lock_run = play_service.repo.lock_run
+
+    def transfer_after_lock(*args, **kwargs):
+        record = lock_run(*args, **kwargs)
+        hosted.records["managed"] = owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return record
+
+    with monkeypatch.context() as patch:
+        patch.setattr(play_service.repo, "lock_run", transfer_after_lock)
+        denied = hosted.client.request("PUT", progress_path, json=progress_request)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    hosted.records["managed"] = owner
+    assert hosted.client.request("GET", run_path).json()["progress"] == current["progress"]
+
+    saved_progress = hosted.client.request("PUT", progress_path, json=progress_request)
+    assert saved_progress.status_code == 200, saved_progress.text
+    assert saved_progress.json()["progress"] == progress
+    assert hosted.client.request("PUT", progress_path, json=progress_request).json() == saved_progress.json()
+    with monkeypatch.context() as patch:
+        patch.setattr(play_service.repo, "lock_run", transfer_after_lock)
+        denied = hosted.client.request("PUT", progress_path, json=progress_request)
+    assert denied.status_code == 403, denied.text
+    assert "Private Play note" not in denied.text
+    hosted.records["managed"] = owner
+
     from application_state.play import session_evidence
 
     owner = hosted.records["managed"]
