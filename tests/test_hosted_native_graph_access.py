@@ -2421,6 +2421,8 @@ def test_hosted_owner_creates_lists_and_reopens_plan(hosted, application_state_d
 
 
 def test_hosted_play_review_denies_ownership_transfer_during_read(hosted, monkeypatch):
+    from uuid import uuid4
+
     from application_state.play import session_review
 
     def read_review(**_scope):
@@ -2431,8 +2433,9 @@ def test_hosted_play_review_denies_ownership_transfer_during_read(hosted, monkey
 
     monkeypatch.setattr(session_review, "read_review", read_review)
     response = hosted.client.request(
-        "GET", "/api/live/world-play-runs/v2/saved-run/review?world_id=managed",
+        "GET", f"/api/live/world-play-runs/v2/{uuid4()}/review?world_id=managed",
     )
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
     assert response.status_code == 403, response.text
     assert "private-review" not in response.text
 
