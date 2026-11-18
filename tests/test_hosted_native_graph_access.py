@@ -4529,3 +4529,15 @@ def test_hosted_recap_name_review_requires_world_owner_and_origin(hosted, monkey
     response = hosted.client.request("POST", path, json=body)
     assert response.status_code == 200, response.text
     review.assert_called_once_with(body["raw_text"], scope, session_id="session-22")
+
+    def transfer_during_review(*_args, **_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return None, None, {"name": "Private recap name"}
+
+    review.side_effect = transfer_during_review
+    denied = hosted.client.request("POST", path, json=body)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert "Private recap name" not in denied.text

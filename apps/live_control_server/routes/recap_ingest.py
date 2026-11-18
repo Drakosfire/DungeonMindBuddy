@@ -333,7 +333,9 @@ def post_recap_name_review(body: RecapIngestRequest, request: Request, response:
     context = _request_recap_context(body)
     from apps.live_control_server.services.recap_name_review import prepare_name_review
     try:
-        return prepare_name_review(body.raw_text, context, session_id=f"session-{body.session}")[2]
+        review = prepare_name_review(body.raw_text, context, session_id=f"session-{body.session}")[2]
+        require_hosted_plan_world_context(request, body.managed_world_id)
+        return review
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
