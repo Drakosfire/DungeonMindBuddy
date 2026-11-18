@@ -1,3 +1,4 @@
+import * as hostedAuth from "../auth/HostedAuthGate";
 import {act,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import * as liveApi from "../api/liveApi";
@@ -10,7 +11,7 @@ import {session23WorldGraphRecapFixture} from "../test/worldGraphRecapFixture";
 import {IngestionModule} from "./IngestionModule";
 const selected=vi.hoisted(()=>({value:{kind:"managed",worldId:"elderwyld",name:"Elderwyld",documentId:null} as any}));
 vi.mock("../selectedWorld/SelectedWorldContext",()=>({useSelectedWorld:()=>selected.value}));
-vi.mock("../chrome/NativeGraphAccessControl",()=>({NativeGraphAccessControl:()=>null}));
+vi.mock("../chrome/NativeGraphAccessControl",()=>({NativeGraphAccessControl:()=> <span data-testid="local-graph-access" />}));
 vi.mock("../playSurface/review/SessionEvidencePicker",()=>({SessionEvidencePicker:({onChange}:{onChange:(refs:unknown[])=>void})=><button onClick={()=>onChange([{run_id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",review_revision:54,sha256:"a".repeat(64)}])}>Attach saved session evidence</button>}));
 function deferred<T>(){let resolve!:(v:T)=>void;let reject!:(e:Error)=>void;const promise=new Promise<T>((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};}
 function result(session=22,overrides:Partial<RecapIngestStatus>={}):RecapIngestStatus{return {schema:"dmb_raw_recap_ingest_status_v1",campaign_id:"longmont-c2",session,status:"candidate_validation_ready",states:["immutable_app_source_prepared","graph_candidate_ready"],paths:{},authority:{source:"immutable_app_recap_v1"},warnings:[],errors:[],next_actions:[],ingest_report:{graph_preview:{status:"candidate_validation_ready",extraction_run_id:`run-session-${session}`,source_artifact_id:`artifact:recap:longmont-c2:session-${session}`}},entity_spelling_audit:[],...overrides};}
@@ -205,4 +206,14 @@ it("stops before extraction for name review and sends only explicit decisions",a
  fireEvent.change(screen.getByRole("combobox",{name:"Correction for Marlena (1)"}),{target:{value:"apply:Marlene"}});
  fireEvent.click(screen.getByRole("button",{name:"Apply decisions and extract"}));
  await waitFor(()=>expect(rawApi.postRecapIngest).toHaveBeenCalledWith(expect.objectContaining({raw_text:"Marlena waits.",name_review:{review_id:"c".repeat(64),decisions:[{id:"d".repeat(64),replacement:"Marlene"}]}})));
+});
+
+
+it("loads the hosted Ingest catalog without mounting local Graph access", async () => {
+  vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+    status: "authenticated", refreshWarning: false, subject: "owner", displayName: "Owner",
+  });
+  mount();
+  await waitFor(() => expect(savedApi.getSavedRecapRuns).toHaveBeenCalled());
+  expect(screen.queryByTestId("local-graph-access")).not.toBeInTheDocument();
 });
