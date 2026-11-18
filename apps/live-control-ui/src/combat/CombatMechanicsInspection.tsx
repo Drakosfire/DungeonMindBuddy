@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {createPortal} from 'react-dom';
 import type { CombatMechanicsSnapshot } from './combatTypes';
 import { deferredComponent } from "../ui/deferredComponent";
-const Renderer = deferredComponent(() => import('../statblocks/render/StatblockRenderer').then(module => ({default: module.StatblockRenderer})), "mechanics display");
+export const CombatSavedStatblock = deferredComponent(() => import('../statblocks/render/StatblockRenderer').then(module => ({default: module.StatblockRenderer})), "mechanics display");
 
 /** Saved resource only: opening inspection never fetches current mechanics. */
 export function CombatMechanicsInspection({snapshot, presentation = 'inline'}: {snapshot: CombatMechanicsSnapshot; presentation?: 'inline' | 'dialog'}) {
@@ -21,11 +21,11 @@ export function CombatMechanicsInspection({snapshot, presentation = 'inline'}: {
       onClose={() => {setOpen(false); trigger.current?.focus({preventScroll: true});}}
       onKeyDown={event => {if (event.key === 'Escape') event.stopPropagation();}}>
       <header><strong>Saved mechanics</strong><button type="button" onClick={() => dialog.current?.close()}>Close statblock</button></header>
-      <Renderer revision={snapshot.resource} chrome="campaign" />
+      <CombatSavedStatblock revision={snapshot.resource} chrome="campaign" />
     </dialog>, document.body)}
   </>;
   return <details onToggle={event => setOpen(event.currentTarget.open)}>
     <summary>Saved mechanics · {snapshot.resource.definition.identity.name}</summary>
-    {open && <Renderer revision={snapshot.resource} chrome="campaign" />}
+    {open && <CombatSavedStatblock revision={snapshot.resource} chrome="campaign" />}
   </details>;
 }

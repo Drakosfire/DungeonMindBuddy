@@ -2,7 +2,17 @@
 
 ## Authority, lane and outcome
 
-ACTIVE under the operator's Combat implementation goal and explicit review,
+MERGED as #3975 at `15a288044cb1946821b960f156ecbf8c918d549e`; source lease
+released to HANDOFF-COMBAT-persistent-statblock.md. Exact reviewed head
+`1d64c1205c8cfe10226f40202d95ea59288051d4` passed 54 focused checks and typecheck.
+Independent code/evidence review approved bounded acceptance: exact-base discovered
+7864/174/2 versus head7867/174/2, no new failed IDs or missing case occurrences,
+both builds passed. Hosted1396/12 with 147 excluded skips; all failures inherited.
+Full validators and discovered collection parity remain red, not release-qualified.
+Disposable browser Save/Revert/recovery, numeric/text/unset overrides and unchanged
+source/sibling checks passed. Live runtime readiness remains pending below.
+
+Original authority: under the operator's Combat implementation goal and explicit review,
 accepted-slice merge and local deployment authority. The root is the assigned
 Combat designing/implementing steward. This is a revised serial slice after
 #3968, merged `e088f7b0e6b48928bc9e26cfdc34045043abec62`.

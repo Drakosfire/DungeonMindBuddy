@@ -138,6 +138,9 @@ describe("CombatRosterModule", () => {
     mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
     await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
     await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    await userEvent.click(await screen.findByRole('button',{name:'Keep statblock open for Geomantic Drake'}));
+    const projection=screen.getByRole('complementary',{name:'Projected statblock for Geomantic Drake'});
+    expect(await within(projection).findByRole('heading',{name:'Ironhide Brute'})).toBeInTheDocument();
     fireEvent.change(await screen.findByLabelText('AC for Geomantic Drake'),{target:{value:'21'}});
     fireEvent.change(screen.getByLabelText('Maximum HP for Geomantic Drake'),{target:{value:'30'}});
     expect(screen.getByLabelText('HP for Geomantic Drake')).toHaveValue('76');
@@ -147,6 +150,8 @@ describe("CombatRosterModule", () => {
     await screen.findByText('Saved · rev 2');
     expect(save.mock.calls[0][3]).toEqual({...initial.draft,entities:[{...initial.draft.entities[0],ac:21,max_hp:30},sibling]});
     expect(JSON.stringify(snapshot)).toBe(sourceBefore);
+    expect(projection).toBeInTheDocument();
+    expect(within(projection).getByText('68 (8d10+24)')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('AC for Geomantic Drake'),{target:{value:'10'}});
     await userEvent.click(screen.getByRole('button',{name:'Revert',exact:true}));
     expect(screen.getByLabelText('AC for Geomantic Drake')).toHaveValue('21');

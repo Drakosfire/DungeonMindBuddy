@@ -17,7 +17,7 @@ import type { CombatEncounterDraft, CombatEncounterRecord, CombatEntity } from "
 import { CombatMechanicsInspection } from "../../combat/CombatMechanicsInspection";
 import { CombatMechanicsAdoption } from '../../combat/CombatMechanicsAdoption';
 import { CombatEncounterAssembly } from "../../combat/CombatEncounterAssembly";
-import {CombatRosterTable} from '../../combat/CombatRosterTable';
+import {CombatRosterWorkspace, type CombatProjectionControl} from '../../combat/CombatRosterWorkspace';
 import "../../combat/combatRoster.css";
 import {CombatRecoverySession, combatDraftEqual, combatSelectionKey, type CombatRecovery} from "../../combat/combatRecovery";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
@@ -63,6 +63,7 @@ function RosterRow({
   onChange,
   onSetActive,
   onRemove,
+  projection,
 }: {
   entity: CombatEntity;
   active: boolean;
@@ -71,6 +72,7 @@ function RosterRow({
   onChange: (entity: CombatEntity) => void;
   onSetActive: () => void;
   onRemove: () => void;
+  projection: CombatProjectionControl;
 }) {
   const [damage, setDamage] = useState("1");
   const [heal, setHeal] = useState("1");
@@ -120,6 +122,9 @@ function RosterRow({
           {entity.world_identity ? `World: ${entity.world_identity.label} · Manual stats` : entity.statblock_title ?? entity.statblock_artifact_id ?? entity.source}
         </div>
         {entity.mechanics_snapshot && <CombatMechanicsInspection snapshot={entity.mechanics_snapshot} presentation="dialog" />}
+        {entity.mechanics_snapshot && <button type="button" aria-label={`Keep statblock open for ${entity.name}`}
+          aria-pressed={projection.selected} aria-controls={projection.selected ? projection.regionId : undefined}
+          onClick={event => projection.open(event.currentTarget)}>Keep statblock open</button>}
         <div className="combat-roster-team">
         <select
           aria-label={`Team for ${entity.name}`}
@@ -250,6 +255,8 @@ function cloneDraft(draft: CombatEncounterDraft): CombatEncounterDraft {
 export interface PreparedCombatOwnerReading {record:CombatEncounterRecord|null;blocked:boolean;error:string|null;acknowledged:{dispatchScope:TourDispatchScope|null;scope:TourEncounterScope;before:CombatEncounterRecord;saved:CombatEncounterRecord}|null}
 export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:CombatEncounterRecord;onPreparedState?:(reading:PreparedCombatOwnerReading|null)=>void;runScope?:import("../../combat/runEncountersApi").RunEncounterScope};
 export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;variant?:SavedConversationVariantTarget} = {}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const turnRailRef = useRef<HTMLElement>(null);
   const tourRun=useTourRun(),tour=useGuidedTour(),tourEncounter=useTourEncounter();
   const [preparedAcknowledged,setPreparedAcknowledged]=useState<PreparedCombatOwnerReading["acknowledged"]>(null);
   const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedCombatSave|null>(null);
@@ -332,6 +339,15 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
 
   const visibleRecord = record?.world_id === worldId ? record : null;
   const visibleDraft = visibleRecord ? draft : null;
+  useLayoutEffect(() => {
+    const rail = turnRailRef.current, panel = panelRef.current;
+    if (!rail || !panel) return;
+    const measure = () => panel.style.setProperty('--combat-turn-rail-height', `${rail.getBoundingClientRect().height}px`);
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(rail);
+    return () => {observer?.disconnect(); panel.style.removeProperty('--combat-turn-rail-height');};
+  }, [visibleRecord?.encounter_id, worldId]);
   const visibleEncounters = encounters.filter((item) => item.world_id === worldId);
   const worldListLoading = worldId !== null && (loading || loadedWorldId !== worldId);
   const dirty = Boolean(visibleRecord && visibleDraft && JSON.stringify(visibleRecord.draft) !== JSON.stringify(visibleDraft));
@@ -574,7 +590,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
         : null;
 
   return (
-    <div className="module-panel combat-roster" data-module-id="combat_roster">
+    <div ref={panelRef} className="module-panel combat-roster" data-module-id="combat_roster">
       <CombatTourObservation record={visibleRecord} runScope={scope?.runScope??null} acknowledged={tourAcknowledged} blocked={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked} error={error}/>
       <h2 className="module-title" data-guided-control="combat" data-guided-control-group="true" tabIndex={-1}>Combat</h2>
       {worldMessage ? <p className="module-muted">{worldMessage}</p> : null}
@@ -633,7 +649,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
           ) : null}
           {visibleRecord && visibleDraft ? (
             <>
-              <section className="combat-roster-turn-rail" aria-label="Combat turn controls">
+              <section ref={turnRailRef} className="combat-roster-turn-rail" aria-label="Combat turn controls">
                 <div><span className="eyebrow">Round</span><strong>{visibleDraft.round}</strong></div>
                 <div><span className="eyebrow">Active</span><strong>{active?.name ?? "No active actor"}</strong></div>
                 <div><span className="eyebrow">Next</span><strong>{next?.name ?? "—"}</strong></div>
@@ -678,16 +694,18 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
               {visibleDraft.entities.length === 0 ? (
                 <p className="module-muted">Add combatants to assemble this encounter.</p>
               ) : (
-                <CombatRosterTable draft={visibleDraft} disabled={replacingDraft}
+                <CombatRosterWorkspace key={JSON.stringify([worldId, visibleRecord.encounter_id, scope?.runScope?.runId, scope?.runScope?.sceneId])}
+                  draft={visibleDraft} disabled={replacingDraft}
                   onToggleGroup={key => updateDraft(current => ({...current,
                     groups: current.groups.map(group => group.group_key === key ? {...group, collapsed: !group.collapsed} : group),
                   }))}
-                  renderRow={(entity, hidden) => (
+                  renderRow={(entity, hidden, projection) => (
                         <RosterRow
                           key={entity.id}
                           entity={entity}
                           active={entity.id === visibleDraft.active_turn_entity_id}
                           hidden={hidden}
+                          projection={projection}
                           disabled={replacingDraft}
                           onChange={(updated) => updateEntity(entity.id, updated)}
                           onSetActive={() => setActive(entity.id)}
