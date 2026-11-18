@@ -429,6 +429,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/extract-promote/runs/{run_id}/frozen-source-spans"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/extract-promote/runs/{run_id}/evidence-corrections"): access.resolve_hosted_worldbuilding_evidence_correction,
             ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
@@ -4663,3 +4664,42 @@ def test_hosted_evidence_correction_requires_exact_owned_parent(hosted, monkeypa
     denied = hosted.client.request("POST", path, json=body)
     assert denied.status_code == 403, denied.text
     persisted.assert_not_called()
+
+
+def test_hosted_frozen_source_spans_checks_owned_run_before_read(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import extract_promote
+    from apps.live_control_server.services import graph_run_registry, source_artifact_registry, workspace_document_registry
+
+    source = SimpleNamespace(
+        source_domain="worldbuilding", workspace_document_id=str(uuid4()), world_id="managed",
+    )
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run",
+                        lambda _: SimpleNamespace(source_domain="worldbuilding", source_artifact_id="source"))
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _: source)
+    monkeypatch.setattr(workspace_document_registry, "get_workspace_document",
+                        lambda *_: SimpleNamespace(kind="worldbuilding_source", world_id="managed"))
+    read = Mock(side_effect=extract_promote.ExtractPromoteError("fixture", code="fixture", status_code=409))
+    monkeypatch.setattr(extract_promote, "get_worldbuilding_frozen_spans", read)
+    path = "/api/live/extract-promote/runs/saved-run/frozen-source-spans"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    source.world_id = "foreign"
+    assert hosted.client.request("GET", path).status_code == 403
+    read.assert_not_called()
+    source.world_id = "managed"
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 409, response.text
+    read.assert_called_once_with("saved-run")
+
+    def transfer_during_projection(**_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"spans": [{"paragraphText": "Private frozen source"}]}
+
+    read.side_effect = None
+    read.return_value = SimpleNamespace(world_id="managed", model_dump=transfer_during_projection)
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "Private frozen source" not in denied.text
