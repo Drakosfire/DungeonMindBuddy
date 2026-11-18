@@ -6,6 +6,7 @@
   background:var(--ui-background-app);
   padding:.6rem 0;
 }
+.native-combat-surface .combat-roster-turn-rail { top:var(--app-chrome-top); }
 .combat-roster-turn-rail > div:nth-child(2) { flex:1; min-width:10rem; }
 .combat-roster-setup { margin:.5rem 0; }
 .combat-roster-setup > summary { cursor:pointer; padding:.6rem 0; }

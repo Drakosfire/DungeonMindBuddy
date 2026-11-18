@@ -118,7 +118,13 @@ An initial working-tree focused run recorded 32 passes and one oversized-copy
 Graph-selection failure. Its test mocked the retired graph projection instead of
 the current native creature catalog. The owning test is repaired to mock that
 catalog while retaining the oversized append refusal and unchanged-draft checks.
-An unchanged-base comparison and repaired candidate checks are queued behind other
-active frontend verification. No current passing, release or rendered-source
-qualification is claimed. Task evidence root:
+The unchanged-base archive reproduced that failure (26 passed, one failed).
+The repaired candidate passed all 34 focused tests and the full TypeScript check.
+PR #3968 is open as a draft. Its main-composed head `7132f858` received one formal
+exact-head Bugbot HOLD for a sticky rail underneath AppChrome; the other findings
+were resolved. The follow-up offsets the standalone rail with AppChrome's measured
+`--app-chrome-top`, retaining a zero inset inside independently scrolling hosts.
+The old-head verifier was cancelled while still queued, before allocating a source
+checkout or running tests. Fresh exact-source verification and rendered acceptance
+remain pending; no release qualification is claimed. Task evidence root:
 `/home/drakosfire/Projects/.codex/buddy-check.LPopRI`.
