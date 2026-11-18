@@ -30,6 +30,12 @@ Expected exclusive writes: this handoff; shared
 `apps/live-control-ui/src/combat/combatRoster.css`, `CombatSurfacePage.css`,
 `CombatMechanicsInspection.tsx` and its tests; new narrowly scoped board components
 and interaction tests under `apps/live-control-ui/src/combat/`. Read other paths.
+The required inventory guard exposed the new table test as unclassified. Steward
+amendment: `ci/test-classification.json` is leased for exactly the additive
+`apps/live-control-ui/src/combat/CombatRosterTable.test.tsx` fast-lane entry.
+The existing CI local-verifier, Projects-allocation and HOSTED explorer leases
+reserve their exact other test entries; none is edited or transferred. This is
+required test metadata within the same capability, not a selector/command change.
 Verify exact open-PR path overlap before source edits and amend/transfer ownership
 explicitly if necessary. Shared routing, authorization, mechanics adoption and
 producer contracts are outside this slice.
@@ -125,6 +131,21 @@ exact-head Bugbot HOLD for a sticky rail underneath AppChrome; the other finding
 were resolved. The follow-up offsets the standalone rail with AppChrome's measured
 `--app-chrome-top`, retaining a zero inset inside independently scrolling hosts.
 The old-head verifier was cancelled while still queued, before allocating a source
-checkout or running tests. Fresh exact-source verification and rendered acceptance
-remain pending; no release qualification is claimed. Task evidence root:
+checkout or running tests. Exact `3b94ee073` then received Bugbot code approval.
+Its hosted run built successfully with 1,396 selected passes and 12 failures;
+147 skips are excluded cases in the two existing filtered safety commands.
+Its full discovered diagnostic built successfully with 7,858 passes, 174 failures
+and two skips. Exact base `12f626bff` had 7,852 passes, 175 failures and the same two
+skips. Independent evidence audit verified no new failed IDs or missing cases,
+five new passing cases, the repaired Combat fixture, matching inherited hosted
+failure messages, artifact hashes and clean source/cleanup. Both qualification
+validators remain red. No full-green or collection-parity claim is made.
+
+Standalone browser checks on that runtime source used a disposable 16-unit API
+fixture and proved grouping, sticky turns, exact statblock inspection, defeat and
+return without healing, notes/status, save/reload/explicit recovery, and narrow
+statblock layout. This is frontend evidence, not a PostgreSQL persistence claim.
+The actual Plan/Play projection harness remains to be checked. The additive
+inventory correction requires renewed exact-head checks/review; no release
+qualification or completed slice is claimed. Task evidence root:
 `/home/drakosfire/Projects/.codex/buddy-check.LPopRI`.
