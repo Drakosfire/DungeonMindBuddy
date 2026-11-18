@@ -890,3 +890,20 @@ it("uses the hosted session for status, prepare, and confirm of an exact creatur
   })).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(3);
 });
+
+it.each(["", "/11111111-1111-4111-8111-111111111111/revisions/1"])(
+  "reads hosted session evidence at the exact World route %s",
+  async suffix => {
+    const api = await setup();
+    hostedOrigin();
+    api.setNativeGraphAccessToken("local-bearer");
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ fixture: true }));
+    const path = `/api/live/world-session-evidence${suffix}?world_id=managed`;
+    await api.authenticatedApiFetch(path);
+    const [, init] = fetch.mock.calls[0];
+    expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+    await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  },
+);
