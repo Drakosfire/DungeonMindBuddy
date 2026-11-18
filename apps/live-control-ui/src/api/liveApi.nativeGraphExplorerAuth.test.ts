@@ -540,6 +540,190 @@ it("reads earlier image directions with the exact hosted session route", async (
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
+it("uses the hosted session for exact saved PDF review reads", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ items: [] }));
+  const list = "/api/live/agent/worlds/elderwyld/build-pdf-sources/statblock-reviews";
+  const id = "12345678-1234-1234-1234-123456789abc";
+  const detail = list + "/" + id;
+  const status = detail + "/publication";
+  const revision = status + "/statblock?draft_id=" + id + "&revision_id=rev_saved";
+  for (const path of [list, detail, status, revision]) {
+    await api.authenticatedApiFetch(path);
+    const [url, init] = fetch.mock.calls.at(-1)!;
+    expect(url).toBe(path);
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store", redirect: "error" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(detail + "?world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(revision + "&revision_id=other")).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(status, { method: "POST", body: "{}" })).rejects.toThrow(/exact same-origin/);
+  const save = { method: "PUT", body: JSON.stringify({ expected_revision: 1, definition: {}, regions: [] }) };
+  await api.authenticatedApiFetch(detail, save);
+  const [url, init] = fetch.mock.calls.at(-1)!;
+  expect(url).toBe(detail);
+  expect(init).toMatchObject({ method: "PUT", credentials: "same-origin", redirect: "error" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  for (const path of [list, status, detail + "?world_id=other"]) {
+    await expect(api.authenticatedApiFetch(path, save)).rejects.toThrow(/exact same-origin/);
+  }
+  await expect(api.authenticatedApiFetch(detail, { ...save, body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(5);
+});
+
+it("uses the hosted session for each exact PDF publication step", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const id = "12345678-1234-1234-1234-123456789abc";
+  const root = "/api/live/agent/worlds/elderwyld/build-pdf-sources/statblock-reviews/" + id;
+  const post = { method: "POST" };
+  const accept = { ...post, body: JSON.stringify({
+    operation_id: id, expected_revision: 1, expected_draft_version: 1,
+    validation_receipt: {}, validation_definition_digest: "sha256:example",
+  }) };
+  for (const [path, options] of [
+    ...["creature-draft", "validate", "publication"].map(operation =>
+      [root + "/" + operation + "?expected_revision=1", post] as const),
+    [root + "/accept/" + id, accept] as const,
+  ]) {
+    await api.authenticatedApiFetch(path, options);
+    const [url, init] = fetch.mock.calls.at(-1)!;
+    expect(url).toBe(path);
+    expect(init).toMatchObject({ method: "POST", credentials: "same-origin", redirect: "error" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(root + "/publication?expected_revision=1&expected_revision=2", post)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(root + "/validate?expected_revision=1", accept)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(root + "/accept/" + id, post)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(4);
+});
+
+it("reads captured diagnostic prompts through the hosted session", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ results: [] }));
+  const id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  await api.getWorldAgentTurnPrompt("elderwyld", id, id, id);
+  await api.getWorldAgentTurnPrompts("elderwyld", id, [{ trace_id: id, provider_attempt_id: id }]);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store", redirect: "error" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(
+    `/api/live/agent/worlds/elderwyld/conversation/turns/${id}/context-trace/prompts`,
+    { method: "POST", body: JSON.stringify({ prompts: [], extra: true }) },
+  )).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
+
+it("reads a hosted conversation name without enabling name writes", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ title: "Saved" }));
+  const path = "/api/live/agent/worlds/elderwyld/conversations/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/name";
+  await api.authenticatedApiFetch(path);
+  expect(fetch).toHaveBeenCalledOnce();
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path, { method: "PUT", body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledOnce();
+});
+
+it("uses the hosted session for retained PDF evidence in Build", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const root = "/api/live/agent/worlds/elderwyld/build-pdf-sources";
+  const locator = { method: "POST", body: JSON.stringify({ source_revision_id: "retained-revision" }) };
+  for (const [path, request] of [
+    [root + "?after=", undefined],
+    [root + "?after=cursor", undefined],
+    [root + "/open", locator],
+    [root + "/region:validate", locator],
+  ] as const) {
+    await api.authenticatedApiFetch(path, request);
+    const [url, init] = fetch.mock.calls.at(-1)!;
+    expect(url).toBe(path);
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store", redirect: "error" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(root + "?after=&after=other")).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(root + "/open?world_id=foreign", locator)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(root + "/ocr", locator)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(4);
+});
+
+it("uses the hosted session for binary PDF admission to the selected World", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const path = "/api/live/agent/worlds/elderwyld/build-pdf-sources?admission_id=12345678-1234-1234-1234-123456789abc";
+  const body = new File(["%PDF-1.7"], "fixture.pdf", { type: "application/pdf" });
+  const upload = {
+    method: "POST", body,
+    headers: new Headers({ "Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-15T00:00:00Z" }),
+  };
+  await api.authenticatedApiFetch(path, upload);
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toBe(path);
+  expect(init?.body).toBe(body);
+  expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+  const headers = new Headers(init?.headers);
+  expect(headers.has("Authorization")).toBe(false);
+  expect(headers.get("Content-Type")).toBe("application/pdf");
+  expect(headers.get("X-Pdf-Created-At")).toBe(upload.headers.get("X-Pdf-Created-At"));
+  await expect(api.authenticatedApiFetch(path + "&world_id=foreign", upload)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path, { ...upload, body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("uses the hosted session to extract a statblock review from retained PDF regions", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const root = "/api/live/agent/worlds/elderwyld/build-pdf-sources/statblock-reviews/12345678-1234-1234-1234-123456789abc";
+  const body = JSON.stringify({
+    regions: [{ source_revision_id: "retained-revision", page: 1 }],
+    instruction: "Use the printed action names.", edition: "2024", whole_pdf: true,
+  });
+  await api.authenticatedApiFetch(root + "/from-regions", { method: "POST", body });
+  const [url, options] = fetch.mock.calls[0]!;
+  expect(url).toBe(root + "/from-regions");
+  expect(options).toMatchObject({ method: "POST", body, credentials: "same-origin", redirect: "error" });
+  expect(new Headers(options?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(root + "/from-regions?world_id=other", { method: "POST", body })).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(root + "/from-regions", { method: "POST", body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("uses the hosted session to append a PDF review to an exact saved draft", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  const id = "12345678-1234-1234-1234-123456789abc";
+  const path = "/api/live/agent/worlds/elderwyld/build-pdf-sources/statblock-reviews/" + id + "/append/" + id;
+  const append = { method: "POST", body: JSON.stringify({ operation_id: id, expected_revision: 1, base: { revision_id: "rev_saved" } }) };
+  await api.authenticatedApiFetch(path, append);
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toBe(path);
+  expect(init).toMatchObject({ ...append, credentials: "same-origin", redirect: "error" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "?world_id=other", append)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path, { ...append, body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
 it("uses the hosted session for Worldbuilding extraction of an exact saved page", async () => {
   const api = await setup();
   hostedOrigin();
