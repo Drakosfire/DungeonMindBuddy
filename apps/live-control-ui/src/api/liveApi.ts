@@ -336,6 +336,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-source-withdrawals$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|ocr|review|statblock-reviews|statblock:validate))?$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+(?:\/validate|\/from-regions|\/creature-draft|\/(?:accept|append)\/[^/]+)?$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+\/publication(?:\/statblock)?$/.test(pathname)) return true;
   if ([
     "/api/live/graph-authoring/document-relationship/request",
     "/api/live/graph-authoring/document-relationship/native-prepare",
@@ -428,6 +429,17 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  const pdfReviewRead = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews(?:\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(?:\/publication(\/statblock)?)?)?([?][^#]+)?$/.exec(path);
+  if (pdfReviewRead) {
+    if (method !== "GET" || init?.body != null) return false;
+    const [exactPath, statblock, search] = pdfReviewRead;
+    if (!statblock) return search === undefined;
+    const query = new URLSearchParams(search);
+    const draftId = query.get("draft_id");
+    const revisionId = query.get("revision_id");
+    return !!draftId && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(draftId)
+      && !!revisionId && exactPath === path.split("?", 1)[0] + "?" + new URLSearchParams({ draft_id: draftId, revision_id: revisionId });
+  }
   const promptEvidence = /^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/turns\/[a-f0-9-]+\/context-trace\/(?:([a-f0-9-]+)\/prompt\/([a-f0-9-]+)|(prompts))$/.exec(path);
   if (promptEvidence) {
     if (!promptEvidence[3]) return method === "GET" && init?.body == null;
