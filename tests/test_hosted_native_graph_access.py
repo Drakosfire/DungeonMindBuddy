@@ -4691,3 +4691,15 @@ def test_hosted_frozen_source_spans_checks_owned_run_before_read(hosted, monkeyp
     response = hosted.client.request("GET", path)
     assert response.status_code == 409, response.text
     read.assert_called_once_with("saved-run")
+
+    def transfer_during_projection(**_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"spans": [{"paragraphText": "Private frozen source"}]}
+
+    read.side_effect = None
+    read.return_value = SimpleNamespace(world_id="managed", model_dump=transfer_during_projection)
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "Private frozen source" not in denied.text

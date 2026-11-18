@@ -218,7 +218,12 @@ def get_extract_promote_exact_run_review(
 def get_exact_run_frozen_source_spans(request_context: Request, run_id: str):
     try:
         _reject_selector_query(request_context)
-        return get_worldbuilding_frozen_spans(run_id).model_dump(mode="json", by_alias=True)
+        catalog = get_worldbuilding_frozen_spans(run_id)
+        result = catalog.model_dump(mode="json", by_alias=True)
+        authorize = worldbuilding_evidence_authorizer(request_context, catalog.world_id)
+        if authorize is not None:
+            authorize()
+        return result
     except ExtractPromoteError as exc:
         return _error_response(exc)
 
