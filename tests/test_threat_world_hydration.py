@@ -91,7 +91,14 @@ def test_response_scope_cannot_assert_an_inconsistent_campaign(scope,campaign):
             revision_id='graph-a',query_text='Scout',result_label='threat_query_hydration_empty')
 
 
-def test_hosted_hydration_reads_native_projection_under_managed_world(monkeypatch):
+@pytest.mark.parametrize("native_world_id,binding_version", [
+    ("native-world", 1),
+    ("different-native-world", 1),
+    ("native-world", 2),
+])
+def test_hosted_hydration_reads_native_projection_under_managed_world(
+    monkeypatch, native_world_id, binding_version,
+):
     from apps.live_control_server.services import managed_world_graph_projection as managed
 
     def read(body):
@@ -104,7 +111,17 @@ def test_hosted_hydration_reads_native_projection_under_managed_world(monkeypatc
         )
 
     monkeypatch.setattr(managed, "project_managed_world_graph", read)
+    monkeypatch.setattr(managed, "resolve_managed_world_binding", lambda world_id: managed.VerifiedManagedWorldBinding(
+        managed_world_id=world_id, native_world_id=native_world_id,
+        binding_version=binding_version, source_root_relpath=None,
+    ))
     body = service.ThreatQueryHydrationRequestV1.model_validate(request(worldId="managed-world"))
+    if (native_world_id, binding_version) != ("native-world", 1):
+        with pytest.raises(service.ThreatQueryHydrationError) as error:
+            service.query_threats_with_hydration(body, root=Path("."), managed_world=True)
+        assert error.value.status_code == 409
+        assert error.value.diagnostics == ["native_graph_binding_changed"]
+        return
     result = service.query_threats_with_hydration(body, root=Path("."), managed_world=True)
     assert result.world_id == "managed-world"
     assert result.revision_id == "graph-a"

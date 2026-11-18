@@ -583,6 +583,7 @@ def query_threats_with_hydration(
         query_text=request.query_text,
     )
     projected_world_id = request.world_id
+    bound = None
     try:
         if managed_world:
             from apps.live_control_server.services.managed_world_graph_projection import (
@@ -728,6 +729,26 @@ def query_threats_with_hydration(
 
     response_hits.sort(key=_deterministic_hit_sort_key)
     label = _aggregate_result_label(response_hits)
+
+    if bound is not None:
+        from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
+
+        try:
+            current = resolve_managed_world_binding(request.world_id)
+        except WorldGraphProjectionServiceError as exc:
+            raise ThreatQueryHydrationError(
+                "Managed World graph binding could not be verified after hydration.",
+                result_label="threat_query_hydration_unavailable",
+                status_code=503,
+                diagnostics=[exc.code],
+            ) from exc
+        if (current.native_world_id, current.binding_version) != (bound.native_world_id, bound.binding_version):
+            raise ThreatQueryHydrationError(
+                "Managed World graph binding changed during hydration; retry the read.",
+                result_label="threat_query_hydration_integrity_failure",
+                status_code=409,
+                diagnostics=["native_graph_binding_changed"],
+            )
 
     return ThreatQueryHydrationResponseV1(
         schema=QUERY_RESPONSE_SCHEMA,
