@@ -845,7 +845,7 @@ def set_play_active_run(run_id: UUID | str) -> PlayActiveRun:
 
 
 def set_world_play_active_run(
-    world_id: str, run_id: UUID | str
+    world_id: str, run_id: UUID | str, *, authorize_world: Callable[[], None] | None = None
 ) -> PlayActiveRun:
     canonical_world_id = _require_world_id(world_id)
     canonical_run_id = _as_uuid(run_id, field_name="run_id")
@@ -859,6 +859,8 @@ def set_world_play_active_run(
         _readable_aggregate(run, repo.get_manifest(conn, canonical_run_id))
         scope_key = f"world:{canonical_world_id}"
         current = repo.lock_active_run(conn, scope_key=scope_key)
+        if authorize_world is not None:
+            authorize_world()
         if current is not None and current.run_id == canonical_run_id:
             active = current
         else:

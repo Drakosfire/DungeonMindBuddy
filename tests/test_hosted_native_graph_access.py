@@ -2540,6 +2540,23 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     selection = {"run_id": run_id}
     assert hosted.client.request("PUT", active_path, json=selection, session="other-session").status_code == 403
     assert hosted.client.request("PUT", active_path, json=selection, origin="https://outside.example").status_code == 403
+    from application_state.play import service as active_service
+
+    original_owner = hosted.records["managed"]
+    lock_active = active_service.repo.lock_active_run
+
+    def transfer_during_selection(*args, **kwargs):
+        selection = lock_active(*args, **kwargs)
+        hosted.records["managed"] = original_owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return selection
+
+    with monkeypatch.context() as patch:
+        patch.setattr(active_service.repo, "lock_active_run", transfer_during_selection)
+        denied = hosted.client.request("PUT", active_path, json=selection)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    hosted.records["managed"] = original_owner
+    assert hosted.client.request("GET", active_path).json()["run_id"] is None
     selected = hosted.client.request("PUT", active_path, json=selection)
     assert selected.status_code == 200, selected.text
     assert selected.json()["run_id"] == run_id
