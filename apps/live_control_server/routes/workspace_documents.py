@@ -743,33 +743,40 @@ _CONNECTED_ERRORS = (ConnectedGraphError,ConnectedPageError, WorkspaceDocumentRe
 
 
 def _connected_page_principal(request: Request, world_id: str):
-    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        conversation_graph_principal, require_conversation_access,
+    )
 
-    return conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+
+    def authorize():
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+
+    return principal, {"authorize": authorize} if principal.auth_method == "hosted_owner" else {}
 
 
 @router.post('/connected-pages/prepare')
 def post_connected_page_prepare(body: ConnectedPageRequest, request: Request):
-    principal = _connected_page_principal(request, body.world_id)
+    principal, guard = _connected_page_principal(request, body.world_id)
     try:
-        return prepare_connected_page(_managed_world_root(), body, principal=principal)
+        return prepare_connected_page(_managed_world_root(), body, principal=principal, **guard)
     except _CONNECTED_ERRORS as exc:
         raise HTTPException(status_code=getattr(exc, 'status_code', 409), detail=str(exc)) from exc
 
 
 @router.post('/connected-pages/confirm')
 def post_connected_page_confirm(body: ConnectedPageConfirmation, request: Request):
-    principal = _connected_page_principal(request, body.world_id)
+    principal, guard = _connected_page_principal(request, body.world_id)
     try:
-        return confirm_connected_page(_managed_world_root(), body.operation_id, body.world_id, body.confirm_token, principal=principal)
+        return confirm_connected_page(_managed_world_root(), body.operation_id, body.world_id, body.confirm_token, principal=principal, **guard)
     except _CONNECTED_ERRORS as exc:
         raise HTTPException(status_code=getattr(exc, 'status_code', 409), detail=str(exc)) from exc
 
 
 @router.get('/connected-pages/{operation_id}')
 def read_connected_page(operation_id: UUID, world_id: str, request: Request):
-    principal = _connected_page_principal(request, world_id)
+    principal, guard = _connected_page_principal(request, world_id)
     try:
-        return get_connected_page(_managed_world_root(), operation_id, world_id, principal=principal)
+        return get_connected_page(_managed_world_root(), operation_id, world_id, principal=principal, **guard)
     except _CONNECTED_ERRORS as exc:
         raise HTTPException(status_code=getattr(exc, 'status_code', 409), detail=str(exc)) from exc

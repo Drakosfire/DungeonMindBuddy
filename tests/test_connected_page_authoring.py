@@ -759,7 +759,7 @@ def test_hosted_operation_is_bound_to_reserving_principal(case):
 
 def test_hosted_http_prepares_confirms_and_recovers_connected_page(case, hosted, monkeypatch):
     from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
-    from tests.test_hosted_native_graph_access import HOSTED_WORLD_ACCESS_ENV, OWNER, _record
+    from tests.test_hosted_native_graph_access import HOSTED_WORLD_ACCESS_ENV, OTHER_OWNER, OWNER, _record
 
     world = case.record.world_id
     hosted.records[world] = _record(world, OWNER, case.bound["native_world_id"])
@@ -777,6 +777,23 @@ def test_hosted_http_prepares_confirms_and_recovers_connected_page(case, hosted,
         "confirm_token": operation["prepared"]["confirm_token"],
     }
     assert hosted.client.request("POST", f"{base}/confirm", json=confirm_body, origin=None).status_code == 403
+    owner_record = hosted.records[world]
+    space = case.bound["native_world_id"]
+    before = case.repo.get_head(space)
+    original_descriptors = native.descriptors
+
+    def transfer_during_descriptors(*args):
+        result = original_descriptors(*args)
+        hosted.records[world] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+        return result
+
+    with monkeypatch.context() as transfer:
+        transfer.setattr(native, "descriptors", transfer_during_descriptors)
+        denied = hosted.client.request("POST", f"{base}/confirm", json=confirm_body)
+    assert denied.status_code == 403, denied.text
+    assert case.repo.get_head(space) == before
+    assert case.authority.publish_calls == 0
+    hosted.records[world] = owner_record
     confirmed = hosted.client.request("POST", f"{base}/confirm", json=confirm_body)
     assert confirmed.status_code == 200, confirmed.text
     completed = confirmed.json()
