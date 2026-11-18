@@ -325,6 +325,26 @@ def test_signed_native_review_publishes_once(case, graph, monkeypatch, hosted_mo
     assert repo.get_head(space) == head
     assert repo.open_native_source_view(space).epoch == epoch
 
+    if hosted_mode:
+        from tests.test_hosted_native_graph_access import OTHER_OWNER
+
+        original_owner = hosted.records[world]
+        read_passage = reader.resolve_reviewed_passage
+
+        def transfer_after_passage_read(*args, **kwargs):
+            result = read_passage(*args, **kwargs)
+            hosted.records[world] = original_owner.model_copy(update={"owner_subject": OTHER_OWNER})
+            return result
+
+        with monkeypatch.context() as patch:
+            patch.setattr(reader, "resolve_reviewed_passage", transfer_after_passage_read)
+            denied = post(f"{prefix}/native-confirm", json=confirmed)
+        assert hosted.records[world].owner_subject == OTHER_OWNER
+        assert denied.status_code == 403, denied.text
+        assert repo.get_head(space) == head
+        assert repo.open_native_source_view(space).epoch == epoch
+        hosted.records[world] = original_owner
+
     receipt = post(f'{prefix}/native-confirm', json=confirmed)
     assert receipt.status_code == 200, receipt.text
     child = repo.get_revision(space, receipt.json()['child_revision_id'])

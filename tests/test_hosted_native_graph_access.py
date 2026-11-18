@@ -4318,3 +4318,16 @@ def test_hosted_relationship_request_uses_owned_world(hosted, monkeypatch):
     response = hosted.client.request("POST", path, json=body)
     assert response.status_code == 200, response.text
     assert calls == [("managed", f"hosted_dms:{OWNER}")]
+
+    def transfer_after_relationship_read(*args):
+        result = build(*args)
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return result
+
+    monkeypatch.setattr(graph_authoring, "relationship_request", transfer_after_relationship_read)
+    denied = hosted.client.request("POST", path, json=body)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert "worldId" not in denied.text
