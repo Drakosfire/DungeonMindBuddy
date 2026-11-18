@@ -1723,6 +1723,11 @@ function isHistoryTurn(
     return ['discuss','write_current_page'].includes(String(operation))&&isRecord(value.provenance)
       &&value.provenance.surface_id==='plan'&&isHistoryTurn(envelope,schema,worldId);
   }
+  if (Object.hasOwn(value, 'variant_draft_reviewed')) {
+    const { variant_draft_reviewed: reviewed, ...envelope } = value;
+    return reviewed === true && value.conversation_draft_available === true
+      && isHistoryTurn(envelope, schema, worldId);
+  }
   if (Object.hasOwn(value, 'variant_approval_requested')) {
     const { variant_approval_requested: approval, ...envelope } = value;
     return approval === true && value.lifecycle_status === 'completed'
@@ -6519,13 +6524,15 @@ export function WorldPlanAgentConversation({
             ? { documentId: buildMode.savedSource.documentId, bridge: buildMode.composeBridge }
             : undefined} />
       );
+    const reviewedDraftReply = draftEditor && (savedMessage ? savedMessage.variant_draft_reviewed : turn.variant_draft_reviewed)
+      ? <p>Open the statblock draft to review the mechanics.</p> : null;
     const hasLightweightReply = Boolean(pageSuggestion || turn.assistant_text || ['completed','failed','interrupted'].includes(turn.lifecycle_status));
     if (!history?.turns.some(full => sameSavedMessage(full, turn))) return <BuddyTurnInspection key={`world:${turn.turn_id}`} worldId={verifiedWorldId ?? ''} conversationId={history?.conversation_id ?? ''} turnId={turn.turn_id} lifecycle={turn.lifecycle_status}>
       <article className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? 'complete' : turn.lifecycle_status}`} data-turn-id={turn.turn_id} data-sequence={turn.sequence} tabIndex={-1}>
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user"><span className="world-plan-agent-conversation__speaker">You</span><p>{turn.user_text}</p>{turnReferences&&<SurfaceGraphReferenceInput worldId={verifiedWorldId??''} label="Message references" readOnly value={turnReferences.references} onChange={()=>{}}/>}</div>
         {hasLightweightReply && <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
           <div className="world-plan-agent-conversation__reply-heading"><span className="world-plan-agent-conversation__speaker">Buddy</span></div>
-          {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : selectPassage ? null : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : 'This reply did not finish.'}</p>}
+          {reviewedDraftReply ?? (pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : selectPassage ? null : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : 'This reply did not finish.'}</p>)}
           {savedStatblockLinks}
           {draftEditor}
           {variantApproval}
@@ -6592,7 +6599,7 @@ export function WorldPlanAgentConversation({
               <span className="world-plan-agent-conversation__speaker">Buddy</span>
 
             </div>
-            {pageSuggestion ? pageSuggestion.element : turn.native_statement_context ? <NativeStatementAnswer context={turn.native_statement_context}
+            {reviewedDraftReply ? reviewedDraftReply : pageSuggestion ? pageSuggestion.element : turn.native_statement_context ? <NativeStatementAnswer context={turn.native_statement_context}
               worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : !pageProposalAcknowledgment&&(graphContextForTurn(turn)?.completion?.schema === 'dmb_surface_native_completion_v1' || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v4" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v5" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v6"||graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v7")))))
               ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion|import("../../api/types").SurfaceNativeCompletionV1} buildSourceBasis={buildSource??undefined} nativeScope={(() => {
                   const receipt = graphContextForTurn(turn)?.receipt;

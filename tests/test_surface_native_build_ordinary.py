@@ -1970,7 +1970,9 @@ def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
 
 
 @pytest.mark.parametrize("variant_validation", ["valid", "warnings", "invalid", None, "malformed", "mismatched"])
-def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_path, monkeypatch, variant_validation):
+def test_ordinary_build_attaches_variant_review_to_conversation_draft(
+    lane, tmp_path, monkeypatch, variant_validation, application_state_dsn,
+):
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Draft the Meat Mind variant in this conversation for review.",
@@ -1981,6 +1983,11 @@ def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_
     draft_path = f"{root}/drafts/{case.turn.turn_id}"
     draft = case.client.get(draft_path)
     assert draft.status_code == 200, draft.text
+    messages = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert messages.status_code == 200, messages.text
+    row = messages.json()["messages"][-1]
+    assert row["turn_id"] == str(case.turn.turn_id)
+    assert row.get("variant_draft_reviewed") is (True if variant_validation in {"valid", "warnings"} else None)
     if variant_validation not in {"valid", "warnings"}:
         assert draft.json()["markdown"]
         assert not draft.json().get("variant_review_ids")
@@ -1995,6 +2002,30 @@ def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_
     assert markdown.startswith(f"# {definition['identity']['name']}\n")
     assert all(rule["rules_text"] in markdown for rule in definition["rule_elements"])
     assert markdown != case.turn.assistant_text
+    # Editing the draft invalidates the associated review and its chat projection.
+    edited = case.client.put(draft_path, json={"expected_revision": 1, "markdown": markdown + "\nEdited."})
+    assert edited.status_code == 200, edited.text
+    assert "variant_review_ids" not in edited.json()
+    reopened = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert reopened.status_code == 200, reopened.text
+    assert "variant_draft_reviewed" not in reopened.json()["messages"][-1]
+
+    # When the newer revision gains its own review, the chat can present it.
+    from uuid import uuid4
+
+    import psycopg
+
+    from application_state.agent_conversation.conversation_variant_save import store_review
+
+    with psycopg.connect(application_state_dsn) as conn:
+        store_review(
+            conn, world_id=case.world, conversation_id=case.turn.conversation_id,
+            turn_id=case.turn.turn_id, revision=2, review_id=uuid4(),
+            definition=definition, base_locator=reviewed.json()["base_locator"],
+        )
+    reopened = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["messages"][-1]["variant_draft_reviewed"] is True
 
 
 def test_requested_chat_draft_is_persisted_by_ordinary_build(lane, tmp_path, monkeypatch):

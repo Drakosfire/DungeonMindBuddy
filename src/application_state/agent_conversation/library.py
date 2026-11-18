@@ -268,6 +268,7 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
     """Bounded message display; never load execution or a full context receipt."""
     from . import repository as repo
     from .authored_reference_preview import SELECT as reference_select, project as reference_preview
+    from .conversation_drafts import CANONICAL_REVIEWED_DRAFT
 
     presentation = (""",failure_code,completion,
         CASE WHEN jsonb_typeof(completion->'saved_source_citations')='array'
@@ -279,6 +280,8 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             WHERE d.turn_id=t.turn_id AND d.world_id=t.world_id
                 AND d.conversation_id=t.conversation_id AND d.revision=1) AS draft_available,
         """ + _VARIANT_APPROVAL_PREVIEW_SELECT + """,
+        (t.status='completed' AND t.surface_id='build' AND
+        """ + CANONICAL_REVIEWED_DRAFT + """) AS variant_draft_reviewed,
         t.answer_composition_kind, """ + reference_select + ", " + repo._rules_summary_select("t")) if metadata else ""
     rows = conn.execute(
         f"""SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
@@ -303,6 +306,8 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             provenance=repo.turn_provenance(row,references[row["turn_id"]])
             if row["draft_available"]:
                 message["conversation_draft_available"] = True
+            if row["variant_draft_reviewed"]:
+                message["variant_draft_reviewed"] = True
             if row["variant_approval_requested"]:
                 message["variant_approval_requested"] = True
             if row["saved_statblocks"]:

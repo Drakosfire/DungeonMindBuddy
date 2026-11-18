@@ -1511,6 +1511,9 @@ def get_world_conversation_history(
     draft_turn_ids = service.conversation_draft_turn_ids(
         verified_world_id, conversation.conversation_id, completed_build_turn_ids,
     ) if completed_build_turn_ids else set()
+    reviewed_variant_ids = service.reviewed_variant_turn_ids(
+        verified_world_id, conversation.conversation_id, completed_build_turn_ids,
+    ) if completed_build_turn_ids else set()
     from application_state.agent_conversation.conversation_variant_save import requested_approval
 
     history_turns = []
@@ -1566,6 +1569,7 @@ def get_world_conversation_history(
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
             history_turns.append(build_model(**values,
                 conversation_draft_available=True if turn.turn_id in draft_turn_ids else None,
+                variant_draft_reviewed=True if turn.turn_id in reviewed_variant_ids else None,
                 variant_approval_requested=True if requested_approval(turn) else None,
                 knowledge_context=project_plan_turn_context(turn, delivery_replay=True, source_names=source_names)))
         elif has_play_context(turn):

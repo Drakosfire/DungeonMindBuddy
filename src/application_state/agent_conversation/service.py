@@ -454,6 +454,21 @@ class AgentConversationService:
             )
             return {row[0] for row in rows}
 
+    def reviewed_variant_turn_ids(self, world_id: str, conversation_id: UUID, turn_ids: list[UUID]) -> set[UUID]:
+        from .conversation_drafts import CANONICAL_REVIEWED_DRAFT
+
+        with unit_of_work(_ready_dsn()) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT t.turn_id FROM agent.turn t
+                WHERE t.world_id = %s AND t.conversation_id = %s AND t.turn_id = ANY(%s)
+                  AND t.status = 'completed' AND t.surface_id = 'build'
+                  AND {CANONICAL_REVIEWED_DRAFT}
+                """,
+                (_world_id(world_id), conversation_id, turn_ids),
+            )
+            return {row[0] for row in rows}
+
     def open_conversation_draft(self, world_id: str, conversation_id: UUID, turn_id: UUID):
         from .conversation_drafts import open_draft
 
