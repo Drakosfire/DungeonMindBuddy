@@ -297,6 +297,10 @@ def hosted(monkeypatch, request):
     app.include_router(extract_promote.router)
     app.include_router(live.router)
     app.include_router(graph_preview.router)
+    from apps.live_control_server.routes import pdf_adventure_events
+
+    app.include_router(pdf_adventure_events.router)
+
     from apps.live_control_server.routes.agent import withdraw_build_source
 
     app.add_api_route("/api/live/agent/worlds/{world_id}/build-source-withdrawals", withdraw_build_source, methods=["POST"], status_code=204)
@@ -403,6 +407,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
+            ("POST", "/api/live/worlds/{world_id}/pdf-adventure-events/prepare"): access.resolve_hosted_build_pdf_world,
+            ("POST", "/api/live/worlds/{world_id}/pdf-adventure-events/confirm"): access.resolve_hosted_build_pdf_world,
             ("POST", "/api/live/agent/worlds/{world_id}/build-source-withdrawals"): access.resolve_hosted_conversation_world,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/from-regions"): access.resolve_hosted_build_pdf_world,
@@ -2986,6 +2992,45 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_pdf_event_review_binds_both_steps_to_world_owner(hosted, monkeypatch):
+    from apps.live_control_server.routes import pdf_adventure_events
+
+    calls = []
+    revoked = False
+    owner_record = hosted.records["managed"]
+
+    def observe(world_id, body, principal, *, authorize_write):
+        if revoked:
+            hosted.records["managed"] = hosted.records["managed"].model_copy(
+                update={"owner_subject": OTHER_OWNER},
+            )
+        authorize_write()
+        calls.append((world_id, principal.subject, principal.managed_world_id))
+        return {"accepted": True}
+
+    monkeypatch.setattr(pdf_adventure_events.service, "prepare", observe)
+    monkeypatch.setattr(pdf_adventure_events.service, "confirm", observe)
+    draft = {
+        "operation_id": "00000000-0000-4000-8000-000000000002",
+        "name": "Event", "description": "Reviewed description.",
+        "region": {"source_revision_id": "rev:pdf", "content_sha256": "a" * 64, "page": 1,
+                   "left": 0, "top": 0, "right": 1, "bottom": 1},
+    }
+    for action, body in (("prepare", draft), ("confirm", {"token": "fixture", "draft": draft, "prepared": {}})):
+        path = f"/api/live/worlds/managed/pdf-adventure-events/{action}"
+        assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+        assert hosted.client.request("POST", path.replace("/managed/", "/foreign/"), json=body).status_code == 403
+        assert hosted.client.request("POST", path, json=body, origin="https://outside.invalid").status_code == 403
+        result = hosted.client.request("POST", path, json=body)
+        assert result.status_code == 200, result.text
+        revoked = True
+        result = hosted.client.request("POST", path, json=body)
+        assert result.status_code == 403, result.text
+        hosted.records["managed"] = owner_record
+        revoked = False
+    assert calls == [("managed", "hosted_dms:synthetic-owner-alpha", "managed")] * 2
 
 
 def test_hosted_build_source_admission_checks_saved_document_world(hosted, monkeypatch):

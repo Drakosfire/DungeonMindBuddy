@@ -496,6 +496,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
       && body.expected_revision > 0 && isRecord(body.base);
   }
+  if (/^\/api\/live\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/pdf-adventure-events\/(?:prepare|confirm)$/.test(path)) {
+    return method === "POST" && requestBodyRecord(init?.body) !== null;
+  }
   const nativeSource = /^\/api\/live\/workspace-documents\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/native-world-source/.exec(path);
   if (nativeSource) {
     const selectors = path.slice(nativeSource[0].length);
