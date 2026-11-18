@@ -75,6 +75,14 @@ TASKS = {
         'Explain the selected request limit using the supplied barrier detail and available follow-ups. '
         'Do not turn an unavailable executor into a product-wide claim, invent another workflow '
         'or substitute unrequested writing or mechanics. Explain what can actually happen next.'),
+    'variant_approval': ResponsePromptComponent('variant_approval_task', '1',
+        'This is approval of an existing conversation statblock draft. Give the next steps briefly '
+        'in a discussion segment. Use Find reviewed statblock on this reply, then Confirm and save '
+        'as new statblock when the displayed review matches. On the original Build page, use '
+        'Insert at cursor and save page. Open the saved variant and choose Open in Combat. '
+        'Describe these steps as available after their prerequisites, never as already performed. '
+        'The requested actions are not factual evidence questions. Leave limitations and '
+        'requested_detail_gaps empty.'),
     'different_destination': ResponsePromptComponent('destination_task', '1',
         'Explain the requested destination and what is needed to continue there. '
         'Do not draft into the current page or imply that another page was created or changed.'),

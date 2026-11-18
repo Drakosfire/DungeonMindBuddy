@@ -795,7 +795,7 @@ def prepare_tiptap_markdown_write(
 
 
 def commit_tiptap_markdown_write(
-    *, root: Path, request: TiptapMarkdownWriteCommitRequest
+    *, root: Path, request: TiptapMarkdownWriteCommitRequest, authorize_world=None
 ) -> TiptapMarkdownWriteCommitResponse:
     write_mode = _normalize_write_mode(request.write_mode)
     if write_mode == "source_import":
@@ -807,11 +807,13 @@ def commit_tiptap_markdown_write(
     try:
         state = pages.find_page(request.document_id)
         if state is not None:
-            return _commit_page(request, write_mode, state)
+            return _commit_page(request, write_mode, state, authorize_world=authorize_world)
     except ApplicationStateError as exc:
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
         ) from exc
+    if authorize_world is not None:
+        raise TiptapMarkdownWriteConflictError("The authorized Page is no longer available")
     if "page_presentation" in request.model_fields_set:
         raise TiptapMarkdownWriteError(
             "presentation is only supported for authored Pages"
@@ -924,7 +926,7 @@ def _prepare_page(request, mode, state):
     )
 
 
-def _commit_page(request, mode, state):
+def _commit_page(request, mode, state, *, authorize_world=None):
     from application_state.content import pages
     from apps.live_control_server.services.workspace_document_registry import (
         _record_from_page,
@@ -984,6 +986,7 @@ def _commit_page(request, mode, state):
         expected_revision=revision,
         expected_working_copy_revision=copy_revision,
         page_presentation=layout,
+        **({"authorize_world": authorize_world} if authorize_world is not None else {}),
     )
     record = _record_from_page(committed)
     locator = _content_receipt_locator(committed.page)
