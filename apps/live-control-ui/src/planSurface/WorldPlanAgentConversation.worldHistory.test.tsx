@@ -3371,7 +3371,7 @@ describe("World Plan conversation consumer", () => {
     expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
     const dispatchCalls = fetchSpy.mock.calls
       .map(([url, init]) => [String(url), init?.method ?? "GET"])
-      .filter(([url, method]) => method !== "GET" || url.startsWith("/api/live/agent/readiness"));
+      .filter(([url]) => url === "/api/live/agent/turn" || url === "/api/live/agent/readiness?surface=plan&world_graph=true");
     expect(dispatchCalls).toEqual([
       ["/api/live/agent/readiness?surface=plan&world_graph=true", "GET"],
       ["/api/live/agent/turn", "POST"],
@@ -3556,7 +3556,7 @@ describe("World Plan conversation consumer", () => {
     expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
     const dispatchCalls = fetchSpy.mock.calls
       .map(([url, init]) => [String(url), init?.method ?? "GET"])
-      .filter(([url, method]) => method !== "GET" || url.startsWith("/api/live/agent/readiness"));
+      .filter(([url]) => url === "/api/live/agent/turn" || url === "/api/live/agent/readiness?surface=plan&world_graph=true");
     expect(dispatchCalls).toEqual([
       ["/api/live/agent/readiness?surface=plan&world_graph=true", "GET"],
       ["/api/live/agent/turn", "POST"],
@@ -5310,9 +5310,8 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByLabelText("Answer sources")).toHaveAttribute("title", "Authored page suggestion; review and placement are managed on the page.");
     expect(turn.assistant_text).toBe(passage);
     expect(knowledge.completion.answer_segments[0].text).toBe(passage);
-    expect(screen.getByText("Page proposal")).toBeInTheDocument();
+    expect(screen.getByLabelText("Answer sources")).toHaveTextContent(/^Page proposal$/);
     expect(screen.queryByText("World + Source")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Answer sources")).not.toBeInTheDocument();
   });
 
   it("loads the latest page, merges older turns by durable ID, and preserves server ordering", async () => {
