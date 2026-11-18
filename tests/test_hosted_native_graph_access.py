@@ -2594,15 +2594,15 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert hosted.client.request("GET", fresh_path).json() == generated.json()
 
     original_owner = hosted.records["managed"]
-    original_range = play_scene_edit_proposal.scene_body_range
+    original_reserve = PlaySceneEditProposalService.reserve
 
-    def revoke_during_scene_read(*args, **kwargs):
+    def revoke_during_reservation(*args, **kwargs):
         hosted.records["managed"] = original_owner.model_copy(update={"owner_subject": OTHER_OWNER})
-        return original_range(*args, **kwargs)
+        return original_reserve(*args, **kwargs)
 
     denied_id = uuid4()
     with monkeypatch.context() as patch:
-        patch.setattr(play_scene_edit_proposal, "scene_body_range", revoke_during_scene_read)
+        patch.setattr(PlaySceneEditProposalService, "reserve", revoke_during_reservation)
         denied = hosted.client.request(
             "POST", proposals + f"/{denied_id}?world_id=managed", json=proposal_body,
         )

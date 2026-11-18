@@ -145,10 +145,8 @@ async def propose_scene_edit(*, root: Path, world_id: str, run_id: str, proposal
     if sha(markdown) != receipt.content_sha256:
         raise ValueError("The exact saved session copy is unavailable")
     start, end = scene_body_range(markdown, request.scene_id)
-    if authorize_world is not None:
-        authorize_world()
     record, created = store.reserve(world_id=world_id, run_id=run_id, proposal_id=proposal_id,
-                                    request=payload, context_receipt=receipt)
+                                    request=payload, context_receipt=receipt, authorize_world=authorize_world)
     if not created:
         return public_record(record)
     started = time.perf_counter()
