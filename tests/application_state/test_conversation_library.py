@@ -297,7 +297,10 @@ def test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor(
             from application_state.agent_conversation.authored_reference_preview import SELECT as reference_select
             projections = query.replace(reference_select, "").replace(library._SAVED_STATBLOCK_PREVIEW_SELECT, "")
             if "AS variant_approval_requested" in projections:
-                assert projections.count(library._VARIANT_APPROVAL_PREVIEW_SELECT) == 1
+                projection = library._VARIANT_APPROVAL_PREVIEW_SELECT
+                assert "jsonb_path_exists(t.graph_context_execution," in projection
+                assert projection.count("graph_context_execution") == 1
+                assert projections.count(projection) == 1
                 projections = projections.replace(library._VARIANT_APPROVAL_PREVIEW_SELECT, "")
             assert "graph_context_execution" not in projections
             if "graph_context_execution" in query:
