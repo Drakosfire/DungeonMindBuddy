@@ -45,6 +45,8 @@ def derive(source: str, owner: Path) -> str:
     case = replace_once(case, "const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,'# Plan\\n\\nOriginal preparation.\\n');",
                         'const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,' + json.dumps(MARKDOWN) + ');')
     case = replace_once(case, "if (mode === 'offered_boundary' || mode === 'altered_boundary')", "if (mode === 'offered_boundary' || mode === 'altered_boundary' || mode === 'stale_draft')")
+    case = replace_once(case, "if (mode === 'altered_boundary') capture.draft_generation += 1;",
+                        "if (mode === 'altered_boundary') { capture.from += 1; capture.to += 1; }")
     case = replace_once(case, "entries.find(entry => entry.kind === 'end_page')!", "entries.find(entry => entry.selector === 'after:2')!")
     case = replace_once(case, 'act(()=>editor.commands.setTextSelection(editor.state.doc.content.size-1));', '''act(()=>editor.commands.setTextSelection(1));
   expect(editor.state.selection.empty).toBe(true);
