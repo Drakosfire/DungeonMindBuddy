@@ -397,7 +397,7 @@ def test_retained_resolution_uses_the_frozen_work_inventory():
         action_capability_sha256=None,
         response_capabilities_sha256=c.digest(asdict(caps)),
         requested_work_menu_sha256=retained_menu,
-        response_resolver_sha256=c._RETAINED_RESOLVER_DIGEST,
+        response_resolver_sha256=c._resolver_digest(c._RETAINED_WORK),
     )
     digest = c.digest({
         "policy": c.POLICY,
@@ -413,7 +413,7 @@ def test_retained_resolution_uses_the_frozen_work_inventory():
         capability_sha256=None,
         response_capabilities_sha256=policy.response_capabilities_sha256,
         menu_sha256=retained_menu,
-        resolver_sha256=c._RETAINED_RESOLVER_DIGEST,
+        resolver_sha256=c._resolver_digest(c._RETAINED_WORK),
         resolution=saved_resolution,
     )
 
