@@ -568,6 +568,7 @@
       "tests/test_ci_contract.py",
       "tests/test_ci_local_frontend.py",
       "tests/test_combat_manual_profiles.py",
+      "tests/test_combat_manual_encounters.py",
       "tests/test_native_evidence_presentation.py",
       "tests/test_ownership_ci_partition.py",
       "tests/test_response_prompt.py",
