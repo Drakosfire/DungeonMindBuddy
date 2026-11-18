@@ -42,3 +42,21 @@ it("retries the saved display without disturbing encounter input or fetching", a
   expect(screen.getByRole("textbox", { name: "Encounter notes" })).toHaveValue("Pending note");
   expect(fetch).not.toHaveBeenCalled();
 });
+
+it('opens the exact snapshot outside the table and closes back to its trigger', async () => {
+  loader.fail = false;
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {configurable:true,value:function(this:HTMLDialogElement){this.setAttribute('open','');}});
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {configurable:true,value:function(this:HTMLDialogElement){this.removeAttribute('open');this.dispatchEvent(new Event('close'));}});
+  const fetch=vi.spyOn(globalThis,'fetch').mockRejectedValue(new Error('Offline'));
+  const view=render(<table><tbody><tr><td><CombatMechanicsInspection presentation="dialog" snapshot={{resource:fixture} as unknown as CombatMechanicsSnapshot}/></td></tr></tbody></table>);
+  const trigger=screen.getByRole('button',{name:'Saved mechanics · Ironhide Brute'});
+  await userEvent.click(trigger);
+  const dialog=screen.getByRole('dialog',{name:'Saved mechanics · Ironhide Brute'});
+  expect(dialog.closest('table')).toBeNull();
+  expect(await screen.findByRole('heading',{name:'Ironhide Brute'})).toBeVisible();
+  await userEvent.click(screen.getByRole('button',{name:'Close statblock'}));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(trigger).toHaveFocus();
+  await userEvent.click(trigger);view.unmount();
+  expect(screen.queryByRole('dialog')).toBeNull();expect(fetch).not.toHaveBeenCalled();
+});
