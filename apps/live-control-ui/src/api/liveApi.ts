@@ -757,6 +757,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return query.size === 1 && Boolean(query.get("world_id"))
       && (action === "end" || action === "save" || action === "reopen");
   }
+  const editionCommand = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\/commands\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/i.exec(path);
+  if (method === "PUT" && editionCommand) {
+    const query = new URLSearchParams(editionCommand[1]);
+    return query.size === 1 && Boolean(query.get("world_id"))
+      && requestBodyRecord(init?.body)?.schema_version === "dmb_world_play_run_content_commit_v1";
+  }
   const runContent = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\?/.exec(path);
   if (runContent) {
     const worldId = new URLSearchParams(path.slice(runContent[0].length)).get("world_id");

@@ -985,3 +985,19 @@ it("uses hosted cookies for exact owned Play review commands", async () => {
     .rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(3);
 });
+
+it("saves Play editions with hosted cookies and the exact commit schema", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ fixture: true }));
+  const id = "11111111-1111-4111-8111-111111111111";
+  const path = `/api/live/world-play-runs/v2/${id}/content/commands/${id}?world_id=managed`;
+  const init = { method: "PUT", body: JSON.stringify({ schema_version: "dmb_world_play_run_content_commit_v1" }) };
+  await api.authenticatedApiFetch(path, init);
+  const [, sent] = fetch.mock.calls[0];
+  expect(sent).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+  expect(new Headers(sent?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path, { ...init, body: "{}" })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
