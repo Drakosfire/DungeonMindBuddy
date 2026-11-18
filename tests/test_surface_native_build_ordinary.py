@@ -334,7 +334,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
             assert body['model'] == self.adapter._broker_execution().policy.provider_roles.writer.model
-            if body.get('reasoning', {}).get('effort') != 'low':
+            expected_effort = 'medium' if requested_work == 'draft_in_conversation' and saved_statblock == 'associated' else 'low'
+            if body.get('reasoning', {}).get('effort') != expected_effort:
                 return httpx.Response(400, request=req, json={'error': {
                     'message': 'Unsupported reasoning effort for configured writer',
                     'type': 'invalid_request_error', 'param': 'reasoning.effort',
