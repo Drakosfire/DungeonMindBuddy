@@ -815,12 +815,32 @@ def read_hosted_exact_extraction(request: Request, run_id: str) -> dict:
         raise _denied()
     _, run, world_id, recap_binding = admitted
     result = public_run(run)
+    _recheck_hosted_exact_extraction_world(request, world_id, recap_binding)
+    return result
+
+
+def _recheck_hosted_exact_extraction_world(request: Request, world_id: str, recap_binding) -> None:
     world = _owned_world(_hosted_subject(request), world_id)
     if recap_binding is not None:
         binding = world.native_graph_binding
         if binding is None or (binding.native_world_id, binding.binding_version) != recap_binding:
             raise _denied()
-    return result
+
+
+def require_hosted_exact_review_package(
+    request: Request, *, run_id: str, source_domain: str, source_artifact_id: str,
+) -> None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return
+    admitted = getattr(request.state, "hosted_exact_extraction_run", None)
+    if admitted is None:
+        raise _denied()
+    admitted_id, run, world_id, recap_binding = admitted
+    if (run_id, source_domain, source_artifact_id) != (
+        admitted_id, run.source_domain, run.source_artifact_id,
+    ):
+        raise _denied()
+    _recheck_hosted_exact_extraction_world(request, world_id, recap_binding)
 
 
 async def resolve_hosted_build_extraction(request: Request) -> str:

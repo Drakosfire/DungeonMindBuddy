@@ -17,7 +17,7 @@ from apps.live_control_server.integrations.dungeonmind.native_world_source_admis
 from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest, NativeRecapConfirmRequest, NativeWorldbuildingContextRequest
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
 from apps.live_control_server.services.hosted_native_graph_access import (
-    first_world_authorizer, worldbuilding_evidence_authorizer,
+    first_world_authorizer, require_hosted_exact_review_package, worldbuilding_evidence_authorizer,
 )
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
@@ -211,7 +211,12 @@ def get_extract_promote_exact_run_review(
                 status_code=500,
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
+    result = response.model_dump(mode="json", by_alias=True)
+    require_hosted_exact_review_package(
+        request, run_id=response.run_id, source_domain=response.source_domain,
+        source_artifact_id=response.source_artifact_id,
+    )
+    return result
 
 
 @router.get("/runs/{run_id}/frozen-source-spans", response_model=WorldbuildingFrozenSpanCatalog)

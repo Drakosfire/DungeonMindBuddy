@@ -429,7 +429,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/media/images/{asset_id}/regenerate"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
-            ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_exact_extraction_read,
             ("GET", "/api/live/extract-promote/runs/{run_id}/frozen-source-spans"): access.resolve_hosted_build_extraction,
             ("POST", "/api/live/extract-promote/runs/{run_id}/evidence-corrections"): access.resolve_hosted_worldbuilding_evidence_correction,
             ("POST", "/api/live/workspace-documents"): access.resolve_hosted_build_page_create,
@@ -4578,6 +4578,8 @@ def test_hosted_threat_hydration_requires_exact_owned_world(hosted, monkeypatch)
 
 @pytest.mark.parametrize("change", ["owner", "binding"])
 def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch, change):
+    from apps.live_control_server.models.extract_promote import ExactRunReviewPackage
+    from apps.live_control_server.routes import extract_promote
     from apps.live_control_server.services import graph_run_registry, source_artifact_registry
 
     owned = access._owned_world("synthetic-owner-alpha", "managed")
@@ -4599,7 +4601,26 @@ def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch, c
     assert result.status_code == 200, result.text
     assert result.headers["cache-control"] == "no-store"
     assert result.json()["run_id"] == "saved"
+    calls = []
+
+    def review(run_id):
+        calls.append(run_id)
+        return ExactRunReviewPackage(
+            run_id=run_id, source_domain="recap", source_artifact_id="source",
+            source_revision_id="revision", source_prose="Saved recap.",
+        )
+
+    monkeypatch.setattr(extract_promote, "get_exact_run_review_package", review)
+    review_path = "/api/live/extract-promote/runs/saved/review-package"
+    assert hosted.client.request("GET", review_path, session="other-session").status_code == 403
+    assert calls == []
+    response = hosted.client.request("GET", review_path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["sourceProse"] == "Saved recap."
     scope["binding_version"] += 1
+    assert hosted.client.request("GET", review_path).status_code == 403
+    assert calls == ["saved"]
     assert hosted.client.request("GET", path).status_code == 403
 
     scope["binding_version"] -= 1
@@ -4613,6 +4634,17 @@ def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch, c
             update = {"native_graph_binding": replacement}
         hosted.records["managed"] = record.model_copy(update=update)
         return {"run_id": "saved", "title": "Private recap metadata"}
+
+    def transfer_during_review(run_id):
+        package = review(run_id)
+        change_authority_while_building_response()
+        return package
+
+    monkeypatch.setattr(extract_promote, "get_exact_run_review_package", transfer_during_review)
+    denied = hosted.client.request("GET", review_path)
+    assert denied.status_code == 403, denied.text
+    assert "Saved recap." not in denied.text
+    hosted.records["managed"] = owned
 
     run.model_dump = change_authority_while_building_response
     denied = hosted.client.request("GET", path)
