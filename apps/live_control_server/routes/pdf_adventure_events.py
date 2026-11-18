@@ -27,9 +27,14 @@ router = APIRouter(
 )
 
 
-def _invoke(action, world_id, body, principal):
+def _invoke(action, world_id, body, request):
+    principal = require_build_pdf_access(request, world_id)
+
+    def authorize_write():
+        require_build_pdf_access(request, world_id)
+
     try:
-        return action(world_id, body, principal)
+        return action(world_id, body, principal, authorize_write=authorize_write)
     except (
         KnowledgePublicationOutcomeUnknownError,
         CommittedChangeOutcomeUnknown,
@@ -60,9 +65,9 @@ def _invoke(action, world_id, body, principal):
 
 @router.post("/prepare")
 def prepare(world_id: str, body: service.EventDraft, request: Request):
-    return _invoke(service.prepare, world_id, body, require_build_pdf_access(request, world_id))
+    return _invoke(service.prepare, world_id, body, request)
 
 
 @router.post("/confirm")
 def confirm(world_id: str, body: service.EventConfirmation, request: Request):
-    return _invoke(service.confirm, world_id, body, require_build_pdf_access(request, world_id))
+    return _invoke(service.confirm, world_id, body, request)

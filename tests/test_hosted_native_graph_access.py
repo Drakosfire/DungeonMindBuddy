@@ -2998,8 +2998,15 @@ def test_hosted_pdf_event_review_binds_both_steps_to_world_owner(hosted, monkeyp
     from apps.live_control_server.routes import pdf_adventure_events
 
     calls = []
+    revoked = False
+    owner_record = hosted.records["managed"]
 
-    def observe(world_id, body, principal):
+    def observe(world_id, body, principal, *, authorize_write):
+        if revoked:
+            hosted.records["managed"] = hosted.records["managed"].model_copy(
+                update={"owner_subject": OTHER_OWNER},
+            )
+        authorize_write()
         calls.append((world_id, principal.subject, principal.managed_world_id))
         return {"accepted": True}
 
@@ -3018,6 +3025,11 @@ def test_hosted_pdf_event_review_binds_both_steps_to_world_owner(hosted, monkeyp
         assert hosted.client.request("POST", path, json=body, origin="https://outside.invalid").status_code == 403
         result = hosted.client.request("POST", path, json=body)
         assert result.status_code == 200, result.text
+        revoked = True
+        result = hosted.client.request("POST", path, json=body)
+        assert result.status_code == 403, result.text
+        hosted.records["managed"] = owner_record
+        revoked = False
     assert calls == [("managed", "hosted_dms:synthetic-owner-alpha", "managed")] * 2
 
 

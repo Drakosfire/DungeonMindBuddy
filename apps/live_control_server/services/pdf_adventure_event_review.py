@@ -80,7 +80,7 @@ def _intent(space_id, draft, evidence_id):
     ))
 
 
-def prepare(world_id, draft, principal):
+def prepare(world_id, draft, principal, *, authorize_write):
     if not draft.name.strip() or not draft.description.strip():
         raise ApplicationStateConflictError("Provide the Event name and reviewed text.")
     _prepare_binding_key()
@@ -93,6 +93,7 @@ def prepare(world_id, draft, principal):
         raise ApplicationStateConflictError("This Event operation is already published. Retry its confirmation.")
     now = datetime.now(UTC)
     context, access = native.access_context(repo, space)
+    authorize_write()
     context, _, evidence_ids, _ = register_pdf_regions(
         repo, space, (draft.region,), context, access, now,
     )
@@ -116,7 +117,7 @@ def prepare(world_id, draft, principal):
     return {"draft": envelope["draft"], "prepared": encoded, "token": sign_publication_intent(envelope)}
 
 
-def confirm(world_id, request, principal):
+def confirm(world_id, request, principal, *, authorize_write):
     envelope = decode_publication_intent(request.token, allow_expired_recovery=True)
     identity = resolve_managed_source_identity(world_id)
     bound = asdict(identity)
@@ -156,14 +157,17 @@ def confirm(world_id, request, principal):
         if resolve_managed_source_identity(world_id) != identity:
             raise ApplicationStateConflictError("The World binding changed during confirmation.")
     domain, profile = native.descriptors(repo, space, prepared.expected_parent_revision_id)
-    transport.runtime(
+    runtime = transport.runtime(
         repo, domain, profile, now=prepared.prepared_at, operation_id=publication_id,
-    ).commit_prepared_change(prepared, confirmed_by=principal.subject)
+    )
+    authorize_write()
+    runtime.commit_prepared_change(prepared, confirmed_by=principal.subject)
     aggregate = get_prospective_publication(space, publication_id, repository=repo)
     if aggregate is None or resolve_managed_source_identity(world_id) != identity:
         raise EventPublicationRecoveryRequired()
     result = aggregate.prospective_result
     if get_world_container(world_id).native_graph_binding.status == "provisioning":
+        authorize_write()
         try:
             activate_native_source_graph(
                 world_id, identity=identity, repository=repo,

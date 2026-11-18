@@ -109,6 +109,27 @@ def test_pdf_event_preserves_review_and_reopens_citation(
         tampered = packet | {"draft": draft | {"name": "Changed"}}
         assert client.post(events + "/confirm", json=tampered, headers=auth).status_code == 409
         assert repo.get_head(space).head_revision_id == before
+        with monkeypatch.context() as change:
+            revoked = False
+            original_descriptors = native.descriptors
+            original_authorize = pdf_adventure_events.require_build_pdf_access
+
+            def descriptors(*args):
+                nonlocal revoked
+                result = original_descriptors(*args)
+                revoked = True
+                return result
+
+            def authorize(request, world_id):
+                if revoked:
+                    raise pdf_adventure_events.HTTPException(403)
+                return original_authorize(request, world_id)
+
+            change.setattr(native, "descriptors", descriptors)
+            change.setattr(pdf_adventure_events, "require_build_pdf_access", authorize)
+            denied = client.post(events + "/confirm", json=packet, headers=auth)
+            assert denied.status_code == 403, denied.text
+            assert repo.get_head(space).head_revision_id == before
         if reserved:
             from apps.live_control_server.services import world_graph_binding
             assert catalog_owner.get_world(world.world_id).record.native_graph_binding.status == "provisioning"
