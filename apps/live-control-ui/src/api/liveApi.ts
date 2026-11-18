@@ -725,6 +725,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       ? method === "PUT" && !!requestBodyRecord(init?.body)
       : method === "GET" && init?.body == null;
   }
+  const review = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/review\?([^#]+)$/i.exec(path);
+  if (review) {
+    const query = new URLSearchParams(review[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
   const sessionEvidence = /^\/api\/live\/world-session-evidence(?:\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/revisions\/\d+)?\?([^#]+)$/i.exec(path);
   if (sessionEvidence) {
     const query = new URLSearchParams(sessionEvidence[1]);
