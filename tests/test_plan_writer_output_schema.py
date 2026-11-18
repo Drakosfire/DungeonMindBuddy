@@ -314,3 +314,75 @@ def test_retained_v2_format_is_exact_read_proof_not_current_dispatch():
 def test_legacy_schema_retains_its_existing_image_proposal_contract():
     candidate = answer({'kind': 'proposal', 'label': 'image_prompt', 'text': 'A visual prompt.'})
     Draft202012Validator(output_schema(frame(), rules())).validate(candidate)
+
+
+def test_variant_writer_visible_reply_preserves_retained_edits_schema(monkeypatch):
+    from application_state.agent_conversation import native_build_work_view
+    from application_state.agent_conversation.build_primary_context import NATIVE_WORK_SCHEMA
+    from application_state.agent_conversation.native_writer import SCHEMA
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    from application_state.agent_conversation.surface_evidence_answer import ASSERTION_POLICY
+
+    monkeypatch.setattr(native_build_work_view, "variant_sources", lambda _: {"statblock0": {}})
+    evidence = {
+        "schema": SCHEMA,
+        "answer_policy": ASSERTION_POLICY,
+        "native_statements": {"statements": []},
+        "native_body_evidence": {"excerpts": []},
+        "native_assertions": None,
+    }
+    work = {"schema": NATIVE_WORK_SCHEMA, "artifact_under_edit": {"sections": []}}
+    retained = native_output_format(evidence, rules(), work, build_local=True, format_version=4)
+    current = native_output_format(evidence, rules(), work, build_local=True, format_version=5)
+
+    assert retained["name"] == native_build_work_view.VARIANT_EDITS_FORMAT
+    assert current["name"] == native_build_work_view.VARIANT_VISIBLE_REPLY_FORMAT
+    expected = deepcopy(retained["schema"])
+    assert "minItems" not in expected["properties"]["answer_segments"]
+    expected["properties"]["answer_segments"]["minItems"] = 1
+    assert current["schema"] == expected
+
+    for has_draft in (False, True):
+        witness_work = work | ({"working_draft_context": {"draft_markdown": "An exact condition.", "record_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857"}} if has_draft else {})
+        witnessed = native_output_format(evidence, rules(), witness_work, build_local=True, format_version=6)
+        assert witnessed["name"] == native_build_work_view.VARIANT_WITNESS_FORMAT
+        variant = witnessed["schema"]["properties"]["statblock_variant"]
+        for field in ("add_rules", "replace_rules"):
+            edit = variant["properties"][field]["items"]
+            assert list(edit["properties"]) == ["authored_quotes", "rule"]
+            assert edit["properties"]["authored_quotes"].get("maxItems") == (None if has_draft else 0)
+            rule = edit["properties"]["rule"]
+            assert "action → action" in edit["description"]
+            assert "special only with trait or regional_effect" in edit["description"]
+            variant["properties"][field]["items"] = rule
+        assert witnessed["schema"] == native_output_format(evidence, rules(), witness_work, build_local=True, format_version=5)["schema"]
+
+
+def test_anchored_discussion_schema_only_accepts_discussion_segments():
+    from application_state.agent_conversation.build_primary_context import NATIVE_WORK_SCHEMA
+    from application_state.agent_conversation.native_writer import SCHEMA
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    from application_state.agent_conversation.surface_evidence_answer import ASSERTION_POLICY
+
+    evidence = {
+        "schema": SCHEMA,
+        "answer_policy": ASSERTION_POLICY,
+        "native_statements": {"statements": []},
+        "native_body_evidence": {"excerpts": []},
+        "native_assertions": None,
+    }
+    work = {
+        "schema": NATIVE_WORK_SCHEMA,
+        "artifact_under_edit": {"sections": []},
+        "working_draft_context": {"record_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857"},
+    }
+    ordinary = native_output_format(evidence, rules(), work, build_local=True)
+    discussion = native_output_format(evidence, rules(), work, build_local=True, format_version=7)
+    assert discussion["name"] == "surface_native_evidence_selectors_v7"
+    old_items = ordinary["schema"]["properties"]["answer_segments"]["items"]
+    items = discussion["schema"]["properties"]["answer_segments"]["items"]
+    validator = Draft202012Validator(items)
+    assert validator.is_valid({"kind": "discussion", "text": "One way to play this is a truce."})
+    factual = {"kind": "draft_reference_claim", "text": "The draft sets a trigger.", "draft_record_id": "draft0"}
+    assert Draft202012Validator(old_items).is_valid(factual)
+    assert not validator.is_valid(factual)

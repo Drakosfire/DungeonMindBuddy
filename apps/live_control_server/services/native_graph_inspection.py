@@ -16,8 +16,7 @@ from apps.live_control_server.services.build_pdf_region_render import read_regio
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
 )
-from apps.live_control_server.models.native_graph_inspection import Closed, InspectionPin
-from apps.live_control_server.models.world_graph_object_projection import WorldGraphObjectProjectionRequest
+from apps.live_control_server.models.native_graph_inspection import InspectionPin, NativeCompleteObjectRead
 from apps.live_control_server.integrations.dungeonmind.vnext_complete_object import (
     DungeonBuddyVNextReadIdentity,
     VNextCompleteObjectProjectionError,
@@ -220,8 +219,13 @@ def read_assertion(pin: InspectionPin, principal, assertion_id: str):
     return _response(bound, checked_pin, assertion=_wire_assertion(result.assertion))
 
 
-def inspect(request, principal, *, include_source_span=False, source_classification=None):
-    bound, read, access, pin, _ = _pinned(request.scope, principal)
+def inspect(
+    request, principal, *, include_source_span=False, source_classification=None,
+    _parsed_cache=None,
+):
+    bound, read, access, pin, _ = _pinned(
+        request.scope, principal, parsed_cache=_parsed_cache
+    )
     selection = request.selection
     if selection.kind == "neighborhood":
         from graph_memory.retrieval.models import WorldGraphRetrievalBounds
@@ -327,7 +331,7 @@ def inspect(request, principal, *, include_source_span=False, source_classificat
     return _response(bound, pin, schema="dmb_native_graph_source_v1", source=span)
 
 
-def statblock_pdf_support(reference, regions, principal):
+def statblock_pdf_support(reference, regions, principal, *, expected_source_epoch=None):
     """Resolve reviewed crops through the referenced creature's admitted assertions."""
     scope = InspectionPin(
         managed_world_id=reference.managed_world_id,
@@ -336,10 +340,16 @@ def statblock_pdf_support(reference, regions, principal):
         revision_id=reference.graph_revision,
     )
     bound, read, access, pin, _ = _pinned(scope, principal)
+    if expected_source_epoch is not None and access.source_view.epoch != expected_source_epoch:
+        raise InspectionUnavailable("statblock_pdf_source_epoch_changed")
     entity = EntityReadService().get_complete_entity(read, reference.node_id)
     if not entity.found or entity.completeness.status != "complete":
+        if expected_source_epoch is not None:
+            raise InspectionUnavailable("statblock_pdf_review_incomplete")
         return _response(bound, pin, support=[])
     support = {}
+    matched_regions = []
+    repository = _repository()
     for assertion in entity.assertions:
         if assertion.subject_entity_id != reference.node_id:
             continue
@@ -355,22 +365,23 @@ def statblock_pdf_support(reference, regions, principal):
                 continue
             try:
                 region, pdf = open_admitted_pdf_evidence(
-                    evidence, space_id=pin.native_world_id, load=_repository().get_native_pdf_source,
+                    evidence, space_id=pin.native_world_id, load=repository.get_native_pdf_source,
                 )
             except ValueError:
                 continue
             if region in regions:
+                matched_regions.append(region)
                 support[ref_id] = {
                     "assertion_id": assertion.assertion_id,
                     "evidence_ref_id": ref_id,
                     "text": read_region_text(pdf, region),
                 }
+    if expected_source_epoch is not None:
+        if repository.open_native_source_view(pin.native_world_id).epoch != expected_source_epoch:
+            raise InspectionUnavailable("statblock_pdf_source_epoch_changed")
+        if any(region not in matched_regions for region in regions):
+            raise InspectionUnavailable("statblock_pdf_review_incomplete")
     return _response(bound, pin, support=list(support.values()))
-
-
-class NativeCompleteObjectRead(Closed):
-    scope: InspectionPin | None = None
-    request: WorldGraphObjectProjectionRequest
 
 
 def complete_object(body: NativeCompleteObjectRead, principal):
@@ -509,7 +520,7 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
         packet = inspect(InspectionRead(
             scope=pin,
             selection={"kind": "source", "assertion_id": assertion_id, "evidence_ref_id": evidence_ref_id},
-        ), principal, include_source_span=include_receipt)
+        ), principal, include_source_span=include_receipt, _parsed_cache=_shared_parsed_cache)
     except KnowledgeReadContextIntegrityError:
         if native.read_repository().get_revision(pin.native_world_id, pin.revision_id) is None:
             return empty

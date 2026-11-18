@@ -18,13 +18,14 @@ from starlette.concurrency import run_in_threadpool
 
 from application_state.world_catalog import service as catalog
 
+from apps.live_control_server.models.threat_query_hydration import ThreatQueryHydrationRequestV1
 from apps.live_control_server.models.native_graph_explorer import (
     NativeGraphExplorerGraphRequest,
     NativeGraphExplorerOperationRequest,
     NativeGraphExplorerPrepareRequest,
 )
-from apps.live_control_server.models.native_graph_inspection import InspectionPin, InspectionRead, InspectionScope
-from apps.live_control_server.models.native_source_inspection import NativeSourceRead
+from apps.live_control_server.models.native_graph_inspection import InspectionPin, InspectionRead, InspectionScope, NativeCompleteObjectRead
+from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapObjectsRead, PublishedRecapRead
 from apps.live_control_server.services import hosted_auth
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
@@ -47,7 +48,12 @@ WORLD_LOOKUP_PATH = f"{WORLD_COLLECTION_PATH}/lookup"
 BUILD_PDF_SOURCES_PATH = hosted_auth.BUILD_PDF_SOURCES_PATH
 BUILD_PAGE_INVENTORY_PATH = "/api/live/workspace-documents/pages/inventory"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
+COMPLETE_OBJECT_PATH = "/api/live/native-graph-inspection/complete-object"
 _REQUESTS = {
+    COMPLETE_OBJECT_PATH: TypeAdapter(NativeCompleteObjectRead),
+    "/api/live/native-source-inspection/published-recap": TypeAdapter(PublishedRecapRead),
+    "/api/live/native-source-inspection/published-recap/objects": TypeAdapter(PublishedRecapObjectsRead),
+    "/api/live/native-graph-inspection/authoring-identities": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-graph-inspection/catalog": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-source-inspection/catalog": TypeAdapter(InspectionScope),
     "/api/live/native-source-inspection/read": TypeAdapter(NativeSourceRead),
@@ -124,7 +130,19 @@ async def resolve_hosted_explorer_world(request: Request) -> str:
     # The hosted middleware already bounds bytes and rejects duplicate keys and
     # conflicting selectors before invoking this exact code-owned resolver.
     body = _REQUESTS[request.url.path].validate_python(await request.json())
-    if isinstance(body, (InspectionRead, NativeSourceRead)):
+    if isinstance(body, NativeCompleteObjectRead):
+        scope, projection = body.scope, body.request
+        if (
+            scope is None
+            or scope.scope_mode != "world"
+            or projection.scope_mode != "world"
+            or projection.world_id != scope.managed_world_id
+            or projection.revision_pin != scope.revision_id
+            or projection.admissibility != "gm"
+        ):
+            raise _denied()
+        managed_world_id = scope.managed_world_id
+    elif isinstance(body, (InspectionRead, NativeSourceRead)):
         if body.scope.scope_mode != "world":
             raise _denied()
         managed_world_id = body.scope.managed_world_id
@@ -243,6 +261,71 @@ async def resolve_hosted_image_history(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_image_world(request: Request) -> str:
+    world_id = request.query_params.get("world_id")
+    if not world_id or request.query_params.multi_items() != [("world_id", world_id)]:
+        raise _denied()
+    if request.method == "GET" and await request.body():
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
+async def resolve_hosted_mechanics_association(request: Request) -> str:
+    from application_state.world_mechanics.types import AssociateWorldMechanicsRequest
+
+    body = AssociateWorldMechanicsRequest.model_validate(await request.json())
+    world_id = body.target.managed_world_id
+    if request.query_params.multi_items() != [("world_id", world_id)]:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
+async def resolve_hosted_native_creature(request: Request) -> str:
+    from apps.live_control_server.models.native_threat_creation import ConfirmNativeThreat, PrepareNativeThreat
+
+    draft_id = getattr(request.state, "hosted_route_draft_id", None)
+    if not draft_id:
+        raise _denied()
+    if request.method == "GET":
+        world_id = request.query_params.get("world_id")
+        if not world_id or request.query_params.multi_items() != [("world_id", world_id)] or await request.body():
+            raise _denied()
+    else:
+        if request.query_params:
+            raise _denied()
+        if request.url.path.endswith("/confirm"):
+            review = ConfirmNativeThreat.model_validate(await request.json()).review
+            if str(review.draft_id) != draft_id:
+                raise _denied()
+            world_id = review.world_id
+        else:
+            world_id = PrepareNativeThreat.model_validate(await request.json()).world_id
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
+async def resolve_hosted_connected_page(request: Request) -> str:
+    if request.method == "GET":
+        world_id = request.query_params.get("world_id")
+        if request.query_params.multi_items() != [("world_id", world_id)] or await request.body():
+            raise _denied()
+    else:
+        if request.query_params:
+            raise _denied()
+        body = await request.json()
+        world_id = body.get("world_id") if isinstance(body, dict) else None
+    if not isinstance(world_id, str) or not world_id:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_conversation_world(request: Request) -> str:
     world_id = getattr(request.state, "hosted_route_world_id", None)
     if not world_id or (request.method == "GET" and await request.body()):
@@ -263,6 +346,21 @@ async def resolve_hosted_chat_turn(request: Request) -> str:
     if not isinstance(body.owner_scope, AgentTurnWorldOwner):
         raise _denied()
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.owner_scope.world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
+async def resolve_hosted_native_relationship(request: Request) -> str:
+    if request.query_params:
+        raise _denied()
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise _denied()
+    review = body if request.url.path.endswith("/request") else body.get("review")
+    world_id = review.get("world_id") if isinstance(review, dict) else None
+    if not isinstance(world_id, str) or not world_id:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
     request.state.hosted_conversation_world = world.world_id
     return world.world_id
 
@@ -301,13 +399,20 @@ async def resolve_hosted_build_pdf_world(request: Request) -> str:
     return world.world_id
 
 
-def require_build_pdf_access(request: Request, world_id: str) -> None:
+def require_build_pdf_access(request: Request, world_id: str) -> NativeGraphPrincipal:
     if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
-        enforce_native_graph_gm(request)
-        return
+        return enforce_native_graph_gm(request)
     if getattr(request.state, "hosted_build_pdf_world", None) != world_id:
         raise _denied()
-    _owned_world(_hosted_subject(request), world_id)
+    subject = _hosted_subject(request)
+    _owned_world(subject, world_id)
+    return HostedOwnerGraphPrincipal(
+        subject=f"hosted_dms:{subject}",
+        dms_subject=subject,
+        role="gm",
+        auth_method="hosted_owner",
+        managed_world_id=world_id,
+    )
 
 
 async def resolve_hosted_build_page_create(request: Request) -> str:
@@ -377,6 +482,14 @@ async def resolve_hosted_play_preparation(request: Request) -> str:
 async def resolve_hosted_play_read(request: Request) -> str:
     if await request.body():
         raise _denied()
+    return await _resolve_hosted_play_world(request)
+
+
+async def resolve_hosted_play_scene_proposal(request: Request) -> str:
+    return await _resolve_hosted_play_world(request)
+
+
+async def resolve_hosted_play_command(request: Request) -> str:
     return await _resolve_hosted_play_world(request)
 
 
@@ -505,11 +618,26 @@ def require_combat_encounter_access(request: Request, world_id: str) -> None:
     _owned_world(_hosted_subject(request), world_id)
 
 
+async def resolve_hosted_statblock_revision_save(request: Request) -> str:
+    from apps.live_control_server.models.statblock_saved_revision import SaveMechanicsRevisionRequest
+
+    if request.query_params:
+        raise _denied()
+    body = SaveMechanicsRevisionRequest.model_validate(await request.json())
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.world_id)
+    request.state.hosted_build_pdf_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_saved_statblock(request: Request) -> str:
     selectors = request.query_params.multi_items()
     world_id = request.query_params.get("world_id")
     keys = {key for key, _ in selectors}
     allowed = {"world_id", "limit", "offset"} if request.url.path.endswith("/mechanics-revisions") else {"world_id"}
+    if request.method == "DELETE":
+        allowed = {"world_id", "expected_version"}
+        if keys != allowed:
+            raise _denied()
     if not world_id or len(keys) != len(selectors) or not keys <= allowed or await request.body():
         raise _denied()
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
@@ -520,7 +648,13 @@ async def resolve_hosted_saved_statblock(request: Request) -> str:
 
 async def resolve_hosted_build_native_source(request: Request) -> str:
     selectors = request.query_params.multi_items()
-    if await request.body() or (selectors and (
+    if request.method == "POST":
+        from apps.live_control_server.routes.workspace_documents import NativeWorldSourceAdmissionRequest
+
+        if selectors:
+            raise _denied()
+        NativeWorldSourceAdmissionRequest.model_validate(await request.json())
+    elif await request.body() or (selectors and (
         len(selectors) != 1 or selectors[0][0] != "expected_revision"
     )):
         raise _denied()
@@ -565,10 +699,151 @@ def require_saved_recap_access(request: Request, world_id: str) -> None:
     _owned_world(_hosted_subject(request), world_id)
 
 
-async def resolve_hosted_build_extraction(request: Request) -> str:
+async def resolve_hosted_manual_knowledge(request: Request) -> str:
+    from apps.live_control_server.services.graph_object_authoring_prepare import (
+        GraphObjectAuthoringCommitRequest, GraphObjectAuthoringPrepareRequest,
+    )
     from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError, get_extraction_run
     from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, get_source_artifact
 
+    if request.query_params:
+        raise _denied()
+    model = GraphObjectAuthoringCommitRequest if request.url.path.endswith("/commit") else GraphObjectAuthoringPrepareRequest
+    body = model.model_validate(await request.json())
+    if (
+        not body.world_id or body.campaign_id != body.world_id or not body.source_run_id
+        or body.document_source is not None or body.recap_artifact_id is not None
+        or body.session_id is not None or body.campaign_rel is not None
+        or len(body.proposals) != 1 or body.proposals[0].proposal_kind not in {"object", "relationship"}
+    ):
+        raise _denied()
+    subject = _hosted_subject(request)
+    _owned_world(subject, body.world_id)
+    try:
+        run = await run_in_threadpool(get_extraction_run, body.source_run_id)
+        artifact = await run_in_threadpool(get_source_artifact, run.source_artifact_id)
+    except (GraphRunRegistryError, SourceArtifactRegistryError) as exc:
+        if exc.status_code == 404:
+            raise _denied() from None
+        raise _unavailable() from None
+    if (
+        run.source_domain != "worldbuilding" or artifact.source_domain != "worldbuilding"
+        or artifact.world_id != body.world_id
+        or await _owned_build_page(subject, artifact.workspace_document_id) != body.world_id
+    ):
+        raise _denied()
+    request.state.hosted_manual_knowledge_scope = (body.world_id, body.source_run_id)
+    return body.world_id
+
+
+def manual_knowledge_actor(request: Request, *, world_id: str | None, run_id: str | None) -> str | None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return None
+    if not world_id or not run_id or getattr(request.state, "hosted_manual_knowledge_scope", None) != (world_id, run_id):
+        raise _denied()
+    subject = _hosted_subject(request)
+    _owned_world(subject, world_id)
+    return f"hosted_dms:{subject}"
+
+
+async def _saved_extraction_source(run_id: str):
+    from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError, get_extraction_run
+    from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, get_source_artifact
+
+    try:
+        run = await run_in_threadpool(get_extraction_run, run_id)
+        artifact = await run_in_threadpool(get_source_artifact, run.source_artifact_id)
+    except (GraphRunRegistryError, SourceArtifactRegistryError) as exc:
+        if exc.status_code == 404:
+            raise _denied() from None
+        raise _unavailable() from None
+    return run, artifact
+
+
+async def _owned_worldbuilding_extraction(subject: str, run_id: str):
+    run, artifact = await _saved_extraction_source(run_id)
+    if run.source_domain != "worldbuilding" or artifact.source_domain != "worldbuilding":
+        raise _denied()
+    world_id = await _owned_build_page(subject, artifact.workspace_document_id)
+    if artifact.world_id != world_id:
+        raise _denied()
+    return world_id, artifact
+
+
+async def resolve_hosted_exact_extraction_read(request: Request) -> str:
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError, read_recap_source_scope,
+    )
+
+    run_id = getattr(request.state, "hosted_route_run_id", None)
+    if not run_id or request.query_params or await request.body():
+        raise _denied()
+    subject = _hosted_subject(request)
+    run, artifact = await _saved_extraction_source(run_id)
+    recap_binding = None
+    if run.source_domain == artifact.source_domain == "worldbuilding":
+        world_id = await _owned_build_page(subject, artifact.workspace_document_id)
+        if world_id != artifact.world_id:
+            raise _denied()
+    elif run.source_domain == artifact.source_domain == "recap":
+        frozen = run.lineage.get("world_campaign_ingest_context")
+        if not isinstance(frozen, dict):
+            raise _denied()
+        try:
+            scope = read_recap_source_scope(frozen, campaign_id=run.campaign_id)
+        except GraphRunRegistryError:
+            raise _denied() from None
+        world = await run_in_threadpool(_owned_world, subject, scope.managed_world_id)
+        binding = world.native_graph_binding
+        if (binding is None or artifact.world_id != scope.native_world_id or artifact.campaign_id != scope.campaign_id
+                or (binding.native_world_id, binding.binding_version) != (scope.native_world_id, scope.binding_version)):
+            raise _denied()
+        recap_binding = (scope.native_world_id, scope.binding_version)
+        world_id = world.world_id
+    else:
+        raise _denied()
+    request.state.hosted_build_page_world = world_id
+    request.state.hosted_exact_extraction_run = (run_id, run, world_id, recap_binding)
+    return world_id
+
+
+def read_hosted_exact_extraction(request: Request, run_id: str) -> dict:
+    from apps.live_control_server.services.native_recap_source_admission import public_run
+
+    admitted = getattr(request.state, "hosted_exact_extraction_run", None)
+    if admitted is None or admitted[0] != run_id:
+        raise _denied()
+    _, run, world_id, recap_binding = admitted
+    result = public_run(run)
+    _recheck_hosted_exact_extraction_world(request, world_id, recap_binding)
+    return result
+
+
+def _recheck_hosted_exact_extraction_world(request: Request, world_id: str, recap_binding) -> None:
+    world = _owned_world(_hosted_subject(request), world_id)
+    if recap_binding is not None:
+        binding = world.native_graph_binding
+        if binding is None or (binding.native_world_id, binding.binding_version) != recap_binding:
+            raise _denied()
+
+
+def require_hosted_exact_review_package(
+    request: Request, *, run_id: str, source_domain: str, source_artifact_id: str,
+) -> None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return
+    admitted = getattr(request.state, "hosted_exact_extraction_run", None)
+    if admitted is None:
+        raise _denied()
+    admitted_id, run, world_id, recap_binding = admitted
+    if (run_id, source_domain, source_artifact_id) != (
+        admitted_id, run.source_domain, run.source_artifact_id,
+    ):
+        raise _denied()
+    _recheck_hosted_exact_extraction_world(request, world_id, recap_binding)
+
+
+async def resolve_hosted_build_extraction(request: Request) -> str:
     subject = _hosted_subject(request)
     if request.method == "POST":
         document_id = (await request.json()).get("document_id")
@@ -579,18 +854,7 @@ async def resolve_hosted_build_extraction(request: Request) -> str:
         run_id = getattr(request.state, "hosted_route_run_id", None)
         if not run_id:
             raise _denied()
-        try:
-            run = await run_in_threadpool(get_extraction_run, run_id)
-            artifact = await run_in_threadpool(get_source_artifact, run.source_artifact_id)
-        except (GraphRunRegistryError, SourceArtifactRegistryError) as exc:
-            if exc.status_code == 404:
-                raise _denied() from None
-            raise _unavailable() from None
-        if run.source_domain != "worldbuilding" or artifact.source_domain != "worldbuilding":
-            raise _denied()
-        world_id = await _owned_build_page(subject, artifact.workspace_document_id)
-        if artifact.world_id != world_id:
-            raise _denied()
+        world_id, _ = await _owned_worldbuilding_extraction(subject, run_id)
     request.state.hosted_build_page_world = world_id
     return world_id
 
@@ -605,7 +869,12 @@ async def resolve_hosted_saved_artwork(request: Request) -> str:
 
     subject = _hosted_subject(request)
     asset_id = getattr(request.state, "hosted_route_asset_id", None)
-    if not asset_id or request.query_params or await request.body():
+    if not asset_id or request.query_params:
+        raise _denied()
+    if request.method == "POST":
+        if request.url.path.endswith("/save") and await request.json() != {}:
+            raise _denied()
+    elif await request.body():
         raise _denied()
     try:
         if str(UUID(asset_id)) != asset_id:
@@ -646,6 +915,21 @@ async def resolve_hosted_plan_create(request: Request) -> str:
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.world_id)
     request.state.hosted_plan_context_world = world.world_id
     return world.world_id
+
+
+async def resolve_hosted_plan_inventory_page(request: Request) -> str:
+    selectors = request.query_params.multi_items()
+    keys = {key for key, _ in selectors}
+    world_id = request.query_params.get("world_id")
+    cursor = {"before_updated_at", "before_document_id"}
+    if (not world_id or len(keys) != len(selectors)
+            or not keys <= {"world_id", "limit"} | cursor
+            or (keys & cursor and not cursor <= keys) or await request.body()):
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
+
 
 
 async def resolve_hosted_plan_world_context(request: Request) -> str:
@@ -752,6 +1036,133 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
     return WorldContainersListResponse(records=permitted).model_dump(mode="json")
 
 
+async def resolve_hosted_worldbuilding_review_context(request: Request) -> str:
+    from apps.live_control_server.models.native_recap_preparation import NativeWorldbuildingContextRequest
+
+    if request.query_params:
+        raise _denied()
+    subject = _hosted_subject(request)
+    body = NativeWorldbuildingContextRequest.model_validate(await request.json())
+    world_id, artifact = await _owned_worldbuilding_extraction(subject, body.run_id)
+    if (body.managed_world_id != world_id or body.source_artifact_id != artifact.source_artifact_id
+            or body.source_sha256 != artifact.content_sha256):
+        raise _denied()
+    request.state.hosted_native_graph_world = world_id
+    return world_id
+
+
+async def resolve_hosted_worldbuilding_evidence_correction(request: Request) -> str:
+    from apps.live_control_server.models.extract_promote import WorldbuildingEvidenceCorrectionRequest
+
+    run_id = getattr(request.state, "hosted_route_run_id", None)
+    if not run_id or request.query_params:
+        raise _denied()
+    body = WorldbuildingEvidenceCorrectionRequest.model_validate(await request.json())
+    if body.parent_run_id != run_id:
+        raise _denied()
+    world_id, artifact = await _owned_worldbuilding_extraction(_hosted_subject(request), run_id)
+    if (body.world_id != world_id or body.source_artifact_id != artifact.source_artifact_id
+            or body.source_sha256 != artifact.content_sha256):
+        raise _denied()
+    request.state.hosted_build_page_world = world_id
+    return world_id
+
+
+def worldbuilding_evidence_authorizer(request: Request, world_id: str) -> Callable[[], None] | None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return None
+
+    def authorize() -> None:
+        if getattr(request.state, "hosted_build_page_world", None) != world_id:
+            raise _denied()
+        _owned_world(_hosted_subject(request), world_id)
+
+    return authorize
+
+
+async def resolve_hosted_threat_hydration(request: Request) -> str:
+    if request.query_params:
+        raise _denied()
+    body = ThreatQueryHydrationRequestV1.model_validate(await request.json())
+    if body.scope_mode != "world":
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.world_id)
+    request.state.hosted_native_graph_world = world.world_id
+    return world.world_id
+
+
+def require_threat_hydration_access(request: Request, body: ThreatQueryHydrationRequestV1) -> None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+        return
+    if body.scope_mode != "world" or getattr(request.state, "hosted_native_graph_world", None) != body.world_id:
+        raise _denied()
+    hosted_auth.require_hosted_write_origin(request)
+    _owned_world(_hosted_subject(request), body.world_id)
+
+
+async def resolve_hosted_recap_name_review(request: Request) -> str:
+    from apps.live_control_server.routes.recap_ingest import RecapIngestRequest
+
+    if request.query_params:
+        raise _denied()
+    body = RecapIngestRequest.model_validate(await request.json())
+    if (body.operation != "generate_recap_memory" or not body.managed_world_id
+            or not (body.raw_text or "").strip()):
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.managed_world_id)
+    request.state.hosted_plan_context_world = world.world_id
+    return world.world_id
+
+
+async def resolve_hosted_worldbuilding_write_plan(request: Request) -> str:
+    from apps.live_control_server.models.extract_promote import (
+        WorldbuildingWritePlanConfirmRequest, WorldbuildingWritePlanPrepareRequest,
+    )
+
+    if request.query_params:
+        raise _denied()
+    subject = _hosted_subject(request)
+    payload = await request.json()
+    if request.url.path.endswith("/confirm"):
+        plan = WorldbuildingWritePlanConfirmRequest.model_validate(payload).plan
+        binding = plan.publication_binding
+        if binding is None:
+            raise _denied()
+        world_id, artifact = await _owned_worldbuilding_extraction(subject, plan.run_id)
+        world = await run_in_threadpool(_owned_world, subject, world_id)
+        if world.native_graph_binding is None:
+            raise _denied()
+        native_id = world.native_graph_binding.native_world_id
+        if (binding.managed_world_id != world_id or binding.native_world_id != native_id
+                or plan.world_id != native_id or plan.source_artifact_id != artifact.source_artifact_id
+                or binding.source_artifact_id != artifact.source_artifact_id):
+            raise _denied()
+    else:
+        body = WorldbuildingWritePlanPrepareRequest.model_validate(payload)
+        world_id, _ = await _owned_worldbuilding_extraction(subject, body.run_id)
+    request.state.hosted_build_page_world = world_id
+    return world_id
+
+
+async def resolve_hosted_native_publication(request: Request) -> str:
+    from apps.live_control_server.models.native_recap_preparation import (
+        NativeRecapConfirmRequest, NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest,
+    )
+
+    if request.query_params:
+        raise _denied()
+    subject = _hosted_subject(request)
+    payload = await request.json()
+    if request.url.path.endswith("/native-confirm"):
+        review = NativeRecapConfirmRequest.model_validate(payload).envelope.review
+    else:
+        review = TypeAdapter(NativeRecapPrepareRequest | NativeWorldbuildingPrepareRequest).validate_python(payload)
+    world = await run_in_threadpool(_owned_world, subject, review.managed_world_id)
+    request.state.hosted_native_graph_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_recap_correction(request: Request) -> str:
     from apps.live_control_server.services.exact_run_candidate_projection import (
         CandidateProjectionError, build_exact_run_candidate_projection,
@@ -769,4 +1180,17 @@ async def resolve_hosted_recap_correction(request: Request) -> str:
         raise _denied() from None
     request.state.hosted_saved_recap_world = world.world_id
     request.state.hosted_native_graph_world = world.world_id
+    request.state.hosted_recap_correction_binding = world.native_graph_binding
     return world.world_id
+
+
+def require_hosted_recap_correction(request: Request, world_id: str) -> None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+        return
+    if getattr(request.state, "hosted_saved_recap_world", None) != world_id:
+        raise _denied()
+    binding = getattr(request.state, "hosted_recap_correction_binding", None)
+    world = _owned_world(_hosted_subject(request), world_id)
+    if binding is None or world.native_graph_binding != binding:
+        raise _denied()

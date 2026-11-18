@@ -53,6 +53,8 @@ def choice(identifier, kind="node", action="create", fields=("label", "node_type
 
 @pytest.fixture
 def lane(monkeypatch, tmp_path, request):
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", TOKEN)
@@ -637,12 +639,31 @@ def test_confirmation_refuses_invalid_authority_without_publication(lane, monkey
     assert lane.repo.get_publication_receipt(SPACE_ID, packet["envelope"]["prepared_change_id"]) is None
 
 
+def test_confirmation_refuses_rebind_during_descriptor_read(lane, monkeypatch):
+    packet = confirmation(lane)
+    before = len(lane.repo.head_events(SPACE_ID))
+    descriptors = service.native.descriptors
+
+    def read_then_rebind(*args, **kwargs):
+        result = descriptors(*args, **kwargs)
+        lane.bound["binding_version"] += 1
+        return result
+
+    monkeypatch.setattr(service.native, "descriptors", read_then_rebind)
+    response = confirm(lane, packet)
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"]["code"] == "candidate_binding_changed"
+    assert len(lane.repo.head_events(SPACE_ID)) == before
+    assert lane.repo.get_publication_receipt(SPACE_ID, packet["envelope"]["prepared_change_id"]) is None
+
+
 def test_confirmation_authentication_precedes_owner_io(lane, monkeypatch):
-    from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency, NativeGraphPrincipal
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
     packet = confirmation(lane)
     monkeypatch.setattr(service.native, "repository", lambda: pytest.fail("unauthorized owner access"))
     assert lane.client.post("/api/live/extract-promote/native-confirm", json=packet).status_code == 401
-    lane.app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
+    lane.app.dependency_overrides[native_graph_explorer_dependency] = lambda: NativeGraphPrincipal(
         subject="player", role="player", auth_method="local_operator")
     assert confirm(lane, packet).status_code == 403
 
