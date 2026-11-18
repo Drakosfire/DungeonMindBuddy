@@ -312,7 +312,7 @@ def seal_native_relationship_review(request, prepared, *, binding, principal, ex
     }
 
 
-def confirm_native_relationship(root, request, encoded, token, principal):
+def confirm_native_relationship(root, request, encoded, token, principal, *, authorize_world=None):
     from dungeonmind.application.vnext import publish_native_source_evidence_extension
     from dungeonmind.contracts.vnext.native_source import GovernedNativeSourceEvidenceExtensionV1
     from worldkeeper.integrations.dungeonmind.vnext_prepare import compile_prepared_change_to_dungeonmind
@@ -351,6 +351,13 @@ def confirm_native_relationship(root, request, encoded, token, principal):
         "contribution": plan.prospective_contribution,
         "dispositions": list(plan.dispositions),
     })
+    if authorize_world is not None:
+        if native.binding(request.world_id) != bound:
+            raise GraphObjectAuthoringError(
+                "The World binding changed during relationship confirmation.",
+                code="confirmation_invalid", status_code=409,
+            )
+        authorize_world()
     receipt = publish_native_source_evidence_extension(
         repository=repository, request=extension, domain_contract=plan.domain_contract,
         semantic_profile=plan.semantic_profile,

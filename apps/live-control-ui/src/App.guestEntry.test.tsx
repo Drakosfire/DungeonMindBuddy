@@ -628,6 +628,47 @@ describe("canonical local guest entry", () => {
     expect(fetchMock.mock.calls.some(([path]) => String(path).startsWith("/api/live/index-graph/"))).toBe(false);
   });
 
+  it("warms the World graph from Build and reuses it across Graph visits", async () => {
+    window.history.replaceState({}, "", "/build?world=world-a");
+    const fetchMock = managedServerFetch({
+      graphRead: (world, count) => count === 2
+        ? new Promise<Response>(() => {})
+        : Response.json(managedGraphEnvelope(world, count === 1 ? "Aster" : "Updated Aster")),
+    });
+    const documentId = "792026bc-6600-4c2d-ae55-05c045d1502f";
+    let finishDocumentRead!: (response: Response) => void;
+    const pendingDocument = new Promise<Response>(resolve => { finishDocumentRead = resolve; });
+    vi.stubGlobal("fetch", (path: RequestInfo | URL, init?: RequestInit) =>
+      String(path) === `/api/live/workspace-documents/${documentId}` ? pendingDocument : fetchMock(path, init));
+    const user = userEvent.setup();
+    const reads = () => fetchMock.mock.calls.filter(([path]) => path === "/api/live/native-graph-explorer/graph");
+    const navigate = (path: string) => act(() => {
+      window.history.pushState({}, "", path);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    render(<App />);
+    await waitFor(() => expect(reads()).toHaveLength(1));
+    navigate(`/build?world=world-a&documentId=${documentId}`);
+    expect(await screen.findByText("Verifying page selection…")).toBeInTheDocument();
+    navigate("/graph?world=world-a");
+    await act(async () => finishDocumentRead(Response.json({}, { status: 404 })));
+    expect(await revealIsolatedObject(user, "Aster")).toBeInTheDocument();
+    navigate("/build?world=world-a");
+    await waitFor(() => expect(screen.queryByText("World · World A")).not.toBeInTheDocument());
+    navigate("/graph?world=world-a");
+    expect(await screen.findByText("World · World A")).toBeInTheDocument();
+    expect(reads()).toHaveLength(1);
+
+    await user.click(await graphMenuAction("Refresh"));
+    await waitFor(() => expect(reads()).toHaveLength(2));
+    navigate("/build?world=world-a");
+    await waitFor(() => expect(screen.queryByText("World · World A")).not.toBeInTheDocument());
+    navigate("/graph?world=world-a");
+    expect(await revealIsolatedObject(user, "Updated Aster")).toBeInTheDocument();
+    expect(reads()).toHaveLength(3);
+  });
+
   it("does not apply a late World A graph response after switching to World B", async () => {
     vi.stubEnv("PROD", true);
     window.history.replaceState({}, "", "/graph?world=world-a");

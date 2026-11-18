@@ -380,7 +380,7 @@ def _query_world_ids(request: Request) -> frozenset[str]:
     )
 
 
-async def request_world_ids(request: Request) -> frozenset[str]:
+async def request_world_ids(request: Request, *, collect_body_worlds: bool = True) -> frozenset[str]:
     found = set(_query_world_ids(request))
     body = await _read_bounded_request_body(request)
     if not body:
@@ -416,7 +416,8 @@ async def request_world_ids(request: Request) -> frozenset[str]:
         raise _invalid_world_request_body() from exc
     if not isinstance(payload, (Mapping, list)):
         raise _invalid_world_request_body()
-    found.update(_collect_world_ids(payload))
+    if collect_body_worlds:
+        found.update(_collect_world_ids(payload))
     return frozenset(found)
 
 
@@ -497,7 +498,7 @@ def install_hosted_request_boundary(
     world_path_resolvers = [
         (method, path, compile_path(path)[0], resolver)
         for (method, path), resolver in route_resolvers.items()
-        if any(marker in path for marker in ("{world_id}", "{document_id}", "{run_id}", "{asset_id}", "{draft_id}", "{encounter_id}"))
+        if any(marker in path for marker in ("{world_id}", "{document_id}", "{run_id}", "{asset_id}", "{draft_id}", "{encounter_id}", "{operation_id}", "{action_id}", "{request_id}"))
     ]
     collections = dict(collection_authorizers or {})
     # Collection authorization is an explicit, code-owned read capability. It
@@ -608,6 +609,7 @@ def install_hosted_request_boundary(
                 request.state.hosted_route_world_id = params.get("world_id")
                 request.state.hosted_route_document_id = params.get("document_id")
                 request.state.hosted_route_run_id = params.get("run_id")
+                request.state.hosted_route_draft_id = params.get("draft_id")
                 request.state.hosted_route_asset_id = params.get("asset_id")
         if resolver is None:
             return JSONResponse(
@@ -621,7 +623,14 @@ def install_hosted_request_boundary(
             if (method, route_path) == ("POST", BUILD_PDF_SOURCES_PATH):
                 requested_world_ids = _query_world_ids(request)
             else:
-                requested_world_ids = await request_world_ids(request)
+                # Sealed Worldbuilding plans include both managed and native IDs.
+                # The exact resolver validates both against the saved run and World binding.
+                requested_world_ids = await request_world_ids(
+                    request,
+                    collect_body_worlds=(method, route_path) != (
+                        "POST", "/api/live/extract-promote/worldbuilding/confirm",
+                    ),
+                )
             resolved_world_id = await _resolve_authoritative_world_id(request, resolver)
             if requested_world_ids and requested_world_ids != frozenset({resolved_world_id}):
                 raise HTTPException(

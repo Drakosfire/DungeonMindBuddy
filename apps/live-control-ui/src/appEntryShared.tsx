@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionProvider";
 import { useHostedAuthStatus } from "./auth/HostedAuthGate";
 import { createManagedNativeGraphApi } from "./nativeGraphDemo/managedNativeGraphApi";
@@ -11,43 +11,72 @@ export const NativeGraphDemo = deferredComponent(
   "Graph",
 );
 
-export function ManagedWorldGraph({ worldId, worldTitle, stateScopeId }: {
-  readonly worldId: string; readonly worldTitle: string; readonly stateScopeId: string;
+type GraphClient = ReturnType<typeof createManagedNativeGraphApi>["api"];
+const WarmWorldGraph = createContext<GraphClient | null>(null);
+
+export function WarmWorldGraphProvider({ worldId, children }: {
+  worldId: string | null;
+  children: ReactNode;
 }) {
-  const auth = useHostedAuthStatus();
-  const [client, setClient] = useState<ReturnType<typeof createManagedNativeGraphApi> | null>(null);
+  const [current, setCurrent] = useState<{ worldId: string; api: GraphClient } | null>(null);
   useEffect(() => {
-    // Own the client within the effect lifetime, including StrictMode's setup /
-    // cleanup rehearsal. Never resurrect an invalidated previous client.
+    if (!worldId) return;
     const owned = createManagedNativeGraphApi(worldId);
-    const controller = new AbortController();
-    // Start the selected World read while the Graph component loads.
-    let initialRead: ReturnType<typeof owned.api.readGraph> | undefined =
-      owned.api.readGraph(controller.signal);
-    // The Graph may mount after the request has already failed.
-    void initialRead.catch(() => {});
-    setClient({
-      ...owned,
-      api: {
-        ...owned.api,
-        readGraph(signal) {
-          const started = initialRead;
-          initialRead = undefined;
-          if (!started) return owned.api.readGraph(signal);
-          if (signal?.aborted) controller.abort();
-          const cancel = () => controller.abort();
-          signal?.addEventListener("abort", cancel, { once: true });
-          return started.finally(() => signal?.removeEventListener("abort", cancel));
-        },
+    const lifetime = new AbortController();
+    type GraphRead = ReturnType<GraphClient["readGraph"]>;
+    let warmRead: { result: GraphRead; signal?: AbortSignal } | undefined;
+    const readGraph: GraphClient["readGraph"] = signal => {
+      const result = owned.api.readGraph(signal
+        ? AbortSignal.any([lifetime.signal, signal]) : lifetime.signal);
+      warmRead = { result, signal };
+      void result.then(graph => {
+        if (warmRead?.result === result) warmRead = { result: Promise.resolve(graph) };
+      }, () => {
+        if (warmRead?.result === result) warmRead = undefined;
+      });
+      return result;
+    };
+    const readInitialGraph = () => warmRead && !warmRead.signal?.aborted ? warmRead.result : readGraph();
+    const rememberGraph = (graph: Awaited<GraphRead>) => {
+      if (!lifetime.signal.aborted) warmRead = { result: Promise.resolve(graph) };
+    };
+    readInitialGraph();
+    setCurrent({ worldId, api: {
+      ...owned.api, readGraph, readInitialGraph,
+      async prepare(input) {
+        const result = await owned.api.prepare(input);
+        if (result.status === "already_exists") rememberGraph(result.graph);
+        return result;
       },
-    });
+      async confirm(operationId) {
+        const result = await owned.api.confirm(operationId);
+        if (result.status === "committed") rememberGraph(result.graph);
+        return result;
+      },
+      async readOperation(operationId) {
+        const result = await owned.api.readOperation(operationId);
+        if (result.status === "committed" && result.graph) rememberGraph(result.graph);
+        return result;
+      },
+    } });
     return () => {
-      controller.abort();
+      lifetime.abort();
       owned.invalidate();
     };
   }, [worldId]);
-  return client
-    ? <NativeGraphDemo api={client.api} embedded mode="managed" worldTitle={worldTitle} stateScopeId={stateScopeId} entityOnlyDetails={auth.status === "authenticated"} readOnly={auth.status === "authenticated"} />
+
+  return <WarmWorldGraph.Provider value={current?.worldId === worldId ? current.api : null}>
+    {children}
+  </WarmWorldGraph.Provider>;
+}
+
+export function ManagedWorldGraph({ worldTitle, stateScopeId }: {
+  readonly worldTitle: string; readonly stateScopeId: string;
+}) {
+  const auth = useHostedAuthStatus();
+  const api = useContext(WarmWorldGraph);
+  return api
+    ? <NativeGraphDemo api={api} embedded mode="managed" worldTitle={worldTitle} stateScopeId={stateScopeId} entityOnlyDetails={auth.status === "authenticated"} readOnly={auth.status === "authenticated"} />
     : <main className="app-status" role="status">Loading World graph…</main>;
 }
 

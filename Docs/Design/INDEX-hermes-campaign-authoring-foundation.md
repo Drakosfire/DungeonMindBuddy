@@ -7,8 +7,9 @@
 The July Hermes campaign-authoring reset succeeded as a product/retrieval
 scaffold, but Hermes is no longer the architectural Agent boundary.
 
-Current Agent architecture is Buddy-owned `AgentRuntime` with Hermes as the
-current production adapter. Current source-to-World authoring ownership is
+Current Agent architecture is Buddy-owned `AgentRuntime`; runtime selection is
+path-dependent. The [Agent context and runtime guide](../Guides/GUIDE-agent-context-and-runtime.md)
+links the current selector and tests. Source-to-World authoring ownership is
 Buddy interaction → WorldKeeper change coordination → DungeonMind durable World
 authority.
 

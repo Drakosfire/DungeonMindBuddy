@@ -16,7 +16,9 @@ from apps.live_control_server.integrations.dungeonmind.native_recap_source_admis
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import NativeWorldSourceAdmissionError
 from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest, NativeRecapConfirmRequest, NativeWorldbuildingContextRequest
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
-from apps.live_control_server.services.hosted_native_graph_access import first_world_authorizer
+from apps.live_control_server.services.hosted_native_graph_access import (
+    first_world_authorizer, require_hosted_exact_review_package, worldbuilding_evidence_authorizer,
+)
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
 from apps.live_control_server.models.worldbuilding_publication_coverage import WorldbuildingPublicationCoverage
@@ -83,6 +85,7 @@ from apps.live_control_server.services.exact_run_evidence_correction import (
     correct_recap_run_evidence,
 )
 from apps.live_control_server.services.recap_semantic_candidate_correction import correct_recap_candidate
+from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency, require_explorer_access
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
     native_graph_gm_dependency,
@@ -157,15 +160,24 @@ router = APIRouter(
 def get_worldbuilding_publication_coverage_route(
     request: Request,
     run_id: str,
-    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """Authenticated historical proof; no publication replay or caller selectors."""
     from apps.live_control_server.services.worldbuilding_publication_coverage import (
         get_worldbuilding_publication_coverage,
     )
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
+
+    local = hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS
+    if local:
+        enforce_native_graph_gm(request)
+    else:
+        require_hosted_build_native_source(request, getattr(request.state, "hosted_build_page_world", ""))
+
     try:
         _reject_selector_query(request)
-        return get_worldbuilding_publication_coverage(run_id).model_dump(mode="json", by_alias=True)
+        coverage = get_worldbuilding_publication_coverage(run_id)
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -173,6 +185,10 @@ def get_worldbuilding_publication_coverage_route(
             "Publication coverage is unknown because native evidence could not be read.",
             code="publication_coverage_unavailable", status_code=503,
         ))
+
+    if not local:
+        require_hosted_build_native_source(request, coverage.managed_world_id)
+    return coverage.model_dump(mode="json", by_alias=True)
 
 
 def _reject_selector_query(request: Request) -> None:
@@ -209,14 +225,24 @@ def get_extract_promote_exact_run_review(
                 status_code=500,
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
+    result = response.model_dump(mode="json", by_alias=True)
+    require_hosted_exact_review_package(
+        request, run_id=response.run_id, source_domain=response.source_domain,
+        source_artifact_id=response.source_artifact_id,
+    )
+    return result
 
 
 @router.get("/runs/{run_id}/frozen-source-spans", response_model=WorldbuildingFrozenSpanCatalog)
 def get_exact_run_frozen_source_spans(request_context: Request, run_id: str):
     try:
         _reject_selector_query(request_context)
-        return get_worldbuilding_frozen_spans(run_id).model_dump(mode="json", by_alias=True)
+        catalog = get_worldbuilding_frozen_spans(run_id)
+        result = catalog.model_dump(mode="json", by_alias=True)
+        authorize = worldbuilding_evidence_authorizer(request_context, catalog.world_id)
+        if authorize is not None:
+            authorize()
+        return result
     except ExtractPromoteError as exc:
         return _error_response(exc)
 
@@ -236,7 +262,17 @@ def post_exact_run_evidence_corrections(
                 code="invalid_request",
                 status_code=422,
             )
-        response = correct_exact_run_evidence(request)
+        authorize_write = worldbuilding_evidence_authorizer(request_context, request.world_id)
+        if authorize_write is None:
+            response = correct_exact_run_evidence(request)
+        else:
+            response = correct_exact_run_evidence(request, authorize_write=authorize_write)
+        result = response.model_dump(mode="json", by_alias=True)
+        if authorize_write is not None:
+            authorize_write()
+        return result
+    except HTTPException:
+        raise
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -248,7 +284,6 @@ def post_exact_run_evidence_corrections(
                 status_code=500,
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
 
 
 @router.post(
@@ -283,6 +318,12 @@ def post_recap_evidence_corrections(
     return response.model_dump(mode="json", by_alias=True)
 
 
+def recap_candidate_correction_access(request: Request, managed_world_id: str | None = None) -> None:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_recap_correction
+
+    require_hosted_recap_correction(request, managed_world_id or "")
+
+
 @router.post(
     "/runs/{run_id}/recap-candidate-corrections",
     response_model=(
@@ -303,17 +344,35 @@ def post_recap_candidate_corrections(
     request_context: Request,
     run_id: str,
     request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9 | RecapCandidateCorrectionRequestV10 | RecapCandidateCorrectionRequestV11,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    _access: None = Depends(recap_candidate_correction_access),
 ) -> dict[str, Any] | JSONResponse:
     """GM-only bounded semantic candidate child; no World publication."""
+    from apps.live_control_server.services import hosted_auth
+
     try:
-        _reject_selector_query(request_context)
+        if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+            _reject_selector_query(request_context)
         if run_id != request.parent_run_id:
             raise ExtractPromoteError(
                 "path run ID does not match parentRunId",
                 code="invalid_request", status_code=422,
             )
-        response = correct_recap_candidate(request)
+        authorize = None
+        if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+            def authorize() -> None:
+                recap_candidate_correction_access(
+                    request_context, request_context.query_params.get("managed_world_id"),
+                )
+        if authorize is None:
+            response = correct_recap_candidate(request)
+        else:
+            response = correct_recap_candidate(request, authorize_write=authorize)
+        result = response.model_dump(mode="json", by_alias=True)
+        if authorize is not None:
+            authorize()
+        return result
+    except HTTPException:
+        raise
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -322,7 +381,6 @@ def post_recap_candidate_corrections(
             "The recap candidate correction failed unexpectedly.",
             code="extract_promote_internal_error", status_code=500,
         ))
-    return response.model_dump(mode="json", by_alias=True)
 
 
 @router.post(
@@ -476,7 +534,14 @@ def post_worldbuilding_write_plan_prepare(
                 ],
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
+    result = response.model_dump(mode="json", by_alias=True)
+    binding = response.publication_binding
+    authorize = worldbuilding_evidence_authorizer(
+        request_context, binding.managed_world_id if binding is not None else "",
+    )
+    if authorize is not None:
+        authorize()
+    return result
 
 
 @router.post(
@@ -489,7 +554,16 @@ def post_worldbuilding_write_plan_confirm(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_selector_query(request_context)
-        response = confirm_worldbuilding(request)
+        binding = request.plan.publication_binding
+        authorize = worldbuilding_evidence_authorizer(
+            request_context, binding.managed_world_id if binding is not None else "",
+        )
+        if authorize is None:
+            response = confirm_worldbuilding(request)
+        else:
+            response = confirm_worldbuilding(request, authorize_write=authorize)
+    except HTTPException:
+        raise
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -512,7 +586,10 @@ def post_worldbuilding_write_plan_confirm(
                 ],
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
+    result = response.model_dump(mode="json", by_alias=True)
+    if authorize is not None:
+        authorize()
+    return result
 
 
 @router.post(
@@ -669,19 +746,25 @@ def _native_recap_operation(body, request, principal, operation):
 def prepare_native_recap(
     body: NativeRecapPrepareRequest | NativeWorldbuildingPrepareRequest,
     request: Request,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ):
     from apps.live_control_server.services.native_recap_preparation import prepare
-    return _native_recap_operation(body, request, principal, prepare)
+    require_explorer_access(principal, body.managed_world_id)
+    response = _native_recap_operation(body, request, principal, prepare)
+    require_explorer_access(principal, body.managed_world_id)
+    return response
 
 
 def confirm_native_recap(
     body: NativeRecapConfirmRequest,
     request: Request,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ):
     from apps.live_control_server.services.native_recap_preparation import confirm
-    return _native_recap_operation(body, request, principal, confirm)
+    require_explorer_access(principal, body.envelope.review.managed_world_id)
+    response = _native_recap_operation(body, request, principal, confirm)
+    require_explorer_access(principal, body.envelope.review.managed_world_id)
+    return response
 
 
 router.add_api_route(
@@ -697,11 +780,14 @@ router.add_api_route(
 def native_worldbuilding_context(
     body: NativeWorldbuildingContextRequest,
     request: Request,
-    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+    principal: NativeGraphPrincipal = Depends(native_graph_explorer_dependency),
 ):
     from apps.live_control_server.services.native_recap_preparation import worldbuilding_review_context
 
-    return _native_recap_operation(body, request, principal, worldbuilding_review_context)
+    require_explorer_access(principal, body.managed_world_id)
+    response = _native_recap_operation(body, request, principal, worldbuilding_review_context)
+    require_explorer_access(principal, body.managed_world_id)
+    return response
 
 
 router.add_api_route(

@@ -49,7 +49,7 @@ export function BuildManualKnowledge(props:Props){
   useEffect(()=>{let active=true;setCatalog(null);setNodes([]);setKinds([]);setError('');
     const cached=frozenCache.current?.key===key?frozenCache.current.value:props.frozenCatalog;
     const spansRead=cached&&validFrozenCatalog(cached,props.review,props.run,scope.worldId)?Promise.resolve(cached):getWorldbuildingFrozenSpans(scope.runId);
-    void Promise.all([getGraphObjectAuthoringKinds(),spansRead,getNativeAuthoringIdentities(scope.worldId)]).then(([capabilities,spans,graph])=>{
+    void Promise.all([getGraphObjectAuthoringKinds(scope.worldId),spansRead,getNativeAuthoringIdentities(scope.worldId)]).then(([capabilities,spans,graph])=>{
       if(!active||!props.isScopeCurrent())return;
       if(!validFrozenCatalog(spans,props.review,props.run,scope.worldId))throw new Error('Frozen source does not match this review.');
       if(!Array.isArray(capabilities.objectKinds)||!capabilities.objectKinds.length||capabilities.objectKinds.some(k=>typeof k!=='string'||!k.trim()))throw new Error('World object kinds are unavailable.');

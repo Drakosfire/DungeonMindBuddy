@@ -15,6 +15,8 @@ from uuid import UUID
 
 from pydantic import Field
 
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated import ValidationReceiptV1
+
 from .rules_authority_events import (
     RulesBuildProviderAuthorizedV1,
     RulesBuildProviderIncludedV1,
@@ -52,7 +54,6 @@ if TYPE_CHECKING:
 
 MAX_NATIVE_OUTPUT_BYTES = 262144
 
-
 class NativeRulesOutputProofV1(ClosedRulesModel):
     """Transient proof input. ``raw_output_json`` is never written to history."""
 
@@ -70,6 +71,7 @@ class NativeRulesOutputProofV1(ClosedRulesModel):
     raw_output_utf8_bytes: int = Field(ge=1, le=MAX_NATIVE_OUTPUT_BYTES)
 
     graph_packets: dict[UUID, str] = Field(default_factory=dict, max_length=64)
+    variant_validation: ValidationReceiptV1 | None = None
 
     @classmethod
     def from_capture(
@@ -528,7 +530,11 @@ def normalize_shared_native_output(receipt, graph_execution, rules_execution, pr
         candidate = strict_json(proof.raw_output_json)
         base = normalize_candidate(candidate,receipt,graph_execution,auth,evidence)
         if evidence.variant_format:
-            variant = normalize_statblock_variant(candidate, evidence.work_frame, variant_edits=evidence.variant_edits)
+            variant = normalize_statblock_variant(candidate, evidence.work_frame, variant_edits=evidence.variant_edits,
+                variant_witnesses=evidence.variant_witnesses,
+                variant_carried_condition=evidence.variant_carried_condition,
+                variant_passage_review=evidence.variant_passage_review,
+                variant_trigger_retention=evidence.variant_trigger_retention)
         segments = tuple(segment.text for segment in base.answer_segments)
         if segments:
             composition = AnswerCompositionV1(schema='dmb_answer_composition_v1',base_disposition='approved',

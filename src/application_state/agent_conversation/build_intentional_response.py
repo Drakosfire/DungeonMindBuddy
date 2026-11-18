@@ -203,9 +203,33 @@ def question(*, guidance=None, work_options=None):
     }
 
 
+SOURCE_NEED_OPTIONS = ("anchored", "source_lookup", "uncertain")
+SOURCE_NEED_GUIDANCE = (
+    "Does answering this turn require looking beyond the current page, explicitly referenced or "
+    "carried material, and dialogue? Choose anchored for creative feedback on a supplied premise "
+    "or brainstorming where the GM asks for no new world fact. Choose source_lookup for a factual "
+    "lookup, citation, search in another source, or an explicit new reference that must be located. "
+    "Choose uncertain if the request cannot safely be answered from the anchored material alone."
+)
+
+
+def source_need(request, response):
+    question = request["questions"].get("source_need")
+    if question is None:
+        return None
+    expected = {"type": "choice", "instructions": SOURCE_NEED_GUIDANCE,
+                "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
+    if question != expected:
+        raise ValueError("Build source scope differs from its offered decision")
+    return _selected_choice(response["answers"]["source_need"], SOURCE_NEED_OPTIONS)
+
+
 def selected(response, *, menu=None):
     options = WORK if menu is None else _menu_work(menu)
-    answer = response["answers"]["requested_work"]
+    return _selected_choice(response["answers"]["requested_work"], options)
+
+
+def _selected_choice(answer, options):
     label, probabilities = answer["selected"], answer["probabilities"]
     if (
         label not in options
@@ -226,8 +250,9 @@ def selected(response, *, menu=None):
     return label
 
 
-def resolve(label, capabilities):
-    work = WORK[label]
+def resolve(label, capabilities, *, work_options=None):
+    work_options = WORK if work_options is None else work_options
+    work = work_options[label]
     barrier = None
     if label in UNAVAILABLE:
         barrier = "requested_executor_not_offered"
@@ -321,6 +346,16 @@ def resolve(label, capabilities):
     if barrier == "current_page_target_absent":
         relevant = relevant - {"author_save_current_page"}
     followups = [item for item in followups if item["id"] in relevant]
+    if label == "review_variant_approval":
+        followups = [{
+            "id": "find_reviewed_variant",
+            "description": (
+                "Point the user to Find reviewed statblock on this reply. The control checks "
+                "the current draft and opens its review for explicit confirmation when it matches. "
+                "Acknowledge the request briefly. Do not claim a save, page edit, Combat action, "
+                "or missing source evidence for these actions."
+            ),
+        }]
     detail = {
         "current_page_target_absent": "No current-page writing destination was captured. This is a placement limit, not missing inventory or evidence.",
         "image_capability_absent": "No image-preparation capability is offered in this captured request.",
@@ -355,7 +390,7 @@ def resolve(label, capabilities):
         "contract_sha256": digest(
             {
                 "policy": POLICY,
-                "work": {k: asdict(v) for k, v in WORK.items()},
+                "work": {k: asdict(v) for k, v in work_options.items()},
                 "capabilities": asdict(capabilities),
             }
         ),
@@ -420,6 +455,21 @@ review in chat now. Choose discuss for brainstorming or acknowledging a premise.
 """
 
 
+_PRE_APPROVAL_WORK = WORK
+_PRE_APPROVAL_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **_PRE_APPROVAL_WORK,
+    "review_variant_approval": Work(
+        "create", "Open confirmation for a statblock variant already drafted for review in this conversation.",
+    ),
+})
+GUIDANCE = _PRE_APPROVAL_GUIDANCE + """
+Use review_variant_approval only when the user explicitly approves or asks to save
+an existing conversation statblock draft. Use change_mechanics for a new creation,
+a revision request, or an action on a different mechanics object.
+"""
+
+
 def _resolver_digest(work_options):
     return digest({
         "policy": POLICY,
@@ -431,23 +481,24 @@ def _resolver_digest(work_options):
 
 MENU_DIGEST = digest(question(guidance=GUIDANCE))
 RESOLVER_DIGEST = _resolver_digest(WORK)
-_MENU_GUIDANCE = MappingProxyType({
-    MENU_DIGEST: GUIDANCE,
+_MENU_CONTRACTS = MappingProxyType({
+    MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST),
+    digest(question(guidance=_PRE_APPROVAL_GUIDANCE, work_options=_PRE_APPROVAL_WORK)):
+        (_PRE_APPROVAL_GUIDANCE, _PRE_APPROVAL_WORK, _resolver_digest(_PRE_APPROVAL_WORK)),
     **{
-        digest(question(guidance=guidance, work_options=_RETAINED_WORK)): guidance
+        digest(question(guidance=guidance, work_options=_RETAINED_WORK)):
+            (guidance, _RETAINED_WORK, _resolver_digest(_RETAINED_WORK))
         for guidance in (_RETAINED_GUIDANCE, _IMAGE_DESTINATION_GUIDANCE, _PREVIOUS_GUIDANCE, _DESTINATION_GUIDANCE)
     },
 })
-_RETAINED_RESOLVER_DIGEST = _resolver_digest(_RETAINED_WORK)
 
 
 def _menu_work(menu):
-    return WORK if menu == MENU_DIGEST else _RETAINED_WORK
+    return _MENU_CONTRACTS[menu][1]
 
 
 def known_semantics(menu, resolver):
-    expected = RESOLVER_DIGEST if menu == MENU_DIGEST else _RETAINED_RESOLVER_DIGEST
-    return menu in _MENU_GUIDANCE and resolver == expected
+    return menu in _MENU_CONTRACTS and resolver == _MENU_CONTRACTS[menu][2]
 
 
 def enabled(policy):
@@ -491,16 +542,21 @@ def _captured_semantics(policy):
     return caps,policy.action_capability_sha256,policy.requested_work_menu_sha256,policy.response_resolver_sha256
 
 
-def resolution_for(policy, label):
+def resolution_for(policy, label, *, source_scope=None):
     caps,_,menu,resolver=_captured_semantics(policy)
     if not known_semantics(menu, resolver) or label not in _menu_work(menu):
         raise ValueError("Unknown semantic menu or resolver")
-    return json.loads(canonical(resolve(label,caps)))
+    resolution = json.loads(canonical(resolve(label, caps, work_options=_menu_work(menu))))
+    if source_scope is not None:
+        if source_scope not in SOURCE_NEED_OPTIONS:
+            raise ValueError("Invalid Build source scope")
+        resolution["source_scope"] = source_scope
+    return resolution
 
 
 def validate_resolution_metadata(event, policy):
     caps,capability,menu,resolver=_captured_semantics(policy)
-    expected=resolution_for(policy,event.requested_work)
+    expected=resolution_for(policy,event.requested_work,source_scope=event.resolution.get("source_scope"))
     if (event.resolution != expected or event.intent_family != expected['intent_family']
             or event.operation != expected['operation'] or event.operation not in caps.operations
             or event.capability_sha256 != capability
@@ -527,6 +583,21 @@ def validate_turn_arguments(execution, *, user_text, turn_id, attempt):
             raise ValueError('Retained semantic action differs from its exact turn arguments')
 
 
+def is_anchored_discussion(selection):
+    from .types import BuildRequestedWorkResolutionV1
+
+    return (isinstance(selection, BuildRequestedWorkResolutionV1)
+            and selection.requested_work == "discuss"
+            and selection.resolution.get("source_scope") == "anchored")
+
+
+def is_variant_approval(selection):
+    from .types import BuildRequestedWorkResolutionV1
+
+    return (isinstance(selection, BuildRequestedWorkResolutionV1)
+            and selection.requested_work == "review_variant_approval")
+
+
 def selected_action(execution):
     from .types import BuildRequestedWorkResolutionV1, BuildReviewedActionSelectionV1
     choices=[e for e in execution.events if isinstance(e,(BuildRequestedWorkResolutionV1,BuildReviewedActionSelectionV1))]
@@ -541,7 +612,7 @@ def selected_contract(execution):
     if isinstance(choice,BuildReviewedActionSelectionV1):
         return None
     validate_resolution_metadata(choice,execution.policy)
-    return choice.resolution
+    return {key: value for key, value in choice.resolution.items() if key != "source_scope"}
 
 
 def validate_native_action_events(execution):
@@ -599,7 +670,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     raw_response = strict_json(proof["response_json"])
     label = selected(raw_response, menu=menu)
     response = DecisionResult.model_validate(raw_response)
-    resolution = resolution_for(policy, label)
+    resolution = resolution_for(policy, label, source_scope=source_need(request, raw_response))
     prior = [
         e
         for e in execution.events
@@ -684,12 +755,12 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
 
 
 def known_menu(menu_digest):
-    return menu_digest in _MENU_GUIDANCE
+    return menu_digest in _MENU_CONTRACTS
 
 
 def decision_instructions(menu_digest=MENU_DIGEST):
     try:
-        guidance = _MENU_GUIDANCE[menu_digest]
+        guidance = _MENU_CONTRACTS[menu_digest][0]
     except KeyError as exc:
         raise ValueError("Unknown frozen Build semantic menu") from exc
     return (

@@ -508,6 +508,11 @@ class BuildJevDriver:
             from application_state.agent_conversation.build_intentional_response import semantic_routing_state
             state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references)
         questions = (DecisionQuestion(name='requested_work',kind='choice',question=decision_instructions(),options=tuple(WORK)),)
+        if fresh:
+            from application_state.agent_conversation.build_intentional_response import SOURCE_NEED_GUIDANCE, SOURCE_NEED_OPTIONS
+
+            questions += (DecisionQuestion(name="source_need", kind="choice",
+                                           question=SOURCE_NEED_GUIDANCE, options=SOURCE_NEED_OPTIONS),)
         if 'related_page_catalog' in self._interaction:
             from application_state.agent_conversation.build_related_pages import PagePointer, question_name, question_text
             questions += tuple(DecisionQuestion(name=question_name(i),kind='choice',
@@ -1224,13 +1229,18 @@ class BuildJevDriver:
                 from application_state.agent_conversation.build_intentional_response import selected as requested_work, resolution_for, operation_id, MENU_DIGEST, RESOLVER_DIGEST
                 from generationengine.types import DecisionResult
                 from uuid import uuid4
-                if (model != self._selection_intent.model or set(answers) != {'requested_work'}
+                from application_state.agent_conversation.build_intentional_response import source_need
+
+                expected_answers = {question.name for question in self._selection_intent.questions
+                                    if question.name in {"requested_work", "source_need"}}
+                if (model != self._selection_intent.model or set(answers) != expected_answers
                     or not isinstance(actual_response, DecisionResult) or sdk_answers(actual_response).get('requested_work') != answers['requested_work']):
                     raise ValueError('Semantic selection requires its actual complete SDK response')
                 raw = canonical(actual_response.model_dump(mode='json'))
                 label = requested_work(json.loads(raw))
                 execution = a._broker_execution()
-                resolution = resolution_for(execution.policy, label)
+                resolution = resolution_for(execution.policy, label,
+                    source_scope=source_need(json.loads(prepared.body), json.loads(raw)))
                 selected = resolution['operation']
                 authorization = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == a.last_provider_attempt_id)
                 event = ledger.BuildRequestedWorkResolutionV1(kind='build_requested_work_resolved_v1', event_id=uuid4(), sequence=len(execution.events),
@@ -1245,7 +1255,12 @@ class BuildJevDriver:
                 a.turn = _require_fresh_execution_append(a.fence.append('record_build_requested_work_resolution', 'selection', event,
                     producer_proof={'request_json': prepared.body.decode(), 'response_json': raw}))
                 self.operation, self.selection = selected, event
-                if 'related_page_catalog' in self._interaction:
+                from application_state.agent_conversation.build_intentional_response import is_anchored_discussion
+                from application_state.agent_conversation.build_intentional_response import is_variant_approval
+                from application_state.agent_conversation.build_related_pages import is_anchored_conversation_draft
+                if ('related_page_catalog' in self._interaction
+                        and not (is_anchored_discussion(event) or is_variant_approval(event)
+                                 or is_anchored_conversation_draft(a._broker_execution(), event))):
                     select_pages(self, prepared, actual_response)
             else:
                 question = self._selection_intent.questions[0]

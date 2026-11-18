@@ -60,7 +60,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid"):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -100,10 +100,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                        "support": [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture",
                                     "text": "Hit Points 41"}]}
         if saved_statblock in {"associated", "by-name"}:
+            from apps.live_control_server.integrations.dungeonmind import native_registry_source
             from apps.live_control_server.services import native_graph_inspection, native_pdf_evidence
+            monkeypatch.setattr(native_registry_source, "read_repository", lambda: lane.repo)
             monkeypatch.setattr(native_pdf_evidence, "reviewed_pdf_regions", lambda *args, **kwargs: ("crop",))
             monkeypatch.setattr(native_graph_inspection, "statblock_pdf_support",
-                                lambda ref, *_: pdf_support | {"scope": pdf_support["scope"] | {"revision_id": ref.graph_revision}})
+                                lambda ref, *_, **__: pdf_support | {"scope": pdf_support["scope"] | {"revision_id": ref.graph_revision}})
 
         def open_statblock(root, *, world_id, draft_id, revision_id):
             assert world_id == world and revision_id == locator.revision_id
@@ -154,6 +156,24 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         native_world_id=world, binding_version=1, graph_revision=original_revision,
         node_id=lane.ids['B'], label='DISPLAY ONLY: never evidence'),))
     if saved_statblock in {"associated", "by-name"}:
+        from apps.live_control_server.services import statblock_definition_validation
+        from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import compute_definition_digest
+        from apps.live_control_server.integrations.dungeonmind_statblocks.generated import ValidationReceiptV1
+
+        def validate_variant(*, definition, client=None):
+            if variant_validation is None:
+                return SimpleNamespace(validation_receipt=None)
+            if variant_validation == "malformed":
+                raise ValueError("validation digest mismatch between response and receipt")
+            digest = "sha256:" + "0" * 64 if variant_validation == "mismatched" else compute_definition_digest(definition)
+            status = "valid" if variant_validation == "mismatched" else variant_validation
+            receipt = ValidationReceiptV1.model_validate(dict(definition_digest=digest,
+                status=status, issues=[], mode="editor_preview",
+                canonicalizer_version="statblock-canonicalizer-v1",
+                validator_version="statblock-validator-v1.2", validated_at="2026-01-01T00:00:00Z"))
+            return SimpleNamespace(definition_digest=digest, validation_receipt=receipt)
+
+        monkeypatch.setattr(statblock_definition_validation, "validate_definition", validate_variant)
         from application_state.world_mechanics import service as associations
         from application_state.world_mechanics.types import WorldMechanicsTarget
         from apps.live_control_server.services import world_creature_selection
@@ -164,6 +184,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             label="Meat Mind", kind="creature", role="", campaign_scope=None,
         )
         record = SimpleNamespace(
+            association_id=uuid4(),
             request=SimpleNamespace(target=target, draft_id=draft_id),
             proof=SimpleNamespace(locator=locator),
         )
@@ -232,6 +253,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         raise AssertionError('Fresh Build used classic Graph broker instead of shared native access')
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config', classic)
 
+    if read_optional_page:
+        monkeypatch.setattr("apps.live_control_server.services.build_related_pages.root", lambda: tmp_path)
+        optional_page = create_page_fixture(tmp_path, world_id=world, campaign_id=world,
+            title="Optional lore", kind="worldbuilding_source", source_domain="worldbuilding",
+            document_class="lore", authority_state="draft", visibility_state="internal")
+        save_page(tmp_path, optional_page.document_id, "This unrelated lore should remain unread.")
+
     class Decisions(httpx2.AsyncBaseTransport):
         def __init__(self):
             self.calls = []
@@ -265,8 +293,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
-                chosen = ((current_work or ('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss')) if name=='requested_work' else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
+                chosen = ((current_work or ('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss')) if name=='requested_work' else source_need if name=='source_need'
+                    else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
+                    else "read" if read_optional_page and name.startswith("related_page_")
                     else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
                 answers[name] = dict(type='choice', choice=chosen, confidence=1,
@@ -307,7 +337,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
             assert body['model'] == self.adapter._broker_execution().policy.provider_roles.writer.model
-            if body.get('reasoning', {}).get('effort') != 'low':
+            expected_effort = 'medium' if requested_work == 'draft_in_conversation' and saved_statblock == 'associated' else 'low'
+            if body.get('reasoning', {}).get('effort') != expected_effort:
                 return httpx.Response(400, request=req, json={'error': {
                     'message': 'Unsupported reasoning effort for configured writer',
                     'type': 'invalid_request_error', 'param': 'reasoning.effort',
@@ -352,7 +383,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if scope is not None:
                     assert scope['scope']['task']['text'] == ('Can I end my move in an occupied space?' if failure == 'mixed_questions' else 'Discuss where the lamp belongs.')
                     assert scope['scope']['sibling_context'][0]['selected'] is False
-            if with_draft:
+            if with_draft and "passages" in work['current_draft']:
+                from application_state.agent_conversation.native_build_work_view import variant_draft_passages
+
+                assert work['current_draft']['passages'] == variant_draft_passages({
+                    "working_draft_context": {"draft_markdown": draft.snapshot.draft_markdown},
+                })
+            elif with_draft:
                 assert work['current_draft']['markdown']==draft.snapshot.draft_markdown
                 if mode:
                     assert body['input'].count(json.dumps(draft.snapshot.draft_markdown,ensure_ascii=False)[1:-1])==1
@@ -410,9 +447,25 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     source="pdf0:0", quote="Hit Points 41")]
             if saved_statblock and current_work == "draft_in_conversation":
                 new_rule = definition["rule_elements"][0] | {"key": "truce", "name": "Terms of Truce", "costs": None}
+                variant_schema = body["text"]["format"]["schema"]["properties"]["statblock_variant"]
+                fields = next(option["properties"] for option in variant_schema.get("anyOf", [variant_schema])
+                              if "properties" in option)
+                rule_fields = fields["add_rules"]["items"]["properties"]
+                if "authored_quotes" in rule_fields:
+                    new_rule = {"rule": new_rule, "authored_quotes": []}
+                if "carried_condition" in rule_fields:
+                    new_rule["carried_condition"] = None
                 candidate["statblock_variant"] = {
-                    "source": "statblock0", "add_rules": [new_rule], "replace_rules": [],
+                    "source": "statblock0",
+                    "add_rules": [new_rule],
+                    "replace_rules": [],
                 }
+                if "passage_review" in fields:
+                    passages = work["current_draft"]["passages"]
+                    review = fields["passage_review"]
+                    assert list(passages) == list(review["properties"]) == review["required"]
+                    assert "markdown" not in work["current_draft"]
+                    candidate["statblock_variant"]["passage_review"] = dict.fromkeys(passages, "omit")
             if native_body or authored_source:
                 from application_state.agent_conversation import native_corpus as corpus
                 acquired = corpus.acquired_body_reads(self.adapter._broker_execution())
@@ -445,6 +498,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     ordered_refs=[dict(domain="base", segment_index=None),
                                   dict(domain="rules", segment_index=0)],
                 )
+            if body["text"]["format"]["name"] == "surface_native_evidence_selectors_v7":
+                candidate["answer_segments"] = [
+                    dict(kind="discussion", text="We can explore a truce for this creature.")
+                ]
             self.actual_output=json.dumps(candidate)
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
                 created_at=1, status='incomplete' if failure in {'writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'} else 'completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
@@ -1081,9 +1138,15 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert lane.repo.get_head(world).head_revision_id == current_revision
         return
     if saved_statblock in {"associated", "by-name"}:
-        assert context['completion']['answer_context_status'] == 'source_grounded'
+        expected_status = (
+            'discussion'
+            if json.loads(writer.calls[-1].content)["text"]["format"]["name"]
+            == "surface_native_evidence_selectors_v7"
+            else 'source_grounded'
+        )
+        assert context['completion']['answer_context_status'] == expected_status
         assert context['completion']['native_assertion_citations'] == []
-        return SimpleNamespace(client=client, world=world, turn=turn)
+        return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions)
     citations = context['completion']['native_assertion_citations']
     assert citations and all(c['read_revision_id'] == current_revision for c in citations)
     opened = client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-assertion-sources/0')
@@ -1674,7 +1737,7 @@ def test_low_score_valid_image_selection_prepares_review_through_ordinary_http(l
     scores=dict(build_encounter=0.0,change_mechanics=0.0,clarify_creation=.07,clarify_request=.04,
         discuss=0.0,draft_in_conversation=0.0,other_creation=.27,place_map_coordinates=0.0,plan=.02,prepare_image=.40,
         publish_relationships=0.0,review_connected_page=.01,review_relationship=0.0,
-        save_page=0.0,write_current_page=.19)
+        review_variant_approval=0.0,save_page=0.0,write_current_page=.19)
     _fresh_case(lane,tmp_path,monkeypatch,None,True,False,'image',selection_probabilities=scores,
         message='Create an interior design detailed enough to generate a map from.')
 
@@ -1708,17 +1771,67 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
         assert sources is None
 
 
-def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monkeypatch):
+@pytest.mark.parametrize("scope", ["anchored", "source_lookup"])
+def test_draft_acquires_optional_page_only_for_source_lookup(lane, tmp_path, monkeypatch, scope):
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, False,
+        message="Draft the variant for this encounter in conversation.",
+        requested_work="draft_in_conversation", saved_statblock="associated",
+        source_need=scope, read_optional_page=True,
+    )
+    requests = [json.loads(call.content) for call in case.decisions.calls]
+    assert any(name.startswith("related_page_") for request in requests for name in request["questions"])
+    events = case.turn.graph_context_execution.events
+    assert any(isinstance(event, t.BuildDraftContextCapturedV1) for event in events)
+    assert any(event.kind == "build_related_page_read_v1" for event in events) == (scope == "source_lookup")
+    assert any(event.kind == "build_saved_statblock_read_v1" for event in events)
+
+
+def test_anchored_discussion_only_offers_current_page_and_saved_mechanics(lane, tmp_path, monkeypatch):
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, False,
+        message="Let's brainstorm this creature.", requested_work="discuss",
+        saved_statblock="associated", source_need="anchored", read_optional_page=True,
+    )
+    resolution, = [event for event in case.turn.graph_context_execution.events
+                   if isinstance(event, t.BuildRequestedWorkResolutionV1)]
+    assert resolution.resolution["source_scope"] == "anchored"
+    requests = [json.loads(call.content) for call in case.decisions.calls]
+    assert any(name.startswith("related_page_") for request in requests for name in request["questions"])
+    assert not any(event.kind.startswith("build_related_page") for event in case.turn.graph_context_execution.events)
+    retrieval = [request for request in requests if "operation" in request["questions"]]
+    assert retrieval
+    kinds = [candidate["kind"] for request in retrieval
+             for candidate in request["state"].get("candidates", [])]
+    assert any(kind.startswith("Saved statblock") for kind in kinds)
+    assert all(kind.startswith(("Saved statblock", "Saved authored page block"))
+               or kind == "public_rules_lookup" for kind in kinds)
+    assert all("discover_more" not in request["questions"]["operation"]["criteria"]
+               for request in retrieval)
+
+
+@pytest.mark.parametrize("editor_mounted", [False, True])
+def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monkeypatch, editor_mounted):
     from evals.buddy_benchmark import workflow
 
     thread_id = str(uuid4())
     draft_request = "Draft a playable variant in this conversation for review."
     template = {}
+    snapshot = None
 
     def first(client, world, body):
+        nonlocal snapshot
         template.update((key, value) for key, value in body.items() if key != "message")
+        if editor_mounted:
+            from application_state.agent_conversation.build_draft_context import BuildDraftSnapshotV1
+            work = body["primary_work"]
+            page = get_workspace_document_snapshot(tmp_path, work["object_id"])
+            snapshot = BuildDraftSnapshotV1(world_id=world, document_id=work["object_id"],
+                registry_revision=page.loaded_revision, content_sha256=page.content_sha256,
+                visibility=page.record.visibility_state, draft_markdown=page.markdown,
+                draft_sha256=page.content_sha256, editor_sha256="c" * 64, draft_generation=0)
         return workflow.capture_case(client, world, template, {"question": body["message"]},
-                                     tmp_path / "first-capture", build_thread_id=thread_id)
+                                     tmp_path / "first-capture", build_thread_id=thread_id, build_editor_snapshot=snapshot)
 
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
@@ -1735,11 +1848,19 @@ def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monk
         response = workflow.capture_case(
             case.client, case.world, template, {"question": question},
             tmp_path / f"capture-{index}", build_thread_id=thread_id,
-            expected_conversation_id=str(case.turn.conversation_id),
+            expected_conversation_id=str(case.turn.conversation_id), build_editor_snapshot=snapshot,
         )
         assert response.status_code == 200, response.text
     history = case.client.get(f"/api/live/agent/worlds/{case.world}/conversation").json()
     assert len(history["turns"]) == 5
+    if editor_mounted:
+        for capture in (tmp_path / "first-capture", tmp_path / "capture-5"):
+            request = json.loads((capture / "request.json").read_text())
+            before_name = "fresh-history" if capture.name == "first-capture" else "history-before"
+            before = json.loads((capture / f"{before_name}.json").read_text())["body"]
+            assert request["build_draft_context"]["expected_pointer_revision"] == before["pointer_revision"]
+            assert request["build_draft_context"]["conversation_id"] == before["active_conversation_id"]
+            assert request["build_draft_context"]["snapshot"]["draft_markdown"] == snapshot.draft_markdown
     service = AgentConversationService()
     turns = [service.inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"])) for row in history["turns"]]
     assert all(turn.conversation_id == case.turn.conversation_id for turn in turns)
@@ -1836,6 +1957,12 @@ def test_followup_reoffers_only_the_bound_statblock_on_the_same_page(lane, tmp_p
     driver.adapter.fence.turn = current.model_copy(update={"sequence": current.sequence + 1})
     driver.adapter.service.list_turns = lambda *_args, **_kwargs: [previous, discussion]
     assert driver._prior_bound_statblock() == (entry,)
+    assert read.association_anchor is not None
+    with monkeypatch.context() as drift:
+        drift.setattr(driver, "_current_statblock_anchor", lambda *_: read.association_anchor.model_copy(
+            update={"association_id": uuid4()},
+        ))
+        assert driver._prior_bound_statblock() == ()
 
     intervening_selection = discussion.model_copy(update={
         "graph_context_execution": discussion.graph_context_execution.model_copy(update={
@@ -1899,20 +2026,63 @@ def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
     assert driver._referenced_statblocks((reference,)) == []
 
 
-def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_path, monkeypatch):
+@pytest.mark.parametrize("variant_validation", ["valid", "warnings", "invalid", None, "malformed", "mismatched"])
+def test_ordinary_build_attaches_variant_review_to_conversation_draft(
+    lane, tmp_path, monkeypatch, variant_validation, application_state_dsn,
+):
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Draft the Meat Mind variant in this conversation for review.",
         requested_work="draft_in_conversation", saved_statblock="associated",
+        variant_validation=variant_validation,
     )
     root = f"/api/live/agent/worlds/{case.world}/conversations/{case.turn.conversation_id}"
     draft_path = f"{root}/drafts/{case.turn.turn_id}"
     draft = case.client.get(draft_path)
     assert draft.status_code == 200, draft.text
+    messages = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert messages.status_code == 200, messages.text
+    row = messages.json()["messages"][-1]
+    assert row["turn_id"] == str(case.turn.turn_id)
+    assert row.get("variant_draft_reviewed") is (True if variant_validation in {"valid", "warnings"} else None)
+    if variant_validation not in {"valid", "warnings"}:
+        assert draft.json()["markdown"]
+        assert not draft.json().get("variant_review_ids")
+        return
     review_id, = draft.json()["variant_review_ids"]
     reviewed = case.client.get(f"{draft_path}/variant-reviews/{review_id}")
     assert reviewed.status_code == 200, reviewed.text
     assert reviewed.json()["base_locator"]["revision_id"] == "rev_meatmind"
+
+    definition = reviewed.json()["definition"]
+    markdown = draft.json()["markdown"]
+    assert markdown.startswith(f"# {definition['identity']['name']}\n")
+    assert all(rule["rules_text"] in markdown for rule in definition["rule_elements"])
+    assert markdown != case.turn.assistant_text
+    # Editing the draft invalidates the associated review and its chat projection.
+    edited = case.client.put(draft_path, json={"expected_revision": 1, "markdown": markdown + "\nEdited."})
+    assert edited.status_code == 200, edited.text
+    assert "variant_review_ids" not in edited.json()
+    reopened = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert reopened.status_code == 200, reopened.text
+    assert "variant_draft_reviewed" not in reopened.json()["messages"][-1]
+
+    # When the newer revision gains its own review, the chat can present it.
+    from uuid import uuid4
+
+    import psycopg
+
+    from application_state.agent_conversation.conversation_variant_save import store_review
+
+    with psycopg.connect(application_state_dsn) as conn:
+        store_review(
+            conn, world_id=case.world, conversation_id=case.turn.conversation_id,
+            turn_id=case.turn.turn_id, revision=2, review_id=uuid4(),
+            definition=definition, base_locator=reviewed.json()["base_locator"],
+        )
+    reopened = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["messages"][-1]["variant_draft_reviewed"] is True
 
 
 def test_requested_chat_draft_is_persisted_by_ordinary_build(lane, tmp_path, monkeypatch):
@@ -1978,3 +2148,97 @@ def test_selected_mechanics_are_available_without_repeating_the_artifact_name(la
     assert response.status_code == 200
     references = response.json()["messages"][-1]["saved_statblocks"]
     assert [(ref["name"], ref["revision_id"]) for ref in references] == [("Meat Mind", "rev_meatmind")]
+
+
+def test_variant_markdown_preserves_cross_references_and_armor_profiles():
+    from apps.live_control_server.services.conversation_variant_markdown import render_variant_markdown
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition()
+    data = base.model_dump(mode="json")
+    data["defenses"]["armor_classes"] = [
+        {"key": "base", "default": True, "value": 16},
+        {"key": "shell", "default": False, "value": 19, "condition": "While concealed"},
+    ]
+    data["resources"] = [{"key": "charge_pool", "name": "Charge", "maximum": 2, "refresh": "At dawn"}]
+    rule = data["rule_elements"][0]
+    rule["usage"] = {"kind": "manual", "resource_key": "charge_pool"}
+    markdown = render_variant_markdown(type(base).model_validate(data))
+
+    assert "**Armor class** 16 (default)" in markdown
+    assert "**Armor class** 19 (alternate) (While concealed)" in markdown
+    assert "**Resources** Key: charge_pool; Maximum: 2; Name: Charge; Refresh: At dawn" in markdown
+    assert "**Use** Kind: manual; Resource key: charge_pool" in markdown
+    assert f"**Rule reference** `{rule['key']}`" in markdown
+
+
+def test_variant_correction_creates_a_new_review_without_saving(lane, tmp_path, monkeypatch):
+    from copy import deepcopy
+    from datetime import datetime, timezone
+    from application_state.agent_conversation.conversation_variant_save import approval_handoff
+    from application_state.unit_of_work import unit_of_work
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Draft the Meat Mind variant in this conversation for review.",
+        requested_work="draft_in_conversation", saved_statblock="associated",
+    )
+    root = f"/api/live/agent/worlds/{case.world}/conversations/{case.turn.conversation_id}"
+    draft_path = f"{root}/drafts/{case.turn.turn_id}"
+    draft = case.client.get(draft_path).json()
+    review_id, = draft["variant_review_ids"]
+    prior_path = f"{draft_path}/variant-reviews/{review_id}"
+    prior = case.client.get(prior_path).json()
+    target = prior["definition"]["rule_elements"][-1]
+    revised = target["rules_text"] + " This only happens after the warning."
+    correction = {"expected_revision": 1, "replacements": [{
+        "rule_key": target["key"], "field": "rules_text",
+        "replace_exact": target["rules_text"], "with_text": revised,
+    }]}
+    original_approval_time = datetime.now(timezone.utc)
+    result = case.client.put(prior_path, json=correction)
+    assert result.status_code == 200, result.text
+    successor = result.json()
+    assert successor["revision"] == 2
+    assert successor["review_id"] != review_id
+    assert case.client.get(prior_path).json() == prior
+    successor_path = f"{draft_path}/variant-reviews/{successor['review_id']}"
+    review = case.client.get(successor_path).json()
+    expected = deepcopy(prior)
+    expected["revision"] = 2
+    expected["definition"]["rule_elements"][-1]["rules_text"] = revised
+    assert review == expected
+    assert case.client.get(successor_path + "/saved").status_code == 404
+    assert case.client.post(prior_path + "/confirm").status_code == 409
+    assert case.client.put(prior_path, json=correction).status_code == 409
+    new_draft = case.client.get(draft_path).json()
+    assert new_draft["variant_review_ids"] == [successor["review_id"]]
+    assert revised in new_draft["markdown"]
+    primary = case.turn.provenance.primary_work
+    target_scope = dict(
+        world_id=case.world, conversation_id=case.turn.conversation_id,
+        prior_to=case.turn.sequence + 1, page_id=primary.object_id, page_kind=primary.kind,
+    )
+    with unit_of_work() as conn:
+        assert approval_handoff(conn, **target_scope, accepted_at=original_approval_time) == {"status": "stale"}
+        fresh = approval_handoff(conn, **target_scope, accepted_at=datetime.now(timezone.utc))
+    assert fresh["status"] == "ready"
+    assert str(fresh["review_id"]) == successor["review_id"]
+    edited = case.client.put(draft_path, json={
+        "expected_revision": 2, "markdown": new_draft["markdown"] + "\nUnreviewed edit.",
+    })
+    assert edited.status_code == 200, edited.text
+    with unit_of_work() as conn:
+        assert approval_handoff(conn, **target_scope, accepted_at=datetime.now(timezone.utc)) == {"status": "stale"}
+
+
+def test_variant_exact_correction_rejects_overlapping_matches():
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.conversation_variant_save import (
+        VariantTextReplacement, apply_variant_text_corrections,
+    )
+
+    definition = {"rule_elements": [{"key": "fixture", "rules_text": "aaa"}]}
+    edit = VariantTextReplacement(rule_key="fixture", field="rules_text", replace_exact="aa", with_text="b")
+    with pytest.raises(ApplicationStateConflictError, match="one exact rule passage"):
+        apply_variant_text_corrections(definition, [edit])
