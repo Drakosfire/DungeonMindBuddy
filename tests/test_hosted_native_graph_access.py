@@ -296,6 +296,9 @@ def hosted(monkeypatch, request):
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
+    from apps.live_control_server.routes.agent import get_saved_turn_graph_evidence
+
+    app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence", get_saved_turn_graph_evidence, methods=["GET"])
     from apps.live_control_server.routes import native_source_inspection
 
     app.include_router(native_source_inspection.router)
@@ -329,7 +332,8 @@ def hosted(monkeypatch, request):
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
                if "/variant-reviews/{review_id}" in key[1]
                or key[1] == "/api/live/native-source-inspection/published-recap"
-               or key[1] == "/api/live/native-source-inspection/published-recap/objects"},
+               or key[1] == "/api/live/native-source-inspection/published-recap/objects"
+               or key[1] == "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence"},
             **{
                 (
                     "POST",
@@ -3957,3 +3961,63 @@ def test_hosted_recap_objects_checks_source_pin_and_admitted_evidence(hosted, mo
     assert selected.status_code == 200, selected.text
     assert selected.json() == {"kind": "complete", "detail": {"found": True}}
     assert details == ["included"]
+
+
+def test_hosted_turn_evidence_checks_owner_and_exact_selectors(hosted, monkeypatch):
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import agent_source_passages as passages
+
+    turn_id = uuid4()
+    calls = []
+
+    def read(*, world_id, turn_id, claim_id, anchor_id, service):
+        calls.append((world_id, turn_id, claim_id, anchor_id))
+        raise passages.SourcePassageOpenError("source_passage_not_found", 404)
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(passages, "open_saved_turn_graph_evidence", read)
+    path = f"/api/live/agent/worlds/managed/conversation/turns/{turn_id}/graph-evidence?claim_id=claim&anchor_id=anchor"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&anchor_id=foreign").status_code in (403, 422)
+    assert not calls
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 404, result.text
+    assert calls == [("managed", turn_id, "claim", "anchor")]
+
+
+def test_saved_turn_evidence_withholds_mismatched_native_readback(monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.services import agent_source_passages as passages
+    from apps.live_control_server.services import agent_turn_service, managed_world_graph_projection
+
+    turn_id = uuid4()
+    turn = SimpleNamespace(world_id="managed", turn_id=turn_id, status="completed")
+    service = SimpleNamespace(inspect_turn=Mock(return_value=turn))
+    target = SimpleNamespace(
+        claim_id="claim", anchor_id="anchor", managed_world_id="managed",
+        native_world_id="native", binding_version=3, graph_revision="saved-revision",
+        source_revision_id="source-revision", source_artifact_id="artifact", evidence_ref_id="reference",
+    )
+    binding = SimpleNamespace(native_world_id=target.native_world_id, binding_version=3)
+    snapshot = SimpleNamespace(world_id=target.native_world_id, revision_id=target.graph_revision)
+    result = SimpleNamespace(
+        anchor_id=target.anchor_id, source_artifact_id=target.source_artifact_id,
+        evidence_ref_id=target.evidence_ref_id, snapshot=snapshot,
+    )
+    opened = SimpleNamespace(
+        result=result, graph_revision=target.graph_revision, source_revision_id=target.source_revision_id,
+        source_artifact_id=target.source_artifact_id, evidence_ref_id=target.evidence_ref_id,
+    )
+    read = Mock(return_value=opened)
+    monkeypatch.setattr(agent_turn_service, "_evidence_anchor_open_targets", lambda _: [target])
+    monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", lambda _: binding)
+    monkeypatch.setattr(passages.direct, "direct_services_from_config", lambda _: object())
+    monkeypatch.setattr(passages.direct, "read_source_anchor_direct_v2", read)
+
+    selectors = dict(world_id="managed", turn_id=turn_id, claim_id="claim", anchor_id="anchor", service=service)
+    assert passages.open_saved_turn_graph_evidence(**selectors) is result
+    assert read.call_args.args[1].revision_pin == target.graph_revision
+    opened.source_revision_id = "different-revision"
+    with pytest.raises(passages.SourcePassageOpenError, match="source_passage_binding_invalid"):
+        passages.open_saved_turn_graph_evidence(**selectors)

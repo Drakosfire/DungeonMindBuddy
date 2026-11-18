@@ -2852,7 +2852,10 @@ describe("World Plan conversation consumer", () => {
     expect(passage).toHaveTextContent("Exact inline source passage");expect(passage).toBeVisible();
     expect(document.getElementById("buddy-details-inline-source-turn")).toHaveAttribute("open");
     expect(read).toHaveBeenCalledOnce();
-    expect(read).toHaveBeenCalledWith(expect.objectContaining({anchorId:"anchor-test",revisionPin:"graph-revision-test"}));
+    expect(read).toHaveBeenCalledWith(
+      expect.objectContaining({anchorId: "anchor-test", revisionPin: "graph-revision-test"}),
+      {worldId, turnId: "inline-source-turn", claimId: "claim-internal-test"},
+    );
     expect(screen.getAllByText("Session 29 recap").length).toBeGreaterThan(0);
     expect(screen.queryByText("source-revision-test")).not.toBeInTheDocument();
     expect(screen.queryByText("artifact-test")).not.toBeInTheDocument();
@@ -2906,7 +2909,7 @@ describe("World Plan conversation consumer", () => {
     expect(evidenceRead).toHaveBeenCalledWith(expect.objectContaining({
       worldId: "native-world-internal-test", scopeMode: "world", campaignId: "",
       revisionPin: "graph-revision-test", anchorId: "anchor-test", admissibility: "gm",
-    }));
+    }), expect.objectContaining({ worldId, claimId: expect.any(String), turnId: expect.any(String) }));
     fireEvent.click(screen.getByRole("button", { name: "Open related recap context" }));
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
     expect(screen.getByText("Partial passage. More source text may be available.")).toBeInTheDocument();
