@@ -1,6 +1,16 @@
 # COMBAT — arrange participants without initiative
 
-ACTIVE under the operator's full Combat implementation/review/accepted-merge
+MERGED as #3984 at `c67f8b8a50c5d7aab63dd983d5bf75d859710c54`; source lease
+released to HANDOFF-COMBAT-profile-validation.md. Reviewed repaired head
+`699749676c07ee568915f6e8a67aa83e7849fa1c` has independent code/evidence acceptance.
+All41 focused checks/typecheck passed. Exact hosted1,408 selected passes/0 failures,
+build/parity/validator passed. Discovered7,917/160/2 versus base7,915/160/2: two new
+passes, no missing cases or new failed IDs. Paired Work Plans diagnostics resolve
+the failure-depth ambiguity. All remaining failures match baseline statements and
+source frames. Full discovered qualification/extra-skip parity stays red. Browser
+keyboard/source/staged-input/Save/reopen proof is synthetic, not real DB readiness.
+
+Original authority: under the operator's full Combat implementation/review/accepted-merge
 authority. Serial successor to #3981, merged
 `5711085fd69913111db7925027ccdede1b1e694a`; base that fetched main SHA, branch
 `codex/combat-manual-order`, same isolated fc67 checkout. No unmerged parent.
