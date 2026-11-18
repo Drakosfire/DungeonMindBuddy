@@ -17,14 +17,10 @@ import type { CombatEncounterDraft, CombatEncounterRecord, CombatEntity } from "
 import { CombatMechanicsInspection } from "../../combat/CombatMechanicsInspection";
 import { CombatMechanicsAdoption } from '../../combat/CombatMechanicsAdoption';
 import { CombatEncounterAssembly } from "../../combat/CombatEncounterAssembly";
+import {CombatRosterWorkspace, type CombatProjectionControl} from '../../combat/CombatRosterWorkspace';
 import "../../combat/combatRoster.css";
 import {CombatRecoverySession, combatDraftEqual, combatSelectionKey, type CombatRecovery} from "../../combat/combatRecovery";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
-
-function valueText(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  return String(value);
-}
 
 function asInput(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -36,6 +32,12 @@ function numericValue(value: number | string | null): number | null {
   if (typeof value !== "string" || value.trim() === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function manualStatValue(value: string): number | string | null {
+  if (value.trim() === "") return null;
+  const numeric = Number(value);
+  return Number.isSafeInteger(numeric) ? numeric : value;
 }
 
 function activeActor(draft: CombatEncounterDraft | null): CombatEntity | null {
@@ -56,17 +58,27 @@ function nextActor(draft: CombatEncounterDraft | null): CombatEntity | null {
 function RosterRow({
   entity,
   active,
+  hidden,
   disabled,
   onChange,
   onSetActive,
   onRemove,
+  projection,
+  onMove,
+  canMoveEarlier,
+  canMoveLater,
 }: {
   entity: CombatEntity;
   active: boolean;
+  hidden: boolean;
   disabled: boolean;
   onChange: (entity: CombatEntity) => void;
   onSetActive: () => void;
   onRemove: () => void;
+  projection: CombatProjectionControl;
+  onMove: (direction: 'earlier' | 'later') => void;
+  canMoveEarlier: boolean;
+  canMoveLater: boolean;
 }) {
   const [damage, setDamage] = useState("1");
   const [heal, setHeal] = useState("1");
@@ -85,7 +97,8 @@ function RosterRow({
 
   function applyDelta(action: "damage" | "heal", amount: number) {
     const hp = numericValue(entity.hp);
-    const maxHp = numericValue(entity.max_hp);
+    const maximum = numericValue(entity.max_hp);
+    const maxHp = maximum !== null && Number.isSafeInteger(maximum) ? maximum : null;
     if (hp === null) {
       setError("Enter numeric HP before applying damage or healing.");
       return;
@@ -96,27 +109,35 @@ function RosterRow({
       update({ temp_hp: entity.temp_hp - absorbed, hp: Math.max(0, hp - remaining) });
       return;
     }
-    update({ hp: maxHp === null ? hp + amount : Math.min(maxHp, hp + amount) });
+    update({ hp: maxHp === null ? hp + amount : Math.max(hp, Math.min(maxHp, hp + amount)) });
   }
 
   const damageAmount = Number.parseInt(damage, 10);
   const healAmount = Number.parseInt(heal, 10);
 
   return (
-    <tr className={active ? "combat-roster-active-row" : undefined}>
+    <tr hidden={hidden} className={active ? "combat-roster-active-row" : entity.defeated ? "combat-roster-defeated-row" : undefined}>
       <td>
-        <button type="button" onClick={onSetActive} disabled={disabled || entity.defeated}>
+        <button type="button" aria-label={`Set ${entity.name} as current actor`} onClick={onSetActive} disabled={disabled || entity.defeated}>
           {active ? "▶" : "Set"}
         </button>
+        <div className="combat-roster-order-controls">
+          <button type="button" aria-label={`Move ${entity.name} earlier`} disabled={disabled || !canMoveEarlier}
+            onClick={() => onMove('earlier')}>↑</button>
+          <button type="button" aria-label={`Move ${entity.name} later`} disabled={disabled || !canMoveLater}
+            onClick={() => onMove('later')}>↓</button>
+        </div>
       </td>
-      <td>
+      <td className="combat-roster-participant">
         <strong>{entity.name}</strong>
         <div className="module-muted">
           {entity.world_identity ? `World: ${entity.world_identity.label} · Manual stats` : entity.statblock_title ?? entity.statblock_artifact_id ?? entity.source}
         </div>
-        {entity.mechanics_snapshot && <CombatMechanicsInspection snapshot={entity.mechanics_snapshot} />}
-      </td>
-      <td>
+        {entity.mechanics_snapshot && <CombatMechanicsInspection snapshot={entity.mechanics_snapshot} presentation="dialog" />}
+        {entity.mechanics_snapshot && <button type="button" aria-label={`Keep statblock open for ${entity.name}`}
+          aria-pressed={projection.selected} aria-controls={projection.selected ? projection.regionId : undefined}
+          onClick={event => projection.open(event.currentTarget)}>Keep statblock open</button>}
+        <div className="combat-roster-team">
         <select
           aria-label={`Team for ${entity.name}`}
           value={entity.team}
@@ -128,6 +149,7 @@ function RosterRow({
           <option value="enemy">Enemy</option>
           <option value="neutral">Neutral</option>
         </select>
+        </div>
       </td>
       <td>
         <input
@@ -138,8 +160,12 @@ function RosterRow({
           onChange={(event) => update({ init: numberOrNull(event.target.value) })}
         />
       </td>
-      <td>{valueText(entity.ac)}</td>
       <td>
+        <input aria-label={`AC for ${entity.name}`} className="combat-roster-short-input"
+          value={asInput(entity.ac)} maxLength={64} disabled={disabled}
+          onChange={event => update({ac: manualStatValue(event.target.value)})}/>
+      </td>
+      <td className="combat-roster-health">
         <input
           aria-label={`HP for ${entity.name}`}
           className="combat-roster-short-input"
@@ -149,9 +175,11 @@ function RosterRow({
             const parsed = numberOrNull(event.target.value);
             update({ hp: parsed === null && event.target.value.trim() !== "" ? event.target.value : parsed });
           }}
-        />{" "}/ {valueText(entity.max_hp)}
-      </td>
-      <td>
+        />{" "}/ <input aria-label={`Maximum HP for ${entity.name}`} className="combat-roster-short-input"
+          title="Whole numbers cap healing. Text values are tracked manually."
+          value={asInput(entity.max_hp)} maxLength={64} disabled={disabled}
+          onChange={event => update({max_hp: manualStatValue(event.target.value)})}/>
+        <label className="combat-roster-temp"><span>Temp</span>
         <input
           aria-label={`Temp HP for ${entity.name}`}
           className="combat-roster-short-input"
@@ -159,6 +187,7 @@ function RosterRow({
           disabled={disabled}
           onChange={(event) => update({ temp_hp: Math.max(0, numberOrNull(event.target.value) ?? 0) })}
         />
+        </label>
       </td>
       <td>
         <div className="combat-roster-delta-controls">
@@ -194,7 +223,8 @@ function RosterRow({
           </button>
         </div>
       </td>
-      <td>
+      <td className="combat-roster-notes">
+        <span className="eyebrow">Conditions</span>
         <input
           aria-label={`Conditions for ${entity.name}`}
           value={entity.conditions.join(", ")}
@@ -203,8 +233,7 @@ function RosterRow({
             conditions: event.target.value.split(",").map((item) => item.trim()).filter(Boolean),
           })}
         />
-      </td>
-      <td>
+        <span className="eyebrow">Notes</span>
         <textarea
           aria-label={`Notes for ${entity.name}`}
           value={entity.notes}
@@ -238,6 +267,8 @@ function cloneDraft(draft: CombatEncounterDraft): CombatEncounterDraft {
 export interface PreparedCombatOwnerReading {record:CombatEncounterRecord|null;blocked:boolean;error:string|null;acknowledged:{dispatchScope:TourDispatchScope|null;scope:TourEncounterScope;before:CombatEncounterRecord;saved:CombatEncounterRecord}|null}
 export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:CombatEncounterRecord;onPreparedState?:(reading:PreparedCombatOwnerReading|null)=>void;runScope?:import("../../combat/runEncountersApi").RunEncounterScope};
 export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;variant?:SavedConversationVariantTarget} = {}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const turnRailRef = useRef<HTMLElement>(null);
   const tourRun=useTourRun(),tour=useGuidedTour(),tourEncounter=useTourEncounter();
   const [preparedAcknowledged,setPreparedAcknowledged]=useState<PreparedCombatOwnerReading["acknowledged"]>(null);
   const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedCombatSave|null>(null);
@@ -320,6 +351,16 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
 
   const visibleRecord = record?.world_id === worldId ? record : null;
   const visibleDraft = visibleRecord ? draft : null;
+  const livingOrder = visibleDraft?.entities.filter(entity => !entity.defeated).map(entity => entity.id) ?? [];
+  useLayoutEffect(() => {
+    const rail = turnRailRef.current, panel = panelRef.current;
+    if (!rail || !panel) return;
+    const measure = () => panel.style.setProperty('--combat-turn-rail-height', `${rail.getBoundingClientRect().height}px`);
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(rail);
+    return () => {observer?.disconnect(); panel.style.removeProperty('--combat-turn-rail-height');};
+  }, [visibleRecord?.encounter_id, worldId]);
   const visibleEncounters = encounters.filter((item) => item.world_id === worldId);
   const worldListLoading = worldId !== null && (loading || loadedWorldId !== worldId);
   const dirty = Boolean(visibleRecord && visibleDraft && JSON.stringify(visibleRecord.draft) !== JSON.stringify(visibleDraft));
@@ -371,10 +412,16 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
   }
 
   function updateEntity(entityId: string, replacement: CombatEntity) {
-    updateDraft((current) => ({
-      ...current,
-      entities: current.entities.map((entity) => entity.id === entityId ? replacement : entity),
-    }));
+    updateDraft((current) => {
+      const entities = current.entities.map((entity) => entity.id === entityId ? replacement : entity);
+      const index = entities.findIndex(entity => entity.id === entityId);
+      const successor = [...entities.slice(index + 1), ...entities.slice(0, index)]
+        .find(entity => !entity.defeated)?.id ?? null;
+      return {...current, entities,
+        active_turn_entity_id: replacement.defeated && current.active_turn_entity_id === entityId
+          ? successor : current.active_turn_entity_id,
+      };
+    });
   }
 
   async function createEncounter() {
@@ -490,6 +537,20 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     });
   }
 
+  function moveEntity(entityId: string, direction: 'earlier' | 'later') {
+    updateDraft(current => {
+      const participating = current.entities.filter(entity => !entity.defeated);
+      const index = participating.findIndex(entity => entity.id === entityId);
+      const neighbor = participating[index + (direction === 'earlier' ? -1 : 1)];
+      if (index < 0 || !neighbor) return current;
+      const entities = [...current.entities];
+      const from = entities.findIndex(entity => entity.id === entityId);
+      const to = entities.findIndex(entity => entity.id === neighbor.id);
+      [entities[from], entities[to]] = [entities[to], entities[from]];
+      return {...current, entities: entities.map((entity, order) => ({...entity, order: order + 1}))};
+    });
+  }
+
   function setActive(entityId: string) {
     updateDraft((current) => current.entities.some((entity) => entity.id === entityId && !entity.defeated)
       ? { ...current, active_turn_entity_id: entityId, round_start_entity_id: current.round_start_entity_id ?? entityId }
@@ -510,7 +571,11 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
       }
       const from = activeIndex;
       const nextIndex = (from + (direction === "next" ? 1 : living.length - 1)) % living.length;
-      const wrapped = direction === "next" ? nextIndex <= from : nextIndex >= from;
+      const anchorIndex = current.entities.findIndex(entity => entity.id === current.round_start_entity_id);
+      const anchoredOrder = anchorIndex < 0 ? current.entities
+        : [...current.entities.slice(anchorIndex), ...current.entities.slice(0, anchorIndex)];
+      const roundStart = anchoredOrder.find(entity => !entity.defeated)?.id;
+      const wrapped = direction === "next" ? living[nextIndex]?.id === roundStart : living[from]?.id === roundStart;
       return {
         ...current,
         active_turn_entity_id: living[nextIndex]?.id ?? null,
@@ -552,7 +617,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
         : null;
 
   return (
-    <div className="module-panel combat-roster" data-module-id="combat_roster">
+    <div ref={panelRef} className="module-panel combat-roster" data-module-id="combat_roster">
       <CombatTourObservation record={visibleRecord} runScope={scope?.runScope??null} acknowledged={tourAcknowledged} blocked={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked} error={error}/>
       <h2 className="module-title" data-guided-control="combat" data-guided-control-group="true" tabIndex={-1}>Combat</h2>
       {worldMessage ? <p className="module-muted">{worldMessage}</p> : null}
@@ -611,7 +676,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
           ) : null}
           {visibleRecord && visibleDraft ? (
             <>
-              <section className="combat-roster-turn-rail" aria-label="Combat turn controls">
+              <section ref={turnRailRef} className="combat-roster-turn-rail" aria-label="Combat turn controls">
                 <div><span className="eyebrow">Round</span><strong>{visibleDraft.round}</strong></div>
                 <div><span className="eyebrow">Active</span><strong>{active?.name ?? "No active actor"}</strong></div>
                 <div><span className="eyebrow">Next</span><strong>{next?.name ?? "—"}</strong></div>
@@ -626,6 +691,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
                 </label>
                 <span className="module-muted">{visibleRecord.ruleset.system_id} · {visibleRecord.ruleset.edition_id} · config rev {visibleRecord.ruleset.revision} · pinned {visibleRecord.ruleset_digest.slice(0, 12)}</span>
               </header>
+              <details className="combat-roster-setup" open={adoptionBlocked ? true : undefined}><summary>Encounter setup · saved mechanics</summary>
               <CombatMechanicsAdoption key={`adoption:${worldId}:${visibleRecord.encounter_id}`}
                 scope={scope?.runScope} record={visibleRecord} disabled={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current}
                 onLockChange={setAdoptionBlocked} onReconciled={current=>{
@@ -638,6 +704,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
                   setRecord(current);setDraft(draftRef.current);setAvailableRecovery(null);setRecoveryMessage(null);
                   setEncounters(items=>[current,...items.filter(item=>item.encounter_id!==current.encounter_id)]);
                 }}/>
+              </details>
               <CombatEncounterAssembly key={`${worldId}:${worldRequestGeneration.current}:${visibleRecord.encounter_id}`}
                 worldId={worldId} variant={variant} disabled={operationsBlocked || availableRecovery !== null} remainingSlots={100 - visibleDraft.entities.length}
                 onAdd={(entities, group) => {
@@ -654,24 +721,27 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
               {visibleDraft.entities.length === 0 ? (
                 <p className="module-muted">Add combatants to assemble this encounter.</p>
               ) : (
-                <div className="combat-roster-table-wrap">
-                  <table className="combat-roster-table">
-                    <thead><tr><th>Turn</th><th>Name</th><th>Team</th><th>Init</th><th>AC</th><th>HP</th><th>Temp</th><th>Delta</th><th>Conditions</th><th>Notes</th><th>Status</th></tr></thead>
-                    <tbody>
-                      {visibleDraft.entities.map((entity) => (
+                <CombatRosterWorkspace key={JSON.stringify([worldId, visibleRecord.encounter_id, scope?.runScope?.runId, scope?.runScope?.sceneId])}
+                  draft={visibleDraft} disabled={replacingDraft}
+                  onToggleGroup={key => updateDraft(current => ({...current,
+                    groups: current.groups.map(group => group.group_key === key ? {...group, collapsed: !group.collapsed} : group),
+                  }))}
+                  renderRow={(entity, hidden, projection) => (
                         <RosterRow
                           key={entity.id}
                           entity={entity}
                           active={entity.id === visibleDraft.active_turn_entity_id}
+                          hidden={hidden}
+                          projection={projection}
+                          onMove={direction => moveEntity(entity.id, direction)}
+                          canMoveEarlier={livingOrder.indexOf(entity.id) > 0}
+                          canMoveLater={!entity.defeated && livingOrder.indexOf(entity.id) < livingOrder.length - 1}
                           disabled={replacingDraft}
                           onChange={(updated) => updateEntity(entity.id, updated)}
                           onSetActive={() => setActive(entity.id)}
                           onRemove={() => removeEntity(entity.id)}
                         />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      )}/>
               )}
               {error?.includes("changed since it was opened") ? (
                 <button type="button" disabled={operationsBlocked} onClick={() => void reloadEncounter()}>Reload latest revision</button>
