@@ -435,7 +435,7 @@ def retain_pdf_in_bound_world(world_id, binding, command, raw):
     return revision
 
 
-def _ensure_native_source_space(repository, world_id, native_world_id):
+def _ensure_native_source_space(repository, world_id, native_world_id, *, authorize_world=None):
     try:
         existing_head = repository.get_head(native_world_id)
     except Exception as exc:
@@ -447,6 +447,8 @@ def _ensure_native_source_space(repository, world_id, native_world_id):
             field="managed World created_at",
         )
         initialization_id = _stable_id("dmb-world-genesis", native_world_id)
+        if authorize_world is not None:
+            authorize_world(world_id)
         try:
             initialize_empty_knowledge_space(
                 repository=repository, space_id=native_world_id,
@@ -490,7 +492,7 @@ def admit_native_world_source(
 
     _require_source_binding(root, world_id, sealed_world_binding)
     config.managed_world_data_root(root)
-    _ensure_native_source_space(repository, world_id, native_world_id)
+    _ensure_native_source_space(repository, world_id, native_world_id, authorize_world=authorize_world)
 
     expected_origin = _origin(snapshot)
     for attempt in range(MAX_ADMISSION_ATTEMPTS):
@@ -529,6 +531,8 @@ def admit_native_world_source(
             spans=[span],
         )
         _require_source_binding(root, world_id, sealed_world_binding)
+        if authorize_world is not None:
+            authorize_world(world_id)
         try:
             receipt = publish_native_text_source_evidence(
                 repository=repository,
