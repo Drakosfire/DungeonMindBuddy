@@ -266,6 +266,31 @@ async def resolve_hosted_mechanics_association(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_native_creature(request: Request) -> str:
+    from apps.live_control_server.models.native_threat_creation import ConfirmNativeThreat, PrepareNativeThreat
+
+    draft_id = getattr(request.state, "hosted_route_draft_id", None)
+    if not draft_id:
+        raise _denied()
+    if request.method == "GET":
+        world_id = request.query_params.get("world_id")
+        if not world_id or request.query_params.multi_items() != [("world_id", world_id)] or await request.body():
+            raise _denied()
+    else:
+        if request.query_params:
+            raise _denied()
+        if request.url.path.endswith("/confirm"):
+            review = ConfirmNativeThreat.model_validate(await request.json()).review
+            if str(review.draft_id) != draft_id:
+                raise _denied()
+            world_id = review.world_id
+        else:
+            world_id = PrepareNativeThreat.model_validate(await request.json()).world_id
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_conversation_world(request: Request) -> str:
     world_id = getattr(request.state, "hosted_route_world_id", None)
     if not world_id or (request.method == "GET" and await request.body()):

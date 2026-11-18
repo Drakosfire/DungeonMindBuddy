@@ -257,7 +257,7 @@ def hosted(monkeypatch, request):
 
     from apps.live_control_server.routes import play_prepared_tables, play_runs
 
-    from apps.live_control_server.routes import statblock_candidates, threat_drafts, world_mechanics_associations
+    from apps.live_control_server.routes import native_threat_creation, statblock_candidates, threat_drafts, world_mechanics_associations
 
     app.include_router(statblock_candidates.router)
     from apps.live_control_server.routes import combat_encounters
@@ -291,6 +291,7 @@ def hosted(monkeypatch, request):
     app.include_router(combat_encounters.router)
     app.include_router(threat_drafts.router)
     app.include_router(world_mechanics_associations.router)
+    app.include_router(native_threat_creation.router)
     app.include_router(play_runs.router)
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
@@ -409,6 +410,9 @@ def hosted(monkeypatch, request):
             ("PUT", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_saved_statblock,
+            ("GET", "/api/live/threat-drafts/{draft_id}/native-creature"): access.resolve_hosted_native_creature,
+            ("POST", "/api/live/threat-drafts/{draft_id}/native-creature/prepare"): access.resolve_hosted_native_creature,
+            ("POST", "/api/live/threat-drafts/{draft_id}/native-creature/confirm"): access.resolve_hosted_native_creature,
             ("DELETE", "/api/live/threat-drafts/{draft_id}/saved-statblock"): access.resolve_hosted_saved_statblock,
             ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_statblock_revision_save,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}"): access.resolve_hosted_saved_statblock,
