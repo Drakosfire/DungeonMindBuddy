@@ -360,7 +360,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/media/images/preparations/list"): access.resolve_hosted_image_history,
-            ("GET", "/api/live/media/images/capabilities"): access.resolve_hosted_image_capabilities,
+            ("GET", "/api/live/media/images/capabilities"): access.resolve_hosted_image_world,
+            ("POST", "/api/live/media/images/generate"): access.resolve_hosted_image_world,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
@@ -2993,6 +2994,60 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+@pytest.mark.parametrize("transfer", [False, True])
+def test_hosted_generated_artwork_is_readable_in_its_world(hosted, application_state_dsn, monkeypatch, transfer):
+    from io import BytesIO
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from PIL import Image
+    from application_state import media
+    from apps.live_control_server.routes import media_images
+
+    output = BytesIO()
+    Image.new("RGB", (2, 2)).save(output, format="PNG")
+    payload = output.getvalue()
+    async def generate(*_args):
+        if transfer:
+            hosted.records["managed"] = hosted.records["managed"].model_copy(
+                update={"owner_subject": OTHER_OWNER},
+            )
+        return SimpleNamespace(
+            images=[SimpleNamespace(content=payload, media_type="image/png")],
+            observation=SimpleNamespace(model_dump=lambda **kwargs: {"provider": "fixture"}),
+        )
+
+    provider = SimpleNamespace(
+        generate_image=AsyncMock(side_effect=generate), aclose=AsyncMock(),
+    )
+    monkeypatch.setattr(media_images, "_fal_key", lambda: "fixture")
+    monkeypatch.setattr(media_images, "_image_client", lambda: provider)
+    path = "/api/live/media/images/generate?world_id=managed"
+    body = {"prompt": "A gate at dusk", "model": "flux-2-pro"}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert hosted.client.request("POST", path.replace("managed", "foreign"), json=body).status_code == 403
+    provider.generate_image.assert_not_called()
+    if transfer:
+        from unittest.mock import Mock
+
+        stage = Mock(wraps=media.stage_image)
+        monkeypatch.setattr(media, "stage_image", stage)
+        response = hosted.client.request("POST", path, json=body)
+        assert response.status_code == 403, response.text
+        provider.generate_image.assert_awaited_once()
+        stage.assert_not_called()
+        return
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    asset_id = response.json()["images"][0]["asset_id"]
+    assert media.get_asset(asset_id, access.hosted_world_media_owner("managed"))["state"] == "staged"
+    original = hosted.client.request("GET", f"/api/live/media/images/{asset_id}/original")
+    assert original.status_code == 200, original.text
+    assert original.content == payload
+    provider.generate_image.assert_awaited_once()
 
 
 def test_hosted_image_capabilities_require_owner(hosted, monkeypatch):

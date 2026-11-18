@@ -138,7 +138,10 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
     if (model.controls.includes('seed') && seed !== '') options.seed = Number(seed);
     const tourScope=tourImage?.captureScope()??null;
     try {
-      const generated = await port.generate({ prompt, purpose, model: modelId, width, height, options, ...(preparationId ? { preparation_id: preparationId } : {}) });
+      const input = { prompt, purpose, model: modelId, width, height, options, ...(preparationId ? { preparation_id: preparationId } : {}) };
+      const generated: ImageGenerationResult = worldId && port === livePort
+        ? await request(`generate?world_id=${encodeURIComponent(worldId)}`, input)
+        : await port.generate(input);
       tourImage?.generated(generated.images.map(image=>image.asset_id),generated.model,tourScope);
       setCompletion(generated.images[0] ?? null);
       if (libraryOpenRef.current) {

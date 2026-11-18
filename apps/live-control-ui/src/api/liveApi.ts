@@ -496,6 +496,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
       && body.expected_revision > 0 && isRecord(body.base);
   }
+  const imageGeneration = /^\/api\/live\/media\/images\/generate\?([^#]+)$/.exec(path);
+  if (imageGeneration) {
+    const query = new URLSearchParams(imageGeneration[1]);
+    return method === "POST" && query.size === 1 && Boolean(query.get("world_id"))
+      && isRecord(requestBodyRecord(init?.body));
+  }
   const imageCapabilities = "/api/live/media/images/capabilities?";
   if (path.startsWith(imageCapabilities)) {
     const world = new URLSearchParams(path.slice(imageCapabilities.length)).get("world_id");
