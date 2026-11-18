@@ -62,7 +62,7 @@ v7-elderwyld-scope. Owner retains refs/evidence forreview/integration, cleanupaf
 explicit scope/process/mount/dirty/unique-data/commitchecks. No globalsettings or
 sharedvenv modification; no newmanualworktree/env, manualremoval orservingwrites.
 
-Implementation checkpoint: acceptedCorepin a9e308f in both pyproject declarations
+Earlier one-slot checkpoint (e762e35): acceptedCorepin a9e308f in both pyproject declarations
 and uv.lock. Selectedservice owns/injects one64MiB cache; standalonefactorydefault
 None.76owner/source-inspection checks passed against exactacceptedCore source.
 Three new cases prove selectedowner/defaultabsence/read-onlyforwarding; existing
@@ -94,3 +94,11 @@ Olde762 owner/auth/HTTP evidence remains checkpoint only, not newheadqualificati
 Frontend was refused byexternallyheldOSlock before anytestsallocated. Retry only
 throughnormal sharedlock; nootherprocess/lockinode changes. Independentreviewmust
 cover poollock/eviction/isolation/budget and newhead allrequiredchecks.
+
+Two-slot implementation: service pool retains at most2identity-selected Core proof
+objects with32MiB each,64MiB totalcontent cap. Locked LRU selection/eviction is
+Buddy ownership only; Core complete-current-row verification is unchanged.
+78owner/source-inspection cases pass on candidateCore composition, including
+2newLRU/budget/concurrent selection checks. Exactaccepted-pin owner/auth and
+newheadqualification remain pending. Historical/source proof2-hit latency is not
+yet measured; priorone-slotcohort mustnotbe presented as thishead's result.

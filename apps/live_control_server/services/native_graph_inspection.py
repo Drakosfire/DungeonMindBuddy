@@ -1,6 +1,8 @@
 """Faithful native inspection; Core owns admission, identity and source access."""
 
 from base64 import b64encode
+from collections import OrderedDict
+from threading import Lock
 
 from dungeonmind.application.vnext import (
     EntityReadService,
@@ -526,7 +528,7 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
             scope=pin,
             selection={"kind": "source", "assertion_id": assertion_id, "evidence_ref_id": evidence_ref_id},
         ), principal, include_source_span=include_receipt, _parsed_cache=_shared_parsed_cache,
-            _verification_cache=_shared_verification_cache)
+            _verification_cache=_shared_verification_caches.for_pin(pin))
     except KnowledgeReadContextIntegrityError:
         if native.read_repository().get_revision(pin.native_world_id, pin.revision_id) is None:
             return empty
@@ -564,10 +566,39 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
     )
 
 
+class _SourceVerificationProofPool:
+    """Explicit per-worker retention; pin identity selects a slot, never authority.
+
+    Two Core proof objects each enforce a32MiB content cap. Core still fetches and
+    compares the complete current source on every use. Detached in-flight slots
+    are request-owned until completion and are not counted as retained pool RSS.
+    """
+    max_bytes = 64 * 1024 * 1024
+
+    def __init__(self):
+        self._lock = Lock()
+        self._entries = OrderedDict()
+
+    def for_pin(self, pin):
+        key = (pin.native_world_id, pin.revision_id)
+        with self._lock:
+            if key in self._entries:
+                self._entries.move_to_end(key)
+                return self._entries[key]
+            cache = VerifiedKnowledgeRevisionCache(max_bytes=self.max_bytes // 2)
+            self._entries[key] = cache
+            if len(self._entries) > 2:
+                self._entries.popitem(last=False)
+            return cache
+
+    @property
+    def retained_bytes(self):
+        with self._lock:
+            return sum(cache.retained_bytes for cache in self._entries.values())
+
+
 _shared_parsed_cache = NativeParsedRevisionCache()
-# Explicit per-worker service ownership; immutable proofs only, never admission.
-# Retained10k content28.4MB fits this candidate budget; total RSS acceptance is separate.
-_shared_verification_cache = VerifiedKnowledgeRevisionCache(max_bytes=64 * 1024 * 1024)
+_shared_verification_caches = _SourceVerificationProofPool()
 
 
 def _shared_retrieval_pin(request, principal):
@@ -605,7 +636,7 @@ def shared_neighborhood(request, principal, *, object_id=None):
     bound, head, pin = _shared_retrieval_pin(request, principal)
     _, read, _, _, _ = _pinned(
         pin, principal, parsed_cache=_shared_parsed_cache,
-        verification_cache=_shared_verification_cache,
+        verification_cache=_shared_verification_caches.for_pin(pin),
     )
     return _shared_retrieval_projection(request, bound, head, pin, read, object_id=object_id)
 

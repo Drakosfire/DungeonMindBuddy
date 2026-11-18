@@ -1455,12 +1455,10 @@ def test_cached_anchor_follows_visible_revision_and_restores_historical_content(
 
 
 def test_selected_neighborhood_and_anchor_share_explicit_source_proof_owner(inspection, monkeypatch):
-    from dungeonmind.infrastructure.postgres.vnext_knowledge import VerifiedKnowledgeRevisionCache
-
     x = inspection
     query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
-    cache = VerifiedKnowledgeRevisionCache(max_bytes=64 * 1024 * 1024)
-    monkeypatch.setattr(service, "_shared_verification_cache", cache)
+    pool = service._SourceVerificationProofPool()
+    monkeypatch.setattr(service, "_shared_verification_caches", pool)
     factories = []
     def factory(**kwargs):
         factories.append(kwargs)
@@ -1473,8 +1471,8 @@ def test_selected_neighborhood_and_anchor_share_explicit_source_proof_owner(insp
         assert opened.status_code == 200, opened.text
         assert opened.json()["content"] == x.lane.text.splitlines(keepends=True)[0]
     owners = [kwargs["verification_cache"] for kwargs in factories if "verification_cache" in kwargs]
-    assert len(owners) == 3 and all(owner is cache for owner in owners)
-    assert cache.max_bytes == 67_108_864
+    assert len(owners) == 3 and all(owner is owners[0] for owner in owners)
+    assert owners[0].max_bytes == 33_554_432 and pool.max_bytes == 67_108_864
     assert counts == {"parse": 1, "revision": 3, "source": 3}
 
 
@@ -1512,3 +1510,32 @@ def test_read_only_repository_factory_forwards_optional_proof_cache_without_open
     options = conninfo_to_dict(owned._database._database_url)["options"]
     assert "statement_timeout=20" in options and "default_transaction_read_only=on" in options
     assert cache.retained_bytes == 0
+
+
+
+def test_source_proof_pool_retains_two_pins_with_a_fixed_total_budget():
+    pool = service._SourceVerificationProofPool()
+    pin = lambda world, revision: SimpleNamespace(native_world_id=world, revision_id=revision)
+    old = pool.for_pin(pin("space:a", "rev:old"))
+    new = pool.for_pin(pin("space:a", "rev:new"))
+    assert pool.for_pin(pin("space:a", "rev:old")) is old
+    assert pool.for_pin(pin("space:a", "rev:new")) is new
+    assert old.max_bytes == new.max_bytes == pool.max_bytes // 2
+    assert old.max_bytes + new.max_bytes == 67_108_864
+    other = pool.for_pin(pin("space:b", "rev:new"))
+    assert other is not new and len(pool._entries) == 2
+    assert pool.for_pin(pin("space:a", "rev:new")) is new
+    assert pool.for_pin(pin("space:a", "rev:old")) is not old
+    assert len(pool._entries) == 2 and pool.retained_bytes == 0
+
+
+def test_source_proof_pool_concurrent_pin_selection_has_one_owner_per_pin():
+    from concurrent.futures import ThreadPoolExecutor
+
+    pool = service._SourceVerificationProofPool()
+    pins = [SimpleNamespace(native_world_id="space:a", revision_id=f"rev:{i}") for i in range(2)]
+    owners = [pool.for_pin(pin) for pin in pins]
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        values = list(executor.map(lambda i: pool.for_pin(pins[i % 2]), range(32)))
+    assert all(value is owners[i % 2] for i, value in enumerate(values))
+    assert len(pool._entries) == 2
