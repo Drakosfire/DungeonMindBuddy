@@ -50,3 +50,19 @@ verification mirrors/caches stay under the verified v7-elderwyld-scope task root
 ingestion or frozen baseline rerun. Retain active review artifacts with explicit
 cleanup follow-up and process/mount/dirty-data/unique-commit checks; no deletion
 permission is inferred. Core cutover goal remains performance-gated.
+
+Implementation: inspect accepts a private optional _parsed_cache and forwards it
+to _pinned; only open_neighborhood_anchor supplies the existing shared cache.
+Standalone inspect defaults to uncached preparation. No other read/auth path or
+dependency changes. All37 owner tests pass with exact declared Core a672791b
+source and separately with candidate Core74f24c2. Six new checks prove one parse
+across neighborhood/citation while every call verifies revision/opens source;
+fixed-graph withdrawal withholding; scope denial; standalone default; and visible
+new/historical response/citation restoration. Full exact-SHA auth contract,
+repo-required hosted local verifier and independent review remain pending.
+
+Retain Core source verification mirror at
+/home/drakosfire/Projects/.codex/v7-elderwyld-scope/verification/core-a672-anchor-reuse
+(archive of exacta672791bacd14a55da488b4639d95dfe39de3805, no dependency changes)
+for declared-pin verification. Cleanup after delivery with active process/mount,
+unique-data/commit checks and explicit scope; no removals authorized here.
