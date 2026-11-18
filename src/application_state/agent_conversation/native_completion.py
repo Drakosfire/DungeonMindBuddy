@@ -240,6 +240,15 @@ def _apply_statblock_rule_edits(base, proposal):
             if field == "replace_rules":
                 rules[inherited[key]] = rule
             else:
+                mechanic = rule["mechanic"]
+                if (rule["automation_support"] == "manual"
+                        and mechanic["kind"] == "multiattack"
+                        and mechanic["sequences"] == [
+                            {"element_key": key, "count": 1, "choice_group": None},
+                        ]):
+                    # A manual rule pointing only to itself has no executable
+                    # attack sequence. Its existing rules text governs play.
+                    rule["mechanic"] = {"kind": "human_adjudicated", "adjudication_tags": []}
                 rules.append(rule)
     if not edited:
         raise ValueError("Statblock variant must propose at least one rule edit")
