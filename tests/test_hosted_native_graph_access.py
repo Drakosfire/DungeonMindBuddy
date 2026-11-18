@@ -338,6 +338,7 @@ def hosted(monkeypatch, request):
                or "/work-plans/{source_turn_id}" in key[1]
                or key[1] == "/api/live/native-source-inspection/published-recap"
                or key[1] == "/api/live/native-source-inspection/published-recap/objects"
+               or key[1] == "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"
                or key[1] == "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence"
                or key[1] == "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence"},
             **{
@@ -3991,6 +3992,18 @@ def test_hosted_turn_evidence_checks_owner_and_exact_selectors(hosted, monkeypat
     assert calls == [("managed", turn_id, "claim", "anchor")]
 
 
+    def recap(*, continuation, **coords):
+        calls.append((coords["anchor_id"], continuation))
+        raise passages.SourcePassageOpenError("source_passage_not_found", 404)
+
+    monkeypatch.setattr(passages, "open_saved_turn_related_recap", recap)
+    assert hosted.client.request("GET", path + "&continuation=invalid").status_code == 422
+    recap_path = path.replace("anchor_id=anchor", "anchor_id=dm-context-anchor%3Av2%3Arecap")
+    recap_path += "&continuation=recap-page%3Av2%3Asecond"
+    result = hosted.client.request("GET", recap_path)
+    assert result.status_code == 404, result.text
+    assert calls[-1] == ("dm-context-anchor:v2:recap", "recap-page:v2:second")
+
 def test_saved_turn_evidence_withholds_mismatched_native_readback(monkeypatch):
     from unittest.mock import Mock
 
@@ -4081,6 +4094,78 @@ def test_saved_action_evidence_resolves_target_from_exact_plan_action(monkeypatc
     with pytest.raises(passages.SourcePassageOpenError, match="source_passage_not_found"):
         passages.open_saved_plan_action_graph_evidence(**selectors, claim_id="other")
     open_anchor.assert_called_once_with(target)
+
+
+def test_saved_turn_related_recap_binds_continuation_to_saved_revision(monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.services import agent_source_passages as passages
+    from apps.live_control_server.services import agent_turn_service, managed_world_graph_projection
+
+    turn_id = uuid4()
+    turn = SimpleNamespace(world_id="managed", turn_id=turn_id, status="completed")
+    service = SimpleNamespace(inspect_turn=Mock(return_value=turn))
+    target = SimpleNamespace(
+        kind="related_recap_context", claim_id="claim", context_anchor_id="dm-context-anchor:v2:recap",
+        managed_world_id="managed", native_world_id="native", binding_version=3, graph_revision="saved-revision",
+        source_revision_id="source-revision", source_artifact_id="artifact", content_sha256="a" * 64,
+    )
+    binding = SimpleNamespace(native_world_id="native", binding_version=3)
+    descriptor = SimpleNamespace(
+        source_artifact_id=target.source_artifact_id, source_revision_id=target.source_revision_id,
+        content_sha256=target.content_sha256, context_anchor_id=target.context_anchor_id,
+    )
+    snapshot = SimpleNamespace(world_id=target.native_world_id, revision_id=target.graph_revision)
+    result = SimpleNamespace(context=descriptor, snapshot=snapshot)
+    read = Mock(return_value=result)
+    monkeypatch.setattr(agent_turn_service, "project_plan_turn_context", lambda *args, **kwargs: SimpleNamespace(source_open_targets=[target]))
+    monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_world_binding", lambda _: binding)
+    monkeypatch.setattr(passages.direct, "direct_services_from_config", lambda _: object())
+    monkeypatch.setattr(passages.direct, "read_recap_context_direct_v2", read)
+    continuation = "recap-page:v2:" + "b" * 64 + ":26"
+    selectors = dict(
+        world_id="managed", turn_id=turn_id, claim_id="claim", anchor_id=target.context_anchor_id,
+        service=service, continuation=continuation,
+    )
+
+    assert passages.open_saved_turn_related_recap(**selectors) is result
+    request = read.call_args.args[1]
+    assert (request.revision_pin, request.continuation) == (target.graph_revision, continuation)
+    snapshot.revision_id = "different-revision"
+    with pytest.raises(passages.SourcePassageOpenError, match="source_passage_binding_invalid"):
+        passages.open_saved_turn_related_recap(**selectors)
+
+
+def test_hosted_plan_terminal_diagnostic_reads_owned_action(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import live
+    from apps.live_control_server.services import plan_action_terminal_diagnostic
+
+    read = Mock(return_value={"availability": "unavailable"})
+    monkeypatch.setattr(plan_action_terminal_diagnostic, "terminal_diagnostic", read)
+    monkeypatch.setattr(live, "get_world_container", lambda world: world)
+    action = uuid4()
+    path = f"/api/live/world-plan-edit/actions/{action}/terminal-diagnostic?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    read.assert_called_once_with("managed", action)
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"diagnostic": "Private saved diagnostic"}
+
+    read.side_effect = transfer_during_read
+    denied = hosted.client.request("GET", path)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert "Private saved diagnostic" not in denied.text
 
 
 def test_hosted_saved_work_plan_reads_exact_turn(hosted, monkeypatch):

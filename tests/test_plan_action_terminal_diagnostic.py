@@ -1,3 +1,4 @@
+from tests.test_hosted_native_graph_access import hosted, recap_lane  # noqa: F401
 """Runtime producer, Action attribution, strict vocabulary and private read tests."""
 from types import SimpleNamespace
 import pytest
@@ -127,6 +128,30 @@ def test_mounted_diagnostic_read_requires_auth_owner_and_exact_selector(applicat
     assert response.status_code == 200 and response.json()["diagnostic"] is None
 
 
+def test_hosted_diagnostic_reads_persisted_action_in_exact_world(application_state_dsn, monkeypatch, request):
+    import json
+
+    from tests.application_state.test_plan_action_terminal_diagnostic import diagnostic, retain
+    from tests.test_hosted_native_graph_access import HOSTED_WORLD_ACCESS_ENV, OWNER, _record
+
+    store, action, _, _ = frozen()
+    action, _ = retain(store, action, diagnostic(action))
+    hosted = request.getfixturevalue("hosted")
+    world = action.basis.world_id
+    hosted.records[world] = _record(world, OWNER, "native-diagnostic-fixture")
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER], "managed": [OWNER]}))
+    path = f"/api/live/world-plan-edit/actions/{action.action_id}/terminal-diagnostic"
+
+    result = hosted.client.request("GET", f"{path}?world_id={world}")
+    assert result.status_code == 200, result.text
+    assert result.json()["action_id"] == str(action.action_id)
+    assert result.json()["diagnostic"]["unavailable_reason"] == "missing_or_not_retained"
+    assert "dispatch_fence" not in result.text
+    assert result.headers["cache-control"] == "no-store"
+    assert hosted.client.request("GET", f"{path}?world_id=managed").status_code == 404
+    assert hosted.client.request("GET", f"{path}?world_id={world}", session="other-session").status_code == 403
+
+
 def test_action_authorization_generation_clears_prior_callback_even_on_refusal(monkeypatch):
     from apps.live_control_server.services.plan_action_consultation import ActionPolicyExecutionAdapter
     from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
@@ -171,6 +196,7 @@ def test_actual_action_callback_records_only_current_attempt(application_state_d
     actual.terminal_callback = None
     actual.failure = None
     actual.context_capture = None
+    actual.rules_runtime = None
     actual.budget = {}
     assert actual.record_lifecycle({"transition": "outcome_unknown"}) is (not refuse_callback)
     store.append_consultation_event = original

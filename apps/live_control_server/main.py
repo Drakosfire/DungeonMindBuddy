@@ -195,6 +195,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}/continue"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence"): resolve_hosted_conversation_world,
     ("GET", "/api/live/connected-pages/{operation_id}"): resolve_hosted_connected_page,
     ("POST", "/api/live/connected-pages/prepare"): resolve_hosted_connected_page,

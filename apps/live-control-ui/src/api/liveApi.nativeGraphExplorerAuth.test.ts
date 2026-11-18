@@ -1038,6 +1038,20 @@ it.each(["conversation/turns", "plan-proposals"])("reads saved %s evidence with 
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
+it("reads exact hosted Plan terminal diagnostics using the session cookie", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ availability: "unavailable" }));
+  const path = "/api/live/world-plan-edit/actions/11111111-1111-4111-8111-111111111111/terminal-diagnostic?world_id=managed";
+  await api.authenticatedApiFetch(path);
+  const [, init] = fetch.mock.calls[0];
+  expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
 it("sends hosted work-plan commands through exact same-origin routes", async () => {
   const api = await setup();
   hostedOrigin();
