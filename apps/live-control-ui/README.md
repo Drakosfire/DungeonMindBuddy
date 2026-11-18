@@ -73,7 +73,7 @@ for the closed workstream and residual product tracks.
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 22 (the frontend package declares `22.x`)
 - DungeonBuddy live-control FastAPI server running (defaults from
   `apps/live_control_server/config.py`)
 
@@ -109,12 +109,11 @@ npm run build
 
 ## Manual smoke
 
-Hosted Buddy supports DungeonMind sign-in, assigned World selection, Graph
-inspection, and World-scoped workspaces. Open Plan, Play, Build, Ingest, Combat
-Tracker, and Statblock through links carrying the selected World. Without an
-admitted World, a workspace asks for one first. API access is admitted per method/path
-and resource ownership, so an available workspace does not imply that every
-operation is enabled. Use the
+The first hosted release supported DungeonMind sign-in, World selection,
+read-only Graph and sign-out. Additional workspace routes and operations depend
+on the deployed revision, configured admission and release evidence. Workspace
+links may carry the selected World; an available workspace does not imply that
+every operation is enabled. Use the
 [production deployment runbook](../../Docs/Runbooks/RUNBOOK-buddy-production-deployment.md)
 for hosted sign-in, admission, Graph, and sign-out checks. Qualify write workflows
 with their approved disposable World/provider targets. The smoke steps below

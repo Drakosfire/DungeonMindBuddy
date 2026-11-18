@@ -1,6 +1,8 @@
 # DOCS: map source ingestion and evidence
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: HISTORICAL — completed by Buddy PR #3996, merged at `ef676427a66a51feafcd63559006d0defaac77da`. The lease is closed.
+
+Originally authorized by the documentation goal. PR topology: serial.
 
 Base: Buddy main `250f1673870b694ae31f2a6514d40de333ccab65`.
 Branch: `codex/docs-source-ingestion`. Predecessor: merged #3993.
