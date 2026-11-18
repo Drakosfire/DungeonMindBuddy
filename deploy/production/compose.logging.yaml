@@ -1,0 +1,9 @@
+# Include after compose.production.yaml and before the release override.
+# Bounds Buddy stdout/stderr independently of the host daemon's default policy.
+services:
+  buddy:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
