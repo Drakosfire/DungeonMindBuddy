@@ -215,12 +215,14 @@ def save_manual_revision(draft_id: UUID, body: SaveMechanicsRevisionRequest, req
         hosted_world_media_owner, require_build_pdf_access,
     )
 
+    authorize = None
     if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
-        require_build_pdf_access(request, body.world_id)
+        authorize = lambda: require_build_pdf_access(request, body.world_id)
+        authorize()
         owner = hosted_world_media_owner(body.world_id)
     else:
         owner = enforce_native_graph_gm(request).subject
-    return _revision_call(saved_versions.save, draft_id=str(draft_id), request=body, media_owner=owner)
+    return _revision_call(saved_versions.save, draft_id=str(draft_id), request=body, media_owner=owner, authorize=authorize)
 
 
 @router.post("/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover")
@@ -228,7 +230,8 @@ def recover_manual_revision(draft_id: UUID, operation_id: UUID, world_id: Annota
     from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
     require_build_pdf_access(request, world_id)
-    return _revision_call(saved_versions.recover, world_id=world_id, draft_id=draft_id, operation_id=operation_id)
+    return _revision_call(saved_versions.recover, world_id=world_id, draft_id=draft_id, operation_id=operation_id,
+                          authorize=lambda: require_build_pdf_access(request, world_id))
 
 
 @router.get("/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}")

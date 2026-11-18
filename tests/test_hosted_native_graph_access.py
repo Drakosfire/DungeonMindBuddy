@@ -3104,6 +3104,22 @@ def test_hosted_portrait_revision_recovers_exact_save(revision_case, hosted, mon
     assert opened.status_code == 200, opened.text
     assert opened.json()["resource"]["provenance"]["accepted_through"]["buddy_portrait_asset_id"] == str(asset["asset_id"])
 
+    original_validate = fixture.manual.validate_definition
+
+    def transfer_during_validation(request):
+        result = original_validate(request)
+        hosted.records[world] = hosted.records[world].model_copy(update={"owner_subject": OTHER_OWNER})
+        return result
+
+    monkeypatch.setattr(fixture.manual, "validate_definition", transfer_during_validation)
+    from apps.live_control_server.services.statblock_saved_revision import operations
+
+    operation_id = uuid4()
+    denied = hosted.client.request("POST", fixture.url, json={**body, "operation_id": str(operation_id)})
+    assert denied.status_code == 403, denied.text
+    assert fixture.manual.appends == 1
+    assert operations.read(world_id=world, draft_id=fixture.draft.draft_id, operation_id=operation_id) is None
+
 
 @pytest.mark.parametrize("transfer", [False, True])
 def test_hosted_generated_artwork_is_readable_in_its_world(hosted, application_state_dsn, monkeypatch, transfer):
