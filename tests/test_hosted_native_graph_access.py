@@ -4870,6 +4870,20 @@ def test_hosted_worldbuilding_plan_prepare_checks_exact_run(hosted, monkeypatch)
     assert response.status_code == 409, response.text
     assert calls == ["owned"]
 
+    def prepare_after_transfer(_request):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return SimpleNamespace(
+            publication_binding=SimpleNamespace(managed_world_id="managed"),
+            model_dump=lambda **_kwargs: {"private": "Sealed plan contents"},
+        )
+
+    monkeypatch.setattr(extract_promote, "prepare_worldbuilding", prepare_after_transfer)
+    denied = hosted.client.request("POST", path, json=body)
+    assert denied.status_code == 403, denied.text
+    assert "Sealed plan contents" not in denied.text
+
 
 def test_hosted_worldbuilding_plan_confirm_checks_native_and_managed_ids(hosted, monkeypatch):
     from apps.live_control_server.models.extract_promote import WorldbuildingWritePlanResponse

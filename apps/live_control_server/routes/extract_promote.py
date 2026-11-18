@@ -511,7 +511,14 @@ def post_worldbuilding_write_plan_prepare(
                 ],
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
+    result = response.model_dump(mode="json", by_alias=True)
+    binding = response.publication_binding
+    authorize = worldbuilding_evidence_authorizer(
+        request_context, binding.managed_world_id if binding is not None else "",
+    )
+    if authorize is not None:
+        authorize()
+    return result
 
 
 @router.post(
