@@ -529,6 +529,37 @@ def test_revoked_world_owner_cannot_initialize_or_publish(tmp_path, monkeypatch,
         )
 
 
+def test_revocation_inside_native_admission_does_not_publish(tmp_path, monkeypatch, memory_repository):
+    world, record = _committed_source(tmp_path)
+    snapshot = native.get_committed_page_snapshot(tmp_path, record.document_id)
+    space = world.native_graph_binding.native_world_id
+    native._ensure_native_source_space(memory_repository, world.world_id, space)
+    before = memory_repository.get_head(space)
+
+    read_receipt = memory_repository.get_native_source_admission_receipt
+    reads = 0
+
+    def revoke_during_receipt(*args):
+        nonlocal reads
+        reads += 1
+        return read_receipt(*args)
+
+    def authorize_world(world_id):
+        assert world_id == world.world_id
+        if reads >= 2:
+            raise PermissionError("World ownership revoked")
+
+    monkeypatch.setattr(memory_repository, "get_native_source_admission_receipt", revoke_during_receipt)
+    with pytest.raises(PermissionError, match="World ownership revoked"):
+        native.admit_native_world_source(
+            tmp_path, record.document_id, expected_revision=snapshot.loaded_revision,
+            expected_body_sha256=snapshot.content_sha256, authorize_world=authorize_world,
+        )
+
+    assert reads == 2
+    assert memory_repository.get_head(space) == before
+
+
 @pytest.mark.parametrize("state", ["inactive", "missing"])
 def test_unavailable_binding_blocks_status_and_admission(tmp_path, monkeypatch, state):
     world, record = _committed_source(tmp_path)

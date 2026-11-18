@@ -21,6 +21,7 @@ from .native_pdf_evidence import register_pdf_regions, reviewed_pdf_regions
 from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
 from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
+from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import AuthorizedTextAdmissionRepository
 from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
 from apps.live_control_server.models.native_threat_creation import NativeThreatReview
 from apps.live_control_server.services.agent_graph_auth import require_native_graph_gm
@@ -115,22 +116,6 @@ def review_payload(review):
     return review.model_dump(mode="json", by_alias=True, exclude=excluded)
 
 
-class _TextAdmissionRepository:
-    """Recheck ownership after the pinned admission helper's last authority read."""
-
-    def __init__(self, repository, authorize_write):
-        self._repository = repository
-        self._authorize_write = authorize_write
-
-    def __getattr__(self, name):
-        return getattr(self._repository, name)
-
-    def get_head(self, space_id):
-        head = self._repository.get_head(space_id)
-        self._authorize_write()
-        return head
-
-
 def prepare(root, draft_id, request, principal, *, authorize_write=None):
     require_native_graph_gm(principal)
     draft = owned_draft(root, draft_id, request.world_id)
@@ -177,7 +162,7 @@ def prepare(root, draft_id, request, principal, *, authorize_write=None):
             require(native.binding(request.world_id) == bound, "The World binding changed")
             if authorize_write is not None:
                 authorize_write()
-            admission_repository = repo if authorize_write is None else _TextAdmissionRepository(repo, authorize_write)
+            admission_repository = repo if authorize_write is None else AuthorizedTextAdmissionRepository(repo, authorize_write)
             admitted = publish_native_text_source_evidence(repository=admission_repository, domain_contract=domain,
                 semantic_profile=profile, request=NativeTextSourceAdmissionV1(
                     space_id=bound["native_world_id"], admission_id=admission_id,
