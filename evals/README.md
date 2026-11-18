@@ -114,8 +114,12 @@ admissions, and at most eight source ranges per question in each arm.
 All retained references reopened exactly. The Event score credits source text
 behind Graph assertions, so it is an upper bound on writer-visible coverage.
 These timings describe this cohort and pin. Setup and inventory scans are
-excluded. The exact packets, traces, and readbacks are retained with the lab
-run under `forest-core-pin.QlxKcm` on the Projects drive.
+excluded. At the time of this record the exact packets, traces, and readbacks
+were retained locally under `Projects/.codex/forest-core-pin.QlxKcm`. This is
+an operator-local lab directory, not a repository-tracked evidence bundle; it
+may not be available to another reader. Access to the original authorized
+inputs and retained artifacts is required to independently reproduce the
+comparison. Do not copy private campaign material into the repository.
 
 Keep ordinary Jev as the default. Search matched the recap containing Jev's
 missing eastward-turn witness, but the controller offer menu omitted it.
