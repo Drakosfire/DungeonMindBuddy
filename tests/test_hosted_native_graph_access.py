@@ -2228,14 +2228,18 @@ def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn, 
         assert hosted.client.request("GET", f"{path}/{suffix}", session="other-session").status_code == 403
         assert hosted.client.request("GET", f"{path}/{suffix}?world_id={world_id}").status_code == 403
 
-    from unittest.mock import AsyncMock
+    from unittest.mock import ANY, AsyncMock
     from uuid import UUID
 
     from apps.live_control_server.routes import media_images
     from tests.integration.test_build_images_postgres import ready
 
     owner = access.hosted_world_media_owner(world_id)
-    save = AsyncMock(side_effect=lambda identifier, scope: ready(media.get_asset(identifier, scope)))
+    def save_with_guard(identifier, scope, *, authorize_write):
+        authorize_write()
+        return ready(media.get_asset(identifier, scope))
+
+    save = AsyncMock(side_effect=save_with_guard)
     monkeypatch.setattr(media_images.media_storage, "save_asset", save)
     save_path = f"{path}/save"
     assert hosted.client.request("POST", save_path, json={}, session="other-session").status_code == 403
@@ -2246,7 +2250,7 @@ def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn, 
     assert saved.status_code == 200, saved.text
     assert saved.json()["state"] == "ready"
     assert media.get_asset(asset["asset_id"], owner)["state"] == "ready"
-    save.assert_awaited_once_with(UUID(str(asset["asset_id"])), owner)
+    save.assert_awaited_once_with(UUID(str(asset["asset_id"])), owner, authorize_write=ANY)
 
 
 def test_hosted_plan_context_requires_exact_owned_world(hosted):
