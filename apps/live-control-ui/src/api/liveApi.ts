@@ -421,6 +421,10 @@ function isLoopbackApiDestination(requestUrl: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
+export function usesLoopbackLiveApi(): boolean {
+  return isLoopbackApiDestination(`${baseUrl}/api/live`);
+}
+
 const HOSTED_EXPLORER_PATHS = new Set([
   "/api/live/native-graph-explorer/graph",
   "/api/live/native-graph-explorer/prepare",
