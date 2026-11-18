@@ -1,6 +1,6 @@
 # HANDOFF-PROCESS-retire-standing-steward-role
 
-**Status:** ACTIVE, documentation design/policy slice
+**Status:** HISTORICAL — completed by Buddy PR #2406, merged at `77152afcf8b1d4458df6d9b498793b8ff632a414`; the lease is closed.
 **Base:** `ec646dab173deb1ddc6075226a496b400afc8eb5` (DungeonMindBuddy `main`, verified 2026-11-11)
 **Re-anchor:** `0cfb050489884580c20e709aa4dc5fa7545f8cd1` (current Buddy `main`, 2026-11-18). Preserve the newer ACTIVE-handoff and verification rules.
 **Branch:** `codex/retire-standing-steward-role`
