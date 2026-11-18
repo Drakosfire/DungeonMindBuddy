@@ -304,6 +304,9 @@ def hosted(monkeypatch, request):
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
+    from apps.live_control_server.routes import recap_ingest
+
+    app.include_router(recap_ingest.router)
     from apps.live_control_server.routes import build_proposal_reviews
 
     app.include_router(build_proposal_reviews.router, prefix="/api/live/agent")
@@ -372,6 +375,7 @@ def hosted(monkeypatch, request):
             ("POST", access.COMPLETE_OBJECT_PATH): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", access.COMPLETE_OBJECT_PATH)],
             ("POST", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolve"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolutions/{operation_id}"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/recap-name-review"): access.resolve_hosted_recap_name_review,
             ("POST", access.FIRST_WORLD_PREPARE_PATH): access.resolve_hosted_first_world,
             ("POST", access.FIRST_WORLD_CONFIRM_PATH): access.resolve_hosted_first_world,
             ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
@@ -4503,3 +4507,37 @@ def test_hosted_command_resolution_binds_world_actor_and_pointer(hosted, monkeyp
     denied = hosted.client.request("GET", receipt)
     assert hosted.records["managed"].owner_subject == OTHER_OWNER
     assert denied.status_code == 403, denied.text
+
+
+def test_hosted_recap_name_review_requires_world_owner_and_origin(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import recap_ingest
+    from apps.live_control_server.services import recap_name_review
+
+    scope = SimpleNamespace(managed_world_id="managed", campaign_id="campaign")
+    monkeypatch.setattr(recap_ingest, "_request_recap_context", lambda _: scope)
+    review = Mock(return_value=(None, None, {"schema": "dmb_recap_name_review_v1"}))
+    monkeypatch.setattr(recap_name_review, "prepare_name_review", review)
+    path = "/api/live/recap-name-review"
+    body = {"operation": "generate_recap_memory", "managed_world_id": "managed",
+            "campaign_id": "campaign", "session": 22, "raw_text": "A keeper scouts Mireward."}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin="https://outside.example").status_code == 403
+    assert hosted.client.request("POST", path + "?world_id=foreign", json=body).status_code == 403
+    review.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    review.assert_called_once_with(body["raw_text"], scope, session_id="session-22")
+
+    def transfer_during_review(*_args, **_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return None, None, {"name": "Private recap name"}
+
+    review.side_effect = transfer_during_review
+    denied = hosted.client.request("POST", path, json=body)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert "Private recap name" not in denied.text

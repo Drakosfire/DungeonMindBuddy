@@ -1197,3 +1197,19 @@ it("uses the hosted session for exact conversation recovery and receipt reads", 
   await expect(api.authenticatedApiFetch(receipt + "&current_pointer_revision=4")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(2);
 });
+
+it("checks recap names through the hosted World route", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+  const path = "/api/live/recap-name-review";
+  const request = { method: "POST", body: JSON.stringify({
+    operation: "generate_recap_memory", managed_world_id: "managed", raw_text: "A keeper scouts Mireward.",
+  }) };
+  await api.authenticatedApiFetch(path, request);
+  expect(fetch.mock.calls[0]).toEqual([path, expect.objectContaining({
+    method: "POST", credentials: "same-origin", mode: "same-origin",
+  })]);
+  await expect(api.authenticatedApiFetch(path + "?world_id=foreign", request)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

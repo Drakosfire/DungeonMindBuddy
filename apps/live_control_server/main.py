@@ -158,6 +158,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_play_preparation,
     resolve_hosted_play_creation,
     resolve_hosted_play_read,
+    resolve_hosted_recap_name_review,
     resolve_hosted_play_scene_proposal,
     resolve_hosted_play_table_roll,
     resolve_hosted_play_command,
@@ -194,6 +195,7 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", "/api/live/recap-name-review"): resolve_hosted_recap_name_review,
     ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review"): resolve_hosted_conversation_world,
