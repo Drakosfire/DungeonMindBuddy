@@ -145,7 +145,8 @@ prepare_buddy_release() {
     -u DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY
     -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL
     docker compose --project-name "$buddy_project" --env-file "$buddy_env"
-    -f deploy/production/compose.production.yaml -f "$buddy_override")
+    -f deploy/production/compose.production.yaml
+    -f deploy/production/compose.logging.yaml -f "$buddy_override")
   local configured_image
   configured_image=$("${candidate_compose[@]}" config --images buddy) || return
   if [[ "$configured_image" != "$buddy_tag" ]]; then
@@ -164,10 +165,19 @@ stops preparation without replacing the image. Compare the returned image ID
 with the saved release record on reruns. Run one preparation at a time in the
 deployment Docker context.
 
+The logging override explicitly selects `json-file` with `max-size=10m` and
+`max-file=3`, retaining approximately 30 MB of container stdout/stderr per
+container rather than inheriting an uncapped daemon default. This budget does
+not cover application files, image layers, build caches, or other containers.
+If the release needs another budget or a centrally managed driver, record it
+and set the logging configuration in the saved release override. Verify the
+effective configuration below; existing containers keep their previous policy
+until recreated. Do not recreate the serving container just to test rotation.
+
 The Compose command clears inherited values for the production file’s
 interpolation variables so the protected environment file supplies them.
 Continue only if release preparation succeeds. Save the override with the release record. Record the exact checkout commit
-and base Compose path, the Compose project name, and the absolute paths to
+and both versioned Compose paths, the Compose project name, and the absolute paths to
 the saved override and protected environment file. Keep a release-specific
 protected copy of the environment file or a reference to an immutable
 version in the approved secret store. Record the image tag and verified
@@ -417,6 +427,12 @@ rotation limits. Run this on the deployment host:
 )
 ```
 
+Require the running policy to match the release record (by default,
+`json-file max-size=10m max-file=3`). Verify rotation and access to recent
+diagnostics with a disposable container using that policy, not the serving
+container. Keep [#3538](https://github.com/Drakosfire/DungeonMindBuddy/issues/3538)
+open until the selected host's effective policy and rotation evidence are recorded.
+
 For a driver that manages retention outside Docker, verify its policy with the
 host operator. An empty limit in this output requires checking the effective
 policy. If retention is unbounded, agree on a cap and verify rotation and access
@@ -549,6 +565,10 @@ override, image tag, and image ID from the release record. Use the same Docker c
   test "${prior_override:0:1}" = / && test -r "$prior_override" || exit 1
   test -n "$prior_tag"
   test -n "$prior_id"
+  prior_logging=()
+  if [[ -f deploy/production/compose.logging.yaml ]]; then
+    prior_logging=(-f deploy/production/compose.logging.yaml)
+  fi
   prior_compose=(env
     -u AUTH_TRUSTED_FRONTEND_ORIGINS
     -u OPENAI_API_KEY
@@ -565,7 +585,7 @@ override, image tag, and image ID from the release record. Use the same Docker c
     -u DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY
     -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL
     docker compose --project-name "$prior_project" --env-file "$prior_env"
-    -f deploy/production/compose.production.yaml -f "$prior_override")
+    -f deploy/production/compose.production.yaml "${prior_logging[@]}" -f "$prior_override")
   configured_image=$("${prior_compose[@]}" config --images buddy)
   test "$configured_image" = "$prior_tag"
   local_image=$(docker image inspect "$prior_tag" --format '{{.Id}}')

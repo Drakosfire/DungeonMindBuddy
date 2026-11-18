@@ -334,8 +334,9 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/worlds\/[^/]+\/pdf-adventure-events\/(?:prepare|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/threat-drafts\/[^/]+\/saved-statblock$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-source-withdrawals$/.test(pathname)) return true;
-  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|ocr|review|statblock-reviews|statblock:validate))?$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|region:validate|ocr|review|statblock-reviews|statblock:validate))?$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+(?:\/validate|\/from-regions|\/creature-draft|\/(?:accept|append)\/[^/]+)?$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+\/publication(?:\/statblock)?$/.test(pathname)) return true;
   if ([
     "/api/live/graph-authoring/document-relationship/request",
     "/api/live/graph-authoring/document-relationship/native-prepare",
@@ -426,18 +427,80 @@ const HOSTED_EXPLORER_PATHS = new Set([
 
 const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
+const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\?admission_id=[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
-  const imageCapabilities = "/api/live/media/images/capabilities?";
-  if (path.startsWith(imageCapabilities)) {
-    const world = new URLSearchParams(path.slice(imageCapabilities.length)).get("world_id");
-    return method === "GET" && init?.body == null && !!world
-      && path === imageCapabilities + new URLSearchParams({ world_id: world });
+  const pdfPublish = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/(?:(?:creature-draft|validate|publication)\?expected_revision=([1-9][0-9]*)|accept\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.exec(path);
+  if (method === "POST" && pdfPublish) {
+    const expectedRevision = pdfPublish[1];
+    if (expectedRevision) return init?.body == null && Number.isSafeInteger(Number(expectedRevision));
+    const body = requestBodyRecord(init?.body);
+    return typeof body?.operation_id === "string" && Boolean(body.operation_id)
+      && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision) && body.expected_revision > 0
+      && typeof body.expected_draft_version === "number" && Number.isSafeInteger(body.expected_draft_version) && body.expected_draft_version > 0
+      && isRecord(body.validation_receipt) && typeof body.validation_definition_digest === "string";
+  }
+  const pdfReview = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(\/publication(?:\/statblock)?)?)?([?][^#]+)?$/.exec(path);
+  if (pdfReview) {
+    const [, reviewId, publication, search] = pdfReview;
+    if (method === "PUT" && reviewId && !publication && search === undefined) {
+      const body = requestBodyRecord(init?.body);
+      return typeof body?.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
+        && body.expected_revision >= 0 && isRecord(body.definition) && Array.isArray(body.regions);
+    }
+    if (method !== "GET" || init?.body != null) return false;
+    if (publication !== "/publication/statblock") return search === undefined;
+    const query = new URLSearchParams(search);
+    const draftId = query.get("draft_id");
+    const revisionId = query.get("revision_id");
+    return !!draftId && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(draftId)
+      && !!revisionId && path === path.split("?", 1)[0] + "?" + new URLSearchParams({ draft_id: draftId, revision_id: revisionId });
+  }
+  const promptEvidence = /^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/turns\/[a-f0-9-]+\/context-trace\/(?:([a-f0-9-]+)\/prompt\/([a-f0-9-]+)|(prompts))$/.exec(path);
+  if (promptEvidence) {
+    if (!promptEvidence[3]) return method === "GET" && init?.body == null;
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body !== null && Object.keys(body).length === 1
+      && Array.isArray(body.prompts) && body.prompts.length >= 1 && body.prompts.length <= 8;
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/name$/i.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  if (HOSTED_PDF_UPLOAD_PATH.test(path)) {
+    return method === "POST" && init?.body instanceof Blob && init.body.size > 0
+      && new Headers(init.headers).get("Content-Type") === "application/pdf";
+  }
+  const retainedPdf = /^(\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources)(?:\/(open|region:validate)|\?([^#]+))?$/.exec(path);
+  if (retainedPdf) {
+    const [, root, operation, search] = retainedPdf;
+    if (operation) return method === "POST" && requestBodyRecord(init?.body) !== null;
+    if (method !== "GET" || init?.body != null) return false;
+    if (search === undefined) return true;
+    const after = new URLSearchParams(search).get("after");
+    return after !== null && path === root + "?" + new URLSearchParams({ after });
   }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);
     return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/from-regions$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && Array.isArray(body?.regions) && body.regions.length > 0
+      && typeof body.instruction === "string";
+  }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/append\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.operation_id === "string" && Boolean(body.operation_id)
+      && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
+      && body.expected_revision > 0 && isRecord(body.base);
+  }
+  const imageCapabilities = "/api/live/media/images/capabilities?";
+  if (path.startsWith(imageCapabilities)) {
+    const world = new URLSearchParams(path.slice(imageCapabilities.length)).get("world_id");
+    return method === "GET" && init?.body == null && !!world
+      && path === imageCapabilities + new URLSearchParams({ world_id: world });
   }
   const imageHistory = "/api/live/media/images/preparations/list?";
   if (path.startsWith(imageHistory)) {
@@ -644,11 +707,12 @@ function apiRequestTarget(
   return { url, localGraphRequest, hostedGraphRequest: false };
 }
 
-function hostedGraphHeaders(headers: Record<string, string>): Record<string, string> {
+function hostedGraphHeaders(path: string, headers: Record<string, string>): Record<string, string> {
   // Do not allow local bearer/session credentials or caller identity headers into
   // this cookie-authenticated request. Ownership comes only from the server.
   return Object.fromEntries(Object.entries(headers).filter(([key]) =>
-    ["accept", "content-type"].includes(key.toLowerCase())));
+    ["accept", "content-type"].includes(key.toLowerCase())
+      || (key.toLowerCase() === "x-pdf-created-at" && HOSTED_PDF_UPLOAD_PATH.test(path))));
 }
 
 function headerRecord(headers: HeadersInit | undefined): Record<string, string> {
@@ -889,7 +953,10 @@ async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Prom
       ...(target.localGraphRequest || target.hostedGraphRequest
         ? { redirect: "error" as const, credentials: "same-origin" as const } : {}),
       ...(target.hostedGraphRequest ? { cache: "no-store" as const, mode: "same-origin" as const } : {}),
-      headers: target.hostedGraphRequest ? hostedGraphHeaders({ "Content-Type": "application/json", ...frozenInit.headers }) : nativeGraphHeaders(path, frozenInit.body, {
+      headers: target.hostedGraphRequest ? hostedGraphHeaders(path, {
+        ...(HOSTED_PDF_UPLOAD_PATH.test(path) ? {} : { "Content-Type": "application/json" }),
+        ...frozenInit.headers,
+      }) : nativeGraphHeaders(path, frozenInit.body, {
         "Content-Type": "application/json", ...frozenInit.headers,
         ...(csrf && (frozenInit.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
       }),
@@ -2077,12 +2144,13 @@ export function getWorldAgentReplayAssertion(worldId: string, turnId: string, tr
   );
 }
 
-export function getWorldAgentReplayIdentities(worldId: string, turnId: string, traceId: string, signal: AbortSignal) {
+export function getWorldAgentReplayIdentities(worldId: string, turnId: string, traceId: string, signal: AbortSignal, offset = 0) {
   return apiFetch<{
     world_id: string; turn_id: string; trace_id: string
+    next_offset?: number | null
     identities: { node_id: string; label: string; kind: string }[]
   }>(
-    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/identities`,
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/identities${offset ? `?offset=${offset}` : ""}`,
     { signal, cache: 'no-store' },
   );
 }
