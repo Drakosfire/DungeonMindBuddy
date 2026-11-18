@@ -219,8 +219,13 @@ def read_assertion(pin: InspectionPin, principal, assertion_id: str):
     return _response(bound, checked_pin, assertion=_wire_assertion(result.assertion))
 
 
-def inspect(request, principal, *, include_source_span=False, source_classification=None):
-    bound, read, access, pin, _ = _pinned(request.scope, principal)
+def inspect(
+    request, principal, *, include_source_span=False, source_classification=None,
+    _parsed_cache=None,
+):
+    bound, read, access, pin, _ = _pinned(
+        request.scope, principal, parsed_cache=_parsed_cache
+    )
     selection = request.selection
     if selection.kind == "neighborhood":
         from graph_memory.retrieval.models import WorldGraphRetrievalBounds
@@ -503,7 +508,7 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
         packet = inspect(InspectionRead(
             scope=pin,
             selection={"kind": "source", "assertion_id": assertion_id, "evidence_ref_id": evidence_ref_id},
-        ), principal, include_source_span=include_receipt)
+        ), principal, include_source_span=include_receipt, _parsed_cache=_shared_parsed_cache)
     except KnowledgeReadContextIntegrityError:
         if native.read_repository().get_revision(pin.native_world_id, pin.revision_id) is None:
             return empty
