@@ -591,6 +591,8 @@ class PlanJevWriter:
     async def run(self, *, transport=None, api_key=None):
         from generationengine import GenerationClient, TextRequest
         from generationengine.text_dispatch import TextDispatchGate
+        from application_state.agent_conversation.native_build_work_view import VARIANT_PASSAGE_REVIEW_FORMAT
+
         async def authorize(prepared): return self.authorize(prepared)
         async def record(event): return self.record(event)
         options = {'dispatch_gate':TextDispatchGate(authorize,record),'transport':transport}
@@ -604,6 +606,8 @@ class PlanJevWriter:
                 user_prompt=json.dumps(self.messages,ensure_ascii=False),system_prompt=self.instructions,
                 temperature=None,reasoning_effort=self.reasoning_effort,max_output_tokens=self.output_reserve or None,
                 json_schema=self.output_format['schema'],schema_name=self.output_format['name'],
+                # Passage review can take longer than the default writer deadline.
+                deadline_ms=120_000 if self.output_format['name'] == VARIANT_PASSAGE_REVIEW_FORMAT else None,
                 max_conformance_retries=0,max_transport_retries=0))
             self.observe(result.observation,status='ok')
             if self.call is not None and provider.actual_response is not None:

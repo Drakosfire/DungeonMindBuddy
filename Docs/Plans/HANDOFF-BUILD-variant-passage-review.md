@@ -18,3 +18,7 @@ Keep the current request format for requests without an applicable nonempty draf
 ## Verification
 
 Run provider-free checks for request generation and proof equality, draft-less and unrelated paths, retained format reconstruction, substituted passage text, incomplete declarations, and exact carried condition propagation. Then use the ordinary rehearsal for all six turns on one build, including the paired explicit page-write control. Report reads and their rationale, exact references and citations, time, tokens, cost, and conversational fit. Confirm the candidate preserves the Dust Walker exception, town-wide activation, precommit stand-down, playable agency and unresolved resident fate from local assessment, then verify one approved save, the Edge link and exact Combat admission. Keep the comparison in turn5-passage-review-assessment.md and the retained failures. Adopt only after independent exact-head review and integration proof.
+
+## Writer deadline qualification
+
+The ordinary dba37e03 rehearsal recorded a provider timeout at 60 seconds in Turn 5. The frozen call using the same variant schema descriptions returned in 78.56 seconds. Add a 120-second GenerationEngine deadline solely for passage-review drafts, at the existing writer dispatch owner. Verify the sent schema and zero-retry settings with the route tests, then qualify ordinary delivery. The timeout is retained as attempted with provider usage unknown.
