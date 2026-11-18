@@ -255,6 +255,15 @@ _SAVED_STATBLOCK_PREVIEW_SELECT = """CASE WHEN surface_id='build' AND status='co
         ) END AS saved_statblocks"""
 
 
+_VARIANT_APPROVAL_PREVIEW_SELECT = """(
+    t.status = 'completed' AND t.surface_id = 'build' AND
+    jsonb_path_exists(t.graph_context_execution, '$.events[*] ? (
+        @.kind == "build_requested_work_resolved_v1" &&
+        @.requested_work == "review_variant_approval"
+    )')
+) AS variant_approval_requested"""
+
+
 def _message_page(conn, world, conversation, limit, before_sequence, *, metadata=False):
     """Bounded message display; never load execution or a full context receipt."""
     from . import repository as repo
@@ -270,11 +279,7 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
         EXISTS (SELECT 1 FROM agent.conversation_draft_revision d
             WHERE d.turn_id=t.turn_id AND d.world_id=t.world_id
                 AND d.conversation_id=t.conversation_id AND d.revision=1) AS draft_available,
-        (t.status = 'completed' AND t.surface_id = 'build' AND EXISTS (
-            SELECT 1 FROM jsonb_array_elements(t.graph_context_execution->'events') AS work
-            WHERE work->>'kind' = 'build_requested_work_resolved_v1'
-              AND work->>'requested_work' = 'review_variant_approval'
-        )) AS variant_approval_requested,
+        """ + _VARIANT_APPROVAL_PREVIEW_SELECT + """,
         (t.status='completed' AND t.surface_id='build' AND
         """ + CANONICAL_REVIEWED_DRAFT + """) AS variant_draft_reviewed,
         t.answer_composition_kind, """ + reference_select + ", " + repo._rules_summary_select("t")) if metadata else ""
