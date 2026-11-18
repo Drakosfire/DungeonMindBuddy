@@ -657,3 +657,35 @@ def test_native_approval_terminal_requires_the_current_acknowledged_decision(mon
     later = types.ProviderAttemptAuthorizedEventV3.model_construct(provider_attempt_id=uuid4())
     execution.events = (auth, acknowledged, approval, later)
     assert writer_evidence_selection.native_approval_terminal(turn) is None
+
+
+@pytest.mark.parametrize(("scope", "include_draft", "bound", "matches"), [
+    ("anchored", True, True, True),
+    ("source_lookup", True, True, False),
+    ("uncertain", True, True, False),
+    ("anchored", False, True, False),
+    ("anchored", True, False, False),
+])
+def test_anchored_variant_scope_requires_current_draft_and_bound_base(scope, include_draft, bound, matches):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import types
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+
+    selection = types.BuildRequestedWorkResolutionV1.model_construct(
+        requested_work="draft_in_conversation", resolution={"source_scope": scope},
+    )
+    events = [selection]
+    if include_draft:
+        events.append(types.BuildDraftContextCapturedV1.model_construct())
+    driver = PlanJevDriver.__new__(PlanJevDriver)
+    driver.adapter = SimpleNamespace(
+        request=SimpleNamespace(surface=SimpleNamespace(surface_id="build")),
+        _broker_execution=lambda: SimpleNamespace(events=events),
+    )
+    driver.finished = False
+    driver.attempted_statblocks = set()
+    base = ("Saved base", object(), object())
+    driver.saved_statblocks = {"saved-statblock:0": base + ((object(),) if bound else ())}
+    assert driver._anchored_variant_draft() is matches
+    if matches:
+        assert [offer.handle for offer in driver.offered()] == ["saved-statblock:0"]
