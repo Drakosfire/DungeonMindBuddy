@@ -602,8 +602,12 @@ async def put_world_session_review(run_id: str, command_id: str, request: Reques
     from apps.live_control_server.services import hosted_auth
     from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
 
+    from functools import partial
+
+    authorize_world = None
     if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
-        require_hosted_plan_world_context(request, world_id)
+        authorize_world = partial(require_hosted_plan_world_context, request, world_id)
+        authorize_world()
     else:
         enforce_native_graph_gm(request)
     raw = bytearray()
@@ -616,9 +620,17 @@ async def put_world_session_review(run_id: str, command_id: str, request: Reques
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors(include_context=False)) from exc
     try:
-        return commit_review(run_id=run_id, world_id=world_id, command_id=command_id, request=body)
+        if authorize_world is not None:
+            authorize_world()
+        review = commit_review(
+            run_id=run_id, world_id=world_id, command_id=command_id, request=body,
+            authorize_world=authorize_world,
+        )
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if authorize_world is not None:
+        authorize_world()
+    return review
 
 
 @router.get("/world-session-evidence")

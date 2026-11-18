@@ -2665,9 +2665,33 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     end = {**basis, "action": "end", "expected_revision": 0, "final_thoughts": reflections}
     assert hosted.client.request("PUT", end_path, json=end, origin=None).status_code == 403
     assert hosted.client.request("PUT", end_path, json=end, session="other-session").status_code == 403
+    from application_state.play import session_review
+
+    original_owner = hosted.records["managed"]
+    lock_review = session_review._locked_state
+
+    def revoke_review_access(*args, **kwargs):
+        state = lock_review(*args, **kwargs)
+        hosted.records["managed"] = original_owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return state
+
+    with monkeypatch.context() as patch:
+        patch.setattr(session_review, "_locked_state", revoke_review_access)
+        denied = hosted.client.request("PUT", end_path, json=end)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    hosted.records["managed"] = original_owner
+    review_path = f"{base}/review?world_id=managed"
+    assert hosted.client.request("GET", review_path).json()["review"] is None
     ended = hosted.client.request("PUT", end_path, json=end)
     assert ended.status_code == 200, ended.text
     assert hosted.client.request("PUT", end_path, json=end).json() == ended.json()
+    with monkeypatch.context() as patch:
+        patch.setattr(session_review, "_locked_state", revoke_review_access)
+        denied = hosted.client.request("PUT", end_path, json=end)
+    assert denied.status_code == 403, denied.text
+    assert reflections not in denied.text
+    hosted.records["managed"] = original_owner
 
     indexed = hosted.client.request("GET", evidence_path)
     assert indexed.status_code == 200, indexed.text
