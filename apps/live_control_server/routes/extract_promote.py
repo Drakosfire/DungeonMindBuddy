@@ -511,7 +511,14 @@ def post_worldbuilding_write_plan_prepare(
                 ],
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
+    result = response.model_dump(mode="json", by_alias=True)
+    binding = response.publication_binding
+    authorize = worldbuilding_evidence_authorizer(
+        request_context, binding.managed_world_id if binding is not None else "",
+    )
+    if authorize is not None:
+        authorize()
+    return result
 
 
 @router.post(
@@ -524,7 +531,16 @@ def post_worldbuilding_write_plan_confirm(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_selector_query(request_context)
-        response = confirm_worldbuilding(request)
+        binding = request.plan.publication_binding
+        authorize = worldbuilding_evidence_authorizer(
+            request_context, binding.managed_world_id if binding is not None else "",
+        )
+        if authorize is None:
+            response = confirm_worldbuilding(request)
+        else:
+            response = confirm_worldbuilding(request, authorize_write=authorize)
+    except HTTPException:
+        raise
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -547,7 +563,10 @@ def post_worldbuilding_write_plan_confirm(
                 ],
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
+    result = response.model_dump(mode="json", by_alias=True)
+    if authorize is not None:
+        authorize()
+    return result
 
 
 @router.post(

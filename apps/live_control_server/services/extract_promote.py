@@ -7,6 +7,7 @@ from graph_memory.extraction.worldbuilding_profile_catalog import SOURCE_OBSERVA
 
 
 import hashlib
+from collections.abc import Callable
 import json
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -1662,6 +1663,7 @@ def _load_worldbuilding_publication_input(resolved, *, allow_gazetteer=True) -> 
 
 def confirm_worldbuilding(
     request: WorldbuildingWritePlanConfirmRequest,
+    *, authorize_write: Callable[[], None] | None = None,
 ) -> WorldbuildingWritePlanConfirmReceipt:
     """Verify one sealed worldbuilding write plan and commit its rebuilt effect."""
     from apps.live_control_server.services.worldbuilding_graph_publication import (
@@ -1669,7 +1671,7 @@ def confirm_worldbuilding(
     )
 
 
-    return _confirm(request)
+    return _confirm(request, authorize_write=authorize_write) if authorize_write is not None else _confirm(request)
 
 
 def _project_assertion_fields(
