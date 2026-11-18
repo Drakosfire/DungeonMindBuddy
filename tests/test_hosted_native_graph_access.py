@@ -5077,7 +5077,7 @@ def test_hosted_historical_recap_projection_rejects_foreign_result(hosted, monke
 
     def project(_root, run_id, *, managed_world_id):
         calls.append((run_id, managed_world_id))
-        return SimpleNamespace(managed_world_id="foreign")
+        return SimpleNamespace(managed_world_id="foreign", model_dump=lambda **_: {})
 
     monkeypatch.setattr(historical, "build_historical_recap_world_projection", project)
     path = "/api/live/graph-preview/extraction-runs/saved/recap-projection"
@@ -5086,3 +5086,15 @@ def test_hosted_historical_recap_projection_rejects_foreign_result(hosted, monke
     assert calls == []
     assert hosted.client.request("GET", path + "?managed_world_id=managed").status_code == 403
     assert calls == [("saved", "managed")]
+
+    def transfer_during_serialization(**_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"private": "Historical recap text"}
+
+    monkeypatch.setattr(historical, "build_historical_recap_world_projection", lambda *_args, **_kwargs:
+        SimpleNamespace(managed_world_id="managed", model_dump=transfer_during_serialization))
+    denied = hosted.client.request("GET", path + "?managed_world_id=managed")
+    assert denied.status_code == 403, denied.text
+    assert "Historical recap text" not in denied.text
