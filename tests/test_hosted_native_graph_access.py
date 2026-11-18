@@ -3098,6 +3098,21 @@ def test_hosted_creature_catalog_and_association_read_are_world_scoped(hosted, m
     catalog.assert_called_once_with("managed")
     find.assert_called_once_with(world_id="managed", request_id=request_id)
 
+    owner_record = hosted.records["managed"]
+
+    def transfer_after_lookup(result):
+        def lookup(*_args, **_kwargs):
+            hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+            return result
+        return lookup
+
+    catalog.side_effect = transfer_after_lookup(catalog.return_value)
+    find.side_effect = transfer_after_lookup(find.return_value)
+    for suffix in ("creatures", f"requests/{request_id}"):
+        hosted.records["managed"] = owner_record
+        response = hosted.client.request("GET", f"{base}/{suffix}?world_id=managed")
+        assert response.status_code == 403, response.text
+
 
 def test_hosted_archives_exact_statblock_and_preserves_saved_revision(prepared, hosted):
     from apps.live_control_server.services import threat_draft_store

@@ -25,7 +25,9 @@ WorldId = Annotated[str, Query(pattern=r"^[a-z][a-z0-9_-]{0,62}$")]
 def list_creatures(world_id: WorldId, request: Request):
     _authorize_world_read(request, world_id)
     try:
-        return creatures.catalog(world_id).response()
+        result = creatures.catalog(world_id).response()
+        _authorize_world_read(request, world_id)
+        return result
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
@@ -60,7 +62,9 @@ def association_request(request_id: UUID, world_id: WorldId, request: Request):
     _authorize_world_read(request, world_id)
     try:
         resolve_managed_world_binding(world_id)
-        return state.find_request(world_id=world_id, request_id=request_id)
+        result = state.find_request(world_id=world_id, request_id=request_id)
+        _authorize_world_read(request, world_id)
+        return result
     except (ApplicationStateError, WorldGraphProjectionServiceError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
