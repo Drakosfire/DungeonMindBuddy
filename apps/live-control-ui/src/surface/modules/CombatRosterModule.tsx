@@ -9,10 +9,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   createWorldCombatEncounter,
-  getWorldCombatEncounter,
-  listWorldCombatEncounters,
+  createManualCombatEncounter,
+  getAnyWorldCombatEncounter,
+  listAnyWorldCombatEncounters,
   saveWorldCombatEncounter,
 } from "../../combat/combatApi";
+import {ManualCombatEditor} from "../../combat/ManualCombatEditor";
+import {ManualCombatProfileForm} from "../../combat/ManualCombatProfileForm";
+import {isManualCombatRecord,type AnyCombatRecord,type ManualCombatRecord} from "../../combat/ManualCombatTypes";
 import type { CombatEncounterDraft, CombatEncounterRecord, CombatEntity } from "../../combat/combatTypes";
 import { CombatMechanicsInspection } from "../../combat/CombatMechanicsInspection";
 import { CombatMechanicsAdoption } from '../../combat/CombatMechanicsAdoption';
@@ -264,8 +268,8 @@ function cloneDraft(draft: CombatEncounterDraft): CombatEncounterDraft {
   return JSON.parse(JSON.stringify(draft)) as CombatEncounterDraft;
 }
 
-export interface PreparedCombatOwnerReading {record:CombatEncounterRecord|null;blocked:boolean;error:string|null;acknowledged:{dispatchScope:TourDispatchScope|null;scope:TourEncounterScope;before:CombatEncounterRecord;saved:CombatEncounterRecord}|null}
-export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:CombatEncounterRecord;onPreparedState?:(reading:PreparedCombatOwnerReading|null)=>void;runScope?:import("../../combat/runEncountersApi").RunEncounterScope};
+export interface PreparedCombatOwnerReading {record:AnyCombatRecord|null;blocked:boolean;error:string|null;acknowledged:{dispatchScope:TourDispatchScope|null;scope:TourEncounterScope;before:CombatEncounterRecord;saved:CombatEncounterRecord}|null}
+export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:AnyCombatRecord;onPreparedState?:(reading:PreparedCombatOwnerReading|null)=>void;runScope?:import("../../combat/runEncountersApi").RunEncounterScope};
 export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;variant?:SavedConversationVariantTarget} = {}) {
   const panelRef = useRef<HTMLDivElement>(null);
   const turnRailRef = useRef<HTMLElement>(null);
@@ -281,16 +285,18 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
   const pendingSave = useRef<CombatRecovery['pending']>(null);
   const [availableRecovery, setAvailableRecovery] = useState<CombatRecovery | null>(null);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
-  const [encounters, setEncounters] = useState<CombatEncounterRecord[]>([]);
+  const [encounters, setEncounters] = useState<AnyCombatRecord[]>([]);
   const [loadedWorldId, setLoadedWorldId] = useState<string | null>(null);
   const [selectedEncounterId, setSelectedEncounterId] = useState("");
   const [record, setRecord] = useState<CombatEncounterRecord | null>(null);
+  const [manualRecord,setManualRecord]=useState<ManualCombatRecord|null>(null);
+  const [manualBlocked,setManualBlocked]=useState(false);
   const [draft, setDraft] = useState<CombatEncounterDraft | null>(null);
   const [newTitle, setNewTitle] = useState("New encounter");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [adoptionBlocked,setAdoptionBlocked]=useState(false);
-  const operationsBlocked=busy!==null||adoptionBlocked;
+  const operationsBlocked=busy!==null||adoptionBlocked||manualBlocked;
   const replacingDraft = adoptionBlocked || busy === "create" || busy === "open" || busy === "reload" || availableRecovery !== null;
   const [error, setError] = useState<string | null>(null);
 
@@ -305,6 +311,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
   useEffect(() => {
     let alive = true;
     const generation = worldRequestGeneration.current;
+    setManualRecord(null);setManualBlocked(false);
     setRecord(null); recordRef.current = null;
     setDraft(null); draftRef.current = null; pendingSave.current = null;
     setAvailableRecovery(null); setRecoveryMessage(null);
@@ -319,7 +326,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     }
     setLoading(true);
     if (scope) {
-      const opening=scope.initialRecord ? Promise.resolve(scope.initialRecord) : getWorldCombatEncounter(worldId, scope.encounterId,...(scope.runScope?[scope.runScope] as const:[] as const));
+      const opening=scope.initialRecord ? Promise.resolve(scope.initialRecord) : getAnyWorldCombatEncounter(worldId, scope.encounterId,...(scope.runScope?[scope.runScope] as const:[] as const));
       void opening.then(async opened => {
         if (!alive || generation !== worldRequestGeneration.current) return;
         await adoptRecord(opened,worldId,scope.encounterId,generation);
@@ -328,7 +335,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
         .finally(()=>{if(alive && generation===worldRequestGeneration.current)setLoading(false);});
       return ()=>{alive=false;};
     }
-    void listWorldCombatEncounters(worldId)
+    void listAnyWorldCombatEncounters(worldId)
       .then((items) => {
         if (alive && generation === worldRequestGeneration.current) {
           setEncounters(items);
@@ -380,9 +387,14 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     } catch (caught) {setError(String(caught)); return false;}
   }
 
-  async function adoptRecord(opened: CombatEncounterRecord, requestedWorld: string, requestedId: string | null, generation: number) {
+  async function adoptRecord(opened: AnyCombatRecord, requestedWorld: string, requestedId: string | null, generation: number) {
     if (opened.world_id !== requestedWorld || (requestedId && opened.encounter_id !== requestedId)) throw new Error('Combat response belongs to a different encounter.');
     setRecord(null); recordRef.current = null; setDraft(null); draftRef.current = null;
+    if(isManualCombatRecord(opened)) {
+      recoverySession.current.close();setAvailableRecovery(null);setRecoveryMessage(null);
+      setManualRecord(opened);setManualBlocked(true);return;
+    }
+    setManualRecord(null);setManualBlocked(false);
     const recovery = await recoverySession.current.open(opened, () => generation === worldRequestGeneration.current,!scope);
     if (generation !== worldRequestGeneration.current) return;
     recordRef.current = opened; draftRef.current = cloneDraft(opened.draft); pendingSave.current = null;
@@ -451,7 +463,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     setBusy("open");
     setError(null);
     try {
-      const opened = await getWorldCombatEncounter(requestedWorldId, requestedEncounterId,...(scope?.runScope?[scope.runScope] as const:[] as const));
+      const opened = await getAnyWorldCombatEncounter(requestedWorldId, requestedEncounterId,...(scope?.runScope?[scope.runScope] as const:[] as const));
       if (generation !== worldRequestGeneration.current) return;
       await adoptRecord(opened, requestedWorldId, requestedEncounterId, generation);
     } catch (caught) {
@@ -503,10 +515,11 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     setBusy("reload");
     setError(null);
     try {
-      const opened = await getWorldCombatEncounter(requestedWorldId, requestedEncounterId,...(scope?.runScope?[scope.runScope] as const:[] as const));
+      const opened = await getAnyWorldCombatEncounter(requestedWorldId, requestedEncounterId,...(scope?.runScope?[scope.runScope] as const:[] as const));
       if (generation !== worldRequestGeneration.current) return;
       // Explicit reload discards only this owned local recovery after a verified read.
       if (opened.world_id !== requestedWorldId || opened.encounter_id !== requestedEncounterId) throw new Error('Combat response belongs to a different encounter.');
+      if (isManualCombatRecord(opened)) throw new Error('Encounter version changed; reopen it before editing.');
       recoverySession.current.clear(); pendingSave.current = null; setAvailableRecovery(null);
       recordRef.current = opened; draftRef.current = cloneDraft(opened.draft);
       setRecord(opened); setDraft(draftRef.current); setRecoveryMessage(null);
@@ -600,10 +613,11 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     }));
   }
 
-  const preparedBlocked=busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked;
+  const preparedBlocked=busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked||manualBlocked;
   useTourNavigationGuard(worldId?{worldId,reason:()=>preparedBlocked?'Save or recover the encounter work before leaving these controls.':null}:null);
   const preparedListener=scope?.onPreparedState;
-  useEffect(()=>{preparedListener?.({record:visibleRecord,blocked:preparedBlocked,error,acknowledged:preparedAcknowledged});},[preparedListener,visibleRecord,preparedBlocked,error,preparedAcknowledged]);
+  const preparedRecord=visibleRecord??(manualRecord?.world_id===worldId?manualRecord:null);
+  useEffect(()=>{preparedListener?.({record:preparedRecord,blocked:preparedBlocked,error,acknowledged:preparedAcknowledged});},[preparedListener,preparedRecord,preparedBlocked,error,preparedAcknowledged]);
   useEffect(()=>()=>preparedListener?.(null),[preparedListener]);
 
   const worldMessage = scope && selectedWorld.kind === "managed" && scope.worldId !== selectedWorld.worldId
@@ -642,7 +656,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
                 ))}
               </select>
             </label>
-            <button type="button" disabled={operationsBlocked || !visibleEncounters.some((item) => item.encounter_id === selectedEncounterId) || dirty} onClick={() => void openEncounter()}>
+            <button type="button" disabled={operationsBlocked || manualRecord?.encounter_id===selectedEncounterId || !visibleEncounters.some((item) => item.encounter_id === selectedEncounterId) || dirty} onClick={() => void openEncounter()}>
               Open
             </button>
             <label>
@@ -653,14 +667,26 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
               Create
             </button>
             </>}
-            <button type="button" disabled={operationsBlocked || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
+            {!manualRecord&&<><button type="button" disabled={operationsBlocked || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
               {busy === "save" ? "Saving…" : "Save"}
             </button>
             <button type="button" disabled={busy !== null || (!dirty && !pendingSave.current)} onClick={revertDraft}>
               Revert
             </button>
             {pendingSave.current ? <span className="module-muted">{busy === 'save' ? 'Saving exact request…' : 'Save outcome unconfirmed · exact request retained'}</span> : dirty ? <span className="module-muted">Unsaved changes</span> : visibleRecord ? <span className="module-muted">Saved · rev {visibleRecord.revision}</span> : null}
+            </>}
           </section>
+          {!scope&&<ManualCombatProfileForm disabled={operationsBlocked||dirty||availableRecovery!==null} onCreate={async(title,profile)=>{
+            const generation=worldRequestGeneration.current;
+            setBusy('create');
+            try {
+              const created=await createManualCombatEncounter(worldId,title,profile);
+              if(generation!==worldRequestGeneration.current)return;
+              setEncounters(items=>[created,...items]);setSelectedEncounterId(created.encounter_id);
+              await adoptRecord(created,worldId,created.encounter_id,generation);
+            } finally {if(generation===worldRequestGeneration.current)setBusy(null);}
+          }}/>}
+          {manualRecord?.world_id===worldId&&<ManualCombatEditor key={JSON.stringify([manualRecord.world_id,manualRecord.encounter_id,scope?.runScope])} record={manualRecord} externallyDisabled={busy==='open'||busy==='create'||busy==='reload'} scope={scope?.runScope} onBlocked={setManualBlocked} onSaved={saved=>{setManualRecord(saved);setEncounters(items=>items.map(item=>item.encounter_id===saved.encounter_id?saved:item));}}/>}
           {availableRecovery && <section aria-label="Combat draft recovery">
             <p>Local Combat draft available from revision {availableRecovery.base.revision}. Current committed revision: {visibleRecord?.revision}. Recover explicitly; newer server state is never overwritten automatically.</p>
             <button type="button" disabled={busy !== null} onClick={recoverDraft}>Recover local Combat draft</button>
@@ -668,10 +694,10 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
           </section>}
           {recoveryMessage && <p role="status">{recoveryMessage}</p>}
           {worldListLoading ? <p className="module-muted">Loading World encounters…</p> : null}
-          {!worldListLoading && visibleEncounters.length === 0 && !visibleRecord ? (
+          {!worldListLoading && visibleEncounters.length === 0 && !visibleRecord && !manualRecord ? (
             <p className="module-muted">No encounters yet. Create a named encounter to begin; it won’t replace another fight.</p>
           ) : null}
-          {!visibleRecord ? (
+          {!visibleRecord && !manualRecord ? (
             <p className="module-muted">Choose an encounter and open it, or create a new one.</p>
           ) : null}
           {visibleRecord && visibleDraft ? (

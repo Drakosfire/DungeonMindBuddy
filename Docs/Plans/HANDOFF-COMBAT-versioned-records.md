@@ -1,6 +1,16 @@
 # COMBAT — represent manual encounters without rewriting v1
 
-ACTIVE under the operator's full Combat implementation/review/accepted-merge
+MERGED as #3995 at `087c293812e1699e0088062484df31367343b93a`; source lease
+released to HANDOFF-COMBAT-manual-profile.md. Reviewed exact head
+`7a8f8bcc0bbef8287deffbf3404a2048ca11cde7` has independent code/evidence acceptance:
+100 pure contract cases,16 CI guards and all1,558 classified files pass in a clean
+isolated exact-SHA checkout with locked dependencies. Source/raw-copy and explicit
+anchor regressions fail before and pass after repair. Evidence is retained under
+records-exact-7a8f8bcc0bbef8287deffbf3404a2048ca11cde7 in the task evidence root;
+the managed verification checkout is confirmed archived. No persisted/UI/DB
+activation or full-goal completion is claimed by this predecessor.
+
+Original authority: under the operator's full Combat implementation/review/accepted-merge
 authority. Serial successor to #3990, merged
 `1e208b20ac64bcac7682b4f8ea7ea5919fc69e79`. Fetched base
 `fe8cdcc1e3ca6f463b99b1635217f37c3c9f4dc3`; branch
@@ -46,7 +56,7 @@ side/spotlight behavior remain required before goal completion.
 World/source coherence here is structural validation, not principal authorization
 or source admission. Activation must retain the owning access/adoption guards.
 
-Migration sequencing is settled in merged #3877's PR body: Play owns0161, and
+Historical migration sequencing in merged #3877's PR body: Play owns0161, and
 Combat owns next serial revision20261118_0162 with parent20261117_0161, subject
 to confirming the sole head before committing and rehearsing0160→0161→0162 on
 disposable PostgreSQL. The human authorized PRIME coordination; its prerequisite
@@ -70,3 +80,10 @@ inputs now deep-copy before source validation, alongside model-instance dumping.
 A second failing-before-repair test makes the active-round anchor invariant
 explicit. Retain both initial failure logs; final repaired evidence/review is
 required. Existing v1 source DTOs and their serialization remain unchanged.
+
+The consuming manual-profile integration re-anchored after main merged the Build
+saved-statblock compatibility fence as0162. Its active handoff now adopts0163,
+parent0162, within the explicitly assigned Combat design authority after checking
+published assignments/open PRs and notifying PRIME. Original planned0162 proof is
+historical diagnostics only; final qualification must prove the new forward chain
+on fresh disposable PostgreSQL. See HANDOFF-COMBAT-manual-profile.md.

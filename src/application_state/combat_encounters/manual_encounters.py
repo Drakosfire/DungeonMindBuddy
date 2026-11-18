@@ -1,4 +1,4 @@
-"""Private versioned encounter records, not an activated persistence/HTTP DTO.
+"""Versioned system-neutral encounter records and creation/Save intents.
 
 Source access is reference-only: named tracker values never hydrate from an
 exact statblock. Existing v1 models remain their own serialization authority.
@@ -25,6 +25,8 @@ from application_state.combat_encounters.types import (
     CombatMechanicsSnapshot,
     CombatWorldIdentity,
     ConversationVariantCombatSnapshot,
+    CreateCombatEncounterRequest,
+    SaveCombatEncounterRequest,
     SavedCombatMechanicsSnapshot,
 )
 
@@ -199,3 +201,28 @@ def decode_combat_record(payload: dict) -> CombatEncounterRecord | ManualEncount
     if version == ("dmb_combat_profile_v2", "dmb_combat_encounter_draft_v2"):
         return ManualEncounterRecord.model_validate(payload)
     raise ValueError("unsupported or mixed combat record versions")
+
+
+class CreateManualEncounterRequest(_Model):
+    schema_version: Literal["dmb_manual_combat_create_v2"] = "dmb_manual_combat_create_v2"
+    title: Name = "New manual encounter"
+    profile: ManualCombatProfile
+    campaign_id: Annotated[str, Field(strict=True, min_length=1, max_length=128, pattern=r"\S")] | None = None
+    session: Annotated[int, Field(strict=True, ge=1, le=9999)] | None = None
+
+    @model_validator(mode="after")
+    def coherent_creation(self):
+        empty_manual_draft(self.profile, self.title)
+        if self.session is not None and self.campaign_id is None:
+            raise ValueError("session metadata requires a campaign")
+        return self
+
+
+class SaveManualEncounterRequest(_Model):
+    expected_revision: Annotated[int, Field(strict=True, ge=1)]
+    draft: ManualEncounterDraft
+
+
+AnyCombatRecord = CombatEncounterRecord | ManualEncounterRecord
+AnyCreateEncounterRequest = CreateCombatEncounterRequest | CreateManualEncounterRequest
+AnySaveEncounterRequest = SaveCombatEncounterRequest | SaveManualEncounterRequest

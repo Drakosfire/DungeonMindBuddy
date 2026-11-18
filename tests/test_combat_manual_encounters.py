@@ -25,6 +25,16 @@ WORLD = "crossing-world"
 UUID = "11111111-1111-4111-8111-111111111111"
 
 
+def test_manual_scene_create_retains_exact_non_alias_digest_preimage():
+    from application_state.combat_encounters.scene_template_types import CreateSceneTemplateRequest
+    fixture=json.loads((FIXTURES/'combat/manual-scene-create-v2.json').read_text())
+    normalized=dict(world_id=fixture['world_id'],request=CreateSceneTemplateRequest.model_validate(fixture['intent']).model_dump(mode='json'))
+    assert normalized==fixture['normalized']
+    assert normalized['request']['encounter']['profile']['schema_']=='dmb_combat_profile_v2'
+    canonical=json.dumps(normalized,ensure_ascii=False,sort_keys=True,separators=(',',':'))
+    assert 'sha256:'+hashlib.sha256(canonical.encode()).hexdigest()==fixture['digest']
+
+
 def profile(rounds=False):
     return ManualCombatProfile(profile_id="crossing", name="Crossing under pressure", system_id="synthetic-crossing",
         stats=[{"field_id": "position", "label": "Position", "value_type": "text", "initial": "Exposed"}],
@@ -49,6 +59,38 @@ def identity(world=WORLD, node="creature:bridge"):
     return {"managed_world_id": world, "native_world_id": "native-crossing", "binding_version": 1,
         "graph_revision_id": "revision-1", "node_id": node, "label": "Bridge creature", "kind": "Creature",
         "role": "creature", "campaign_scope": None}
+
+
+@pytest.mark.parametrize("rounds", [False, True])
+def test_manual_run_initialization_preserves_preparation_and_mints_references(rounds):
+    from application_state.play.session_encounters import initialize_draft
+    from application_state.combat_encounters.manual_encounters import ManualGroup, ManualSide
+    prepared = record(rounds)
+    actor = prepared.draft.entities[0]
+    actor.side_id = "crew-side"
+    actor.notes = "Carry this tactical note"
+    actor.statuses = ("Pinned",)
+    actor.participation = "out_of_action"
+    actor.values.resources["stress"] = actor.values.resources["stress"].model_copy(update={"current": 0})
+    prepared.draft.sides = [ManualSide(id="crew-side", label="Crew")]
+    prepared.draft.groups = [ManualGroup(id="crew-group", label="Bridge crew", member_ids=[actor.id])]
+    original = prepared.model_dump(mode="json", by_alias=True)
+    preview, preview_map, changes = initialize_draft(prepared)
+    live, actor_map, _ = initialize_draft(prepared, fresh_ids=True)
+    assert preview_map == {actor.id: actor.id}
+    assert changes[0]["values"]["resources"]["stress"]["current"] == 0
+    assert live.entities[0].id == actor_map[actor.id] != actor.id
+    assert live.entities[0].side_id == live.sides[0].id != "crew-side"
+    assert live.groups[0].id != "crew-group"
+    assert live.groups[0].member_ids == (actor_map[actor.id],)
+    assert live.entities[0].values == actor.values
+    assert live.entities[0].participation == "out_of_action"
+    assert live.entities[0].statuses == ("Pinned",)
+    assert live.entities[0].notes == actor.notes
+    assert live.turn.active_actor_id is None
+    assert prepared.model_dump(mode="json", by_alias=True) == original
+    live.entities[0].values.stats["position"] = "Covered"
+    assert actor.values.stats["position"] == "Exposed"
 
 
 def source(kind="associated", world=WORLD):

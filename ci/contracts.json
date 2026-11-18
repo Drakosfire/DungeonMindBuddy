@@ -1,6 +1,19 @@
 {
   "version": 1,
   "contracts": {
+    "combat-manual-persistence": {
+      "cwd": ".",
+      "argv": [
+        "{python}", "-m", "pytest", "-q", "--tb=short", "--show-capture=no",
+        "tests/application_state/test_manual_combat_postgres.py",
+        "tests/application_state/test_combat_encounters_postgres.py",
+        "tests/application_state/test_combat_scene_templates_postgres.py",
+        "tests/application_state/test_run_scene_encounters_postgres.py",
+        "tests/test_live_combat_encounters.py",
+        "tests/test_combat_scene_templates.py",
+        "tests/test_run_scene_encounters.py"
+      ]
+    },
     "combat-profile-validation": {
       "cwd": ".",
       "argv": [

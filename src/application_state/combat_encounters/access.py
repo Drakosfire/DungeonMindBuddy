@@ -43,13 +43,14 @@ def require_mutable_session(conn, run):
 
 def validate_binding(binding, preparation):
     """Join routing columns to the immutable creation intent and preparation."""
-    from application_state.play.session_encounter_types import MaterializeSceneEncounterRequest, WorldSessionCreateRequest
+    from application_state.play.session_encounter_types import AnyMaterializeSceneEncounterRequest, WorldSessionCreateRequest
+    from pydantic import TypeAdapter
     from application_state.play.session_encounters import _materialization_intent
     from application_state.combat_encounters.scene_templates import digest
     try:
         payload = binding['payload']
         intent = payload['intent']
-        request = MaterializeSceneEncounterRequest.model_validate(intent['request'])
+        request = TypeAdapter(AnyMaterializeSceneEncounterRequest).validate_python(intent['request'])
         expected = _materialization_intent(binding['world_id'], binding['run_id'], binding['scene_id'], request)
         preview = payload['preview']
         if preparation is None:

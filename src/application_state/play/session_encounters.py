@@ -196,6 +196,26 @@ def initialize_draft(record, *, fresh_ids=False):
     """Preview and initialize with the same policy; only typed maximum HP heals."""
     from uuid import uuid4
     from application_state.combat_encounters.types import CombatEncounterDraft
+    from application_state.combat_encounters.manual_encounters import ManualEncounterRecord, ManualEncounterDraft, empty_manual_draft
+    if isinstance(record, ManualEncounterRecord):
+        body = record.draft.model_dump(mode='json', by_alias=True)
+        actor_map = {actor['id']: str(uuid4()) if fresh_ids else actor['id'] for actor in body['entities']}
+        side_map = {side['id']: str(uuid4()) if fresh_ids else side['id'] for side in body['sides']}
+        changes = [{'actor_id': actor['id'], 'name': actor['name'],
+                    'values': actor['values'], 'participation': actor['participation'],
+                    'statuses': actor['statuses'], 'notes': actor['notes']} for actor in body['entities']]
+        for actor in body['entities']:
+            actor['id'] = actor_map[actor['id']]
+            if actor['side_id'] is not None:
+                actor['side_id'] = side_map[actor['side_id']]
+        for side in body['sides']:
+            side['id'] = side_map[side['id']]
+        for group in body['groups']:
+            if fresh_ids:
+                group['id'] = str(uuid4())
+            group['member_ids'] = [actor_map[member] for member in group['member_ids']]
+        body['turn'] = empty_manual_draft(record.ruleset, record.draft.title).turn.model_dump(mode='json')
+        return ManualEncounterDraft.model_validate(body), actor_map, changes
     body = record.draft.model_dump(mode='json')
     actor_map = {actor['id']: str(uuid4()) if fresh_ids else actor['id'] for actor in body['entities']}
     changes = []
@@ -227,6 +247,15 @@ def _captured_template(conn, *, world_id, run_id, scene_id, receipt):
     record = read_snapshot(conn, world_id=world_id, document_id=request.playable_artifact_id,
                            scene_id=scene_id, pin=choice.template)
     draft, _, changes = initialize_draft(record)
+    from application_state.combat_encounters.manual_encounters import ManualEncounterRecord
+    if isinstance(record, ManualEncounterRecord):
+        preview = {'schema_version': 'dmb_scene_encounter_preview_v2', 'world_id': world_id,
+            'run_id': str(run_id), 'scene_id': scene_id, 'preparation_digest': receipt['preparation_digest'],
+            'template': choice.template.model_dump(mode='json'),
+            'initialization_policy': 'dmb_preserve_manual_preparation_v2',
+            'title': draft.title, 'actors': changes,
+            'turn_before': record.draft.turn.model_dump(mode='json')}
+        return record, preview
     preview = {'schema_version': 'dmb_scene_encounter_preview_v1', 'world_id': world_id,
         'run_id': str(run_id), 'scene_id': scene_id, 'preparation_digest': receipt['preparation_digest'],
         'template': choice.template.model_dump(mode='json'), 'initialization_policy': 'dmb_fresh_scene_encounter_v1',
@@ -301,11 +330,12 @@ def materialize_encounter(*, world_id, run_id, scene_id, request):
         source, preview = _captured_template(conn, world_id=world_id, run_id=run_id, scene_id=scene_id, receipt=owned_run.preparation)
         if (request.expected_preparation_digest != preview['preparation_digest']
                 or request.template.model_dump(mode='json') != preview['template']
-                or request.preview_digest != digest(preview)):
+                or request.preview_digest != digest(preview)
+                or request.initialization_policy != preview['initialization_policy']):
             raise ApplicationStateConflictError('Encounter initialization differs from the confirmed preview')
         draft, actor_map, _ = initialize_draft(source, fresh_ids=True)
         now = repo.now_utc()
-        record = CombatEncounterRecord(encounter_id=uuid4(), world_id=world_id, revision=1,
+        record = type(source)(encounter_id=uuid4(), world_id=world_id, revision=1,
             ruleset=source.ruleset, ruleset_digest=source.ruleset_digest, draft=draft, created_at=now, updated_at=now)
         encounters.insert_encounter(conn, record)
         intent = _materialization_intent(world_id, run_id, scene_id, request)

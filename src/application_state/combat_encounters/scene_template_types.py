@@ -4,6 +4,7 @@ from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from application_state.combat_encounters.types import CombatEncounterRecord, CreateCombatEncounterRequest, CombatEncounterDraft
+from application_state.combat_encounters.manual_encounters import AnyCombatRecord, AnyCreateEncounterRequest, CreateManualEncounterRequest, empty_manual_draft
 
 class PlanScenePin(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -18,11 +19,14 @@ class CreateSceneTemplateRequest(BaseModel):
     schema_version: Literal["dmb_scene_template_create_v1"] = "dmb_scene_template_create_v1"
     operation_id: UUID
     pin: PlanScenePin
-    encounter: CreateCombatEncounterRequest
+    encounter: AnyCreateEncounterRequest
 
     @model_validator(mode="after")
     def valid_title(self):
-        CombatEncounterDraft(title=self.encounter.title)
+        if isinstance(self.encounter, CreateManualEncounterRequest):
+            empty_manual_draft(self.encounter.profile, self.encounter.title)
+        else:
+            CombatEncounterDraft(title=self.encounter.title)
         return self
 
 class SceneTemplateBinding(BaseModel):
@@ -44,6 +48,6 @@ class TemplateVersion(BaseModel):
 class SceneTemplateView(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     binding: SceneTemplateBinding
-    encounter: CombatEncounterRecord
+    encounter: AnyCombatRecord
     versions: list[TemplateVersion]
     scene_present: bool

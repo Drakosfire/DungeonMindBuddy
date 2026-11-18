@@ -9,7 +9,9 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from application_state.combat_encounters.types import CombatEncounterRecord
+from application_state.combat_encounters.manual_encounters import AnyCombatRecord as CombatEncounterRecord, decode_combat_record
+from application_state.combat_encounters.manual_encounters import ManualEncounterRecord
+from application_state.errors import ApplicationStateValidationError
 from application_state.errors import ApplicationStateIntegrityError
 
 _COLUMNS = """
@@ -31,10 +33,15 @@ def _record(row: dict) -> CombatEncounterRecord:
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
-    return CombatEncounterRecord.model_validate(payload)
+    return decode_combat_record(payload)
 
 
 def insert_encounter(conn: psycopg.Connection, record: CombatEncounterRecord) -> CombatEncounterRecord:
+    if isinstance(record, ManualEncounterRecord):
+        size = conn.execute("SELECT octet_length(%s::jsonb::text)",
+            (Jsonb(record.ruleset.model_dump(mode="json", by_alias=True)),)).fetchone()[0]
+        if size > 32768:
+            raise ApplicationStateValidationError("Manual profile exceeds the 32768-byte PostgreSQL storage limit")
     conn.execute(
         f"""
         INSERT INTO combat.encounter (
