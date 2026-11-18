@@ -155,6 +155,33 @@ and confirmation receipt. Record elapsed time, Jev rounds and reopened sources
 per turn. The observed failure took about 72 seconds and reached the writer at
 65 seconds.
 
+### AW10 capability boundary
+
+The case tests three changes in one conversation. The task moves from
+brainstorming to authoring, the target moves from the Bath House to Maelthor,
+and the requested page moves from blank to populated. “Create the page” must
+resolve to the latest explicit target and the current review revision.
+Measure target resolution separately from retrieval and proposal validation.
+Earlier unresolved ideas and suggested pages are useful distractors.
+
+Buddy already has editable conversation drafts, a manual New page control, and
+an exact-source connected-page workflow. The
+[connected-page owner](../apps/live_control_server/services/connected_page_authoring.py)
+generates location-oriented Markdown and creates and saves an internal draft
+page during prepare. Confirmation commits the reviewed Graph connections.
+[Component tests](../tests/test_connected_page_authoring.py) cover exact
+source excerpts and governed prepare, confirm, and readback for that workflow.
+
+AW10 requires a generic lore-page review that stays in conversation before
+approval. Before that boundary, the action journal must show zero page
+creation, saves, or Graph writes, including transient ones. A second request
+can supersede the blank review with a populated revision under the same target.
+The confirmation must bind the exact revision the operator saw. After it,
+verify one page with the approved body and exact source destinations, with the
+same receipt on repeated confirmation. The current location workflow proves
+its own component behavior. Ordinary Buddy qualification of the generic
+Maelthor flow remains open.
+
 ## Checkpoint storage
 
 Use the benchmark artifact owner's `action_checkpoint` for serial capture and
