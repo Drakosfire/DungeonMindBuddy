@@ -46,14 +46,14 @@ One row per product idea. These rows are pointers, not separate status records. 
 
 | Idea | Next useful slice or decision |
 | --- | --- |
-| [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | Design the first view and its entry points into the shared workspace. |
+| [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | [Home implementation #3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) merged; assess actual hosted sign-in and any remaining acceptance. |
 | [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Audit every surface and identify the right empty canvas and next action. |
-| [Shared snapping page grid](#idea-high-priority--shared-grid-page-constructor) | Move and resize one image in Build; preserve writing and reading order. |
+| [Shared page composer residuals](#idea-high-priority--shared-grid-page-constructor) | Manual foundation merged; physical print and ordinary chat-directed layout remain separate acceptance work. |
 | [Layered map editor](Docs/Backlog/IDEA-layered-map-editor.md) | One durable map with editable overlays. Share coordinates where justified, not a single UI with page layout. |
 | [Composable spatial workspace and themes](#deferred-composable-spatial-workspace-and-selectable-themes) | Select either saved canvas arrangements or a reversible theme, not both in one slice. |
 | [Connected campaign arcs](Docs/Backlog/IDEA-connected-campaign-arcs.md) | Explore the source-backed Wandering Forest arc across sessions; use unrelated material as a negative control. |
-| [Conversation search replay](Docs/Backlog/IDEA-conversation-search-replay.md) | Replay one recorded search and exact cited evidence inside Conversation Details. |
-| [AW workflow capabilities](Docs/Backlog/IDEA-aw-workflow-capabilities.md) | Start with editable conversation drafts, then reuse them for Meat Mind review and confirmation. |
+| [Conversation search replay](Docs/Backlog/IDEA-conversation-search-replay.md) | Merged local replay mechanisms; retain hosted and broader trace acceptance gaps. |
+| [AW workflow capabilities](Docs/Backlog/IDEA-aw-workflow-capabilities.md) | Draft/variant/link/Combat mechanisms merged; ordinary live qualification remains open. |
 | [Campaign recap contributor](Docs/Backlog/IDEA-recap-contributor.md) | One campaign, two accounts, GM publication, and a spoiler-isolation witness. |
 | [Deeper Build document hierarchy](Docs/Backlog/IDEA-build-document-hierarchy.md) | Retain only if dogfood shows a navigation gap after the merged picker and recap browser. |
 | [Independent source archive and restore](#deferred-define-independent-source-artifact-archive-and-restore) | Define what discovery and old citations do before designing controls. |
@@ -64,7 +64,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 ## [IDEA] Delightful Buddy landing page — captured 2026-11-16
 
 **Context:** Hosted Buddy sign-in dogfood surfaced the need for a welcoming first view.
-**Action:** Design a landing page that feels like Buddy and gives users clear entry points into the shared workspace. Check the first visit and the return visit with an existing World.
+**Action:** [#3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) merged the first view and entry points, including synthetic local browser witnesses. Actual hosted sign-in and deployment remain unverified; assess those and retain any remaining first-visit or return-visit gap.
 **Surfaces when:** Revisiting Buddy Home, hosted entry, or onboarding.
 
 ## [IDEA] Inviting canvases with no graph loaded — captured 2026-11-16
@@ -72,6 +72,13 @@ One row per product idea. These rows are pointers, not separate status records. 
 **Context:** Hosted dogfood reached Buddy with no graph available to load.
 **Action:** Audit Home, Graph, Plan, Play, Ingest, Build, and Combat Tracker without a loaded graph. For each surface, check that the canvas feels open and inviting and offers the next action appropriate to that surface. Where a graph is optional, check that users can still start working. Check loading, access denial, and failure separately so those states remain understandable.
 **Surfaces when:** Reviewing shared navigation, World selection, or empty states across Buddy.
+
+## Dated evidence pointers — 2026-11-17
+
+- Hosted signed-in presenter demo World: [#3837](https://github.com/Drakosfire/DungeonMindBuddy/issues/3837) owns scope and acceptance. This is not the signed-out demo or full cross-surface demo [#410](https://github.com/Drakosfire/DungeonMindBuddy/issues/410).
+- Hosted incremental ordinary reply text: [#3838](https://github.com/Drakosfire/DungeonMindBuddy/issues/3838) owns scope and acceptance. Build construction SSE and status updates are not that witness.
+- Still-unmerged design input: [#3683](https://github.com/Drakosfire/DungeonMindBuddy/pull/3683) retains shared themes, spatial workspace, signed-out original Elderwyld content, shared agent actions, formatting benchmarks and bug-report ideas. This pointer does not adopt that draft, activate its work or erase its distinct ideas. Current sequencing remains with the roadmap.
+- Maintenance: the 2026-11-17 audit was a historical snapshot. On 2026-11-18, six of the 20 Buddy issue-linked rows in [the queue](Docs/Backlog/MAINTENANCE.md) had closed with distinct dispositions; [#4012](https://github.com/Drakosfire/DungeonMindBuddy/pull/4012) reconciled those rows while retaining open residuals. Broader demo [#410](https://github.com/Drakosfire/DungeonMindBuddy/issues/410) and source-anchor acceptance [#783](https://github.com/Drakosfire/DungeonMindBuddy/issues/783) remain open, not closed by nearby implementation.
 
 ## Research held for evidence or selection
 
@@ -98,16 +105,14 @@ One row per product idea. These rows are pointers, not separate status records. 
 **Kind:** DESIGN → bounded implementation slices
 **Owner:** Build / shared Surface authoring
 **Captured:** 2026-10-24
-**Last verified:** 2026-10-24 @ `c74b5082ead867cd28fb302935dc05965dc1f4c0`
-**Context:** Edge authoring dogfood: the author wants to move and resize artwork on a snapping grid, then compose images, editable text, tables and callouts intentionally on the page.
+**Last verified:** 2026-11-17 @ `28f4cab85a6a7eebabc4e89ce24166b86e198380`.
+**Delivered foundation:** Manual mixed-content rows, revision-bound presentation, row controls, image/text composition and contextual disclosure are merged through [#3689](https://github.com/Drakosfire/DungeonMindBuddy/pull/3689), [#3690](https://github.com/Drakosfire/DungeonMindBuddy/pull/3690), [#3697](https://github.com/Drakosfire/DungeonMindBuddy/pull/3697), [#3711](https://github.com/Drakosfire/DungeonMindBuddy/pull/3711) and [#3774](https://github.com/Drakosfire/DungeonMindBuddy/pull/3774). Do not dispatch “build the first image grid” again. Local composer checks cover native editing/Undo, narrow layout, explicit Save/cold reopen and unchanged semantic Markdown for presentation-only edits; these are not physical print or every hosted-path acceptance.
 
-**Direction:** Keep Tiptap for writing; define shared row/column layout containers, stable section identities and durable layout representation. Preserve reading order for retrieval, citations and Markdown export. Distinguish this page-layout work from the deferred infinite spatial workspace below.
+**Residuals:** Physical sticker-sheet/print sizing, pagination and cutout proof remain separate. Ordinary chat-directed movement of an existing image is also separate: the local executor experiment is not normal-chat routing or model/held-out qualification, and is not a merged capability. Keep content/citation/asset identity, semantic reading order, stale rejection and explicit Save acceptance as gates. Shared agent actions and broader unscheduled design ambitions are not complete.
 
-**First slice to design:** Move and resize one existing image on a visible snapping grid. Decide persistence ownership and representation before implementation; image centering is an immediate separate convenience, not completion of the grid constructor.
+**Historical design context:** Edge authoring requested intentional text/art/table/callout placement in Tiptap rather than a freeform map. [#3683](https://github.com/Drakosfire/DungeonMindBuddy/pull/3683) retains the unmerged composer specification and broader design proposals. Do not treat that draft as a current implementation assignment or replace the roadmap's priorities.
 
-**Exit proof:** Ordinary controls place/resize an image; Save, reload and reopen preserve placement, undo/recovery preserve authorship, and narrow screens stack content predictably. Later slices may add adjacent editable text, tables/callouts and agent suggestion placement using stable section identities. Freeform overlap, pan/zoom and connectors require separate selection.
-
-**Surfaces when:** Planning Build authoring, media placement, shared page layout or proposal insertion. Product sequencing remains owned by `Docs/Roadmaps/ROADMAP-demo.md`; high priority does not activate implementation or resume the paused broad goal.
+**Surfaces when:** Planning remaining Build composition acceptance or agent layout. Product sequencing remains owned by `Docs/Roadmaps/ROADMAP-demo.md`; this reconciliation activates no new slice.
 
 **Refs:** Edge source `bba72416-9dfe-49bb-add0-21a346e9a421`; `apps/live-control-ui/src/tiptap/extensions/MediaImageNode.tsx`; `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
 
@@ -158,6 +163,8 @@ One row per product idea. These rows are pointers, not separate status records. 
 **Trigger:** Independent evaluation identifies controller choice as a measured retrieval bottleneck and the operator selects a comparison.
 
 **Current boundary:** Native retrieval, Jev decision drivers, trace capture and independent benchmark assessment already exist. The old proposal's first step of constructing a new exploration environment must be re-scoped around those owners.
+
+**Concrete deferred candidate:** [#3845](https://github.com/Drakosfire/DungeonMindBuddy/issues/3845) records local typed-decision-model comparison. It does not change the trigger above or select a production controller.
 
 **Next slice on trigger:** Pin one ordinary request and its admitted evidence. Compare controller decisions through the same existing native actions and benchmark assessment. Measure support, coverage, latency and calls. Determine whether successful traces warrant further controller research.
 
@@ -227,15 +234,15 @@ The rows below preserve discoverability for capabilities removed from root witho
 
 | Capability / residual | Status owner | Root disposition / owner health |
 |---|---|---|
-| Remaining C1/C2 source coverage and the authoring, preparation and Play journey | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) | The [DEMO steward handoff](Docs/Plans/STEWARDS-HANDOFF-demo.md) describes the mandate. The [old Demo-Ready ladder](Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md) and [CON-READY anchor](Docs/Plans/STEWARDS-ANCHOR-con-ready.md) are historical evidence. |
-| Build ready-state Reload / Discard-local actions | Demo-Ready Stage 6 / current Markdown Canvas ownership | Removed from root READY on 2026-09-08. It belongs with the real-material edit/save/reopen dogfood rather than an independent pre-Stage-6 dispatch. |
-| Hermes optimistic transcript + multiline composer | Demo-Ready Stage 7 Agent work | Removed from root READY on 2026-09-08. Useful UX remains, but Agent-on-Ingest/context/observability sequencing owns when it should ship. |
-| Hermes prompt/configuration quality + revision-aware cross-turn evidence deduplication | Demo-Ready Stage 7 / Agent observability | Removed from root IDEA on 2026-09-08. Reproduce against the assembled cross-surface Agent before creating an independent slice. |
+| Remaining C1/C2 source coverage and the authoring, preparation and Play journey | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) | The [DEMO bounded assignment](Docs/Plans/STEWARDS-HANDOFF-demo.md) describes the mandate. The [old Demo-Ready ladder](Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md) and [CON-READY anchor](Docs/Plans/STEWARDS-ANCHOR-con-ready.md) are historical evidence. |
+| Build ready-state Reload / Discard-local actions | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) / Markdown Canvas ownership | Removed from root READY on 2026-09-08. It belongs with the real-material edit/save/reopen dogfood rather than an independent pre-Stage-6 dispatch. |
+| Hermes optimistic transcript + multiline composer | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) / Agent interaction | Removed from root READY on 2026-09-08. Useful UX remains, but Agent-on-Ingest/context/observability sequencing owns when it should ship. |
+| Hermes prompt/configuration quality + revision-aware cross-turn evidence deduplication | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) / Agent observability | Removed from root IDEA on 2026-09-08. Reproduce against the assembled cross-surface Agent before creating an independent slice. |
 | First-class statblock and roll-table display across surfaces | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) and owning Threat/Play contracts | Assess remaining cross-surface behavior there; the Build Workbench launcher is already delivered. |
 | Durable Combat board / easy roster loading | CON-READY / Play + Combat authorities | Removed from root IDEA. Combat remains a real product need, but it is later than current Demo-Ready continuity and must be re-anchored when Play/Combat resumes. |
 | Native Play board usability / Beat-first current moment | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) and owning Play design | Re-anchor with DEMO when Play work resumes. |
 | Rich Threat authoring, statblock presentation/media, and related conversation behavior | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) and current owning handoffs | The [Threat roadmap](Docs/Roadmaps/ROADMAP-threat-statblock-authoring-projection.md) retains historical design and acceptance wording. |
-| Historical Campaign-Supergraph residual labels such as PR380E/PR380F and exact-run review sequencing | current Demo-Ready/CUTOVER-era authorities, not the old tracker by default | Historical design ancestry only. Do not dispatch directly from stale PR380 labels without re-anchoring against the post-cutover DungeonMind boundary. |
+| Historical Campaign-Supergraph residual labels such as PR380E/PR380F and exact-run review sequencing | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) and current owning contracts | Historical design ancestry only. Do not dispatch directly from stale PR380 labels without re-anchoring against the post-cutover DungeonMind boundary. |
 | Broad “durable database persistence for GM work across worktrees” umbrella | Stage 2A/2B proof + domain-specific successors | Retired as a root umbrella on 2026-09-08. Durable APP-STATE on `54331` and durable DungeonMind World on `54330` now exist and have recovery proof; remaining Combat/statblock/source-coverage/off-laptop work has narrower owners. History remains in Git. |
 | Broad “move durable Buddy runtime state out of checkout-local `out/`” umbrella | Stage 2A/2B + Demo-Ready Stage 2C/8 + domain owners | Retired as a root umbrella on 2026-09-08. Checkout-local `out/` is no longer accepted product authority for the recovered core state; surviving residuals must be named by domain rather than reopening the umbrella. |
 | Browser-local statblock draft persistence with untrusted receipt restore | Statblock Workbench / future durable draft owner if dogfood requires it | Retired from root READY on 2026-09-08. Browser-only storage is no longer an acceptable durability target. The safety insight survives: restoring mutable draft bytes must never restore a trusted validation receipt; any successor should use a domain-owned durable authority plus fresh validation. |
