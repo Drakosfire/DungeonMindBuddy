@@ -58,6 +58,8 @@ VARIANT_CARRIED_CONDITION_FORMAT = "surface_native_evidence_selectors_v8"
 
 
 VARIANT_PASSAGE_REVIEW_FORMAT = "surface_native_evidence_selectors_v9"
+VARIANT_TRIGGER_RETENTION_FORMAT = "surface_native_evidence_selectors_v10"
+VARIANT_PASSAGE_FORMATS = frozenset({VARIANT_PASSAGE_REVIEW_FORMAT, VARIANT_TRIGGER_RETENTION_FORMAT})
 
 
 def variant_draft_passages(work_frame):
@@ -71,7 +73,7 @@ def variant_draft_passages(work_frame):
 
 
 def variant_output_version(work_frame):
-    return 9 if variant_draft_passages(work_frame) else 8
+    return 10 if variant_draft_passages(work_frame) else 8
 
 
 def semantic_frame(host, execution, *, include_variant=False, variant_edits=False,
