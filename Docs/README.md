@@ -13,7 +13,7 @@ describes is implemented or deployed.
 | Understand World knowledge and product boundaries | [Campaign and World architecture](Design/ARCHITECTURE-campaign-supergraph.md) |
 | Understand source review and publication | [Source-to-World authoring contract](Design/DESIGN-source-to-world-authoring-interaction-contract.md) |
 | Work on shared surfaces and interaction | [Surface interaction architecture](Design/ARCHITECTURE-surface-interaction-layer.md) and [frontend guide](../apps/live-control-ui/README.md) |
-| Understand Agent orchestration and context | [Agent runtime decision](Design/DECISION-agent-runtime-and-semantic-adjudication.md) and [context compilation decision](Design/DECISION-agent-context-compilation.md) |
+| Understand Agent orchestration and context | [Agent runtime boundary](../apps/live_control_server/services/agent_runtime.py), [context compilation decision](Design/DECISION-agent-context-compilation.md), and the dated [runtime design direction](Design/DECISION-agent-runtime-and-semantic-adjudication.md) |
 | Choose verification for a change | [Agent policy: review and verification](../AGENTS.md#review-and-verification), [frontend commands](../apps/live-control-ui/README.md#commands), and the owning contract |
 | Find experiments, fixtures, or evaluation evidence | [Lab and evaluation guide](../evals/README.md) |
 | Deploy or recover a system | [Production deployment](Runbooks/RUNBOOK-buddy-production-deployment.md) and [application-state recovery](Runbooks/RUNBOOK-application-state-authority-recovery.md) |
