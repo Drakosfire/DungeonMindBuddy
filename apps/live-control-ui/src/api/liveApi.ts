@@ -490,6 +490,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && Array.isArray(body?.regions) && body.regions.length > 0
       && typeof body.instruction === "string";
   }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/append\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.operation_id === "string" && Boolean(body.operation_id)
+      && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
+      && body.expected_revision > 0 && isRecord(body.base);
+  }
   const imageHistory = "/api/live/media/images/preparations/list?";
   if (path.startsWith(imageHistory)) {
     const selectors = new URLSearchParams(path.slice(imageHistory.length));
