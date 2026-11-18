@@ -47,6 +47,21 @@ def review_case(request_case):
 def test_review_edit_cas_reload_and_original_evidence_are_distinct(review_case):
     command, service, proposal, source, root, wire = review_case
     opened = command("open")
+    checks = 0
+
+    def revoke_before_save():
+        nonlocal checks
+        checks += 1
+        if checks == 2:
+            raise PermissionError("World ownership changed")
+
+    with pytest.raises(PermissionError, match="World ownership changed"):
+        service.execute(
+            "elderwyld", proposal.action_id,
+            BuildReviewCommand(operation="save", expected_revision=opened.revision, markdown="Denied edit"),
+            authorize_world=revoke_before_save,
+        )
+    assert service.get("elderwyld", proposal.action_id) == opened
     changed = command(
         "save",
         opened.revision,

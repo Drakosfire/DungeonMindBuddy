@@ -1,5 +1,5 @@
 import { readSavedConversationVariantTarget } from "../statblocks/savedStatblockLocation";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { confirmVariantReview, correctVariantReview, openConversationDraft, openConversationVariantApproval, openVariantReview, saveConversationDraft } from "../api/conversationDraftApi";
 import { ConversationDraftEditor, ConversationVariantApproval } from "./ConversationDraftEditor";
@@ -173,7 +173,9 @@ it("stages a bounded rule correction and confirms only the successor review", as
     replace_exact: "Any hostile action starts the rain.", with_text: "Qualifying violence starts the rain.",
   }]);
   expect(confirmVariantReview).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Confirm and save as new statblock" }));
+  const confirm = await screen.findByRole("button", { name: "Confirm and save as new statblock" });
+  await waitFor(() => expect(confirm).toBeEnabled());
+  fireEvent.click(confirm);
   expect(await screen.findByRole("status")).toHaveTextContent("Statblock variant saved.");
   expect(confirmVariantReview).toHaveBeenCalledExactlyOnceWith(scope, "new");
 });
