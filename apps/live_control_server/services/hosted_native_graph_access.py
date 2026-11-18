@@ -779,6 +779,7 @@ async def resolve_hosted_exact_extraction_read(request: Request) -> str:
         raise _denied()
     subject = _hosted_subject(request)
     run, artifact = await _saved_extraction_source(run_id)
+    recap_binding = None
     if run.source_domain == artifact.source_domain == "worldbuilding":
         world_id = await _owned_build_page(subject, artifact.workspace_document_id)
         if world_id != artifact.world_id:
@@ -796,11 +797,29 @@ async def resolve_hosted_exact_extraction_read(request: Request) -> str:
         if (binding is None or artifact.world_id != scope.native_world_id or artifact.campaign_id != scope.campaign_id
                 or (binding.native_world_id, binding.binding_version) != (scope.native_world_id, scope.binding_version)):
             raise _denied()
+        recap_binding = (scope.native_world_id, scope.binding_version)
         world_id = world.world_id
     else:
         raise _denied()
     request.state.hosted_build_page_world = world_id
+    request.state.hosted_exact_extraction_run = (run_id, run, world_id, recap_binding)
     return world_id
+
+
+def read_hosted_exact_extraction(request: Request, run_id: str) -> dict:
+    from apps.live_control_server.services.native_recap_source_admission import public_run
+
+    admitted = getattr(request.state, "hosted_exact_extraction_run", None)
+    if admitted is None or admitted[0] != run_id:
+        raise _denied()
+    _, run, world_id, recap_binding = admitted
+    result = public_run(run)
+    world = _owned_world(_hosted_subject(request), world_id)
+    if recap_binding is not None:
+        binding = world.native_graph_binding
+        if binding is None or (binding.native_world_id, binding.binding_version) != recap_binding:
+            raise _denied()
+    return result
 
 
 async def resolve_hosted_build_extraction(request: Request) -> str:

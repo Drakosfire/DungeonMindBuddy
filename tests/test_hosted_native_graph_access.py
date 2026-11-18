@@ -4543,7 +4543,8 @@ def test_hosted_recap_name_review_requires_world_owner_and_origin(hosted, monkey
     assert "Private recap name" not in denied.text
 
 
-def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch):
+@pytest.mark.parametrize("change", ["owner", "binding"])
+def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch, change):
     from apps.live_control_server.services import graph_run_registry, source_artifact_registry
 
     owned = access._owned_world("synthetic-owner-alpha", "managed")
@@ -4567,3 +4568,20 @@ def test_hosted_saved_recap_run_uses_frozen_world_binding(hosted, monkeypatch):
     assert result.json()["run_id"] == "saved"
     scope["binding_version"] += 1
     assert hosted.client.request("GET", path).status_code == 403
+
+    scope["binding_version"] -= 1
+
+    def change_authority_while_building_response(**_kwargs):
+        record = hosted.records["managed"]
+        if change == "owner":
+            update = {"owner_subject": OTHER_OWNER}
+        else:
+            replacement = binding.model_copy(update={"binding_version": binding.binding_version + 1})
+            update = {"native_graph_binding": replacement}
+        hosted.records["managed"] = record.model_copy(update=update)
+        return {"run_id": "saved", "title": "Private recap metadata"}
+
+    run.model_dump = change_authority_while_building_response
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "Private recap metadata" not in denied.text
