@@ -240,6 +240,15 @@ def _apply_statblock_rule_edits(base, proposal):
             if field == "replace_rules":
                 rules[inherited[key]] = rule
             else:
+                mechanic = rule["mechanic"]
+                if (rule["automation_support"] == "manual"
+                        and mechanic["kind"] == "multiattack"
+                        and mechanic["sequences"] == [
+                            {"element_key": key, "count": 1, "choice_group": None},
+                        ]):
+                    # A manual rule pointing only to itself has no executable
+                    # attack sequence. Its existing rules text governs play.
+                    rule["mechanic"] = {"kind": "human_adjudicated", "adjudication_tags": []}
                 rules.append(rule)
     if not edited:
         raise ValueError("Statblock variant must propose at least one rule edit")
@@ -262,6 +271,8 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     if (not isinstance(candidate,dict) or set(candidate) != keys
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
         raise ValueError('Native completion requires its exact producing answer policy')
+    if evidence.variant_visible_reply and not candidate['answer_segments']:
+        raise ValueError('Native variant completion requires a visible reply')
     if evidence.variant_format:
         normalize_statblock_variant(candidate, evidence.work_frame, variant_edits=evidence.variant_edits)
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
