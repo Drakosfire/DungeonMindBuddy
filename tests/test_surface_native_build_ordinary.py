@@ -475,6 +475,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     ordered_refs=[dict(domain="base", segment_index=None),
                                   dict(domain="rules", segment_index=0)],
                 )
+            if body["text"]["format"]["name"] == "surface_native_evidence_selectors_v7":
+                candidate["answer_segments"] = [
+                    dict(kind="discussion", text="We can explore a truce for this creature.")
+                ]
             self.actual_output=json.dumps(candidate)
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
                 created_at=1, status='incomplete' if failure in {'writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'} else 'completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
@@ -1111,7 +1115,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert lane.repo.get_head(world).head_revision_id == current_revision
         return
     if saved_statblock in {"associated", "by-name"}:
-        assert context['completion']['answer_context_status'] == 'source_grounded'
+        expected_status = (
+            'discussion'
+            if json.loads(writer.calls[-1].content)["text"]["format"]["name"]
+            == "surface_native_evidence_selectors_v7"
+            else 'source_grounded'
+        )
+        assert context['completion']['answer_context_status'] == expected_status
         assert context['completion']['native_assertion_citations'] == []
         return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions)
     citations = context['completion']['native_assertion_citations']

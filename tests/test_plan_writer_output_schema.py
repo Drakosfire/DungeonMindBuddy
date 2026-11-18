@@ -356,3 +356,33 @@ def test_variant_writer_visible_reply_preserves_retained_edits_schema(monkeypatc
             assert "special only with trait or regional_effect" in edit["description"]
             variant["properties"][field]["items"] = rule
         assert witnessed["schema"] == native_output_format(evidence, rules(), witness_work, build_local=True, format_version=5)["schema"]
+
+
+def test_anchored_discussion_schema_only_accepts_discussion_segments():
+    from application_state.agent_conversation.build_primary_context import NATIVE_WORK_SCHEMA
+    from application_state.agent_conversation.native_writer import SCHEMA
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    from application_state.agent_conversation.surface_evidence_answer import ASSERTION_POLICY
+
+    evidence = {
+        "schema": SCHEMA,
+        "answer_policy": ASSERTION_POLICY,
+        "native_statements": {"statements": []},
+        "native_body_evidence": {"excerpts": []},
+        "native_assertions": None,
+    }
+    work = {
+        "schema": NATIVE_WORK_SCHEMA,
+        "artifact_under_edit": {"sections": []},
+        "working_draft_context": {"record_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857"},
+    }
+    ordinary = native_output_format(evidence, rules(), work, build_local=True)
+    discussion = native_output_format(evidence, rules(), work, build_local=True, format_version=7)
+    assert discussion["name"] == "surface_native_evidence_selectors_v7"
+    old_items = ordinary["schema"]["properties"]["answer_segments"]["items"]
+    items = discussion["schema"]["properties"]["answer_segments"]["items"]
+    validator = Draft202012Validator(items)
+    assert validator.is_valid({"kind": "discussion", "text": "One way to play this is a truce."})
+    factual = {"kind": "draft_reference_claim", "text": "The draft sets a trigger.", "draft_record_id": "draft0"}
+    assert Draft202012Validator(old_items).is_valid(factual)
+    assert not validator.is_valid(factual)

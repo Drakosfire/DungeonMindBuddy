@@ -256,7 +256,7 @@ def _answer_schema(variants, policy, rules, prose, *, proposal_labels=("invented
 
 def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
-    if type(format_version) is not int or format_version not in {1, 2, 3, 4, 5, 6}:
+    if type(format_version) is not int or format_version not in {1, 2, 3, 4, 5, 6, 7}:
         raise ValueError('Unknown native writer output format version')
     if (frame.get('schema') not in {SCHEMA, LEGACY_SCHEMA} or frame.get('answer_policy') != ASSERTION_POLICY
             or not isinstance(rules, (PlanRulesEvidenceFrameV1, ModelRulesFrame))):
@@ -284,6 +284,12 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
         raise ValueError('Shared output requires its actual supported work frame')
     schema=_answer_schema(variants,ASSERTION_POLICY,rules,prose,
         proposal_labels=("invented_idea", "image_prompt") if format_version == 1 else ("invented_idea",))
+    if format_version == 7:
+        if work_frame.get("schema") != BUILD_WORK_SCHEMA or not build_local or rules.lookups:
+            raise ValueError("Discussion-only format requires Build discussion without Rules lookups")
+        schema["properties"]["answer_segments"]["items"] = _object({
+            "kind": _literal("discussion"), "text": prose,
+        })
     if work_frame.get('schema')==BUILD_WORK_SCHEMA:
         from .build_intentional_response import native_review_enabled, native_review_schema
         if native_review_enabled(work_frame):
