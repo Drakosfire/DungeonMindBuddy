@@ -1331,11 +1331,17 @@ def _verified_world_id(world_id: str) -> str:
 @router.get("/worlds/{world_id}/plan-proposals/{action_id}/review",
     response_model=PlanReviewSnapshotV1)
 def get_plan_authoring_review(world_id: str, action_id: UUID, request: Request):
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="Plan proposal does not accept query selectors")
     verified = _verified_world_id(world_id)
     from application_state.plan_action_dialogue.authoring_review import read_review
     try:
-        return read_review(verified, action_id)
+        result = read_review(verified, action_id)
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+        return result
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code,
             detail={"code": "plan_authoring_review_unavailable", "message": str(exc)}) from exc
@@ -1346,11 +1352,22 @@ def get_plan_authoring_review(world_id: str, action_id: UUID, request: Request):
 def post_plan_authoring_review(
     world_id: str, action_id: UUID, command: PlanReviewCommand, request: Request,
 ):
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="Plan proposal does not accept query selectors")
     verified = _verified_world_id(world_id)
     from application_state.plan_action_dialogue.authoring_review import execute_review_command
     try:
-        return execute_review_command(verified, action_id, command)
+        from functools import partial
+
+        authorize_world = partial(
+            require_conversation_access, request, world_id, authorize_local=enforce_native_graph_gm,
+        )
+        result = execute_review_command(verified, action_id, command, authorize_world=authorize_world)
+        authorize_world()
+        return result
     except ApplicationStateError as exc:
         code = ("plan_authoring_review_conflict" if exc.status_code == 409
             else "plan_authoring_review_unavailable")

@@ -1069,3 +1069,21 @@ it("sends hosted work-plan commands through exact same-origin routes", async () 
   await expect(api.authenticatedApiFetch(path + "/continue", { method: "PUT", body: "{}" })).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(3);
 });
+
+it("opens and reviews an exact Plan proposal with hosted cookies", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ fixture: true }));
+  const path = "/api/live/agent/worlds/managed-a/plan-proposals/11111111-1111-4111-8111-111111111111/review";
+  const init = { method: "POST", body: JSON.stringify({ command_id: "command", operation: "open" }) };
+
+  await api.authenticatedApiFetch(path);
+  await api.authenticatedApiFetch(path, init);
+  for (const [, options] of fetch.mock.calls) {
+    expect(options).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+    expect(new Headers(options?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(path + "?world=foreign", init)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
