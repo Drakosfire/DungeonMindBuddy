@@ -114,7 +114,7 @@ def test_manual_preparation_materialization_scope_save_and_independence(scene_ca
     assert session_encounters.materialize_encounter(world_id="elderwyld",run_id=run_id,scene_id="scene:gate",request=request)['encounter']==saved
 
 
-def downgrade_0162(dsn):
+def downgrade_0163(dsn):
     from importlib import import_module
     from sqlalchemy import create_engine
     from alembic.operations import Operations
@@ -123,7 +123,7 @@ def downgrade_0162(dsn):
     try:
         with engine.begin() as conn:
             with Operations.context(MigrationContext.configure(conn)):
-                import_module('application_state.migrations.versions.20261118_0162_manual_combat_profiles').downgrade()
+                import_module('application_state.migrations.versions.20261118_0163_manual_combat_profiles').downgrade()
     finally:
         engine.dispose()
 
@@ -150,7 +150,7 @@ def test_cancellation_only_manual_history_refuses_downgrade(scene_case,kind):
     with psycopg.connect(p.dsn) as conn:
         assert conn.execute('SELECT count(*) FROM combat.encounter').fetchone()[0]==0
     with pytest.raises(RuntimeError,match='manual Combat records or history'):
-        downgrade_0162(p.dsn)
+        downgrade_0163(p.dsn)
 
 
 def test_oversized_template_profile_refuses_atomically(scene_case):
@@ -168,22 +168,40 @@ def test_oversized_template_profile_refuses_atomically(scene_case):
             assert conn.execute('SELECT count(*) FROM '+table).fetchone()[0]==0
 
 
-def test_serial_0160_0161_0162_rehearsal_preserves_legacy_row(application_state_dsn):
+def test_serial_0160_0161_0162_0163_rehearsal_preserves_legacy_row(monkeypatch):
+    #0162 is forward-only. Rehearse forward on a fresh uniquely owned database;
+    #never rewrite migration history or downgrade through that compatibility fence.
+    import json
+    from pathlib import Path
+    from uuid import uuid4
     from alembic import command
     from application_state.cli import alembic_config, _alembic_head
-    from application_state.combat_encounters.types import CreateCombatEncounterRequest
-    legacy=create_encounter(world_id='crossing-world',request=CreateCombatEncounterRequest(title='Legacy control'))
-    def stored():
-        with psycopg.connect(application_state_dsn) as conn:
-            return conn.execute('SELECT ruleset_snapshot::text,ruleset_digest,draft::text FROM combat.encounter WHERE encounter_id=%s',(legacy.encounter_id,)).fetchone()
-    before=stored()
-    config=alembic_config()
-    command.downgrade(config,'20261117_0160')
-    command.upgrade(config,'20261117_0161')
-    command.upgrade(config,'20261118_0162')
-    assert _alembic_head()=='20261118_0162'
-    assert stored()==before
-    assert get_encounter(world_id=legacy.world_id,encounter_id=legacy.encounter_id)==legacy
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+    from application_state.combat_encounters import repository
+    from application_state.combat_encounters.types import CombatEncounterRecord
+    from tests.application_state.conftest import _admin_dsn,_replace_database,_create_database,_drop_database
+    admin=_admin_dsn();name='dungeonbuddy_app_state_test_'+uuid4().hex[:12]
+    _create_database(admin,name)
+    try:
+        dsn=_replace_database(admin,name)
+        with monkeypatch.context() as patch:
+            patch.setenv(APPLICATION_STATE_DSN_ENV,dsn)
+            config=alembic_config();command.upgrade(config,'20261117_0160')
+            fixture=json.loads((Path(__file__).parents[1]/'fixtures/combat/manual-profile-v1-compat.json').read_text())
+            legacy=CombatEncounterRecord.model_validate(fixture['api'])
+            with psycopg.connect(dsn) as conn:
+                repository.insert_encounter(conn,legacy)
+            def stored():
+                with psycopg.connect(dsn) as conn:
+                    return conn.execute('SELECT ruleset_snapshot::text,ruleset_digest,draft::text FROM combat.encounter WHERE encounter_id=%s',(legacy.encounter_id,)).fetchone()
+            before=stored()
+            for revision in ('20261117_0161','20261118_0162','20261118_0163'):
+                command.upgrade(config,revision)
+                assert stored()==before
+            assert _alembic_head()=='20261118_0163'
+            assert get_encounter(world_id=legacy.world_id,encounter_id=legacy.encounter_id)==legacy
+    finally:
+        _drop_database(admin,name)
 
 
 def test_manual_http_versions_cas_and_principal_boundary(scene_case,monkeypatch):

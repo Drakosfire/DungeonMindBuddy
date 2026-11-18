@@ -56,7 +56,7 @@ side/spotlight behavior remain required before goal completion.
 World/source coherence here is structural validation, not principal authorization
 or source admission. Activation must retain the owning access/adoption guards.
 
-Migration sequencing is settled in merged #3877's PR body: Play owns0161, and
+Historical migration sequencing in merged #3877's PR body: Play owns0161, and
 Combat owns next serial revision20261118_0162 with parent20261117_0161, subject
 to confirming the sole head before committing and rehearsing0160→0161→0162 on
 disposable PostgreSQL. The human authorized PRIME coordination; its prerequisite
@@ -80,3 +80,10 @@ inputs now deep-copy before source validation, alongside model-instance dumping.
 A second failing-before-repair test makes the active-round anchor invariant
 explicit. Retain both initial failure logs; final repaired evidence/review is
 required. Existing v1 source DTOs and their serialization remain unchanged.
+
+The consuming manual-profile integration re-anchored after main merged the Build
+saved-statblock compatibility fence as0162. Its active handoff now adopts0163,
+parent0162, within the explicitly assigned Combat design authority after checking
+published assignments/open PRs and notifying PRIME. Original planned0162 proof is
+historical diagnostics only; final qualification must prove the new forward chain
+on fresh disposable PostgreSQL. See HANDOFF-COMBAT-manual-profile.md.

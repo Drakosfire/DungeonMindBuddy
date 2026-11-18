@@ -2,8 +2,9 @@
 
 ACTIVE under the operator's full Combat implementation/review/accepted-merge and
 local delivery authority. Serial successor to #3995, merged
-`087c293812e1699e0088062484df31367343b93a`. Fetched base
-`82594fb5bb78a6c2e34ffefb0890fcba4d549250`; branch
+`087c293812e1699e0088062484df31367343b93a`. Original base
+`82594fb5bb78a6c2e34ffefb0890fcba4d549250`; qualification rebase
+`b4ec5408180d74b8ef0a9cc9543271df6e5fb02c`; branch
 `codex/combat-manual-profile`, existing isolated fc67 checkout. No unmerged parent;
 one open implementation PR. Root is the assigned Combat designing owner.
 
@@ -23,7 +24,7 @@ lose work. Review by the owner map below; each boundary has independent evidence
 1. APP: combat_encounters/{manual_profiles,manual_encounters,repository,service,
    scene_template_types,scene_templates,adoption,access}.py; play/{session_encounter_types,
    session_encounters}.py; new migration
-   migrations/versions/20261118_0162_manual_combat_profiles.py. Keep existing v1
+   migrations/versions/20261118_0163_manual_combat_profiles.py. Keep existing v1
    DTO definitions/serialization in types.py and rulesets.py unchanged.
 2. HTTP: services/combat_encounters.py and routes/{combat_encounters,
    combat_scene_templates,combat_run_encounters}.py. Existing paths/access owners
@@ -48,16 +49,22 @@ is absorbed. Re-anchor and split/return before exceeding this write set.
 
 ## Migration and state authority
 
-The original PRIME allocation in #3877 was Combat20261118_0162, parent0161;
-the sole fetched head was0161 at that activation. This allocation is now stale:
-origin/main `e0ad49c18fa922bf415438d18729b988c23fb92d` contains merged
-`20261118_0162_saved_statblock_continuity.py`. Combat's competing0162 is unmerged
-and has run only in owned disposable databases. The next serial slot is pending
-PRIME's sequencing response; do not rebase/activate the migration until settled.
-Client work remains ACTIVE within this lease. Revise the migration path, parent
-and rehearsal together after allocation. The newly merged0162 is forward-only,
-so final rehearsal must use a fresh owned database rather than downgrade through
-that fence. Earlier0160→0161→planned-Combat0162 results are diagnostics only.
+The original PRIME allocation in #3877 was Combat0162 after0161, expressly
+subject to confirming the current sole head. Main subsequently merged
+`20261118_0162_saved_statblock_continuity.py`. Root audited the current migration
+head, published assignments and open PR metadata: no0163 reservation was found.
+Under the operator's existing Combat design/implementation authority, Root adopts
+Combat20261118_0163 with parent20261118_0162 and has explicitly notified PRIME.
+This is a bounded correction of the unmerged migration, not inferred approval from
+elapsed time. The former self-imposed wait gate is withdrawn on this concrete
+re-anchor/ownership audit; any actual overlapping lease must still be resolved.
+
+The branch is rebased on `b4ec5408180d74b8ef0a9cc9543271df6e5fb02c` and its sole
+head is independently confirmed0163. Renumber, parent and fresh-database rehearsal
+travel together. The merged0162 is forward-only: rehearse0160→0161→0162→0163
+forward on a uniquely owned fresh database with an unchanged legacy row; do not
+downgrade through0162 or rewrite any applied migration identity. Old planned0162
+browser/database results remain diagnostics, not current qualification.
 Preserve v1 rows, aliases,
 historical template/receipt/digest preimages and existing JSONB byte constraints.
 Admit only matching version pairs. Downgrade refuses retained v2 data/history.
@@ -213,6 +220,6 @@ the old planned0162 database/evidence as current migration qualification.
 
 PRIME was explicitly notified of both the migration collision and the hosted
 consumer PR3878/3879 route overlaps. Combat widens DTO versions without editing
-their branches or authorization owners. Pending allocation/sequence must remain
-visible; elapsed time is not agreement. Full qualification, independent exact-head
+their branches or authorization owners. The bounded0163 sequence correction is
+recorded above; no PRIME reply or approval is fabricated. Full qualification, independent exact-head
 review, accepted merge/local delivery and side/spotlight successors remain open.
