@@ -463,10 +463,24 @@ async def put_world_run_content_command(
         hosted_world_media_owner, require_hosted_plan_world_context,
     )
 
-    media_owner = None
+    from functools import partial
+    from application_state.errors import ApplicationStateValidationError
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteError, validate_saved_media_references,
+    )
+
+    authorize_world = None
+    validate_media = None
     if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
-        require_hosted_plan_world_context(request, world_id)
+        authorize_world = partial(require_hosted_plan_world_context, request, world_id)
+        authorize_world()
         media_owner = hosted_world_media_owner(world_id)
+
+        def validate_media(markdown: str) -> None:
+            try:
+                validate_saved_media_references(markdown, media_owner)
+            except TiptapMarkdownWriteError as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
     else:
         enforce_native_graph_gm(request)
     # Bound the streamed request before allocating an unbounded body buffer.
@@ -478,14 +492,20 @@ async def put_world_run_content_command(
             )
         raw.extend(chunk)
     body = parse_commit(bytes(raw))
-    return edition_response(
+    if authorize_world is not None:
+        authorize_world()
+    response = edition_response(
         commit_content,
         run_id=run_id,
         world_id=world_id,
         command_id=command_id,
         request=body,
-        media_owner=media_owner,
+        authorize_world=authorize_world,
+        validate_media=validate_media,
     )
+    if authorize_world is not None:
+        authorize_world()
+    return response
 
 
 @router.get("/world-play-runs/v2/{run_id}/content/proposals")

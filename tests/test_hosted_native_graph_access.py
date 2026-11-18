@@ -2759,9 +2759,31 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     }
     denied = hosted.client.request("PUT", edition_path, json=foreign_edition)
     assert denied.status_code == 422, denied.text
+    from application_state.play import edition_service
+
+    locked_state = edition_service._locked_state
+
+    def revoke_during_edition_read(*args, **kwargs):
+        state = locked_state(*args, **kwargs)
+        hosted.records["managed"] = owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return state
+
+    with monkeypatch.context() as patch:
+        patch.setattr(edition_service, "_locked_state", revoke_during_edition_read)
+        denied = hosted.client.request("PUT", edition_path, json=edition)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    hosted.records["managed"] = owner
+    assert hosted.client.request("GET", content_path).json()["markdown"] == content.markdown
     committed_edition = hosted.client.request("PUT", edition_path, json=edition)
     assert committed_edition.status_code == 200, committed_edition.text
     assert hosted.client.request("PUT", edition_path, json=edition).json() == committed_edition.json()
+    with monkeypatch.context() as patch:
+        patch.setattr(edition_service, "_locked_state", revoke_during_edition_read)
+        denied = hosted.client.request("PUT", edition_path, json=edition)
+    assert denied.status_code == 403, denied.text
+    assert str(artwork["asset_id"]) not in denied.text
+    hosted.records["managed"] = owner
     reopened_edition = hosted.client.request("GET", content_path)
     assert reopened_edition.status_code == 200, reopened_edition.text
     assert reopened_edition.json()["markdown"] == edition["markdown"]
