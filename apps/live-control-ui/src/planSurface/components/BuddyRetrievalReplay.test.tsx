@@ -365,3 +365,38 @@ it('places the animation before the compact playback controls', () => {
   expect(play).toHaveTextContent('▶')
   expect(screen.getByRole('button', { name: 'Pop out replay' })).toHaveTextContent('↗')
 })
+
+it('resolves discovery-only historical names across bounded pages', async () => {
+  setNativeGraphAccessToken('synthetic-replay-reader')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+    const path = String(input)
+    if (!path.includes('/identities')) return new Response(null, { status: 404 })
+    return Response.json({
+      world_id: 'elderwyld', turn_id: 'turn', trace_id: 'trace',
+      identities: path.includes('offset=128')
+        ? [{ node_id: 'place', label: 'Stormspire Academy', kind: 'location' }]
+        : [],
+      next_offset: path.includes('offset=128') ? null : 128,
+    })
+  })
+  try {
+    const trace = {
+      trace_id: 'trace', world_id: 'elderwyld', turn_id: 'turn', observations: [],
+      native_discovery_replay: {
+        revision_id: 'saved', seed_ids: ['seed'], labels: { seed: 'Caelynn', place: 'Unnamed object 129' },
+        hops: [{ relationship_id: 'hop', from_node_id: 'seed', to_node_id: 'place' }],
+      },
+    } as BuddyTurnContextTrace
+    render(<BuddyRetrievalReplay steps={replaySteps(trace)} trace={trace} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
+    expect(await screen.findByRole('button', { name: 'Stormspire Academy', exact: true })).toBeVisible()
+    expect(fetch.mock.calls.filter(([input]) => String(input).includes('/identities'))).toHaveLength(2)
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Stormspire Academy', exact: true }), { key: 'Enter' })
+    expect(within(screen.getByRole('dialog', { name: 'Replay node details' }))
+      .getByRole('heading', { name: 'Stormspire Academy' })).toBeVisible()
+  } finally {
+    cleanup()
+    fetch.mockRestore()
+    setNativeGraphAccessToken(null)
+  }
+})

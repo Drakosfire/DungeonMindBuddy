@@ -334,7 +334,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
             assert body['model'] == self.adapter._broker_execution().policy.provider_roles.writer.model
-            if body.get('reasoning', {}).get('effort') != 'low':
+            expected_effort = 'medium' if requested_work == 'draft_in_conversation' and saved_statblock == 'associated' else 'low'
+            if body.get('reasoning', {}).get('effort') != expected_effort:
                 return httpx.Response(400, request=req, json={'error': {
                     'message': 'Unsupported reasoning effort for configured writer',
                     'type': 'invalid_request_error', 'param': 'reasoning.effort',
@@ -1701,7 +1702,7 @@ def test_low_score_valid_image_selection_prepares_review_through_ordinary_http(l
     scores=dict(build_encounter=0.0,change_mechanics=0.0,clarify_creation=.07,clarify_request=.04,
         discuss=0.0,draft_in_conversation=0.0,other_creation=.27,place_map_coordinates=0.0,plan=.02,prepare_image=.40,
         publish_relationships=0.0,review_connected_page=.01,review_relationship=0.0,
-        save_page=0.0,write_current_page=.19)
+        review_variant_approval=0.0,save_page=0.0,write_current_page=.19)
     _fresh_case(lane,tmp_path,monkeypatch,None,True,False,'image',selection_probabilities=scores,
         message='Create an interior design detailed enough to generate a map from.')
 
@@ -1969,7 +1970,9 @@ def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
 
 
 @pytest.mark.parametrize("variant_validation", ["valid", "warnings", "invalid", None, "malformed", "mismatched"])
-def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_path, monkeypatch, variant_validation):
+def test_ordinary_build_attaches_variant_review_to_conversation_draft(
+    lane, tmp_path, monkeypatch, variant_validation, application_state_dsn,
+):
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Draft the Meat Mind variant in this conversation for review.",
@@ -1980,6 +1983,11 @@ def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_
     draft_path = f"{root}/drafts/{case.turn.turn_id}"
     draft = case.client.get(draft_path)
     assert draft.status_code == 200, draft.text
+    messages = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert messages.status_code == 200, messages.text
+    row = messages.json()["messages"][-1]
+    assert row["turn_id"] == str(case.turn.turn_id)
+    assert row.get("variant_draft_reviewed") is (True if variant_validation in {"valid", "warnings"} else None)
     if variant_validation not in {"valid", "warnings"}:
         assert draft.json()["markdown"]
         assert not draft.json().get("variant_review_ids")
@@ -1988,6 +1996,36 @@ def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_
     reviewed = case.client.get(f"{draft_path}/variant-reviews/{review_id}")
     assert reviewed.status_code == 200, reviewed.text
     assert reviewed.json()["base_locator"]["revision_id"] == "rev_meatmind"
+
+    definition = reviewed.json()["definition"]
+    markdown = draft.json()["markdown"]
+    assert markdown.startswith(f"# {definition['identity']['name']}\n")
+    assert all(rule["rules_text"] in markdown for rule in definition["rule_elements"])
+    assert markdown != case.turn.assistant_text
+    # Editing the draft invalidates the associated review and its chat projection.
+    edited = case.client.put(draft_path, json={"expected_revision": 1, "markdown": markdown + "\nEdited."})
+    assert edited.status_code == 200, edited.text
+    assert "variant_review_ids" not in edited.json()
+    reopened = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert reopened.status_code == 200, reopened.text
+    assert "variant_draft_reviewed" not in reopened.json()["messages"][-1]
+
+    # When the newer revision gains its own review, the chat can present it.
+    from uuid import uuid4
+
+    import psycopg
+
+    from application_state.agent_conversation.conversation_variant_save import store_review
+
+    with psycopg.connect(application_state_dsn) as conn:
+        store_review(
+            conn, world_id=case.world, conversation_id=case.turn.conversation_id,
+            turn_id=case.turn.turn_id, revision=2, review_id=uuid4(),
+            definition=definition, base_locator=reviewed.json()["base_locator"],
+        )
+    reopened = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["messages"][-1]["variant_draft_reviewed"] is True
 
 
 def test_requested_chat_draft_is_persisted_by_ordinary_build(lane, tmp_path, monkeypatch):
@@ -2053,3 +2091,97 @@ def test_selected_mechanics_are_available_without_repeating_the_artifact_name(la
     assert response.status_code == 200
     references = response.json()["messages"][-1]["saved_statblocks"]
     assert [(ref["name"], ref["revision_id"]) for ref in references] == [("Meat Mind", "rev_meatmind")]
+
+
+def test_variant_markdown_preserves_cross_references_and_armor_profiles():
+    from apps.live_control_server.services.conversation_variant_markdown import render_variant_markdown
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition()
+    data = base.model_dump(mode="json")
+    data["defenses"]["armor_classes"] = [
+        {"key": "base", "default": True, "value": 16},
+        {"key": "shell", "default": False, "value": 19, "condition": "While concealed"},
+    ]
+    data["resources"] = [{"key": "charge_pool", "name": "Charge", "maximum": 2, "refresh": "At dawn"}]
+    rule = data["rule_elements"][0]
+    rule["usage"] = {"kind": "manual", "resource_key": "charge_pool"}
+    markdown = render_variant_markdown(type(base).model_validate(data))
+
+    assert "**Armor class** 16 (default)" in markdown
+    assert "**Armor class** 19 (alternate) (While concealed)" in markdown
+    assert "**Resources** Key: charge_pool; Maximum: 2; Name: Charge; Refresh: At dawn" in markdown
+    assert "**Use** Kind: manual; Resource key: charge_pool" in markdown
+    assert f"**Rule reference** `{rule['key']}`" in markdown
+
+
+def test_variant_correction_creates_a_new_review_without_saving(lane, tmp_path, monkeypatch):
+    from copy import deepcopy
+    from datetime import datetime, timezone
+    from application_state.agent_conversation.conversation_variant_save import approval_handoff
+    from application_state.unit_of_work import unit_of_work
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Draft the Meat Mind variant in this conversation for review.",
+        requested_work="draft_in_conversation", saved_statblock="associated",
+    )
+    root = f"/api/live/agent/worlds/{case.world}/conversations/{case.turn.conversation_id}"
+    draft_path = f"{root}/drafts/{case.turn.turn_id}"
+    draft = case.client.get(draft_path).json()
+    review_id, = draft["variant_review_ids"]
+    prior_path = f"{draft_path}/variant-reviews/{review_id}"
+    prior = case.client.get(prior_path).json()
+    target = prior["definition"]["rule_elements"][-1]
+    revised = target["rules_text"] + " This only happens after the warning."
+    correction = {"expected_revision": 1, "replacements": [{
+        "rule_key": target["key"], "field": "rules_text",
+        "replace_exact": target["rules_text"], "with_text": revised,
+    }]}
+    original_approval_time = datetime.now(timezone.utc)
+    result = case.client.put(prior_path, json=correction)
+    assert result.status_code == 200, result.text
+    successor = result.json()
+    assert successor["revision"] == 2
+    assert successor["review_id"] != review_id
+    assert case.client.get(prior_path).json() == prior
+    successor_path = f"{draft_path}/variant-reviews/{successor['review_id']}"
+    review = case.client.get(successor_path).json()
+    expected = deepcopy(prior)
+    expected["revision"] = 2
+    expected["definition"]["rule_elements"][-1]["rules_text"] = revised
+    assert review == expected
+    assert case.client.get(successor_path + "/saved").status_code == 404
+    assert case.client.post(prior_path + "/confirm").status_code == 409
+    assert case.client.put(prior_path, json=correction).status_code == 409
+    new_draft = case.client.get(draft_path).json()
+    assert new_draft["variant_review_ids"] == [successor["review_id"]]
+    assert revised in new_draft["markdown"]
+    primary = case.turn.provenance.primary_work
+    target_scope = dict(
+        world_id=case.world, conversation_id=case.turn.conversation_id,
+        prior_to=case.turn.sequence + 1, page_id=primary.object_id, page_kind=primary.kind,
+    )
+    with unit_of_work() as conn:
+        assert approval_handoff(conn, **target_scope, accepted_at=original_approval_time) == {"status": "stale"}
+        fresh = approval_handoff(conn, **target_scope, accepted_at=datetime.now(timezone.utc))
+    assert fresh["status"] == "ready"
+    assert str(fresh["review_id"]) == successor["review_id"]
+    edited = case.client.put(draft_path, json={
+        "expected_revision": 2, "markdown": new_draft["markdown"] + "\nUnreviewed edit.",
+    })
+    assert edited.status_code == 200, edited.text
+    with unit_of_work() as conn:
+        assert approval_handoff(conn, **target_scope, accepted_at=datetime.now(timezone.utc)) == {"status": "stale"}
+
+
+def test_variant_exact_correction_rejects_overlapping_matches():
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.conversation_variant_save import (
+        VariantTextReplacement, apply_variant_text_corrections,
+    )
+
+    definition = {"rule_elements": [{"key": "fixture", "rules_text": "aaa"}]}
+    edit = VariantTextReplacement(rule_key="fixture", field="rules_text", replace_exact="aa", with_text="b")
+    with pytest.raises(ApplicationStateConflictError, match="one exact rule passage"):
+        apply_variant_text_corrections(definition, [edit])
