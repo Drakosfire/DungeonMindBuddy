@@ -291,3 +291,24 @@ remount; include malformed boundary refusal. Transport/model and server persiste
 stay scripted. This is no production route change, ordinary model accuracy claim,
 native PostgreSQL proof, or authority to enable new writers. No provider/live data,
 merge/deploy or leased source writes. Exact-head review/hosted check remain gates.
+
+### Typed-reference Plan persistence witness (2026-11-18)
+
+ACTIVE eval-only continuation from5ce661c26, explicitly assigned by root after
+confirming ordinary requested-work reservation/clarification already has real
+owner coverage. No authorized ordinary provider transport is available; private
+Sheep fixtures are out of scope. One distinct increment: same-label/different-ID
+graphNodeReference atoms through our contextual mounted Plan Save/remount fixture.
+Write only this handoff and owned eval adapter/tests/docs.154 open PR file lists
+plus expanded #3824 have no external overlap in these paths. Runtime/owner leases
+remain untouched. Allow selecting a separately pinned current-main source checkout
+for the adapter; record both harness and owner-source commits. Assert exact typed
+node identities, not labels/URLs/evidence citations; a wrong but valid ID is an
+oracle failure, not runtime rejection. No Graph lookup/opener claim, Graph writes,
+provider use, real World, merge or deploy. Scripted server transport remains explicit.
+
+Observed current-owner limit: ordinary boundary proposal validation rejects new
+graph identities. Keep that raw failed-positive evidence. This increment therefore
+proves retention of pre-existing same-label/distinct-ID atoms across contextual
+plain-prose Save/remount and explicit new-identity refusal, not new reference
+authoring. Do not weaken the runtime guard or confuse a bare label with a typed ID.

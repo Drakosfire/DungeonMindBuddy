@@ -25,3 +25,17 @@ def test_owner_case_drift_is_not_an_unverified_substitute():
     owner=ROOT/OWNER
     source=owner.read_text().replace("entries.find(entry => entry.kind === 'end_page')!",'changed')
     with pytest.raises(ValueError):derive(source,owner)
+
+def test_typed_reference_variant_preserves_original_variant_and_exact_ids():
+    owner=ROOT/OWNER;source=owner.read_text()
+    original=derive(source,owner)
+    typed=derive(source,owner,typed_references=True)
+    assert 'typed-reference Plan contextual persistence' not in original
+    assert "if(mode==='unadmitted_reference')" in typed
+    assert "await screen.findByText('Agent proposed unsupported markup, a path, or a graph identity.')" in typed
+    assert '[Warden](dmb-node:warden:river)' in typed
+    assert '[Warden](dmb-node:warden:ridge)' in typed
+    assert 'expect(references(reopened.getJSON())).toEqual(expectedReferences)' in typed
+    assert 'expect(references(wrong)).not.toEqual(expectedReferences)' in typed
+    assert 'const afterJson=editor.getJSON();' in original
+    assert owner.read_text()==source

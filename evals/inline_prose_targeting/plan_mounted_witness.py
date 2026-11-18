@@ -36,7 +36,7 @@ def replace_once(text: str, old: str, new: str) -> str:
         raise ValueError(f'Owner fixture changed: expected one anchor {old[:90]!r}')
     return text.replace(old, new, 1)
 
-def derive(source: str, owner: Path) -> str:
+def derive(source: str, owner: Path, *, typed_references: bool = False) -> str:
     start = source.index("it.each(['valid','offered_boundary','altered_boundary'")
     end = source.index('\n});', start) + len('\n});')
     case = source[start:end]
@@ -92,6 +92,43 @@ def derive(source: str, owner: Path) -> str:
   const reopened=(screen.getByTestId('world-owned-plan-markdown-editor').querySelector('.ProseMirror') as any).editor;
   expect(reopened.getJSON()).toEqual(afterJson);
   expect(screen.getByTestId('world-owned-plan-markdown-editor')).toHaveTextContent('Keep this cue.');''')
+    if typed_references:
+        case = replace_once(case, TITLE, 'typed-reference Plan contextual persistence (%s)')
+        case = replace_once(case, "['offered_boundary','altered_boundary','stale_draft']", "['offered_boundary','altered_boundary','stale_draft','unadmitted_reference']")
+        case = replace_once(case, "|| mode === 'stale_draft')", "|| mode === 'stale_draft' || mode === 'unadmitted_reference')")
+        case = replace_once(case, json.dumps(MARKDOWN), json.dumps(MARKDOWN.replace(
+            'The expedition gathers beside the locked gate.',
+            'The expedition gathers beside [Warden](dmb-node:warden:river) at the locked gate.').replace(
+            '## Rumours\n\nKeep the alternatives open until the scouts return.',
+            '## Rumours\n\nKeep the alternatives open until the scouts return. Ask [Warden](dmb-node:warden:ridge).')))
+        case = replace_once(case, "const markdown='## Proposed visitors", "const markdown=mode==='unadmitted_reference'?'Ask [Warden](dmb-node:warden:new).':'## Proposed visitors")
+        case = replace_once(case,
+            "  fireEvent.click(within(region).getByRole('button',{name:'Save',exact:true}));",
+            """  fireEvent.click(within(region).getByRole('button',{name:'Save',exact:true}));
+  if(mode==='unadmitted_reference'){
+    await screen.findByText('Agent proposed unsupported markup, a path, or a graph identity.');
+    expect(review.state).toBe('editing');expect(editor.getJSON()).toEqual(beforeJson);
+    expect(commands.mock.calls.filter(call=>['prepare','confirm'].includes(call[2].operation))).toHaveLength(0);
+    expect(ordinary).not.toHaveBeenCalled();mounted.unmount();return;
+  }""")
+        case = replace_once(case, "expect(suggestion).toHaveTextContent('A traveling keeper may ask about the lantern.');", "expect(suggestion).toHaveTextContent(mode==='unadmitted_reference'?'Warden':'A traveling keeper may ask about the lantern.');")
+        case = replace_once(case, '  const afterJson=editor.getJSON();', """  const references=(doc:any)=>{
+    const result:any[]=[];
+    const visit=(node:any)=>{if(node.type==='graphNodeReference')result.push({nodeId:node.attrs.nodeId,label:node.attrs.label});for(const child of node.content??[])visit(child);};
+    visit(doc);return result;
+  };
+  const expectedReferences=[{nodeId:'warden:river',label:'Warden'},{nodeId:'warden:ridge',label:'Warden'}];
+  const afterJson=editor.getJSON();
+  expect(references(afterJson)).toEqual(expectedReferences);
+  // Oracle contrast only: a valid wrong identity is not a runtime refusal.
+  const wrong=JSON.parse(JSON.stringify(afterJson));
+  const swap=(node:any)=>{if(node.type==='graphNodeReference'&&node.attrs.nodeId==='warden:ridge')node.attrs.nodeId='warden:river';for(const child of node.content??[])swap(child);};swap(wrong);
+  expect(references(wrong).map((row:any)=>row.label)).toEqual(['Warden','Warden']);
+  expect(references(wrong)).not.toEqual(expectedReferences);
+  expect(review.applications.at(-1).after_markdown).toContain('[Warden](dmb-node:warden:river)');
+  expect(review.applications.at(-1).after_markdown).toContain('[Warden](dmb-node:warden:ridge)');""")
+        case = replace_once(case, '  expect(reopened.getJSON()).toEqual(afterJson);',
+            '  expect(reopened.getJSON()).toEqual(afterJson);\n  expect(references(reopened.getJSON())).toEqual(expectedReferences);')
     derived = source[:start] + case + source[end:]
     # Preserve all owner setup/mocks; resolve its relative module imports from the
     # original owner directory, not from this eval's generated-file directory.
@@ -101,17 +138,22 @@ def derive(source: str, owner: Path) -> str:
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--evidence',type=Path,required=True)
+    parser.add_argument('--typed-references',action='store_true')
+    parser.add_argument('--owner-root',type=Path,help='Read-only pinned owner checkout; defaults to harness checkout')
     args=parser.parse_args()
-    root=Path(__file__).resolve().parents[2];owner=root/OWNER
+    root=Path(__file__).resolve().parents[2];owner_root=(args.owner_root or root).resolve();owner=owner_root/OWNER
     destination=root/'evals/inline_prose_targeting/plan_mounted.generated.test.tsx'
     if args.evidence.resolve().is_relative_to(root): raise ValueError('Evidence must be external')
-    source=owner.read_text();derived=derive(source,owner)
+    source=owner.read_text();derived=derive(source,owner,typed_references=args.typed_references)
     args.evidence.mkdir(parents=True,exist_ok=False)
     receipt={'source_sha':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
-             'owner_file':OWNER,'owner_sha256':hashlib.sha256(source.encode()).hexdigest(),
+             'harness_generator_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+             'harness_tracked_dirty':subprocess.run(['git','diff','--quiet','HEAD'],cwd=root).returncode!=0,
+             'owner_source_sha':subprocess.check_output(['git','rev-parse','HEAD'],cwd=owner_root,text=True).strip(),
+             'typed_references':args.typed_references,'owner_file':OWNER,'owner_sha256':hashlib.sha256(source.encode()).hexdigest(),
              'derived_sha256':hashlib.sha256(derived.encode()).hexdigest(),
              'model':'scripted; no inference','persistence':'scripted transport; actual frontend Save owner',
-             'test_filter':TITLE.replace(' (%s)','')}
+             'test_filter':'typed-reference Plan contextual persistence' if args.typed_references else TITLE.replace(' (%s)','')}
     with destination.open('x') as stream:stream.write(derived)
     (args.evidence/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
     (args.evidence/'derived.test.tsx').write_text(derived)

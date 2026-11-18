@@ -189,3 +189,29 @@ Other owner tests are discovered but filtered; their skipped status is not a pas
 Production routing/authoring remains unchanged. PlanSurfacePage is still leased
 by #3824, its owner fixture by #1188/#1014, Plan bridge by #1014 and saved review
 backend by #3919/#3824; no ownership release is inferred from nonconflicting hunks.
+
+### Typed-reference identity variant
+
+Use `--typed-references` and test filter `typed-reference Plan contextual persistence`
+to preserve two pre-existing graphNodeReference atoms named Warden with distinct
+`warden:river` and `warden:ridge` identities through a plain-prose insertion. Assertions inspect actual editor node types/IDs,
+sealed application Markdown and cold-remounted JSON, while retaining the unrelated
+caret, contextual section placement, untouched neighbors and Undo/Redo checks.
+A same-label/wrong-but-valid-ID contrast tests the assertion oracle, not runtime
+rejection. This is not an ordinary URL or evidence-citation substitute. No Graph
+object lookup, native chip opening, reference availability or model choice is proved.
+
+`--owner-root <isolated-pinned-checkout>` reads the owner fixture/runtime from a
+separate checkout without editing it. Its installed UI dependencies must be
+available there. The receipt records both harness SHA and owner-source SHA plus
+the exact fixture/derived digests; never relabel this as a merged branch or use an
+unrecorded moving checkout. As before, the original fixture's server transports
+are scripted. Frontend Save/cold remount is not native server persistence.
+
+The typed-reference variant also proves current refusal of a newly proposed graph
+identity before action preparation/Save. The initial positive attempt to insert
+new typed references failed and is retained separately, not relabeled successful.
+Bare labels can remain ordinary prose; they do not satisfy a typed-reference task.
+Future reference creation requires host-bound existing-identity admission, not a
+looser Markdown validator. Receipts record the generator digest and tracked-dirty
+status so working-tree runs cannot masquerade as exact clean harness evidence.
