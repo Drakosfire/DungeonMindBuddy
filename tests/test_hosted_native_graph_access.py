@@ -4100,6 +4100,17 @@ def test_hosted_saved_work_plan_reads_exact_turn(hosted, monkeypatch):
     assert response.status_code == 200, response.text
     read.assert_called_once_with("managed", conversation, turn)
 
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"status": "private work plan"}
+
+    read.side_effect = transfer_during_read
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "private work plan" not in denied.text
+
 
 def test_hosted_saved_work_plan_writes_exact_turn(hosted, monkeypatch):
     from unittest.mock import Mock
@@ -4122,3 +4133,17 @@ def test_hosted_saved_work_plan_writes_exact_turn(hosted, monkeypatch):
         response = hosted.client.request(method, route, json=body)
         assert response.status_code == 200, response.text
         assert service.call_args.args[:3] == ("managed", conversation, turn)
+        original_owner = hosted.records["managed"]
+
+        def transfer_before_write(*_args, authorize_world):
+            hosted.records["managed"] = original_owner.model_copy(
+                update={"owner_subject": OTHER_OWNER},
+            )
+            authorize_world()
+            pytest.fail("Work plan write continued after ownership changed")
+
+        service.side_effect = transfer_before_write
+        denied = hosted.client.request(method, route, json=body)
+        assert hosted.records["managed"].owner_subject == OTHER_OWNER
+        assert denied.status_code == 403, denied.text
+        hosted.records["managed"] = original_owner
