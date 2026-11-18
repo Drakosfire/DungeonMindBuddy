@@ -21,6 +21,7 @@ from .native_pdf_evidence import register_pdf_regions, reviewed_pdf_regions
 from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
 from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
+from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import AuthorizedTextAdmissionRepository
 from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
 from apps.live_control_server.models.native_threat_creation import NativeThreatReview
 from apps.live_control_server.services.agent_graph_auth import require_native_graph_gm
@@ -75,13 +76,16 @@ def published(bound, draft_id, aggregate, *, replayed):
                 published_revision_id=result.published_revision_id, replayed=replayed)
 
 
-def status(root, draft_id, world_id, principal):
+def status(root, draft_id, world_id, principal, *, authorize_write=None):
     require_native_graph_gm(principal)
     owned_draft(root, draft_id, world_id)
     bound = native.binding(world_id)
     prior = existing(native.read_repository(), bound, draft_id)
     require(native.binding(world_id) == bound, "The World binding changed")
-    return published(bound, draft_id, prior, replayed=True) if prior else None
+    result = published(bound, draft_id, prior, replayed=True) if prior else None
+    if authorize_write is not None:
+        authorize_write()
+    return result
 
 
 def intent(review):
@@ -112,7 +116,7 @@ def review_payload(review):
     return review.model_dump(mode="json", by_alias=True, exclude=excluded)
 
 
-def prepare(root, draft_id, request, principal):
+def prepare(root, draft_id, request, principal, *, authorize_write=None):
     require_native_graph_gm(principal)
     draft = owned_draft(root, draft_id, request.world_id)
     bound = native.binding(request.world_id)
@@ -120,7 +124,10 @@ def prepare(root, draft_id, request, principal):
     prior = existing(repo, bound, draft_id)
     if prior:
         require(native.binding(request.world_id) == bound, "The World binding changed")
-        return published(bound, draft_id, prior, replayed=True)
+        result = published(bound, draft_id, prior, replayed=True)
+        if authorize_write is not None:
+            authorize_write()
+        return result
     require(draft.version == request.expected_draft_version, "The creature draft changed; reopen it")
     regions = request.pdf_regions
     if request.mechanics_locator is not None:
@@ -153,7 +160,10 @@ def prepare(root, draft_id, request, principal):
         admitted = repo.get_native_source_admission_receipt(bound["native_world_id"], admission_id)
         if admitted is None:
             require(native.binding(request.world_id) == bound, "The World binding changed")
-            admitted = publish_native_text_source_evidence(repository=repo, domain_contract=domain,
+            if authorize_write is not None:
+                authorize_write()
+            admission_repository = repo if authorize_write is None else AuthorizedTextAdmissionRepository(repo, authorize_write)
+            admitted = publish_native_text_source_evidence(repository=admission_repository, domain_contract=domain,
                 semantic_profile=profile, request=NativeTextSourceAdmissionV1(
                     space_id=bound["native_world_id"], admission_id=admission_id,
                     expected_parent_revision_id=context["revision_id"],
@@ -168,7 +178,7 @@ def prepare(root, draft_id, request, principal):
         context, access = native.access_context(repo, bound["native_world_id"])
         context, access, pdf_evidence_ids, pdf_regions = register_pdf_regions(
             repo, bound["native_world_id"], regions, context, access,
-            datetime.fromisoformat(draft.updated_at),
+            datetime.fromisoformat(draft.updated_at), authorize_write=authorize_write,
         )
         domain, profile = native.descriptors(repo, bound["native_world_id"], context["revision_id"])
         now = datetime.now(UTC)
@@ -188,10 +198,12 @@ def prepare(root, draft_id, request, principal):
         encoded = transport.encode_prepared(prepared)
         review = review.model_copy(update={"prepared_digest": transport.digest(encoded)})
         envelope = review_payload(review)
+        if authorize_write is not None:
+            authorize_write()
         return dict(state="prepared", source_text=text, review=envelope, prepared=encoded, token=sign_publication_intent(envelope))
 
 
-def confirm(root, draft_id, request, principal):
+def confirm(root, draft_id, request, principal, *, authorize_write=None):
     require_native_graph_gm(principal)
     review = request.review
     signed = decode_publication_intent(request.token, allow_expired_recovery=True)
@@ -221,13 +233,22 @@ def confirm(root, draft_id, request, principal):
             source_matches(access, review)
             require(native.binding(review.world_id) == bound, "The World binding changed")
             domain, profile = native.descriptors(repo, bound["native_world_id"], prepared.expected_parent_revision_id)
-            transport.runtime(repo, domain, profile, now=prepared.prepared_at,
-                operation_id=publication_id(draft_id)).commit_prepared_change(prepared, confirmed_by=principal.subject)
+            runtime = transport.runtime(repo, domain, profile, now=prepared.prepared_at,
+                operation_id=publication_id(draft_id))
+            if authorize_write is not None:
+                authorize_write()
+            runtime.commit_prepared_change(prepared, confirmed_by=principal.subject)
     else:
         domain, profile = native.descriptors(repo, bound["native_world_id"], prepared.expected_parent_revision_id)
-        transport.runtime(repo, domain, profile, now=prepared.prepared_at,
-            operation_id=publication_id(draft_id)).commit_prepared_change(prepared, confirmed_by=principal.subject)
+        runtime = transport.runtime(repo, domain, profile, now=prepared.prepared_at,
+            operation_id=publication_id(draft_id))
+        if authorize_write is not None:
+            authorize_write()
+        runtime.commit_prepared_change(prepared, confirmed_by=principal.subject)
     result = existing(repo, bound, draft_id)
     require(result is not None and native.binding(review.world_id) == bound,
             "Creature publication outcome needs recovery; keep the same review")
-    return published(bound, draft_id, result, replayed=prior is not None)
+    publication = published(bound, draft_id, result, replayed=prior is not None)
+    if authorize_write is not None:
+        authorize_write()
+    return publication
