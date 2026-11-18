@@ -314,3 +314,30 @@ def test_retained_v2_format_is_exact_read_proof_not_current_dispatch():
 def test_legacy_schema_retains_its_existing_image_proposal_contract():
     candidate = answer({'kind': 'proposal', 'label': 'image_prompt', 'text': 'A visual prompt.'})
     Draft202012Validator(output_schema(frame(), rules())).validate(candidate)
+
+
+def test_variant_writer_visible_reply_preserves_retained_edits_schema(monkeypatch):
+    from application_state.agent_conversation import native_build_work_view
+    from application_state.agent_conversation.build_primary_context import NATIVE_WORK_SCHEMA
+    from application_state.agent_conversation.native_writer import SCHEMA
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    from application_state.agent_conversation.surface_evidence_answer import ASSERTION_POLICY
+
+    monkeypatch.setattr(native_build_work_view, "variant_sources", lambda _: {"statblock0": {}})
+    evidence = {
+        "schema": SCHEMA,
+        "answer_policy": ASSERTION_POLICY,
+        "native_statements": {"statements": []},
+        "native_body_evidence": {"excerpts": []},
+        "native_assertions": None,
+    }
+    work = {"schema": NATIVE_WORK_SCHEMA, "artifact_under_edit": {"sections": []}}
+    retained = native_output_format(evidence, rules(), work, build_local=True, format_version=4)
+    current = native_output_format(evidence, rules(), work, build_local=True, format_version=5)
+
+    assert retained["name"] == native_build_work_view.VARIANT_EDITS_FORMAT
+    assert current["name"] == native_build_work_view.VARIANT_VISIBLE_REPLY_FORMAT
+    expected = deepcopy(retained["schema"])
+    assert "minItems" not in expected["properties"]["answer_segments"]
+    expected["properties"]["answer_segments"]["minItems"] = 1
+    assert current["schema"] == expected

@@ -1331,11 +1331,17 @@ def _verified_world_id(world_id: str) -> str:
 @router.get("/worlds/{world_id}/plan-proposals/{action_id}/review",
     response_model=PlanReviewSnapshotV1)
 def get_plan_authoring_review(world_id: str, action_id: UUID, request: Request):
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="Plan proposal does not accept query selectors")
     verified = _verified_world_id(world_id)
     from application_state.plan_action_dialogue.authoring_review import read_review
     try:
-        return read_review(verified, action_id)
+        result = read_review(verified, action_id)
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+        return result
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code,
             detail={"code": "plan_authoring_review_unavailable", "message": str(exc)}) from exc
@@ -1346,11 +1352,22 @@ def get_plan_authoring_review(world_id: str, action_id: UUID, request: Request):
 def post_plan_authoring_review(
     world_id: str, action_id: UUID, command: PlanReviewCommand, request: Request,
 ):
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="Plan proposal does not accept query selectors")
     verified = _verified_world_id(world_id)
     from application_state.plan_action_dialogue.authoring_review import execute_review_command
     try:
-        return execute_review_command(verified, action_id, command)
+        from functools import partial
+
+        authorize_world = partial(
+            require_conversation_access, request, world_id, authorize_local=enforce_native_graph_gm,
+        )
+        result = execute_review_command(verified, action_id, command, authorize_world=authorize_world)
+        authorize_world()
+        return result
     except ApplicationStateError as exc:
         code = ("plan_authoring_review_conflict" if exc.status_code == 409
             else "plan_authoring_review_unavailable")
@@ -1494,12 +1511,15 @@ def get_world_conversation_history(
     draft_turn_ids = service.conversation_draft_turn_ids(
         verified_world_id, conversation.conversation_id, completed_build_turn_ids,
     ) if completed_build_turn_ids else set()
+    from application_state.agent_conversation.conversation_variant_save import requested_approval
+
     history_turns = []
     for turn in turns:
         if isinstance(turn, MixedCompletedTurnV1):
             envelope = turn.envelope
             mixed_model = AgentConversationHistoryPlayRulesTurnV1 if source_only_play(turn) else AgentConversationHistoryMixedTurnV1
             history_turns.append(mixed_model(
+                variant_approval_requested=True if requested_approval(turn) else None,
                 turn_id=envelope.turn_id, sequence=envelope.sequence,
                 lifecycle_status=envelope.status, user_text=envelope.user_text,
                 assistant_text=turn.assistant_text, provenance=envelope.provenance,
@@ -1546,6 +1566,7 @@ def get_world_conversation_history(
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
             history_turns.append(build_model(**values,
                 conversation_draft_available=True if turn.turn_id in draft_turn_ids else None,
+                variant_approval_requested=True if requested_approval(turn) else None,
                 knowledge_context=project_plan_turn_context(turn, delivery_replay=True, source_names=source_names)))
         elif has_play_context(turn):
             play_model = (
@@ -1618,6 +1639,15 @@ def _conversation_draft_access(request: Request, world_id: str) -> str:
 
     require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     return _verified_world_id(world_id)
+
+
+@router.get("/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/variant-approval")
+def get_conversation_variant_approval(world_id: str, conversation_id: UUID, turn_id: UUID, request: Request):
+    verified = _conversation_draft_access(request, world_id)
+    try:
+        return _conversation_service(request).conversation_variant_approval(verified, conversation_id, turn_id)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
 @router.get(_CONVERSATION_DRAFT_PATH)
@@ -1820,6 +1850,70 @@ def get_world_turn_native_source_section(world_id: str, turn_id: UUID, citation_
         raise HTTPException(status_code=409,detail={"code":"source_section_binding_invalid"}) from exc
 
 
+@router.get("/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence")
+def get_saved_plan_action_graph_evidence(world_id: str, action_id: UUID, request: Request):
+    from apps.live_control_server.services.agent_source_passages import (
+        SourcePassageOpenError, open_saved_plan_action_graph_evidence,
+    )
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    selectors = request.query_params.multi_items()
+    claim_id = request.query_params.get("claim_id")
+    anchor_id = request.query_params.get("anchor_id")
+    if (len(selectors) != 2 or {key for key, _ in selectors} != {"claim_id", "anchor_id"}
+            or not claim_id or not anchor_id or max(len(claim_id), len(anchor_id)) > 256):
+        raise HTTPException(status_code=422, detail={"code": "source_passage_selector_invalid"})
+    try:
+        result = open_saved_plan_action_graph_evidence(
+            world_id=_verified_world_id(world_id), action_id=action_id, claim_id=claim_id, anchor_id=anchor_id,
+        )
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+        return result.model_dump(mode="json", by_alias=True)
+    except SourcePassageOpenError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "source_passage_action_unavailable"}) from exc
+
+
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence")
+def get_saved_turn_graph_evidence(world_id: str, turn_id: UUID, request: Request):
+    """Open an evidence anchor admitted by a saved turn at its recorded pin."""
+    from apps.live_control_server.services.agent_source_passages import (
+        SourcePassageOpenError, open_saved_turn_graph_evidence, open_saved_turn_related_recap,
+    )
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    selectors = request.query_params.multi_items()
+    claim_id = request.query_params.get("claim_id")
+    anchor_id = request.query_params.get("anchor_id")
+    related = bool(anchor_id and anchor_id.startswith("dm-context-anchor:v2:"))
+    expected = {"claim_id", "anchor_id"}
+    continuation = request.query_params.get("continuation")
+    if related and continuation is not None:
+        expected.add("continuation")
+    if (
+        len(selectors) != len(expected) or {key for key, _ in selectors} != expected
+        or (continuation is not None and not 1 <= len(continuation) <= 256)
+        or not claim_id or not anchor_id or max(len(claim_id), len(anchor_id)) > 256
+    ):
+        raise HTTPException(status_code=422, detail={"code": "source_passage_selector_invalid"})
+    try:
+        coordinates = dict(
+            world_id=_verified_world_id(world_id), turn_id=turn_id, claim_id=claim_id,
+            anchor_id=anchor_id, service=_conversation_service(request),
+        )
+        result = (open_saved_turn_related_recap(**coordinates, continuation=continuation)
+                  if related else open_saved_turn_graph_evidence(**coordinates))
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+        return result.model_dump(mode="json", by_alias=True)
+    except SourcePassageOpenError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "source_passage_turn_unavailable"}) from exc
+
+
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/source-passages/{citation_index}")
 def get_world_turn_source_passage(world_id: str, turn_id: UUID, citation_index: int,
         request: Request):
@@ -1958,11 +2052,15 @@ def get_world_replay_identities(world_id: str, turn_id: UUID, trace_id: UUID, re
 
     principal = enforce_native_graph_gm(request)
     world = _verified_world_id(world_id)
-    if request.query_params:
+    selectors = list(request.query_params.multi_items())
+    offset_text = request.query_params.get("offset", "0")
+    if (selectors and (len(selectors) != 1 or selectors[0][0] != "offset")
+            or not offset_text.isascii() or not offset_text.isdecimal()
+            or len(offset_text) > 8 or str(int(offset_text)) != offset_text):
         raise HTTPException(status_code=422, detail={"code": "replay_identity_selector_invalid"})
     try:
         result = replay_identities(service=_conversation_service(request), principal=principal,
-                                   world_id=world, turn_id=turn_id, trace_id=trace_id)
+                                   world_id=world, turn_id=turn_id, trace_id=trace_id, offset=int(offset_text))
         return JSONResponse(result, headers={"Cache-Control": "no-store"})
     except InspectionUnavailable as exc:
         raise HTTPException(status_code=404, detail={"code": exc.code}) from exc
@@ -2010,7 +2108,9 @@ def get_world_turn_prompt(world_id: str, turn_id: UUID, trace_id: UUID, provider
     from application_state.agent_conversation.context_trace import TracePromptReference
     from apps.live_control_server.services.agent_prompt_evidence import PromptEvidenceError, read_prompt
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422, detail="prompt read does not accept query selectors")
@@ -2055,7 +2155,9 @@ def get_world_turn_prompts(
     from application_state.agent_conversation.context_trace import TracePromptReference
     from apps.live_control_server.services.agent_prompt_evidence import MAX_PROMPT_BYTES, PromptEvidenceError, read_prompt
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422, detail="prompt read does not accept query selectors")
@@ -2338,7 +2440,11 @@ def withdraw_build_source(world_id: str, body: BuildSourceWithdrawal, request: R
     from apps.live_control_server.models.native_graph_inspection import InspectionScope
     from apps.live_control_server.services.native_source_inspection import catalog
 
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        conversation_graph_principal, require_conversation_access,
+    )
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     try:
         binding = _source_world_binding(None, verified)
@@ -2361,6 +2467,7 @@ def withdraw_build_source(world_id: str, body: BuildSourceWithdrawal, request: R
             raise HTTPException(status_code=404, detail="The document is unavailable.")
         if _source_world_binding(None, verified) != binding:
             raise ValueError("World binding changed")
+        require_conversation_access(request, verified, authorize_local=enforce_native_graph_gm)
         repository.withdraw_native_source(
             space_id=binding.native_world_id, source_artifact_id=artifact_id,
             source_revision_id=body.revision_id,
@@ -2815,7 +2922,7 @@ def post_pdf_statblock_publication(
     from apps.live_control_server.models.native_threat_creation import ConfirmNativeThreat, PrepareNativeThreat
     from apps.live_control_server.routes.native_threat_creation import call
     from apps.live_control_server.routes.world_mechanics_associations import (
-        associate_route, list_associations,
+        _associate_for_principal, list_associations,
     )
     from apps.live_control_server.services import native_threat_creation as creature, world_creature_selection
     from apps.live_control_server.services.hosted_native_graph_access import build_pdf_publication_principal
@@ -2851,19 +2958,19 @@ def post_pdf_statblock_publication(
 
     call(verify_source)
     principal = recheck_review()
-    result = call(creature.status, draft_id, world_id, principal)
+    result = call(creature.status, draft_id, world_id, principal, authorize_write=recheck_review)
     if result is None:
         principal = recheck_review()
         prepared = call(creature.prepare, draft_id, PrepareNativeThreat(
             world_id=world_id, expected_draft_version=draft.version, mechanics_locator=locator,
-        ), principal)
+        ), principal, authorize_write=recheck_review)
         if prepared["state"] == "published":
             result = prepared
         else:
             principal = recheck_review()
             result = call(creature.confirm, draft_id, ConfirmNativeThreat(
                 review=prepared["review"], prepared=prepared["prepared"], token=prepared["token"],
-            ), principal)
+            ), principal, authorize_write=recheck_review)
     prior = [
         entry for entry in list_associations(world_id, principal)
         if entry.request.target.node_id == result["node_id"] and entry.request.target.campaign_scope is None
@@ -2880,10 +2987,10 @@ def post_pdf_statblock_publication(
         if target is None:
             raise HTTPException(status_code=409, detail="Retry Publish when the creature is available for association")
         principal = recheck_review()
-        associate_route(world_id, AssociateWorldMechanicsRequest(
+        _associate_for_principal(AssociateWorldMechanicsRequest(
             request_id=uuid4(), draft_id=draft_id, expected_draft_version=draft.version,
             target=target, expected_version=0, locator=locator,
-        ), principal)
+        ), principal, authorize=recheck_review)
     recheck_review()
     return {"draft_id": draft_id, "revision_id": locator.revision_id}
 
@@ -3060,14 +3167,18 @@ def post_append_pdf_statblock_review(
     body: AppendPdfStatblockReviewRequest, request: Request,
 ):
     from apps.live_control_server.routes.statblock_candidates import _revision_call
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
     from apps.live_control_server.services.statblock_saved_revision import append_pdf_review
 
-    enforce_native_graph_gm(request)
+    require_build_pdf_access(request, world_id)
     world_id = _verified_world_id(world_id)
-    return _revision_call(
+    result = _revision_call(
         append_pdf_review, draft_id=str(draft_id), world_id=world_id, review_id=review_id,
         request=body, load_review=lambda: get_pdf_statblock_review(world_id, review_id, request),
+        authorize=lambda: require_build_pdf_access(request, world_id),
     )
+    require_build_pdf_access(request, world_id)
+    return result
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/region:validate", status_code=204)

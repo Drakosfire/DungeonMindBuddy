@@ -1,4 +1,5 @@
-import { ConversationDraftEditor } from "../../agentInteraction/ConversationDraftEditor";
+import { dungeonMindLoginHref, useHostedAuthStatus } from "../../auth/HostedAuthGate";
+import { ConversationDraftEditor, ConversationVariantApproval } from "../../agentInteraction/ConversationDraftEditor";
 import { downloadBlob } from "../../shared/downloadBlob";
 import { SavedStatblockPdfEvidence } from './SavedStatblockPdfEvidence';
 import { savedStatblockHref } from '../../statblocks/savedStatblockLocation';
@@ -1722,6 +1723,12 @@ function isHistoryTurn(
     return ['discuss','write_current_page'].includes(String(operation))&&isRecord(value.provenance)
       &&value.provenance.surface_id==='plan'&&isHistoryTurn(envelope,schema,worldId);
   }
+  if (Object.hasOwn(value, 'variant_approval_requested')) {
+    const { variant_approval_requested: approval, ...envelope } = value;
+    return approval === true && value.lifecycle_status === 'completed'
+      && isRecord(value.provenance) && value.provenance.surface_id === 'build'
+      && isHistoryTurn(envelope, schema, worldId);
+  }
   if (Object.hasOwn(value, 'conversation_draft_available')) {
     const { conversation_draft_available: draft, ...envelope } = value;
     return draft === true && value.lifecycle_status === 'completed'
@@ -2657,6 +2664,7 @@ export function WorldPlanAgentConversation({
   savePlanEnabled = false,
   imagePromptHost,
 }: WorldPlanAgentConversationProps) {
+  const localOperator = useHostedAuthStatus().status === "local_operator";
   const guidance=useGuidedTour();
   const selectedWorld = useSelectedWorld();
   const agent = useAgentInteraction();
@@ -5179,7 +5187,7 @@ export function WorldPlanAgentConversation({
           schema: "dmb_world_graph_source_anchor_read_request_v1",
           worldId: target.native_world_id, campaignId: "", scopeMode: "world", focus,
           admissibility: "gm", revisionPin: target.graph_revision, anchorId: target.anchor_id,
-        });
+        }, { worldId: target.managed_world_id, turnId: turn.turn_id, claimId: target.claim_id });
         if (result.schema === "dmb_world_graph_source_anchor_read_v1"
           && ["enough", "partial", "truncated"].includes(result.outcome)
           && sourceReadMatchesAuthority(target, result.snapshot)
@@ -5197,7 +5205,7 @@ export function WorldPlanAgentConversation({
           worldId: target.native_world_id, campaignId: "", scopeMode: "world", focus,
           admissibility: "gm", revisionPin: target.graph_revision, contextAnchorId: target.context_anchor_id,
           maxChars: 12000, continuation: previous?.page?.nextContinuation ?? null,
-        });
+        }, { worldId: target.managed_world_id, turnId: turn.turn_id, claimId: target.claim_id });
         const descriptor = result.context;
         if (result.schema === "dmb_recap_context_read_v2"
           && ["enough", "truncated"].includes(result.outcome)
@@ -5270,7 +5278,7 @@ export function WorldPlanAgentConversation({
         worldId: target.native_world_id, campaignId: "", scopeMode: "world",
         focus: { kind: "none", sessionId: null, campaignId: null },
         admissibility: "gm", revisionPin: target.graph_revision, anchorId: target.anchor_id,
-      });
+      }, { worldId: target.managed_world_id, actionId: action.action_id, claimId: target.claim_id });
       if (sourceReadEpochRef.current !== epoch || latestRef.current.verifiedWorldId !== target.managed_world_id
         || historySnapshotRef.current?.conversation_id !== action.consultation?.receipt.origin_conversation_id
         || historySnapshotRef.current?.pointer_revision !== action.consultation?.receipt.origin_pointer_revision
@@ -6276,7 +6284,9 @@ export function WorldPlanAgentConversation({
       || action.consultation?.result?.result_id !== consultation.result.result_id) return null;
     return savedProposalGrounding(action, worldId, history.conversation_id, history.pointer_revision);
   })();
-  const authorizationBlocked = [historyError, error, editError].some((message) =>
+  const hostedNewConversationAuthError = !localOperator
+    && Boolean(newConversationError?.includes("local Agent and Graph session is missing or was rejected"));
+  const authorizationBlocked = hostedNewConversationAuthError || [historyError, error, editError].some((message) =>
     message?.includes("local Agent and Graph session is missing or was rejected"));
   const hasUncertainPlayNotice = Boolean(uncertainPlayNoticeRef.current
     && error === uncertainPlayNoticeRef.current.message);
@@ -6501,6 +6511,14 @@ export function WorldPlanAgentConversation({
             : undefined}
         />
       );
+    const variantApproval = isBuild && !historicalAttempt && turn.variant_approval_requested &&
+      verifiedWorldId && history?.conversation_id && (
+        <ConversationVariantApproval key={turn.turn_id}
+          scope={{ worldId: verifiedWorldId, conversationId: history.conversation_id, turnId: turn.turn_id }}
+          placement={onOriginalPage && buildMode?.savedSource && buildMode.composeBridge
+            ? { documentId: buildMode.savedSource.documentId, bridge: buildMode.composeBridge }
+            : undefined} />
+      );
     const hasLightweightReply = Boolean(pageSuggestion || turn.assistant_text || ['completed','failed','interrupted'].includes(turn.lifecycle_status));
     if (!history?.turns.some(full => sameSavedMessage(full, turn))) return <BuddyTurnInspection key={`world:${turn.turn_id}`} worldId={verifiedWorldId ?? ''} conversationId={history?.conversation_id ?? ''} turnId={turn.turn_id} lifecycle={turn.lifecycle_status}>
       <article className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? 'complete' : turn.lifecycle_status}`} data-turn-id={turn.turn_id} data-sequence={turn.sequence} tabIndex={-1}>
@@ -6510,6 +6528,7 @@ export function WorldPlanAgentConversation({
           {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : selectPassage ? null : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : 'This reply did not finish.'}</p>}
           {savedStatblockLinks}
           {draftEditor}
+          {variantApproval}
           {!historicalAttempt && (isBuild || !isReadOnly) && !turn.assistant_text
             && ['failed','interrupted'].includes(turn.lifecycle_status)
             && (isBuild ? turn.provenance.surface_id === 'build'
@@ -6633,6 +6652,7 @@ export function WorldPlanAgentConversation({
               disabled={composerBusy||!isBuild||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}
               onVisible={()=>agent.setPaneOpen(false)}/>:null}
             {draftEditor}
+            {variantApproval}
             {verifiedWorldId && history?.conversation_id && !pageWorkPlan && <ConversationWorkbook
               key={`workbook:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
               collaboration={collaboration}
@@ -6791,9 +6811,9 @@ export function WorldPlanAgentConversation({
   </>);
   const headerActions = (
     <div className="world-plan-agent-conversation__actions">
-            <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
+            {localOperator && <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
               {settingsOpen ? "Close settings" : "Settings"}
-            </button>
+            </button>}
             {!isReadOnly && (!presentationHosts || presentationHosts.newConversation === undefined) ? newConversationButton : null}
             {newConversationDisabledReason ? (
               <p id="world-plan-new-conversation-disabled-reason" className="world-plan-agent-conversation__management-reason" role="note">
@@ -6888,7 +6908,7 @@ export function WorldPlanAgentConversation({
             : historyLoading || !history ? "Checking saved conversation history."
             : "Current work is not ready for submission."
         ) : null} />
-      {settingsOpen ? connectionSettings : null}
+      {localOperator && settingsOpen ? connectionSettings : null}
       {isReadOnly ? <details><summary>Advanced</summary>
         {playMode?.admittedRun ? <p>Run {playMode.admittedRun.runId} · revision {playMode.admittedRun.runRevision}</p> : null}
         <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
@@ -7178,16 +7198,17 @@ export function WorldPlanAgentConversation({
     </>);
   const messages = (
     <div className="world-plan-agent-conversation__body">
-      {newConversationError ? <p role="alert">{newConversationError}</p> : null}
+      {newConversationError && !hostedNewConversationAuthError ? <p role="alert">{newConversationError}</p> : null}
       {pendingPlayLoadError ? <p role="alert">{pendingPlayLoadError}</p> : null}
       {presentationHosts && playableTargetStale ? <p role="alert">The Ask target is stale. Select it again before asking.</p> : null}
       {presentationHosts && effectiveEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
       {authorizationBlocked ? (
         <section className="world-plan-agent-conversation__auth-notice" role="alert">
-          <p>{pendingSavedAsk
+          <p>{!localOperator ? "World authorization was rejected. Check your DungeonMind sign-in and World access, then refresh history." : pendingSavedAsk
             ? "Local authorization was rejected. Reconnect in Settings, then refresh World history before taking another action."
             : "Local authorization was rejected. Reconnect in Settings, then refresh history or retry the saved request."}</p>
-          <button type="button" onClick={openConnectionSettings}>Open Settings</button>
+          {localOperator ? <button type="button" onClick={openConnectionSettings}>Open Settings</button>
+            : <a href={dungeonMindLoginHref(window.location.href)}>Sign in to DungeonMind</a>}
         </section>
       ) : null}
       {saveInFlight ? (

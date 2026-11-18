@@ -205,6 +205,36 @@ def test_commit_publishes_object_through_dungeonmind(
     assert not overlay.exists()
 
 
+def test_commit_binds_authenticated_actor_in_signed_intent(corpus_root: Path, monkeypatch) -> None:
+    from apps.live_control_server.services.graph_object_authoring_prepare import prepare_graph_object_authoring_write
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.source_artifact_registry.load_source_input_bytes",
+        lambda artifact: b"Synthetic proposal unit-test body",
+    )
+    authority = FakeWorldGraphAuthority()
+    source = fake_resolved_source()
+    dependencies = dict(corpus_root=corpus_root, authority=authority, resolved_source=source)
+    actor = "hosted_dms:owner"
+    preview = prepare_graph_object_authoring_write(prepare_request(), authenticated_actor=actor, **dependencies)
+    command = _commit_request_from_prepare(preview)
+    with pytest.raises(GraphObjectAuthoringError) as denied:
+        commit_graph_object_authoring_write(command, authenticated_actor="hosted_dms:other", **dependencies)
+    assert denied.value.code == "confirmation_invalid"
+    from fastapi import HTTPException
+
+    def transferred():
+        raise HTTPException(status_code=403)
+
+    with pytest.raises(HTTPException) as revoked:
+        commit_graph_object_authoring_write(
+            command, authenticated_actor=actor, authorize_world=transferred, **dependencies,
+        )
+    assert revoked.value.status_code == 403
+    assert authority.publish_calls == 0
+    assert commit_graph_object_authoring_write(command, authenticated_actor=actor, **dependencies).committed
+
+
 def test_commit_binds_recap_selector_and_rejects_selector_swap(corpus_root: Path) -> None:
     authority = FakeWorldGraphAuthority()
     source = fake_resolved_source()

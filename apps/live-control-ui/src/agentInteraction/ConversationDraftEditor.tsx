@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from "react";
 import {
   openConversationDraft,
+  openConversationVariantApproval,
   openVariantReview,
   confirmVariantReview,
   type ConversationVariantReview,
@@ -18,18 +19,63 @@ interface VariantPagePlacement {
   bridge: BuildComposeBridge;
 }
 
-export function ConversationDraftEditor({ scope, placement }: {
+interface ApprovalTarget {
+  scope: ConversationDraftScope;
+  reviewId: string;
+  revision: number;
+}
+
+async function loadReviewedDraft(target: ApprovalTarget) {
+  const draft = await openConversationDraft(target.scope);
+  if (draft.revision !== target.revision || !draft.variant_review_ids?.includes(target.reviewId)) {
+    throw new Error("The reviewed draft changed. Reopen the latest draft before saving.");
+  }
+  const data = await openVariantReview(target.scope, target.reviewId);
+  if (data.revision !== target.revision) throw new Error("The statblock review changed.");
+  return { draft, review: { id: target.reviewId, data } };
+}
+
+export function ConversationVariantApproval({ scope, placement }: {
   scope: ConversationDraftScope;
   placement?: VariantPagePlacement;
 }) {
-  const id = useId();
-  const [draft, setDraft] = useState<ConversationDraft | null>(null);
-  const [markdown, setMarkdown] = useState("");
+  const [opened, setOpened] = useState<(Awaited<ReturnType<typeof loadReviewedDraft>> & { target: ApprovalTarget }) | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const [review, setReview] = useState<{ id: string; data: ConversationVariantReview } | null>(null);
-  const [savedVariant, setSavedVariant] = useState(false);
+  async function open() {
+    setBusy(true);
+    setError("");
+    try {
+      const target = await openConversationVariantApproval(scope);
+      setOpened({ target, ...await loadReviewedDraft(target) });
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not find the reviewed variant.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return opened ? <ConversationDraftEditor scope={opened.target.scope} placement={placement} initialReview={opened} /> :
+    <section aria-label="Variant approval">
+      <button type="button" disabled={busy} onClick={() => void open()}>Find reviewed statblock</button>
+      {error && <p role="alert">{error}</p>}
+    </section>;
+}
+
+export function ConversationDraftEditor({ scope, placement, initialReview }: {
+  scope: ConversationDraftScope;
+  placement?: VariantPagePlacement;
+  initialReview?: Awaited<ReturnType<typeof loadReviewedDraft>> & { target: ApprovalTarget };
+}) {
+  const id = useId();
+  const [draft, setDraft] = useState<ConversationDraft | null>(initialReview?.draft ?? null);
+  const [markdown, setMarkdown] = useState(initialReview?.draft.markdown ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const [review, setReview] = useState<{ id: string; data: ConversationVariantReview } | null>(initialReview?.review ?? null);
+  const [savedVariant, setSavedVariant] = useState(initialReview?.review.data.saved === true);
 
   const pendingPlacement = useRef<{ href: string; prepared: PreparedBuildProposal } | null>(null);
   const [linkedHref, setLinkedHref] = useState<string | null>(null);
@@ -104,9 +150,17 @@ export function ConversationDraftEditor({ scope, placement }: {
     setBusy(true);
     setError("");
     try {
-      const latest = await openConversationDraft(scope);
-      setDraft(latest);
-      setMarkdown(latest.markdown);
+      if (initialReview) {
+        const latest = await loadReviewedDraft(initialReview.target);
+        setDraft(latest.draft);
+        setMarkdown(latest.draft.markdown);
+        setReview(latest.review);
+        setSavedVariant(latest.review.data.saved === true);
+      } else {
+        const latest = await openConversationDraft(scope);
+        setDraft(latest);
+        setMarkdown(latest.markdown);
+      }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Could not open the draft.");
     } finally {
@@ -140,7 +194,7 @@ export function ConversationDraftEditor({ scope, placement }: {
           <button type="button" disabled={busy || markdown === draft.markdown} onClick={() => void save()}>
             Save draft
           </button>
-          {markdown === draft.markdown && draft.variant_review_ids?.map(reviewId => (
+          {!initialReview && markdown === draft.markdown && draft.variant_review_ids?.map(reviewId => (
             <button key={reviewId} type="button" disabled={busy} onClick={() => void inspectVariant(reviewId)}>
               Review statblock variant
             </button>

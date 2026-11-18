@@ -461,6 +461,23 @@ class AgentConversationService:
             return open_draft(conn, world_id=_world_id(world_id),
                               conversation_id=conversation_id, turn_id=turn_id)
 
+    def conversation_variant_approval(self, world_id: str, conversation_id: UUID, turn_id: UUID):
+        from .conversation_variant_save import approval_handoff, requested_approval
+
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = repo.get_turn(conn, world_id, turn_id)
+            envelope = turn.envelope if isinstance(turn, MixedCompletedTurnV1) else turn
+            if envelope is None or envelope.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError("Approval turn not found")
+            primary = envelope.provenance.primary_work
+            if not requested_approval(turn) or primary.resolution != "resolved":
+                return {"status": "not_requested"}
+            return approval_handoff(
+                conn, world_id=world_id, conversation_id=conversation_id, prior_to=envelope.sequence,
+                page_id=primary.object_id, page_kind=primary.kind,
+            )
+
     def edit_conversation_draft(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, markdown: str,
@@ -2926,6 +2943,10 @@ class AgentConversationService:
                 )
             from .types import BuildIntentionalResponseCompletionV1, BuildRequestedWorkResolutionV1, SurfaceNativeCompletionV1
 
+            if conversation_variant is not None:
+                from apps.live_control_server.services.conversation_variant_save import variant_review_is_valid
+                if not variant_review_is_valid(conversation_variant.definition, native_output_proof.variant_validation):
+                    conversation_variant = None
             selected_draft = False
             if isinstance(result.completion, (BuildIntentionalResponseCompletionV1, SurfaceNativeCompletionV1)) and execution is not None:
                 selected_draft = any(
@@ -2940,14 +2961,15 @@ class AgentConversationService:
 
                     if not result.assistant_text.strip():
                         raise ApplicationStateValidationError("Conversation draft requires Markdown text")
+                    markdown = result.assistant_text
+                    if conversation_variant is not None:
+                        from apps.live_control_server.services.conversation_variant_markdown import render_variant_markdown
+
+                        markdown = render_variant_markdown(conversation_variant.definition)
                     create_draft(
                         conn, world_id=world_id, conversation_id=turn.conversation_id,
-                        turn_id=turn.turn_id, markdown=result.assistant_text,
+                        turn_id=turn.turn_id, markdown=markdown,
                     )
-            if conversation_variant is not None:
-                from apps.live_control_server.services.conversation_variant_save import variant_review_is_valid
-                if not variant_review_is_valid(conversation_variant.definition, native_output_proof.variant_validation):
-                    conversation_variant = None
             if conversation_variant is not None:
                 from .build_saved_statblock import BuildSavedStatblockReadV1
                 from .conversation_variant_save import store_review
