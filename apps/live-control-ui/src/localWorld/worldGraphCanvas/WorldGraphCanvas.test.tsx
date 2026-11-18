@@ -940,6 +940,25 @@ describe("WorldGraphCanvas", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  it("paints the alternate-layout radius used by edge and camera geometry", async () => {
+    const { record } = await graphRecord();
+    const hub = record.snapshot.objects[0];
+    const edge = record.snapshot.relationships[0];
+    const linkedRecord = { ...record, snapshot: { ...record.snapshot, relationships: [
+      ...record.snapshot.relationships,
+      ...Array.from({ length: 4 }, (_, i) => ({
+        ...edge, id: `alternate-radius-${i}` as LocalWorldRelationship["id"], fromObjectId: hub.id,
+        toObjectId: record.snapshot.objects[1].id,
+      })),
+    ] } };
+    const props = { record: linkedRecord, nodeShape: "circle" as const, projectionOptions: { fullCorpus: true } };
+    const view = render(<WorldGraphCanvas {...props} />);
+    const bubble = () => view.container.querySelector(`[data-node-id="${hub.id}"] .world-graph-canvas__node-circle`);
+    expect(Number(bubble()?.getAttribute("r"))).toBeGreaterThan(32);
+    view.rerender(<WorldGraphCanvas {...props} alternatePositions={new Map([[hub.id, { x: 80, y: 80 }]])} />);
+    expect(bubble()).toHaveAttribute("r", "32");
+  });
+
   it("fits asymmetric focused neighborhoods and loops even when interrupting an overview pan", async () => {
     const { record } = await graphRecord(); const [hub, neighbor] = record.snapshot.objects;
     const direct = record.snapshot.relationships[0];
@@ -1605,7 +1624,10 @@ it("hosts persistent graph controls in the surface rail, not the canvas", async 
   expect(within(canvas).queryByRole("button", { name: "Fit graph" })).not.toBeInTheDocument();
   expect(within(host).getByRole("button", { name: "Fit graph" })).toBeInTheDocument();
   const initial = screen.getByTestId("graph-scene").getAttribute("transform");
-  await userEvent.click(within(host).getByRole("button", { name: "Zoom in" }));
+  for (const name of ["Zoom in", "Zoom out", "100%"]) {
+    expect(within(host).queryByRole("button", { name })).not.toBeInTheDocument();
+  }
+  fireEvent.keyDown(within(canvas).getByRole("group", { name: /world graph/i }), { key: "+" });
   expect(screen.getByTestId("graph-scene").getAttribute("transform")).not.toBe(initial);
   await userEvent.click(within(host).getByRole("button", { name: "Fit graph" }));
   expect(screen.getByTestId("graph-scene").getAttribute("transform")).toBe(initial);
@@ -1834,4 +1856,43 @@ it("pans through a transformed SVG when release first crosses the drag threshold
   expect(cameraFromScene(scene)).toEqual(before);
   dispatchPointer(svg, "pointerup", { pointerId: 102, clientX: 440, clientY: 220 });
   expect(cameraFromScene(scene)).toEqual({ ...before, x: before.x + 20, y: before.y + 10 });
+});
+
+it("filters loaded objects and their incident relationships on the mounted canvas", async () => {
+  const { record } = await graphRecord();
+  const host = document.createElement("div");
+  document.body.append(host);
+  const onCameraFocusChange = vi.fn();
+  const props = { record, externalControls: true, controlsHost: host,
+    projectionOptions: { fullCorpus: true }, onCameraFocusChange };
+  const view = render(<WorldGraphCanvas {...props} />);
+  try {
+    const canvas = view.container.querySelector(".world-graph-canvas__svg");
+    const scene = view.container.querySelector(".world-graph-canvas__scene");
+    const camera = scene?.getAttribute("transform");
+    fireEvent.click(within(host).getByText("Object types"));
+    fireEvent.click(within(host).getByRole("checkbox", { name: "person" }));
+    expect(screen.queryByRole("button", { name: /Mara Venn/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /The Winter Accord/ })).toBeInTheDocument();
+    expect(view.container.querySelectorAll("[data-edge-id]")).toHaveLength(1);
+    expect(view.container.querySelector(".world-graph-canvas__svg")).toBe(canvas);
+    expect(scene?.getAttribute("transform")).toBe(camera);
+    const target = record.snapshot.objects[0].id;
+    view.rerender(<WorldGraphCanvas {...props} cameraFocusRequest={{ nodeId: target, requestId: 1, selectNode: true }} />);
+    expect(onCameraFocusChange).toHaveBeenLastCalledWith(target);
+    expect(screen.getByRole("button", { name: /Mara Venn/ })).toBeInTheDocument();
+    expect(view.container.querySelectorAll("[data-edge-id]")).toHaveLength(4);
+  } finally {
+    view.unmount();
+    host.remove();
+  }
+});
+
+it("does not count hidden neighbors against the visible focus limit", async () => {
+  const { record } = await graphRecord();
+  const [, , location, event] = record.snapshot.objects;
+  const projection = projectLocalWorldGraph(record, {
+    fullCorpus: true, focusObjectId: event.id, maxNodes: 2, hiddenKinds: new Set(["person"]),
+  });
+  expect(projection.nodes.map(node => node.id)).toEqual([event.id, location.id]);
 });

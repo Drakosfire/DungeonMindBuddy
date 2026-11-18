@@ -11,6 +11,8 @@ from apps.live_control_server.services.agent_graph_auth import (
 )
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
 
+from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
+
 router = APIRouter(
     prefix="/api/live/native-source-inspection",
     tags=["native-source-inspection"],
@@ -32,12 +34,12 @@ def _call(fn, body, principal):
 
 
 @router.post("/catalog")
-def catalog(body: InspectionScope, principal=Depends(native_graph_gm_dependency)):
+def catalog(body: InspectionScope, principal=Depends(native_graph_explorer_dependency)):
     return _call(service.catalog, body, principal)
 
 
 @router.post("/read")
-def inspect(body: NativeSourceRead, principal=Depends(native_graph_gm_dependency)):
+def inspect(body: NativeSourceRead, principal=Depends(native_graph_explorer_dependency)):
     return _call(service.inspect, body, principal)
 
 @router.post("/published-recap")

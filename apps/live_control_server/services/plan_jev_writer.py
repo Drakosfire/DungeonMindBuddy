@@ -272,7 +272,7 @@ def _conversation_response_task(execution):
         if contract['purpose'] == 'clarify':
             return 'clarify'
         if contract['purpose'] == 'fulfill' and contract['requested_work'] == 'discuss':
-            return 'answer'
+            return 'build_discussion'
     return None
 
 
@@ -298,7 +298,11 @@ class PlanJevWriter:
             from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
             from application_state.agent_conversation.plan_writer_output_schema import native_output_format
             turn=adapter.fence.turn
-            self.frame=model_frame(turn.graph_context_receipt,turn.graph_context_execution)
+            from application_state.agent_conversation.native_execution import NativePlanActionV2
+            plan_prose = (type(turn.graph_context_execution.policy.action) is NativePlanActionV2
+                          and getattr(rules, 'authoring', None) is None)
+            self.frame=model_frame(turn.graph_context_receipt,turn.graph_context_execution,
+                                   passages_only=plan_prose)
             self.work_frame=model_work_frame(turn.graph_context_receipt,turn.graph_context_execution,
                 provenance=turn.provenance,idempotency_key=turn.idempotency_key,work_proof=proof,
                 world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
@@ -307,6 +311,7 @@ class PlanJevWriter:
             self.frame=output_frame(self.frame,self.provider_frame)
             from application_state.agent_conversation.plan_jev_graph_packet import NATIVE_WORK_SCHEMA as PLAN_WORK_SCHEMA
             from application_state.agent_conversation.native_play_work import SCHEMA as PLAY_WORK_SCHEMA
+            variant_format = False
             if self.work_frame.get('schema') == PLAY_WORK_SCHEMA:
                 from application_state.agent_conversation.native_play_work import semantic_frame as play_work_view
                 self.provider_work=play_work_view(self.work_frame)
@@ -314,11 +319,17 @@ class PlanJevWriter:
                 from application_state.agent_conversation.native_plan_work_view import semantic_frame as plan_work_view
                 self.provider_work=plan_work_view(self.work_frame,turn.graph_context_execution)
             else:
-                from application_state.agent_conversation.native_build_work_view import semantic_frame as build_work_view
-                self.provider_work=build_work_view(self.work_frame,turn.graph_context_execution)
+                from application_state.agent_conversation.native_build_work_view import (
+                    semantic_frame as build_work_view, variant_sources,
+                )
+                variant_format = bool(not rule_frame.lookups and variant_sources(self.work_frame))
+                self.provider_work=build_work_view(
+                    self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
+                )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work if self.work_frame.get('schema') in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA} else self.work_frame,
-                build_local=self.work_frame.get('schema') not in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA})
+                build_local=self.work_frame.get('schema') not in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA},
+                format_version=4 if variant_format else 2)
             # Discussion ends with current evidence rather than prior assistant
             # prose. Keep the exact frames; authoring keeps its current draft last.
             frames=((self.provider_work,rule_frame,self.provider_frame)
@@ -331,18 +342,28 @@ class PlanJevWriter:
             self.output_format=output_format(self.frame,rule_frame)
             frames=(self.frame,rule_frame)
         self.messages=[{'role':'user','content':canonical_bytes(frame).decode()} for frame in frames]
+        if self.shared and getattr(rules, 'authoring', None) is None:
+            from application_state.agent_conversation.native_execution import NativePlanActionV2
+            if type(turn.graph_context_execution.policy.action) is NativePlanActionV2:
+                from application_state.agent_conversation.native_evidence_view import render_plan_evidence
+                from application_state.agent_conversation.rules_authority_plan_packet import render_plan_rules
+                self.messages = (
+                    [{'role': 'user', 'content': render_plan_rules(rule_frame)}] if rule_frame.lookups else []
+                ) + [{'role': 'user', 'content': render_plan_evidence(self.provider_frame, self.provider_work)}]
         if not self.shared:
             self.messages.append({'role':'user','content':'Return JSON.'})
         self.prompt_components = None
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
+        single_variant_base = self.shared and variant_format and len(variant_sources(self.work_frame)) == 1
         if task is not None:
             from application_state.agent_conversation.response_prompt import compose_response_prompt
             prompt = compose_response_prompt(
                 task=task,
                 rules_instructions=RULES_INSTRUCTIONS if rule_frame.lookups else None,
                 related_page_instructions=RELATED_PAGE_RESPONSE
-                    if self.provider_work.get('related_authored_pages', {}).get('pages') else None)
+                    if self.provider_work.get('related_authored_pages', {}).get('pages') else None,
+                single_variant_base=single_variant_base)
             self.instructions = prompt.instructions
             self.prompt_components = prompt.manifest()  # Host-only inspectability.
         else:
@@ -394,6 +415,10 @@ class PlanJevWriter:
                     'is needed rather than inventing a quote.\n')
             self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
                 RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
+            if single_variant_base:
+                from application_state.agent_conversation.response_prompt import VARIANT_BASE
+
+                self.instructions += "\n" + VARIANT_BASE.text
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = self.received_event = None
         self._usage_recorded = False

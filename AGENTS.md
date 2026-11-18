@@ -136,6 +136,13 @@ reviewed SHA with the verifier's validate subcommand. Dirty-runner results are
 working-tree diagnostics, not qualifying evidence. Never reuse a different SHA,
 modified report, stale inventory or failed/incomplete run as a passing check.
 
+For ad hoc browser, build, or database verification that needs substantial
+scratch space, verify the same Projects filesystem before allocating a task
+directory. Use `mktemp -d "$HOME/Projects/.codex/buddy-check.XXXXXX"` and
+place that task's temporary files and dependency caches inside it. Remove
+disposable outputs when the check finishes and retain evidence referenced
+by the handoff.
+
 For frontend changes also run the full default-discovered diagnostic (`--suite
 discovered`) at a meaningful integrated checkpoint, avoiding duplicate heavy runs.
 Keep known legacy failures visibly red with exact IDs/source/environment/results;
@@ -188,9 +195,9 @@ metadata, not naming authority. Git history is the default archive.
 ## Efficient investigation
 
 Use focused symbol/route search and small context packs when available; otherwise
-use `rg` and targeted reads. Use RTK when available for noisy output. Missing
-optional navigation tools do not block ordinary investigation. Preserve useful
-failure output and avoid dumping whole logs, dependency trees or historical docs.
+use `rg` and targeted reads. Keep Git, search, test, and log output focused.
+Preserve failures, stack traces, compiler and migration errors, and
+destructive-command risks.
 Fetch and compare exact remote refs when state matters. Obtain explicit approval
 for destructive actions unless already authorized by the user.
 

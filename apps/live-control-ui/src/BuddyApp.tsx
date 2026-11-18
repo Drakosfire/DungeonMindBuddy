@@ -79,7 +79,7 @@ function BuddyGraphPage({
 
   let explorer: ReactNode;
   if (managedWorldId && selectedWorld.kind === "managed") {
-    explorer = <ManagedWorldGraph key={stateScopeId} worldId={managedWorldId}
+    explorer = <ManagedWorldGraph key={stateScopeId}
       worldTitle={selectedWorld.name} stateScopeId={stateScopeId} />;
   } else if (auth.status === "local_operator") {
     explorer = <NativeGraphDemo api={playgroundApi} embedded mode="playground" />;
@@ -101,18 +101,19 @@ function BuddyGraphPage({
   return (
     <AppChrome activeRoute="graph" localOnlyNavigation={localOnlyNavigation} workspaceLayout="bounded">
       {explorer}
-      <details className="buddy-index-legacy" onToggle={(event) => setLegacyWorldsOpen(event.currentTarget.open)}>
+      {auth.status === "local_operator" && !managedWorldId && <details className="buddy-index-legacy" onToggle={(event) => setLegacyWorldsOpen(event.currentTarget.open)}>
         <summary>Existing browser-only Worlds and notes</summary>
         <p>These older Worlds stay in this browser and remain separate from the private DungeonMind graph above. Opening them does not migrate or publish them.</p>
         {legacyWorldsOpen
           ? <LocalWorldSurface />
           : null}
-      </details>
+      </details>}
     </AppChrome>
   );
 }
 
-export function LocalBuddyApp({ locationSnapshot }: { locationSnapshot: string }) {
+export function BuddyApp({ locationSnapshot }: { locationSnapshot: string }) {
+  const auth = useHostedAuthStatus();
   const selectedWorld = useSelectedWorld();
   const retrySelectedWorld = useRetrySelectedWorld();
   const admission = useSelectedWorldAdmission();
@@ -130,6 +131,16 @@ export function LocalBuddyApp({ locationSnapshot }: { locationSnapshot: string }
         <WorldSelector />
       </main>
     );
+  }
+  if (auth.status === "authenticated" && selectedWorld.kind !== "managed") {
+    return <IsolatedEntry>
+      <AppChrome activeRoute={route} workspaceLayout="bounded">
+        <main className="app-status">
+          <h1>Choose a World</h1>
+          <p>Select a World to open this workspace.</p>
+        </main>
+      </AppChrome>
+    </IsolatedEntry>;
   }
   if (route === "graph" && selectedWorld.kind === "legacy") {
     return <IsolatedEntry>

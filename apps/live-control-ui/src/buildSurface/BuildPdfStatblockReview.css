@@ -1,27 +1,3 @@
-.pdf-statblock-review__source-preview {
-  margin: 1rem 0;
-  padding: .75rem;
-  border: 1px solid var(--ui-border-strong, #708097);
-  border-radius: .5rem;
-  background: var(--ui-surface-raised, #202938);
-  scroll-margin-block: 1rem;
-}
-
-.pdf-statblock-review__source-preview figcaption {
-  margin-block-end: .5rem;
-  color: var(--ui-text-secondary, #aab5c5);
-  font-size: .9rem;
-  font-weight: 600;
-}
-
-.pdf-statblock-review__source-preview img {
-  display: block;
-  width: 100%;
-  max-height: min(68vh, 56rem);
-  object-fit: contain;
-  object-position: top center;
-}
-
 .pdf-statblock-review {
   display: flex;
   flex-direction: column;
@@ -34,7 +10,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: .75rem;
+  gap: .375rem;
   padding: .5rem 1rem;
 }
 
@@ -43,27 +19,59 @@
   font-size: 1.125rem;
 }
 
-.pdf-statblock-review__panes {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  flex: 1;
-  min-height: 0;
+.pdf-statblock-review__blockers {
+  position: relative;
 }
 
-.pdf-statblock-review__pane {
-  min-width: 0;
-  min-height: 0;
+.pdf-statblock-review__blockers > ul {
+  position: absolute;
+  z-index: 2;
+  inset-inline-end: 0;
+  width: min(28rem, 80vw);
+  max-height: 45vh;
   overflow: auto;
-  padding: .75rem 1rem;
+  margin: .5rem 0 0;
+  padding: .75rem 1rem .75rem 2rem;
+  border: 1px solid #46536a;
+  border-radius: .5rem;
+  background: #1b2637;
 }
 
-.pdf-statblock-review__pane fieldset {
-  min-inline-size: 0;
+.pdf-statblock-review__toolbar button,
+.pdf-statblock-review__toolbar select {
+  font-size: .875rem;
+  padding: .2rem .5rem;
 }
 
-@media (max-width: 720px) {
-  .pdf-statblock-review__panes {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 2fr) minmax(0, 3fr);
-  }
+.pdf-statblock-review__source-tools:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .375rem;
+}
+
+.pdf-statblock-review .statblock-renderer--campaign .statblock-campaign-grid {
+  display: block;
+  columns: 2 19rem;
+  column-gap: 1rem;
+}
+
+.pdf-statblock-review .statblock-renderer--campaign .statblock-campaign-col {
+  display: contents;
+}
+
+.pdf-statblock-review .statblock-campaign-col > * {
+  margin-block-end: .75rem;
+}
+
+.pdf-statblock-review .statblock-renderer-portrait,
+.pdf-statblock-review .statblock-campaign-vitals,
+.pdf-statblock-review .statblock-campaign-ability-table,
+.pdf-statblock-review .statblock-campaign-quickfacts,
+.pdf-statblock-review .statblock-campaign-rule {
+  break-inside: avoid;
+}
+
+.pdf-statblock-review .statblock-campaign-card__heading {
+  break-after: avoid;
 }

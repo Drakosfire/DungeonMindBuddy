@@ -5,6 +5,10 @@ import { baseCandidateDefinition } from "../test/statblockEditorFixtures";
 import { BuildPdfStatblockReview } from "./BuildPdfStatblockReview";
 
 vi.mock("../api/liveApi", async importOriginal => ({ ...await importOriginal<typeof import("../api/liveApi")>(), getThreatDraft: vi.fn(), authenticatedApiFetch: vi.fn(), listSavedMechanicsVersions: vi.fn() }));
+vi.mock("./BuildPdfPreview", () => ({
+  PdfPages: ({ restored, readOnly }: { restored: { page: number }; readOnly: boolean }) =>
+    readOnly ? <p>Source PDF page {restored.page}</p> : null,
+}));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 it("reopens a draft and saves edits against the exact retained regions", async () => {
@@ -39,43 +43,31 @@ it("reopens a draft and saves edits against the exact retained regions", async (
   expect(screen.queryByText(/Check the printed name/)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Save review draft" }));
   await waitFor(() => expect(screen.getByText("Draft saved")).toBeInTheDocument());
-  expect(screen.getByRole("button", { name: "Open source region 1 · Page 2" })).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "Region 1 · Page 2" })).toBeInTheDocument();
 });
 
-it("opens the first exact source region automatically", async () => {
+it("authorizes the retained PDF and passes either exact region to the viewer", async () => {
   const definition = baseCandidateDefinition();
-  const regions = [{ source_revision_id: "srev:test", content_sha256: "a".repeat(64),
-    page: 2, left: 0.1, top: 0.2, right: 0.8, bottom: 0.7 }];
-  const fetch = vi.mocked(authenticatedApiFetch);
-  const originalCreateObjectURL = Object.getOwnPropertyDescriptor(URL, "createObjectURL");
-  const originalRevokeObjectURL = Object.getOwnPropertyDescriptor(URL, "revokeObjectURL");
-  Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:source-region") });
-  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
-  let cropReads = 0;
-  try {
-    fetch.mockImplementation(async (path, init) => {
-      if (path.endsWith("/open?render=true")) {
-        expect(init?.method).toBe("POST");
-        expect(JSON.parse(String(init?.body))).toEqual(regions[0]);
-        if (++cropReads === 1) return { response: new Response(null, { status: 503 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
-        return { response: new Response(new Blob(["source-image"], { type: "image/png" })) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
-      }
-      return { response: Response.json({ revision: 4, definition, regions }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
-    });
-
-    render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
-
-    expect(await screen.findByText("Could not open the exact PDF region.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Open source region 1 · Page 2" }));
-    expect(await screen.findByRole("figure", { name: "Source evidence · Page 2" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Exact PDF region on page 2" })).toHaveAttribute("src", "blob:source-region");
-  } finally {
-    cleanup();
-    if (originalCreateObjectURL) Object.defineProperty(URL, "createObjectURL", originalCreateObjectURL);
-    else delete (URL as typeof URL & { createObjectURL?: typeof URL.createObjectURL }).createObjectURL;
-    if (originalRevokeObjectURL) Object.defineProperty(URL, "revokeObjectURL", originalRevokeObjectURL);
-    else delete (URL as typeof URL & { revokeObjectURL?: typeof URL.revokeObjectURL }).revokeObjectURL;
-  }
+  const regions = [1, 2].map(page => ({ source_revision_id: "srev:test", content_sha256: "a".repeat(64),
+    page, left: 0.1, top: 0.2, right: 0.8, bottom: 0.7 }));
+  const open = vi.fn();
+  vi.mocked(authenticatedApiFetch).mockImplementation(async (path, init) => {
+    if (path.endsWith("/open")) {
+      open(JSON.parse(String(init?.body)));
+      if (open.mock.calls.length === 1) return { response: new Response(null, { status: 503 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
+      return { response: new Response("%PDF-fixture") } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
+    }
+    return { response: Response.json({ revision: 4, definition, regions }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
+  });
+  render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
+  expect(await screen.findByText("Could not open the retained PDF.")).toBeInTheDocument();
+  expect(open).toHaveBeenCalledWith(regions[0]);
+  fireEvent.change(screen.getByRole("combobox", { name: "Source region" }), { target: { value: "1" } });
+  expect(await screen.findByText("Source PDF page 2")).toBeInTheDocument();
+  expect(open).toHaveBeenLastCalledWith(regions[1]);
+  fireEvent.change(screen.getByRole("combobox", { name: "Source region" }), { target: { value: "0" } });
+  expect(await screen.findByText("Source PDF page 1")).toBeInTheDocument();
+  expect(open).toHaveBeenCalledTimes(2);
 });
 
 it.each([false, true])("recovers an acceptance failure (stale draft: %s)", async stale => {

@@ -2,6 +2,8 @@
 
 Run from the root of the reviewed Buddy checkout on the selected deployment host. Use one Bash session for the command blocks. Run the public checks from a separate client using the helper from the same reviewed Buddy checkout or a copy of that helper from the release commit. Advance only when the expected result for the current step is recorded.
 
+Record release-host and public validation outcomes using the [release rehearsal checklist](RELEASE-REHEARSAL-buddy-checklist.md). It summarizes pending evidence and does not replace the steps below.
+
 ## 1. Prepare the release record
 
 Record the host and SSH alias, release commit, image ID or registry digest, Compose project, host bind port, approved absolute persistent root, Nginx virtual host, DNS records, certificate owner, and rollback owner. Record the approved DMS test account and expected World, both database owners and migration heads, and the backup and restore evidence. Keep credentials and session cookies in their designated stores.
@@ -10,14 +12,30 @@ Run the [host inventory](../Plans/RUNBOOK-HOSTED-read-only-host-inventory.md).
 
 ```bash
 bash scripts/host_inventory.sh
-docker compose version &&
-docker buildx version &&
+docker compose version --short
+docker buildx version
 docker info --format '{{.DockerRootDir}}'
 ```
 
-Require both Compose and Buildx to report versions before proceeding.
+Require working Docker Compose and Buildx installations before proceeding.
 
-Check free space on the Docker filesystem and the persistent data filesystem. Confirm the selected loopback port is available for a first deploy or is owned by the Buddy service for an upgrade. The checked-in defaults are host loopback port 8080 and container port 8000.
+Record disk and RAM minimums in MiB for the release, based on the build and
+upgrade rehearsal. Include room for the serving and rollback images in the Docker
+minimum and backup and migration headroom in the persistent minimum. Run on the
+Linux deployment host with the same default local Docker context used for deployment.
+
+```bash
+read -r -p 'Approved absolute persistent root: ' buddy_persistent_root
+read -r -p 'Minimum available Docker disk MiB: ' buddy_docker_mib
+read -r -p 'Minimum available persistent disk MiB: ' buddy_persistent_mib
+read -r -p 'Minimum available RAM MiB: ' buddy_ram_mib
+python3 scripts/check_buddy_release_capacity.py --persistent-root "$buddy_persistent_root" \
+  --min-docker-mib "$buddy_docker_mib" --min-persistent-mib "$buddy_persistent_mib" \
+  --min-ram-mib "$buddy_ram_mib"
+```
+
+Continue only on a successful result. If both directories share a filesystem,
+the check requires their combined headroom. Confirm the selected loopback port is available for a first deploy or is owned by the Buddy service for an upgrade. The checked-in defaults are host loopback port 8080 and container port 8000.
 
 ## 2. Verify both databases and restore evidence
 
@@ -52,7 +70,43 @@ Test required migrations against the restored copies. Before applying them to pr
 
 ## 3. Build and start on loopback
 
-Provision a protected Compose environment file outside the checkout with the variables required by the [production Compose example](../../deploy/production/compose.production.yaml). Use the approved DMS HTTPS origin, trust `https://buddy.dungeonmind.net`, and configure the approved World assignments and both database URLs. Set `BUDDY_PERSISTENT_ROOT` to the absolute path of the approved durable host directory. Create its `managed`, `artifacts`, `sessions`, and `worldgraph` directories with access for container UID/GID 10001.
+Provision a protected Compose environment file outside the checkout with the variables required by the [production Compose example](../../deploy/production/compose.production.yaml). Use the approved DMS HTTPS origin, trust `https://buddy.dungeonmind.net`, and configure the approved World assignments and both database URLs. Set the private statblock API origin as reachable from the Buddy container and put its internal API key in this same protected file. Host loopback inside the container is the container itself. Set `BUDDY_PERSISTENT_ROOT` to the absolute path of the approved durable host directory. Create its `managed`, `artifacts`, `sessions`, and `worldgraph` directories with access for container UID/GID 10001.
+
+For PDF extraction, run the GenerationEngine private OCR worker at
+`3e4f34ee5e6c99517c0cb7163d782a7695199071` on the approved GPU host. Record
+the CUDA environment, GPU UUID, checkpoint revision and checksums, and private
+route owner. Verify the pinned checkpoint before loading its executable model
+code. Keep the OCR listener on loopback and use a private authenticated tunnel
+or TLS termination on a private network. In the protected Compose file, set
+`BUDDY_OCR_REMOTE_URL` to the container-reachable `/ocr` endpoint and
+`BUDDY_OCR_REMOTE_TOKEN` to the token provisioned on the worker. For an
+`http://` endpoint use an encrypted tunnel for off-host traffic. The Buddy host
+can run without CUDA.
+
+For the workstation pilot, have the tailnet owner grant only the cloud
+Buddy host access to TCP port 18798 on the GPU workstation. Check effective
+policy for broader grants before publishing the listener. Start the worker
+under the workstation service account using the pinned CUDA Python environment
+and checkpoint. Supply `GENERATIONENGINE_OCR_TOKEN` from its protected service
+environment. Verify the worker listens on `127.0.0.1:8798`.
+
+On the GPU workstation, the administrator configures [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve).
+
+```bash
+sudo tailscale serve --bg --tcp=18798 tcp://127.0.0.1:8798
+tailscale serve status
+```
+
+Use `http://<gpu-workstation-tailnet-address>:18798/ocr` in Buddy's
+protected environment. Verify that the candidate container can complete the
+OCR probe below and that an unauthorized tailnet node cannot reach port 18798.
+Use the worker's JSON HTTP status, elapsed milliseconds, and bytes read to
+monitor volume, failures, and latency in the restricted service journal.
+Record the worker revision, route owner, and credential reference without
+copying the token into the release record. To withdraw the route without
+touching other Serve listeners, run `sudo tailscale serve --tcp=18798 off`
+on the workstation and verify that the candidate can no longer reach it.
+
 
 ```bash
 read -r -p 'Approved release commit: ' buddy_release
@@ -72,20 +126,27 @@ prepare_buddy_release() {
   local revision
   revision=$(git rev-parse HEAD) || return
   buddy_tag="dungeonmindbuddy:$revision"
-  docker build --target api -f Dockerfile.production -t "$buddy_tag" . || return
-  buddy_image_id=$(docker image inspect "$buddy_tag" --format '{{.Id}}') || return
+  buddy_image_id=$(bash scripts/prepare_buddy_release_image.sh "$buddy_release") || return
   buddy_override=$(mktemp) || return
   printf 'services:\n  buddy:\n    image: %s\n' "$buddy_tag" > "$buddy_override" || return
   local -a candidate_compose=(env
     -u AUTH_TRUSTED_FRONTEND_ORIGINS
+    -u OPENAI_API_KEY
     -u BUDDY_HTTP_BIND_PORT
+    -u BUDDY_OCR_REMOTE_URL
+    -u BUDDY_OCR_REMOTE_TOKEN
+    -u BUDDY_OCR_RUNTIME_ROOT
+    -u BUDDY_OCR_GPU_ID
     -u BUDDY_PERSISTENT_ROOT
     -u DMB_HOSTED_WORLD_ACCESS_JSON
     -u DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL
     -u DUNGEONMIND_SERVER_API_ORIGIN
+    -u DUNGEONMIND_STATBLOCKS_BASE_URL
+    -u DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY
     -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL
     docker compose --project-name "$buddy_project" --env-file "$buddy_env"
-    -f deploy/production/compose.production.yaml -f "$buddy_override")
+    -f deploy/production/compose.production.yaml
+    -f deploy/production/compose.logging.yaml -f "$buddy_override")
   local configured_image
   configured_image=$("${candidate_compose[@]}" config --images buddy) || return
   if [[ "$configured_image" != "$buddy_tag" ]]; then
@@ -98,10 +159,25 @@ prepare_buddy_release() {
 prepare_buddy_release
 ```
 
+Image preparation builds a missing release image and reuses an existing image
+only when its revision label matches the full approved SHA. A conflicting tag
+stops preparation without replacing the image. Compare the returned image ID
+with the saved release record on reruns. Run one preparation at a time in the
+deployment Docker context.
+
+The logging override explicitly selects `json-file` with `max-size=10m` and
+`max-file=3`, retaining approximately 30 MB of container stdout/stderr per
+container rather than inheriting an uncapped daemon default. This budget does
+not cover application files, image layers, build caches, or other containers.
+If the release needs another budget or a centrally managed driver, record it
+and set the logging configuration in the saved release override. Verify the
+effective configuration below; existing containers keep their previous policy
+until recreated. Do not recreate the serving container just to test rotation.
+
 The Compose command clears inherited values for the production file’s
 interpolation variables so the protected environment file supplies them.
 Continue only if release preparation succeeds. Save the override with the release record. Record the exact checkout commit
-and base Compose path, the Compose project name, and the absolute paths to
+and both versioned Compose paths, the Compose project name, and the absolute paths to
 the saved override and protected environment file. Keep a release-specific
 protected copy of the environment file or a reference to an immutable
 version in the approved secret store. Record the image tag and verified
@@ -202,6 +278,90 @@ or starting the application.
 
 Require the access probe to succeed before continuing.
 
+If the mount probe succeeds but prompt capture reports
+`prompt_evidence_unavailable` or `prompt_evidence_directory_not_private`,
+inspect the existing `artifacts/out/agent_request_evidence` path under
+`BUDDY_PERSISTENT_ROOT`. Buddy opens the artifact root and each of those
+subdirectories without following symlinks. The final directory must be
+owned by UID 10001 and have mode `0700`. On a fresh mount Buddy creates
+the missing subdirectories when it first stores prompt evidence.
+
+Probe the private statblock provider from a one-off candidate container before
+migrating or replacing the serving container. The client uses the protected
+settings and emits only the probe outcome.
+
+```bash
+"${buddy_compose[@]}" run --rm --no-deps --no-build -T buddy python - <<'PYTHON'
+from apps.live_control_server.integrations.dungeonmind_statblocks.client import build_statblock_v1_client
+
+try:
+    client = build_statblock_v1_client()
+    try:
+        report = client.get_readiness()
+        capabilities = set(client.get_health().capabilities)
+    finally:
+        client.close()
+except Exception:
+    raise SystemExit("Private statblock provider probe failed")
+if report.status != "ready" or not report.read_routes_enabled:
+    raise SystemExit("Private statblock provider is not ready for saved revisions")
+if not {"statblock_create", "statblock_revision_append"} <= capabilities:
+    raise SystemExit("Private statblock provider is missing required write capabilities")
+print("Private statblock provider ready")
+PYTHON
+```
+
+Continue only when the candidate-container probe succeeds.
+
+Run an actual OCR probe from the candidate container before migrations or
+cutover. This exercises the container route, bearer credential, checkpoint,
+and GPU on the OCR host.
+
+```bash
+"${buddy_compose[@]}" run --rm --no-deps --no-build -T buddy python - <<'PYTHON'
+from io import BytesIO
+from PIL import Image, ImageDraw
+from apps.live_control_server.services.build_pdf_ocr import read_crop_png
+
+image = Image.new("RGB", (512, 160), "white")
+caption = Image.new("RGB", (128, 40), "white")
+ImageDraw.Draw(caption).text((8, 12), "DUNGEON BUDDY", fill="black")
+image.paste(caption.resize(image.size, Image.Resampling.NEAREST))
+capture = BytesIO()
+image.save(capture, format="PNG")
+try:
+    result = read_crop_png(capture.getvalue())
+except Exception:
+    raise SystemExit("Private OCR inference failed in the candidate container")
+if "DUNGEONBUDDY" not in "".join(c for c in result["text"].upper() if c.isalpha()):
+    raise SystemExit("Private OCR did not recognize the release probe text")
+print("Private OCR inference ready")
+PYTHON
+```
+
+Continue only after the probe recognizes the text. Keep the private route and worker release references in the release record for recovery.
+
+Set `OPENAI_API_KEY` in the protected Compose file. Verify the extraction model
+from the candidate using only this synthetic text. A structured incomplete
+result is expected for a source with no statistics.
+
+```bash
+"${buddy_compose[@]}" run --rm --no-deps --no-build -T buddy python - <<'PYTHON'
+import asyncio
+from apps.live_control_server.services.build_pdf_statblock_extraction import extract_statblock
+
+try:
+    result = asyncio.run(extract_statblock(["Synthetic release probe. No creature statistics are present."]))
+except Exception:
+    raise SystemExit("Structured statblock extraction provider probe failed")
+if result.status != "incomplete":
+    raise SystemExit("Structured extraction did not report missing source evidence")
+print("Structured extraction provider ready")
+PYTHON
+```
+
+Continue only after the provider returns the expected structured result.
+
 Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
 
 
@@ -267,6 +427,12 @@ rotation limits. Run this on the deployment host:
 )
 ```
 
+Require the running policy to match the release record (by default,
+`json-file max-size=10m max-file=3`). Verify rotation and access to recent
+diagnostics with a disposable container using that policy, not the serving
+container. Keep [#3538](https://github.com/Drakosfire/DungeonMindBuddy/issues/3538)
+open until the selected host's effective policy and rotation evidence are recorded.
+
 For a driver that manages retention outside Docker, verify its policy with the
 host operator. An empty limit in this output requires checking the effective
 policy. If retention is unbounded, agree on a cap and verify rotation and access
@@ -274,13 +440,30 @@ to recent startup logs on a disposable stack before exposing Buddy publicly.
 
 ## 4. Verify DNS, TLS, and the proxy
 
-Record the existing Nginx configuration. Install the [hosted read-only proxy fragment](../../deploy/production/nginx-buddy.conf) in the selected Buddy TLS virtual host and match both upstream directives to the verified URL printed in step 3. Use the edge owner's DNS and certificate procedures for records, issuance, and renewal.
+Record the existing Nginx configuration. Install the [hosted proxy fragment](../../deploy/production/nginx-buddy.conf) in the selected Buddy TLS virtual host and match all upstream directives to the verified URL printed in step 3. Use the edge owner's DNS and certificate procedures for records, issuance, and renewal.
 
-The hosted profile serves authentication, the SPA, and read-only World and
-Graph requests. It buffers requests and responses, leaves proxy caching
+After the canonical Buddy host passes sign-in and Build verification, configure DNS and TLS for `dungeonbuddy.net` using the edge owner's procedures. In its dedicated TLS server block, include [the vanity redirect fragment](../../deploy/production/nginx-buddy-vanity.conf). Run `nginx -t` before reloading. Verify the first response without following the redirect.
+
+```bash
+curl -sSI 'https://dungeonbuddy.net/build?world=pilot'
+```
+
+Expect HTTP 302 and `Location: https://buddy.dungeonmind.net/build?world=pilot`. Open the vanity URL in a signed-out browser and verify that DungeonMind Auth returns the pilot to the same Build deep link. To roll back the entry point, restore the previous vanity virtual host configuration, run `nginx -t`, and reload.
+
+The hosted profile serves authentication, the SPA, and explicitly authorized
+World-scoped API routes. Buddy's application policy determines which operations
+are admitted; the proxy does not impose a read-only release scope. It buffers
+requests and responses, leaves proxy caching
 disabled, and uses 60-second upstream read and send timeouts. Before replacing
 an existing location, have the edge owner inspect the effective configuration
-and confirm which callers it serves. A deployment that enables streamed Agent
+and confirm which callers it serves. The exact PDF admission route permits
+32 MiB at the edge, matching the application limit, and streams the request to
+Buddy so the application can check access before consuming the body. Verify
+upload through the TLS virtual host with a PDF larger than 1 MiB. The PDF review
+extraction, validation, acceptance, and publication routes allow 600 seconds
+between upstream reads so OCR and provider calls can finish. Verify extraction
+and publication through the TLS route as part of release rehearsal.
+A deployment that enables streamed Agent
 turns needs a separately scoped location for the streaming endpoint and a smoke
 test that confirms incremental events arrive through the proxy.
 
@@ -351,11 +534,25 @@ verify that each URL renders the intended page.
 4. Open the landing page at `/`, select the approved World, and follow its
    Graph link. Verify `/graph` renders the graph and opens object details. Check
    that the viewer offers read controls and that a direct link to an unassigned
-   World is denied. Open `/plan`, `/play`, `/surface`, `/build`, `/ingest`, and
-   `/combat` directly and confirm they show the hosted unavailable page. Verify the hosted API denies graph
-   authoring and recap ingestion. Use the
+   World is denied. Follow World-scoped links to `/plan`, `/play`, `/build`,
+   `/ingest`, `/combat`, and `/statblock`, retaining the selected World in each
+   URL. A bare workspace URL without an admitted World should ask the user to
+   choose one. These workspaces no longer share a blanket hosted-unavailable
+   page; opening a workspace does not establish that every operation is enabled.
+
+   Check the reviewed release's `HOSTED_WORLD_SCOPE_RESOLVERS` in
+   [the API entry point](../../apps/live_control_server/main.py) and the
+   [hosted request boundary](../../apps/live_control_server/services/hosted_auth.py)
+   for the exact method/path policy. Registered operations still require their
+   World/resource authorization and handler checks; authenticated requests to
+   unregistered API routes remain denied. Qualify any write workflow separately
+   against its approved disposable World and provider target, rather than
+   requiring all authoring or recap ingestion to fail.
+
+   `/surface` remains the legacy board. Use the
    [frontend guide](../../apps/live-control-ui/README.md#legacy-surface-board)
-   for the local operator Chat smoke.
+   for its local operator Chat smoke; a hosted board shell is not proof of that
+   legacy workflow.
 5. Verify the navbar identifies the signed-in DungeonMind account and keeps World selection in a separate control. Open the account menu and sign out. Confirm `POST /api/auth/logout` succeeds, then reload and require `401` from `GET /api/auth/session`. Probe `GET /api/live/world-containers` directly from the signed-out browser and require `401`; the UI may skip this request. Record the result and timestamp without saving cookies or credentials.
 
 ## 6. Close out or roll back
@@ -384,16 +581,27 @@ override, image tag, and image ID from the release record. Use the same Docker c
   test "${prior_override:0:1}" = / && test -r "$prior_override" || exit 1
   test -n "$prior_tag"
   test -n "$prior_id"
+  prior_logging=()
+  if [[ -f deploy/production/compose.logging.yaml ]]; then
+    prior_logging=(-f deploy/production/compose.logging.yaml)
+  fi
   prior_compose=(env
     -u AUTH_TRUSTED_FRONTEND_ORIGINS
+    -u OPENAI_API_KEY
     -u BUDDY_HTTP_BIND_PORT
+    -u BUDDY_OCR_REMOTE_URL
+    -u BUDDY_OCR_REMOTE_TOKEN
+    -u BUDDY_OCR_RUNTIME_ROOT
+    -u BUDDY_OCR_GPU_ID
     -u BUDDY_PERSISTENT_ROOT
     -u DMB_HOSTED_WORLD_ACCESS_JSON
     -u DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL
     -u DUNGEONMIND_SERVER_API_ORIGIN
+    -u DUNGEONMIND_STATBLOCKS_BASE_URL
+    -u DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY
     -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL
     docker compose --project-name "$prior_project" --env-file "$prior_env"
-    -f deploy/production/compose.production.yaml -f "$prior_override")
+    -f deploy/production/compose.production.yaml "${prior_logging[@]}" -f "$prior_override")
   configured_image=$("${prior_compose[@]}" config --images buddy)
   test "$configured_image" = "$prior_tag"
   local_image=$(docker image inspect "$prior_tag" --format '{{.Id}}')
@@ -435,28 +643,22 @@ docker system df -v
 
 Compare the inventory with the serving and rollback image IDs in the release
 records. Retain both images and their release-scoped configuration. For each
-retired tag, run the following in the deployment Docker context during a window
-with no concurrent release changes. Enter the full image IDs from the verified
-records.
+approved retired tag, run the retirement command in the deployment Docker
+context with no concurrent release changes. Use the verified image IDs and run
+it first without `--apply` to see the candidate and its stopped containers.
 
 ```bash
-(
-  set -e
-  read -r -p 'Retired Buddy image tag: ' retired_tag
-  read -r -p 'Serving image ID: ' serving_id
-  read -r -p 'Rollback image ID: ' rollback_id
-  [[ "$retired_tag" =~ ^dungeonmindbuddy:[0-9a-f]{40}$ ]]
-  [[ "$serving_id" =~ ^sha256:[0-9a-f]{64}$ ]]
-  [[ "$rollback_id" =~ ^sha256:[0-9a-f]{64}$ ]]
-  retired_id=$(docker image inspect --format '{{.Id}}' "$retired_tag")
-  test "$retired_id" != "$serving_id"
-  test "$retired_id" != "$rollback_id"
-  containers=$(docker ps -aq --filter "ancestor=$retired_id")
-  test -z "$containers"
-  docker image rm "$retired_tag"
-)
+read -r -p 'Retired Buddy image tag: ' retired_tag
+read -r -p 'Serving image ID: ' serving_id
+read -r -p 'Rollback image ID: ' rollback_id
+python3 scripts/retire_buddy_release.py --project "$buddy_project" \
+  --retired-tag "$retired_tag" --serving-image "$serving_id" \
+  --rollback-image "$rollback_id"
 ```
 
-Repeat the inventory afterward and record the removed tag and measured change.
+After verifying the candidate, repeat with `--apply`. The command removes only
+the named release tag and stopped containers from the matching Buddy service.
+Repeat it to verify that the retired tag is gone. Record the before and after
+Docker disk use and available RAM. Shared image layers may remain in use.
 Build cache retention belongs to the operator of the builder. Use a dedicated
 Buddy builder or coordinate retention with the owners of a shared builder.

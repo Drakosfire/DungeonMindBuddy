@@ -10,7 +10,21 @@ can build with, plan around, and use at the table.
 
 For example, start with a synthetic recap saying that the party found a sealed
 door beneath the mill. Review the door and its source in Build, then bring the
-unresolved lead into your next session plan.
+unresolved lead into your next session plan. Buddy's Agent interaction can help
+explore context and prepare work; the GM remains responsible for reviewing and
+confirming changes to shared World knowledge.
+
+## How the pieces fit
+
+Buddy owns the GM-facing surfaces, documents, product state, and Agent
+orchestration. [DungeonMind](https://github.com/Drakosfire/DungeonMind) owns
+governed World knowledge; [WorldKeeper](https://github.com/Drakosfire/WorldKeeper)
+coordinates governed changes; and
+[GenerationEngine](https://github.com/Drakosfire/GenerationEngine) provides
+shared inference execution. The public dungeonmind.net product has its own
+frontend and web API. These are separate boundaries, even when components run
+in the same local environment. Start with the
+[documentation map](Docs/README.md) for the contracts and operational guides.
 
 ## Run locally
 
@@ -59,9 +73,12 @@ uses `/surface`. See the [frontend smoke guide](apps/live-control-ui/README.md#m
 
 ## Hosted Buddy
 
-The first hosted release supports DungeonMind sign-in, World selection,
-read-only Graph, and sign-out. Build, Plan, Play, Ingest, Combat, and the
-legacy Chat smoke are local workflows.
+The first hosted release supported DungeonMind sign-in, World selection,
+read-only Graph, and sign-out. Further hosted capabilities are being developed;
+a merged change does not by itself establish what is deployed or accepted.
+The local workflows above are not a claim that each surface is available on a
+hosted installation. Check its deployed revision and release evidence before
+relying on a hosted capability.
 
 Follow the [production deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md)
 for database restore checks, the release build, DNS and TLS verification, and

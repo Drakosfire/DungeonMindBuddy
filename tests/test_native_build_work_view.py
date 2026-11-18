@@ -147,3 +147,86 @@ def test_creative_carriers_refuse_mixed_work_generations(operation, schema, task
     packet = ({'task': task} if current_outer else {'schema': schema}) | {'surface_work': work}
     with pytest.raises(ValueError, match='mix historical and current'):
         _input_frames(json.dumps({'input': json.dumps(packet)}), execution, host['schema'])
+
+
+def test_reopens_historical_draft_with_statblock_in_original_writer_format(monkeypatch):
+    from hashlib import sha256
+    from application_state.agent_conversation import build_primary_context
+    from application_state.agent_conversation.native_build_work_view import VARIANT_WRITER_FORMAT
+
+    host, execution = example()
+    execution.policy.provider_roles = SimpleNamespace(writer=SimpleNamespace(model="fixture-writer"))
+    host["response_contract"] = {
+        "policy": "fixture", "requested_work": "draft_in_conversation", "intent_family": "discuss",
+        "operation": "answer_from_sources", "purpose": "fulfill", "barrier": None,
+        "barrier_detail": None, "capabilities": {}, "available_followups": [], "contract_sha256": "fixture",
+    }
+    definition = {"identity": {"name": "Fixture"}, "ruleset": {"name": "fixture-rules"}}
+    host["saved_statblocks"] = [{"definition": definition}]
+    monkeypatch.setattr(build_primary_context, "native_work_frame", lambda *_: host)
+
+    historical = semantic_frame(host, execution)
+    assert historical["build_work"]["saved_statblocks"] == [
+        {"mechanics": {"identity": {"name": "Fixture"}}},
+    ]
+    assert "statblock_variant_guidance" not in historical["build_work"]
+    current = semantic_frame(host, execution, include_variant=True)
+    assert current["build_work"]["saved_statblocks"] == [
+        {"mechanics": definition, "variant_source": "statblock0"},
+    ]
+
+    def body(frame, name):
+        return json.dumps({
+            "model": "fixture-writer",
+            "input": [{"role": "user", "content": json.dumps(frame)}],
+            "text": {"format": {"name": name}},
+        })
+
+    old_name = "surface_native_evidence_selectors_v2"
+    from application_state.agent_conversation.native_build_work_view import VARIANT_EDITS_FORMAT
+
+    edits = semantic_frame(host, execution, include_variant=True, variant_edits=True)
+    assert "add_rules" in edits["build_work"]["statblock_variant_guidance"]
+    for wire, name in [(historical, old_name), (current, VARIANT_WRITER_FORMAT), (edits, VARIANT_EDITS_FORMAT)]:
+        raw = body(wire, name)
+        assert build_primary_context.verify_native_work_input(
+            execution, None, raw,
+        ) == sha256(raw.encode()).hexdigest()
+    with pytest.raises(ValueError, match="exact saved-work"):
+        build_primary_context.verify_native_work_input(execution, None, body(current, old_name))
+
+
+@pytest.mark.parametrize("variant_format, offered_field", [(False, True), (True, False)])
+def test_variant_field_must_match_the_producing_writer_format(variant_format, offered_field):
+    from application_state.agent_conversation.native_completion import normalize_candidate
+
+    execution = SimpleNamespace(policy=SimpleNamespace(action=SimpleNamespace(surface_id="play")))
+    evidence = SimpleNamespace(variant_format=variant_format, frame={"answer_policy": "fixture"})
+    candidate = {
+        "schema": "fixture", "answer_segments": [], "limitations": [], "requested_detail_gaps": [],
+    }
+    if offered_field:
+        candidate["statblock_variant"] = None
+    with pytest.raises(ValueError, match="exact producing answer policy"):
+        normalize_candidate(candidate, None, execution, None, evidence)
+
+
+def test_statblock_rule_edits_preserve_unmentioned_mechanics():
+    from application_state.agent_conversation.native_completion import _apply_statblock_rule_edits
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    first = base["rule_elements"][0]
+    addition = first | {"key": "new_rule", "costs": None}
+    replacement = first | {"summary": "Explicit replacement", "costs": []}
+    assembled = _apply_statblock_rule_edits(base, {
+        "add_rules": [addition], "replace_rules": [replacement],
+    })
+    assert assembled == base | {"rule_elements": [replacement, *base["rule_elements"][1:], addition | {"costs": []}]}
+    assert base == _definition().model_dump(mode="json")
+    with pytest.raises(ValueError, match="key conflicts"):
+        _apply_statblock_rule_edits(base, {"add_rules": [replacement], "replace_rules": []})
+    with pytest.raises(ValueError, match="key conflicts"):
+        _apply_statblock_rule_edits(base, {"add_rules": [], "replace_rules": [addition]})
+    with pytest.raises(ValueError, match="key conflicts"):
+        _apply_statblock_rule_edits(base, {"add_rules": [addition, addition], "replace_rules": []})

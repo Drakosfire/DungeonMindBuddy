@@ -502,8 +502,11 @@ def _commit_in_connection(
     expected_revision: int | None = None,
     expected_world_id: str | None = None,
     title: str | None = None,
+    page_presentation_changed: bool = False,
 ) -> tuple[_StoredContentObject, WorkRevision]:
     """Use the caller's transaction; never commit or allocate another connection."""
+    if page_presentation_changed and kind != "worldbuilding_source":
+        raise ApplicationStateValidationError("presentation revisions are Page-only")
     canonical_title = _require_title(title) if title is not None else None
     if canonical_title is not None and (kind != "plan" or expected_world_id is None):
         raise ApplicationStateValidationError(
@@ -544,7 +547,7 @@ def _commit_in_connection(
         current = repo.get_work_revision(conn, obj.current_revision_id)
         if current is not None:
             _require_revision_owner(obj, current)
-        if current is not None and current.content_sha256 == digest:
+        if current is not None and current.content_sha256 == digest and not page_presentation_changed:
             if canonical_title is not None and obj.title != canonical_title:
                 updated = obj.model_copy(
                     update={

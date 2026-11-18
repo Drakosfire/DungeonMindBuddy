@@ -65,13 +65,20 @@ _DESTINATION_GUIDANCE = _PREVIOUS_GUIDANCE.replace(
 )
 
 
-GUIDANCE = _DESTINATION_GUIDANCE + """
+_IMAGE_DESTINATION_GUIDANCE = _DESTINATION_GUIDANCE + """
 Classify the deliverable requested now, separately from its later use. A written design,
 layout, specification or description intended to support a later image or map is writing,
 not a request to prepare that image. Use prepare_image for an image/map or image-prompt
 review requested now. If the current deliverable remains ambiguous after reading the
 conversation, choose clarification rather than guessing its destination or format."""
 
+
+GUIDANCE = _IMAGE_DESTINATION_GUIDANCE + """
+When the user explicitly requests a written draft in conversation for review, classify
+it as discuss, including a Markdown statblock or mechanics design. Use change_mechanics
+for creating or revising a persistent mechanics version or running a mechanics action
+requested now. A later save or use in combat does not change the current draft request.
+"""
 
 @dataclass(frozen=True)
 class Work:
@@ -184,23 +191,50 @@ class Capabilities:
             raise ValueError("Invalid captured Surface/manual capability")
 
 
-def question(*, guidance=GUIDANCE):
+def question(*, guidance=None, work_options=None):
+    guidance = GUIDANCE if guidance is None else guidance
+    work_options = WORK if work_options is None else work_options
     return {
         "type": "choice",
         "instructions": guidance,
         "criteria": {
-            name: f"{work.family}: {work.meaning}" for name, work in WORK.items()
+            name: f"{work.family}: {work.meaning}" for name, work in work_options.items()
         },
     }
 
 
-def selected(response):
-    answer = response["answers"]["requested_work"]
+SOURCE_NEED_OPTIONS = ("anchored", "source_lookup", "uncertain")
+SOURCE_NEED_GUIDANCE = (
+    "Does answering this turn require looking beyond the current page, explicitly referenced or "
+    "carried material, and dialogue? Choose anchored for creative feedback on a supplied premise "
+    "or brainstorming where the GM asks for no new world fact. Choose source_lookup for a factual "
+    "lookup, citation, search in another source, or an explicit new reference that must be located. "
+    "Choose uncertain if the request cannot safely be answered from the anchored material alone."
+)
+
+
+def source_need(request, response):
+    question = request["questions"].get("source_need")
+    if question is None:
+        return None
+    expected = {"type": "choice", "instructions": SOURCE_NEED_GUIDANCE,
+                "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
+    if question != expected:
+        raise ValueError("Build source scope differs from its offered decision")
+    return _selected_choice(response["answers"]["source_need"], SOURCE_NEED_OPTIONS)
+
+
+def selected(response, *, menu=None):
+    options = WORK if menu is None else _menu_work(menu)
+    return _selected_choice(response["answers"]["requested_work"], options)
+
+
+def _selected_choice(answer, options):
     label, probabilities = answer["selected"], answer["probabilities"]
     if (
-        label not in WORK
+        label not in options
         or not isinstance(probabilities, dict)
-        or set(probabilities) != set(WORK)
+        or set(probabilities) != set(options)
         or any(
             isinstance(x, bool)
             or not isinstance(x, (int, float))
@@ -216,8 +250,9 @@ def selected(response):
     return label
 
 
-def resolve(label, capabilities):
-    work = WORK[label]
+def resolve(label, capabilities, *, work_options=None):
+    work_options = WORK if work_options is None else work_options
+    work = work_options[label]
     barrier = None
     if label in UNAVAILABLE:
         barrier = "requested_executor_not_offered"
@@ -345,7 +380,7 @@ def resolve(label, capabilities):
         "contract_sha256": digest(
             {
                 "policy": POLICY,
-                "work": {k: asdict(v) for k, v in WORK.items()},
+                "work": {k: asdict(v) for k, v in work_options.items()},
                 "capabilities": asdict(capabilities),
             }
         ),
@@ -396,24 +431,48 @@ into a compulsory form or invent a task. Preserve temporary/conditional meaning 
 
 FORMAT = "build_intentional_response_answer_v1"
 COMPLETION = "dmb_build_intentional_response_completion_v1"
-MENU_DIGEST = digest(question())
-# Persisted decisions retain their exact producing instructions. Only the
-# current menu is emitted; the previous digest remains an immutable reader.
-_PREVIOUS_MENU_DIGEST = digest(question(guidance=_PREVIOUS_GUIDANCE))
-_DESTINATION_MENU_DIGEST = digest(question(guidance=_DESTINATION_GUIDANCE))
-_MENU_GUIDANCE = MappingProxyType({
-    MENU_DIGEST: GUIDANCE,
-    _PREVIOUS_MENU_DIGEST: _PREVIOUS_GUIDANCE,
-    _DESTINATION_MENU_DIGEST: _DESTINATION_GUIDANCE,
+_RETAINED_WORK = WORK
+_RETAINED_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **_RETAINED_WORK,
+    "draft_in_conversation": Work(
+        "discuss", "Write an explicitly requested editable draft for review in chat.",
+    ),
 })
-RESOLVER_DIGEST = digest(
-    {
+GUIDANCE = _RETAINED_GUIDANCE + """
+Choose draft_in_conversation for an explicit request to produce a written draft for
+review in chat now. Choose discuss for brainstorming or acknowledging a premise.
+"""
+
+
+def _resolver_digest(work_options):
+    return digest({
         "policy": POLICY,
-        "work": {k: asdict(v) for k, v in WORK.items()},
+        "work": {key: asdict(value) for key, value in work_options.items()},
         "unavailable": sorted(UNAVAILABLE),
         "resolver_version": 1,
-    }
-)
+    })
+
+
+MENU_DIGEST = digest(question(guidance=GUIDANCE))
+RESOLVER_DIGEST = _resolver_digest(WORK)
+_MENU_GUIDANCE = MappingProxyType({
+    MENU_DIGEST: GUIDANCE,
+    **{
+        digest(question(guidance=guidance, work_options=_RETAINED_WORK)): guidance
+        for guidance in (_RETAINED_GUIDANCE, _IMAGE_DESTINATION_GUIDANCE, _PREVIOUS_GUIDANCE, _DESTINATION_GUIDANCE)
+    },
+})
+_RETAINED_RESOLVER_DIGEST = _resolver_digest(_RETAINED_WORK)
+
+
+def _menu_work(menu):
+    return WORK if menu == MENU_DIGEST else _RETAINED_WORK
+
+
+def known_semantics(menu, resolver):
+    expected = RESOLVER_DIGEST if menu == MENU_DIGEST else _RETAINED_RESOLVER_DIGEST
+    return menu in _MENU_GUIDANCE and resolver == expected
 
 
 def enabled(policy):
@@ -457,16 +516,21 @@ def _captured_semantics(policy):
     return caps,policy.action_capability_sha256,policy.requested_work_menu_sha256,policy.response_resolver_sha256
 
 
-def resolution_for(policy, label):
+def resolution_for(policy, label, *, source_scope=None):
     caps,_,menu,resolver=_captured_semantics(policy)
-    if menu not in _MENU_GUIDANCE or resolver != RESOLVER_DIGEST:
+    if not known_semantics(menu, resolver) or label not in _menu_work(menu):
         raise ValueError("Unknown semantic menu or resolver")
-    return json.loads(canonical(resolve(label,caps)))
+    resolution = json.loads(canonical(resolve(label, caps, work_options=_menu_work(menu))))
+    if source_scope is not None:
+        if source_scope not in SOURCE_NEED_OPTIONS:
+            raise ValueError("Invalid Build source scope")
+        resolution["source_scope"] = source_scope
+    return resolution
 
 
 def validate_resolution_metadata(event, policy):
     caps,capability,menu,resolver=_captured_semantics(policy)
-    expected=resolution_for(policy,event.requested_work)
+    expected=resolution_for(policy,event.requested_work,source_scope=event.resolution.get("source_scope"))
     if (event.resolution != expected or event.intent_family != expected['intent_family']
             or event.operation != expected['operation'] or event.operation not in caps.operations
             or event.capability_sha256 != capability
@@ -493,6 +557,14 @@ def validate_turn_arguments(execution, *, user_text, turn_id, attempt):
             raise ValueError('Retained semantic action differs from its exact turn arguments')
 
 
+def is_anchored_discussion(selection):
+    from .types import BuildRequestedWorkResolutionV1
+
+    return (isinstance(selection, BuildRequestedWorkResolutionV1)
+            and selection.requested_work == "discuss"
+            and selection.resolution.get("source_scope") == "anchored")
+
+
 def selected_action(execution):
     from .types import BuildRequestedWorkResolutionV1, BuildReviewedActionSelectionV1
     choices=[e for e in execution.events if isinstance(e,(BuildRequestedWorkResolutionV1,BuildReviewedActionSelectionV1))]
@@ -507,7 +579,7 @@ def selected_contract(execution):
     if isinstance(choice,BuildReviewedActionSelectionV1):
         return None
     validate_resolution_metadata(choice,execution.policy)
-    return choice.resolution
+    return {key: value for key, value in choice.resolution.items() if key != "source_scope"}
 
 
 def validate_native_action_events(execution):
@@ -563,9 +635,9 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         raise ValueError("Semantic selection requires its exact producing proof")
     request = strict_json(proof["request_json"])
     raw_response = strict_json(proof["response_json"])
-    label = selected(raw_response)
+    label = selected(raw_response, menu=menu)
     response = DecisionResult.model_validate(raw_response)
-    resolution = resolution_for(policy, label)
+    resolution = resolution_for(policy, label, source_scope=source_need(request, raw_response))
     prior = [
         e
         for e in execution.events
@@ -583,7 +655,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     wire_question = {
         "type": "choice",
         "instructions": decision_instructions(menu),
-        "criteria": {name: None for name in WORK},
+        "criteria": {name: None for name in _menu_work(menu)},
     }
     state = request.get("state", {})
     decision = state.get("decision", {})
@@ -661,7 +733,7 @@ def decision_instructions(menu_digest=MENU_DIGEST):
     return (
         guidance
         + "\n"
-        + "\n".join(f"{name}: {w.family}: {w.meaning}" for name, w in WORK.items())
+        + "\n".join(f"{name}: {w.family}: {w.meaning}" for name, w in _menu_work(menu_digest).items())
     )
 
 

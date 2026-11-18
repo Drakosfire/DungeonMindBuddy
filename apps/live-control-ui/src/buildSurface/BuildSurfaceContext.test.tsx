@@ -163,30 +163,11 @@ describe("BuildSurfaceContext", () => {
     sessionMock.current = makeSession();
   });
 
-  it.each([true, false])("browses recaps without switching Build documents (loaded=%s)", async loaded => {
+  it.each([true, false])("uses the document picker for recaps (loaded=%s)", loaded => {
     selectedWorldMock.managed = true;
-    sessionMock.current = makeSession({dirty:true, statusLabel:"Unsaved changes"});
-    const originalSession = sessionMock.current;
-    const route = window.location.href;
-    const {onSelect,onCreate} = renderBuildContext(loaded ? {} : {activeDocumentId:null,activeRecord:null});
-    const launcher = screen.getByRole("button", {name:"Browse recaps"});
-    const selector = document.querySelector(".build-document-selector--context");
-    expect(selector?.nextElementSibling).toBe(launcher);
-    await userEvent.click(launcher);
-    expect(await screen.findByRole("region",{name:"Shared source browser"})).toHaveTextContent("elderwyld recap");
-    fireEvent(screen.getByRole("dialog",{name:"Elderwyld World sources"}),new Event("cancel",{cancelable:true}));
-    expect(launcher).toHaveFocus();
-    expect(onSelect).not.toHaveBeenCalled();
-    expect(onCreate).not.toHaveBeenCalled();
-    expect(sessionMock.current).toBe(originalSession);
-    expect(sessionMock.current!.dirty).toBe(true);
-    expect(sessionMock.current!.saveMarkdown).not.toHaveBeenCalled();
-    expect(window.location.href).toBe(route);
-  });
-
-  it("does not offer recap browsing without a selected managed World", () => {
-    renderBuildContext();
-    expect(screen.queryByRole("button",{name:"Browse recaps"})).not.toBeInTheDocument();
+    renderBuildContext(loaded ? {} : {activeDocumentId:null,activeRecord:null});
+    expect(screen.queryByRole("button", { name: "Browse recaps" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open document" })).toBeInTheDocument();
   });
 
   it("explains blocked Save and exposes protected-draft review in the real navbar", async () => {
@@ -220,7 +201,7 @@ describe("BuildSurfaceContext", () => {
     expect(within(host).queryByText("DOCUMENT")).not.toBeInTheDocument();
     expect(within(host).getByTestId("build-navbar-save")).toBeEnabled();
     expect(within(host).getByText("Source actions")).toBeInTheDocument();
-    expect(within(host).getByTestId("build-document-select")).toHaveValue(DOC_A);
+    expect(within(host).getByTestId("build-document-select")).toHaveAttribute("aria-haspopup", "dialog");
     expect(within(host).getByText("C1")).toBeInTheDocument();
     expect(within(host).getByText("faction")).toBeInTheDocument();
     const saveStatus = within(host).getByTestId("build-document-status");
@@ -259,8 +240,8 @@ describe("BuildSurfaceContext", () => {
     });
 
     const host = screen.getByTestId("surface-context-host");
-    expect(within(host).getByText("No source loaded")).toBeInTheDocument();
-    expect(within(host).getByRole("option", { name: "Choose source" })).toBeInTheDocument();
+    expect(within(host).queryByText("Source actions")).not.toBeInTheDocument();
+    expect(within(host).getByRole("button", { name: "Open document" })).toBeInTheDocument();
     expect(within(host).queryByTestId("build-document-rename-open")).not.toBeInTheDocument();
   });
 
@@ -299,13 +280,14 @@ describe("BuildSurfaceContext", () => {
     });
     expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Renamed On Canvas");
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved changes");
+    fireEvent.click(screen.getByTestId("build-document-select"));
     expect(
-      within(screen.getByTestId("build-document-select")).getByRole("option", {
+      within(screen.getByRole("dialog", { name: "Open document" })).getByRole("button", {
         name: "Renamed On Canvas",
       }),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByTestId("build-document-select")).queryByRole("option", {
+      within(screen.getByRole("dialog", { name: "Open document" })).queryByRole("button", {
         name: "Stale List Title",
       }),
     ).not.toBeInTheDocument();

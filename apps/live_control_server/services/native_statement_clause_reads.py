@@ -121,7 +121,10 @@ def open_assertion_source(*, world_id, turn_id, citation_index, principal, servi
     from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
     from .native_graph_reads import reopen_context
     from application_state.agent_conversation.authored_graph_references import BuildAuthoredReferenceAuthorizedV2
-    from apps.live_control_server.models.native_statement_answers import NativeAssertionSourceReadV1
+    from apps.live_control_server.models.native_statement_answers import (
+        NativeAssertionPdfSourceReadV1, NativeAssertionSourceReadV1,
+    )
+    from application_state.agent_conversation.native_plan_assertions import NativeAssertionPdfCitationV1
     if isinstance(citation_index, bool) or not isinstance(citation_index, int) or citation_index < 0:
         raise SourcePassageOpenError('native_assertion_selector_invalid', 422)
     turn = (service or AgentConversationService()).inspect_turn(world_id=world_id, turn_id=turn_id)
@@ -148,6 +151,21 @@ def open_assertion_source(*, world_id, turn_id, citation_index, principal, servi
         if retained != read:
             raise ValueError('Pinned assertion no longer admits its exact original support')
         span = next(s for s in reopened.spans if s.evidence_ref_id == citation.evidence_ref_id)
+        if isinstance(citation, NativeAssertionPdfCitationV1):
+            from base64 import b64encode
+
+            from .native_pdf_evidence import render_admitted_pdf_evidence
+
+            evidence = next(e for e in reopened.evidence if e.evidence_ref_id == citation.evidence_ref_id)
+            region, png = render_admitted_pdf_evidence(
+                evidence, space_id=citation.native_world_id, load=context.repository.get_native_pdf_source,
+            )
+            if region != citation.region or region != span.region:
+                raise ValueError('Pinned PDF assertion region differs from its citation')
+            return NativeAssertionPdfSourceReadV1(
+                world_id=world_id, turn_id=str(turn_id), citation_index=citation_index,
+                citation=citation, png_base64=b64encode(png).decode('ascii'),
+            )
     except (ValueError, TypeError, KeyError, AttributeError, StopIteration) as exc:
         raise SourcePassageOpenError('native_assertion_access_or_bytes_unavailable', 409) from exc
     return NativeAssertionSourceReadV1(world_id=world_id, turn_id=str(turn_id), citation_index=citation_index,

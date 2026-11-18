@@ -4344,7 +4344,7 @@ it('serializes two mounted Plan hosts so only one pending application can mutate
   first.unmount();second.unmount();
 });
 
-it.each(['valid','wrong_work_revision','lost_confirm','lost_confirm_newer','lost_before_commit','newer_draft','move'] as const)('ordinary first Send stages an editable Plan object, saves once and reloads it without drafting in chat (%s)',async mode=>{
+it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lost_confirm','lost_confirm_newer','lost_before_commit','newer_draft','move'] as const)('ordinary first Send stages an editable Plan object, saves once and reloads it without drafting in chat (%s)',async mode=>{
   const nativeNavigator=navigator;
   vi.stubGlobal('navigator',new Proxy(nativeNavigator,{get:(target,key)=>key==='locks'?{request:async(_name:string,work:()=>unknown)=>work()}:Reflect.get(target,key,target)}));
   const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,'# Plan\n\nOriginal preparation.\n');
@@ -4364,7 +4364,14 @@ it.each(['valid','wrong_work_revision','lost_confirm','lost_confirm_newer','lost
   let proposal:any,review:any=null,originHash='',lostConfirm=false;
   const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockImplementation(async request=>{
     expect(conversationReady).toBe(true);expect(request.plan_authoring_capture).toBeDefined();
-    const response:any=worldPlanAgentResponse(request),capture=request.plan_authoring_capture!;
+    const response:any=worldPlanAgentResponse(request);
+    let capture: any = request.plan_authoring_capture!;
+    if (mode === 'offered_boundary' || mode === 'altered_boundary') {
+      const placement = request.plan_placement_catalog!.entries.find(entry => entry.kind === 'end_page')!;
+      capture = {...capture, schema:'dmb_plan_authoring_boundary_capture_v1', target_kind:'insert_at_boundary',
+        root_boundary:placement.root_boundary, from:placement.position, to:placement.position};
+      if (mode === 'altered_boundary') capture.draft_generation += 1;
+    }
     expect(capture.conversation_id).toBe(conversationId);expect(capture.expected_pointer_revision).toBe(1);
     expect(capture.idempotency_key).toBe(historyCorrelationKey(request));
     const markdown='## Proposed visitors\n\nA traveling keeper may ask about the lantern.\n';
@@ -4378,7 +4385,7 @@ it.each(['valid','wrong_work_revision','lost_confirm','lost_confirm_newer','lost
       evidence_event_ids:[],replacement_markdown_sha256:hash(markdown)};
     if(mode==='wrong_work_revision')origin.basis.work_revision_id='ffffffff-ffff-4fff-8fff-ffffffffffff';
     proposal={schema:'dmb_plan_authored_proposal_v1',capture,origin,replacement_markdown:markdown};originHash=hash(canonicalFixtureJson(origin));
-    const retained=serverHistoryTurns.at(-1)!;retained.turn_id=turn;retained.plan_proposal=proposal;
+    const retained=serverHistoryTurns.at(-1)!;retained.turn_id=turn;if(mode!=='altered_boundary')retained.plan_proposal=proposal;
     return {...response,plan_proposal:proposal};
   });
   vi.spyOn(reviewApi,'readPlanAuthoringReview').mockImplementation(async()=>({schema:'dmb_plan_authoring_review_snapshot_v1',
@@ -4416,6 +4423,12 @@ it.each(['valid','wrong_work_revision','lost_confirm','lost_confirm_newer','lost
   const send=within(conversation).getByRole('button',{name:'Send message',exact:true});
   await waitFor(()=>expect(send).toBeEnabled());fireEvent.click(send);
   await waitFor(()=>expect(post,conversation.textContent??'').toHaveBeenCalledTimes(1));
+  if(mode==='altered_boundary'){
+    await screen.findByText(/server recorded this Ask as complete/);
+    expect(screen.queryByRole('textbox',{name:'Suggestion text'})).not.toBeInTheDocument();
+    expect(commands).not.toHaveBeenCalled();
+    mounted.unmount();return;
+  }
   if(mode==='wrong_work_revision'){
     await waitFor(()=>expect(document.body.textContent).toMatch(/response did not match this saved Plan|Reply details contained an invalid Graph-context receipt/));
     expect(screen.queryByRole('textbox',{name:'Suggestion text'})).not.toBeInTheDocument();

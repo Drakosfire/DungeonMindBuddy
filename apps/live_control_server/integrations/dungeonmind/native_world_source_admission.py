@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Callable, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -425,8 +425,60 @@ def get_native_world_source_status(
         )
 
 
+def retain_pdf_in_bound_world(world_id, binding, command, raw):
+    repository = _repository()
+    _require_source_binding(None, world_id, binding)
+    _ensure_native_source_space(repository, world_id, binding.native_world_id)
+    _require_source_binding(None, world_id, binding)
+    revision = repository.retain_native_pdf_source(command, raw)
+    _require_source_binding(None, world_id, binding)
+    return revision
+
+
+def _ensure_native_source_space(repository, world_id, native_world_id, *, authorize_world=None):
+    try:
+        existing_head = repository.get_head(native_world_id)
+    except Exception as exc:
+        raise _authority_failure(exc, default_code="native_status_failed") from exc
+    if existing_head is None:
+        domain, profile = _genesis_descriptors()
+        created_at = _parse_timestamp(
+            get_world_container(world_id).created_at,
+            field="managed World created_at",
+        )
+        initialization_id = _stable_id("dmb-world-genesis", native_world_id)
+        if authorize_world is not None:
+            authorize_world(world_id)
+        try:
+            initialize_empty_knowledge_space(
+                repository=repository, space_id=native_world_id,
+                initialization_id=initialization_id, created_at=created_at,
+                domain_contract=domain, semantic_profile=profile,
+            )
+        except Exception as exc:
+            raise _authority_failure(exc, default_code="native_genesis_failed") from exc
+
+
+
+class AuthorizedTextAdmissionRepository:
+    """Recheck ownership after the pinned admission helper's last authority read."""
+
+    def __init__(self, repository, authorize_write):
+        self._repository = repository
+        self._authorize_write = authorize_write
+
+    def __getattr__(self, name):
+        return getattr(self._repository, name)
+
+    def get_head(self, space_id):
+        head = self._repository.get_head(space_id)
+        self._authorize_write()
+        return head
+
+
 def admit_native_world_source(
-    root, document_id: str, *, expected_revision: int, expected_body_sha256: str
+    root, document_id: str, *, expected_revision: int, expected_body_sha256: str,
+    authorize_world: Callable[[str], None] | None = None,
 ) -> NativeWorldSourceAdmissionStatus:
     snapshot, body_bytes, body_sha256, admission_id, sealed_world_binding = _load_exact_snapshot(
         root, document_id, expected_revision, expected_body_sha256
@@ -434,6 +486,8 @@ def admit_native_world_source(
     record = snapshot.record
     world_id = record.world_id
     assert world_id is not None
+    if authorize_world is not None:
+        authorize_world(world_id)
     native_world_id = sealed_world_binding.native_world_id
     repository = _repository()
     try:
@@ -453,26 +507,8 @@ def admit_native_world_source(
         )
 
     _require_source_binding(root, world_id, sealed_world_binding)
-    try:
-        existing_head = repository.get_head(native_world_id)
-    except Exception as exc:
-        raise _authority_failure(exc, default_code="native_status_failed") from exc
-    if existing_head is None:
-        domain, profile = _genesis_descriptors()
-        config.managed_world_data_root(root)
-        created_at = _parse_timestamp(
-            get_world_container(world_id).created_at,
-            field="managed World created_at",
-        )
-        initialization_id = _stable_id("dmb-world-genesis", native_world_id)
-        try:
-            initialize_empty_knowledge_space(
-                repository=repository, space_id=native_world_id,
-                initialization_id=initialization_id, created_at=created_at,
-                domain_contract=domain, semantic_profile=profile,
-            )
-        except Exception as exc:
-            raise _authority_failure(exc, default_code="native_genesis_failed") from exc
+    config.managed_world_data_root(root)
+    _ensure_native_source_space(repository, world_id, native_world_id, authorize_world=authorize_world)
 
     expected_origin = _origin(snapshot)
     for attempt in range(MAX_ADMISSION_ATTEMPTS):
@@ -511,9 +547,15 @@ def admit_native_world_source(
             spans=[span],
         )
         _require_source_binding(root, world_id, sealed_world_binding)
+        admission_repository = repository
+        if authorize_world is not None:
+            authorize_world(world_id)
+            admission_repository = AuthorizedTextAdmissionRepository(
+                repository, lambda: authorize_world(world_id),
+            )
         try:
             receipt = publish_native_text_source_evidence(
-                repository=repository,
+                repository=admission_repository,
                 request=request,
                 domain_contract=domain,
                 semantic_profile=profile,
@@ -529,6 +571,8 @@ def admit_native_world_source(
                 root=root, sealed_world_binding=sealed_world_binding,
             )
         except Exception as exc:
+            if authorize_world is not None:
+                authorize_world(world_id)
             try:
                 recovered = repository.get_native_source_admission_receipt(native_world_id, admission_id)
             except Exception as probe_error:

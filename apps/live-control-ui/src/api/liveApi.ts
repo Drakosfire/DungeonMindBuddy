@@ -331,14 +331,19 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     "/api/live/native-graph-explorer/confirm",
     "/api/live/native-graph-explorer/operations/read",
   ].includes(pathname)) return true;
-  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|ocr|review|statblock:validate))?$/.test(pathname)) return true;
+  if (/^\/api\/live\/worlds\/[^/]+\/pdf-adventure-events\/(?:prepare|confirm)$/.test(pathname)) return true;
+  if (/^\/api\/live\/threat-drafts\/[^/]+\/saved-statblock$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-source-withdrawals$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|region:validate|ocr|review|statblock-reviews|statblock:validate))?$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+(?:\/validate|\/from-regions|\/creature-draft|\/(?:accept|append)\/[^/]+)?$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+\/publication(?:\/statblock)?$/.test(pathname)) return true;
   if ([
     "/api/live/graph-authoring/document-relationship/request",
     "/api/live/graph-authoring/document-relationship/native-prepare",
     "/api/live/graph-authoring/document-relationship/native-confirm",
   ].includes(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/work-plans\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/continue)?$/i.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/variant-reviews\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/(?:confirm|saved))?)?$/i.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/active\/messages$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/(?:name|turns|messages|resume|trash|restore))?$/i.test(pathname)) return true;
   if (/^\/api\/live\/connected-pages\/(?:prepare|confirm|[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})$/i.test(pathname)) return true;
@@ -357,7 +362,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/threat-drafts\/[^/]+\/mechanics-(?:revisions(?:\/[^/]+)?|revision-operations\/[^/]+(?::recover)?)$/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/world-session-evidence")) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/prepared-tables(?:\/receipts|\/commands\/[^/]+)?$/.test(pathname)) return true;
-  if (pathname === "/api/live/recap-ingest" || isRecapSelectionContextPath(pathname)) return true;
+  if (pathname === "/api/live/recap-ingest" || pathname === "/api/live/recap-name-review" || isRecapSelectionContextPath(pathname)) return true;
   if (pathname === "/api/live/extract-promote/native-prepare" || pathname === "/api/live/extract-promote/native-confirm"
       || pathname === "/api/live/extract-promote/native-worldbuilding-context") return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/review(?:\/commands\/[^/]+)?$/.test(pathname)) return true;
@@ -375,6 +380,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+(?:\/resolve|\/resolutions\/[^/]+)?)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace(?:\/[^/]+\/prompt\/[^/]+)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:identities|(?:native-)?steps\/\d+\/assertion)$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/prompts$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/source-passages\/\d+$/.test(pathname)
@@ -421,8 +427,352 @@ const HOSTED_EXPLORER_PATHS = new Set([
 
 const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
+const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\?admission_id=[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (path === "/api/live/connected-pages/prepare" || path === "/api/live/connected-pages/confirm") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.world_id === "string" && Boolean(body.world_id)
+      && typeof body.operation_id === "string" && Boolean(body.operation_id);
+  }
+  const associateMechanics = /^\/api\/live\/world-mechanics\/associations\?([^#]+)$/.exec(path);
+  if (method === "POST" && associateMechanics) {
+    const query = new URLSearchParams(associateMechanics[1]);
+    const target = requestBodyRecord(init?.body)?.target;
+    const world = query.get("world_id");
+    return query.size === 1 && Boolean(world) && isRecord(target) && target.managed_world_id === world;
+  }
+  const mechanicsRead = /^\/api\/live\/world-mechanics\/associations\/(?:creatures|requests\/[0-9a-f-]+)\?([^#]+)$/.exec(path);
+  if (mechanicsRead) {
+    const query = new URLSearchParams(mechanicsRead[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
+  const pdfPublish = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/(?:(?:creature-draft|validate|publication)\?expected_revision=([1-9][0-9]*)|accept\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.exec(path);
+  if (method === "POST" && pdfPublish) {
+    const expectedRevision = pdfPublish[1];
+    if (expectedRevision) return init?.body == null && Number.isSafeInteger(Number(expectedRevision));
+    const body = requestBodyRecord(init?.body);
+    return typeof body?.operation_id === "string" && Boolean(body.operation_id)
+      && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision) && body.expected_revision > 0
+      && typeof body.expected_draft_version === "number" && Number.isSafeInteger(body.expected_draft_version) && body.expected_draft_version > 0
+      && isRecord(body.validation_receipt) && typeof body.validation_definition_digest === "string";
+  }
+  const pdfReview = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(\/publication(?:\/statblock)?)?)?([?][^#]+)?$/.exec(path);
+  if (pdfReview) {
+    const [, reviewId, publication, search] = pdfReview;
+    if (method === "PUT" && reviewId && !publication && search === undefined) {
+      const body = requestBodyRecord(init?.body);
+      return typeof body?.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
+        && body.expected_revision >= 0 && isRecord(body.definition) && Array.isArray(body.regions);
+    }
+    if (method !== "GET" || init?.body != null) return false;
+    if (publication !== "/publication/statblock") return search === undefined;
+    const query = new URLSearchParams(search);
+    const draftId = query.get("draft_id");
+    const revisionId = query.get("revision_id");
+    return !!draftId && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(draftId)
+      && !!revisionId && path === path.split("?", 1)[0] + "?" + new URLSearchParams({ draft_id: draftId, revision_id: revisionId });
+  }
+  const promptEvidence = /^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/turns\/[a-f0-9-]+\/context-trace\/(?:([a-f0-9-]+)\/prompt\/([a-f0-9-]+)|(prompts))$/.exec(path);
+  if (promptEvidence) {
+    if (!promptEvidence[3]) return method === "GET" && init?.body == null;
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body !== null && Object.keys(body).length === 1
+      && Array.isArray(body.prompts) && body.prompts.length >= 1 && body.prompts.length <= 8;
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/name$/i.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  if (HOSTED_PDF_UPLOAD_PATH.test(path)) {
+    return method === "POST" && init?.body instanceof Blob && init.body.size > 0
+      && new Headers(init.headers).get("Content-Type") === "application/pdf";
+  }
+  const retainedPdf = /^(\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources)(?:\/(open|region:validate)|\?([^#]+))?$/.exec(path);
+  if (retainedPdf) {
+    const [, root, operation, search] = retainedPdf;
+    if (operation) return method === "POST" && requestBodyRecord(init?.body) !== null;
+    if (method !== "GET" || init?.body != null) return false;
+    if (search === undefined) return true;
+    const after = new URLSearchParams(search).get("after");
+    return after !== null && path === root + "?" + new URLSearchParams({ after });
+  }
+  if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/regenerate$/i.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && (body?.mode === "new" || body?.mode === "image_to_image")
+      && typeof body.expected_content_sha256 === "string" && /^[0-9a-f]{64}$/.test(body.expected_content_sha256)
+      && typeof body.instructions === "string" && Boolean(body.instructions.trim());
+  }
+  const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
+  const playProgress = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/progress\?([^#]+)$/.exec(path);
+  if (playProgress) {
+    const query = new URLSearchParams(playProgress[1]);
+    const body = requestBodyRecord(init?.body);
+    return method === "PUT" && query.size === 1 && Boolean(query.get("world_id"))
+      && typeof body?.expected_run_revision === "number" && Number.isSafeInteger(body.expected_run_revision)
+      && body.expected_run_revision > 0 && isRecord(body.progress);
+  }
+  if (connectedPage) {
+    const query = new URLSearchParams(connectedPage[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/from-regions$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && Array.isArray(body?.regions) && body.regions.length > 0
+      && typeof body.instruction === "string";
+  }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/append\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.operation_id === "string" && Boolean(body.operation_id)
+      && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
+      && body.expected_revision > 0 && isRecord(body.base);
+  }
+  if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/save$/i.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body !== null && Object.keys(body).length === 0;
+  }
+  const imageAssociation = /^\/api\/live\/media\/images\/preparations\/[0-9a-f-]+\/asset\?([^#]+)$/.exec(path);
+  if (imageAssociation) {
+    const query = new URLSearchParams(imageAssociation[1]);
+    return method === "POST" && query.size === 1 && Boolean(query.get("world_id"))
+      && isRecord(requestBodyRecord(init?.body));
+  }
+  const imageGeneration = /^\/api\/live\/media\/images\/generate\?([^#]+)$/.exec(path);
+  if (imageGeneration) {
+    const query = new URLSearchParams(imageGeneration[1]);
+    return method === "POST" && query.size === 1 && Boolean(query.get("world_id"))
+      && isRecord(requestBodyRecord(init?.body));
+  }
+  const imageCapabilities = "/api/live/media/images/capabilities?";
+  if (path.startsWith(imageCapabilities)) {
+    const world = new URLSearchParams(path.slice(imageCapabilities.length)).get("world_id");
+    return method === "GET" && init?.body == null && !!world
+      && path === imageCapabilities + new URLSearchParams({ world_id: world });
+  }
+  if (/^\/api\/live\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/pdf-adventure-events\/(?:prepare|confirm)$/.test(path)) {
+    return method === "POST" && requestBodyRecord(init?.body) !== null;
+  }
+  const nativeSource = /^\/api\/live\/workspace-documents\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/native-world-source/.exec(path);
+  if (nativeSource) {
+    const selectors = path.slice(nativeSource[0].length);
+    if (method === "GET" && init?.body == null) {
+      return selectors === "" || /^\?expected_revision=[1-9][0-9]*$/.test(selectors);
+    }
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && selectors === "" && typeof body?.expected_revision === "number"
+      && Number.isSafeInteger(body.expected_revision) && body.expected_revision > 0
+      && typeof body.expected_body_sha256 === "string" && /^[0-9a-f]{64}$/.test(body.expected_body_sha256);
+  }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-source-withdrawals$/.test(path)) {
+    const source = requestBodyRecord(init?.body);
+    return method === "POST" && (source?.kind === "pdf" || source?.kind === "text")
+      && typeof source.revision_id === "string" && Boolean(source.revision_id);
+  }
+  const imageHistory = "/api/live/media/images/preparations/list?";
+  if (path.startsWith(imageHistory)) {
+    const selectors = new URLSearchParams(path.slice(imageHistory.length));
+    const worldId = selectors.get("world_id");
+    const conversationId = selectors.get("conversation_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(conversationId ?? "")
+      && path === imageHistory + "world_id=" + encodeURIComponent(worldId)
+        + "&conversation_id=" + conversationId;
+  }
+  if (path === "/api/live/agent/turn") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && isRecord(body?.owner_scope)
+      && body.owner_scope.kind === "world" && typeof body.owner_scope.world_id === "string"
+      && Boolean(body.owner_scope.world_id.trim())
+      && typeof body.client_thread_id === "string" && typeof body.turn_id === "string";
+  }
+  if (/^\/api\/live\/media\/images\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(metadata|original)$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/turns\/[0-9a-f-]+\/(?:native-source-sections|source-passages|native-body-excerpts|native-assertion-sources|native-source-clauses)\/\d+$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/turns\/[0-9a-f-]+\/context-trace$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/build-proposals\?conversation_id=[0-9a-f-]+$/.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
+  const variantReview = /^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/variant-reviews\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/(confirm|saved))?$/i.exec(path);
+  if (variantReview) {
+    return init?.body == null && method === (variantReview[1] === "confirm" ? "POST" : "GET");
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(path)) {
+    return (method === "GET" && init?.body == null)
+      || (method === "PUT" && !!requestBodyRecord(init?.body));
+  }
+  const conversation = /^\/api\/live\/agent\/worlds\/[^/?]+\/(conversation(?:\/new|\/commands\/[0-9a-f-]+)?|conversations(?:\/active\/messages|\/[0-9a-f-]+\/(?:messages|turns|retry-context))?)(?:\?([^#]*))?$/.exec(path);
+  if (conversation) {
+    if (conversation[1] === "conversation/new") {
+      return method === "POST" && conversation[2] === undefined && !!requestBodyRecord(init?.body);
+    }
+    return method === "GET" && init?.body == null;
+  }
+  const mechanicsPreview = /^\/api\/live\/combat\/encounters\/(?:saved-mechanics|accepted-mechanics|world-mechanics|conversation-variant)\/preview\?/.exec(path);
+  if (mechanicsPreview) {
+    const worldId = new URLSearchParams(path.slice(mechanicsPreview[0].length)).get("world_id");
+    return method === "POST" && !!worldId && !!requestBodyRecord(init?.body)
+      && path === mechanicsPreview[0] + new URLSearchParams({ world_id: worldId });
+  }
+  const creaturePublication = /^\/api\/live\/threat-drafts\/[0-9a-f-]+\/native-creature(?:\/(prepare|confirm))?(?:\?([^#]+))?$/.exec(path);
+  if (creaturePublication) {
+    const [, action, selectors] = creaturePublication;
+    if (!action) {
+      const query = new URLSearchParams(selectors);
+      return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+    }
+    const body = requestBodyRecord(init?.body);
+    const review = action === "confirm" ? body?.review : body;
+    return method === "POST" && !selectors && isRecord(review)
+      && typeof review.world_id === "string" && Boolean(review.world_id);
+  }
+  const archivedStatblock = /^\/api\/live\/threat-drafts\/[0-9a-f-]+\/saved-statblock\?([^#]+)$/.exec(path);
+  if (archivedStatblock) {
+    const query = new URLSearchParams(archivedStatblock[1]);
+    return method === "DELETE" && init?.body == null && query.size === 2 && Boolean(query.get("world_id"))
+      && /^[1-9][0-9]*$/.test(query.get("expected_version") ?? "");
+  }
+  if (/^\/api\/live\/threat-drafts\/[0-9a-f-]+\/mechanics-revisions$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.world_id === "string" && Boolean(body.world_id);
+  }
+  const mechanicsOperation = /^\/api\/live\/threat-drafts\/[0-9a-f-]+\/mechanics-revision-operations\/[0-9a-f-]+(:recover)?\?([^#]+)$/.exec(path);
+  if (mechanicsOperation) {
+    const query = new URLSearchParams(mechanicsOperation[2]);
+    return method === (mechanicsOperation[1] ? "POST" : "GET") && init?.body == null
+      && query.size === 1 && Boolean(query.get("world_id"));
+  }
+  const savedRevisionList = /^\/api\/live\/threat-drafts\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-revisions\?/.exec(path);
+  if (savedRevisionList) {
+    const query = new URLSearchParams(path.slice(savedRevisionList[0].length));
+    const worldId = query.get("world_id");
+    const offset = query.get("offset");
+    return method === "GET" && init?.body == null && !!worldId && offset !== null && /^\d+$/.test(offset)
+      && path === savedRevisionList[0] + new URLSearchParams({ world_id: worldId, offset });
+  }
+  const combatAdoption = /^\/api\/live\/combat\/encounters\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-adoptions(:cancel|\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
+  if (combatAdoption) {
+    const query = new URLSearchParams(path.slice(combatAdoption[0].length));
+    const worldId = query.get("world_id");
+    if (!worldId) return false;
+    const exact = new URLSearchParams({ world_id: worldId });
+    const suffix = combatAdoption[1];
+    if (method === "GET" && suffix !== ":cancel" && init?.body == null) {
+      const before = query.get("before_operation_id");
+      if (!suffix && before) exact.set("before_operation_id", before);
+      return path === combatAdoption[0] + exact;
+    }
+    return method === "POST" && (!suffix || suffix === ":cancel") && !!requestBodyRecord(init?.body)
+      && path === combatAdoption[0] + exact;
+  }
+  const combatEncounter = /^\/api\/live\/combat\/encounters(\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
+  if (combatEncounter) {
+    const worldId = new URLSearchParams(path.slice(combatEncounter[0].length)).get("world_id");
+    if (!worldId || path !== combatEncounter[0] + new URLSearchParams({ world_id: worldId })) return false;
+    if (method === "GET") return init?.body == null;
+    return method === (combatEncounter[1] ? "PUT" : "POST") && !!requestBodyRecord(init?.body);
+  }
+  if (path === "/api/live/graph-preview/extraction-runs") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.document_id === "string"
+      && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(body.document_id)
+      && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
+      && body.expected_revision > 0 && typeof body.expected_content_sha256 === "string"
+      && /^(?:sha256:)?[a-f0-9]{64}$/.test(body.expected_content_sha256);
+  }
+  const savedRecap = /^\/api\/live\/graph-preview\/extraction-runs(?:\/[^/?]+\/(recap-inspection|candidate-projection))?\?/.exec(path);
+  if (savedRecap && method === "GET" && init?.body == null) {
+    const query = new URLSearchParams(path.slice(savedRecap[0].length));
+    const worldId = query.get("managed_world_id");
+    if (worldId) {
+      const exactQuery = new URLSearchParams({ managed_world_id: worldId });
+      if (savedRecap[1] === "recap-inspection") {
+        const revision = query.get("expected_run_revision");
+        const source = query.get("source_revision_id");
+        if (!revision || !source) return false;
+        exactQuery.set("expected_run_revision", revision);
+        exactQuery.set("source_revision_id", source);
+      } else if (!savedRecap[1]) {
+        const campaign = query.get("campaign_id");
+        if (campaign) exactQuery.set("campaign_id", campaign);
+      }
+      return path === savedRecap[0] + exactQuery;
+    }
+  }
+  const exactStatblock = /^\/api\/live\/threat-drafts\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/mechanics-revisions\/rev_[a-z0-9]+\?/.exec(path);
+  if (exactStatblock) {
+    const worldId = new URLSearchParams(path.slice(exactStatblock[0].length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === exactStatblock[0] + "world_id=" + encodeURIComponent(worldId);
+  }
+  const mechanicsInventory = "/api/live/world-mechanics/associations?";
+  if (path.startsWith(mechanicsInventory)) {
+    const worldId = new URLSearchParams(path.slice(mechanicsInventory.length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === mechanicsInventory + "world_id=" + encodeURIComponent(worldId);
+  }
+  const creation = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/creation(?::cancel)?)?\?/.exec(path);
+  if (creation) {
+    const query = new URLSearchParams(path.slice(creation[0].length));
+    const worldId = query.get("world_id");
+    const suffix = creation[1];
+    if (!worldId || path !== creation[0] + new URLSearchParams({ world_id: worldId })) return false;
+    if (suffix === "/creation") return method === "GET" && init?.body == null;
+    return method === (suffix ? "POST" : "PUT")
+      && requestBodyRecord(init?.body)?.schema_version === "dmb_world_session_create_v1";
+  }
+  const preparedTables = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/prepared-tables(\/commands\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?/.exec(path);
+  if (preparedTables) {
+    const worldId = new URLSearchParams(path.slice(preparedTables[0].length)).get("world_id");
+    if (!worldId || path !== preparedTables[0] + new URLSearchParams({ world_id: worldId })) return false;
+    return preparedTables[1]
+      ? method === "PUT" && !!requestBodyRecord(init?.body)
+      : method === "GET" && init?.body == null;
+  }
+  const review = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/review\?([^#]+)$/i.exec(path);
+  if (review) {
+    const query = new URLSearchParams(review[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
+  const sessionEvidence = /^\/api\/live\/world-session-evidence(?:\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/revisions\/\d+)?\?([^#]+)$/i.exec(path);
+  if (sessionEvidence) {
+    const query = new URLSearchParams(sessionEvidence[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
+  const playProposal = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\/proposals(\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?\?([^#]+)$/i.exec(path);
+  if (playProposal) {
+    const query = new URLSearchParams(playProposal[2]);
+    if (query.size !== 1 || !query.get("world_id")) return false;
+    if (method === "GET") return init?.body == null;
+    return method === "POST" && Boolean(playProposal[1]) && requestBodyRecord(init?.body) !== null;
+  }
+  const playReviewCommand = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/review\/commands\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/i.exec(path);
+  if (method === "PUT" && playReviewCommand) {
+    const query = new URLSearchParams(playReviewCommand[1]);
+    const action = requestBodyRecord(init?.body)?.action;
+    return query.size === 1 && Boolean(query.get("world_id"))
+      && (action === "end" || action === "save" || action === "reopen");
+  }
+  const runContent = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/content\?/.exec(path);
+  if (runContent) {
+    const worldId = new URLSearchParams(path.slice(runContent[0].length)).get("world_id");
+    return method === "GET" && init?.body == null && !!worldId
+      && path === runContent[0] + new URLSearchParams({ world_id: worldId });
+  }
+  const preparationPath = "/api/live/world-play-runs/v2/preparation";
+  if (path.startsWith(preparationPath + "?")) {
+    const selectors = new URLSearchParams(path.slice(preparationPath.length + 1));
+    const worldId = selectors.get("world_id");
+    const entryScene = selectors.get("entry_scene_id");
+    if (method !== "POST" || !worldId || !requestBodyRecord(init?.body)) return false;
+    const expected = new URLSearchParams({ world_id: worldId });
+    if (entryScene) expected.set("entry_scene_id", entryScene);
+    return path === `${preparationPath}?${expected}`;
+  }
   if (path === "/api/live/world-containers") return method === "GET" && init?.body == null;
   if (path.startsWith(HOSTED_WORLD_LOOKUP_PATH + "?")) {
     const query = new URLSearchParams(path.slice(HOSTED_WORLD_LOOKUP_PATH.length + 1));
@@ -431,6 +781,14 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && path === hostedWorldLookupPath(worldId);
   }
   if (method !== "POST") return false;
+  if (path === "/api/live/native-graph-inspection/catalog" ||
+      path === "/api/live/native-source-inspection/catalog" ||
+      path === "/api/live/native-source-inspection/read") {
+    const body = requestBodyRecord(init?.body);
+    const scope = path.endsWith("/read") ? body?.scope : body;
+    return isRecord(scope) && scope.scope_mode === "world" && scope.campaign_id === null
+      && typeof scope.managed_world_id === "string" && Boolean(scope.managed_world_id);
+  }
   if (HOSTED_EXPLORER_PATHS.has(path)) return true;
   if (path !== "/api/live/native-graph-inspection/read") return false;
   const body = requestBodyRecord(init?.body);
@@ -452,7 +810,9 @@ function apiRequestTarget(
   const pageUrl = typeof window === "undefined" ? undefined : window.location.href;
   let normalizedPath = path;
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
-  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath);
+  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
+    || /^\/api\/live\/workspace-documents\/[^/]+\/native-world-source$/.test(normalizedPath)
+    || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/progress$/.test(normalizedPath);
   if (isLoopbackApiDestination(url)) return { url, localGraphRequest, hostedGraphRequest: false };
   if (localGraphRequest || graphSurface) {
     // Exact relative paths only: explicit API bases, URL credentials, queries,
@@ -475,11 +835,12 @@ function apiRequestTarget(
   return { url, localGraphRequest, hostedGraphRequest: false };
 }
 
-function hostedGraphHeaders(headers: Record<string, string>): Record<string, string> {
+function hostedGraphHeaders(path: string, headers: Record<string, string>): Record<string, string> {
   // Do not allow local bearer/session credentials or caller identity headers into
   // this cookie-authenticated request. Ownership comes only from the server.
   return Object.fromEntries(Object.entries(headers).filter(([key]) =>
-    ["accept", "content-type"].includes(key.toLowerCase())));
+    ["accept", "content-type"].includes(key.toLowerCase())
+      || (key.toLowerCase() === "x-pdf-created-at" && HOSTED_PDF_UPLOAD_PATH.test(path))));
 }
 
 function headerRecord(headers: HeadersInit | undefined): Record<string, string> {
@@ -675,6 +1036,7 @@ function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean 
       && typeof body.turn_id === "string" && Boolean(body.turn_id);
   }
   return isRecapSelectionContextPath(pathname)
+    || pathname === "/api/live/recap-name-review"
     || /^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname)
     || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
@@ -719,7 +1081,10 @@ async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Prom
       ...(target.localGraphRequest || target.hostedGraphRequest
         ? { redirect: "error" as const, credentials: "same-origin" as const } : {}),
       ...(target.hostedGraphRequest ? { cache: "no-store" as const, mode: "same-origin" as const } : {}),
-      headers: target.hostedGraphRequest ? hostedGraphHeaders({ "Content-Type": "application/json", ...frozenInit.headers }) : nativeGraphHeaders(path, frozenInit.body, {
+      headers: target.hostedGraphRequest ? hostedGraphHeaders(path, {
+        ...(HOSTED_PDF_UPLOAD_PATH.test(path) ? {} : { "Content-Type": "application/json" }),
+        ...frozenInit.headers,
+      }) : nativeGraphHeaders(path, frozenInit.body, {
         "Content-Type": "application/json", ...frozenInit.headers,
         ...(csrf && (frozenInit.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
       }),
@@ -789,6 +1154,7 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/prompt\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/(?:identities|(?:native-)?steps\/\d+\/assertion)$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/prompts$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
     || /^\/api\/live\/world-session-evidence(?:\/[^/]+\/revisions\/\d+)?$/.test(pathname)
@@ -1897,6 +2263,35 @@ export async function getWorldAgentTurnContextTrace(worldId: string, turnId: str
   );
 }
 
+export function getWorldAgentReplayAssertion(worldId: string, turnId: string, traceId: string,
+  sequence: number, assertionId: string, signal: AbortSignal) {
+  const query = new URLSearchParams({ assertion_id: assertionId });
+  return apiFetch<import('./buddyContextTraceTypes').BuddyReplayAssertionResponse>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/steps/${sequence}/assertion?${query}`,
+    { signal, cache: 'no-store' },
+  );
+}
+
+export function getWorldAgentReplayIdentities(worldId: string, turnId: string, traceId: string, signal: AbortSignal, offset = 0) {
+  return apiFetch<{
+    world_id: string; turn_id: string; trace_id: string
+    next_offset?: number | null
+    identities: { node_id: string; label: string; kind: string }[]
+  }>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/identities${offset ? `?offset=${offset}` : ""}`,
+    { signal, cache: 'no-store' },
+  );
+}
+
+export function getWorldAgentNativeReplayAssertion(worldId: string, turnId: string, traceId: string,
+  sequence: number, assertionId: string, signal: AbortSignal) {
+  const query = new URLSearchParams({ assertion_id: assertionId });
+  return apiFetch<import('./buddyContextTraceTypes').BuddyReplayNativeAssertionResponse>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/native-steps/${sequence}/assertion?${query}`,
+    { signal, cache: 'no-store' },
+  );
+}
+
 export async function getWorldAgentHistoricalSourcePassage(reference: import('./buddyContextTraceTypes').BuddyHistoricalSourceReference, signal?: AbortSignal) {
   const query = new URLSearchParams({ conversation_id: reference.conversation_id, attempt: String(reference.attempt),
     source_read_id: reference.source_read_id, content_sha256: reference.content_sha256 });
@@ -2153,6 +2548,27 @@ export async function generateThreatDraftCandidate(
       body: JSON.stringify(request),
     },
   );
+}
+
+export interface WorldThreatDraftSummary {
+  version: number;
+  world_id: string;
+  draft_id: string;
+  name: string;
+  saved_revision_id: string | null;
+}
+
+export async function listWorldThreatDrafts(worldId: string, signal: AbortSignal): Promise<WorldThreatDraftSummary[]> {
+  const drafts: WorldThreatDraftSummary[] = [];
+  const limit = 100;
+  for (let offset = 0; ; offset += limit) {
+    const query = new URLSearchParams({ world_id: worldId, limit: String(limit), offset: String(offset) });
+    const page = await apiFetch<{ drafts: WorldThreatDraftSummary[]; total: number }>(
+      `/api/live/threat-drafts?${query}`, { signal },
+    );
+    drafts.push(...page.drafts);
+    if (!page.drafts.length || offset + limit >= page.total) return drafts;
+  }
 }
 
 export async function getThreatDraft(draftId: string): Promise<ThreatDraft> {
@@ -3231,8 +3647,11 @@ export async function associateWorldMechanics(worldId: string, request: import("
 export async function listSavedMechanicsVersions(draftId:string,worldId:string,offset=0):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').SavedMechanicsVersionList>{
   return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions?world_id=${encodeURIComponent(worldId)}&offset=${offset}`);
 }
-export async function openSavedMechanicsVersion(draftId:string,worldId:string,revisionId:string):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>{
-  const packet=await apiFetch<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions/${encodeURIComponent(revisionId)}?world_id=${encodeURIComponent(worldId)}`);
+export async function openSavedMechanicsVersion(draftId:string,worldId:string,revisionId:string,sourceReviewId?:string):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>{
+  const path = sourceReviewId
+    ? `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/statblock-reviews/${encodeURIComponent(sourceReviewId)}/publication/statblock?${new URLSearchParams({draft_id:draftId,revision_id:revisionId})}`
+    : `/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions/${encodeURIComponent(revisionId)}?world_id=${encodeURIComponent(worldId)}`;
+  const packet=await apiFetch<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>(path);
   if(!packet||packet.world_id!==worldId||packet.draft_id!==draftId||!packet.locator||!packet.resource
     ||packet.locator.provider!=='dungeonmind'||packet.locator.contract!=='dungeonmind.dungeonbuddy-statblocks'||packet.locator.contract_version!=='1.0.0'
     ||packet.locator.revision_id!==revisionId||packet.resource.revision_id!==revisionId
@@ -3395,4 +3814,34 @@ export async function readPublishedNativeRecap(
     throw new Error("The published recap did not match the selected World and session.");
   }
   return packet;
+}
+
+
+export async function withdrawBuildSource(worldId: string, source: { kind: "pdf" | "text"; revision_id: string }) {
+  const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-source-withdrawals`;
+  const { response } = await authenticatedApiFetch(path, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(source),
+  });
+  if (!response.ok) throw new Error("Could not delete the document. Refresh and try again.");
+}
+
+export async function archiveBuildStatblock(worldId: string, draftId: string, version: number) {
+  const query = new URLSearchParams({ world_id: worldId, expected_version: String(version) });
+  const { response } = await authenticatedApiFetch(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/saved-statblock?${query}`, { method: "DELETE" },
+  );
+  if (!response.ok) throw new Error("Could not remove the statblock. Refresh and try again.");
+}
+
+export interface PdfStatblockReviewSummary {
+  review_id: string;
+  name: string;
+  draft_id: string;
+}
+
+export async function listPdfStatblockReviews(worldId: string, signal: AbortSignal): Promise<PdfStatblockReviewSummary[]> {
+  const result = await apiFetch<{ reviews: PdfStatblockReviewSummary[] }>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/statblock-reviews`, { signal },
+  );
+  return result.reviews;
 }

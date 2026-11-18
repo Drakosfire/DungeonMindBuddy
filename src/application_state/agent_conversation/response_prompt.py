@@ -58,6 +58,11 @@ Do not mark answered dimensions as missing or fill gaps with unrelated excerpts.
 
 TASKS = {
     'answer': None,
+    'build_discussion': ResponsePromptComponent('build_discussion_task', '1',
+        'When the user introduces a brainstorming topic and identifies references without asking '
+        'for a specific idea or deliverable yet, briefly acknowledge the aim and confirm which '
+        'references are ready. When the user asks for specific ideas, develop those ideas at the '
+        'requested scope.'),
     'clarify': ResponsePromptComponent('clarification_task', '1',
         'Ask focused questions needed to resolve the current request. Keep the clarification '
         'in conversation or its offered questions object; do not draft or carry out follow-up work.'),
@@ -76,7 +81,16 @@ TASKS = {
 }
 
 
-def compose_response_prompt(*, task='answer', rules_instructions=None, related_page_instructions=None):
+VARIANT_BASE = ResponsePromptComponent(
+    "variant_base", "1",
+    "When the user asks to adapt the original combat profile and Build offers one verified "
+    "variant_source, use that statblock as the base. Treat other creature or persona profiles "
+    "as supporting context unless the user explicitly requests one as the draft subject. "
+    "Return the agreed rule edits in statblock_variant when they concern that base.",
+)
+
+
+def compose_response_prompt(*, task='answer', rules_instructions=None, related_page_instructions=None, single_variant_base=False):
     """One assembly for an ordinary response; no retrieval/edit/image capability."""
     components = (VOICE, EVIDENCE, CITATIONS, OUTPUT)
     if task not in TASKS:
@@ -88,4 +102,6 @@ def compose_response_prompt(*, task='answer', rules_instructions=None, related_p
             if not isinstance(text, str) or not text.strip():
                 raise ValueError("Active response instructions must be nonblank")
             components += (ResponsePromptComponent(name, "1", text),)
+    if single_variant_base:
+        components += (VARIANT_BASE,)
     return ResponsePrompt(components)

@@ -1,6 +1,7 @@
 import {useGuidedTour} from '../guidedTour/GuidedTour';
 import { useCampaignTrashScope } from "../workspaceLifecycle/campaignTrashScope";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
+import { useHostedAuthStatus } from "../auth/HostedAuthGate";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
 import { interceptPrimaryNavigationClick } from "./appNavigation";
@@ -10,9 +11,26 @@ import { WorldSelector } from "../selectedWorld/WorldSelector";
 import { worldScopedSurfaceHref } from "../selectedWorld/worldSelectionNavigation";
 import "./CompactAppNavigation.css";
 
-export function CompactAppNavigation({ activeRoute, localOnly = false }: { activeRoute: AppRouteKey; localOnly?: boolean }) {
+export function CompactAppNavigation({ activeRoute, localOnly = false, primaryActionsRef }: { activeRoute: AppRouteKey; localOnly?: boolean; primaryActionsRef?: (element: HTMLDivElement | null) => void }) {
   const world = useSelectedWorld();
   const tour = useGuidedTour();
+  const auth = useHostedAuthStatus();
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState(false);
+  async function signOut() {
+    setSigningOut(true);
+    setSignOutError(false);
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST", credentials: "same-origin", redirect: "error", cache: "no-store",
+      });
+      if (response.status !== 204) throw new Error("Sign-out failed");
+      window.location.replace("/");
+    } catch {
+      setSignOutError(true);
+      setSigningOut(false);
+    }
+  }
   const campaignTrash = useCampaignTrashScope();
   const [expanded, setExpanded] = useState(false);
   const routesId = useId();
@@ -45,7 +63,17 @@ export function CompactAppNavigation({ activeRoute, localOnly = false }: { activ
         {item.label}
       </a>)}
     </div>
+    {primaryActionsRef && <div className="app-nav-primary-actions" ref={primaryActionsRef} />}
     {tour?<button className="app-nav-tour" type="button" onClick={()=>{setExpanded(false);if(tour.entryLabel==='Start tour'||tour.entryLabel==='Resume tour')tour.teach();else tour.open();}}>{tour.entryLabel}</button>:null}
     {!localOnly ? <div className="app-nav-world-context">{campaignTrash ? <WorkspaceTrashControl campaignId={campaignTrash} current={null} onTrashed={() => undefined} /> : world.kind === "managed" ? <WorkspaceTrashControl worldId={world.worldId} current={null} onTrashed={() => undefined} /> : null}<WorldSelector compact creationPath={activeRoute === "graph" ? "/graph" : activeRoute === "index" ? "/" : "/plan"} /><AppChromeWorldGraphStatus activeRoute={activeRoute} /></div> : null}
+    {auth.status === "authenticated" && <details>
+      <summary aria-label={`Account: ${auth.displayName ?? auth.subject}`}>
+        {auth.displayName ?? auth.subject}
+      </summary>
+      <button type="button" disabled={signingOut} onClick={() => void signOut()}>
+        {signingOut ? "Signing out…" : "Sign out"}
+      </button>
+      {signOutError && <p role="alert">Sign-out failed. Try again.</p>}
+    </details>}
   </nav>;
 }

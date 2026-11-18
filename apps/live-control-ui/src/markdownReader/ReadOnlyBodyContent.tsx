@@ -1,7 +1,9 @@
 import {PreparedTableNode} from "../preparedTables/PreparedTableNode";
 import {parseTableFence} from "../preparedTables/tableGrammar";
-import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useContext, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
+import { SavedPdfCitation, SavedPdfCitationWorld } from "./SavedPdfCitation";
+import { parseAssertionPdfCitationId } from "../tiptap/references/runbookReferences";
 import { SavedMediaImage } from "../media/SavedMediaImage";
 import { imagePresentation, MEDIA_ASSET_ID } from "../media/mediaReferences";
 import { generateHTML, mergeAttributes, Node, type AnyExtension, type JSONContent } from "@tiptap/core";
@@ -201,6 +203,7 @@ export function ReadOnlyBodyContent({
   /** Opt-in only; callers without a World-scoped handler retain inert reference spans. */
   onActivateGraphNode?: (nodeId: string, trigger?: HTMLElement) => void;
 }) {
+  const citationWorld = useContext(SavedPdfCitationWorld);
   const activatable = typeof onActivateGraphNode === "function";
   const contentKey = useMemo(() => JSON.stringify(content), [content]);
   const html = useMemo(() => {
@@ -221,7 +224,7 @@ export function ReadOnlyBodyContent({
   const [slots, setSlots] = useState<{ html: string; elements: HTMLElement[] } | null>(null);
   useLayoutEffect(() => {
     if (!html || !body.current) { setSlots(null); return; }
-    setSlots({ html, elements: Array.from(body.current.querySelectorAll<HTMLElement>("span[data-media-asset-id]")) });
+    setSlots({ html, elements: Array.from(body.current.querySelectorAll<HTMLElement>("span[data-media-asset-id],span[data-md-ref-type=citation]")) });
   }, [html]);
 
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
@@ -258,6 +261,12 @@ export function ReadOnlyBodyContent({
       dangerouslySetInnerHTML={renderedHtml}
     />
     {slots?.html === html ? slots.elements.map((element, index) => {
+      if (element.dataset.mdRefType === "citation") {
+        const refId = element.dataset.mdRefId ?? "";
+        if (!citationWorld || !parseAssertionPdfCitationId(refId)) return null;
+        return createPortal(<SavedPdfCitation worldId={citationWorld} refId={refId}
+          label={element.textContent ?? "PDF source"} />, element, `${citationWorld}:${refId}:${index}`);
+      }
       const presentation = imagePresentation(element.dataset.mediaPresentation);
       return createPortal(<SavedMediaImage assetId={element.dataset.mediaAssetId ?? ""}
         alt={element.dataset.mediaAlt ?? ""} {...(presentation ?? {})} />, element, `${html}:${index}`);

@@ -1,6 +1,6 @@
 import {it,expect} from 'vitest';
 import {canonical} from './sourcePassageProtocol';
-import {isNativeStatementContext,nativeStatementDigestsBound,nativeTextDigest} from './nativeStatementAnswerProtocol';
+import {isNativeGraphQuery,isNativeStatementContext,nativeStatementDigestsBound,nativeTextDigest} from './nativeStatementAnswerProtocol';
 import type {NativeStatementAnswerContextV1} from '../api/types';
 
 async function fixture(){
@@ -36,4 +36,31 @@ it.each(['campaign','source-revision','publication','read-revision','unincluded'
   if(change==='extra')Object.assign(context,{graph_authority:{}});
   if(change==='uncited')c.native_clause_citations=[];
   expect(isNativeStatementContext(context,'managed')).toBe(false);
+});
+
+it('accepts v4 discovery hops only when the retained query admits them', () => {
+  const hash = 'a'.repeat(64);
+  const descriptor = { authority_id: 'descriptor', revision: '1', descriptor_sha256: hash };
+  const query = {
+    schema: 'dmb_native_graph_query_v4', question: 'What is Edge?',
+    authority: {
+      schema: 'dmb_native_plan_query_authority_v1', managed_world_id: 'managed',
+      native_world_id: 'native', binding_version: 1, revision_id: 'rev:R',
+      domain_ref: descriptor, profile_ref: descriptor, acquisition_epoch: 1,
+      role: 'gm', scope_mode: 'world', campaign_id: null, session_id: null,
+    },
+    search_result_sha256: hash, discovered_entity_ids: ['ent:edge'],
+    object_matches: [{ entity_id: 'ent:edge', label: 'Edge' }],
+    matches: [], authored_targets: [], status: 'complete', gap_codes: [],
+    universal_absence_claimed: false,
+    assertion_matches: [{
+      assertion_id: 'assertion:1', subject_entity_id: 'ent:neighbor',
+      discovered_entity_ids: ['ent:edge'], assertion_sha256: hash, label: 'Neighbor',
+    }],
+  };
+  const hop = { relationship_id: 'assertion:1', from_node_id: 'ent:edge', to_node_id: 'ent:neighbor' };
+  expect(isNativeGraphQuery(query, 'managed')).toBe(true);
+  expect(isNativeGraphQuery({ ...query, discovery_hops: [hop] }, 'managed')).toBe(true);
+  expect(isNativeGraphQuery({ ...query, discovery_hops: [hop, hop] }, 'managed')).toBe(false);
+  expect(isNativeGraphQuery({ ...query, discovery_hops: [{ ...hop, to_node_id: 'ent:other' }] }, 'managed')).toBe(false);
 });

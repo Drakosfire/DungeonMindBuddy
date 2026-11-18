@@ -284,6 +284,86 @@ def activate_reviewed_native_graph(
         ) from exc
 
 
+def activate_native_source_graph(managed_world_id, *, identity, repository, published_revision_id):
+    """Activate the exact reservation after a reviewed native publication."""
+    from dungeonmind.application.vnext import get_publication_receipt
+    from dungeonmind.application.vnext.materialization import (
+        NATIVE_VNEXT_GRAPH_SCHEMA, encode_native_graph_payload,
+    )
+
+    from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import (
+        _genesis_descriptors, _stable_id,
+    )
+
+    initial, revision = _load_binding_snapshot(managed_world_id)
+    binding = initial.native_graph_binding
+    if (
+        binding is None or binding.status not in {"provisioning", "active"}
+        or binding.native_world_id != identity.native_world_id
+        or binding.binding_version != identity.binding_version
+        or binding.provisioning_id != identity.provisioning_id
+        or identity.provisioning_id is None
+    ):
+        raise WorldGraphBindingError("World reservation changed during publication.")
+
+    space = binding.native_world_id
+    operation = _stable_id("dmb-world-genesis", space)
+    receipt = get_publication_receipt(space, operation, repository=repository)
+    if receipt is None or receipt.space_id != space or receipt.expected_parent_revision_id is not None:
+        raise WorldGraphBindingError("Native source genesis proof is unavailable.")
+    genesis = receipt.published_revision_id
+    head = repository.get_head(space)
+    if head is None:
+        raise WorldGraphBindingError("Native Graph head is unavailable.")
+    domain, profile = _genesis_descriptors()
+    empty = encode_native_graph_payload(entities={}, assertions={}, aliases={}, evidence={})
+    current = head.head_revision_id
+    seen = set()
+    verified_genesis = False
+    while current not in seen:
+        seen.add(current)
+        stored = repository.get_revision(space, current)
+        if stored is None or stored.revision.space_id != space or stored.revision.revision_id != current:
+            current = None
+            break
+        parent = stored.revision.parent_revision_id
+        if current == genesis and parent is None:
+            if (
+                stored.revision.graph_schema == NATIVE_VNEXT_GRAPH_SCHEMA
+                and stored.revision.operation_ids == [operation]
+                and stored.revision.graph_payload_sha256 == receipt.graph_payload_sha256
+                and stored.revision.domain_contract_ref.domain_id == domain.domain_id
+                and stored.revision.domain_contract_ref.domain_revision == domain.domain_revision
+                and stored.revision.semantic_profile_ref.profile_id == profile.profile_id
+                and stored.revision.semantic_profile_ref.profile_revision == profile.profile_revision
+                and stored.graph_payload == empty
+            ):
+                verified_genesis = True
+                break
+        if parent is None:
+            current = None
+            break
+        current = parent
+    if not verified_genesis or published_revision_id == genesis or published_revision_id not in seen:
+        raise WorldGraphBindingError("Reviewed publication does not descend from the reserved genesis.")
+    if isinstance(binding, NativeGraphBindingRecord):
+        if binding.initialization_revision_id != genesis:
+            raise WorldGraphBindingError("Active World has a different initialization proof.")
+        return initial
+
+    active = NativeGraphBindingRecord(
+        native_world_id=space,
+        status="active",
+        binding_version=binding.binding_version,
+        provisioning_id=binding.provisioning_id,
+        initialization_revision_id=genesis,
+        validated_at=_utc_now_iso(),
+        validated_head_revision_id=head.head_revision_id,
+    )
+    updated = initial.model_copy(update={"native_graph_binding": active, "schema_version": RECORD_SCHEMA})
+    return _save_binding_record(updated, revision)
+
+
 def deactivate_native_graph_binding(
     managed_world_id: str,
     *,

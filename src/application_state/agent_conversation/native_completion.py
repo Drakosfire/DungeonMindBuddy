@@ -55,7 +55,7 @@ class SurfaceNativeCompletionV1(Strict):
     saved_source_citations: list[t.BuildSectionSegmentBindingV1] = Field(max_length=128)
     native_body_citations: list[t.NativeBodyExcerptCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
     native_clause_citations: list[t.NativeStatementClauseCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
-    native_assertion_citations: list[t.NativeAssertionCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
+    native_assertion_citations: list[t.NativeAssertionCitation] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
 
     @model_validator(mode='after')
     def supported_shape(self):
@@ -94,7 +94,7 @@ class SurfaceNativeCompletionV1(Strict):
             raise ValueError('Native assertions require their exact assertion citation family')
         keys = []
         for c in self.native_body_citations:
-            keys.append(('body',c.segment_index,c.read_event_id))
+            keys.append(('body',c.segment_index,c.read_event_id,c.section_id))
             if (c.text_sha256 != sha256(self.answer_segments[c.segment_index].text.encode()).hexdigest()
                     or c.line_end < c.line_start):
                 raise ValueError('Native body citation changed its segment text or extent')
@@ -193,6 +193,59 @@ def normalize_output(receipt, execution, authorization, *, prepared_request_json
     return normalize_candidate(strict_json(raw_output_json),receipt,execution,authorization,evidence)
 
 
+def normalize_statblock_variant(candidate, work_frame, *, variant_edits=False):
+    from .native_build_work_view import variant_sources
+
+    proposal = candidate.get("statblock_variant")
+    if proposal is None:
+        return None
+    sources = variant_sources(work_frame)
+    keys = {"source", "add_rules", "replace_rules"} if variant_edits else {"source", "definition"}
+    if not isinstance(proposal, dict) or set(proposal) != keys:
+        raise ValueError("Statblock variant does not match its producing format")
+    source = proposal["source"]
+    if not isinstance(source, str) or source not in sources:
+        raise ValueError("Statblock variant base was not admitted")
+    from apps.live_control_server.services.conversation_variant_save import ConversationVariantDraft
+
+    base = sources[source]
+    definition = (
+        _apply_statblock_rule_edits(base["definition"], proposal)
+        if variant_edits else proposal["definition"]
+    )
+    return ConversationVariantDraft(base_event_id=base["event_id"], definition=definition)
+
+
+def _apply_statblock_rule_edits(base, proposal):
+    from copy import deepcopy
+
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import RuleElementInput
+
+    definition = deepcopy(base)
+    rules = definition["rule_elements"]
+    inherited = {rule["key"]: index for index, rule in enumerate(rules)}
+    edited = set()
+    for field in ("replace_rules", "add_rules"):
+        if not isinstance(proposal[field], list):
+            raise ValueError("Statblock rule edits must be arrays")
+        for raw in proposal[field]:
+            rule = RuleElementInput.model_validate(raw).model_dump(mode="json")
+            # The statblock service uses an empty cost list for a rule with no costs.
+            if rule["costs"] is None:
+                rule["costs"] = []
+            key = rule["key"]
+            if key in edited or (key in inherited) != (field == "replace_rules"):
+                raise ValueError("Statblock rule edit key conflicts with the saved base")
+            edited.add(key)
+            if field == "replace_rules":
+                rules[inherited[key]] = rule
+            else:
+                rules.append(rule)
+    if not edited:
+        raise ValueError("Statblock variant must propose at least one rule edit")
+    return definition
+
+
 def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     """Normalize the actual parsed partition after its producer/input proof.
 
@@ -204,9 +257,13 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     plan_review=connected_page_review_enabled(execution)
     review_enabled=plan_review or execution.policy.action.surface_id=='build' and native_review_enabled(evidence.work_frame)
     keys={'schema','answer_segments','limitations','requested_detail_gaps'} | ({'collaboration'} if review_enabled else set())
+    if evidence.variant_format:
+        keys.add("statblock_variant")
     if (not isinstance(candidate,dict) or set(candidate) != keys
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
         raise ValueError('Native completion requires its exact producing answer policy')
+    if evidence.variant_format:
+        normalize_statblock_variant(candidate, evidence.work_frame, variant_edits=evidence.variant_edits)
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()
@@ -338,5 +395,13 @@ def validate_retained_completion(completion, receipt, execution, producer, bindi
     from .build_primary_context import records
     evidence=SimpleNamespace(**read_evidence_records(prefix,frame),
         saved_sections=records(prefix,receipt.work_context.source_basis) if completion.surface_id=='build' else ())
+    if completion.surface_id == 'plan':
+        from .native_corpus import writer_passage_supports
+        from .native_writer import body_handle
+
+        evidence.body_excerpts += tuple(
+            support for support in writer_passage_supports(prefix, body_handle)
+            if support.selected_lines is not None
+        )
     _validate_citations(completion,receipt,execution,auth,evidence)
     validate_authored_owners(completion,receipt)

@@ -13,7 +13,7 @@ import hashlib
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from graph_memory.projection.world_projection import (
@@ -328,6 +328,10 @@ class WorldGraphNativeReviewedSourceObservationMatch(_ReviewedSourceObservationM
 
 
 class WorldGraphRetrievalResult(_RetrievalResponseModel):
+    _discovery_relationship_ids: tuple[str, ...] = PrivateAttr(default=())
+    _discovery_hops: tuple[tuple[str, str, str], ...] = PrivateAttr(default=())
+    _object_limit_pruned_ids: tuple[str, ...] = PrivateAttr(default=())
+    _object_limit_pruned_count: int = PrivateAttr(default=0)
     schema_: Literal[RETRIEVAL_RESULT_SCHEMA] = Field(
         alias="schema", default=RETRIEVAL_RESULT_SCHEMA
     )

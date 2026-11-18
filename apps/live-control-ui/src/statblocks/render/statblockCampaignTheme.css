@@ -251,3 +251,9 @@
   font-size: 0.86rem;
   line-height: 1.35;
 }
+
+.statblock-renderer--campaign .statblock-campaign-vitals dd,
+.statblock-renderer--campaign .statblock-campaign-quickfacts dd,
+.statblock-renderer--campaign summary {
+  color: var(--dm-text-dark-brown);
+}

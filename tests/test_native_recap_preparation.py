@@ -170,7 +170,7 @@ def lane(monkeypatch, tmp_path, request):
         app_body_sha256=digest, native_world_id=SPACE_ID, binding_version=3,
         evidence_ref_id=receipt.bindings[0].evidence_ref_id, admission_id=receipt.admission_id,
         source_artifact_id=receipt.source_artifact_id, source_revision_id=receipt.source_revision_id)
-    monkeypatch.setattr(service.config, "artifact_data_root", lambda: tmp_path)
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
     monkeypatch.setattr(service, "load_reviewable_extraction_data", lambda *_: data)
     monkeypatch.setattr(service.sources, "get_source_markdown", lambda **_: source)
     monkeypatch.setattr(service.admission, "inspect", lambda *_: admitted)
@@ -1658,3 +1658,142 @@ def test_worldbuilding_publishes_explicit_observation_with_exact_support(persist
     })
     assert opened.status_code == 200, opened.text
     assert opened.json()["content"] == x.text.splitlines(keepends=True)[0]
+
+
+@pytest.mark.parametrize("decisions", ["missing", "fabricated_witness", "omitted_event"])
+def test_cohort_prepare_refuses_unaccounted_relationships(lane, decisions):
+    lane.payload["nodes"][0]["node_type"] = "event"
+    lane.refresh()
+    body = copy.deepcopy(lane.body)
+    body["selections"] = [
+        choice(record_id, action="use_existing", entity_id="ent:pippa", fields=())
+        for record_id in ("new", "existing")
+    ]
+    edge_decisions = []
+    if decisions == "fabricated_witness":
+        edge_decisions.append(dict(
+            edge_id="edge", decision="already_present", assertion_id="asrt:absent",
+            subject_entity_id="ent:pippa", target_entity_id="ent:pippa",
+            evidence_ref_ids=[lane.support_ids["first"]],
+        ))
+    body["cohort_edge_review"] = dict(
+        event_ids=[] if decisions == "omitted_event" else ["new"],
+        edge_decisions=edge_decisions,
+        prepare_pin={key: value for key, value in body.items() if key != "selections"},
+    )
+
+    response = lane.post(body)
+
+    assert response.status_code == 409, response.text
+    assert "candidate_cohort_edge_review_invalid" in response.text
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == body["expected_parent_revision_id"]
+
+
+def test_cohort_prepare_keeps_relationship_to_new_event(lane):
+    from scripts.check_recap_cohort_edges import publish_cohort
+    from tests.test_native_recap_event_placement import _declare_campaign
+
+    lane.payload["nodes"][0]["node_type"] = "event"
+    lane.refresh()
+    _declare_campaign(lane, 1)
+    body = copy.deepcopy(lane.body)
+    body["selections"].pop()
+    body["selections"].append({
+        "kind": "placement", "record_id": "new", "action": "create",
+        "metadata": copy.deepcopy(META) | {
+            "claim_mode": "dungeonbuddy.claim:observed_event",
+            "temporal_scope": {
+                "kind": "domain_ref",
+                "schema_term": "dungeonbuddy.time:fictional_anchor_v1",
+                "payload": {"start": {"session": 8}},
+            },
+        },
+    })
+    manifest = dict(
+        event_ids=["new"],
+        placement_ids=["new"],
+        edge_decisions=[dict(
+            edge_id="edge", decision="publish", subject_candidate_node_id="new",
+            target_entity_id="ent:pippa", evidence_ref_ids=META["evidence_ref_ids"],
+            metadata=META,
+        )],
+        prepare_pin={key: value for key, value in body.items() if key != "selections"},
+    )
+
+    lane.client.headers["Authorization"] = "Bearer " + TOKEN
+    with pytest.raises(ValueError, match="Missing decisions"):
+        publish_cohort(lane.client, lane.payload, manifest | {"edge_decisions": []}, body)
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == body["expected_parent_revision_id"]
+
+    result = publish_cohort(lane.client, lane.payload, manifest, body)
+    child = lane.repo.get_revision(SPACE_ID, result["result"]["child_revision_id"])
+    assertions = child.graph_payload["assertions"]
+    relationship, = [
+        assertion for assertion in assertions
+        if assertion["predicate"] == "dungeonbuddy.custom:met_at"
+    ]
+    assert relationship["value"] == {"kind": "entity_ref", "entity_id": "ent:pippa"}
+    assert relationship["metadata"]["evidence_ref_ids"] == [lane.support_ids["first"]]
+    placement, = [
+        assertion for assertion in assertions
+        if assertion["predicate"] == "dungeonbuddy.custom:on_timeline"
+    ]
+    assert placement["subject_entity_id"] == relationship["subject_entity_id"]
+    assert placement["value"] == {"kind": "entity_ref", "entity_id": "ent:pippa"}
+    assert placement["metadata"]["temporal_scope"]["payload"] == {"start": {"session": 8}}
+    assert any(
+        assertion["subject_entity_id"] == relationship["subject_entity_id"]
+        and assertion["value"].get("term") == "dungeonbuddy:event"
+        for assertion in assertions
+    )
+
+
+def test_cohort_prepare_refuses_matching_witness_from_another_campaign(lane, monkeypatch):
+    lane.payload["nodes"][0]["node_type"] = "event"
+    lane.refresh()
+    committed = confirm(lane, confirmation(lane))
+    assert committed.status_code == 200, committed.text
+    parent_id = committed.json()["result"]["child_revision_id"]
+    parent = lane.repo.get_revision(SPACE_ID, parent_id)
+    witness, = [a for a in parent.graph_payload["assertions"]
+                if a["predicate"] == "dungeonbuddy.custom:met_at"]
+    subject = witness["subject_entity_id"]
+    target = witness["value"]["entity_id"]
+    body = copy.deepcopy(lane.body)
+    body["expected_parent_revision_id"] = parent_id
+    body["selections"] = [
+        choice("new", action="use_existing", entity_id=subject, fields=()),
+        choice("existing", action="use_existing", entity_id=target, fields=()),
+    ]
+    body["cohort_edge_review"] = dict(
+        event_ids=["new"],
+        edge_decisions=[dict(
+            edge_id="edge", decision="already_present", assertion_id=witness["assertion_id"],
+            subject_entity_id=subject, target_entity_id=target,
+            evidence_ref_ids=[lane.support_ids["first"]],
+        )],
+        prepare_pin={key: value for key, value in body.items() if key != "selections"},
+    )
+    accepted = lane.post(body)
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["prepared"] is None
+    assert accepted.json()["publication"] == "not_performed"
+    body["cohort_edge_review"]["edge_decisions"][0]["evidence_ref_ids"] = [lane.support_ids["second"]]
+    wrong_evidence = lane.post(body)
+    assert wrong_evidence.status_code == 409, wrong_evidence.text
+    assert "candidate_cohort_edge_review_invalid" in wrong_evidence.text
+    body["cohort_edge_review"]["edge_decisions"][0]["evidence_ref_ids"] = [lane.support_ids["first"]]
+    assertion_contract = service.native.assertion_contract
+
+    def foreign_campaign(parsed):
+        assertion = assertion_contract(parsed)
+        return assertion.model_copy(update={"metadata": assertion.metadata.model_copy(update={
+            "scope": (SimpleNamespace(axis=service.CAMPAIGN_SCOPE_AXIS, value="another-campaign"),),
+        })})
+
+    monkeypatch.setattr(service.native, "assertion_contract", foreign_campaign)
+    response = lane.post(body)
+
+    assert response.status_code == 409, response.text
+    assert "candidate_cohort_edge_review_invalid" in response.text
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == parent_id

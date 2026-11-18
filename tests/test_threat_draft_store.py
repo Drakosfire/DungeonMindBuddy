@@ -89,6 +89,20 @@ def test_world_draft_version_and_scope_survive_store_lifecycle(tmp_path: Path) -
     assert loaded.world_id == "world_1"
     assert loaded.campaign_id is None
     assert loaded.workflow_state == "mechanics_saved"
+    summaries, _ = list_threat_drafts(tmp_path, world_id="world_1")
+    assert summaries[0].saved_revision_id == locator.revision_id
+    from apps.live_control_server.services.threat_draft_store import archive_saved_threat_draft
+
+    with pytest.raises(ThreatDraftStoreError) as error:
+        archive_saved_threat_draft(tmp_path, world_id="world_2", draft_id=loaded.draft_id, expected_version=loaded.version)
+    assert error.value.status_code == 404
+    with pytest.raises(ThreatDraftStoreError) as error:
+        archive_saved_threat_draft(tmp_path, world_id="world_1", draft_id=loaded.draft_id, expected_version=loaded.version - 1)
+    assert error.value.status_code == 409
+    archive_saved_threat_draft(tmp_path, world_id="world_1", draft_id=loaded.draft_id, expected_version=loaded.version)
+    assert list_threat_drafts(tmp_path, world_id="world_1") == ([], 0)
+    assert get_threat_draft(tmp_path, loaded.draft_id) == loaded
+
     assert loaded.description == "A changed authored brief."
     assert len(loaded.candidate_refs) == 2
 

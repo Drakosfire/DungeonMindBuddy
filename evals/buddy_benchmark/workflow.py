@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 import secrets
 import time
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from .artifacts import immutable_save
 
@@ -68,9 +68,25 @@ def _pointer(value, pointer):
     return value
 
 
-def validate_template(template, world, *, context_only=False):
+def validate_template(template, world, *, context_only=False, build_sequence=False):
     allowed = {"schema", "client_thread_id", "turn_id", "surface", "owner_scope",
         "primary_work", "client_work_state", "graph_request", "graph_selection", "plan_context_policy"}
+    if build_sequence:
+        allowed = (allowed - {"plan_context_policy"}) | {"build_authored_references"}
+        surface = template.get("surface", {})
+        work = template.get("primary_work", {})
+        graph = template.get("graph_request", {})
+        if (context_only or set(template) - allowed
+                or template.get("schema") != "dmb_agent_turn_request_v1"
+                or template.get("owner_scope") != {"kind": "world", "world_id": world}
+                or template.get("client_work_state") != "saved_clean"
+                or surface.get("surface_id") != "build" or work.get("kind") != "build"
+                or not work.get("object_id") or surface.get("instance_id") != work["object_id"]
+                or work.get("expected_revision") is None or not work.get("expected_content_sha256")
+                or template.get("graph_selection") is not None
+                or graph.get("mode") != "world" or graph.get("world_id") != world):
+            raise ValueError("Build sequence requires a pinned saved page and ordinary World scope")
+        return
     if (set(template) - allowed or template.get("schema") != "dmb_agent_turn_request_v1"
         or template.get("graph_selection") is not None
         or template.get("graph_request") != {"mode": "none"}
@@ -82,6 +98,14 @@ def validate_template(template, world, *, context_only=False):
             "schema": "dmb_plan_context_policy_v2", "policy": "auto_plan_world",
             "graph_source": "reviewed_native_graph"}:
         raise ValueError("Context capture requires the explicit shared native Plan route")
+
+
+def _request_turns(history, request, world):
+    turns = [turn for turn in history["turns"] if turn["user_text"] == request["message"]]
+    if request["surface"].get("surface_id") == "build":
+        key = str(uuid5(NAMESPACE_URL, f"dmb-agent-turn:{world}:{request['turn_id']}"))
+        turns = [turn for turn in turns if turn.get("idempotency_key") == key]
+    return turns
 
 
 def report_case(case, base):
@@ -125,7 +149,7 @@ def report_case(case, base):
             "operation": {"provider_attempts": None, "billed_cost_usd": None},
             "boundaries": {name: {"status": "unknown"} for name in (
                 "ingestion_publication", "retrieval", "composition", "citations")}}
-    turns = [t for t in history["body"]["turns"] if t["user_text"] == case["question"]]
+    turns = _request_turns(history["body"], request, history["body"]["world_id"])
     if len(turns) != 1:
         raise ValueError("Ambiguous retained question/turn correlation")
     turn = turns[0]
@@ -281,9 +305,24 @@ def report(manifest_path, *, oracle=None, citation_readback=None):
             "Billing and missing measurements remain unknown; no estimated price is billed cost."]}
 
 
-def capture_case(client, world, template, case, directory, *, context_only=False):
+def capture_case(client, world, template, case, directory, *, context_only=False,
+                 build_thread_id=None, expected_conversation_id=None, build_editor_snapshot=None):
     """The single ordinary route sequence, shared by all question fixtures."""
-    validate_template(template, world, context_only=context_only)
+    build_sequence = build_thread_id is not None
+    validate_template(template, world, context_only=context_only, build_sequence=build_sequence)
+    if build_editor_snapshot is not None:
+        from application_state.agent_conversation.build_draft_context import (
+            BuildDraftContextRequestV1, BuildDraftSnapshotV1,
+        )
+        snapshot = BuildDraftSnapshotV1.model_validate(build_editor_snapshot)
+        work = template["primary_work"]
+        if (not build_sequence or snapshot.world_id != world
+                or str(snapshot.document_id) != work["object_id"]
+                or snapshot.registry_revision != work["expected_revision"]
+                or snapshot.content_sha256 != work["expected_content_sha256"]
+                or snapshot.draft_sha256 != snapshot.content_sha256
+                or sha256(snapshot.draft_markdown.encode()).hexdigest() != snapshot.content_sha256):
+            raise ValueError("Build benchmark editor snapshot must match the exact saved page")
     if directory.exists() and any(directory.iterdir()):
         raise ValueError("Case output already exists; do not redispatch")
     route = "/api/live/agent/worlds/" + world + "/conversation"
@@ -293,20 +332,38 @@ def capture_case(client, world, template, case, directory, *, context_only=False
         body = envelope["body"]
         return body
     before = save("history-before", client.get(route))
-    command = {"schema": "dmb_agent_new_conversation_v1", "command_id": str(uuid4()),
-        "expected_pointer_revision": before["pointer_revision"],
-        "expected_active_conversation_id": before["active_conversation_id"]}
-    immutable_save(directory, "new-conversation-request", command)
-    response = client.post(route + "/new", json=command)
-    save("new-conversation-response", response)
-    if response.status_code != 200:
-        raise ValueError("New conversation CAS failed; no question dispatched")
-    fresh = save("fresh-history", client.get(route))
-    if fresh["turns"]:
-        raise ValueError("Ordinary benchmark requires a fresh conversation")
+    if expected_conversation_id is None:
+        command = {"schema": "dmb_agent_new_conversation_v1", "command_id": str(uuid4()),
+            "expected_pointer_revision": before["pointer_revision"],
+            "expected_active_conversation_id": before["active_conversation_id"]}
+        immutable_save(directory, "new-conversation-request", command)
+        response = client.post(route + "/new", json=command)
+        created = save("new-conversation-response", response)
+        if response.status_code != 200:
+            raise ValueError("New conversation CAS failed; no question dispatched")
+        fresh = save("fresh-history", client.get(route))
+        if fresh["turns"]:
+            raise ValueError("Ordinary benchmark requires a fresh conversation")
+        if build_sequence and (
+            not created.get("active_conversation_id")
+            or fresh["active_conversation_id"] != created["active_conversation_id"]
+        ):
+            raise ValueError("Build conversation changed after creation; no turn dispatched")
+    else:
+        fresh = before
+        if fresh["active_conversation_id"] != expected_conversation_id:
+            raise ValueError("Build conversation changed; no turn dispatched")
     request = json.loads(json.dumps(template))
-    request.update(client_thread_id=str(uuid4()), turn_id=str(uuid4()), message=case["question"])
-    request["surface"]["instance_id"] = request["client_thread_id"]
+    request.update(client_thread_id=build_thread_id or str(uuid4()), turn_id=str(uuid4()), message=case["question"])
+    if build_sequence and expected_conversation_id is not None:
+        request.pop("build_authored_references", None)
+    if not build_sequence:
+        request["surface"]["instance_id"] = request["client_thread_id"]
+    if build_editor_snapshot is not None:
+        request["build_draft_context"] = BuildDraftContextRequestV1(
+            snapshot=snapshot, conversation_id=fresh["active_conversation_id"],
+            expected_pointer_revision=fresh["pointer_revision"],
+        ).model_dump(mode="json", by_alias=True)
     immutable_save(directory, "request", request)
     immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
     started = time.monotonic()
@@ -327,10 +384,24 @@ def capture_case(client, world, template, case, directory, *, context_only=False
     finally:
         try:
             history = save("history-after", client.get(route, params={"include_turn_correlation": "true"}))
-            turns = [t for t in history["turns"] if t["user_text"] == case["question"]]
+            if build_sequence and history["active_conversation_id"] != fresh["active_conversation_id"]:
+                raise ValueError("Build conversation changed after dispatch")
+            prior_ids = {turn["turn_id"] for turn in fresh["turns"]}
+            turns = [t for t in _request_turns(history, request, world) if t["turn_id"] not in prior_ids]
             if len(turns) != 1:
                 raise ValueError("Question has no unique durable turn; do not redispatch")
-            save("context-trace", client.get(route + "/turns/" + turns[0]["turn_id"] + "/context-trace"))
+            durable = turns[0]
+            trace_response = client.get(route + "/turns/" + durable["turn_id"] + "/context-trace")
+            trace = save("context-trace", trace_response)
+            if build_sequence and known_response and response.status_code == 200:
+                delivered = response.json()
+                if (durable.get("lifecycle_status") != "completed"
+                        or delivered.get("turn_id") != request["turn_id"]
+                        or delivered.get("client_thread_id") != request["client_thread_id"]
+                        or delivered.get("answer", {}).get("text") != durable.get("assistant_text")
+                        or trace_response.status_code != 200 or not isinstance(trace, dict)
+                        or trace.get("world_id") != world or trace.get("turn_id") != durable["turn_id"]):
+                    raise ValueError("Build turn delivery or trace could not be verified")
             if context_stop is not None:
                 from application_state.agent_conversation import AgentConversationService
                 observed = AgentConversationService().inspect_turn(world_id=world, turn_id=UUID(turns[0]["turn_id"]))
@@ -390,7 +461,18 @@ def capture(manifest_path, output, *, context_only=False):
         raise ValueError("Capture requires pinned runtime/source evidence")
     verify_runtime(manifest["runtime"], base)
     template = manifest["request_template"]
-    validate_template(template, manifest["world"], context_only=context_only)
+    mode = manifest.get("conversation_mode", "fresh_per_case")
+    if mode not in {"fresh_per_case", "build_sequence"}:
+        raise ValueError("Unknown benchmark conversation mode")
+    build_sequence = mode == "build_sequence"
+    validate_template(template, manifest["world"], context_only=context_only, build_sequence=build_sequence)
+    editor_snapshot = None
+    if "build_editor_snapshot" in manifest:
+        if not build_sequence:
+            raise ValueError("Editor snapshots require a Build sequence")
+        editor_snapshot = json.loads(read_pin(manifest["build_editor_snapshot"], base))
+        if not isinstance(editor_snapshot, dict):
+            raise ValueError("Build editor snapshot pin must contain a snapshot object")
     output = Path(output).resolve()
     output.mkdir(mode=0o700, parents=True, exist_ok=False)
     # The application must be configured against explicitly qualified test state.
@@ -433,6 +515,9 @@ def capture(manifest_path, output, *, context_only=False):
     (output / "runtime-artifacts").mkdir(mode=0o700)
     from fastapi.testclient import TestClient
     retained = dict(manifest)
+    if editor_snapshot is not None:
+        pin = manifest["build_editor_snapshot"]
+        retained["build_editor_snapshot"] = dict(pin, path=str((base / pin["path"]).resolve()))
     retained["cases"] = []
     for case in manifest["cases"]:
         # A new capture never inherits an old semantic assessment.
@@ -469,9 +554,18 @@ def capture(manifest_path, output, *, context_only=False):
             from apps.live_control_server.services.plan_jev_dispatch import request_budget
             if request_budget() != manifest["provider_policy"]:
                 raise ValueError("Effective ordinary provider policy differs")
+            conversation_id = None
+            build_thread_id = str(uuid4()) if build_sequence else None
             for case in manifest["cases"]:
                 verify_capture_environment(owned_env)
-                capture_case(client, manifest["world"], template, case, output / case["id"], context_only=context_only)
+                directory = output / case["id"]
+                response = capture_case(client, manifest["world"], template, case, directory,
+                    context_only=context_only, build_thread_id=build_thread_id,
+                    expected_conversation_id=conversation_id, build_editor_snapshot=editor_snapshot)
+                if build_sequence:
+                    if response.status_code != 200:
+                        raise ValueError("Build turn failed; later turns not dispatched")
+                    conversation_id = _wrapped(directory / "history-after.json")["body"]["active_conversation_id"]
                 checkpoint = row_inventory(native_dsn, readonly=readonly)
                 immutable_save(output, "native-after-" + case["id"], checkpoint)
                 if checkpoint != native_before:
@@ -498,8 +592,14 @@ def _writer_replay_request(case, source, source_base, summary, *, case_base):
         raise ValueError("Replay requires the same completed ordinary question")
     directory = Path(source["capture_dir"])
     directory = directory if directory.is_absolute() else source_base / directory
-    if json.loads((directory / "request.json").read_text())["surface"].get("surface_id") != "plan":
-        raise ValueError("Replay currently supports retained ordinary Plan writers only")
+    surface = json.loads((directory / "request.json").read_text())["surface"].get("surface_id")
+    replay_contracts = {
+        "plan": ("plan_context", "native_writer_authorized_v1"),
+        "build": ("knowledge_context", "native_build_writer_authorized_v2"),
+    }
+    if surface not in replay_contracts:
+        raise ValueError("Replay requires a supported retained ordinary writer")
+    context_key, writer_kind = replay_contracts[surface]
     trace = _wrapped(directory / "context-trace.json")["body"]
     history = _wrapped(directory / "history-after.json")["body"]
     witnesses = [(attempt, event) for attempt in trace["attempts"] for event in attempt["observations"]
@@ -528,10 +628,12 @@ def _writer_replay_request(case, source, source_base, summary, *, case_base):
             or len(writers) != 1 or len(completions) != 1 or frame is None):
         raise ValueError("Replay requires its completed native writer binding")
     writer = writers[0]
+    if writer["kind"] != writer_kind:
+        raise ValueError("Replay writer authorization belongs to a different surface")
     turn = next(t for t in history["turns"] if t["turn_id"] == ledger["turn_id"])
-    completion = turn["plan_context"]["completion"]
-    receipt = turn["plan_context"]["receipt"]
-    delivered_context = _wrapped(directory / "answer-http.json")["body"].get("plan_context")
+    completion = turn[context_key]["completion"]
+    receipt = turn[context_key]["receipt"]
+    delivered_context = _wrapped(directory / "answer-http.json")["body"].get(context_key)
     if ((writer["provider_attempt_id"], writer["provider"], writer["api_mode"], writer["serializer_version"])
             != (identity, "openai", "responses", "openai-sdk-json-v1")
             or ledger["attempt"] != trace_attempt["attempt"]
@@ -1036,9 +1138,72 @@ def context_tasting(manifest_path, output, *, transport=None):
     immutable_save(directory, "blind-answers", blind)
 
 
+def _action_operation_metrics(capture, expected_turn_id):
+    body = capture["body"]
+    trace = body["answer"]["trace"]
+    if (
+        not isinstance(expected_turn_id, str)
+        or not expected_turn_id
+        or trace["schema"] != "dmb_agent_turn_trace_v1"
+        or body["turn_id"] != expected_turn_id
+        or trace["turn_id"] != expected_turn_id
+    ):
+        raise ValueError("AW trace does not match the expected turn")
+    return {
+        "elapsed_ms": trace["elapsed_ms"],
+        "model_tokens": trace["usage"]["total_tokens"],
+        "model_calls": trace["usage"]["model_call_count"],
+        "usage_status": trace["usage"]["status"],
+        "usage_reported_call_count": trace["usage"]["usage_reported_call_count"],
+        "reported_cost_usd": trace["cost"]["usd"],
+        "cost_status": trace["cost"]["status"],
+        "operator_interventions": None,
+        "stages": [
+            {"name": span["name"], "duration_ms": span["duration_ms"], "status": span["status"]}
+            for span in trace["spans"] if span["kind"] == "phase"
+        ],
+    }
+
+
+def action_report(manifest_path):
+    """Score retained action observations without starting an ordinary turn."""
+    from .action_assessment import (
+        assess_blocked_action,
+        assess_confirmed_action,
+        assess_conversation_only,
+    )
+
+    assess = {
+        "conversation_only": assess_conversation_only,
+        "confirmed_action": assess_confirmed_action,
+        "blocked_action": assess_blocked_action,
+    }
+
+    path = Path(manifest_path)
+    manifest = json.loads(path.read_text())
+    if manifest.get("schema") != "dmb_aw_assessment_v1":
+        raise ValueError("Unknown AW assessment manifest")
+    cases = manifest["cases"]
+    ids = [case["id"] for case in cases]
+    if not ids or len(ids) != len(set(ids)):
+        raise ValueError("AW assessment requires unique case IDs")
+    results = []
+    for case in cases:
+        observation = json.loads(read_pin(case["observation"], path.parent))
+        assessment = assess[case.get("kind", "conversation_only")](**observation)
+        row = {"id": case["id"], "observation": case["observation"], **assessment}
+        if "turn_capture" in case:
+            pin = case["turn_capture"]
+            capture = json.loads(read_pin(pin, path.parent))
+            row["turn_capture"] = pin
+            row["operation"] = _action_operation_metrics(capture, case.get("turn_id"))
+        results.append(row)
+    return {"schema": "dmb_aw_assessment_report_v1", "cases": results}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("report", "capture", "capture-context", "writer-prepare", "writer-capture", "context-tasting"))
+    parser.add_argument("mode", choices=("report", "action-report", "capture", "capture-context", "writer-prepare", "writer-capture", "context-tasting"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--oracle", help="Private Gold JSON for offline report mode")
@@ -1048,6 +1213,8 @@ def main(argv=None):
         parser.error("Oracle and citation readback are available only in report mode")
     if args.mode == "report":
         immutable_save(Path(args.output), "report", report(args.manifest, oracle=args.oracle, citation_readback=args.citation_readback))
+    elif args.mode == "action-report":
+        immutable_save(Path(args.output), "action-report", action_report(args.manifest))
     elif args.mode == "capture":
         capture(args.manifest, args.output)
     elif args.mode == "capture-context":

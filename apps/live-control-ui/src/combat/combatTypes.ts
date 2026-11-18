@@ -16,7 +16,15 @@ export interface AcceptedCombatMechanicsSnapshot extends AcceptedCombatMechanics
   locator: WorldMechanicsAssociation['proof']['locator'];
   resource: StatblockRevisionResourceV1; snapshot_digest: string;
 }
-export type CombatMechanicsSnapshot = AssociatedCombatMechanicsSnapshot | AcceptedCombatMechanicsSnapshot | SavedCombatMechanicsSnapshot;
+export interface ConversationVariantCombatSelection {
+  conversation_id: string; turn_id: string; review_id: string;
+}
+export interface ConversationVariantCombatSnapshot extends ConversationVariantCombatSelection {
+  origin: 'conversation_variant_mechanics_v1'; managed_world_id: string;
+  locator: WorldMechanicsAssociation['proof']['locator'];
+  resource: StatblockRevisionResourceV1; snapshot_digest: string;
+}
+export type CombatMechanicsSnapshot = AssociatedCombatMechanicsSnapshot | AcceptedCombatMechanicsSnapshot | SavedCombatMechanicsSnapshot | ConversationVariantCombatSnapshot;
 export interface AcceptedCombatMechanicsChoice extends AcceptedCombatMechanicsSelection { name: string; }
 
 export interface CombatRulesetField {

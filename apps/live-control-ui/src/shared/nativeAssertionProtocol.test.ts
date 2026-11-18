@@ -52,3 +52,23 @@ it('opens exact source bytes through the normal citation control and rejects sub
     await expect(choice.load()).rejects.toThrow('source binding differs');
   } finally {read.mockRestore();}
 });
+it('opens the pinned PDF region and rejects a substituted rectangle',async()=>{
+  const {completion,citation:text,receipt,hash}=await fixture();
+  const {body_sha256,start_byte,end_byte,span_sha256,...binding}=text;
+  const citation={...binding,evidence_ref_id:'pdf-region:test',region:{
+    schema_version:'dm_native_pdf_region_v1',source_revision_id:binding.source_revision_id,
+    content_sha256:hash,page:13,left:.5,top:.05,right:.95,bottom:.48,
+  }};
+  completion.native_assertion_citations=[citation];
+  expect(isSurfaceEvidenceCompletion(completion,hash,'plan')).toBe(true);
+  expect(surfaceEvidenceReceiptBound(completion,receipt)).toBe(true);
+  const response={schema:'dmb_native_assertion_pdf_source_read_v1' as const,
+    world_id:'managed',turn_id:'turn',citation_index:0,citation,png_base64:'iVBORw0KGgo='};
+  const read=vi.spyOn(api,'getAgentNativeAssertionSource').mockResolvedValue(response);
+  try {
+    const choice=nativeChoices(completion,'managed','turn',0)[0]!;
+    expect(await choice.load()).toEqual({pngBase64:response.png_base64,title:'Supporting PDF · page 13'});
+    read.mockResolvedValue({...response,citation:{...citation,region:{...citation.region,right:.9}}});
+    await expect(choice.load()).rejects.toThrow('source binding differs');
+  } finally {read.mockRestore();}
+});
