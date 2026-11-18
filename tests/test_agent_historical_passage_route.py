@@ -134,3 +134,50 @@ def test_replay_identity_route_only_accepts_the_trace_pin(passage_api, monkeypat
         assert str(calls[0]['trace_id']) == passage_api.ref['trace_id']
     else:
         assert not calls
+
+
+def test_replay_names_include_discovery_only_nodes_at_the_saved_pin(monkeypatch):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    from apps.live_control_server.services import agent_replay_identities as identities
+
+    discovery = SimpleNamespace(
+        revision_id="saved-revision", seed_ids=["seed"],
+        labels={"seed": "Caelynn", "discovered": "Unnamed object 26"},
+        hops=[SimpleNamespace(from_node_id="seed", to_node_id="discovered")],
+    )
+    trace = SimpleNamespace(
+        trace_id="trace", world_id="elderwyld", turn_id="turn",
+        conversation_id="conversation", native_assertion_steps=[], native_discovery_replay=discovery,
+    )
+    authority = dict(managed_world_id="elderwyld", native_world_id="native", binding_version=1,
+                     revision_id="saved-revision", scope_mode="world", campaign_id=None)
+
+    @contextmanager
+    def uow(_):
+        yield SimpleNamespace(execute=lambda *args: SimpleNamespace(fetchone=lambda: (authority,)))
+
+    pins, reads = [], []
+    monkeypatch.setattr(identities, "unit_of_work", uow)
+    monkeypatch.setattr(identities, "_ready_dsn", lambda: "mock-dsn")
+    monkeypatch.setattr(identities, "_pinned",
+                        lambda pin, principal, **kwargs: (pins.append(pin) or pin, "saved-read", None, None, None))
+    monkeypatch.setattr(identities, "_response", lambda *args: None)
+    monkeypatch.setattr(identities, "EntityReadService", lambda: SimpleNamespace(
+        get_entity=lambda read, identity: reads.append((read, identity)) or SimpleNamespace(found=True)))
+    monkeypatch.setattr(identities, "map_entity_result",
+                        lambda *args, **kwargs: SimpleNamespace(label="Stormspire Academy", kind="location"))
+    result = identities.replay_identities(
+        service=SimpleNamespace(list_context_trace_attempts=lambda **kwargs: [trace]),
+        principal="owner", world_id="elderwyld", turn_id="turn", trace_id="trace",
+    )
+    assert reads == [("saved-read", "discovered")]
+    assert pins[0].revision_id == "saved-revision"
+    assert result["identities"] == [{"node_id": "discovered", "label": "Stormspire Academy", "kind": "location"}]
+    discovery.revision_id = "later-revision"
+    with pytest.raises(identities.InspectionUnavailable):
+        identities.replay_identities(
+            service=SimpleNamespace(list_context_trace_attempts=lambda **kwargs: [trace]),
+            principal="owner", world_id="elderwyld", turn_id="turn", trace_id="trace",
+        )
+    assert len(reads) == 1

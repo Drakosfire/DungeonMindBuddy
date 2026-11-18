@@ -393,8 +393,14 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
   const last = index + 1 >= steps.length
 
   useEffect(() => {
-    if (!trace?.native_assertion_steps?.some(step => step.subject_ids.some(id =>
-      !hasRecordedName(step.subject_labels?.[id]) || !step.subject_kinds?.[id]))) return
+    const missingSubjects = trace?.native_assertion_steps?.some(step => step.subject_ids.some(id =>
+      !hasRecordedName(step.subject_labels?.[id]) || !step.subject_kinds?.[id]))
+    const discovery = trace?.native_discovery_replay
+    const missingDiscovery = discovery && [
+      ...discovery.seed_ids,
+      ...discovery.hops.flatMap(hop => [hop.from_node_id, hop.to_node_id]),
+    ].some(id => !hasRecordedName(discovery.labels[id]))
+    if (!trace || (!missingSubjects && !missingDiscovery)) return
     const controller = new AbortController()
     const { world_id, turn_id, trace_id } = trace
     void getWorldAgentReplayIdentities(world_id, turn_id, trace_id, controller.signal).then(result => {
