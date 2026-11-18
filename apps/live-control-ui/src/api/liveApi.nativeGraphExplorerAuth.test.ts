@@ -1002,3 +1002,24 @@ it("saves Play editions with hosted cookies and the exact commit schema", async 
   await expect(api.authenticatedApiFetch(path, { ...init, body: "{}" })).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("uses hosted transport only for recap object requests with a matching World pin", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const path = "/api/live/native-source-inspection/published-recap/objects";
+  const body = {
+    managed_world_id: "managed", campaign_id: "campaign", session_id: "session",
+    source_artifact_id: "source", source_revision_id: "revision",
+    scope: { managed_world_id: "managed", scope_mode: "world", campaign_id: null,
+      native_world_id: "native", revision_id: "graph-revision", binding_version: 1 },
+  };
+  await api.authenticatedApiFetch(path, { method: "POST", body: JSON.stringify(body) });
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", cache: "no-store", redirect: "error" });
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path, {
+    method: "POST", body: JSON.stringify({ ...body, managed_world_id: "foreign" }),
+  })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
