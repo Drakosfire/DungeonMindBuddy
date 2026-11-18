@@ -24,6 +24,7 @@ from fastapi import FastAPI
 from application_state import pdf_statblock_review
 from apps.live_control_server.routes.agent import (
     _pdf_review_creature_draft_id, get_pdf_statblock_publication, get_pdf_statblock_review,
+    post_extract_pdf_statblock_review,
     get_published_pdf_statblock, post_accept_pdf_statblock_review,
     post_pdf_statblock_creature_draft, post_pdf_statblock_publication,
 )
@@ -299,6 +300,7 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes.agent import put_pdf_statblock_review
 
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
+    app.add_api_route(f"{PDF_REVIEW}/from-regions", post_extract_pdf_statblock_review, methods=["POST"])
     app.add_api_route(PDF_REVIEW, put_pdf_statblock_review, methods=["PUT"])
     app.add_api_route(f"{PDF_REVIEW}/publication", get_pdf_statblock_publication, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", post_pdf_statblock_publication, methods=["POST"])
@@ -395,6 +397,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
+            ("POST", f"{PDF_REVIEW}/from-regions"): access.resolve_hosted_build_pdf_world,
             ("PUT", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/accept/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
             ("GET", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
@@ -1778,6 +1781,15 @@ def test_hosted_pdf_review_checks_owner_before_read(hosted, monkeypatch, session
     assert reads == ([("managed", review_id)] if expected == 200 else [])
     if expected == 200:
         assert response.headers["cache-control"] == "no-store"
+
+
+def test_hosted_pdf_extraction_checks_world_before_processing(hosted):
+    path = PDF_REVIEW.format(world_id="managed", review_id=uuid4()) + "/from-regions"
+    assert hosted.client.request("POST", path, json={}, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={}, origin=None).status_code == 403
+    response = hosted.client.request("POST", path, json={})
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]["code"] == "invalid_pdf_statblock_extraction_request"
 
 
 def test_hosted_pdf_review_save_checks_owner_and_expected_revision(hosted, monkeypatch):
