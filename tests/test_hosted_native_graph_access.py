@@ -2996,7 +2996,8 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     read.assert_called_once_with(tmp_path, operation, "managed")
 
 
-def test_hosted_generated_artwork_is_readable_in_its_world(hosted, application_state_dsn, monkeypatch):
+@pytest.mark.parametrize("transfer", [False, True])
+def test_hosted_generated_artwork_is_readable_in_its_world(hosted, application_state_dsn, monkeypatch, transfer):
     from io import BytesIO
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
@@ -3008,12 +3009,18 @@ def test_hosted_generated_artwork_is_readable_in_its_world(hosted, application_s
     output = BytesIO()
     Image.new("RGB", (2, 2)).save(output, format="PNG")
     payload = output.getvalue()
-    provider = SimpleNamespace(
-        generate_image=AsyncMock(return_value=SimpleNamespace(
+    async def generate(*_args):
+        if transfer:
+            hosted.records["managed"] = hosted.records["managed"].model_copy(
+                update={"owner_subject": OTHER_OWNER},
+            )
+        return SimpleNamespace(
             images=[SimpleNamespace(content=payload, media_type="image/png")],
             observation=SimpleNamespace(model_dump=lambda **kwargs: {"provider": "fixture"}),
-        )),
-        aclose=AsyncMock(),
+        )
+
+    provider = SimpleNamespace(
+        generate_image=AsyncMock(side_effect=generate), aclose=AsyncMock(),
     )
     monkeypatch.setattr(media_images, "_fal_key", lambda: "fixture")
     monkeypatch.setattr(media_images, "_image_client", lambda: provider)
@@ -3023,6 +3030,16 @@ def test_hosted_generated_artwork_is_readable_in_its_world(hosted, application_s
     assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
     assert hosted.client.request("POST", path.replace("managed", "foreign"), json=body).status_code == 403
     provider.generate_image.assert_not_called()
+    if transfer:
+        from unittest.mock import Mock
+
+        stage = Mock(wraps=media.stage_image)
+        monkeypatch.setattr(media, "stage_image", stage)
+        response = hosted.client.request("POST", path, json=body)
+        assert response.status_code == 403, response.text
+        provider.generate_image.assert_awaited_once()
+        stage.assert_not_called()
+        return
     response = hosted.client.request("POST", path, json=body)
     assert response.status_code == 200, response.text
     asset_id = response.json()["images"][0]["asset_id"]

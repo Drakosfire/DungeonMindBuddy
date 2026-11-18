@@ -128,10 +128,11 @@ async def generate_image_preview(
 ):
     from apps.live_control_server.services import hosted_auth
     from apps.live_control_server.services.hosted_native_graph_access import (
-        conversation_graph_principal, hosted_world_media_owner,
+        conversation_graph_principal, hosted_world_media_owner, require_conversation_access,
     )
 
-    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
         if world_id is None:
             raise HTTPException(403, detail="Select a World before generating artwork.")
         principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
@@ -158,6 +159,8 @@ async def generate_image_preview(
     client = None
     try:
         client = _image_client()
+        if hosted and world_id is not None:
+            require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
         result = await client.generate_image(ImageRequest(
             prompt=effective_prompt, model=body.model, width=body.width, height=body.height,
             num_images=1, options=body.options, deadline_ms=180000,
@@ -175,6 +178,8 @@ async def generate_image_preview(
     for image in result.images:
         if image.media_type not in {"image/png", "image/jpeg", "image/webp"} or len(image.content) > 20 * 1024 * 1024:
             raise HTTPException(502, detail="The returned image could not be previewed.")
+        if hosted and world_id is not None:
+            require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
         try:
             row = media.stage_image(image.content, asset_owner, {
                 "kind": "generation", "prompt": effective_prompt, "authored_prompt": body.prompt, "model": body.model,
