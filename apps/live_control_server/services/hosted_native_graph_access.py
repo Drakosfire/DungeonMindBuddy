@@ -52,6 +52,7 @@ _REQUESTS = {
     COMPLETE_OBJECT_PATH: TypeAdapter(NativeCompleteObjectRead),
     "/api/live/native-source-inspection/published-recap": TypeAdapter(PublishedRecapRead),
     "/api/live/native-source-inspection/published-recap/objects": TypeAdapter(PublishedRecapObjectsRead),
+    "/api/live/native-graph-inspection/authoring-identities": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-graph-inspection/catalog": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-source-inspection/catalog": TypeAdapter(InspectionScope),
     "/api/live/native-source-inspection/read": TypeAdapter(NativeSourceRead),

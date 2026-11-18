@@ -52,9 +52,13 @@ def catalog(body: InspectionPin | InspectionScope, principal=Depends(native_grap
 @router.post("/authoring-identities")
 def authoring_identities(
     body: InspectionPin | InspectionScope,
-    principal=Depends(native_graph_gm_dependency),
+    principal=Depends(native_graph_explorer_dependency),
 ):
-    return _call(service.authoring_identities, body, principal)
+    try:
+        with hosted_response_binding(principal, body.managed_world_id):
+            return _call(service.authoring_identities, body, principal)
+    except NativeGraphExplorerError as exc:
+        raise HTTPException(status_code=exc.status, detail={"code": exc.code}) from None
 
 
 @router.post("/read")
