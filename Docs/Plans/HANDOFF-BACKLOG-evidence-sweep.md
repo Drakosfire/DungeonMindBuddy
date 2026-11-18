@@ -2,7 +2,7 @@
 
 ACTIVE — operator requested the backlog sweep after #3763 merged; root adopted a bounded status/pointer split on 2026-11-17. No runtime work, merge or deployment authority.
 
-Original base: `28f4cab85a6a7eebabc4e89ce24166b86e198380`. Re-anchored on 2026-11-18 to Buddy main `e0ad49c18fa922bf415438d18729b988c23fb92d`. The user explicitly authorized updating both #3854 and #3683 while preserving their scopes. #3854 is the parent; #3683 is the stacked design-input successor, reviewed and merged after #3854. Branch: `codex/backlog-evidence-sweep-20261117`. Isolated checkout: `~/Projects/backlog-evidence-sweep-20261117`.
+Original base: `28f4cab85a6a7eebabc4e89ce24166b86e198380`. Re-anchored on 2026-11-18 to Buddy main `e0ad49c18fa922bf415438d18729b988c23fb92d` and reconciled through main `b4ec5408180d74b8ef0a9cc9543271df6e5fb02c`. The user explicitly authorized updating both #3854 and #3683 while preserving their scopes. #3854 is the parent; #3683 is the stacked design-input successor, reviewed and merged after #3854. Branch: `codex/backlog-evidence-sweep-20261117`. Isolated checkout: `~/Projects/backlog-evidence-sweep-20261117`.
 
 Expected writes: this handoff, `Backlog.md`, `Docs/Backlog/IDEA-conversation-search-replay.md`, `Docs/Backlog/IDEA-aw-workflow-capabilities.md`, and `Docs/Roadmaps/ROADMAP-demo.md`.
 
