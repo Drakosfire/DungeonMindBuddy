@@ -660,7 +660,7 @@ class AgentConversationService:
             raise ApplicationStateConflictError("resolution operation ID has a different binding")
         return record
 
-    def resolve_new_conversation(self, request: CommandResolutionRequestV1, *, actor: str) -> CommandResolutionRecordV1:
+    def resolve_new_conversation(self, request: CommandResolutionRequestV1, *, actor: str, authorize_world=None) -> CommandResolutionRecordV1:
         command = request.original_command
         _world_id(command.world_id)
         if not actor.strip():
@@ -669,6 +669,8 @@ class AgentConversationService:
             pointer = _lock_pointer(conn, command.world_id)
             previous = repo.get_command_resolution(conn, command.world_id, request.resolution_operation_id)
             if previous is not None:
+                if authorize_world is not None:
+                    authorize_world()
                 if previous.resolution_request_fingerprint != request.fingerprint():
                     raise ApplicationStateConflictError("resolution operation ID has a different binding")
                 return previous
@@ -703,6 +705,8 @@ class AgentConversationService:
                     retirement_operation_id=request.resolution_operation_id if outcome == "retired" else None)
             except ValidationError as exc:
                 raise ApplicationStateIntegrityError("command resolution evidence is invalid") from exc
+            if authorize_world is not None:
+                authorize_world()
             return repo.insert_command_resolution(conn, record)
 
     def new_conversation(self, command: ConversationCommand) -> ConversationCommandReceipt:

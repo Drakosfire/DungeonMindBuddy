@@ -2263,12 +2263,26 @@ def _resolution_error(exc: ApplicationStateError) -> HTTPException:
 
 @router.post("/worlds/{world_id}/conversation/commands/{command_id}/resolve", response_model=AgentCommandResolutionResponseV1)
 def post_world_command_resolution(world_id: str, command_id: UUID, body: CommandResolutionRequestV1, request: Request) -> AgentCommandResolutionResponseV1:
-    principal = enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     if body.original_command.world_id != verified_world_id or body.original_command.command_id != command_id or request.query_params:
         raise HTTPException(status_code=422, detail="resolution path and original command must match")
     try:
-        record = _conversation_service(request).resolve_new_conversation(body, actor=principal.subject)
+        if principal.auth_method == "hosted_owner":
+            from functools import partial
+            from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+            authorize_world = partial(
+                require_conversation_access, request, world_id, authorize_local=enforce_native_graph_gm,
+            )
+            record = _conversation_service(request).resolve_new_conversation(
+                body, actor=principal.subject, authorize_world=authorize_world,
+            )
+            authorize_world()
+        else:
+            record = _conversation_service(request).resolve_new_conversation(body, actor=principal.subject)
     except ApplicationStateError as exc:
         raise _resolution_error(exc) from exc
     return AgentCommandResolutionResponseV1(status="terminal", record=record)
@@ -2279,7 +2293,9 @@ def get_world_command_resolution(world_id: str, command_id: UUID, operation_id: 
     original_pointer_revision: int = Query(ge=0), original_active_conversation_id: str = Query(),
     current_pointer_revision: int = Query(ge=0), current_active_conversation_id: str = Query(),
 ) -> AgentCommandResolutionResponseV1:
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified_world_id = _verified_world_id(world_id)
     allowed = {"original_pointer_revision", "original_active_conversation_id", "current_pointer_revision", "current_active_conversation_id"}
     if set(request.query_params) != allowed or any(len(request.query_params.getlist(key)) != 1 for key in allowed):
@@ -2297,6 +2313,7 @@ def get_world_command_resolution(world_id: str, command_id: UUID, operation_id: 
         record = _conversation_service(request).get_command_resolution(body)
     except ApplicationStateError as exc:
         raise _resolution_error(exc) from exc
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     return AgentCommandResolutionResponseV1(status="terminal" if record else "absent", record=record)
 
 

@@ -267,6 +267,14 @@ def hosted(monkeypatch, request):
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation", agent_routes.get_world_conversation_history, methods=["GET"])
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/new", agent_routes.post_new_world_conversation, methods=["POST"])
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}", agent_routes.get_new_world_conversation_status, methods=["GET"])
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolve",
+        agent_routes.post_world_command_resolution, methods=["POST"],
+    )
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolutions/{operation_id}",
+        agent_routes.get_world_command_resolution, methods=["GET"],
+    )
     app.add_api_route("/api/live/agent/turn", agent_routes.post_agent_turn, methods=["POST"])
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}",
@@ -362,6 +370,8 @@ def hosted(monkeypatch, request):
             ("POST", INSPECTION): access.resolve_hosted_explorer_world,
             ("POST", "/api/live/native-graph-inspection/authoring-identities"): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", "/api/live/native-graph-inspection/authoring-identities")],
             ("POST", access.COMPLETE_OBJECT_PATH): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", access.COMPLETE_OBJECT_PATH)],
+            ("POST", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolve"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}/resolutions/{operation_id}"): access.resolve_hosted_conversation_world,
             ("POST", access.FIRST_WORLD_PREPARE_PATH): access.resolve_hosted_first_world,
             ("POST", access.FIRST_WORLD_CONFIRM_PATH): access.resolve_hosted_first_world,
             ("GET", access.BUILD_PDF_SOURCES_PATH): access.resolve_hosted_build_pdf_world,
@@ -4444,5 +4454,52 @@ def test_hosted_build_review_binds_world_and_action(hosted, monkeypatch):
 
     service.execute.side_effect = transfer_before_write
     denied = hosted.client.request("POST", path, json=body)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+
+
+def test_hosted_command_resolution_binds_world_actor_and_pointer(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.routes import agent
+
+    service = Mock()
+    service.resolve_new_conversation.side_effect = ApplicationStateConflictError("fixture")
+    service.get_command_resolution.return_value = None
+    monkeypatch.setattr(agent, "_conversation_service", lambda _: service)
+    command, operation = str(uuid4()), str(uuid4())
+    path = f"/api/live/agent/worlds/managed/conversation/commands/{command}"
+    original = {"world_id": "managed", "command_id": command, "expected_pointer_revision": 2,
+                "expected_active_conversation_id": None}
+    body = {"original_command": original, "resolution_operation_id": operation,
+            "expected_current_pointer_revision": 3, "expected_current_active_conversation_id": None}
+    assert hosted.client.request("POST", path + "/resolve", json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path + "/resolve", json={**body, "original_command": {
+        **original, "command_id": str(uuid4()),
+    }}).status_code == 422
+    service.resolve_new_conversation.assert_not_called()
+    response = hosted.client.request("POST", path + "/resolve", json=body)
+    assert response.status_code == 409, response.text
+    assert service.resolve_new_conversation.call_args.kwargs["actor"] == "hosted_dms:synthetic-owner-alpha"
+
+    query = "?original_pointer_revision=2&original_active_conversation_id=null&current_pointer_revision=3&current_active_conversation_id=null"
+    receipt = path + f"/resolutions/{operation}" + query
+    assert hosted.client.request("GET", receipt, session="other-session").status_code == 403
+    assert hosted.client.request("GET", receipt + "&current_pointer_revision=4").status_code == 422
+    service.get_command_resolution.assert_not_called()
+    response = hosted.client.request("GET", receipt)
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "absent"
+    assert service.get_command_resolution.call_args.args[0].expected_current_pointer_revision == 3
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return None
+
+    service.get_command_resolution.side_effect = transfer_during_read
+    denied = hosted.client.request("GET", receipt)
     assert hosted.records["managed"].owner_subject == OTHER_OWNER
     assert denied.status_code == 403, denied.text

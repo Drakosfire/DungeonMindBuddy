@@ -1165,3 +1165,35 @@ it("selects a Play run through the exact hosted World route", async () => {
   await expect(api.authenticatedApiFetch(path + "&world_id=foreign", request)).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("uses the hosted session for exact conversation recovery and receipt reads", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-only-fixture");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const commandId = "11111111-1111-4111-8111-111111111111";
+  const operationId = "22222222-2222-4222-8222-222222222222";
+  const request = {
+    schema: "dmb_agent_new_conversation_resolution_request_v1",
+    resolution_operation_id: operationId,
+    original_command: {
+      world_id: "managed", command_id: commandId, expected_pointer_revision: 2,
+      expected_active_conversation_id: null,
+    },
+    expected_current_pointer_revision: 3,
+    expected_current_active_conversation_id: null,
+  } as const;
+  const path = `/api/live/agent/worlds/managed/conversation/commands/${commandId}`;
+  const receipt = `${path}/resolutions/${operationId}?original_pointer_revision=2&original_active_conversation_id=null&current_pointer_revision=3&current_active_conversation_id=null`;
+  await api.postWorldCommandResolution(request);
+  await api.getWorldCommandResolution(request);
+  expect(fetch).toHaveBeenNthCalledWith(1, path + "/resolve", expect.objectContaining({
+    method: "POST", credentials: "same-origin",
+  }));
+  expect(fetch).toHaveBeenNthCalledWith(2, receipt, expect.objectContaining({ credentials: "same-origin" }));
+  for (const [, init] of fetch.mock.calls) {
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(receipt + "&current_pointer_revision=4")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
