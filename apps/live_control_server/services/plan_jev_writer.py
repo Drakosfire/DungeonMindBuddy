@@ -314,6 +314,7 @@ class PlanJevWriter:
             from application_state.agent_conversation.plan_jev_graph_packet import NATIVE_WORK_SCHEMA as PLAN_WORK_SCHEMA
             from application_state.agent_conversation.native_play_work import SCHEMA as PLAY_WORK_SCHEMA
             variant_format = False
+            format_version = 2
             if self.work_frame.get('schema') == PLAY_WORK_SCHEMA:
                 from application_state.agent_conversation.native_play_work import semantic_frame as play_work_view
                 self.provider_work=play_work_view(self.work_frame)
@@ -324,14 +325,22 @@ class PlanJevWriter:
                 from application_state.agent_conversation.native_build_work_view import (
                     semantic_frame as build_work_view, variant_sources,
                 )
+                from application_state.agent_conversation.build_intentional_response import is_anchored_discussion
+
                 variant_format = bool(not rule_frame.lookups and variant_sources(self.work_frame))
+                if variant_format:
+                    format_version = 6
+                elif not rule_frame.lookups and any(
+                    is_anchored_discussion(event) for event in turn.graph_context_execution.events
+                ):
+                    format_version = 7
                 self.provider_work=build_work_view(
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work if self.work_frame.get('schema') in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA} else self.work_frame,
                 build_local=self.work_frame.get('schema') not in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA},
-                format_version=6 if variant_format else 2)
+                format_version=format_version)
             # Discussion ends with current evidence rather than prior assistant
             # prose. Keep the exact frames; authoring keeps its current draft last.
             frames=((self.provider_work,rule_frame,self.provider_frame)
