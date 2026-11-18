@@ -1235,7 +1235,6 @@
       "tests/test_live_artifact_reads.py",
       "tests/test_live_command_bus.py",
       "tests/test_live_control_server.py",
-      "tests/test_live_dogfood_check.py",
       "tests/test_live_dogfood_reset.py",
       "tests/test_live_graph_manual_review_api.py",
       "tests/test_live_graph_preview_surface.py",
