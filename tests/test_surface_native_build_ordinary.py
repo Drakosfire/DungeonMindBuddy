@@ -438,6 +438,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     source="pdf0:0", quote="Hit Points 41")]
             if saved_statblock and current_work == "draft_in_conversation":
                 new_rule = definition["rule_elements"][0] | {"key": "truce", "name": "Terms of Truce", "costs": None}
+                if body["text"]["format"]["name"] == "surface_native_evidence_selectors_v6":
+                    new_rule = {"rule": new_rule, "authored_quotes": []}
                 candidate["statblock_variant"] = {
                     "source": "statblock0", "add_rules": [new_rule], "replace_rules": [],
                 }
@@ -1702,7 +1704,7 @@ def test_low_score_valid_image_selection_prepares_review_through_ordinary_http(l
     scores=dict(build_encounter=0.0,change_mechanics=0.0,clarify_creation=.07,clarify_request=.04,
         discuss=0.0,draft_in_conversation=0.0,other_creation=.27,place_map_coordinates=0.0,plan=.02,prepare_image=.40,
         publish_relationships=0.0,review_connected_page=.01,review_relationship=0.0,
-        save_page=0.0,write_current_page=.19)
+        review_variant_approval=0.0,save_page=0.0,write_current_page=.19)
     _fresh_case(lane,tmp_path,monkeypatch,None,True,False,'image',selection_probabilities=scores,
         message='Create an interior design detailed enough to generate a map from.')
 
@@ -1970,7 +1972,9 @@ def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
 
 
 @pytest.mark.parametrize("variant_validation", ["valid", "warnings", "invalid", None, "malformed", "mismatched"])
-def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_path, monkeypatch, variant_validation):
+def test_ordinary_build_attaches_variant_review_to_conversation_draft(
+    lane, tmp_path, monkeypatch, variant_validation, application_state_dsn,
+):
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Draft the Meat Mind variant in this conversation for review.",
@@ -2007,6 +2011,23 @@ def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_
     reopened = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
     assert reopened.status_code == 200, reopened.text
     assert "variant_draft_reviewed" not in reopened.json()["messages"][-1]
+
+    # When the newer revision gains its own review, the chat can present it.
+    from uuid import uuid4
+
+    import psycopg
+
+    from application_state.agent_conversation.conversation_variant_save import store_review
+
+    with psycopg.connect(application_state_dsn) as conn:
+        store_review(
+            conn, world_id=case.world, conversation_id=case.turn.conversation_id,
+            turn_id=case.turn.turn_id, revision=2, review_id=uuid4(),
+            definition=definition, base_locator=reviewed.json()["base_locator"],
+        )
+    reopened = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["messages"][-1]["variant_draft_reviewed"] is True
 
 
 def test_requested_chat_draft_is_persisted_by_ordinary_build(lane, tmp_path, monkeypatch):

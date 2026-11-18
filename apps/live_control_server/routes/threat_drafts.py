@@ -115,14 +115,15 @@ def get_threat_drafts(
 
 @router.delete("/{draft_id}/saved-statblock", status_code=204)
 def delete_saved_statblock(draft_id: str, world_id: str, expected_version: int, request: Request):
-    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
-    enforce_native_graph_gm(request)
+    require_build_pdf_access(request, world_id)
     _admit_world_scope(world_id, None)
     try:
         archive_saved_threat_draft(
             statblock_data_root(repo_root()), world_id=world_id,
             draft_id=draft_id, expected_version=expected_version,
+            authorize_world=lambda bound_world: require_build_pdf_access(request, bound_world),
         )
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
