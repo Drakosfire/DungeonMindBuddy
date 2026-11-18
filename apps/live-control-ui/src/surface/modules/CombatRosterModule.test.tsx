@@ -10,6 +10,7 @@ import * as combatApi from "../../combat/combatApi";
 import type { CombatEncounterRecord } from "../../combat/combatTypes";
 import * as selectedWorld from "../../selectedWorld/SelectedWorldContext";
 import { CombatRosterModule } from "./CombatRosterModule";
+import {manualCombatRecord} from '../../combat/ManualCombat.testSupport';
 import {TourRunProvider} from "../../guidedTour/RunScope";
 import type {TourOwnerReading} from "../../guidedTour/GuidedTour";
 import type {WorldPlayRunRecordV2} from "../../api/types";
@@ -104,6 +105,24 @@ describe("CombatRosterModule", () => {
       },
     };
   }
+
+  it('freezes a manual editor throughout a pending replacement Open',async()=>{
+    const manual={...manualCombatRecord(),world_id:'elderwyld'},other=record();
+    const opening=deferred<CombatEncounterRecord>();
+    vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([manual,other]);
+    const get=vi.spyOn(combatApi,'getAnyWorldCombatEncounter').mockResolvedValueOnce(manual).mockReturnValueOnce(opening.promise);
+    mount();await screen.findByRole('option',{name:'Crossing · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),manual.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open',exact:true}));
+    await waitFor(()=>expect(screen.getByLabelText('Position for Crew')).toBeEnabled());
+    await waitFor(()=>expect(screen.getByRole('combobox',{name:'Encounter'})).toBeEnabled());
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),other.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open',exact:true}));
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText('Position for Crew')).toBeDisabled();
+    expect(screen.getByLabelText('Participant name')).toBeDisabled();
+    opening.resolve(other);await screen.findByLabelText('HP for Geomantic Drake');
+  });
 
   it("requires an explicit open instead of guessing which encounter to load", async () => {
     vi.spyOn(combatApi, "listAnyWorldCombatEncounters").mockResolvedValue([record()]);

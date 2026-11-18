@@ -3,6 +3,7 @@ import {CombatRecoverySession,combatRecoveryKey} from './combatRecovery';
 import {testCombatLocks} from './combatRecovery.testSupport';
 import type {ManualCombatRecord} from './ManualCombatTypes';
 import {manualCombatRecord as record} from './ManualCombat.testSupport';
+import {validManualDraft} from './validateCombatRecovery';
 
 
 const sessions:CombatRecoverySession<ManualCombatRecord>[]=[];
@@ -28,4 +29,12 @@ it('preserves raw recovery with a foreign field or malformed participation refer
   const draft=structuredClone(base.draft);draft.entities[0].values.stats.foreign='not declared';
   const raw=JSON.stringify({schema:'dmb_combat_recovery_v1',base,draft,pending:null});localStorage.setItem(key,raw);
   await expect(session().open(base,()=>true)).rejects.toThrow('invalid');expect(localStorage.getItem(key)).toBe(raw);
+});
+
+it('refuses a draft that fits individual fields but exceeds the complete canonical budget',()=>{
+  const base=record(),actor=base.draft.entities[0];
+  actor.notes='名'.repeat(4096);
+  const draft={...base.draft,entities:Array.from({length:60},(_,index)=>({...actor,id:`crew-${index}`}))};
+  expect(new TextEncoder().encode(JSON.stringify(draft)).byteLength).toBeGreaterThan(700*1024);
+  expect(validManualDraft(base,draft)).toBe(false);
 });

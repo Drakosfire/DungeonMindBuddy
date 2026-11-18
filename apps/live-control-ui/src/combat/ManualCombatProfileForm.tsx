@@ -9,6 +9,7 @@ export function ManualCombatProfileForm({disabled,onCreate}:{disabled:boolean;on
   const [stats,setStats]=useState([{id:'position',label:'Position',type:'text' as 'text'|'integer'},{id:'resolve',label:'Resolve',type:'integer' as 'text'|'integer'}]);
   const [resources,setResources]=useState([{id:'stress',label:'Stress'},{id:'momentum',label:'Momentum'}]);
   const [error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false);
+  const [expanded,setExpanded]=useState(false);
   async function create() {
     if(!title.trim()||!system.trim()||[...stats,...resources].some(field=>!field.label.trim()))return;
     setBusy(true);setError(null);
@@ -17,9 +18,9 @@ export function ManualCombatProfileForm({disabled,onCreate}:{disabled:boolean;on
       stats:stats.map(field=>({field_id:field.id,label:field.label.trim(),value_type:field.type,initial:null})),
       resources:resources.map(field=>({field_id:field.id,label:field.label.trim(),initial:{current:null,minimum:null,maximum:null}})),
       pacing:{mode:'ordered',rounds},
-    });}catch(caught){setError(String(caught));}finally{setBusy(false);}
+    });setExpanded(false);}catch(caught){setError(String(caught));}finally{setBusy(false);}
   }
-  return <details className="manual-combat-profile"><summary>Create for another system</summary>
+  return <details className="manual-combat-profile" open={expanded} onToggle={event=>setExpanded(event.currentTarget.open)}><summary>Create for another system</summary>
     <p>Choose the values your table uses. This profile is pinned when the encounter is created; participant values remain editable.</p>
     <fieldset disabled={disabled||busy}><legend>Encounter profile</legend>
       <label>Encounter name<input maxLength={160} value={title} onChange={event=>setTitle(event.target.value)}/></label>

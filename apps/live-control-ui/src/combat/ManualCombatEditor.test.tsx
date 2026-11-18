@@ -1,11 +1,12 @@
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
-import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {ManualCombatEditor} from './ManualCombatEditor';
 import {manualCombatRecord} from './ManualCombat.testSupport';
 import {testCombatLocks} from './combatRecovery.testSupport';
 import * as api from './combatApi';
 import {combatRecoveryKey} from './combatRecovery';
 import type {ManualCombatRecord} from './ManualCombatTypes';
+import {newManualActor} from './ManualCombatState';
 
 beforeEach(()=>{localStorage.clear();Object.defineProperty(navigator,'locks',{configurable:true,value:testCombatLocks()});});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
@@ -50,4 +51,73 @@ it('retries identical submitted bytes after an unknown Save instead of replacing
   fireEvent.click(screen.getByRole('button',{name:'Retry Save'}));
   await waitFor(()=>expect(request).toHaveBeenCalledTimes(2));
   expect(JSON.stringify(request.mock.calls[1])).toBe(first);
+});
+
+it('retains statuses without blur and permits comma entry, spaces and negative values',async()=>{
+  const {record}=await open();
+  const statuses=screen.getByLabelText('Statuses for Crew');fireEvent.focus(statuses);
+  fireEvent.change(statuses,{target:{value:'Pinned, '}});
+  expect((statuses as HTMLInputElement).value).toBe('Pinned, ');
+  fireEvent.change(statuses,{target:{value:'Pinned, Exposed'}});
+  const resource=screen.getByLabelText('Stress current for Crew');fireEvent.focus(resource);
+  fireEvent.change(resource,{target:{value:'-'}});fireEvent.change(resource,{target:{value:'-2'}});
+  const title=screen.getByLabelText('Encounter title');fireEvent.focus(title);
+  fireEvent.change(title,{target:{value:'Crossing '}});expect((title as HTMLInputElement).value).toBe('Crossing ');
+  fireEvent.change(title,{target:{value:'Crossing at dusk'}});
+  cleanup();
+  const raw=JSON.parse(localStorage.getItem(combatRecoveryKey(record.world_id,record.encounter_id))!);
+  expect(raw.draft).toMatchObject({title:'Crossing at dusk',entities:[{statuses:['Pinned','Exposed'],values:{resources:{stress:{current:-2}}}}]});
+});
+
+it('shows an unknown Save even if later edits return the local draft to its base',async()=>{
+  let reject!:(error:Error)=>void;
+  vi.spyOn(api,'saveManualCombatEncounter').mockImplementation(()=>new Promise((_resolve,fail)=>{reject=fail;}));
+  await open();const position=screen.getByLabelText('Position for Crew');
+  fireEvent.change(position,{target:{value:'Covered'}});fireEvent.click(screen.getByRole('button',{name:'Save'}));
+  await screen.findByRole('button',{name:'Saving…'});
+  fireEvent.click(screen.getByRole('button',{name:'Unset Position for Crew'}));
+  await act(async()=>reject(new Error('Connection lost')));
+  expect(screen.getByRole('status').textContent).toContain('Save outcome unconfirmed');
+});
+
+it('restores accepted statuses after an invalid edit instead of presenting unsaved text as retained',async()=>{
+  await open();const statuses=screen.getByLabelText('Statuses for Crew');
+  fireEvent.focus(statuses);fireEvent.change(statuses,{target:{value:'Pinned'}});
+  fireEvent.change(statuses,{target:{value:'x'.repeat(81)}});fireEvent.blur(statuses);
+  expect((statuses as HTMLInputElement).value).toBe('Pinned');
+  expect(screen.getByRole('alert').textContent).toContain('valid values');
+});
+
+it('does not turn an unset text stat into an empty string merely by focusing it',async()=>{
+  const {record}=await open();const position=screen.getByLabelText('Position for Crew');
+  fireEvent.focus(position);fireEvent.blur(position);
+  expect(localStorage.getItem(combatRecoveryKey(record.world_id,record.encounter_id))).toBeNull();
+  expect(screen.getByRole('button',{name:'Save'}).hasAttribute('disabled')).toBe(true);
+});
+
+it('removes the current round anchor without a round jump or dangling group member',async()=>{
+  const record=manualCombatRecord(),first=record.draft.entities[0];
+  record.ruleset.pacing.rounds=true;
+  const second=newManualActor(record.ruleset,'Courier');record.draft.entities.push(second);
+  record.draft.turn={kind:'ordered_rounds',active_actor_id:first.id,round_start_actor_id:first.id,round:4};
+  record.draft.groups=[{id:'crew-group',label:'Crew group',member_ids:[first.id,second.id],collapsed:false}];
+  await open(record);
+  const crew=within(screen.getByRole('article',{name:'Crew',exact:true}));
+  fireEvent.click(crew.getByText('Notes and participant options'));
+  fireEvent.click(crew.getByRole('button',{name:'Remove Crew from encounter draft'}));
+  expect(screen.queryByRole('article',{name:'Crew',exact:true})).toBeNull();
+  expect(screen.getByText('Round 4')).toBeTruthy();
+  const raw=JSON.parse(localStorage.getItem(combatRecoveryKey(record.world_id,record.encounter_id))!);
+  expect(raw.draft.turn).toMatchObject({active_actor_id:second.id,round_start_actor_id:second.id,round:4});
+  expect(raw.draft.groups[0].member_ids).toEqual([second.id]);
+});
+
+it('keeps the participant name when local retention refuses an addition',async()=>{
+  await open();
+  vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('Storage quota reached');});
+  fireEvent.change(screen.getByLabelText('Participant name'),{target:{value:'Bridge wardens'}});
+  fireEvent.click(screen.getByRole('button',{name:'Add participant'}));
+  expect((screen.getByLabelText('Participant name') as HTMLInputElement).value).toBe('Bridge wardens');
+  expect(screen.queryByRole('article',{name:'Bridge wardens'})).toBeNull();
+  expect(screen.getByRole('alert').textContent).toContain('Storage quota reached');
 });

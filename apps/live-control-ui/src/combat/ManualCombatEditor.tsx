@@ -1,26 +1,30 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import type {ManualCombatActor,ManualCombatDraft,ManualCombatRecord} from './ManualCombatTypes';
 import type {RunEncounterScope} from './runEncountersApi';
 import {CombatRecoverySession,combatDraftEqual,type CombatRecovery} from './combatRecovery';
 import {getAnyWorldCombatEncounter,saveManualCombatEncounter} from './combatApi';
 import {isManualCombatRecord} from './ManualCombatTypes';
-import {advanceManualTurn,adjustManualResource,newManualActor,setManualParticipation} from './ManualCombatState';
+import {advanceManualTurn,adjustManualResource,newManualActor,removeManualActor,setManualParticipation} from './ManualCombatState';
 import {CombatSavedStatblock} from './CombatMechanicsInspection';
 import {ManualCombatSourcePicker} from './ManualCombatSourcePicker';
 import {validManualDraft} from './validateCombatRecovery';
+import {ManualCombatValueInput} from './ManualCombatValueInput';
 
 const copy=<T,>(value:T):T=>JSON.parse(JSON.stringify(value)) as T;
-function StatusField({actor,disabled,onChange}:{actor:ManualCombatActor;disabled:boolean;onChange:(statuses:string[])=>void}) {
+function StatusField({actor,disabled,onChange}:{actor:ManualCombatActor;disabled:boolean;onChange:(statuses:string[])=>boolean}) {
   const [text,setText]=useState(actor.statuses.join(', '));
-  useEffect(()=>setText(actor.statuses.join(', ')),[actor.statuses]);
+  const focused=useRef(false);
+  useEffect(()=>{if(!focused.current)setText(actor.statuses.join(', '));},[actor.statuses]);
+  const parsed=(value:string)=>[...new Set(value.split(',').map(item=>item.trim()).filter(Boolean))];
   return <label>Statuses<input aria-label={`Statuses for ${actor.name}`} disabled={disabled} value={text}
-    onChange={event=>setText(event.target.value)} onBlur={()=>onChange([...new Set(text.split(',').map(value=>value.trim()).filter(Boolean))])}
+    onFocus={()=>{focused.current=true;}} onChange={event=>{setText(event.target.value);onChange(parsed(event.target.value));}}
+    onBlur={()=>{focused.current=false;setText(onChange(parsed(text))?parsed(text).join(', '):actor.statuses.join(', '));}}
     onKeyDown={event=>{if(event.key==='Enter')event.currentTarget.blur();}}/></label>;
 }
-type Props={record:ManualCombatRecord;scope?:RunEncounterScope;onSaved:(record:ManualCombatRecord)=>void;onBlocked:(blocked:boolean)=>void};
+type Props={externallyDisabled?:boolean;record:ManualCombatRecord;scope?:RunEncounterScope;onSaved:(record:ManualCombatRecord)=>void;onBlocked:(blocked:boolean)=>void};
 
 /** One recovery/Save owner; parent hosts retain committed records only. */
-export function ManualCombatEditor({record,scope,onSaved,onBlocked}:Props) {
+export function ManualCombatEditor({record,scope,onSaved,onBlocked,externallyDisabled=false}:Props) {
   const session=useRef(new CombatRecoverySession<ManualCombatRecord>());
   const state=useRef({base:record,draft:copy(record.draft),pending:null as CombatRecovery<ManualCombatRecord>['pending']});
   const [draft,setDraft]=useState(state.current.draft),[base,setBase]=useState(record);
@@ -30,26 +34,55 @@ export function ManualCombatEditor({record,scope,onSaved,onBlocked}:Props) {
   const [name,setName]=useState(''),[projection,setProjection]=useState<string|null>(null);
   const [groupName,setGroupName]=useState(''),[groupMembers,setGroupMembers]=useState<string[]>([]);
   const alive=useRef(false);
-  const dirty=!combatDraftEqual(base.draft,draft), blocked=!ready||recovery!==null;
+  const lifetime=useRef(0),workspace=useRef<HTMLElement>(null),sourcePanel=useRef<HTMLElement>(null);
+  const sourceTrigger=useRef<HTMLButtonElement|null>(null),rail=useRef<HTMLElement>(null);
+  const sourceRegionId=useId();
+  const dirty=!combatDraftEqual(base.draft,draft), blocked=!ready||recovery!==null||externallyDisabled;
   useEffect(()=>{
+    const epoch=++lifetime.current;
     alive.current=true;
-    void session.current.open(record,()=>alive.current,!scope).then(result=>{
-      if(!alive.current)return;
+    void session.current.open(record,()=>alive.current&&lifetime.current===epoch,!scope).then(result=>{
+      if(!alive.current||lifetime.current!==epoch)return;
       setRecovery(result.recovery);setReady(true);
       if(result.committedMatch)setMessage('The submitted Save is committed. Later edits remain available to recover.');
-    }).catch(caught=>{if(alive.current)setError(String(caught));});
-    return ()=>{alive.current=false;session.current.close();};
+    }).catch(caught=>{if(alive.current&&lifetime.current===epoch)setError(String(caught));});
+    return ()=>{alive.current=false;lifetime.current++;session.current.close();};
   },[]);
+  useLayoutEffect(()=>{
+    const panel=workspace.current,turnRail=rail.current;
+    if(!panel||!turnRail)return;
+    const measure=()=>panel.style.setProperty('--manual-turn-rail-height',`${turnRail.getBoundingClientRect().height}px`);
+    measure();const observer=typeof ResizeObserver==='undefined'?null:new ResizeObserver(measure);
+    observer?.observe(turnRail);return()=>observer?.disconnect();
+  },[]);
+  useLayoutEffect(()=>{
+    const panel=sourcePanel.current;
+    if(!projection||!panel)return;
+    panel.focus({preventScroll:true});panel.scrollIntoView?.({block:'start'});
+    // The deferred renderer grows after opening. Keep its focused heading below
+    // the rail without moving the viewport once the user resumes roster edits.
+    const observer=typeof ResizeObserver==='undefined'?null:new ResizeObserver(()=>{
+      if(panel.contains(document.activeElement))panel.scrollIntoView?.({block:'start'});
+    });
+    observer?.observe(panel);return()=>observer?.disconnect();
+  },[projection]);
+  function closeProjection() {
+    setProjection(null);
+    const trigger=sourceTrigger.current;
+    if(trigger?.isConnected&&!trigger.closest('[hidden]')&&!trigger.disabled)trigger.focus({preventScroll:true});
+    else workspace.current?.focus({preventScroll:true});
+  }
   useEffect(()=>{onBlocked(dirty||blocked||saving||state.current.pending!==null);},[dirty,blocked,saving,onBlocked]);
   function update(next:ManualCombatDraft) {
-    if(blocked||state.current.pending&&!saving)return;
+    if(blocked||state.current.pending&&!saving)return false;
     try {
       if(!validManualDraft(state.current.base,next))throw new Error('Enter valid values for the pinned profile before applying this change.');
+      if(combatDraftEqual(state.current.draft,next))return true;
       session.current.write(state.current.base,next,state.current.pending);
-      state.current.draft=next;setDraft(next);setError(null);
-    } catch(caught){setError(String(caught));}
+      state.current.draft=next;setDraft(next);setError(null);return true;
+    } catch(caught){setError(String(caught));return false;}
   }
-  function actorChange(actor:ManualCombatActor) {update({...state.current.draft,entities:state.current.draft.entities.map(item=>item.id===actor.id?actor:item)});}
+  function actorChange(actor:ManualCombatActor) {return update({...state.current.draft,entities:state.current.draft.entities.map(item=>item.id===actor.id?actor:item)});}
   async function save() {
     if(blocked||saving)return;
     const submitted=state.current.pending??{expected_revision:state.current.base.revision,draft:copy(state.current.draft)};
@@ -74,7 +107,7 @@ export function ManualCombatEditor({record,scope,onSaved,onBlocked}:Props) {
     setBase(recovery.base);setDraft(state.current.draft);setRecovery(null);setMessage('Recovered edits use their original base revision.');
   }
   async function reload() {
-    if(saving)return;
+    if(saving||externallyDisabled)return;
     setSaving(true);setError(null);
     try {
       const current=await getAnyWorldCombatEncounter(base.world_id,base.encounter_id,scope);
@@ -104,19 +137,20 @@ export function ManualCombatEditor({record,scope,onSaved,onBlocked}:Props) {
   const participating=draft.entities.filter(actor=>actor.participation==='in_action');
   const next=participating[(participating.findIndex(actor=>actor.id===active?.id)+1)%participating.length];
   const projected=draft.entities.find(actor=>actor.id===projection);
+  useEffect(()=>{if(projection&&!projected?.mechanics_snapshot)closeProjection();},[projection,projected?.mechanics_snapshot]);
   const disabled=blocked||!!state.current.pending&&!saving;
-  return <section className="manual-combat" aria-label="Manual combat encounter">
+  return <section ref={workspace} tabIndex={-1} className="manual-combat" aria-label="Manual combat encounter">
     <div className="combat-roster-save-rail">
-      <span>{base.ruleset.name} · {base.ruleset.system_id} · revision {base.revision}</span>
+      <span>{base.ruleset.name} · revision {base.revision}</span>
       <button disabled={blocked||saving||!dirty&&!state.current.pending} onClick={()=>void save()}>{saving?'Saving…':state.current.pending?'Retry Save':'Save'}</button>
       <button disabled={blocked||saving||!dirty||!!state.current.pending} onClick={revert}>Revert</button>
-      <button disabled={saving} onClick={()=>void reload()}>Reload committed encounter</button>
-      <span role="status">{dirty?'Unsaved changes':'Saved'}{message?` · ${message}`:''}</span>
+      <button disabled={saving||externallyDisabled} onClick={()=>void reload()}>Reload committed encounter</button>
+      <span role="status">{state.current.pending?(saving?'Saving exact request…':'Save outcome unconfirmed · exact request retained'):dirty?'Unsaved changes':'Saved'}{message?` · ${message}`:''}</span>
     </div>
     {error&&<p role="alert" className="module-error">{error}</p>}
     {recovery&&<aside aria-label="Retained Combat draft"><p>Local edits are available. Recover or discard them before editing.</p><button onClick={recover}>Recover local edits</button><button onClick={discard}>Discard retained draft</button></aside>}
-    <label>Encounter title<input value={draft.title} maxLength={160} disabled={disabled} onChange={event=>update({...draft,title:event.target.value})}/></label>
-    <section className="combat-roster-turn-rail" aria-label="Turn order">
+    <label>Encounter title<ManualCombatValueInput label="Encounter title" kind="name" value={draft.title} maxLength={160} disabled={disabled} onValue={value=>update({...draft,title:String(value)})}/></label>
+    <section ref={rail} className="combat-roster-turn-rail" aria-label="Turn order">
       {draft.turn.kind==='ordered_rounds'&&<strong>Round {draft.turn.round}</strong>}
       <span>Current: {active?.name??'Not started'}</span><span>Next: {next?.name??'No participants'}</span>
       <button disabled={disabled||!participating.length} onClick={()=>{try{update(advanceManualTurn(draft));}catch(caught){setError(String(caught));}}}>{active?'Next turn':'Start turns'}</button>
@@ -128,43 +162,49 @@ export function ManualCombatEditor({record,scope,onSaved,onBlocked}:Props) {
           <button disabled={disabled} onClick={()=>update({...draft,groups:draft.groups.filter(item=>item.id!==group.id)})}>Ungroup {group.label}</button>
         </div>)}
         {draft.entities.map(actor=><article key={actor.id} hidden={active?.id!==actor.id&&draft.groups.some(group=>group.collapsed&&group.member_ids.includes(actor.id))} className={`manual-combat-row ${active?.id===actor.id?'is-active':''}`} aria-label={actor.name}>
-          <header><label>Name<input aria-label={`Name for ${actor.name}`} value={actor.name} maxLength={160} disabled={disabled} onChange={event=>actorChange({...actor,name:event.target.value})}/></label>
+          <header><label>Name<ManualCombatValueInput label={`Name for ${actor.name}`} kind="name" value={actor.name} maxLength={160} disabled={disabled} onValue={value=>actorChange({...actor,name:String(value)})}/></label>
             <span>{actor.participation==='out_of_action'?'Out of action':active?.id===actor.id?'Current turn':'In action'}</span>
             <button disabled={disabled} onClick={()=>update(setManualParticipation(draft,actor.id,actor.participation==='in_action'?'out_of_action':'in_action'))}>{actor.participation==='in_action'?'Take out of action':'Return to action'}</button>
             <button aria-label={`Move ${actor.name} earlier`} disabled={disabled||participating[0]?.id===actor.id||actor.participation!=='in_action'} onClick={()=>move(actor.id,-1)}>Earlier</button>
             <button aria-label={`Move ${actor.name} later`} disabled={disabled||participating.at(-1)?.id===actor.id||actor.participation!=='in_action'} onClick={()=>move(actor.id,1)}>Later</button>
-            {actor.mechanics_snapshot&&<button aria-pressed={projection===actor.id} onClick={()=>setProjection(actor.id)}>Project source for {actor.name}</button>}
+            {actor.mechanics_snapshot&&<button aria-pressed={projection===actor.id} aria-controls={sourceRegionId} onClick={event=>{sourceTrigger.current=event.currentTarget;setProjection(actor.id);}}>Project source for {actor.name}</button>}
           </header>
           <div className="manual-combat-values">
             {base.ruleset.stats.map(field=><label key={field.field_id}>{field.label}
-              <input aria-label={`${field.label} for ${actor.name}`} type={field.value_type==='integer'?'number':'text'} min={field.value_type==='integer'?-999999:undefined} max={field.value_type==='integer'?999999:undefined} maxLength={256}
-                value={actor.values.stats[field.field_id]??''} disabled={disabled} onChange={event=>actorChange({...actor,values:{...actor.values,stats:{...actor.values.stats,[field.field_id]:event.target.value===''?null:field.value_type==='integer'?Number(event.target.value):event.target.value}}})}/>
+              <ManualCombatValueInput label={`${field.label} for ${actor.name}`} kind={field.value_type} value={actor.values.stats[field.field_id]} disabled={disabled}
+                onValue={value=>actorChange({...actor,values:{...actor.values,stats:{...actor.values.stats,[field.field_id]:value}}})}/>
             </label>)}
             {base.ruleset.resources.map(field=><fieldset key={field.field_id}><legend>{field.label}</legend>
-              {(['current','minimum','maximum'] as const).map(key=><label key={key}>{key}<input aria-label={`${field.label} ${key} for ${actor.name}`} type="number" min={-999999} max={999999} disabled={disabled}
-                value={actor.values.resources[field.field_id][key]??''} onChange={event=>actorChange({...actor,values:{...actor.values,resources:{...actor.values.resources,[field.field_id]:{...actor.values.resources[field.field_id],[key]:event.target.value===''?null:Number(event.target.value)}}}})}/></label>)}
+              <label>Current<ManualCombatValueInput label={`${field.label} current for ${actor.name}`} kind="integer" disabled={disabled}
+                value={actor.values.resources[field.field_id].current} onValue={value=>actorChange({...actor,values:{...actor.values,resources:{...actor.values.resources,[field.field_id]:{...actor.values.resources[field.field_id],current:value as number|null}}}})}/></label>
+              <details><summary>Bounds</summary>{(['minimum','maximum'] as const).map(key=><label key={key}>{key}<ManualCombatValueInput label={`${field.label} ${key} for ${actor.name}`} kind="integer" disabled={disabled}
+                value={actor.values.resources[field.field_id][key]} onValue={value=>actorChange({...actor,values:{...actor.values,resources:{...actor.values.resources,[field.field_id]:{...actor.values.resources[field.field_id],[key]:value as number|null}}}})}/></label>)}
+              </details>
               {([-1,1] as const).map(direction=><button key={direction} disabled={disabled||actor.values.resources[field.field_id].current===null} aria-label={`${direction===1?'Increase':'Decrease'} ${field.label} for ${actor.name}`} onClick={()=>{try{actorChange({...actor,values:{...actor.values,resources:{...actor.values.resources,[field.field_id]:adjustManualResource(actor.values.resources[field.field_id],direction,1)}}});}catch(caught){setError(String(caught));}}}>{direction===1?'+1':'−1'}</button>)}
             </fieldset>)}
           </div>
           <StatusField actor={actor} disabled={disabled} onChange={statuses=>actorChange({...actor,statuses})}/>
-          <label>Notes<textarea aria-label={`Notes for ${actor.name}`} value={actor.notes} maxLength={4096} disabled={disabled} onChange={event=>actorChange({...actor,notes:event.target.value})}/></label>
+          <details><summary>Notes and participant options{actor.notes?' · notes retained':''}</summary>
+            <label>Notes<textarea aria-label={`Notes for ${actor.name}`} value={actor.notes} maxLength={4096} disabled={disabled} onChange={event=>actorChange({...actor,notes:event.target.value})}/></label>
+            <button disabled={disabled} onClick={()=>{update(removeManualActor(draft,actor.id));setGroupMembers(ids=>ids.filter(id=>id!==actor.id));}}>Remove {actor.name} from encounter draft</button>
+          </details>
           {actor.world_identity&&<p>Graph: {actor.world_identity.label}</p>}
         </article>)}
         {!draft.entities.length&&<p>Add participants to begin. Values come from this encounter’s profile.</p>}
-        <form onSubmit={event=>{event.preventDefault();if(!name.trim())return;update({...draft,entities:[...draft.entities,newManualActor(base.ruleset,name.trim())]});setName('');}}>
+        <form onSubmit={event=>{event.preventDefault();if(!name.trim())return;if(update({...draft,entities:[...draft.entities,newManualActor(base.ruleset,name.trim())]}))setName('');}}>
           <label>Participant name<input value={name} maxLength={160} disabled={disabled} onChange={event=>setName(event.target.value)}/></label><button disabled={disabled||!name.trim()||draft.entities.length>=100}>Add participant</button>
         </form>
         <details><summary>Group participants</summary><label>Group name<input value={groupName} maxLength={160} disabled={disabled} onChange={event=>setGroupName(event.target.value)}/></label>
           {draft.entities.filter(actor=>!draft.groups.some(group=>group.member_ids.includes(actor.id))).map(actor=><label key={actor.id}><input type="checkbox" disabled={disabled} checked={groupMembers.includes(actor.id)} onChange={event=>setGroupMembers(items=>event.target.checked?[...items,actor.id]:items.filter(id=>id!==actor.id))}/>{actor.name}</label>)}
-          <button disabled={disabled||!groupName.trim()||!groupMembers.length} onClick={()=>{update({...draft,groups:[...draft.groups,{id:crypto.randomUUID(),label:groupName.trim(),member_ids:groupMembers,collapsed:false}]});setGroupName('');setGroupMembers([]);}}>Create group</button>
+          <button disabled={disabled||!groupName.trim()||!groupMembers.length} onClick={()=>{if(update({...draft,groups:[...draft.groups,{id:crypto.randomUUID(),label:groupName.trim(),member_ids:groupMembers,collapsed:false}]})){setGroupName('');setGroupMembers([]);}}}>Create group</button>
         </details>
         <ManualCombatSourcePicker worldId={base.world_id} disabled={disabled||draft.entities.length>=100} onAdd={(identity,source)=>{
           const actor=newManualActor(base.ruleset,identity.label);actor.world_identity=identity;actor.mechanics_snapshot=source;
-          update({...draft,entities:[...draft.entities,actor]});
+          return update({...draft,entities:[...draft.entities,actor]});
         }}/>
       </div>
-      {projected?.mechanics_snapshot&&<aside className="manual-combat-source" aria-label={`Exact source for ${projected.name}`}>
-        <header><strong>{projected.name} · exact source</strong><button onClick={()=>setProjection(null)}>Close source</button></header>
+      {projected?.mechanics_snapshot&&<aside ref={sourcePanel} tabIndex={-1} id={sourceRegionId} className="manual-combat-source" aria-label={`Exact source for ${projected.name}`}>
+        <header><strong>{projected.name} · exact source</strong><button onClick={closeProjection}>Close source</button></header>
         <p>Authored tracker values are independent of this saved source.</p>
         <CombatSavedStatblock revision={projected.mechanics_snapshot.resource} chrome="campaign"/>
       </aside>}

@@ -184,3 +184,42 @@ def test_serial_0160_0161_0162_rehearsal_preserves_legacy_row(application_state_
     assert _alembic_head()=='20261118_0162'
     assert stored()==before
     assert get_encounter(world_id=legacy.world_id,encounter_id=legacy.encounter_id)==legacy
+
+
+def test_manual_http_versions_cas_and_principal_boundary(scene_case,monkeypatch):
+    from tests.test_run_scene_encounters import client_for
+    from apps.live_control_server.services import agent_graph_auth
+    p=scene_case;client,_=client_for(p,monkeypatch)
+    root='/api/live/combat/encounters'
+    result=client.post(root+'?world_id=elderwyld',json=CreateManualEncounterRequest(title='Crossing',profile=profile()).model_dump(mode='json',by_alias=True))
+    assert result.status_code==200,result.text
+    record=result.json();path=f"{root}/{record['encounter_id']}?world_id=elderwyld"
+    assert record['ruleset']['schema']=='dmb_combat_profile_v2'
+    assert client.get(path).json()==record
+    assert client.get(root+'?world_id=elderwyld').json()==[record]
+    draft=deepcopy(record['draft']);draft['entities']=[ManualParticipant(id='crew',name='Crew',values=initial_actor_values(profile())).model_dump(mode='json',by_alias=True)]
+    changed=client.put(path,json=dict(expected_revision=1,draft=draft))
+    assert changed.status_code==200,changed.text
+    assert changed.json()['revision']==2
+    assert client.put(path,json=dict(expected_revision=1,draft=draft)).status_code==409
+    draft['entities'][0]['values']['stats']['position']=12
+    assert client.put(path,json=dict(expected_revision=2,draft=draft)).status_code==422
+    assert client.get(path).json()==changed.json()
+    assert client.get(path.replace('elderwyld','foreign-world')).status_code==404
+    monkeypatch.setattr(agent_graph_auth,'authenticate_native_graph_principal',lambda _request:agent_graph_auth.NativeGraphPrincipal('player','player','local_session'))
+    assert client.get(path).status_code==403
+    assert client.put(path,json=dict(expected_revision=2,draft=changed.json()['draft'])).status_code==403
+
+
+def test_manual_source_admission_and_ordinary_save_cannot_replace_source(application_state_dsn):
+    from tests.test_combat_manual_encounters import source
+    record=create();draft=deepcopy(record.draft);snapshot=source('accepted')
+    actor=ManualParticipant(id='crew',name='Crew',values=initial_actor_values(profile()),mechanics_snapshot=snapshot)
+    draft.entities=[actor]
+    with pytest.raises(ApplicationStateValidationError,match='independently verified'):
+        save_encounter(world_id=record.world_id,encounter_id=record.encounter_id,request=SaveManualEncounterRequest(expected_revision=1,draft=draft))
+    saved=save_encounter(world_id=record.world_id,encounter_id=record.encounter_id,request=SaveManualEncounterRequest(expected_revision=1,draft=draft),verified_mechanics_snapshots={'crew':snapshot})
+    replacement=deepcopy(saved.draft);replacement.entities[0].mechanics_snapshot=None
+    with pytest.raises(ApplicationStateValidationError,match='snapshot cannot be changed'):
+        save_encounter(world_id=record.world_id,encounter_id=record.encounter_id,request=SaveManualEncounterRequest(expected_revision=2,draft=replacement))
+    assert get_encounter(world_id=record.world_id,encounter_id=record.encounter_id)==saved

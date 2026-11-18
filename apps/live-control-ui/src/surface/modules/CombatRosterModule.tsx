@@ -655,7 +655,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
                 ))}
               </select>
             </label>
-            <button type="button" disabled={operationsBlocked || !visibleEncounters.some((item) => item.encounter_id === selectedEncounterId) || dirty} onClick={() => void openEncounter()}>
+            <button type="button" disabled={operationsBlocked || manualRecord?.encounter_id===selectedEncounterId || !visibleEncounters.some((item) => item.encounter_id === selectedEncounterId) || dirty} onClick={() => void openEncounter()}>
               Open
             </button>
             <label>
@@ -685,7 +685,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
               await adoptRecord(created,worldId,created.encounter_id,generation);
             } finally {if(generation===worldRequestGeneration.current)setBusy(null);}
           }}/>}
-          {manualRecord?.world_id===worldId&&<ManualCombatEditor key={JSON.stringify([manualRecord.world_id,manualRecord.encounter_id,scope?.runScope])} record={manualRecord} scope={scope?.runScope} onBlocked={setManualBlocked} onSaved={saved=>{setManualRecord(saved);setEncounters(items=>items.map(item=>item.encounter_id===saved.encounter_id?saved:item));}}/>}
+          {manualRecord?.world_id===worldId&&<ManualCombatEditor key={JSON.stringify([manualRecord.world_id,manualRecord.encounter_id,scope?.runScope])} record={manualRecord} externallyDisabled={busy==='open'||busy==='create'||busy==='reload'} scope={scope?.runScope} onBlocked={setManualBlocked} onSaved={saved=>{setManualRecord(saved);setEncounters(items=>items.map(item=>item.encounter_id===saved.encounter_id?saved:item));}}/>}
           {availableRecovery && <section aria-label="Combat draft recovery">
             <p>Local Combat draft available from revision {availableRecovery.base.revision}. Current committed revision: {visibleRecord?.revision}. Recover explicitly; newer server state is never overwritten automatically.</p>
             <button type="button" disabled={busy !== null} onClick={recoverDraft}>Recover local Combat draft</button>
@@ -696,7 +696,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
           {!worldListLoading && visibleEncounters.length === 0 && !visibleRecord ? (
             <p className="module-muted">No encounters yet. Create a named encounter to begin; it won’t replace another fight.</p>
           ) : null}
-          {!visibleRecord ? (
+          {!visibleRecord && !manualRecord ? (
             <p className="module-muted">Choose an encounter and open it, or create a new one.</p>
           ) : null}
           {visibleRecord && visibleDraft ? (

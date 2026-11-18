@@ -135,3 +135,38 @@ cumulative exact-head review and required exact-SHA backend and hosted/discovere
 frontend evidence with base comparison. The migration sequence rehearsal must be
 green and retained. Side/spotlight remains a later required slice. This checkpoint
 does not authorize merge, deployment of in-flight code or completion claims.
+
+### PR4008 refinement checkpoint
+
+Draft PR: https://github.com/Drakosfire/DungeonMindBuddy/pull/4008. Preliminary
+client review found no-blur status loss, an incorrect Saved label for an unknown
+pending Save, replacement-in-flight edits, missing complete draft byte checks and
+input clearing after refused additions. These have code fixes and focused
+regressions; 58 frontend checks and typecheck pass. Thirteen manual PostgreSQL/HTTP
+checks pass, including authenticated version/CAS/World rejection and source
+admission/replacement fences. These remain working diagnostics, not qualification.
+
+Browser diagnostic uses actual Combat/scene/run routes and APP PostgreSQL with
+synthetic governed Graph/DMS providers, isolated World metadata and a focused route
+composition that does not run product main lifespan or background model workers.
+It proved non-D&D create/edit/participation/Save, no-blur status recovery, exact
+source preview/projection, and independently persisted source/values at revision4.
+Four synthetic actors are retained. Wide/narrow inspection found and fixed unused
+standalone width and deferred-renderer scroll growth; final crowded density and
+all-host journey still required. Evidence is external `manual-browser/` with
+read-only persisted snapshots, source hashes, logs and explicit fixture limits.
+Screenshots are `combat-manual-profile-source-{wide,narrow}.jpg` in this chat's
+visualizations directory; they are diagnostic witnesses before final acceptance.
+
+Active owned rehearsal services: API8018 (exec session49936), UI5219
+(session81881), container `buddy-combat-manual-fc67` port33073. API lifetime owns
+its unique template/clone and cleans them on graceful shutdown. Context and exact
+owned database name live in external `manual-browser/context.json`. Keep or shut
+down these owned services deliberately; do not restart shared8001/5202/5218.
+Earlier terminated setup failures and successful cleanup remain in separate logs.
+The final refinement diagnostic adds nine passing editor cases for staged input,
+unset focus, removal/round/group cleanup, no-blur status retention, pending labels,
+late acknowledgements, exact retries and refused-write input preservation. New
+test inventory is1561 files and classified; final refinement typecheck passes.
+The refined screenshot is `combat-manual-profile-refined.jpg`. These are still
+incremental working diagnostics; no exact-head approval or full browser acceptance.

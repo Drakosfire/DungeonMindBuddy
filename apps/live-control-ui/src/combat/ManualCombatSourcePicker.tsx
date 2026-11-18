@@ -6,7 +6,7 @@ import type {CombatWorldIdentity,CombatMechanicsSnapshot} from './combatTypes';
 import {CombatMechanicsInspection} from './CombatMechanicsInspection';
 
 /** Governed identity/source selection never hydrates named tracker values. */
-export function ManualCombatSourcePicker({worldId,disabled,onAdd}:{worldId:string;disabled:boolean;onAdd:(identity:CombatWorldIdentity,source:CombatMechanicsSnapshot|null)=>void}) {
+export function ManualCombatSourcePicker({worldId,disabled,onAdd}:{worldId:string;disabled:boolean;onAdd:(identity:CombatWorldIdentity,source:CombatMechanicsSnapshot|null)=>boolean}) {
   const [catalog,setCatalog]=useState<WorldCreatureCatalog|null>(null),[associations,setAssociations]=useState<WorldMechanicsAssociation[]>([]);
   const [selected,setSelected]=useState<CombatWorldIdentity|null>(null),[snapshot,setSnapshot]=useState<CombatMechanicsSnapshot|null>(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),[query,setQuery]=useState('');
@@ -46,7 +46,7 @@ export function ManualCombatSourcePicker({worldId,disabled,onAdd}:{worldId:strin
       {selected&&<><button disabled={disabled||busy||!association} onClick={()=>void preview()}>Preview exact source</button>
         {!association&&<p>No exact mechanics association is available for this creature.</p>}
         {snapshot&&<CombatMechanicsInspection snapshot={snapshot}/>}
-        <button disabled={disabled||busy} onClick={()=>{onAdd(selected,snapshot);setSelected(null);setSnapshot(null);}}>Add {selected.label}{snapshot?' with exact source':' as identity only'}</button>
+        <button disabled={disabled||busy} onClick={()=>{if(onAdd(selected,snapshot)){setSelected(null);setSnapshot(null);}}}>Add {selected.label}{snapshot?' with exact source':' as identity only'}</button>
       </>}
     </>}
   </details>;

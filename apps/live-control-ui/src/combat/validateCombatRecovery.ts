@@ -56,6 +56,7 @@ function valid(value: unknown, schema: Schema): boolean {
 }
 export function validManualDraft(record:ManualCombatRecord, draft:ManualCombatDraft):boolean {
   if (!valid(draft, {$ref:'#/$defs/ManualEncounterDraft'})) return false;
+  if(new TextEncoder().encode(JSON.stringify(draft)).byteLength>700*1024)return false;
   const unique = (ids:string[]) => new Set(ids).size === ids.length;
   const ids=draft.entities.map(actor=>actor.id), sides=draft.sides.map(side=>side.id);
   if (!unique(ids)||!unique(sides)||!unique(draft.groups.map(group=>group.id))) return false;

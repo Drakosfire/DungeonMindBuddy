@@ -39,3 +39,14 @@ export function setManualParticipation(draft:ManualCombatDraft,id:string,partici
   const successor=entities.slice(index+1).concat(entities.slice(0,index)).find(actor=>actor.participation==='in_action');
   return {...draft,entities,turn:{...draft.turn,active_actor_id:successor?.id??null}};
 }
+
+export function removeManualActor(draft:ManualCombatDraft,id:string):ManualCombatDraft {
+  const participating=setManualParticipation(draft,id,'out_of_action');
+  const index=draft.entities.findIndex(actor=>actor.id===id);
+  const entities=participating.entities.filter(actor=>actor.id!==id);
+  const turn={...participating.turn};
+  if(turn.kind==='ordered_rounds'&&turn.round_start_actor_id===id) {
+    turn.round_start_actor_id=entities[index%entities.length]?.id??null;
+  }
+  return {...participating,entities,turn,groups:draft.groups.map(group=>({...group,member_ids:group.member_ids.filter(member=>member!==id)})).filter(group=>group.member_ids.length>0)};
+}
