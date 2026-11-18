@@ -306,6 +306,9 @@ def hosted(monkeypatch, request):
 
     app.include_router(native_source_inspection.router)
     app.add_api_route("/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence", get_saved_plan_action_graph_evidence, methods=["GET"])
+    from apps.live_control_server.routes import graph_authoring
+
+    app.include_router(graph_authoring.router)
     app.include_router(live.router)
     app.include_router(graph_preview.router)
     from apps.live_control_server.routes import pdf_adventure_events
@@ -341,7 +344,9 @@ def hosted(monkeypatch, request):
                or key[1] == "/api/live/native-source-inspection/published-recap/objects"
                or key[1] == "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"
                or key[1] == "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence"
-               or key[1] == "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence"},
+               or key[1] == "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence"
+               or key[1] == "/api/live/graph-authoring/object-kinds"
+               or key[1].startswith("/api/live/graph-authoring/document-relationship/")},
             **{
                 (
                     "POST",
@@ -4288,3 +4293,41 @@ def test_hosted_authoring_identities_require_owned_world(hosted):
     assert response.headers["cache-control"] == "no-store"
     assert response.json()["scope"]["managed_world_id"] == "managed"
     assert isinstance(response.json()["identities"], list)
+
+
+def test_hosted_relationship_request_uses_owned_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import graph_authoring
+
+    calls = []
+    def build(root, request, principal):
+        calls.append((request.world_id, principal.subject))
+        return SimpleNamespace(model_dump=lambda **kwargs: {"worldId": request.world_id})
+
+    monkeypatch.setattr(graph_authoring, "relationship_request", build)
+    endpoint = {"node_id": None, "label": "Edge", "kind": "location"}
+    body = {
+        "world_id": "managed", "document_source": {"documentId": str(uuid4()), "revision": 1,
+                                                     "contentSha256": "a" * 64},
+        "source": endpoint, "target": {**endpoint, "label": "Mireward"},
+        "quote": "Edge is near Mireward.", "predicate": "located_in", "label": "Location", "context": "Recap",
+    }
+    path = "/api/live/graph-authoring/document-relationship/request"
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert not calls
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert calls == [("managed", f"hosted_dms:{OWNER}")]
+
+    def transfer_after_relationship_read(*args):
+        result = build(*args)
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return result
+
+    monkeypatch.setattr(graph_authoring, "relationship_request", transfer_after_relationship_read)
+    denied = hosted.client.request("POST", path, json=body)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert "worldId" not in denied.text

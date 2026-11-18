@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, ConfigDict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.services.graph_document_relationship import (
@@ -18,7 +18,7 @@ from apps.live_control_server.services.graph_document_relationship import (
 from apps.live_control_server.config import repo_root
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.services.native_graph_inspection import InspectionUnavailable
-from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
 from apps.live_control_server.services.workspace_document_registry import WorkspaceDocumentRegistryError
 from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
@@ -48,17 +48,30 @@ _STORE_RETIRED = {
 
 
 @router.get("/object-kinds")
-def get_graph_object_authoring_kinds() -> dict[str, Any]:
+def get_graph_object_authoring_kinds(request: Request = None, world_id: str | None = None) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     return {"objectKinds": graph_review_supported_object_kinds()}
+
+
+def _relationship_principal(request: Request, world_id: str):
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    return conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
 
 
 @router.post("/document-relationship/request")
 def post_document_relationship_request(
     request: DocumentRelationshipRequest,
-    principal=Depends(native_graph_gm_dependency),
+    request_context: Request,
 ) -> dict[str, Any]:
+    principal = _relationship_principal(request_context, request.world_id)
     try:
-        return relationship_request(repo_root(), request, principal).model_dump(mode="json", by_alias=True)
+        result = relationship_request(repo_root(), request, principal).model_dump(mode="json", by_alias=True)
+        if principal.auth_method == "hosted_owner":
+            _relationship_principal(request_context, request.world_id)
+        return result
     except (InspectionUnavailable, DungeonMindError) as exc:
         raise HTTPException(
             status_code=409,
@@ -84,14 +97,17 @@ class NativeRelationshipConfirmRequest(BaseModel):
 
 @router.post("/document-relationship/native-prepare")
 def post_native_relationship_prepare(
-    body: NativeRelationshipPrepareRequest,
-    principal=Depends(native_graph_gm_dependency),
+    body: NativeRelationshipPrepareRequest, request: Request,
 ):
+    principal = _relationship_principal(request, body.review.world_id)
     try:
-        return prepare_reviewed_native_relationship(
+        result = prepare_reviewed_native_relationship(
             repo_root(), body.review, principal,
             operation_id=f"dmb-build-relationship:v1:{body.operation_id}",
         )
+        if principal.auth_method == "hosted_owner":
+            _relationship_principal(request, body.review.world_id)
+        return result
     except (GraphObjectAuthoringError, DungeonMindError, ValueError) as exc:
         raise HTTPException(
             status_code=getattr(exc, "status_code", 409),
@@ -101,13 +117,21 @@ def post_native_relationship_prepare(
 
 @router.post("/document-relationship/native-confirm")
 def post_native_relationship_confirm(
-    body: NativeRelationshipConfirmRequest,
-    principal=Depends(native_graph_gm_dependency),
+    body: NativeRelationshipConfirmRequest, request: Request,
 ):
+    principal = _relationship_principal(request, body.review.world_id)
     try:
+        from functools import partial
+
+        authorize_world = None
+        if principal.auth_method == "hosted_owner":
+            authorize_world = partial(_relationship_principal, request, body.review.world_id)
         result = confirm_native_relationship(
             repo_root(), body.review, body.prepared, body.confirm_token, principal,
+            authorize_world=authorize_world,
         )
+        if authorize_world is not None:
+            authorize_world()
         return jsonable_encoder(result)
     except (GraphObjectAuthoringError, DungeonMindError, ValueError) as exc:
         raise HTTPException(
