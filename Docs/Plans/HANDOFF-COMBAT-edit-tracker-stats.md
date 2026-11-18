@@ -95,3 +95,12 @@ pass, full TypeScript checks pass, and all1,555 test files classify successfully
 Coverage includes unchanged source mechanics/sibling/current HP, descriptive and
 unset saves, Revert and explicit local recovery. Exact-head checks, independent
 review and browser acceptance for this slice remain pending.
+
+Bugbot HOLD on `86ba537c5` found that a descriptive fractional maximum such as
+`"10.5"` could be parsed into invalid fractional HP during healing. The repair
+keeps those values opaque to integer healing arithmetic and explains that manual
+text maxima do not provide a numeric healing cap. A mounted HP10/max`"10.5"`/Heal1
+regression retains the text and saves integer HP11. Earlier source evidence is
+retained. Repaired working-candidate diagnostics pass all 54 focused tests and
+the full TypeScript check; repaired exact-head verification and review remain
+required.

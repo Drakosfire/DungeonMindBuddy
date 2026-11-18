@@ -89,7 +89,8 @@ function RosterRow({
 
   function applyDelta(action: "damage" | "heal", amount: number) {
     const hp = numericValue(entity.hp);
-    const maxHp = numericValue(entity.max_hp);
+    const maximum = numericValue(entity.max_hp);
+    const maxHp = maximum !== null && Number.isSafeInteger(maximum) ? maximum : null;
     if (hp === null) {
       setError("Enter numeric HP before applying damage or healing.");
       return;
@@ -158,6 +159,7 @@ function RosterRow({
             update({ hp: parsed === null && event.target.value.trim() !== "" ? event.target.value : parsed });
           }}
         />{" "}/ <input aria-label={`Maximum HP for ${entity.name}`} className="combat-roster-short-input"
+          title="Whole numbers cap healing. Text values are tracked manually."
           value={asInput(entity.max_hp)} maxLength={64} disabled={disabled}
           onChange={event => update({max_hp: manualStatValue(event.target.value)})}/>
         <label className="combat-roster-temp"><span>Temp</span>

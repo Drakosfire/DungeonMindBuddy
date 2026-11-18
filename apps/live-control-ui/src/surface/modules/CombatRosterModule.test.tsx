@@ -153,6 +153,24 @@ describe("CombatRosterModule", () => {
     expect(screen.getByLabelText('Maximum HP for Geomantic Drake')).toHaveValue('30');
   });
 
+  it('keeps a descriptive fractional maximum out of integer healing arithmetic',async()=>{
+    const initial=record({draft:{...record().draft,entities:[{...entity,hp:10}]}});
+    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_world,_id,revision,draft)=>({...initial,revision:revision+1,draft}));
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    fireEvent.change(await screen.findByLabelText('Maximum HP for Geomantic Drake'),{target:{value:'10.5'}});
+    await userEvent.click(within(screen.getByRole('row',{name:/Geomantic Drake/})).getByRole('button',{name:'Heal',exact:true}));
+    expect(screen.getByLabelText('HP for Geomantic Drake')).toHaveValue('11');
+    expect(screen.getByLabelText('Maximum HP for Geomantic Drake')).toHaveValue('10.5');
+    expect(screen.queryByRole('alert')).toBeNull();
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+    await screen.findByText('Saved · rev 2');
+    expect(save.mock.calls[0][3].entities[0]).toMatchObject({hp:11,max_hp:'10.5'});
+  });
+
   it('preserves descriptive defenses and maxima, and saves blank fields as unset rather than zero',async()=>{
     const initial=record();
     vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
