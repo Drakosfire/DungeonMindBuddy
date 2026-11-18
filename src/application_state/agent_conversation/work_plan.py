@@ -289,7 +289,7 @@ def read(world, conversation, source):
         }
 
 
-def save(world, conversation, source, review: Review):
+def save(world, conversation, source, review: Review, *, authorize_world=None):
     with unit_of_work(_ready_dsn()) as conn:
         turn = _source(conn, world, conversation, source, writing=True)
         old = _load(conn, world, conversation, source, lock=True)
@@ -298,12 +298,16 @@ def save(world, conversation, source, review: Review):
             raise ApplicationStateConflictError('The retained plan has a different source or page')
         if not isinstance(review, ReviewV2):
             if (type(old) is Plan and old.steps == review.steps and old.revision == review.expected_revision):
+                if authorize_world is not None:
+                    authorize_world()
                 return _projection(conn, old)
             raise ApplicationStateConflictError('Add an expected outcome and Save the objective-aware review; legacy writes cannot create or change a plan')
         if isinstance(old, PlanV3) and not isinstance(review, ReviewV3):
             raise ApplicationStateConflictError("Retain this plan’s Graph references with the reference-aware review")
         if (isinstance(old, PlanV2) and old.steps == review.steps and old.objective == review.objective
             and getattr(old, "root_references", ()) == getattr(review, "root_references", ())):
+            if authorize_world is not None:
+                authorize_world()
             return _projection(conn, old)
         if (old.revision if old else 0) != review.expected_revision:
             raise ApplicationStateConflictError(
@@ -331,6 +335,8 @@ def save(world, conversation, source, review: Review):
             steps=review.steps,
             dispatches=old.dispatches if old else [],
         )
+        if authorize_world is not None:
+            authorize_world()
         if old:
             conn.execute(
                 "UPDATE agent.work_plan SET payload=%s,revision=%s WHERE world_id=%s AND conversation_id=%s AND source_turn_id=%s",
@@ -356,7 +362,7 @@ def save(world, conversation, source, review: Review):
         return _projection(conn, p)
 
 
-def continue_step(world, conversation, source, command: Continue):
+def continue_step(world, conversation, source, command: Continue, *, authorize_world=None):
     with unit_of_work(_ready_dsn()) as conn:
         _source(conn, world, conversation, source, writing=True)
         p = _load(conn, world, conversation, source, lock=True)
@@ -368,6 +374,8 @@ def continue_step(world, conversation, source, command: Continue):
             (d for d in p.dispatches if d.command_id == command.command_id), None
         )
         if prior:
+            if authorize_world is not None:
+                authorize_world()
             if prior.step_id != command.step_id:
                 raise ApplicationStateConflictError(
                     "This continuation command belongs to a different step"
@@ -484,6 +492,8 @@ def continue_step(world, conversation, source, command: Continue):
                 "dispatches": [x.model_dump(by_alias=True) for x in p.dispatches] + [d.model_dump(by_alias=True)],
             }
         )
+        if authorize_world is not None:
+            authorize_world()
         conn.execute(
             "UPDATE agent.work_plan SET payload=%s,revision=%s WHERE world_id=%s AND conversation_id=%s AND source_turn_id=%s",
             (

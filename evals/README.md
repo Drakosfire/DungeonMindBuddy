@@ -9,6 +9,7 @@ Start with the suite that owns the question you are testing.
 | Did an extraction or graph change preserve the expected evidence? | [Graph memory fixtures and baselines](graph_memory_layer/README.md) |
 | Did session-event extraction preserve chronology? | [Session-event extraction suite](session_events_extraction_vertical_slice/README.md) |
 | How does the canon layering baseline score? | [Canon layering runner](canon_layering/run_benchmarks.py) |
+| What ingestion baseline was accepted, and what retrieval experiments came before? | [Accepted ingestion baseline and retrieval history](../Docs/Reports/REPORT-ingestion-baseline-and-retrieval-history-2026-11-07.md) |
 
 Run local Buddy evaluations through the Projects storage check. Use a task slug
 you own and reuse it only for runs with compatible dependencies.
@@ -113,8 +114,12 @@ admissions, and at most eight source ranges per question in each arm.
 All retained references reopened exactly. The Event score credits source text
 behind Graph assertions, so it is an upper bound on writer-visible coverage.
 These timings describe this cohort and pin. Setup and inventory scans are
-excluded. The exact packets, traces, and readbacks are retained with the lab
-run under `forest-core-pin.QlxKcm` on the Projects drive.
+excluded. At the time of this record the exact packets, traces, and readbacks
+were retained locally under `Projects/.codex/forest-core-pin.QlxKcm`. This is
+an operator-local lab directory, not a repository-tracked evidence bundle; it
+may not be available to another reader. Access to the original authorized
+inputs and retained artifacts is required to independently reproduce the
+comparison. Do not copy private campaign material into the repository.
 
 Keep ordinary Jev as the default. Search matched the recap containing Jev's
 missing eastward-turn witness, but the controller offer menu omitted it.

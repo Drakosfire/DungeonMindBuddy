@@ -27,6 +27,27 @@ async function requestDraftResource(scope: ConversationDraftScope, init?: Reques
   return body;
 }
 
+
+export async function openConversationVariantApproval(scope: ConversationDraftScope) {
+  const world = encodeURIComponent(scope.worldId);
+  const conversation = encodeURIComponent(scope.conversationId);
+  const turn = encodeURIComponent(scope.turnId);
+  const path = `/api/live/agent/worlds/${world}/conversations/${conversation}/turns/${turn}/variant-approval`;
+  const { response } = await authenticatedApiFetch(path, { cache: "no-store" });
+  if (!response.ok) throw new LiveApiError("Could not find the reviewed variant.", response.status);
+  const body = await response.json();
+  if (body?.status !== "ready") {
+    throw new Error(body?.status === "ambiguous"
+      ? "More than one reviewed variant is available. Open the intended draft to choose it."
+      : "No current review is available. Reopen the intended draft before saving.");
+  }
+  if (typeof body.turn_id !== "string" || typeof body.review_id !== "string"
+    || !Number.isSafeInteger(body.revision) || body.revision < 1) {
+    throw new Error("Invalid reviewed variant.");
+  }
+  return { scope: { ...scope, turnId: body.turn_id }, reviewId: body.review_id, revision: body.revision };
+}
+
 async function requestDraft(scope: ConversationDraftScope, init?: RequestInit): Promise<ConversationDraft> {
   const body = await requestDraftResource(scope, init);
   if (!Number.isSafeInteger(body?.revision) || body.revision < 1 || typeof body.markdown !== "string") {
@@ -55,6 +76,29 @@ export interface ConversationVariantReview {
 
 export async function openVariantReview(scope: ConversationDraftScope, reviewId: string): Promise<ConversationVariantReview> {
   return requestDraftResource(scope, undefined, `/variant-reviews/${encodeURIComponent(reviewId)}`);
+}
+
+export type VariantRuleField = "rules_text" | "timing_text" | "condition_text";
+
+export interface VariantTextReplacement {
+  rule_key: string;
+  field: VariantRuleField;
+  replace_exact: string;
+  with_text: string;
+}
+
+export async function correctVariantReview(
+  scope: ConversationDraftScope, reviewId: string, revision: number, replacements: VariantTextReplacement[],
+): Promise<{ review_id: string; revision: number }> {
+  const body = await requestDraftResource(scope, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ expected_revision: revision, replacements }),
+  }, `/variant-reviews/${encodeURIComponent(reviewId)}`);
+  if (typeof body?.review_id !== "string" || body.revision !== revision + 1) {
+    throw new Error("The corrected review could not be verified. Reopen the draft.");
+  }
+  return body;
 }
 
 export async function confirmVariantReview(scope: ConversationDraftScope, reviewId: string): Promise<{ revision_id: string }> {
