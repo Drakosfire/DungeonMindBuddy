@@ -636,6 +636,31 @@ it("reads a hosted conversation name without enabling name writes", async () => 
   expect(fetch).toHaveBeenCalledOnce();
 });
 
+it("uses the hosted session for retained PDF evidence in Build", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const root = "/api/live/agent/worlds/elderwyld/build-pdf-sources";
+  const locator = { method: "POST", body: JSON.stringify({ source_revision_id: "retained-revision" }) };
+  for (const [path, request] of [
+    [root + "?after=", undefined],
+    [root + "?after=cursor", undefined],
+    [root + "/open", locator],
+    [root + "/region:validate", locator],
+  ] as const) {
+    await api.authenticatedApiFetch(path, request);
+    const [url, init] = fetch.mock.calls.at(-1)!;
+    expect(url).toBe(path);
+    expect(init).toMatchObject({ credentials: "same-origin", cache: "no-store", redirect: "error" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.authenticatedApiFetch(root + "?after=&after=other")).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(root + "/open?world_id=foreign", locator)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(root + "/ocr", locator)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(4);
+});
+
 it("uses the hosted session for binary PDF admission to the selected World", async () => {
   const api = await setup();
   hostedOrigin();
@@ -645,7 +670,7 @@ it("uses the hosted session for binary PDF admission to the selected World", asy
   const body = new File(["%PDF-1.7"], "fixture.pdf", { type: "application/pdf" });
   const upload = {
     method: "POST", body,
-    headers: { "Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-15T00:00:00Z" },
+    headers: new Headers({ "Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-15T00:00:00Z" }),
   };
   await api.authenticatedApiFetch(path, upload);
   const [url, init] = fetch.mock.calls[0]!;
@@ -655,7 +680,7 @@ it("uses the hosted session for binary PDF admission to the selected World", asy
   const headers = new Headers(init?.headers);
   expect(headers.has("Authorization")).toBe(false);
   expect(headers.get("Content-Type")).toBe("application/pdf");
-  expect(headers.get("X-Pdf-Created-At")).toBe(upload.headers["X-Pdf-Created-At"]);
+  expect(headers.get("X-Pdf-Created-At")).toBe(upload.headers.get("X-Pdf-Created-At"));
   await expect(api.authenticatedApiFetch(path + "&world_id=foreign", upload)).rejects.toThrow(/exact same-origin/);
   await expect(api.authenticatedApiFetch(path, { ...upload, body: "{}" })).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
