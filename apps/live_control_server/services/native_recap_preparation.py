@@ -838,6 +838,7 @@ def confirm(request, principal):
     )
     from apps.live_control_server.services.hosted_native_graph_access import require_explorer_access
 
+    _require(native.binding(envelope.review.managed_world_id) == bound, "candidate_binding_changed")
     require_explorer_access(principal, envelope.review.managed_world_id)
     result = runtime.commit_prepared_change(prepared, confirmed_by=principal.subject)
     return {"status": "committed", "recovered": recovering, "result": jsonable_encoder(result)}

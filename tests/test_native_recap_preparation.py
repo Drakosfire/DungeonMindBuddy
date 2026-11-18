@@ -639,6 +639,24 @@ def test_confirmation_refuses_invalid_authority_without_publication(lane, monkey
     assert lane.repo.get_publication_receipt(SPACE_ID, packet["envelope"]["prepared_change_id"]) is None
 
 
+def test_confirmation_refuses_rebind_during_descriptor_read(lane, monkeypatch):
+    packet = confirmation(lane)
+    before = len(lane.repo.head_events(SPACE_ID))
+    descriptors = service.native.descriptors
+
+    def read_then_rebind(*args, **kwargs):
+        result = descriptors(*args, **kwargs)
+        lane.bound["binding_version"] += 1
+        return result
+
+    monkeypatch.setattr(service.native, "descriptors", read_then_rebind)
+    response = confirm(lane, packet)
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"]["code"] == "candidate_binding_changed"
+    assert len(lane.repo.head_events(SPACE_ID)) == before
+    assert lane.repo.get_publication_receipt(SPACE_ID, packet["envelope"]["prepared_change_id"]) is None
+
+
 def test_confirmation_authentication_precedes_owner_io(lane, monkeypatch):
     from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
     from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
