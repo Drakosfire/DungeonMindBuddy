@@ -496,6 +496,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision)
       && body.expected_revision > 0 && isRecord(body.base);
   }
+  const imageCapabilities = "/api/live/media/images/capabilities?";
+  if (path.startsWith(imageCapabilities)) {
+    const world = new URLSearchParams(path.slice(imageCapabilities.length)).get("world_id");
+    return method === "GET" && init?.body == null && !!world
+      && path === imageCapabilities + new URLSearchParams({ world_id: world });
+  }
   if (/^\/api\/live\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/pdf-adventure-events\/(?:prepare|confirm)$/.test(path)) {
     return method === "POST" && requestBodyRecord(init?.body) !== null;
   }

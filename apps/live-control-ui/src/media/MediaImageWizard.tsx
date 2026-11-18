@@ -1,3 +1,4 @@
+import { useSelectedWorld } from '../selectedWorld/SelectedWorldContext';
 import {useTourNavigationGuard} from '../guidedTour/Navigation';
 import {useTourImage} from '../guidedTour/ImageObservations';
 import { useEffect, useRef, useState } from 'react';
@@ -16,7 +17,7 @@ export type ImageGenerationInput = { prompt: string; model: string; width: numbe
 type CatalogModel = { endpoint_id: string; metadata: Record<string, unknown>; executable_model: string | null; selectable: boolean };
 type CatalogPage = { models: CatalogModel[]; next_cursor: string | null; has_more: boolean; fetched_at: string };
 export type ImageGenerationPort = {
-  capabilities: () => Promise<{ configured: boolean; library_ready: boolean; storage_configured: boolean; models: Model[]; default_model_id?: string; map_framing?: string }>;
+  capabilities: (worldId?: string) => Promise<{ configured: boolean; library_ready: boolean; storage_configured: boolean; models: Model[]; default_model_id?: string; map_framing?: string }>;
   catalog?: (cursor?: string) => Promise<CatalogPage>;
   list: (cursor?: string) => Promise<{ items: MediaRecord[] }>;
   get: (assetId: string) => Promise<MediaRecord>;
@@ -30,7 +31,7 @@ async function request(path: string, input?: ImageGenerationInput | Record<strin
   return body;
 }
 const livePort: ImageGenerationPort = {
-  capabilities: () => request('capabilities'), catalog: cursor => request('catalog' + (cursor ? `?cursor=${encodeURIComponent(cursor)}` : '')), generate: input => request('generate', input),
+  capabilities: worldId => request('capabilities' + (worldId ? '?' + new URLSearchParams({world_id: worldId}) : '')), catalog: cursor => request('catalog' + (cursor ? `?cursor=${encodeURIComponent(cursor)}` : '')), generate: input => request('generate', input),
   list: (cursor = '') => request('library' + cursor), get: id => request(id), save: id => request(id + '/save', {}),
 };
 
@@ -63,6 +64,8 @@ function LibraryThumbnail({ record, port }: { record: MediaRecord; port: ImageGe
 export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initialPurpose = 'illustration', preparationId, chooseLabel = 'Insert into page', placeAfterBlock = false, selectionOnly = false, requireSaved = false, port = livePort }: {
   initialPrompt?: string; initialPurpose?: 'illustration' | 'map'; preparationId?: string; chooseLabel?: string; placeAfterBlock?: boolean; selectionOnly?: boolean; requireSaved?: boolean; onClose: () => void; onChoose?: (image: GeneratedMediaImage, result: ImageGenerationResult, placement: { mode: 'click' | 'drag'; signal: AbortSignal }) => void | Promise<void>; port?: ImageGenerationPort;
 }) {
+  const world = useSelectedWorld();
+  const worldId = world.kind === "managed" ? world.worldId : undefined;
   const imageObservation=useTourImage(),tourImage=selectionOnly?null:imageObservation;
   const [collapsed, setCollapsed] = useState(false);
   const [placing, setPlacing] = useState(false);
@@ -106,9 +109,9 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
   useEffect(() => {
     let active = true;
     setCapabilityState('loading');
-    port.capabilities().then(data => { if (active) { setCapabilityState('loaded'); setMapFraming(data.map_framing ?? ''); setModels(data.models); setModelId(current => data.models.some(item => item.id === current) ? current : data.default_model_id ?? data.models[0]?.id ?? ''); setConfigured(data.configured); setStorageConfigured(data.storage_configured); setLibraryReady(data.library_ready); } }).catch(error => { if (active) { setCapabilityState('failed'); setError(error.message); } });
+    port.capabilities(worldId).then(data => { if (active) { setCapabilityState('loaded'); setMapFraming(data.map_framing ?? ''); setModels(data.models); setModelId(current => data.models.some(item => item.id === current) ? current : data.default_model_id ?? data.models[0]?.id ?? ''); setConfigured(data.configured); setStorageConfigured(data.storage_configured); setLibraryReady(data.library_ready); } }).catch(error => { if (active) { setCapabilityState('failed'); setError(error.message); } });
     return () => { active = false; };
-  }, [port]);
+  }, [port, worldId]);
   const imageInspection=capabilityState==='failed'||error?{status:'failed' as const,reason:error||'Image Studio capabilities could not be read.'}
     :capabilityState==='loading'?{status:'pending' as const,reason:'Checking Image Studio capabilities…'}
     :!configured||!libraryReady||!model?{status:'unavailable' as const,reason:!configured?'Connect the server’s fal credential to generate images.':!libraryReady?'The private image library is not ready.':'Choose an available image model.'}

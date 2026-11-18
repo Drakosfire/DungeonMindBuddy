@@ -724,6 +724,17 @@ it("uses the hosted session to append a PDF review to an exact saved draft", asy
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
+it("reads image capabilities for the selected hosted World", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ models: [] }));
+  const path = "/api/live/media/images/capabilities?world_id=elderwyld";
+  await api.authenticatedApiFetch(path);
+  expect(fetch.mock.calls[0][1]).toMatchObject({ credentials: "same-origin", cache: "no-store" });
+  await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledOnce();
+});
+
 it("uses the hosted session for Worldbuilding extraction of an exact saved page", async () => {
   const api = await setup();
   hostedOrigin();
