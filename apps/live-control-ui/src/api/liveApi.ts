@@ -375,7 +375,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/(?:capabilities|prepare|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/first-world\/(?:prepare|confirm)$/.test(pathname)) return true;
-  if (/^\/api\/live\/extract-promote\/runs\/[^/]+\/recap-evidence-corrections$/.test(pathname)) return true;
+  if (/^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:recap-evidence-corrections|semantic-disposition)$/.test(pathname)) return true;
   if (/^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname)) {
     return true;
   }
@@ -421,6 +421,10 @@ function isLoopbackApiDestination(requestUrl: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
+export function usesLoopbackLiveApi(): boolean {
+  return isLoopbackApiDestination(`${baseUrl}/api/live`);
+}
+
 const HOSTED_EXPLORER_PATHS = new Set([
   "/api/live/native-graph-explorer/graph",
   "/api/live/native-graph-explorer/prepare",
@@ -434,6 +438,9 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (/^\/api\/live\/extract-promote\/runs\/[^/?#%]+\/semantic-disposition\?managed_world_id=[a-z][a-z0-9_-]{0,62}$/.test(path)) {
+    return method === "POST" && requestBodyRecord(init?.body) !== null;
+  }
   if (path === "/api/live/extract-promote/native-prepare" || path === "/api/live/extract-promote/native-confirm") {
     const body = requestBodyRecord(init?.body);
     const review = path.endsWith("/native-confirm") && isRecord(body?.envelope) ? body.envelope.review : body;

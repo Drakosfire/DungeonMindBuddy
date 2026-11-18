@@ -1,4 +1,4 @@
-import {authenticatedApiFetch} from './liveApi';
+import {authenticatedApiFetch, usesLoopbackLiveApi} from './liveApi';
 import {ExtractPromoteApiError} from './extractPromoteApi';
 
 export interface RecapSemanticDecisionRequest {
@@ -32,14 +32,15 @@ export function assertRecapSemanticReceipt(value: RecapSemanticDecisionReceipt, 
   }
 }
 export async function decideRecapSemantics(runId: string, request: RecapSemanticDecisionRequest,
-  basis: string): Promise<RecapSemanticDecisionReceipt> {
+  basis: string, worldId?: string): Promise<RecapSemanticDecisionReceipt> {
   if (Object.keys(request).some(key=>!['schema','expectedRevision','candidateSha256','decision','reviewDecisionRef'].includes(key))
     || !runId.trim() || request.schema!=='dmb_recap_semantic_decision_request_v1'
     || !Number.isSafeInteger(request.expectedRevision) || request.expectedRevision<1 || !sha(request.candidateSha256)
     || !['accepted','rejected'].includes(request.decision) || !request.reviewDecisionRef.trim() || !sha(basis)) {
     throw new Error('The exact Recap review decision request is invalid.');
   }
-  const {response} = await authenticatedApiFetch(`/api/live/extract-promote/runs/${encodeURIComponent(runId)}/semantic-disposition`,
+  const query = worldId && !usesLoopbackLiveApi() ? `?${new URLSearchParams({ managed_world_id: worldId })}` : "";
+  const {response} = await authenticatedApiFetch(`/api/live/extract-promote/runs/${encodeURIComponent(runId)}/semantic-disposition${query}`,
     {method:'POST',body:JSON.stringify(request)});
   let value: RecapSemanticDecisionReceipt;
   try { value = JSON.parse(await response.text()); }
