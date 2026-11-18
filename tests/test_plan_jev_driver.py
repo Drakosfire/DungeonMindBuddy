@@ -605,3 +605,87 @@ def test_subject_offer_excludes_failed_packets_and_duplicate_query_labels(plan_a
     events[events.index(event)]=event.model_copy(update={"result_packet_sha256":canonical_sha256(canonical)})
     a.operation_payloads[identity]=json.dumps(packet)
     assert not any(c.handle.startswith('mentions:') for c in driver.offered())
+
+
+def test_resolved_variant_approval_offers_no_optional_retrieval():
+    from types import SimpleNamespace
+    from application_state.agent_conversation import types
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+
+    selection = types.BuildRequestedWorkResolutionV1.model_construct(
+        requested_work="review_variant_approval",
+        resolution={"source_scope": "source_lookup"},
+    )
+    execution = SimpleNamespace(events=(selection,))
+    driver = PlanJevDriver.__new__(PlanJevDriver)
+    driver.adapter = SimpleNamespace(
+        request=SimpleNamespace(surface=SimpleNamespace(surface_id="build")),
+        _broker_execution=lambda: execution,
+    )
+    driver.finished = False
+    driver.dialogue = ()
+    assert driver.offered() == ()
+    assert driver.decision_arguments() == {
+        "candidates": (),
+        "dialogue": (),
+        "examined_candidates": (),
+        "allowed_operations": ("select_candidates", "finish_retrieval"),
+    }
+
+
+def test_native_approval_terminal_requires_the_current_acknowledged_decision(monkeypatch):
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from application_state.agent_conversation import types, writer_evidence_selection
+
+    monkeypatch.setattr(writer_evidence_selection, "native_build", lambda turn: True)
+    attempt = uuid4()
+    approval = types.BuildRequestedWorkResolutionV1.model_construct(
+        requested_work="review_variant_approval", controller_attempt_id=attempt,
+    )
+    auth = types.ProviderAttemptAuthorizedEventV3.model_construct(provider_attempt_id=attempt)
+    acknowledged = types.ProviderOutcomeEventV1.model_construct(
+        provider_attempt_id=attempt, outcome="response_received",
+    )
+    execution = SimpleNamespace(events=(auth, acknowledged, approval))
+    turn = SimpleNamespace(graph_context_execution=execution)
+    assert writer_evidence_selection.native_terminal(turn) == {
+        "status": "ready", "reason": "native_variant_approval_requires_no_retrieval",
+    }
+    execution.events = (auth, approval)
+    assert writer_evidence_selection.native_approval_terminal(turn) is None
+    later = types.ProviderAttemptAuthorizedEventV3.model_construct(provider_attempt_id=uuid4())
+    execution.events = (auth, acknowledged, approval, later)
+    assert writer_evidence_selection.native_approval_terminal(turn) is None
+
+
+@pytest.mark.parametrize(("scope", "include_draft", "bound", "matches"), [
+    ("anchored", True, True, True),
+    ("source_lookup", True, True, False),
+    ("uncertain", True, True, False),
+    ("anchored", False, True, False),
+    ("anchored", True, False, False),
+])
+def test_anchored_variant_scope_requires_current_draft_and_bound_base(scope, include_draft, bound, matches):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import types
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+
+    selection = types.BuildRequestedWorkResolutionV1.model_construct(
+        requested_work="draft_in_conversation", resolution={"source_scope": scope},
+    )
+    events = [selection]
+    if include_draft:
+        events.append(types.BuildDraftContextCapturedV1.model_construct())
+    driver = PlanJevDriver.__new__(PlanJevDriver)
+    driver.adapter = SimpleNamespace(
+        request=SimpleNamespace(surface=SimpleNamespace(surface_id="build")),
+        _broker_execution=lambda: SimpleNamespace(events=events),
+    )
+    driver.finished = False
+    driver.attempted_statblocks = set()
+    base = ("Saved base", object(), object())
+    driver.saved_statblocks = {"saved-statblock:0": base + ((object(),) if bound else ())}
+    assert driver._anchored_variant_draft() is matches
+    if matches:
+        assert [offer.handle for offer in driver.offered()] == ["saved-statblock:0"]
