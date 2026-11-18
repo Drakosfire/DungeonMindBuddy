@@ -472,39 +472,69 @@ async def put_world_run_content_command(
 @router.get("/world-play-runs/v2/{run_id}/content/proposals")
 def list_world_run_scene_proposals(run_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     from application_state.play_scene_edit.service import PlaySceneEditProposalService
     from apps.live_control_server.services.play_scene_edit_proposal import public_record
     from application_state.errors import ApplicationStateError
     try:
         from uuid import UUID
-        return {"proposals": [public_record(record) for record in PlaySceneEditProposalService().list_records(world_id=world_id, run_id=UUID(run_id))]}
+        response = {"proposals": [public_record(record) for record in PlaySceneEditProposalService().list_records(world_id=world_id, run_id=UUID(run_id))]}
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Invalid proposal or Run identity") from exc
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    return response
 
 
 @router.get("/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}")
 def get_world_run_scene_proposal(run_id: str, proposal_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     from application_state.play_scene_edit.service import PlaySceneEditProposalService
     from apps.live_control_server.services.play_scene_edit_proposal import public_record
     from application_state.errors import ApplicationStateError
     try:
         from uuid import UUID
-        return public_record(PlaySceneEditProposalService().get(world_id=world_id, run_id=UUID(run_id), proposal_id=UUID(proposal_id)))
+        response = public_record(PlaySceneEditProposalService().get(world_id=world_id, run_id=UUID(run_id), proposal_id=UUID(proposal_id)))
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Invalid proposal or Run identity") from exc
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    return response
 
 
 @router.post("/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}")
 async def post_world_run_scene_proposal(run_id: str, proposal_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)]):
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    from functools import partial
+
+    authorize_world = None
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        authorize_world = partial(require_hosted_plan_world_context, request, world_id)
+        authorize_world()
+    else:
+        enforce_native_graph_gm(request)
     from uuid import UUID
     from pydantic import ValidationError
     from application_state.errors import ApplicationStateError
@@ -518,14 +548,19 @@ async def post_world_run_scene_proposal(run_id: str, proposal_id: str, request: 
         raw.extend(chunk)
     try:
         body = PlaySceneEditProposalRequest.model_validate_json(bytes(raw))
-        return await propose_scene_edit(root=managed_world_data_root(), world_id=world_id, run_id=str(UUID(run_id)),
-                                        proposal_id=UUID(proposal_id), request=body)
+        if authorize_world is not None:
+            authorize_world()
+        proposal = await propose_scene_edit(root=managed_world_data_root(), world_id=world_id, run_id=str(UUID(run_id)),
+                                        proposal_id=UUID(proposal_id), request=body, authorize_world=authorize_world)
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors(include_context=False)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if authorize_world is not None:
+        authorize_world()
+    return proposal
 
 
 @router.get("/world-play-runs/v2/{run_id}/review")
@@ -533,11 +568,21 @@ def get_world_session_review(run_id: str, request: Request, world_id: Annotated[
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
     from application_state.play.session_review import read_review
     from application_state.errors import ApplicationStateError
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     try:
-        return read_review(run_id=run_id, world_id=world_id)
+        review = read_review(run_id=run_id, world_id=world_id)
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    return review
 
 
 @router.put("/world-play-runs/v2/{run_id}/review/commands/{command_id}")
@@ -575,12 +620,21 @@ def list_session_evidence_route(
     )
     from application_state.errors import ApplicationStateError
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     try:
         result = recent_session_evidence_index(world_id=world_id, limit=limit)
         payload = json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         if len(payload) > MAX_SESSION_EVIDENCE_INDEX_BYTES:
             raise HTTPException(status_code=422, detail={"code": "session_evidence_index_too_large"})
+        if hosted:
+            require_hosted_plan_world_context(request, world_id)
         return Response(
             content=payload,
             media_type="application/json",
@@ -595,6 +649,18 @@ def read_session_evidence_route(run_id:str,revision:int,request:Request,world_id
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
     from application_state.play.session_evidence import read_session_evidence
     from application_state.errors import ApplicationStateError
-    enforce_native_graph_gm(request)
-    try:return read_session_evidence(world_id=world_id,run_id=run_id,revision=revision)
-    except ApplicationStateError as exc:raise HTTPException(status_code=exc.status_code,detail=str(exc)) from exc
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
+    try:
+        result = read_session_evidence(world_id=world_id, run_id=run_id, revision=revision)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    return result
