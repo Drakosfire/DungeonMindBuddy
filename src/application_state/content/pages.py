@@ -272,6 +272,7 @@ def commit_page(
     expected_revision: int,
     expected_working_copy_revision: int | None,
     page_presentation=presentation.UNSET,
+    authorize_world=None,
 ) -> tuple[PageState, WorkRevision]:
     _basis_values(expected_revision, expected_working_copy_revision)
     with unit_of_work(_dsn()) as conn:
@@ -300,6 +301,8 @@ def commit_page(
         )
         if not replay:
             _basis(conn, state.page, expected_revision, expected_working_copy_revision)
+        if authorize_world is not None:
+            authorize_world(state.page.world_id)
         _page, revision = content._commit_in_connection(
             conn,
             document_id,

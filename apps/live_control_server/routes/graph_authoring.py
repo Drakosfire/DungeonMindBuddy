@@ -68,7 +68,10 @@ def post_document_relationship_request(
 ) -> dict[str, Any]:
     principal = _relationship_principal(request_context, request.world_id)
     try:
-        return relationship_request(repo_root(), request, principal).model_dump(mode="json", by_alias=True)
+        result = relationship_request(repo_root(), request, principal).model_dump(mode="json", by_alias=True)
+        if principal.auth_method == "hosted_owner":
+            _relationship_principal(request_context, request.world_id)
+        return result
     except (InspectionUnavailable, DungeonMindError) as exc:
         raise HTTPException(
             status_code=409,
@@ -98,10 +101,13 @@ def post_native_relationship_prepare(
 ):
     principal = _relationship_principal(request, body.review.world_id)
     try:
-        return prepare_reviewed_native_relationship(
+        result = prepare_reviewed_native_relationship(
             repo_root(), body.review, principal,
             operation_id=f"dmb-build-relationship:v1:{body.operation_id}",
         )
+        if principal.auth_method == "hosted_owner":
+            _relationship_principal(request, body.review.world_id)
+        return result
     except (GraphObjectAuthoringError, DungeonMindError, ValueError) as exc:
         raise HTTPException(
             status_code=getattr(exc, "status_code", 409),
@@ -115,9 +121,17 @@ def post_native_relationship_confirm(
 ):
     principal = _relationship_principal(request, body.review.world_id)
     try:
+        from functools import partial
+
+        authorize_world = None
+        if principal.auth_method == "hosted_owner":
+            authorize_world = partial(_relationship_principal, request, body.review.world_id)
         result = confirm_native_relationship(
             repo_root(), body.review, body.prepared, body.confirm_token, principal,
+            authorize_world=authorize_world,
         )
+        if authorize_world is not None:
+            authorize_world()
         return jsonable_encoder(result)
     except (GraphObjectAuthoringError, DungeonMindError, ValueError) as exc:
         raise HTTPException(
