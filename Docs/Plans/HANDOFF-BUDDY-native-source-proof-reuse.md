@@ -9,7 +9,8 @@ review+allCI44415286696green. Parallel-independent from draftCore218: consumer
 requires accepted227 API only; artifact storage is optional, not pinned unmerged.
 After this slice, joint pinned candidate evidence still gates218/V8/cutover.
 
-Outcome: explicit service-owned proofcache64MiBcontentcap injected only into
+Outcome: explicit service-owned two-slot proof pool,32MiB per slot/64MiB total
+content cap, injected only into
 shared_neighborhood (and its exact-object wrapper) and open_neighborhood_anchor.
 Keep standalone inspection, catalog/search/evidence defaults, routes/DTOs and
 principal/binding/scope/evidence/source validation unchanged. Fresh complete Core
@@ -76,3 +77,20 @@ Newtask-owned UVcachecache/source-proof-adoption retained fordependency review/
 qualification; cleanupfollowup afterintegration with explicit scope/process/mount/
 unique-data checks. Owner/source logs and lockchecks retained in scratch/v8-core.
 No manualfilesystemremovals orservingwrites.
+
+Rebrief after actualHTTP checkpoint e762e35/Core8931b85: first494–496ms,warm77–82,
+eviction505–519,new502–520,citation65–69 pass retained~540ms current-read reference.
+Historical return731–762ms still triggers206–212ms fullGC. Two distinct revisions
+caused3fullproofs: oldproof was discarded byone-slotowner. Before qualifying or
+reviewing successor head, keep2revision-specific Core single-entry proof objects
+in an explicit locked Buddy-service LRU pool. Each has32MiBcap; total retained
+content≤64MiB. This changes only retention/ownership within existing8paths, noCore
+API/publiccontract/route/admission/GC change. Each reusedslot still readscomplete
+currentrow and usesCore exactallfieldkey; identity only selects a proofslot, never
+establishes validity. Missing/corrupt/current source behavior staysfailclosed.
+Detachedin-flightrequest slots maylive until thatrequest ends; totalRSS/transient
+requestmemory are separate fromretainedpoolbudget andmustnot be claimedboundedby64.
+Olde762 owner/auth/HTTP evidence remains checkpoint only, not newheadqualification.
+Frontend was refused byexternallyheldOSlock before anytestsallocated. Retry only
+throughnormal sharedlock; nootherprocess/lockinode changes. Independentreviewmust
+cover poollock/eviction/isolation/budget and newhead allrequiredchecks.
