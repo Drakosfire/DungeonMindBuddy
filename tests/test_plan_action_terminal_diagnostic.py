@@ -196,6 +196,7 @@ def test_actual_action_callback_records_only_current_attempt(application_state_d
     actual.terminal_callback = None
     actual.failure = None
     actual.context_capture = None
+    actual.rules_runtime = None
     actual.budget = {}
     assert actual.record_lifecycle({"transition": "outcome_unknown"}) is (not refuse_callback)
     store.append_consultation_event = original
