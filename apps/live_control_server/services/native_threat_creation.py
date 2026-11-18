@@ -115,6 +115,22 @@ def review_payload(review):
     return review.model_dump(mode="json", by_alias=True, exclude=excluded)
 
 
+class _TextAdmissionRepository:
+    """Recheck ownership after the pinned admission helper's last authority read."""
+
+    def __init__(self, repository, authorize_write):
+        self._repository = repository
+        self._authorize_write = authorize_write
+
+    def __getattr__(self, name):
+        return getattr(self._repository, name)
+
+    def get_head(self, space_id):
+        head = self._repository.get_head(space_id)
+        self._authorize_write()
+        return head
+
+
 def prepare(root, draft_id, request, principal, *, authorize_write=None):
     require_native_graph_gm(principal)
     draft = owned_draft(root, draft_id, request.world_id)
@@ -161,7 +177,8 @@ def prepare(root, draft_id, request, principal, *, authorize_write=None):
             require(native.binding(request.world_id) == bound, "The World binding changed")
             if authorize_write is not None:
                 authorize_write()
-            admitted = publish_native_text_source_evidence(repository=repo, domain_contract=domain,
+            admission_repository = repo if authorize_write is None else _TextAdmissionRepository(repo, authorize_write)
+            admitted = publish_native_text_source_evidence(repository=admission_repository, domain_contract=domain,
                 semantic_profile=profile, request=NativeTextSourceAdmissionV1(
                     space_id=bound["native_world_id"], admission_id=admission_id,
                     expected_parent_revision_id=context["revision_id"],

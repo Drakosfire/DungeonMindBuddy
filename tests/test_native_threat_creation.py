@@ -434,15 +434,21 @@ def test_hosted_native_creature_publication_and_replay(creature, hosted, monkeyp
     initial_head = c.lane.repo.get_head(space)
     original_receipt = c.lane.repo.get_native_source_admission_receipt
 
+    source_lookups = 0
+
     def revoke_after_source_lookup(*args):
+        nonlocal source_lookups
         receipt = original_receipt(*args)
-        hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+        source_lookups += 1
+        if source_lookups == 2:
+            hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
         return receipt
 
     with monkeypatch.context() as lookup:
         lookup.setattr(c.lane.repo, "get_native_source_admission_receipt", revoke_after_source_lookup)
         denied = hosted.client.request("POST", prepare_path, json=c.request)
     assert denied.status_code == 403, denied.text
+    assert source_lookups == 2
     assert c.lane.repo.get_head(space) == initial_head
     hosted.records["managed"] = owner_record
     prepared = hosted.client.request("POST", prepare_path, json=c.request)
