@@ -96,6 +96,29 @@ def test_pdf_event_preserves_review_and_reopens_citation(
         assert repo.get_head(space) == before
         wrong = draft | {"region": region | {"content_sha256": "0" * 64}}
         assert client.post(events + "/prepare", json=wrong, headers=auth).status_code == 409
+        with monkeypatch.context() as change:
+            source_reads = 0
+            original_load = repo.get_native_pdf_source
+            original_authorize = pdf_adventure_events.require_build_pdf_access
+
+            def load_source(*args):
+                nonlocal source_reads
+                source = original_load(*args)
+                source_reads += 1
+                return source
+
+            def authorize(request, world_id):
+                if source_reads == 2:
+                    raise pdf_adventure_events.HTTPException(403)
+                return original_authorize(request, world_id)
+
+            change.setattr(native, "repository", lambda: repo)
+            change.setattr(repo, "get_native_pdf_source", load_source)
+            change.setattr(pdf_adventure_events, "require_build_pdf_access", authorize)
+            denied = client.post(events + "/prepare", json=draft, headers=auth)
+            assert denied.status_code == 403, denied.text
+            assert source_reads == 2
+            assert repo.get_head(space) == before
         review = client.post(events + "/prepare", json=draft, headers=auth)
         assert review.status_code == 200, review.text
         packet = review.json()
