@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Callable, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -435,7 +435,7 @@ def retain_pdf_in_bound_world(world_id, binding, command, raw):
     return revision
 
 
-def _ensure_native_source_space(repository, world_id, native_world_id):
+def _ensure_native_source_space(repository, world_id, native_world_id, *, authorize_world=None):
     try:
         existing_head = repository.get_head(native_world_id)
     except Exception as exc:
@@ -447,6 +447,8 @@ def _ensure_native_source_space(repository, world_id, native_world_id):
             field="managed World created_at",
         )
         initialization_id = _stable_id("dmb-world-genesis", native_world_id)
+        if authorize_world is not None:
+            authorize_world(world_id)
         try:
             initialize_empty_knowledge_space(
                 repository=repository, space_id=native_world_id,
@@ -459,7 +461,8 @@ def _ensure_native_source_space(repository, world_id, native_world_id):
 
 
 def admit_native_world_source(
-    root, document_id: str, *, expected_revision: int, expected_body_sha256: str
+    root, document_id: str, *, expected_revision: int, expected_body_sha256: str,
+    authorize_world: Callable[[str], None] | None = None,
 ) -> NativeWorldSourceAdmissionStatus:
     snapshot, body_bytes, body_sha256, admission_id, sealed_world_binding = _load_exact_snapshot(
         root, document_id, expected_revision, expected_body_sha256
@@ -467,6 +470,8 @@ def admit_native_world_source(
     record = snapshot.record
     world_id = record.world_id
     assert world_id is not None
+    if authorize_world is not None:
+        authorize_world(world_id)
     native_world_id = sealed_world_binding.native_world_id
     repository = _repository()
     try:
@@ -487,7 +492,7 @@ def admit_native_world_source(
 
     _require_source_binding(root, world_id, sealed_world_binding)
     config.managed_world_data_root(root)
-    _ensure_native_source_space(repository, world_id, native_world_id)
+    _ensure_native_source_space(repository, world_id, native_world_id, authorize_world=authorize_world)
 
     expected_origin = _origin(snapshot)
     for attempt in range(MAX_ADMISSION_ATTEMPTS):
@@ -526,6 +531,8 @@ def admit_native_world_source(
             spans=[span],
         )
         _require_source_binding(root, world_id, sealed_world_binding)
+        if authorize_world is not None:
+            authorize_world(world_id)
         try:
             receipt = publish_native_text_source_evidence(
                 repository=repository,

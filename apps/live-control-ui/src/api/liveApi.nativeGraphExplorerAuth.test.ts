@@ -734,3 +734,68 @@ it("reads image capabilities for the selected hosted World", async () => {
   await expect(api.authenticatedApiFetch(path + "&world_id=foreign")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledOnce();
 });
+
+it("uses the hosted session for Worldbuilding extraction of an exact saved page", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+  const path = "/api/live/graph-preview/extraction-runs";
+  const request = { document_id: "00000000-0000-4000-8000-000000000001",
+    expected_revision: 2, expected_content_sha256: "sha256:" + "a".repeat(64) };
+  await api.launchExtractionRun(request);
+  expect(fetch).toHaveBeenCalledWith(path, expect.objectContaining({
+    method: "POST", credentials: "same-origin", mode: "same-origin", body: JSON.stringify(request),
+  }));
+  await expect(api.launchExtractionRun({ ...request, expected_revision: 0 })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it.each(["prepare", "confirm"])("uses exact hosted transport for PDF Event %s", async action => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+  const path = `/api/live/worlds/managed/pdf-adventure-events/${action}`;
+  const init = { method: "POST", body: JSON.stringify({ fixture: true }) };
+  await api.authenticatedApiFetch(path, init);
+  expect(fetch).toHaveBeenCalledWith(path, expect.objectContaining({
+    method: "POST", credentials: "same-origin", mode: "same-origin",
+  }));
+  await expect(api.authenticatedApiFetch(path + "?world_id=foreign", init)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("uses the hosted session for exact native Build source status and admission", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const id = "12345678-1234-1234-1234-123456789abc";
+  const path = "/api/live/workspace-documents/" + id + "/native-world-source";
+  await api.getNativeWorldSourceAdmissionStatus(id, 1);
+  await api.admitNativeWorldSource(id, 1, "a".repeat(64));
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual([path + "?expected_revision=1", path]);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", redirect: "error" });
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  }
+  await expect(api.admitNativeWorldSource(id, 1, "invalid")).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path + "?world_id=other")).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
+
+it.each(["pdf", "text"])("uses the hosted session to withdraw a pinned %s source", async kind => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+  const path = "/api/live/agent/worlds/elderwyld/build-source-withdrawals";
+  const request = { method: "POST", body: JSON.stringify({ kind, revision_id: "retained-revision" }) };
+  await api.authenticatedApiFetch(path, request);
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toBe(path);
+  expect(init).toMatchObject({ ...request, credentials: "same-origin", redirect: "error" });
+  expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path + "?world_id=other", request)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path, { ...request, body: JSON.stringify({ kind }) })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
