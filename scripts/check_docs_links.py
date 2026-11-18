@@ -24,6 +24,7 @@ ENTRYPOINTS = (
     "Docs/Guides/GUIDE-surface-contributor-map.md",
     "Docs/Guides/GUIDE-agent-context-and-runtime.md",
     "Docs/Guides/GUIDE-handoff-and-evidence-navigation.md",
+    "Docs/Guides/GUIDE-development-verification.md",
     "Docs/Runbooks/RUNBOOK-local-play-dogfood.md",
 )
 
