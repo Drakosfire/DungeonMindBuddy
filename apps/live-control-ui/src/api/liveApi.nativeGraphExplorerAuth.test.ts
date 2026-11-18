@@ -724,6 +724,20 @@ it("uses the hosted session to append a PDF review to an exact saved draft", asy
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
+it.each(["prepare", "confirm"])("uses exact hosted transport for PDF Event %s", async action => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+  const path = `/api/live/worlds/managed/pdf-adventure-events/${action}`;
+  const init = { method: "POST", body: JSON.stringify({ fixture: true }) };
+  await api.authenticatedApiFetch(path, init);
+  expect(fetch).toHaveBeenCalledWith(path, expect.objectContaining({
+    method: "POST", credentials: "same-origin", mode: "same-origin",
+  }));
+  await expect(api.authenticatedApiFetch(path + "?world_id=foreign", init)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
 it("uses the hosted session for exact native Build source status and admission", async () => {
   const api = await setup();
   hostedOrigin();
