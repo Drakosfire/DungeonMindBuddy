@@ -434,6 +434,10 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/build-proposals\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/review$/.test(path)) {
+    return (method === "GET" && init?.body == null)
+      || (method === "POST" && isRecord(requestBodyRecord(init?.body)));
+  }
   if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/plan-proposals\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(path)) {
     if (method === "GET") return init?.body == null;
     const command = requestBodyRecord(init?.body);

@@ -296,6 +296,9 @@ def hosted(monkeypatch, request):
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
+    from apps.live_control_server.routes import build_proposal_reviews
+
+    app.include_router(build_proposal_reviews.router, prefix="/api/live/agent")
     from apps.live_control_server.routes import conversation_work_plans
 
     app.include_router(conversation_work_plans.router)
@@ -338,6 +341,7 @@ def hosted(monkeypatch, request):
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
                if "/variant-reviews/{review_id}" in key[1]
+               or key[1].endswith("/build-proposals/{action_id}/review")
                or key[1].endswith("/plan-proposals/{action_id}/review")
                or "/work-plans/{source_turn_id}" in key[1]
                or key[1] == "/api/live/native-source-inspection/published-recap"
@@ -4367,3 +4371,51 @@ def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypat
         response = hosted.client.request("POST", path, json=body)
         assert response.status_code == 409, response.text
     assert calls == [("owned", f"hosted_dms:{OWNER}")] * 2
+
+
+def test_hosted_build_review_binds_world_and_action(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from application_state.errors import ApplicationStateNotFoundError
+    from apps.live_control_server.routes import agent, build_proposal_reviews
+
+    service = Mock()
+    service.get.side_effect = ApplicationStateNotFoundError("Proposal not found")
+    service.execute.side_effect = ApplicationStateNotFoundError("Proposal not found")
+    monkeypatch.setattr(build_proposal_reviews, "BuildProposalReviewService", lambda **kwargs: service)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    action = uuid4()
+    path = f"/api/live/agent/worlds/managed/build-proposals/{action}/review"
+    body = {"operation": "open", "expected_revision": 0}
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert hosted.client.request("POST", path + "?world_id=foreign", json=body).status_code == 403
+    service.get.assert_not_called()
+    service.execute.assert_not_called()
+    assert hosted.client.request("GET", path).status_code == 404
+    service.get.assert_called_once_with("managed", action)
+    assert hosted.client.request("POST", path, json=body).status_code == 404
+    world, saved_action, command = service.execute.call_args.args
+    assert (world, saved_action, command.operation) == ("managed", action, "open")
+
+    owner_record = hosted.records["managed"]
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+        return {"review": "Private Build proposal"}
+
+    service.get.side_effect = transfer_during_read
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "Private Build proposal" not in denied.text
+    hosted.records["managed"] = owner_record
+
+    def transfer_before_write(*_args, authorize_world):
+        hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+        authorize_world()
+        pytest.fail("Build review write continued after ownership changed")
+
+    service.execute.side_effect = transfer_before_write
+    denied = hosted.client.request("POST", path, json=body)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
