@@ -4343,7 +4343,7 @@ def test_hosted_manual_knowledge_checks_build_source_and_actor(hosted, monkeypat
         assert (subject, document_id) == (OWNER, "build-doc")
         return "managed"
 
-    def dispatch(body, *, authenticated_actor):
+    def dispatch(body, *, authenticated_actor, authorize_world=None):
         calls.append((body.source_run_id, authenticated_actor))
         raise graph_authoring.GraphObjectAuthoringError("Reached authoring.", code="probe", status_code=409)
 

@@ -221,6 +221,17 @@ def test_commit_binds_authenticated_actor_in_signed_intent(corpus_root: Path, mo
     with pytest.raises(GraphObjectAuthoringError) as denied:
         commit_graph_object_authoring_write(command, authenticated_actor="hosted_dms:other", **dependencies)
     assert denied.value.code == "confirmation_invalid"
+    from fastapi import HTTPException
+
+    def transferred():
+        raise HTTPException(status_code=403)
+
+    with pytest.raises(HTTPException) as revoked:
+        commit_graph_object_authoring_write(
+            command, authenticated_actor=actor, authorize_world=transferred, **dependencies,
+        )
+    assert revoked.value.status_code == 403
+    assert authority.publish_calls == 0
     assert commit_graph_object_authoring_write(command, authenticated_actor=actor, **dependencies).committed
 
 
