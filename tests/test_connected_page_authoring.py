@@ -768,6 +768,32 @@ def test_hosted_http_prepares_confirms_and_recovers_connected_page(case, hosted,
     monkeypatch.setattr(native, "repository", lambda: case.repo)
     monkeypatch.setattr(native, "read_repository", lambda: case.repo)
     base = "/api/live/connected-pages"
+    from application_state.content import pages
+
+    owner_record = hosted.records[world]
+    write_page = pages.commit_page
+    load_state = pages._state
+    retained_page_ids = []
+
+    def transfer_on_lock(*args, **kwargs):
+        state = load_state(*args, **kwargs)
+        if kwargs.get("lock"):
+            hosted.records[world] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+        return state
+
+    def commit_with_transfer(document_id, *args, **kwargs):
+        retained_page_ids.append(document_id)
+        with monkeypatch.context() as locked:
+            locked.setattr(pages, "_state", transfer_on_lock)
+            return write_page(document_id, *args, **kwargs)
+
+    with monkeypatch.context() as transfer:
+        transfer.setattr(pages, "commit_page", commit_with_transfer)
+        denied = hosted.client.request("POST", f"{base}/prepare", json=case.request)
+    assert denied.status_code == 403, denied.text
+    assert len(retained_page_ids) == 1
+    assert pages.committed_page(retained_page_ids[0], world_id=world).revision is None
+    hosted.records[world] = owner_record
     prepared = hosted.client.request("POST", f"{base}/prepare", json=case.request)
     assert prepared.status_code == 200, prepared.text
     operation = prepared.json()

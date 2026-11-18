@@ -238,11 +238,15 @@ def _save_initial(root, state, intent, *, authorize=None):
         prepared = prepare_tiptap_markdown_write(root=root, request=TiptapMarkdownWritePrepareRequest(
             document_id=page.document_id, expected_revision=page.revision,
             markdown=state['initial_markdown'], write_mode='source_import'))
-        if authorize is not None:
+        def authorize_page(world_id):
+            if world_id != intent.world_id:
+                raise ConnectedPageError("The reserved page belongs to a different World")
             authorize()
+
+        guard = {"authorize_world": authorize_page} if authorize is not None else {}
         commit_tiptap_markdown_write(root=root, request=TiptapMarkdownWriteCommitRequest(
             document_id=page.document_id, expected_revision=page.revision, markdown=state['initial_markdown'],
-            write_mode='source_import', writer_confirm_token=prepared.writer_confirm_token))
+            write_mode='source_import', writer_confirm_token=prepared.writer_confirm_token), **guard)
         snapshot = get_committed_page_snapshot(root, page.document_id)
     selector = GraphDocumentSource(documentId=page.document_id, revision=snapshot.loaded_revision,
         contentSha256=snapshot.content_sha256)
