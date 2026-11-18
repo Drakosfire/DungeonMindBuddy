@@ -3229,7 +3229,7 @@ def test_hosted_conversation_name_read_requires_world_owner(hosted, monkeypatch)
 
 
 def test_hosted_prepared_image_association_uses_world_asset_owner(hosted, monkeypatch):
-    from unittest.mock import Mock
+    from unittest.mock import ANY, Mock
 
     from apps.live_control_server.routes import media_images
     from apps.live_control_server.services import build_document_proposal
@@ -3254,4 +3254,17 @@ def test_hosted_prepared_image_association_uses_world_asset_owner(hosted, monkey
     assert response.status_code == 200, response.text
     _, owner = service.get.call_args.args
     assert owner.startswith("hosted_dms:")
-    service.associate.assert_called_once_with(action, asset, owner, 1, asset_owner="hosted_world:managed")
+    service.associate.assert_called_once_with(
+        action, asset, owner, 1, asset_owner="hosted_world:managed", authorize_world=ANY,
+    )
+
+    def transfer_during_lookup(*_args, authorize_world, **_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        authorize_world("managed")
+        pytest.fail("revoked owner passed the association check")
+
+    service.associate.side_effect = transfer_during_lookup
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 403, response.text

@@ -314,7 +314,7 @@ def associate_image(
 ):
     from apps.live_control_server.services import hosted_auth
     from apps.live_control_server.services.hosted_native_graph_access import (
-        conversation_graph_principal, hosted_world_media_owner,
+        conversation_graph_principal, hosted_world_media_owner, require_conversation_access,
     )
 
     hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
@@ -324,6 +324,9 @@ def associate_image(
         conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
         if world_id is not None else enforce_native_graph_gm(request)
     )
+    def authorize_world(bound_world_id: str) -> None:
+        require_conversation_access(request, bound_world_id, authorize_local=enforce_native_graph_gm)
+
     response.headers['Cache-Control'] = 'no-store'
     try:
         service = BuildImageService()
@@ -335,6 +338,7 @@ def associate_image(
         return _preparation_record(service.associate(
             action_id, body.asset_id, principal.subject, body.expected_revision,
             asset_owner=hosted_world_media_owner(world_id) if hosted else None,
+            authorize_world=authorize_world if hosted else None,
         ))
     except ApplicationStateError as error:
         raise HTTPException(error.status_code, detail=str(error)) from error
