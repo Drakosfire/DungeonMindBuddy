@@ -434,6 +434,19 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  const playableCollection = /^\/api\/live\/workspace-documents\/world-plans(?:\?|$)/.exec(path);
+  if (playableCollection) {
+    const prefix = playableCollection[0];
+    if (prefix.endsWith("?")) {
+      const worldId = new URLSearchParams(path.slice(prefix.length)).get("world_id");
+      return method === "GET" && init?.body == null && !!worldId
+        && path === prefix + new URLSearchParams({ world_id: worldId });
+    }
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && body?.schema_version === "dmb_workspace_document_create_v2"
+      && body.scope_mode === "world" && typeof body.world_id === "string"
+      && Boolean(body.world_id) && typeof body.title === "string";
+  }
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[a-z0-9:_-]+(?:\/build-context)?$/i.test(path)
     || /^\/api\/live\/extract-promote\/runs\/[a-z0-9:_-]+\/(?:review-package|frozen-source-spans)$/i.test(path)) {
     return method === "GET" && init?.body == null;
@@ -939,6 +952,7 @@ function apiRequestTarget(
   let normalizedPath = path;
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
   const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
+    || normalizedPath === "/api/live/workspace-documents/world-plans"
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+(?:\/build-context)?$/.test(normalizedPath)
     || /^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:review-package|frozen-source-spans)$/.test(normalizedPath)
     || /^\/api\/live\/extract-promote\/runs\/[^/]+\/evidence-corrections$/.test(normalizedPath)

@@ -1245,3 +1245,26 @@ it.each([
   await expect(api.authenticatedApiFetch(path + "?world_id=foreign")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("uses the hosted session for World Plan inventory and creation", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const path = "/api/live/workspace-documents/world-plans";
+  const body = {
+    schema_version: "dmb_workspace_document_create_v2", scope_mode: "world",
+    world_id: "managed", title: "Plan",
+  } as const;
+  await api.listWorldOwnedPlans("managed");
+  await api.createWorldOwnedPlan(body);
+  expect(fetch).toHaveBeenNthCalledWith(1, path + "?world_id=managed", expect.objectContaining({
+    credentials: "same-origin", mode: "same-origin",
+  }));
+  expect(fetch).toHaveBeenNthCalledWith(2, path, expect.objectContaining({
+    method: "POST", credentials: "same-origin", mode: "same-origin",
+  }));
+  await expect(api.authenticatedApiFetch(path + "?world_id=foreign", {
+    method: "POST", body: JSON.stringify(body),
+  })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
