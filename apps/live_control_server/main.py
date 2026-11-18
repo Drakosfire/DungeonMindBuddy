@@ -282,6 +282,8 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}"): resolve_hosted_saved_statblock,
     ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover"): resolve_hosted_saved_statblock,
     ("GET", "/api/live/world-mechanics/associations"): resolve_hosted_statblock_inventory,
+    ("GET", "/api/live/world-mechanics/associations/creatures"): resolve_hosted_plan_world_context,
+    ("GET", "/api/live/world-mechanics/associations/requests/{request_id}"): resolve_hosted_plan_world_context,
     ("POST", "/api/live/tiptap/markdown-write/prepare"): resolve_hosted_build_page,
     ("POST", "/api/live/tiptap/markdown-write/commit"): resolve_hosted_build_page,
     ("POST", "/api/live/graph-preview/extraction-runs"): resolve_hosted_build_extraction,

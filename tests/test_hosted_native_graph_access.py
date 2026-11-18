@@ -414,6 +414,8 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}"): access.resolve_hosted_saved_statblock,
             ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
+            ("GET", "/api/live/world-mechanics/associations/creatures"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/world-mechanics/associations/requests/{request_id}"): access.resolve_hosted_plan_world_context,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
             ("POST", "/api/live/worlds/{world_id}/pdf-adventure-events/prepare"): access.resolve_hosted_build_pdf_world,
@@ -3072,6 +3074,44 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_creature_catalog_and_association_read_are_world_scoped(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import world_mechanics_associations as routes
+
+    catalog = Mock(return_value=SimpleNamespace(response=lambda: {"world_id": "managed", "items": []}))
+    find = Mock(return_value=None)
+    monkeypatch.setattr(routes.creatures, "catalog", catalog)
+    monkeypatch.setattr(routes, "resolve_managed_world_binding", lambda world: world)
+    monkeypatch.setattr(routes.state, "find_request", find)
+    request_id = uuid4()
+    base = "/api/live/world-mechanics/associations"
+    for suffix in ("creatures", f"requests/{request_id}"):
+        path = f"{base}/{suffix}?world_id=managed"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+        assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+        response = hosted.client.request("GET", path)
+        assert response.status_code == 200, response.text
+        assert response.headers["cache-control"] == "no-store"
+    catalog.assert_called_once_with("managed")
+    find.assert_called_once_with(world_id="managed", request_id=request_id)
+
+    owner_record = hosted.records["managed"]
+
+    def transfer_after_lookup(result):
+        def lookup(*_args, **_kwargs):
+            hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+            return result
+        return lookup
+
+    catalog.side_effect = transfer_after_lookup(catalog.return_value)
+    find.side_effect = transfer_after_lookup(find.return_value)
+    for suffix in ("creatures", f"requests/{request_id}"):
+        hosted.records["managed"] = owner_record
+        response = hosted.client.request("GET", f"{base}/{suffix}?world_id=managed")
+        assert response.status_code == 403, response.text
 
 
 def test_hosted_archives_exact_statblock_and_preserves_saved_revision(prepared, hosted):

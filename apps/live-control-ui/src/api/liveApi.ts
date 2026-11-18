@@ -431,6 +431,11 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  const mechanicsRead = /^\/api\/live\/world-mechanics\/associations\/(?:creatures|requests\/[0-9a-f-]+)\?([^#]+)$/.exec(path);
+  if (mechanicsRead) {
+    const query = new URLSearchParams(mechanicsRead[1]);
+    return method === "GET" && init?.body == null && query.size === 1 && Boolean(query.get("world_id"));
+  }
   const pdfPublish = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/(?:(?:creature-draft|validate|publication)\?expected_revision=([1-9][0-9]*)|accept\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.exec(path);
   if (method === "POST" && pdfPublish) {
     const expectedRevision = pdfPublish[1];
