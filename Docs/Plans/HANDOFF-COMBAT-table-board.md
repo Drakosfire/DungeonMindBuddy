@@ -2,6 +2,21 @@
 
 ## Authority and lane
 
+MERGED in #3968 as `e088f7b0e6b48928bc9e26cfdc34045043abec62`.
+The source write lease is released to the consuming stat-editing slice. Reviewed
+head `e72044c87ca9939dbcc8f4105afb0fb52ef374e7` has three distinct-head formal
+review cycles across this slice; supplemental evidence audits add no cycle.
+Standalone and actual shared projection components passed the synthetic-API
+browser checks; exact-head inherited-red verification and its limits are below.
+The immutable merged UI is served locally on owned port5218, proxying to the
+existing UI's actual API8001. Real-data readiness remains pending: the existing
+API reader rejects a PDF saved-mechanics snapshot that current main validates.
+Read-only validation proved both retained Elderwyld records valid with current
+models. The running compatibility runtime lacks merged reader correction #3797;
+no saved values/digests, shared API process, or live schema were changed.
+
+Historical activation:
+
 ACTIVE: the operator explicitly authorized implementation in the current Combat
 goal on 2026-11-18: “Do implement it, you will build this in the goal”. This is
 design/stewardship and implementation authority. The operator subsequently updated
