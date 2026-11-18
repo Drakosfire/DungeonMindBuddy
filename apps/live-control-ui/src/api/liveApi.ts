@@ -429,6 +429,16 @@ const HOSTED_WORLD_LOOKUP_PATH = "/api/live/world-containers/lookup";
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  const pdfPublish = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/(?:(?:creature-draft|validate|publication)\?expected_revision=([1-9][0-9]*)|accept\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.exec(path);
+  if (method === "POST" && pdfPublish) {
+    const expectedRevision = pdfPublish[1];
+    if (expectedRevision) return init?.body == null && Number.isSafeInteger(Number(expectedRevision));
+    const body = requestBodyRecord(init?.body);
+    return typeof body?.operation_id === "string" && Boolean(body.operation_id)
+      && typeof body.expected_revision === "number" && Number.isSafeInteger(body.expected_revision) && body.expected_revision > 0
+      && typeof body.expected_draft_version === "number" && Number.isSafeInteger(body.expected_draft_version) && body.expected_draft_version > 0
+      && isRecord(body.validation_receipt) && typeof body.validation_definition_digest === "string";
+  }
   const pdfReview = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-pdf-sources\/statblock-reviews(?:\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(\/publication(?:\/statblock)?)?)?([?][^#]+)?$/.exec(path);
   if (pdfReview) {
     const [, reviewId, publication, search] = pdfReview;
