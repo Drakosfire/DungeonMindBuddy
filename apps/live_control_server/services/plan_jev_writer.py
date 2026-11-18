@@ -329,7 +329,7 @@ class PlanJevWriter:
 
                 variant_format = bool(not rule_frame.lookups and variant_sources(self.work_frame))
                 if variant_format:
-                    format_version = 6
+                    format_version = 8
                 elif not rule_frame.lookups and any(
                     is_anchored_discussion(event) for event in turn.graph_context_execution.events
                 ):

@@ -53,6 +53,7 @@ VARIANT_WRITER_FORMAT = "surface_native_evidence_selectors_v3"
 VARIANT_EDITS_FORMAT = "surface_native_evidence_selectors_v4"
 VARIANT_VISIBLE_REPLY_FORMAT = "surface_native_evidence_selectors_v5"
 VARIANT_WITNESS_FORMAT = "surface_native_evidence_selectors_v6"
+VARIANT_CARRIED_CONDITION_FORMAT = "surface_native_evidence_selectors_v8"
 
 
 def semantic_frame(host, execution, *, include_variant=False, variant_edits=False):

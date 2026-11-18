@@ -256,7 +256,7 @@ def _answer_schema(variants, policy, rules, prose, *, proposal_labels=("invented
 
 def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
-    if type(format_version) is not int or format_version not in {1, 2, 3, 4, 5, 6, 7}:
+    if type(format_version) is not int or format_version not in {1, 2, 3, 4, 5, 6, 7, 8}:
         raise ValueError('Unknown native writer output format version')
     if (frame.get('schema') not in {SCHEMA, LEGACY_SCHEMA} or frame.get('answer_policy') != ASSERTION_POLICY
             or not isinstance(rules, (PlanRulesEvidenceFrameV1, ModelRulesFrame))):
@@ -299,7 +299,7 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
             base['required'].append('collaboration')
             if definitions:
                 schema.setdefault('$defs',{}).update(definitions)
-    if format_version in {3, 4, 5, 6}:
+    if format_version in {3, 4, 5, 6, 8}:
         from .native_build_work_view import variant_sources
         sources = variant_sources(work_frame)
         if rules.lookups or work_frame.get("schema") != BUILD_WORK_SCHEMA or not sources:
@@ -316,7 +316,7 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                 {f"Variant_{name}": entry for name, entry in definitions.items()}
             )
             properties = {"source": _enum(list(sources))}
-            if format_version == 6:
+            if format_version in {6, 8}:
                 witnesses = _array({
                     **prose,
                     "description": "Quote the exact authored condition, including any exception.",
@@ -327,7 +327,17 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                 )
                 if "working_draft_context" not in work_frame:
                     witnesses["maxItems"] = 0
-                mechanics = _object({"authored_quotes": witnesses, "rule": mechanics})
+                fields = {}
+                if format_version == 8:
+                    fields["carried_condition"] = {
+                        "type": ["string", "null"] if "working_draft_context" in work_frame else "null",
+                        "description": (
+                            "For an unchanged authored trigger, select its exact unique sentence "
+                            "from current_draft. Buddy inserts it into the playable trigger and "
+                            "displayed rule. Use null for original or explicitly changed conditions."
+                        ),
+                    }
+                mechanics = _object({**fields, "authored_quotes": witnesses, "rule": mechanics})
                 mechanics["description"] = (
                     "Pair section and activation.kind as follows: action → action; "
                     "bonus_action → bonus_action; reaction → reaction; "
@@ -336,6 +346,11 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                     "A rule governed by an ongoing situation or a scene trigger does not "
                     "consume a combat action unless its mechanics specify one."
                 )
+                if format_version == 8:
+                    mechanics["description"] += (
+                        " With carried_condition, provide a typed trigger and write only "
+                        "consequences in rule.rules_text. Do not restate or add another trigger."
+                    )
             if format_version >= 4:
                 properties.update({
                     "add_rules": {"type": "array", "items": mechanics},
