@@ -7,6 +7,8 @@ import * as api from './combatApi';
 import {combatRecoveryKey} from './combatRecovery';
 import type {ManualCombatRecord} from './ManualCombatTypes';
 import {newManualActor} from './ManualCombatState';
+import exactSource from '../../../../tests/fixtures/statblocks/v1/exact-revision-response.json';
+import type {AcceptedCombatMechanicsSnapshot} from './combatTypes';
 
 beforeEach(()=>{localStorage.clear();Object.defineProperty(navigator,'locks',{configurable:true,value:testCombatLocks()});});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
@@ -102,10 +104,10 @@ it('removes the current round anchor without a round jump or dangling group memb
   record.draft.turn={kind:'ordered_rounds',active_actor_id:first.id,round_start_actor_id:first.id,round:4};
   record.draft.groups=[{id:'crew-group',label:'Crew group',member_ids:[first.id,second.id],collapsed:false}];
   await open(record);
-  const crew=within(screen.getByRole('article',{name:'Crew',exact:true}));
+  const crew=within(screen.getByRole('row',{name:'Crew',exact:true}));
   fireEvent.click(crew.getByText('Notes and participant options'));
   fireEvent.click(crew.getByRole('button',{name:'Remove Crew from encounter draft'}));
-  expect(screen.queryByRole('article',{name:'Crew',exact:true})).toBeNull();
+  expect(screen.queryByRole('row',{name:'Crew',exact:true})).toBeNull();
   expect(screen.getByText('Round 4')).toBeTruthy();
   const raw=JSON.parse(localStorage.getItem(combatRecoveryKey(record.world_id,record.encounter_id))!);
   expect(raw.draft.turn).toMatchObject({active_actor_id:second.id,round_start_actor_id:second.id,round:4});
@@ -118,6 +120,34 @@ it('keeps the participant name when local retention refuses an addition',async()
   fireEvent.change(screen.getByLabelText('Participant name'),{target:{value:'Bridge wardens'}});
   fireEvent.click(screen.getByRole('button',{name:'Add participant'}));
   expect((screen.getByLabelText('Participant name') as HTMLInputElement).value).toBe('Bridge wardens');
-  expect(screen.queryByRole('article',{name:'Bridge wardens'})).toBeNull();
+  expect(screen.queryByRole('row',{name:'Bridge wardens'})).toBeNull();
   expect(screen.getByRole('alert').textContent).toContain('Storage quota reached');
+});
+
+it('keeps source projection and edited fields on the same participant through reorder and group collapse',async()=>{
+  const record=manualCombatRecord(),crew=record.draft.entities[0],courier=newManualActor(record.ruleset,'Courier');
+  record.draft.entities.push(courier);record.draft.turn.active_actor_id=crew.id;
+  record.draft.groups=[{id:'crew-group',label:'Bridge team',member_ids:[crew.id,courier.id],collapsed:false}];
+  crew.mechanics_snapshot={origin:'world_accepted_mechanics_v1',managed_world_id:record.world_id,draft_id:'22222222-2222-4222-8222-222222222222',draft_version:3,
+    acceptance_operation_id:'synthetic-accept',acceptance_request_digest:'sha256:'+'a'.repeat(64),accepted_from_draft_version:1,accepted_from_candidate_id:null,
+    locator:{provider:'dungeonmind',statblock_id:exactSource.statblock_id,revision_id:exactSource.revision_id,contract:exactSource.contract,contract_version:exactSource.contract_version,definition_digest:exactSource.definition_digest},
+    resource:exactSource,snapshot_digest:'sha256:'+'b'.repeat(64)} as AcceptedCombatMechanicsSnapshot;
+  await open(record);
+  fireEvent.click(screen.getByRole('button',{name:'Project source for Crew'}));
+  const projection=screen.getByRole('complementary',{name:'Exact source for Crew'});
+  expect(projection).toHaveFocus();
+  fireEvent.change(screen.getByLabelText('Position for Crew'),{target:{value:'Covered'}});
+  fireEvent.click(within(screen.getByRole('row',{name:'Crew',exact:true})).getByText('Notes and participant options'));
+  fireEvent.click(screen.getByRole('button',{name:'Move Crew later'}));
+  fireEvent.click(screen.getByRole('button',{name:'Bridge team · 2 participants'}));
+  expect(screen.getByRole('row',{name:'Crew',exact:true})).toBeVisible();
+  expect(screen.queryByRole('row',{name:'Courier',exact:true})).toBeNull();
+  expect(screen.getByRole('complementary',{name:'Exact source for Crew'})).toBe(projection);
+  expect((screen.getByLabelText('Position for Crew') as HTMLInputElement).value).toBe('Covered');
+  fireEvent.click(screen.getByRole('button',{name:'Close source'}));
+  expect(screen.getByRole('button',{name:'Project source for Crew'})).toHaveFocus();
+  const retained=JSON.parse(localStorage.getItem(combatRecoveryKey(record.world_id,record.encounter_id))!);
+  expect(retained.draft.entities.map((actor:{id:string})=>actor.id)).toEqual([courier.id,crew.id]);
+  expect(retained.draft.turn.active_actor_id).toBe(crew.id);
+  expect(retained.draft.entities[1].mechanics_snapshot).toEqual(crew.mechanics_snapshot);
 });

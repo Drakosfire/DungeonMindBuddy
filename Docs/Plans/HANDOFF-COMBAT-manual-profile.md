@@ -48,10 +48,17 @@ is absorbed. Re-anchor and split/return before exceeding this write set.
 
 ## Migration and state authority
 
-PRIME settled sequencing in merged #3877: Combat owns20261118_0162, parent0161.
-The fetched source's sole Alembic head was independently read as20261117_0161
-before activation. Recheck before committing the migration. Rehearse
-0160→0161→0162 on uniquely owned disposable PostgreSQL. Preserve v1 rows, aliases,
+The original PRIME allocation in #3877 was Combat20261118_0162, parent0161;
+the sole fetched head was0161 at that activation. This allocation is now stale:
+origin/main `e0ad49c18fa922bf415438d18729b988c23fb92d` contains merged
+`20261118_0162_saved_statblock_continuity.py`. Combat's competing0162 is unmerged
+and has run only in owned disposable databases. The next serial slot is pending
+PRIME's sequencing response; do not rebase/activate the migration until settled.
+Client work remains ACTIVE within this lease. Revise the migration path, parent
+and rehearsal together after allocation. The newly merged0162 is forward-only,
+so final rehearsal must use a fresh owned database rather than downgrade through
+that fence. Earlier0160→0161→planned-Combat0162 results are diagnostics only.
+Preserve v1 rows, aliases,
 historical template/receipt/digest preimages and existing JSONB byte constraints.
 Admit only matching version pairs. Downgrade refuses retained v2 data/history.
 No live/operator database migration or record mutation is authorized here.
@@ -158,11 +165,11 @@ read-only persisted snapshots, source hashes, logs and explicit fixture limits.
 Screenshots are `combat-manual-profile-source-{wide,narrow}.jpg` in this chat's
 visualizations directory; they are diagnostic witnesses before final acceptance.
 
-Active owned rehearsal services: API8018 (exec session49936), UI5219
-(session81881), container `buddy-combat-manual-fc67` port33073. API lifetime owns
-its unique template/clone and cleans them on graceful shutdown. Context and exact
-owned database name live in external `manual-browser/context.json`. Keep or shut
-down these owned services deliberately; do not restart shared8001/5202/5218.
+Earlier owned rehearsal services were API8018 (exec session49936), UI5219
+(session81881), container `buddy-combat-manual-fc67` port33073. API lifetime owned
+its unique template/clone and cleaned them on graceful shutdown as recorded below.
+The historical context/database name is external `manual-browser/context.json`;
+it is not a live-service receipt. Do not restart shared8001/5202/5218.
 Earlier terminated setup failures and successful cleanup remain in separate logs.
 The final refinement diagnostic adds nine passing editor cases for staged input,
 unset focus, removal/round/group cleanup, no-blur status retention, pending labels,
@@ -170,3 +177,42 @@ late acknowledgements, exact retries and refused-write input preservation. New
 test inventory is1561 files and classified; final refinement typecheck passes.
 The refined screenshot is `combat-manual-profile-refined.jpg`. These are still
 incremental working diagnostics; no exact-head approval or full browser acceptance.
+
+### Compact roster and Plan/Play checkpoint
+
+Manual rows now use a descriptor-driven table with stable actor/field keys,
+horizontal scrolling and a pinned participant column on wide screens. Current
+actors remain visible inside collapsed groups; source selection stays attached
+through reorder/collapse. Bounds, notes and extra actions remain available without
+forcing tall cards. Narrow controls remain reachable without document overflow.
+
+Real browser Plan creation exposed a transport `schema` versus retained `schema_`
+digest mismatch. Client normalization now matches the existing Python non-alias
+preimage, with shared `manual-scene-create-v2.json` fixture and Python/TS checks;
+legacy receipt preimages remain unchanged. Generic committed manual readings now
+refresh prepared history after Save, and the automatic refresh only advances to
+a newer committed revision. Preliminary review found the older-editor/newer-history
+case; the advance-only condition and regression address it. Final review pending.
+
+Working checks:64 frontend cases passed at the table checkpoint; the subsequent
+Plan/editor regression files pass23 cases;103 profile/record cases and typecheck
+pass. These do not replace exact-head qualification. Browser captured preparation3
+into Play, materialized fresh actor/group identities, edited/saved live2 and
+returned to unchanged preparation3. Preparation then advanced independently to9
+with16 actors, collapsed groups2+12, keyboard turn movement and a narrow Resolve6
+edit. Read-only PG evidence proves captured/live/current independence and exact
+source/profile equality. External evidence: `plan-play-browser-persisted.json`,
+`crowded-table-browser-persisted.json`, `pre-resequence-owned-browser-snapshot.json`.
+Screenshots: `combat-manual-{plan-source,play-source,compact-groups,compact-narrow}.jpg`.
+
+The owned API49936 and UI81881 were gracefully stopped before migration
+re-sequencing; both handles are terminal and the API context cleaned its owned
+template/clone. The temporary browser tab was closed. PG container33073 remains
+owned for the next verification run; shared processes were untouched. Do not reuse
+the old planned0162 database/evidence as current migration qualification.
+
+PRIME was explicitly notified of both the migration collision and the hosted
+consumer PR3878/3879 route overlaps. Combat widens DTO versions without editing
+their branches or authorization owners. Pending allocation/sequence must remain
+visible; elapsed time is not agreement. Full qualification, independent exact-head
+review, accepted merge/local delivery and side/spotlight successors remain open.

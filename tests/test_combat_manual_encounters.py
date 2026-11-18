@@ -25,6 +25,16 @@ WORLD = "crossing-world"
 UUID = "11111111-1111-4111-8111-111111111111"
 
 
+def test_manual_scene_create_retains_exact_non_alias_digest_preimage():
+    from application_state.combat_encounters.scene_template_types import CreateSceneTemplateRequest
+    fixture=json.loads((FIXTURES/'combat/manual-scene-create-v2.json').read_text())
+    normalized=dict(world_id=fixture['world_id'],request=CreateSceneTemplateRequest.model_validate(fixture['intent']).model_dump(mode='json'))
+    assert normalized==fixture['normalized']
+    assert normalized['request']['encounter']['profile']['schema_']=='dmb_combat_profile_v2'
+    canonical=json.dumps(normalized,ensure_ascii=False,sort_keys=True,separators=(',',':'))
+    assert 'sha256:'+hashlib.sha256(canonical.encode()).hexdigest()==fixture['digest']
+
+
 def profile(rounds=False):
     return ManualCombatProfile(profile_id="crossing", name="Crossing under pressure", system_id="synthetic-crossing",
         stats=[{"field_id": "position", "label": "Position", "value_type": "text", "initial": "Exposed"}],

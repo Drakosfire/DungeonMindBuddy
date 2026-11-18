@@ -10,6 +10,7 @@ import {sameEncounterScope} from '../guidedTour/EncounterScope';
 import {CombatRosterModule,type PreparedCombatOwnerReading} from '../surface/modules/CombatRosterModule';
 import {assertSceneCreation,assertSceneTemplate,cancelSceneTemplateCreation,sceneCreationDigest,createSceneTemplate,getSceneTemplate,getSceneTemplateVersion,inspectSceneTemplateCreation,type PlanEncounterContext,type SceneTemplateIntent,type SceneTemplateView} from './sceneTemplatesApi';
 import type {AnyCombatRecord,ManualCombatProfile} from './ManualCombatTypes';
+import {isManualCombatRecord} from './ManualCombatTypes';
 import {ManualCombatProfileForm} from './ManualCombatProfileForm';
 
 function recoveryKey(context:PlanEncounterContext){return `dmb-scene-template-create-v1:${context.worldId}:${context.documentId}:${context.sceneId}`;}
@@ -118,18 +119,20 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
  // Read once after an admitted roster Save to pair that exact record with
  // its server version digest. Never repeat a Save or poll for changes.
  const saved=roster?.acknowledged;
- const needsVersion=!!currentView&&!!saved&&sameEncounterScope(tourEncounter,saved.scope)&&!roster?.blocked&&!roster?.error&&roster.record?.revision===saved.saved.revision&&currentView.encounter.revision!==saved.saved.revision;
+ const manualCommitted=roster?.record&&isManualCombatRecord(roster.record)?roster.record:null;
+ const committedForVersion=manualCommitted??(saved&&sameEncounterScope(tourEncounter,saved.scope)?saved.saved:null);
+ const needsVersion=!!currentView&&!!committedForVersion&&!roster?.blocked&&!roster?.error&&roster?.record?.revision===committedForVersion.revision&&committedForVersion.revision>currentView.encounter.revision;
  useEffect(()=>{
-  if(!needsVersion||!saved)return;
+  if(!needsVersion||!committedForVersion)return;
   let active=true;const current=epoch.current;
   void getSceneTemplate(context).then(result=>{
    if(!active||current!==epoch.current||!result)return;
    assertSceneTemplate(result,context);
-   if(result.encounter.revision!==saved.saved.revision||!combatDraftEqual(result.encounter.draft,saved.saved.draft))throw new Error('Prepared version differs from the acknowledged Save.');
+   if(result.encounter.revision!==committedForVersion.revision||!combatDraftEqual(result.encounter.draft,committedForVersion.draft))throw new Error('Prepared version differs from the acknowledged Save.');
    accept(result);
   }).catch(caught=>{if(active&&current===epoch.current)setError(String(caught));});
   return()=>{active=false;};
- },[needsVersion,saved,identity]);
+ },[needsVersion,committedForVersion,identity]);
  return <section aria-label={`Encounter preparation for ${context.sceneTitle}`}>
   <EncounterTourObservation view={currentView} context={context} roster={roster} acknowledgedOperation={acknowledgedOperation} dispatchScope={tourDispatchScope} error={error} pending={!!pending||busy||admittedIdentity!==identity}/>
   <h2 data-guided-control="encounter" data-guided-control-group="true" tabIndex={-1}>{context.sceneTitle} · Encounter</h2>

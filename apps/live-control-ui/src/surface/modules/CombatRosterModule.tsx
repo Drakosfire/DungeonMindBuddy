@@ -268,7 +268,7 @@ function cloneDraft(draft: CombatEncounterDraft): CombatEncounterDraft {
   return JSON.parse(JSON.stringify(draft)) as CombatEncounterDraft;
 }
 
-export interface PreparedCombatOwnerReading {record:CombatEncounterRecord|null;blocked:boolean;error:string|null;acknowledged:{dispatchScope:TourDispatchScope|null;scope:TourEncounterScope;before:CombatEncounterRecord;saved:CombatEncounterRecord}|null}
+export interface PreparedCombatOwnerReading {record:AnyCombatRecord|null;blocked:boolean;error:string|null;acknowledged:{dispatchScope:TourDispatchScope|null;scope:TourEncounterScope;before:CombatEncounterRecord;saved:CombatEncounterRecord}|null}
 export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:AnyCombatRecord;onPreparedState?:(reading:PreparedCombatOwnerReading|null)=>void;runScope?:import("../../combat/runEncountersApi").RunEncounterScope};
 export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;variant?:SavedConversationVariantTarget} = {}) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -616,7 +616,8 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
   const preparedBlocked=busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked||manualBlocked;
   useTourNavigationGuard(worldId?{worldId,reason:()=>preparedBlocked?'Save or recover the encounter work before leaving these controls.':null}:null);
   const preparedListener=scope?.onPreparedState;
-  useEffect(()=>{preparedListener?.({record:visibleRecord,blocked:preparedBlocked,error,acknowledged:preparedAcknowledged});},[preparedListener,visibleRecord,preparedBlocked,error,preparedAcknowledged]);
+  const preparedRecord=visibleRecord??(manualRecord?.world_id===worldId?manualRecord:null);
+  useEffect(()=>{preparedListener?.({record:preparedRecord,blocked:preparedBlocked,error,acknowledged:preparedAcknowledged});},[preparedListener,preparedRecord,preparedBlocked,error,preparedAcknowledged]);
   useEffect(()=>()=>preparedListener?.(null),[preparedListener]);
 
   const worldMessage = scope && selectedWorld.kind === "managed" && scope.worldId !== selectedWorld.worldId
@@ -693,7 +694,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
           </section>}
           {recoveryMessage && <p role="status">{recoveryMessage}</p>}
           {worldListLoading ? <p className="module-muted">Loading World encounters…</p> : null}
-          {!worldListLoading && visibleEncounters.length === 0 && !visibleRecord ? (
+          {!worldListLoading && visibleEncounters.length === 0 && !visibleRecord && !manualRecord ? (
             <p className="module-muted">No encounters yet. Create a named encounter to begin; it won’t replace another fight.</p>
           ) : null}
           {!visibleRecord && !manualRecord ? (

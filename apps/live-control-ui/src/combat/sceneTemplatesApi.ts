@@ -20,7 +20,13 @@ export function assertSceneTemplate(view:SceneTemplateView,context:PlanEncounter
 }
 
 export async function sceneCreationDigest(worldId:string,intent:SceneTemplateIntent){
- const normalized={world_id:worldId,request:{...intent,encounter:'profile' in intent.encounter?{campaign_id:null,session:null,...intent.encounter}:{campaign_id:null,session:null,ruleset_id:'generic.manual-tracking',...intent.encounter}}};
+ const encounter='profile' in intent.encounter?(()=>{
+  // Scene receipts retain the owning model's historical non-alias dump.
+  // Transport still uses `schema`; never change retained v1 digest preimages.
+  const {schema,...profile}=intent.encounter.profile;
+  return {campaign_id:null,session:null,...intent.encounter,profile:{...profile,schema_:schema}};
+ })():{campaign_id:null,session:null,ruleset_id:'generic.manual-tracking',...intent.encounter};
+ const normalized={world_id:worldId,request:{...intent,encounter}};
  function ordered(value:unknown):unknown{if(Array.isArray(value))return value.map(ordered);if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,ordered(item)]));return value;}
  const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(ordered(normalized))));
  return 'sha256:'+Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('');

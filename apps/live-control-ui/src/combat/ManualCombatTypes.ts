@@ -26,4 +26,4 @@ export interface ManualCombatRecord extends Omit<CombatEncounterRecord,'ruleset'
 export type AnyCombatRecord = CombatEncounterRecord | ManualCombatRecord;
 export type AnyCombatDraft = CombatEncounterRecord['draft'] | ManualCombatDraft;
 export const isManualCombatRecord = (record:AnyCombatRecord):record is ManualCombatRecord =>
-  record.ruleset.schema === 'dmb_combat_profile_v2' && record.draft.schema === 'dmb_combat_encounter_draft_v2';
+  record.ruleset?.schema === 'dmb_combat_profile_v2' && record.draft?.schema === 'dmb_combat_encounter_draft_v2';
