@@ -296,6 +296,9 @@ def hosted(monkeypatch, request):
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
+    from apps.live_control_server.routes import native_source_inspection
+
+    app.include_router(native_source_inspection.router)
     app.include_router(live.router)
     app.include_router(graph_preview.router)
     from apps.live_control_server.routes import pdf_adventure_events
@@ -324,7 +327,8 @@ def hosted(monkeypatch, request):
         app,
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
-               if "/variant-reviews/{review_id}" in key[1]},
+               if "/variant-reviews/{review_id}" in key[1]
+               or key[1] == "/api/live/native-source-inspection/published-recap"},
             **{
                 (
                     "POST",
@@ -3874,3 +3878,35 @@ def test_hosted_play_progress_binds_world_run_and_origin(hosted, monkeypatch):
     assert write.call_args.kwargs["world_id"] == "managed"
     assert write.call_args.kwargs["run_id"] == run_id
     assert write.call_args.kwargs["expected_run_revision"] == 2
+
+
+def test_hosted_published_recap_requires_owned_world(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.services import native_source_inspection
+
+    read = Mock(return_value={"source": {"status": "available"}})
+    monkeypatch.setattr(native_source_inspection, "published_recap", read)
+    path = "/api/live/native-source-inspection/published-recap"
+    body = {"managed_world_id": "managed", "campaign_id": "campaign", "session_id": "session"}
+    assert hosted.client.request("POST", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", path, origin=None, json=body).status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    selector, principal = read.call_args.args
+    assert selector.managed_world_id == principal.managed_world_id == "managed"
+    assert (selector.campaign_id, selector.session_id) == ("campaign", "session")
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"source": {"text": "Private published recap"}}
+
+    read.side_effect = transfer_during_read
+    denied = hosted.client.request("POST", path, json=body)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert "Private published recap" not in denied.text

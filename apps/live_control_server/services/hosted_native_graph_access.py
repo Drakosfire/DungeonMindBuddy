@@ -24,7 +24,7 @@ from apps.live_control_server.models.native_graph_explorer import (
     NativeGraphExplorerPrepareRequest,
 )
 from apps.live_control_server.models.native_graph_inspection import InspectionPin, InspectionRead, InspectionScope
-from apps.live_control_server.models.native_source_inspection import NativeSourceRead
+from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapRead
 from apps.live_control_server.services import hosted_auth
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
@@ -48,6 +48,7 @@ BUILD_PDF_SOURCES_PATH = hosted_auth.BUILD_PDF_SOURCES_PATH
 BUILD_PAGE_INVENTORY_PATH = "/api/live/workspace-documents/pages/inventory"
 INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read"
 _REQUESTS = {
+    "/api/live/native-source-inspection/published-recap": TypeAdapter(PublishedRecapRead),
     "/api/live/native-graph-inspection/catalog": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-source-inspection/catalog": TypeAdapter(InspectionScope),
     "/api/live/native-source-inspection/read": TypeAdapter(NativeSourceRead),
