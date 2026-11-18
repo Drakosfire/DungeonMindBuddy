@@ -1,3 +1,4 @@
+import { useHostedAuthStatus } from "../../auth/HostedAuthGate";
 import { NativeGraphObjectDetails } from "../../graphLens/NativeGraphObjectDetails";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -8,6 +9,7 @@ import {
   inspectNativeGraph,
   postWorldGraphRecapProjection,
   readPublishedNativeRecap,
+  readPublishedRecapObjects,
 } from "../../api/liveApi";
 import type { RecapArtifactRecord, WorldGraphObjectProjectionResult, WorldGraphRecapProjection } from "../../api/types";
 import { buildWorldGraphRecapProjectionRequest } from "../../worldGraph/worldGraphSurfaceContext";
@@ -83,6 +85,7 @@ function recapUnavailableMessage(error: unknown, sessionId: string, campaignId: 
 }
 
 function NativeRecapObjects({ recap }: { recap: PublishedNativeRecap }) {
+  const hosted = useHostedAuthStatus().status === "authenticated";
   const [objects, setObjects] = useState<{ id: string; label: string; ambiguous: boolean }[]>([]);
   const [object, setObject] = useState<WorldGraphObjectProjectionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +97,17 @@ function NativeRecapObjects({ recap }: { recap: PublishedNativeRecap }) {
 
   useEffect(() => {
     const controller = new AbortController();
+    if (hosted) {
+      void readPublishedRecapObjects(recap, undefined, controller.signal).then(packet => {
+        if (controller.signal.aborted) return;
+        if (!("objects" in packet) || !sameInspectionPin(packet.scope, pin)) throw new Error("The recap graph pin changed.");
+        setObjects(packet.objects);
+        if (packet.partial) setError("Some reviewed recap objects are unavailable.");
+      }).catch(reason => {
+        if (!controller.signal.aborted) setError(recapUnavailableMessage(reason, recap.session_id, recap.campaign_id));
+      });
+      return () => { controller.abort(); selection.current += 1; };
+    }
     void getNativeGraphCatalog(pin, controller.signal).then(packet => {
       if (controller.signal.aborted) return;
       if (!sameInspectionPin(packet.scope, pin)) throw new Error("The recap graph pin changed.");
@@ -120,7 +134,7 @@ function NativeRecapObjects({ recap }: { recap: PublishedNativeRecap }) {
       if (!controller.signal.aborted) setError(recapUnavailableMessage(reason, recap.session_id, recap.campaign_id));
     });
     return () => { controller.abort(); selection.current += 1; };
-  }, [pin, recap]);
+  }, [hosted, pin, recap]);
 
   const open = async ({ id, label, ambiguous }: (typeof objects)[number]) => {
     const generation = ++selection.current;
@@ -128,6 +142,18 @@ function NativeRecapObjects({ recap }: { recap: PublishedNativeRecap }) {
     setDetail(null);
     setError(null);
     try {
+      if (hosted) {
+        const packet = await readPublishedRecapObjects(recap, id);
+        if (generation !== selection.current) return;
+        if ("kind" in packet && packet.kind === "entity" && sameInspectionPin(packet.detail.scope, pin) && packet.detail.entity.found) {
+          setDetail({ entity: packet.detail, id, label });
+        } else if ("kind" in packet && packet.kind === "complete" && packet.detail.found && packet.detail.snapshot?.revisionId === pin.revision_id) {
+          setObject(packet.detail);
+        } else {
+          throw new Error("The reviewed object is unavailable at the recap revision.");
+        }
+        return;
+      }
       if (ambiguous) {
         const entity = await inspectNativeGraph(pin, { kind: "entity", entity_id: id });
         if (generation !== selection.current) return;
