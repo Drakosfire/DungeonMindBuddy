@@ -1,3 +1,4 @@
+import { dungeonMindLoginHref, useHostedAuthStatus } from "../../auth/HostedAuthGate";
 import { ConversationDraftEditor, ConversationVariantApproval } from "../../agentInteraction/ConversationDraftEditor";
 import { downloadBlob } from "../../shared/downloadBlob";
 import { SavedStatblockPdfEvidence } from './SavedStatblockPdfEvidence';
@@ -2663,6 +2664,7 @@ export function WorldPlanAgentConversation({
   savePlanEnabled = false,
   imagePromptHost,
 }: WorldPlanAgentConversationProps) {
+  const localOperator = useHostedAuthStatus().status === "local_operator";
   const guidance=useGuidedTour();
   const selectedWorld = useSelectedWorld();
   const agent = useAgentInteraction();
@@ -6282,7 +6284,9 @@ export function WorldPlanAgentConversation({
       || action.consultation?.result?.result_id !== consultation.result.result_id) return null;
     return savedProposalGrounding(action, worldId, history.conversation_id, history.pointer_revision);
   })();
-  const authorizationBlocked = [historyError, error, editError].some((message) =>
+  const hostedNewConversationAuthError = !localOperator
+    && Boolean(newConversationError?.includes("local Agent and Graph session is missing or was rejected"));
+  const authorizationBlocked = hostedNewConversationAuthError || [historyError, error, editError].some((message) =>
     message?.includes("local Agent and Graph session is missing or was rejected"));
   const hasUncertainPlayNotice = Boolean(uncertainPlayNoticeRef.current
     && error === uncertainPlayNoticeRef.current.message);
@@ -6807,9 +6811,9 @@ export function WorldPlanAgentConversation({
   </>);
   const headerActions = (
     <div className="world-plan-agent-conversation__actions">
-            <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
+            {localOperator && <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
               {settingsOpen ? "Close settings" : "Settings"}
-            </button>
+            </button>}
             {!isReadOnly && (!presentationHosts || presentationHosts.newConversation === undefined) ? newConversationButton : null}
             {newConversationDisabledReason ? (
               <p id="world-plan-new-conversation-disabled-reason" className="world-plan-agent-conversation__management-reason" role="note">
@@ -6904,7 +6908,7 @@ export function WorldPlanAgentConversation({
             : historyLoading || !history ? "Checking saved conversation history."
             : "Current work is not ready for submission."
         ) : null} />
-      {settingsOpen ? connectionSettings : null}
+      {localOperator && settingsOpen ? connectionSettings : null}
       {isReadOnly ? <details><summary>Advanced</summary>
         {playMode?.admittedRun ? <p>Run {playMode.admittedRun.runId} · revision {playMode.admittedRun.runRevision}</p> : null}
         <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
@@ -7194,16 +7198,17 @@ export function WorldPlanAgentConversation({
     </>);
   const messages = (
     <div className="world-plan-agent-conversation__body">
-      {newConversationError ? <p role="alert">{newConversationError}</p> : null}
+      {newConversationError && !hostedNewConversationAuthError ? <p role="alert">{newConversationError}</p> : null}
       {pendingPlayLoadError ? <p role="alert">{pendingPlayLoadError}</p> : null}
       {presentationHosts && playableTargetStale ? <p role="alert">The Ask target is stale. Select it again before asking.</p> : null}
       {presentationHosts && effectiveEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
       {authorizationBlocked ? (
         <section className="world-plan-agent-conversation__auth-notice" role="alert">
-          <p>{pendingSavedAsk
+          <p>{!localOperator ? "World authorization was rejected. Check your DungeonMind sign-in and World access, then refresh history." : pendingSavedAsk
             ? "Local authorization was rejected. Reconnect in Settings, then refresh World history before taking another action."
             : "Local authorization was rejected. Reconnect in Settings, then refresh history or retry the saved request."}</p>
-          <button type="button" onClick={openConnectionSettings}>Open Settings</button>
+          {localOperator ? <button type="button" onClick={openConnectionSettings}>Open Settings</button>
+            : <a href={dungeonMindLoginHref(window.location.href)}>Sign in to DungeonMind</a>}
         </section>
       ) : null}
       {saveInFlight ? (
