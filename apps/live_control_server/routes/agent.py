@@ -2010,7 +2010,9 @@ def get_world_turn_prompt(world_id: str, turn_id: UUID, trace_id: UUID, provider
     from application_state.agent_conversation.context_trace import TracePromptReference
     from apps.live_control_server.services.agent_prompt_evidence import PromptEvidenceError, read_prompt
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422, detail="prompt read does not accept query selectors")
@@ -2055,7 +2057,9 @@ def get_world_turn_prompts(
     from application_state.agent_conversation.context_trace import TracePromptReference
     from apps.live_control_server.services.agent_prompt_evidence import MAX_PROMPT_BYTES, PromptEvidenceError, read_prompt
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     if request.query_params:
         raise HTTPException(status_code=422, detail="prompt read does not accept query selectors")
