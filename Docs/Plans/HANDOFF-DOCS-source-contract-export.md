@@ -1,6 +1,8 @@
 # DOCS: reconcile source contract export
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: HISTORICAL — completed by Buddy PR #4004, merged at `7ee521ee3b2c83b3929d9d11863555082b3f104d`. The lease is closed.
+
+Originally authorized by the documentation goal. PR topology: serial.
 Base: Buddy main `ecba0365cd25942a47fb019f1fba7eca9c557608`.
 Branch: `codex/docs-source-contract-export`. Predecessor: merged #4003.
 
