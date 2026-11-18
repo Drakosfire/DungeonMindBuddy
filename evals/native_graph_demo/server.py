@@ -168,7 +168,7 @@ class DemoHandler(BaseHTTPRequestHandler):
         return parsed.path
 
     def _dispatch(self, operation):
-        from .service import DemoError
+        from apps.live_control_server.native_graph_demo.service import DemoError
 
         try:
             self._json(HTTPStatus.OK, operation())
