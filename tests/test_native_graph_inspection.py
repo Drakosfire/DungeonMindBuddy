@@ -34,7 +34,7 @@ def inspection(request, monkeypatch):
         return copy.deepcopy(bound)
 
     monkeypatch.setattr(service.native, "binding", binding)
-    monkeypatch.setattr(service.native, "read_repository", lambda: lane.repo)
+    monkeypatch.setattr(service.native, "read_repository", lambda **_kwargs: lane.repo)
     meta = wk.AssertionMetadata(
         scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, lane.run.campaign_id),),
         visibility=wk.Visibility("labels_any", ("dungeonbuddy.visibility:gm",)),
@@ -1452,3 +1452,63 @@ def test_cached_anchor_follows_visible_revision_and_restores_historical_content(
         assert opened.status_code == 200, opened.text
         assert opened.json()["content"] == x.lane.text.splitlines(keepends=True)[0]
     assert counts["parse"] == before + 2
+
+
+def test_selected_neighborhood_and_anchor_share_explicit_source_proof_owner(inspection, monkeypatch):
+    from dungeonmind.infrastructure.postgres.vnext_knowledge import VerifiedKnowledgeRevisionCache
+
+    x = inspection
+    query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    cache = VerifiedKnowledgeRevisionCache(max_bytes=64 * 1024 * 1024)
+    monkeypatch.setattr(service, "_shared_verification_cache", cache)
+    factories = []
+    def factory(**kwargs):
+        factories.append(kwargs)
+        return x.lane.repo
+    monkeypatch.setattr(service.native, "read_repository", factory)
+    result = x.client.post("/api/live/world-graph/retrieval/neighborhood", json=query)
+    assert result.status_code == 200, result.text
+    for _ in range(2):
+        opened = _open_shared_anchor(x, query, result.json())
+        assert opened.status_code == 200, opened.text
+        assert opened.json()["content"] == x.lane.text.splitlines(keepends=True)[0]
+    owners = [kwargs["verification_cache"] for kwargs in factories if "verification_cache" in kwargs]
+    assert len(owners) == 3 and all(owner is cache for owner in owners)
+    assert cache.max_bytes == 67_108_864
+    assert counts == {"parse": 1, "revision": 3, "source": 3}
+
+
+def test_standalone_inspection_does_not_inject_source_verification_cache(inspection, monkeypatch):
+    x = inspection
+    factories = []
+    def factory(**kwargs):
+        factories.append(kwargs)
+        return x.lane.repo
+    monkeypatch.setattr(service.native, "read_repository", factory)
+    pin = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
+    for _ in range(2):
+        response = read(x, pin, {
+            "kind": "source", "assertion_id": x.assertions["relationship"],
+            "evidence_ref_id": x.lane.support_ids["first"],
+        })
+        assert response.status_code == 200, response.text
+    assert factories and all(not kwargs for kwargs in factories)
+
+
+def test_read_only_repository_factory_forwards_optional_proof_cache_without_opening_db(monkeypatch):
+    from psycopg.conninfo import conninfo_to_dict
+    from dungeonmind.infrastructure.postgres import PostgresDatabase
+    from dungeonmind.infrastructure.postgres.vnext_knowledge import VerifiedKnowledgeRevisionCache
+
+    native = service.native
+    monkeypatch.setattr(native.config, "world_graph_authority_database_url",
+        lambda: "postgresql://test@127.0.0.1:54330/proof?options=-c%20statement_timeout%3D20")
+    monkeypatch.setattr(PostgresDatabase, "connect", lambda *_: pytest.fail("eager DB connection"))
+    cache = VerifiedKnowledgeRevisionCache(max_bytes=64 * 1024 * 1024)
+    default = native.read_repository()
+    owned = native.read_repository(verification_cache=cache)
+    assert default._verification_cache is None
+    assert owned._verification_cache is cache
+    options = conninfo_to_dict(owned._database._database_url)["options"]
+    assert "statement_timeout=20" in options and "default_transaction_read_only=on" in options
+    assert cache.retained_bytes == 0

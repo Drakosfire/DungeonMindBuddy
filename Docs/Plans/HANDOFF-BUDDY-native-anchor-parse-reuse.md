@@ -1,6 +1,6 @@
 # Reuse immutable native preparation when opening a neighborhood citation
 
-Status: ACTIVE. Owner: Elderwyld pre-cutover performance lane.
+Status: COMPLETE. Owner: Elderwyld pre-cutover performance lane.
 Authority: operator optimization-before-cutover goal with implementation/review/
 merge authorization and lane ownership. Base: main565b0e97cf918a03dc387f1c426e94961d9099d3.
 
@@ -10,8 +10,8 @@ the requested revision, open fresh source/provenance authority and enforce every
 principal/role/World/binding/campaign/source/citation check on every read.
 Do not cache read contexts, source views, authorization decisions or source bytes.
 
-Evidence: existing open_neighborhood_anchor calls inspect -> _pinned without
-parsed_cache. A native-only full-app socket feasibility probe on retained Buddy
+Evidence at predecessor start: open_neighborhood_anchor called inspect ->
+_pinned without parsed_cache. A native-only full-app socket feasibility probe on retained Buddy
 ca5a045/Core74f24c2 removed one duplicate2291524-byte artifact fetch and reduced
 one exact citation opening688ms→193ms; later citations743/736→212/213ms. Full DTO/
 exact source, revision verification and fresh-source checks passed. These are
@@ -63,8 +63,8 @@ checks pass on both declared/candidate Core. The repo-owned hosted verifier
 passed1408 selected tests with collection parity and a successful build;
 canonical evidence.json validation passed, Node22.23.0/npm10.9.8 and8workers.
 Independent cumulative APPROVE77354de against actual base565b0e97 found no
-code issues. This docs-only finalization requires refreshed qualification/delta
-review before merge; runtime/test blobs are unchanged.
+code issues. Final174639d qualification/delta review passed before accepted
+merge415e9f0d; runtime/test blobs were unchanged by finalization.
 
 Retain Core source verification mirror at
 /home/drakosfire/Projects/.codex/v7-elderwyld-scope/verification/core-a672-anchor-reuse
@@ -110,3 +110,11 @@ Its reclaimed byte count is not exposed by the verifier; backing UUID is the
 verified Projects filesystem above. Task-local checksum-verified Node22.23/npm
 10.9.8 cache/archive and Core source mirror remain retained with cleanup follow-up.
 No global environment changes or serving database writes; no baseline rerun.
+
+Accepted predecessor3994: reviewed final174639d merged as415e9f0d52ff0396f765849b6807559af30ce124.
+Cumulative review and finaldelta approved;37owner/248auth-app checks,1408hosted/
+build/canonicalevidence and shortGitHubchecks passed. It removed repeated immutable
+citation preparation; fresh source/admission stayed unchanged. Actual first449–463ms
+but eviction642–655/history696–707ms keptV8false. Successor native-source-proof-
+reuse owns additional verification-work removal and acceptedCore227 pin; this
+postmerge settlement does not mark that successor or cutover complete.

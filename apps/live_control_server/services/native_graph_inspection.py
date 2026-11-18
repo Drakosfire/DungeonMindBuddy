@@ -33,12 +33,16 @@ class InspectionUnavailable(ValueError):
 
 
 from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+from dungeonmind.infrastructure.postgres.vnext_knowledge import VerifiedKnowledgeRevisionCache
 
 
-def _pinned(scope, principal, *, parsed_cache=None):
+def _pinned(scope, principal, *, parsed_cache=None, verification_cache=None):
     require_native_graph_gm(principal)
     bound = native.binding(scope.managed_world_id)
-    repo = native.read_repository()
+    if verification_cache is None:
+        repo = native.read_repository()
+    else:
+        repo = native.read_repository(verification_cache=verification_cache)
     space = bound["native_world_id"]
     if isinstance(scope, InspectionPin):
         if (scope.native_world_id, scope.binding_version) != (
@@ -221,10 +225,11 @@ def read_assertion(pin: InspectionPin, principal, assertion_id: str):
 
 def inspect(
     request, principal, *, include_source_span=False, source_classification=None,
-    _parsed_cache=None,
+    _parsed_cache=None, _verification_cache=None,
 ):
     bound, read, access, pin, _ = _pinned(
-        request.scope, principal, parsed_cache=_parsed_cache
+        request.scope, principal, parsed_cache=_parsed_cache,
+        verification_cache=_verification_cache,
     )
     selection = request.selection
     if selection.kind == "neighborhood":
@@ -520,7 +525,8 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
         packet = inspect(InspectionRead(
             scope=pin,
             selection={"kind": "source", "assertion_id": assertion_id, "evidence_ref_id": evidence_ref_id},
-        ), principal, include_source_span=include_receipt, _parsed_cache=_shared_parsed_cache)
+        ), principal, include_source_span=include_receipt, _parsed_cache=_shared_parsed_cache,
+            _verification_cache=_shared_verification_cache)
     except KnowledgeReadContextIntegrityError:
         if native.read_repository().get_revision(pin.native_world_id, pin.revision_id) is None:
             return empty
@@ -559,6 +565,9 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
 
 
 _shared_parsed_cache = NativeParsedRevisionCache()
+# Explicit per-worker service ownership; immutable proofs only, never admission.
+# Retained10k content28.4MB fits this candidate budget; total RSS acceptance is separate.
+_shared_verification_cache = VerifiedKnowledgeRevisionCache(max_bytes=64 * 1024 * 1024)
 
 
 def _shared_retrieval_pin(request, principal):
@@ -594,7 +603,10 @@ def shared_exact_object(request, principal):
 
 def shared_neighborhood(request, principal, *, object_id=None):
     bound, head, pin = _shared_retrieval_pin(request, principal)
-    _, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_parsed_cache)
+    _, read, _, _, _ = _pinned(
+        pin, principal, parsed_cache=_shared_parsed_cache,
+        verification_cache=_shared_verification_cache,
+    )
     return _shared_retrieval_projection(request, bound, head, pin, read, object_id=object_id)
 
 

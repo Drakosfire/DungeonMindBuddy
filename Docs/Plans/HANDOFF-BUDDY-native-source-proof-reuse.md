@@ -60,3 +60,19 @@ FilesystemUUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8. Scratch/evidence/UVcache und
 v7-elderwyld-scope. Owner retains refs/evidence forreview/integration, cleanupafter
 explicit scope/process/mount/dirty/unique-data/commitchecks. No globalsettings or
 sharedvenv modification; no newmanualworktree/env, manualremoval orservingwrites.
+
+Implementation checkpoint: acceptedCorepin a9e308f in both pyproject declarations
+and uv.lock. Selectedservice owns/injects one64MiB cache; standalonefactorydefault
+None.76owner/source-inspection checks passed against exactacceptedCore source.
+Three new cases prove selectedowner/defaultabsence/read-onlyforwarding; existing
+withdrawal/scope/new-history/citation checks remain. Source/recapfakefactories now
+accept optionalkeyword only. UV0.10.2 fullresolution matched pin-only package/
+dependency/source/sharedhash changes; unrelated upload-times/two prunedgreenlet
+platformwheels were preserved fromexistinglock. Minimal2line lock update passes
+uvlock--check. No sharedvenv sync. ExactSHAauth/hosted/build/review/jointmeasurements
+are pending; no successorcompletion/performance/serving claim.
+
+Newtask-owned UVcachecache/source-proof-adoption retained fordependency review/
+qualification; cleanupfollowup afterintegration with explicit scope/process/mount/
+unique-data checks. Owner/source logs and lockchecks retained in scratch/v8-core.
+No manualfilesystemremovals orservingwrites.
