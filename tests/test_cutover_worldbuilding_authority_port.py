@@ -1004,6 +1004,14 @@ def test_identity_drift_without_graph_head_advance_uses_sealed_snapshot(
     assert getattr(live_exc.value, "code", "") == "new_node_id_conflict"
 
 
+    def revoked():
+        raise PermissionError("World ownership revoked")
+
+    with pytest.raises(PermissionError, match="ownership revoked"):
+        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan), authorize_write=revoked)
+    assert fake.publish_calls == 0
+    assert fake.heads[DEFAULT_WORLD_ID] == parent
+
     receipt = confirm_worldbuilding(
         WorldbuildingWritePlanConfirmRequest(plan=plan)
     )

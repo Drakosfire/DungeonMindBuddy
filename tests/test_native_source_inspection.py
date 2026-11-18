@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 from apps.live_control_server.routes.native_source_inspection import router
 from apps.live_control_server.services import native_source_inspection as service
 from apps.live_control_server.services import managed_world_graph_projection as owner
-from apps.live_control_server.services.agent_graph_auth import (
-    native_graph_gm_dependency,
+from apps.live_control_server.services.hosted_native_graph_access import (
+    native_graph_explorer_dependency,
 )
 from tests.test_native_corpus_source_access import lane as source_lane, admit, BODY  # noqa: F401
 
@@ -186,7 +186,7 @@ def test_unauthenticated_and_player_requests_cannot_browse_sources(inspection):
         PATH + "/catalog", json=SCOPE, headers={"Authorization": "Bearer wrong"}
     )
     assert response.status_code == 401
-    inspection.app.dependency_overrides[native_graph_gm_dependency] = lambda: (
+    inspection.app.dependency_overrides[native_graph_explorer_dependency] = lambda: (
         SimpleNamespace(role="player")
     )
     assert inspection.client.post(PATH + "/catalog", json=SCOPE).status_code == 409
