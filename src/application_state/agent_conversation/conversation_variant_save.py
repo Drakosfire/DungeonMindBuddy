@@ -141,3 +141,57 @@ def open_saved_receipt(conn, *, world_id, conversation_id, turn_id, review_id):
     if row is None:
         raise ApplicationStateNotFoundError("Saved conversation variant not found")
     return row[0]
+
+
+def approval_handoff(conn, *, world_id, conversation_id, prior_to, page_id, page_kind):
+    """Find an exact current review on the same Build page, without choosing among reviews."""
+    with conn.cursor(row_factory=dict_row) as cursor:
+        candidates = cursor.execute(
+            """
+            SELECT review.turn_id, review.review_id, review.revision,
+                   current_draft.revision = review.revision AS is_current
+            FROM agent.conversation_variant_review AS review
+            JOIN agent.turn AS producer USING (turn_id)
+            JOIN agent.turn_reference AS origin ON origin.turn_id = producer.turn_id
+            JOIN LATERAL (
+                SELECT revision FROM agent.conversation_draft_revision AS draft
+                WHERE draft.world_id = producer.world_id
+                  AND draft.conversation_id = producer.conversation_id
+                  AND draft.turn_id = producer.turn_id
+                ORDER BY revision DESC LIMIT 1
+            ) AS current_draft ON true
+            WHERE producer.world_id = %s AND producer.conversation_id = %s
+              AND producer.sequence < %s AND producer.status = 'completed'
+              AND producer.surface_id = 'build'
+              AND origin.reference_role = 'primary' AND origin.resolution = 'resolved'
+              AND origin.object_id = %s AND origin.kind = %s
+            LIMIT 2
+            """,
+            (world_id, conversation_id, prior_to, page_id, page_kind),
+        ).fetchall()
+    if len(candidates) > 1:
+        return {"status": "ambiguous"}
+    if not candidates:
+        return {"status": "unavailable"}
+    candidate, = candidates
+    if not candidate.pop("is_current"):
+        return {"status": "stale"}
+    return {"status": "ready", **candidate}
+
+
+def requested_approval(turn):
+    """Recognize only the durable, explicit Build review action."""
+    from .rules_authority_reads import MixedCompletedTurnV1
+    from .types import BuildRequestedWorkResolutionV1
+
+    record = turn.envelope if isinstance(turn, MixedCompletedTurnV1) else turn
+    if record.status != "completed" or record.provenance.surface_id != "build":
+        return False
+    execution = (
+        turn.base_projection.graph_context_execution
+        if isinstance(turn, MixedCompletedTurnV1) else getattr(turn, "graph_context_execution", None)
+    )
+    choices = [
+        event for event in execution.events if isinstance(event, BuildRequestedWorkResolutionV1)
+    ] if execution is not None else []
+    return len(choices) == 1 and choices[0].requested_work == "review_variant_approval"

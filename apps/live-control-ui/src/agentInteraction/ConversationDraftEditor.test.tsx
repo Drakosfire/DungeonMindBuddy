@@ -1,11 +1,12 @@
 import { readSavedConversationVariantTarget } from "../statblocks/savedStatblockLocation";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { confirmVariantReview, openConversationDraft, openVariantReview, saveConversationDraft } from "../api/conversationDraftApi";
-import { ConversationDraftEditor } from "./ConversationDraftEditor";
+import { confirmVariantReview, openConversationDraft, openConversationVariantApproval, openVariantReview, saveConversationDraft } from "../api/conversationDraftApi";
+import { ConversationDraftEditor, ConversationVariantApproval } from "./ConversationDraftEditor";
 
 vi.mock("../api/conversationDraftApi", () => ({
   openConversationDraft: vi.fn(),
+  openConversationVariantApproval: vi.fn(),
   saveConversationDraft: vi.fn(),
   openVariantReview: vi.fn(),
   confirmVariantReview: vi.fn(),
@@ -108,4 +109,36 @@ it("retries saving a variant link without applying the insertion again", async (
   expect(await screen.findByText("Variant link verified on the saved page.")).toBeInTheDocument();
   expect(bridge.placeSavedVariantLink).toHaveBeenCalledExactlyOnceWith(captured, { ...scope, reviewId: "review" });
   expect(bridge.saveProposal).toHaveBeenCalledTimes(2);
+});
+
+it("opens the producing review from the approval turn and waits for confirmation", async () => {
+  const scope = { worldId: "world", conversationId: "conversation", turnId: "approval" };
+  const producer = { ...scope, turnId: "producer" };
+  vi.mocked(confirmVariantReview).mockClear();
+  vi.mocked(openConversationVariantApproval).mockResolvedValueOnce({ scope: producer, reviewId: "review", revision: 2 });
+  vi.mocked(openConversationDraft).mockResolvedValueOnce({
+    revision: 2, markdown: "Reviewed draft", variant_review_ids: ["review"],
+  });
+  vi.mocked(openVariantReview).mockResolvedValueOnce({
+    revision: 2, definition: {} as Awaited<ReturnType<typeof openVariantReview>>["definition"],
+  });
+
+  render(<ConversationVariantApproval scope={scope} />);
+  fireEvent.click(screen.getByRole("button", { name: "Find reviewed statblock" }));
+  expect(await screen.findByRole("button", { name: "Confirm and save as new statblock" })).toBeEnabled();
+  expect(openConversationVariantApproval).toHaveBeenCalledWith(scope);
+  expect(openVariantReview).toHaveBeenCalledWith(producer, "review");
+  expect(confirmVariantReview).not.toHaveBeenCalled();
+});
+
+it("rejects a draft edited after the approval lookup", async () => {
+  const scope = { worldId: "world", conversationId: "conversation", turnId: "approval" };
+  vi.mocked(openConversationVariantApproval).mockResolvedValueOnce({
+    scope: { ...scope, turnId: "producer" }, reviewId: "review", revision: 2,
+  });
+  vi.mocked(openConversationDraft).mockResolvedValueOnce({ revision: 3, markdown: "Newer draft" });
+  render(<ConversationVariantApproval scope={scope} />);
+  fireEvent.click(screen.getByRole("button", { name: "Find reviewed statblock" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("The reviewed draft changed.");
+  expect(screen.queryByRole("button", { name: "Confirm and save as new statblock" })).not.toBeInTheDocument();
 });
