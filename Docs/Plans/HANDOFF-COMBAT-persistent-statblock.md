@@ -1,6 +1,17 @@
 # COMBAT — keep exact statblocks beside the encounter
 
-ACTIVE under the operator's Combat goal and renewed explicit review/accepted-PR
+MERGED as #3981 at `5711085fd69913111db7925027ccdede1b1e694a`; source lease
+released to HANDOFF-COMBAT-manual-order.md. Reviewed head
+`d1d7bb58f2c58469185cbf13232fadd7a732411b` has independent code/evidence acceptance.
+Final42 focused tests/typecheck passed. Exact hosted1408 selected passes/0 failures,
+147 filtered skips, build/parity and validator passed. Discovered7907/162/2 versus
+exact base7902/162/2: five added passes, no missing cases or new failed IDs. Both
+builds passed. A differing Work Plans failure depth reproduced identically in a
+paired exact-source diagnostic, independently audited against Git blobs. Full
+discovered qualification/extra-skip parity remains red; no release qualification.
+Browser proof and remaining real-runtime/profile requirements are retained below.
+
+Original authority: under the operator's Combat goal and renewed explicit review/accepted-PR
 merge authority. Serial successor to #3975, merged
 `15a288044cb1946821b960f156ecbf8c918d549e`; no unmerged parent. Branch
 `codex/combat-persistent-statblock`, same isolated fc67 checkout, base that fetched

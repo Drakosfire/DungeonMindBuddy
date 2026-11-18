@@ -64,6 +64,9 @@ function RosterRow({
   onSetActive,
   onRemove,
   projection,
+  onMove,
+  canMoveEarlier,
+  canMoveLater,
 }: {
   entity: CombatEntity;
   active: boolean;
@@ -73,6 +76,9 @@ function RosterRow({
   onSetActive: () => void;
   onRemove: () => void;
   projection: CombatProjectionControl;
+  onMove: (direction: 'earlier' | 'later') => void;
+  canMoveEarlier: boolean;
+  canMoveLater: boolean;
 }) {
   const [damage, setDamage] = useState("1");
   const [heal, setHeal] = useState("1");
@@ -115,6 +121,12 @@ function RosterRow({
         <button type="button" aria-label={`Set ${entity.name} as current actor`} onClick={onSetActive} disabled={disabled || entity.defeated}>
           {active ? "▶" : "Set"}
         </button>
+        <div className="combat-roster-order-controls">
+          <button type="button" aria-label={`Move ${entity.name} earlier`} disabled={disabled || !canMoveEarlier}
+            onClick={() => onMove('earlier')}>↑</button>
+          <button type="button" aria-label={`Move ${entity.name} later`} disabled={disabled || !canMoveLater}
+            onClick={() => onMove('later')}>↓</button>
+        </div>
       </td>
       <td className="combat-roster-participant">
         <strong>{entity.name}</strong>
@@ -339,6 +351,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
 
   const visibleRecord = record?.world_id === worldId ? record : null;
   const visibleDraft = visibleRecord ? draft : null;
+  const livingOrder = visibleDraft?.entities.filter(entity => !entity.defeated).map(entity => entity.id) ?? [];
   useLayoutEffect(() => {
     const rail = turnRailRef.current, panel = panelRef.current;
     if (!rail || !panel) return;
@@ -524,6 +537,20 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     });
   }
 
+  function moveEntity(entityId: string, direction: 'earlier' | 'later') {
+    updateDraft(current => {
+      const participating = current.entities.filter(entity => !entity.defeated);
+      const index = participating.findIndex(entity => entity.id === entityId);
+      const neighbor = participating[index + (direction === 'earlier' ? -1 : 1)];
+      if (index < 0 || !neighbor) return current;
+      const entities = [...current.entities];
+      const from = entities.findIndex(entity => entity.id === entityId);
+      const to = entities.findIndex(entity => entity.id === neighbor.id);
+      [entities[from], entities[to]] = [entities[to], entities[from]];
+      return {...current, entities: entities.map((entity, order) => ({...entity, order: order + 1}))};
+    });
+  }
+
   function setActive(entityId: string) {
     updateDraft((current) => current.entities.some((entity) => entity.id === entityId && !entity.defeated)
       ? { ...current, active_turn_entity_id: entityId, round_start_entity_id: current.round_start_entity_id ?? entityId }
@@ -706,6 +733,9 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
                           active={entity.id === visibleDraft.active_turn_entity_id}
                           hidden={hidden}
                           projection={projection}
+                          onMove={direction => moveEntity(entity.id, direction)}
+                          canMoveEarlier={livingOrder.indexOf(entity.id) > 0}
+                          canMoveLater={!entity.defeated && livingOrder.indexOf(entity.id) < livingOrder.length - 1}
                           disabled={replacingDraft}
                           onChange={(updated) => updateEntity(entity.id, updated)}
                           onSetActive={() => setActive(entity.id)}

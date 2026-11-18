@@ -849,6 +849,69 @@ describe("CombatRosterModule", () => {
     expect(round()).toHaveTextContent('4');
   });
 
+  it('moves actors without initiative while preserving source, groups, staged inputs and round identity',async()=>{
+    const resource=(await import('../../../../../tests/fixtures/statblocks/v1/exact-revision-response.json')).default;
+    const snapshot={origin:'world_accepted_mechanics_v1',managed_world_id:'elderwyld',draft_id:'22222222-2222-4222-8222-222222222222',draft_version:3,
+      acceptance_operation_id:'accept-one',acceptance_request_digest:'sha256:'+'a'.repeat(64),accepted_from_draft_version:1,accepted_from_candidate_id:null,
+      locator:{provider:'dungeonmind',statblock_id:resource.statblock_id,revision_id:resource.revision_id,contract:resource.contract,contract_version:resource.contract_version,definition_digest:resource.definition_digest},resource,snapshot_digest:'sha256:'+'b'.repeat(64)} as CombatMechanicsSnapshot;
+    const first={...entity,init:null,mechanics_snapshot:snapshot};
+    const fallen={...entity,id:'fallen',name:'Fallen guard',order:2,defeated:true,hp:0};
+    const guard={...entity,id:'guard',name:'Watch guard',order:3,init:null,hp:12,notes:'Retained guard note'};
+    const initial=record({draft:{...record().draft,round:4,active_turn_entity_id:'guard',entities:[first,fallen,guard],
+      groups:[{group_key:'patrol',label:'Patrol',statblock_path:null,member_ids:[first.id,guard.id],collapsed:false}]}});
+    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_w,_i,revision,draft)=>({...initial,revision:revision+1,draft}));
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    const damage=await screen.findByLabelText('Damage for Geomantic Drake');fireEvent.change(damage,{target:{value:'7'}});
+    await userEvent.click(screen.getByRole('button',{name:'Keep statblock open for Geomantic Drake'}));
+    expect(await screen.findByRole('heading',{name:'Ironhide Brute'})).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Move Geomantic Drake earlier'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Move Watch guard later'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Move Fallen guard earlier'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Move Fallen guard later'})).toBeDisabled();
+    const move=screen.getByRole('button',{name:'Move Geomantic Drake later'});move.focus();await userEvent.keyboard('{Enter}');
+    expect(screen.getByLabelText('Damage for Geomantic Drake')).toBe(damage);expect(damage).toHaveValue(7);
+    expect(screen.getByRole('complementary',{name:'Projected statblock for Geomantic Drake'})).toBeInTheDocument();
+    expect(screen.getByRole('row',{name:/Watch guard/})).toHaveClass('combat-roster-active-row');
+    expect(screen.getByText('Round').parentElement).toHaveTextContent('4');
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await screen.findByText('Saved · rev 2');
+    const moved=save.mock.calls[0][3];
+    expect(moved.entities).toEqual([{...guard,order:1},fallen,{...first,order:3}]);
+    expect(moved.groups).toEqual(initial.draft.groups);
+    expect(moved).toMatchObject({active_turn_entity_id:'guard',round_start_entity_id:first.id,round:4});
+    await userEvent.click(screen.getByRole('button',{name:'Move Geomantic Drake earlier'}));
+    await userEvent.click(screen.getByRole('button',{name:'Revert',exact:true}));
+    expect(screen.getByRole('button',{name:'Move Geomantic Drake later'})).toBeDisabled();
+    await userEvent.click(screen.getByRole('button',{name:'Next turn'}));
+    expect(screen.getByRole('row',{name:/Geomantic Drake/})).toHaveClass('combat-roster-active-row');
+    expect(screen.getByText('Round').parentElement).toHaveTextContent('5');
+  });
+
+  it('requires explicit recovery for a manual move and saves the recovered order',async()=>{
+    const guard={...entity,id:'guard',name:'Watch guard',order:2};
+    const initial=record({draft:{...record().draft,entities:[entity,guard]}});
+    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_w,_i,revision,draft)=>({...initial,revision:revision+1,draft}));
+    const first=mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    await userEvent.click(await screen.findByRole('button',{name:'Move Geomantic Drake later'}));first.unmount();
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    const recover=await screen.findByRole('button',{name:'Recover local Combat draft'});
+    expect(screen.getByRole('button',{name:'Move Geomantic Drake later'})).toBeDisabled();
+    await userEvent.click(recover);
+    expect(screen.getByRole('button',{name:'Move Geomantic Drake later'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Move Geomantic Drake earlier'})).toBeEnabled();
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await screen.findByText('Saved · rev 2');
+    expect(save.mock.calls[0][3].entities.map(actor=>actor.id)).toEqual(['guard',entity.id]);
+  });
+
   it('retains defeated units and their notes, advances participation, and restores without healing',async()=>{
     const guard={...entity,id:'guard',name:'Watch guard',order:2,hp:12,max_hp:20};
     const initial=record({draft:{...record().draft,round:4,entities:[entity,guard]}});
