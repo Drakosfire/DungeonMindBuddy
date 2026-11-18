@@ -124,8 +124,8 @@ def set_world_play_session_trash(
             raise ApplicationStateConflictError("Play session lifecycle changed")
         if not restore:
             conn.execute(
-                "DELETE FROM play.active_run WHERE scope_key='local' AND run_id=%s",
-                (run_id,),
+                "DELETE FROM play.active_run WHERE scope_key=%s AND run_id=%s",
+                (f"world:{world}", run_id),
             )
         return {
             "kind": "session",

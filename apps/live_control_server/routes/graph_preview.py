@@ -155,12 +155,18 @@ def get_graph_ingest_runs(
 
 
 @router.get("/extraction-runs/{run_id}")
-def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
+def get_extraction_run_by_id(run_id: str, request: Request = None) -> dict[str, Any]:
     """Exact ExtractionRun reload. Source-domain neutral; never substitutes latest.
 
     Works for recap and worldbuilding runs. Build-specific workspace lineage lives
     on ``GET /extraction-runs/{run_id}/build-context``.
     """
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import read_hosted_exact_extraction
+
+    if request is not None and hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        return read_hosted_exact_extraction(request, run_id)
+
     from apps.live_control_server.services.graph_run_registry import (
         GraphRunRegistryError,
         get_extraction_run,
@@ -363,10 +369,11 @@ def get_extraction_run_recap_projection(
                 "diagnostics": [item.model_dump(mode="json") for item in exc.diagnostics],
             },
         ) from exc
+    result = response.model_dump(mode="json", by_alias=True)
     if hosted:
         require_saved_recap_access(request, response.managed_world_id or "")
         response_context.headers["Cache-Control"] = "no-store"
-    return response.model_dump(mode="json", by_alias=True)
+    return result
 
 
 @router.get("/extraction-runs/{run_id}/build-context")

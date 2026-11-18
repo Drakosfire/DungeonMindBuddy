@@ -5,10 +5,15 @@ import {decisionReceipt,basisHash} from '../buildSurface/buildRecapCorrection.te
 const request:RecapSemanticDecisionRequest={schema:'dmb_recap_semantic_decision_request_v1',expectedRevision:3,
   candidateSha256:decisionReceipt.candidateSha256,decision:'accepted',reviewDecisionRef:decisionReceipt.reviewDecisionRef};
 afterEach(()=>vi.restoreAllMocks());
-it('posts only the current explicit decision contract through authenticated API',async()=>{
+it.each([
+  [true, ''],
+  [false, '?managed_world_id=elderwyld'],
+])('uses the expected World selector for loopback=%s', async (loopback, query) => {
+  vi.spyOn(live, 'usesLoopbackLiveApi').mockReturnValue(loopback);
+
   const fetch=vi.spyOn(live,'authenticatedApiFetch').mockResolvedValue({response:new Response(JSON.stringify(decisionReceipt),{status:200})} as any);
-  expect(await decideRecapSemantics('child-run',request,basisHash)).toEqual(decisionReceipt);
-  expect(fetch).toHaveBeenCalledExactlyOnceWith('/api/live/extract-promote/runs/child-run/semantic-disposition',
+  expect(await decideRecapSemantics('child-run',request,basisHash,'elderwyld')).toEqual(decisionReceipt);
+  expect(fetch).toHaveBeenCalledExactlyOnceWith('/api/live/extract-promote/runs/child-run/semantic-disposition' + query,
     {method:'POST',body:JSON.stringify(request)});
   expect(JSON.parse(fetch.mock.calls[0][1]!.body as string)).not.toHaveProperty('reviewerId');
 });

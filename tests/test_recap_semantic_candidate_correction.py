@@ -1536,7 +1536,7 @@ def test_http_route_creates_held_child_and_rejects_wrong_path(
 ) -> None:
     parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path)
     route = next(route for route in routes.router.routes if route.path.endswith("/recap-candidate-corrections"))
-    assert any(dependency.call is native_graph_gm_dependency for dependency in route.dependant.dependencies)
+    assert any(dependency.call is routes.recap_candidate_correction_access for dependency in route.dependant.dependencies)
     import fastapi.dependencies.utils as dependency_utils
     import fastapi.routing as fastapi_routing
 
@@ -1550,6 +1550,7 @@ def test_http_route_creates_held_child_and_rejects_wrong_path(
     app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
         subject="test_gm", role="gm", auth_method="local_session",
     )
+    app.dependency_overrides[routes.recap_candidate_correction_access] = lambda: None
     body = _request(parent_bytes).model_dump(mode="json", by_alias=True)
     url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
 
@@ -1586,6 +1587,7 @@ def test_http_v2_route_preserves_auth_and_rejects_cross_node_and_extra_patch(
     app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
         subject="test_gm", role="gm", auth_method="local_session",
     )
+    app.dependency_overrides[routes.recap_candidate_correction_access] = lambda: None
     body = _action_request(parent_bytes).model_dump(mode="json", by_alias=True)
     url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
 
@@ -1615,7 +1617,7 @@ def test_http_v3_route_creates_held_edge_tuple_child(
 ) -> None:
     parent, parent_bytes, runs = _tuple_fixture(monkeypatch, tmp_path)
     route = next(route for route in routes.router.routes if route.path.endswith("/recap-candidate-corrections"))
-    assert any(dependency.call is native_graph_gm_dependency for dependency in route.dependant.dependencies)
+    assert any(dependency.call is routes.recap_candidate_correction_access for dependency in route.dependant.dependencies)
     import fastapi.dependencies.utils as dependency_utils
     import fastapi.routing as fastapi_routing
 
@@ -1629,6 +1631,7 @@ def test_http_v3_route_creates_held_edge_tuple_child(
     app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
         subject="test_gm", role="gm", auth_method="local_session",
     )
+    app.dependency_overrides[routes.recap_candidate_correction_access] = lambda: None
     body = _tuple_request(parent_bytes).model_dump(mode="json", by_alias=True)
     url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
 
@@ -1654,7 +1657,7 @@ def test_http_v4_route_creates_held_evidence_span_child(
 ) -> None:
     _parent, parent_bytes, runs, request, _target_span_id = _span_relocation_fixture(monkeypatch, tmp_path)
     route = next(route for route in routes.router.routes if route.path.endswith("/recap-candidate-corrections"))
-    assert any(dependency.call is native_graph_gm_dependency for dependency in route.dependant.dependencies)
+    assert any(dependency.call is routes.recap_candidate_correction_access for dependency in route.dependant.dependencies)
     import fastapi.dependencies.utils as dependency_utils
     import fastapi.routing as fastapi_routing
 
@@ -1668,6 +1671,7 @@ def test_http_v4_route_creates_held_evidence_span_child(
     app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
         subject="test_gm", role="gm", auth_method="local_session",
     )
+    app.dependency_overrides[routes.recap_candidate_correction_access] = lambda: None
     body = request.model_dump(mode="json", by_alias=True)
     url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
 
@@ -1691,7 +1695,7 @@ def test_http_v5_route_creates_held_evidence_replacement_batch(
 ) -> None:
     _parent, parent_bytes, runs, request = _evidence_batch_fixture(monkeypatch, tmp_path)
     route = next(route for route in routes.router.routes if route.path.endswith("/recap-candidate-corrections"))
-    assert any(dependency.call is native_graph_gm_dependency for dependency in route.dependant.dependencies)
+    assert any(dependency.call is routes.recap_candidate_correction_access for dependency in route.dependant.dependencies)
     import fastapi.dependencies.utils as dependency_utils
     import fastapi.routing as fastapi_routing
 
@@ -1705,6 +1709,7 @@ def test_http_v5_route_creates_held_evidence_replacement_batch(
     app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
         subject="test_gm", role="gm", auth_method="local_session",
     )
+    app.dependency_overrides[routes.recap_candidate_correction_access] = lambda: None
     body = request.model_dump(mode="json", by_alias=True)
     url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
 
@@ -1777,7 +1782,11 @@ def test_full_app_v2_route_requires_gm_and_csrf(
             app.dependency_overrides[authenticate_native_graph_principal] = lambda: NativeGraphPrincipal(
                 subject="player", role="player", auth_method="local_operator",
             )
-            assert (await client.post(url, json=body)).status_code == 403
+            from apps.live_control_server.services import agent_graph_auth
+            with monkeypatch.context() as auth_patch:
+                auth_patch.setattr(agent_graph_auth, "authenticate_native_graph_principal",
+                                   lambda _: app.dependency_overrides[authenticate_native_graph_principal]())
+                assert (await client.post(url, json=body)).status_code == 403
             app.dependency_overrides.clear()
             boot = await client.post(
                 "/api/live/agent/local-session",
@@ -2114,6 +2123,8 @@ def _split_http_app(monkeypatch):
     app = FastAPI()
     app.include_router(routes.router)
     app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(subject="test_gm", role="gm", auth_method="local_session")
+    app.dependency_overrides[routes.native_graph_explorer_dependency] = app.dependency_overrides[native_graph_gm_dependency]
+    app.dependency_overrides[routes.recap_candidate_correction_access] = lambda: None
     return app
 
 
@@ -2357,6 +2368,7 @@ def test_http_node_omission_creates_exact_held_child(monkeypatch, tmp_path):
     app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
         subject="test_gm", role="gm", auth_method="local_session",
     )
+    app.dependency_overrides[routes.recap_candidate_correction_access] = lambda: None
     body = request.model_dump(mode="json", by_alias=True)
     url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
 

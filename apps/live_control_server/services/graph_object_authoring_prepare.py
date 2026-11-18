@@ -1689,6 +1689,7 @@ def prepare_graph_object_authoring_write(
     request: GraphObjectAuthoringPrepareRequest,
     *,
     corpus_root: Path | None = None,
+    authenticated_actor: str | None = None,
     authority: Any | None = None,
     resolved_source: Any | None = None,
     source_admission: Any | None = None,
@@ -1718,7 +1719,7 @@ def prepare_graph_object_authoring_write(
     prepare_warnings = _non_blocking_assertion_diagnostics(assertion_diagnostics)
     expressibility = classify_graph_review_expressibility(request.proposals)
     world_id = authored_world_id(request)
-    actor = graph_review_actor(request.campaign_id)
+    actor = authenticated_actor or graph_review_actor(request.campaign_id)
     expires_at = (datetime.now(UTC) + PREPARE_TTL).isoformat()
     assertions_digest = proposed_assertions_digest(assertions)
     preview = build_assertions_preview(assertions, request.proposals)
