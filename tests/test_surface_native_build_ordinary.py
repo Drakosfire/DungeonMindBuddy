@@ -1737,7 +1737,7 @@ def test_low_score_valid_image_selection_prepares_review_through_ordinary_http(l
     scores=dict(build_encounter=0.0,change_mechanics=0.0,clarify_creation=.07,clarify_request=.04,
         discuss=0.0,draft_in_conversation=0.0,other_creation=.27,place_map_coordinates=0.0,plan=.02,prepare_image=.40,
         publish_relationships=0.0,review_connected_page=.01,review_relationship=0.0,
-        review_variant_approval=0.0,save_page=0.0,write_current_page=.19)
+        review_variant_approval=0.0,review_lore_page=0.0,save_page=0.0,write_current_page=.19)
     _fresh_case(lane,tmp_path,monkeypatch,None,True,False,'image',selection_probabilities=scores,
         message='Create an interior design detailed enough to generate a map from.')
 
@@ -2242,3 +2242,20 @@ def test_variant_exact_correction_rejects_overlapping_matches():
     edit = VariantTextReplacement(rule_key="fixture", field="rules_text", replace_exact="aa", with_text="b")
     with pytest.raises(ApplicationStateConflictError, match="one exact rule passage"):
         apply_variant_text_corrections(definition, [edit])
+
+
+def test_standalone_page_intent_preserves_the_page_owner_boundary(lane, tmp_path, monkeypatch):
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Create a standalone lore page about the Glass Regent.",
+        requested_work="review_lore_page",
+        source_need="anchored",
+    )
+    selection, = [
+        event for event in case.turn.graph_context_execution.events
+        if isinstance(event, t.BuildRequestedWorkResolutionV1)
+    ]
+    assert selection.requested_work == "review_lore_page"
+    assert selection.resolution["barrier"] == "requested_review_not_offered"
+    assert selection.resolution["purpose"] == "explain_capability"
+    assert case.turn.completion.collaboration is None
