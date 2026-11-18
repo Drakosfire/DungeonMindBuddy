@@ -130,6 +130,7 @@ def test_replay_identity_route_only_accepts_the_trace_pin(passage_api, monkeypat
         assert response.headers['cache-control'] == 'no-store'
         assert len(calls) == 1
         assert calls[0]['world_id'] == passage_api.ref['world_id']
+        assert calls[0]['offset'] == 0
         assert str(calls[0]['turn_id']) == passage_api.ref['turn_id']
         assert str(calls[0]['trace_id']) == passage_api.ref['trace_id']
     else:
@@ -174,10 +175,27 @@ def test_replay_names_include_discovery_only_nodes_at_the_saved_pin(monkeypatch)
     assert reads == [("saved-read", "discovered")]
     assert pins[0].revision_id == "saved-revision"
     assert result["identities"] == [{"node_id": "discovered", "label": "Stormspire Academy", "kind": "location"}]
+    discovery.hops = [
+        SimpleNamespace(from_node_id="seed", to_node_id=f"discovered-{index}")
+        for index in range(130)
+    ]
+    first = identities.replay_identities(
+        service=SimpleNamespace(list_context_trace_attempts=lambda **kwargs: [trace]),
+        principal="owner", world_id="elderwyld", turn_id="turn", trace_id="trace",
+    )
+    assert len(first["identities"]) == 128
+    assert first["next_offset"] == 128
+    last = identities.replay_identities(
+        service=SimpleNamespace(list_context_trace_attempts=lambda **kwargs: [trace]),
+        principal="owner", world_id="elderwyld", turn_id="turn", trace_id="trace", offset=128,
+    )
+    assert [item["node_id"] for item in last["identities"]] == ["discovered-128", "discovered-129"]
+    assert last["next_offset"] is None
+    read_count = len(reads)
     discovery.revision_id = "later-revision"
     with pytest.raises(identities.InspectionUnavailable):
         identities.replay_identities(
             service=SimpleNamespace(list_context_trace_attempts=lambda **kwargs: [trace]),
             principal="owner", world_id="elderwyld", turn_id="turn", trace_id="trace",
         )
-    assert len(reads) == 1
+    assert len(reads) == read_count

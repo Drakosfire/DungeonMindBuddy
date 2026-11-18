@@ -2071,12 +2071,13 @@ export function getWorldAgentReplayAssertion(worldId: string, turnId: string, tr
   );
 }
 
-export function getWorldAgentReplayIdentities(worldId: string, turnId: string, traceId: string, signal: AbortSignal) {
+export function getWorldAgentReplayIdentities(worldId: string, turnId: string, traceId: string, signal: AbortSignal, offset = 0) {
   return apiFetch<{
     world_id: string; turn_id: string; trace_id: string
+    next_offset?: number | null
     identities: { node_id: string; label: string; kind: string }[]
   }>(
-    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/identities`,
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace/${encodeURIComponent(traceId)}/identities${offset ? `?offset=${offset}` : ""}`,
     { signal, cache: 'no-store' },
   );
 }

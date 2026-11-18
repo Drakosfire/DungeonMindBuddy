@@ -1958,11 +1958,15 @@ def get_world_replay_identities(world_id: str, turn_id: UUID, trace_id: UUID, re
 
     principal = enforce_native_graph_gm(request)
     world = _verified_world_id(world_id)
-    if request.query_params:
+    selectors = list(request.query_params.multi_items())
+    offset_text = request.query_params.get("offset", "0")
+    if (selectors and (len(selectors) != 1 or selectors[0][0] != "offset")
+            or not offset_text.isascii() or not offset_text.isdecimal()
+            or len(offset_text) > 8 or str(int(offset_text)) != offset_text):
         raise HTTPException(status_code=422, detail={"code": "replay_identity_selector_invalid"})
     try:
         result = replay_identities(service=_conversation_service(request), principal=principal,
-                                   world_id=world, turn_id=turn_id, trace_id=trace_id)
+                                   world_id=world, turn_id=turn_id, trace_id=trace_id, offset=int(offset_text))
         return JSONResponse(result, headers={"Cache-Control": "no-store"})
     except InspectionUnavailable as exc:
         raise HTTPException(status_code=404, detail={"code": exc.code}) from exc

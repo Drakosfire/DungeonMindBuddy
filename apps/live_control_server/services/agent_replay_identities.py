@@ -21,7 +21,7 @@ def _has_recorded_name(label):
     ))
 
 
-def replay_identities(*, service, principal, world_id, turn_id, trace_id):
+def replay_identities(*, service, principal, world_id, turn_id, trace_id, offset=0):
     attempts = service.list_context_trace_attempts(world_id=world_id, turn_id=turn_id)
     trace = next((item for item in attempts if item.trace_id == trace_id
                   and item.world_id == world_id and item.turn_id == turn_id), None)
@@ -40,6 +40,10 @@ def replay_identities(*, service, principal, world_id, turn_id, trace_id):
             for identity in (hop.from_node_id, hop.to_node_id):
                 if not _has_recorded_name(discovery.labels.get(identity)):
                     subjects.setdefault(identity, None)
+    if type(offset) is not int or offset < 0 or offset > len(subjects):
+        raise InspectionUnavailable("replay_identity_page_unavailable")
+    page = list(subjects)[offset:offset + MAX_REPLAY_IDENTITIES]
+    next_offset = offset + len(page) if offset + len(page) < len(subjects) else None
     identities = []
     if subjects:
         with unit_of_work(_ready_dsn()) as conn:
@@ -60,10 +64,10 @@ def replay_identities(*, service, principal, world_id, turn_id, trace_id):
         )
         bound, read, _, _, _ = _pinned(pin, principal, parsed_cache=_shared_parsed_cache)
         reader = EntityReadService()
-        for identity in list(subjects)[:MAX_REPLAY_IDENTITIES]:
+        for identity in page:
             result = reader.get_entity(read, identity)
             if result.found:
                 node = map_entity_result(result, identity, allow_multiple=True)
                 identities.append({"node_id": identity, "label": node.label, "kind": node.kind})
         _response(bound, pin)
-    return {"world_id": world_id, "turn_id": str(turn_id), "trace_id": str(trace_id), "identities": identities}
+    return {"world_id": world_id, "turn_id": str(turn_id), "trace_id": str(trace_id), "identities": identities, "next_offset": next_offset}

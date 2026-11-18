@@ -403,16 +403,24 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
     if (!trace || (!missingSubjects && !missingDiscovery)) return
     const controller = new AbortController()
     const { world_id, turn_id, trace_id } = trace
-    void getWorldAgentReplayIdentities(world_id, turn_id, trace_id, controller.signal).then(result => {
-      if (controller.signal.aborted || result.world_id !== world_id
-          || result.turn_id !== turn_id || result.trace_id !== trace_id) return
-      setIdentityResult({
-        trace,
-        identities: new Map(result.identities
-          .filter(item => rows.objects.has(item.node_id))
-          .map(item => [item.node_id, item])),
-      })
-    }).catch(() => { /* The saved trace remains usable without optional display metadata. */ })
+    void (async () => {
+      const collected = new Map<string, ReplayIdentity>()
+      let offset = 0
+      while (!controller.signal.aborted) {
+        const result = await getWorldAgentReplayIdentities(world_id, turn_id, trace_id, controller.signal, offset)
+        if (controller.signal.aborted || result.world_id !== world_id
+            || result.turn_id !== turn_id || result.trace_id !== trace_id) return
+        for (const item of result.identities) {
+          if (rows.objects.has(item.node_id)) collected.set(item.node_id, item)
+        }
+        setIdentityResult({ trace, identities: new Map(collected) })
+        if (result.next_offset == null) break
+        if (!Number.isSafeInteger(result.next_offset) || result.next_offset <= offset) {
+          throw new Error('Replay name page did not advance')
+        }
+        offset = result.next_offset
+      }
+    })().catch(() => { /* Recorded labels remain available if a historical name read fails. */ })
     return () => controller.abort()
   }, [trace, rows])
 
@@ -523,6 +531,10 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
           ? displayClassification([inspectedNode.kind]).replace(' (role unspecified)', '')
           : inspectedNode.kind}
           controls={<button type="button" autoFocus aria-label="Close node details" onClick={dismissNode}>×</button>}>
+        {displayNodeName(inspectedNode) === 'Unnamed object' && <p>
+          This replay has no usable recorded name for this node. Its name may be missing or unavailable
+          in the recorded revision and visibility scope.
+        </p>}
         <NodeOverview replay>
           {inspectedReads.length > 0 || inspectedHops.length > 0 || inspectedPruning.length > 0 ? <>
             {trace && findings.map(({ assertionId, read, position }) => <ReplayNodeFinding
