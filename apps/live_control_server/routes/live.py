@@ -1266,12 +1266,22 @@ def get_plan_action_terminal_diagnostic(request: Request, action_id: UUID,
                                        world_id: str = Query(min_length=1, max_length=128)):
     from application_state.errors import ApplicationStateError
     from apps.live_control_server.services.plan_action_terminal_diagnostic import terminal_diagnostic
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     headers = {"Cache-Control": "no-store", "Pragma": "no-cache"}
     if list(request.query_params.keys()) != ["world_id"] or len(request.query_params.getlist("world_id")) != 1:
         raise HTTPException(status_code=422, detail="Only one managed world_id is accepted", headers=headers)
     try:
         get_world_container(world_id)
-        return JSONResponse(terminal_diagnostic(world_id, action_id), headers=headers)
+        diagnostic = terminal_diagnostic(world_id, action_id)
     except (ApplicationStateError, WorldContainerRegistryError) as exc:
         raise HTTPException(status_code=404, detail={"code": "action_diagnostic_unavailable"}, headers=headers) from exc
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    return JSONResponse(diagnostic, headers=headers)

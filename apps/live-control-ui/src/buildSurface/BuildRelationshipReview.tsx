@@ -32,7 +32,7 @@ export function BuildRelationshipReview({worldId,documentId,seed,onConsumed}:{wo
  useEffect(()=>{if(!seed)return;if(seed.document_source.documentId!==documentId){onConsumed();return;}setOpen(true);if(!valueRef.current&&!initial.error){void persist(()=>({schema:'dmb_saved_relationship_review_v1',intent:{world_id:worldId,...seed,source:{node_id:null,label:'',kind:'npc'},target:{node_id:null,label:'',kind:'npc'},predicate:'',label:'',context:''},request:null,prepared:null,submitted:false,receipt:null,native:{operationId:crypto.randomUUID(),preparation:null,receipt:null}})).catch(e=>setError(message(e)));}onConsumed();},[seed]);
  useEffect(()=>{if(open&&dialog.current&&!dialog.current.open)dialog.current.showModal();},[open]);
  useEffect(()=>{if(!open)return;let active=true;setLoaded(false);setNodes([]);setKinds([]);
-  void Promise.all([getNativeAuthoringIdentities(worldId),getGraphObjectAuthoringKinds()]).then(([graph,catalog])=>{
+  void Promise.all([getNativeAuthoringIdentities(worldId),getGraphObjectAuthoringKinds(worldId)]).then(([graph,catalog])=>{
    if(!active)return;
    if(!catalog.objectKinds.length)throw new Error('World object kinds are unavailable.');setNodes(graph);setKinds(catalog.objectKinds);setLoaded(true);
   }).catch(e=>{if(active)setError(message(e));});return()=>{active=false;};

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -834,6 +835,7 @@ def replace_world_play_run_progress(
     run_id: str,
     expected_run_revision: int,
     progress: PlayRunProgress,
+    authorize_world: Callable[[], None] | None = None,
 ) -> WorldPlayRunRecord:
     from application_state.errors import ApplicationStateError
     from application_state.play.service import replace_world_play_run_progress as replace_progress
@@ -852,6 +854,7 @@ def replace_world_play_run_progress(
             run_id=canonical_run_id,
             expected_run_revision=expected_run_revision,
             progress=progress.model_dump(mode="json"),
+            authorize_world=authorize_world,
         )
     except ApplicationStateError as exc:
         raise _map_application_state(exc) from exc
