@@ -100,10 +100,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                        "support": [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture",
                                     "text": "Hit Points 41"}]}
         if saved_statblock in {"associated", "by-name"}:
+            from apps.live_control_server.integrations.dungeonmind import native_registry_source
             from apps.live_control_server.services import native_graph_inspection, native_pdf_evidence
+            monkeypatch.setattr(native_registry_source, "read_repository", lambda: lane.repo)
             monkeypatch.setattr(native_pdf_evidence, "reviewed_pdf_regions", lambda *args, **kwargs: ("crop",))
             monkeypatch.setattr(native_graph_inspection, "statblock_pdf_support",
-                                lambda ref, *_: pdf_support | {"scope": pdf_support["scope"] | {"revision_id": ref.graph_revision}})
+                                lambda ref, *_, **__: pdf_support | {"scope": pdf_support["scope"] | {"revision_id": ref.graph_revision}})
 
         def open_statblock(root, *, world_id, draft_id, revision_id):
             assert world_id == world and revision_id == locator.revision_id
@@ -182,6 +184,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             label="Meat Mind", kind="creature", role="", campaign_scope=None,
         )
         record = SimpleNamespace(
+            association_id=uuid4(),
             request=SimpleNamespace(target=target, draft_id=draft_id),
             proof=SimpleNamespace(locator=locator),
         )
@@ -1954,6 +1957,12 @@ def test_followup_reoffers_only_the_bound_statblock_on_the_same_page(lane, tmp_p
     driver.adapter.fence.turn = current.model_copy(update={"sequence": current.sequence + 1})
     driver.adapter.service.list_turns = lambda *_args, **_kwargs: [previous, discussion]
     assert driver._prior_bound_statblock() == (entry,)
+    assert read.association_anchor is not None
+    with monkeypatch.context() as drift:
+        drift.setattr(driver, "_current_statblock_anchor", lambda *_: read.association_anchor.model_copy(
+            update={"association_id": uuid4()},
+        ))
+        assert driver._prior_bound_statblock() == ()
 
     intervening_selection = discussion.model_copy(update={
         "graph_context_execution": discussion.graph_context_execution.model_copy(update={

@@ -1699,9 +1699,12 @@ class AgentConversationService:
                 if isinstance(event,RelatedPagesSelection):
                     captured=conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",(turn.turn_id,turn.attempt)).fetchone()
                     validate_related_selection(turn,event,related_page_proof,captured[0] if captured else None)
-                from .build_saved_statblock import BuildSavedStatblockReadV1, validate_read
+                from .build_saved_statblock import BuildSavedStatblockReadV1, validate_prior_read, validate_read
                 if isinstance(event, BuildSavedStatblockReadV1):
                     validate_read(event, turn.graph_context_execution)
+                    if event.reused_from_turn_id is not None:
+                        previous = repo.get_turn(conn, turn.world_id, event.reused_from_turn_id)
+                        validate_prior_read(event, turn, previous)
                     if not callable(saved_statblock_materializer) or saved_statblock_materializer() != event:
                         raise ValueError("Saved statblock read lacks its exact mechanics materialization")
                 if isinstance(event,RelatedPageRead):

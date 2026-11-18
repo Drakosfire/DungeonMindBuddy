@@ -295,6 +295,14 @@ def test_postgres_publication_survives_fresh_core_repository(creation_core_dsn, 
     principal = NativeGraphPrincipal("local_operator", "gm", "local_operator")
     support = native_graph_inspection.statblock_pdf_support(creature_ref, (locator,), principal)
     assert [item["evidence_ref_id"] for item in support["support"]] == [evidence_id]
+    epoch = access.source_view.epoch
+    assert native_graph_inspection.statblock_pdf_support(
+        creature_ref, (locator,), principal, expected_source_epoch=epoch,
+    ) == support
+    with pytest.raises(native_graph_inspection.InspectionUnavailable, match="statblock_pdf_source_epoch_changed"):
+        native_graph_inspection.statblock_pdf_support(
+            creature_ref, (locator,), principal, expected_source_epoch=epoch + 1,
+        )
     from base64 import b64decode
     from PIL import Image
     from apps.live_control_server.models.native_graph_inspection import InspectionRead
@@ -314,9 +322,29 @@ def test_postgres_publication_survives_fresh_core_repository(creation_core_dsn, 
     assert native_graph_inspection.statblock_pdf_support(
         creature_ref, (other_crop,), principal,
     )["support"] == []
+    with pytest.raises(native_graph_inspection.InspectionUnavailable, match="statblock_pdf_review_incomplete"):
+        native_graph_inspection.statblock_pdf_support(
+            creature_ref, (other_crop,), principal, expected_source_epoch=epoch,
+        )
     replay = confirm(case, packet)
     assert replay.status_code == 200 and replay.json()["node_id"] == response.json()["node_id"]
     assert replay.json()["replayed"] is True
+
+    load = fresh.get_native_pdf_source
+
+    def load_then_withdraw(space_id, source_revision_id):
+        exact = load(space_id, source_revision_id)
+        artifact, _, _, _ = exact
+        fresh.withdraw_native_source(space_id=space_id,
+            source_artifact_id=artifact.source_artifact_id, source_revision_id=source_revision_id)
+        return exact
+
+    monkeypatch.setattr(fresh, "get_native_pdf_source", load_then_withdraw)
+    with pytest.raises(native_graph_inspection.InspectionUnavailable, match="statblock_pdf_source_epoch_changed"):
+        native_graph_inspection.statblock_pdf_support(
+            creature_ref, (locator,), principal, expected_source_epoch=epoch,
+        )
+    assert fresh.get_head(creature_ref.native_world_id).head_revision_id == creature_ref.graph_revision
 
 
 @pytest.mark.parametrize("change", ["principal", "support"])

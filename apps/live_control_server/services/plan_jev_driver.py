@@ -40,6 +40,7 @@ class PlanJevDriver:
         self._refresh_related_catalog()
         self.attempted_related_pages = set()
         self.saved_statblocks = {}
+        self.prior_statblock_read = None
         self.attempted_statblocks = set()
         if (adapter.request.surface.surface_id == "build"
                 and adapter.fence is not None
@@ -404,12 +405,18 @@ class PlanJevDriver:
         reference = self._published_statblock_reference(read.draft_id, read.locator)
         if reference is None:
             return ()
+        if read.association_anchor is None:
+            if not captures:
+                return ()
+        elif read.association_anchor != self._current_statblock_anchor(reference, read.draft_id, read.locator):
+            return ()
         if captures and not any(
             (selected.managed_world_id, selected.native_world_id, selected.binding_version, selected.node_id)
             == (reference.managed_world_id, reference.native_world_id, reference.binding_version, reference.node_id)
             for selected in object_selections(captures[0].references)
         ):
             return ()
+        self.prior_statblock_read = (previous, read)
         return ((reference.label, read.draft_id, read.locator, reference),)
 
     def _referenced_statblocks(self, references):
@@ -478,6 +485,26 @@ class PlanJevDriver:
             node_id=target.node_id, label=target.label,
         )
 
+    def _current_statblock_anchor(self, reference, draft_id, locator):
+        from application_state.agent_conversation.build_saved_statblock import SavedStatblockAssociationAnchor
+        from application_state.world_mechanics.service import list_current
+
+        if reference is None or reference.managed_world_id != self.statblock_world:
+            return None
+        matches = [
+            record for record in list_current(world_id=self.statblock_world)
+            if str(record.request.draft_id) == str(draft_id) and record.proof.locator == locator
+            and (record.request.target.managed_world_id, record.request.target.native_world_id,
+                 record.request.target.binding_version, record.request.target.node_id)
+            == (reference.managed_world_id, reference.native_world_id,
+                reference.binding_version, reference.node_id)
+        ]
+        if len(matches) != 1:
+            return None
+        return SavedStatblockAssociationAnchor(
+            association_id=matches[0].association_id, node_id=reference.node_id,
+        )
+
     def _read_saved_statblock(self, handle, selection):
         from uuid import UUID, uuid4
         from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
@@ -492,31 +519,82 @@ class PlanJevDriver:
         event_id = uuid4()
         sequence = len(adapter._broker_execution().events)
 
-        opened = open_version(self.statblock_root, world_id=self.statblock_world,
-                              draft_id=draft_id, revision_id=locator.revision_id)
-        if opened["locator"] != locator.model_dump(mode="json"):
-            raise ValueError("Opened statblock differs from its selected saved revision")
-        from .native_graph_inspection import statblock_pdf_support
+        from application_state.agent_conversation.build_saved_statblock import validate_prior_read
+        from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+        from apps.live_control_server.integrations.dungeonmind import native_registry_source
+        from .native_graph_inspection import InspectionUnavailable, statblock_pdf_support
         from .native_pdf_evidence import reviewed_pdf_regions
 
-        pdf_support = None
-        regions = reviewed_pdf_regions(opened["resource"], world_id=self.statblock_world)
-        if regions:
-            reference = references[0] if references else self._published_statblock_reference(draft_id, locator)
-            if reference is not None:
-                pdf_support = statblock_pdf_support(reference, regions, adapter.native_principal)
-        event = BuildSavedStatblockReadV1(
-            event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
-            handle=handle, world_id=self.statblock_world, draft_id=UUID(str(draft_id)),
-            locator=locator, definition=opened["resource"]["definition"], pdf_support=pdf_support,
-        )
+        current = adapter.fence.turn
+        authority = getattr(current.graph_context_receipt, "source_authority", None)
+        epoch = authority.acquisition_epoch if isinstance(authority, NativeCorpusAuthorityV1) else None
+
+        def current_epoch():
+            return native_registry_source.read_repository().open_native_source_view(authority.native_world_id).epoch
+
+        fields = dict(event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
+                      handle=handle, world_id=self.statblock_world, draft_id=UUID(str(draft_id)), locator=locator)
+        reference = references[0] if references else None
+        anchor = self._current_statblock_anchor(reference, draft_id, locator) if epoch is not None else None
+        prior = self.prior_statblock_read
+        event = None
+        if prior is not None and prior[1].continuity_verified and anchor is not None:
+            previous, record = prior
+            candidate = BuildSavedStatblockReadV1(
+                **fields, definition=record.definition, pdf_support=record.pdf_support,
+                continuity_verified=True, association_anchor=anchor, reused_from_turn_id=previous.turn_id,
+            )
+            try:
+                validate_prior_read(candidate, current, previous)
+            except ValueError:
+                pass
+            else:
+                if current_epoch() == epoch:
+                    event = candidate
+        if event is None:
+            opened = open_version(self.statblock_root, world_id=self.statblock_world,
+                                  draft_id=draft_id, revision_id=locator.revision_id)
+            if (opened["locator"] != locator.model_dump(mode="json")
+                    or opened["world_id"] != fields["world_id"]
+                    or UUID(str(opened["draft_id"])) != fields["draft_id"]):
+                raise ValueError("Opened statblock differs from its selected saved revision")
+            regions = reviewed_pdf_regions(opened["resource"], world_id=self.statblock_world)
+            pdf_support = None
+            verified = False
+            if regions:
+                if reference is None:
+                    reference = self._published_statblock_reference(draft_id, locator)
+                    anchor = self._current_statblock_anchor(reference, draft_id, locator) if epoch is not None else None
+                if reference is not None:
+                    if epoch is not None:
+                        try:
+                            pdf_support = statblock_pdf_support(
+                                reference, regions, adapter.native_principal, expected_source_epoch=epoch,
+                            )
+                        except InspectionUnavailable:
+                            pdf_support = statblock_pdf_support(reference, regions, adapter.native_principal)
+                        else:
+                            verified = True
+                    else:
+                        pdf_support = statblock_pdf_support(reference, regions, adapter.native_principal)
+            elif anchor is not None:
+                verified = current_epoch() == epoch
+            event = BuildSavedStatblockReadV1(
+                **fields, definition=opened["resource"]["definition"], pdf_support=pdf_support,
+                continuity_verified=verified and anchor is not None,
+                association_anchor=anchor if verified else None,
+            )
+
+        def materialize():
+            if event.continuity_verified:
+                if current_epoch() != epoch:
+                    raise ValueError("Saved statblock source authority changed before admission")
+                if self._current_statblock_anchor(reference, draft_id, locator) != event.association_anchor:
+                    raise ValueError("Saved statblock World association changed before admission")
+            return event
+
         adapter.turn = _require_fresh_execution_append(adapter.fence.append(
-            "record_build_saved_statblock", "event", event,
-            materializer=lambda: BuildSavedStatblockReadV1(
-                event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
-                handle=handle, world_id=opened["world_id"], draft_id=UUID(str(opened["draft_id"])),
-                locator=locator, definition=opened["resource"]["definition"], pdf_support=pdf_support,
-            ),
+            "record_build_saved_statblock", "event", event, materializer=materialize,
         ))
 
     def _read_native(self, record_kind, identities):
