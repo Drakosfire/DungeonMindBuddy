@@ -11,12 +11,14 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
 import pytest
+from pypdf import PdfWriter
 from fastapi import FastAPI
 
 from application_state import pdf_statblock_review
@@ -295,8 +297,11 @@ def hosted(monkeypatch, request):
     app.include_router(extract_promote.router)
     app.include_router(live.router)
     app.include_router(graph_preview.router)
+    from apps.live_control_server.routes.agent import put_pdf_statblock_review
+
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/from-regions", post_extract_pdf_statblock_review, methods=["POST"])
+    app.add_api_route(PDF_REVIEW, put_pdf_statblock_review, methods=["PUT"])
     app.add_api_route(f"{PDF_REVIEW}/publication", get_pdf_statblock_publication, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", post_pdf_statblock_publication, methods=["POST"])
     app.add_api_route(f"{PDF_REVIEW}/publication/statblock", get_published_pdf_statblock, methods=["GET"])
@@ -362,6 +367,11 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/prompt/{provider_attempt_id}"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/prompts"): access.resolve_hosted_conversation_world,
+
+
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
             ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
@@ -388,6 +398,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/from-regions"): access.resolve_hosted_build_pdf_world,
+            ("PUT", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/accept/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
             ("GET", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
@@ -1730,10 +1741,14 @@ def test_binary_pdf_body_only_reaches_authorized_upload(hosted, monkeypatch, ses
 
     monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
     monkeypatch.setattr(sources, "_source_world_binding", lambda *_: SimpleNamespace(native_world_id="managed-native"))
-    monkeypatch.setattr(sources, "_repository", lambda: SimpleNamespace(retain_native_pdf_source=retain))
+    monkeypatch.setattr(sources, "_repository", lambda: SimpleNamespace(get_head=lambda _: object(), retain_native_pdf_source=retain))
     path = access.BUILD_PDF_SOURCES_PATH.format(world_id="managed") + suffix
     path += ("&" if "?" in path else "?") + f"admission_id={uuid4()}"
-    payload = b"%PDF-1.7\n"
+    pdf = BytesIO()
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=300)
+    writer.write(pdf)
+    payload = pdf.getvalue()
     response = hosted.client.request(
         "POST", path, session=session, origin=origin,
         headers={"Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-15T00:00:00Z"}, content=payload,
@@ -1775,6 +1790,40 @@ def test_hosted_pdf_extraction_checks_world_before_processing(hosted):
     response = hosted.client.request("POST", path, json={})
     assert response.status_code == 422, response.text
     assert response.json()["detail"]["code"] == "invalid_pdf_statblock_extraction_request"
+
+
+def test_hosted_pdf_review_save_checks_owner_and_expected_revision(hosted, monkeypatch):
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.routes import agent
+
+    review_id = uuid4()
+    path = PDF_REVIEW.format(world_id="managed", review_id=review_id)
+    body = {"definition": {}, "regions": [], "expected_revision": 1}
+    writes = []
+
+    def save_review(**fields):
+        writes.append(fields)
+        if fields["expected_revision"] != 1:
+            raise ApplicationStateConflictError("stale review")
+        return {"revision": 2}
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(agent, "_authorized_pdf_statblock", lambda *args, **kwargs: (
+        SimpleNamespace(model_dump=lambda **kwargs: {}), [],
+    ))
+    monkeypatch.setattr(pdf_statblock_review, "save_review", save_review)
+    assert hosted.client.request("PUT", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("PUT", path, json=body, origin=None).status_code == 403
+    assert writes == []
+    response = hosted.client.request("PUT", path, json=body)
+    assert response.status_code == 200, response.text
+    assert response.json() == {"revision": 2}
+    assert writes == [{
+        "world_id": "managed", "review_id": review_id, "expected_revision": 1,
+        "definition": {}, "regions": [],
+    }]
+    response = hosted.client.request("PUT", path, json={**body, "expected_revision": 0})
+    assert response.status_code == 409, response.text
 
 
 def test_hosted_pdf_review_denies_ownership_transfer_during_read(hosted, monkeypatch):
@@ -2898,3 +2947,44 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_prompt_reads_require_owner_and_captured_trace(hosted, monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import agent
+
+    reads = Mock(return_value=[])
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(agent, "_conversation_service", lambda _: SimpleNamespace(list_context_trace_attempts=reads))
+    turn, trace, attempt = uuid4(), uuid4(), uuid4()
+    base = f"/api/live/agent/worlds/managed/conversation/turns/{turn}/context-trace"
+    single = f"{base}/{trace}/prompt/{attempt}"
+    batch = f"{base}/prompts"
+    body = {"prompts": [{"trace_id": str(trace), "provider_attempt_id": str(attempt)}]}
+    assert hosted.client.request("GET", single, session="other-session").status_code == 403
+    assert hosted.client.request("POST", batch, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", batch, origin=None, json=body).status_code == 403
+    reads.assert_not_called()
+    response = hosted.client.request("GET", single)
+    assert response.status_code == 404, response.text
+    response = hosted.client.request("POST", batch, json=body)
+    assert response.status_code == 200, response.text
+    assert response.json()["results"] == [{"unavailable": "prompt_not_captured"}]
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_hosted_conversation_name_read_requires_world_owner(hosted, monkeypatch):
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import conversation_library
+
+    read = Mock(return_value={"title": "Saved conversation"})
+    monkeypatch.setattr(conversation_library.library, "get_name", read)
+    conversation = uuid4()
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation}/name"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    read.assert_called_once_with("managed", conversation)
