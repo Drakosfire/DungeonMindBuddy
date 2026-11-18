@@ -192,7 +192,14 @@ def test_missing_signing_authority_is_reported_unavailable(monkeypatch):
     from apps.live_control_server.services.graph_object_authoring_prepare import sign_publication_intent
 
     monkeypatch.delenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", raising=False)
+    principal = NativeGraphPrincipal(subject="local_operator", role="gm", auth_method="local_operator")
+    monkeypatch.setattr(pdf_adventure_events, "require_build_pdf_access", lambda *_: principal)
+
+    def sign(*_args, authorize_write):
+        authorize_write()
+        return sign_publication_intent({})
+
     with pytest.raises(HTTPException) as caught:
-        pdf_adventure_events._invoke(lambda *_: sign_publication_intent({}), None, None, None)
+        pdf_adventure_events._invoke(sign, "fixture-world", None, None)
     assert caught.value.status_code == 503
     assert caught.value.detail["code"] == "authority_unavailable"
