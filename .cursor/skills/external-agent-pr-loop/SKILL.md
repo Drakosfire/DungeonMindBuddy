@@ -1,21 +1,22 @@
 ---
 name: external-agent-pr-loop
 description: >-
-  Operational runbook for DungeonMindBuddy external-agent PRs after the steward has
-  already made the implementation HANDOFF durable on main and activated it. Covers
+  Operational runbook for DungeonMindBuddy external-agent PRs after the owner
+  named in the bounded assignment pins the implementation HANDOFF at a durable
+  ref and activates it. Covers
   fetch/verify/post review evidence with scripts/review_external_pr.py, merge, and
   the handoff's state-authority sync set. Durable law lives in AGENTS.md and
-  .cursor/rules/external-agent-pr-loop.mdc; steward judgment/decomposition and
+  .cursor/rules/external-agent-pr-loop.mdc; assignment judgment/decomposition and
   handoff creation/activation live in Docs/Process/STEWARD-CYCLE.md.
 ---
 
 # External-agent PR loop — mechanics
 
-Use this file for **commands and transport procedure after an implementation handoff already exists on `main`**. Do not use it to decide whether two outcomes belong in one slice, whether a BLOCKED handoff may be activated, whether another PR may be opened, or whether parallel lanes are safe; those judgments belong in [`Docs/Process/STEWARD-CYCLE.md`](../../../Docs/Process/STEWARD-CYCLE.md).
+Use this file for **commands and transport procedure after an implementation handoff is pinned at a durable ref**. Do not use it to decide whether two outcomes belong in one slice, whether a BLOCKED handoff may be activated, whether another PR may be opened, or whether parallel lanes are safe; those judgments belong in [`Docs/Process/STEWARD-CYCLE.md`](../../../Docs/Process/STEWARD-CYCLE.md).
 
 Read when you need to:
 
-- dispatch an external/Codex-style worker from an already checked-in ACTIVE handoff;
+- dispatch an external/Codex-style worker from an already ACTIVE handoff pinned at a durable ref;
 - open/update the one implementation PR authorized by that handoff;
 - fetch and verify a PR against that handoff;
 - post a formal review judgment;
@@ -24,14 +25,17 @@ Read when you need to:
 
 For in-IDE subagents, use `.cursor/rules/subagent-delegation.mdc` instead.
 
+The commands below are optional transport helpers, not policy gates. Follow current `AGENTS.md` and the bounded assignment first. Inspect any helper before use and choose another authorized route if its side effects conflict with checkout ownership or repository law.
+
 ## 0. Preconditions
 
-Before mechanics begin, the steward has already completed the Steward Cycle readiness/activation gate:
+Before mechanics begin, the owner named in the bounded assignment has completed
+the assignment process readiness/activation gate:
 
 ```text
 re-anchored current main
 one capability / one invariant
-HANDOFF durably checked in on main
+HANDOFF pinned at a durable ref
 Status: ACTIVE
 activation gate satisfied
 PR topology declared: serial | stacked | parallel-independent
@@ -44,16 +48,16 @@ runtime/state collision decision made
 state-authority sync set named
 ```
 
-If the handoff is BLOCKED, exists only in chat/a temporary worktree, omits/contradicts PR topology, or any of those facts are still unclear, return to the Steward Cycle. Do not ask the external implementation worker to create, commit, or activate the authority that authorizes its own work, and do not ask it to decide whether an additional PR should exist.
+If the handoff is BLOCKED, is not pinned at a durable ref, omits/contradicts PR topology, or any of those facts are still unclear, return to the assignment process. Do not ask the external implementation worker to create, commit, or activate the authority that authorizes its own work, and do not ask it to decide whether an additional PR should exist.
 
 ## 1. Consume the ACTIVE HANDOFF and dispatch
 
-The external worker receives an implementation handoff that is already checked in on `main` and already `Status: ACTIVE`.
+The external worker receives an implementation handoff pinned at a durable ref and marked `Status: ACTIVE`.
 
-The steward supplies:
+The person or agent named in the assignment supplies:
 
 ```text
-checked-in HANDOFF path
+HANDOFF path and pinned ref
 PR topology: serial | stacked | parallel-independent
 authorized PR action
 open implementation PRs in the workstream
@@ -76,9 +80,9 @@ Parser-critical handoff details remain:
 
 The optional `pr_body_template` frontmatter is only a transport pointer. Do not duplicate the handoff into the PR body.
 
-Before dispatch, run the Steward Cycle's collision/preflight step. `steward_preflight.py` must not report the candidate as non-ACTIVE. A BLOCKED handoff is durable design authority but is not dispatchable and holds no §4 lease.
+Before dispatch, run the assignment process's collision/preflight step. `steward_preflight.py` must not report the candidate as non-ACTIVE. A BLOCKED handoff is durable design authority but is not dispatchable and holds no §4 lease.
 
-If a new handoff must be authored or an existing BLOCKED handoff must be activated, stop using this runbook and return to the steward process. Handoff creation/activation is steward work, not external-worker setup.
+If a new handoff must be authored or an existing BLOCKED handoff must be activated, stop using this runbook and return to the assignment process. Handoff creation/activation is work explicitly assigned to the owner, not external-worker setup.
 
 ### Assigned PR execution rule
 
@@ -92,11 +96,11 @@ ACTIVE handoff authorizes PR X
 
 worker discovers next defect / cleanup / successor
   → do NOT open PR Y
-  → stop/hand back to steward unless the handoff explicitly declared
+  → stop/hand back to named owner unless the handoff explicitly declared
     a stacked or parallel-independent relation that already authorizes Y
 ```
 
-Under `serial` topology, a discovered successor may be described in the handback and the steward may later land a BLOCKED successor handoff, but no successor implementation branch/PR opens until the current predecessor merges, state authority is synchronized, and the steward re-anchors.
+Under `serial` topology, a discovered successor may be described in the handback and the named owner may later land a BLOCKED successor handoff, but no successor implementation branch/PR opens until the current predecessor merges, state authority is synchronized, and the named owner re-anchors.
 
 ## 2. Fetch a PR for review
 
@@ -143,7 +147,7 @@ manual/dogfood
 operator waiver
 ```
 
-A command list passing does not prove that §7 selected the correct owning boundary or adversarial sequence; that is reviewer judgment from the Steward Cycle.
+A command list passing does not prove that §7 selected the correct owning boundary or adversarial sequence; the independent reviewer judges that against the assignment process.
 
 If a required gate already fails on base, compare base/head and report the failure truthfully. Do not rename unchanged baseline failure as green.
 
@@ -176,7 +180,7 @@ uv run python scripts/review_external_pr.py post \
   --review-md /tmp/pr-<N>-cycle<C>-review.md
 ```
 
-When the PR author and reviewer share the same GitHub identity, GitHub rejects self-`APPROVE` / self-`REQUEST_CHANGES`. The script falls back to `COMMENT` while preserving the verdict banner. That still counts as the formal review cycle when it is the steward's complete judgment against that head.
+When the PR author and reviewer share the same GitHub identity, GitHub rejects self-`APPROVE` / self-`REQUEST_CHANGES`. The script falls back to `COMMENT` while preserving the verdict banner. That still counts as the formal review cycle when it is the independent reviewer's complete judgment against that head.
 
 Inline comment lines must be changed lines in the PR diff.
 
@@ -192,7 +196,7 @@ After fixes:
 
 Do not count fix commits or evidence-only comments as cycles by themselves.
 
-If review/dogfood exposes a separate successor while the current PR remains open, do not chain-dispatch it under serial topology. Record the finding and return the scheduling decision to the steward.
+If review/dogfood exposes a separate successor while the current PR remains open, do not chain-dispatch it under serial topology. Record the finding and return the scheduling decision to the named owner.
 
 ## 5. Capture review learning
 
@@ -211,7 +215,7 @@ PR topology disposition
 named successor still false
 ```
 
-Generalized lessons move to the appropriate upstream owner under the Steward Cycle learning rule.
+Generalized lessons move to the appropriate upstream owner under the assignment process learning rule.
 
 ## 6. Merge approved PR
 
@@ -277,7 +281,7 @@ Return to [`Docs/Process/STEWARD-CYCLE.md`](../../../Docs/Process/STEWARD-CYCLE.
 - carry forward repeated review lessons;
 - decompose the next candidate again rather than chain-dispatching from the old plan.
 
-A predecessor merge does not itself activate a BLOCKED successor. The steward owns that explicit transition.
+A predecessor merge does not itself activate a BLOCKED successor. The named owner owns that explicit transition.
 
 ## Quick command reference
 
@@ -290,9 +294,9 @@ A predecessor merge does not itself activate a BLOCKED successor. The steward ow
 
 ## Mechanical failure cases
 
-- **Candidate handoff is BLOCKED/non-ACTIVE:** stop; return to Steward Cycle for re-anchor/activation. Do not dispatch the external worker.
-- **Handoff exists only outside main:** stop; the designing steward must make the authority durable first.
-- **PR topology absent/contradictory:** stop; return to Steward Cycle. Do not let the worker choose whether to stack/fan out.
+- **Candidate handoff is BLOCKED/non-ACTIVE:** stop; return to assignment process for re-anchor/activation. Do not dispatch the external worker.
+- **Handoff is not pinned at a durable ref:** stop; the designer explicitly named by the assignment must pin the authority at a durable ref first.
+- **PR topology absent/contradictory:** stop; return to assignment process. Do not let the worker choose whether to stack/fan out.
 - **New successor defect discovered under serial topology:** stop/hand back; do not open another PR.
 - **Handoff parser returns empty §4/§7:** inspect template structure; do not waive silently.
 - **Interactive verification:** add a fixture or explicit manual proof rather than bypassing it.
@@ -300,13 +304,13 @@ A predecessor merge does not itself activate a BLOCKED successor. The steward ow
 - **Self-review 422:** preserve verdict through the script's COMMENT fallback.
 - **Inline anchor rejected:** anchor only to changed lines.
 - **Stash restore conflict:** remote merge/review state may still be valid; resolve local restore separately.
-- **State-sync set unclear:** return to Steward Cycle/re-anchor; do not default blindly to old PLAN/CHECKLIST assumptions.
+- **State-sync set unclear:** return to assignment process/re-anchor; do not default blindly to old PLAN/CHECKLIST assumptions.
 
 ## References
 
 - Durable law: `AGENTS.md`
 - External PR invariants: `.cursor/rules/external-agent-pr-loop.mdc`
-- Steward judgment/process: `Docs/Process/STEWARD-CYCLE.md`
+- named owner judgment/process: `Docs/Process/STEWARD-CYCLE.md`
 - Re-anchor discipline: `.cursor/rules/anchor.mdc`
 - Handoff template: `.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md`
 - Review tooling: `scripts/review_external_pr.py`

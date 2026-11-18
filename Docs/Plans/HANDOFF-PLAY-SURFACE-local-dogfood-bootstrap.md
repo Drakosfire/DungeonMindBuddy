@@ -28,6 +28,11 @@ pr_body_template: |
 **Suggested branch:** `agent/play-local-dogfood-bootstrap`
 **PR title:** `PLAY-SURFACE: make local Play dogfood reachable`
 
+Historical `live_dogfood_check.py` references below retain their original
+verification context. The retired [checker source](https://github.com/Drakosfire/DungeonMindBuddy/blob/7437655daa637def7948226af76169faed76d82b/scripts/live_dogfood_check.py)
+is pinned in Git; current Play readiness uses the
+[local Play runbook](../Runbooks/RUNBOOK-local-play-dogfood.md).
+
 > **Dispatch base:** `4d82f12ad9c6d679b5dbce83db527eb7dbd27957`
 >
 > This is current `main`, containing merged PR #655 / BF3A.

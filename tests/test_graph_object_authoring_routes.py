@@ -38,8 +38,10 @@ def _request_body() -> dict[str, object]:
 
 
 @pytest.fixture
-def client() -> TestClient:
-    return TestClient(create_app())
+def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    return TestClient(create_app(), base_url="http://127.0.0.1:8000", client=("127.0.0.1", 50000))
 
 
 def test_prepare_route_maps_graph_review_error(

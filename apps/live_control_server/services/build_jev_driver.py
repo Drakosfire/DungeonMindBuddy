@@ -1256,8 +1256,11 @@ class BuildJevDriver:
                     producer_proof={'request_json': prepared.body.decode(), 'response_json': raw}))
                 self.operation, self.selection = selected, event
                 from application_state.agent_conversation.build_intentional_response import is_anchored_discussion
-                anchored = is_anchored_discussion(event)
-                if 'related_page_catalog' in self._interaction and not anchored:
+                from application_state.agent_conversation.build_intentional_response import is_variant_approval
+                from application_state.agent_conversation.build_related_pages import is_anchored_conversation_draft
+                if ('related_page_catalog' in self._interaction
+                        and not (is_anchored_discussion(event) or is_variant_approval(event)
+                                 or is_anchored_conversation_draft(a._broker_execution(), event))):
                     select_pages(self, prepared, actual_response)
             else:
                 question = self._selection_intent.questions[0]
