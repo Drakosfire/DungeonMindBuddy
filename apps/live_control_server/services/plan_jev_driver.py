@@ -121,9 +121,30 @@ class PlanJevDriver:
 
         return any(is_variant_approval(event) for event in self.adapter._broker_execution().events)
 
+    def _anchored_variant_draft(self):
+        if self.adapter.request.surface.surface_id != "build" or len(self.saved_statblocks) != 1:
+            return False
+        # Only a statblock bound through an explicit or carried World reference
+        # qualifies. A catalog hit from the generic mechanics search does not.
+        entry, = self.saved_statblocks.values()
+        if len(entry) != 4:
+            return False
+        events = self.adapter._broker_execution().events
+        return (
+            any(isinstance(event, t.BuildDraftContextCapturedV1) for event in events)
+            and any(
+                isinstance(event, t.BuildRequestedWorkResolutionV1)
+                and event.requested_work == "draft_in_conversation"
+                and event.resolution.get("source_scope") == "anchored"
+                for event in events
+            )
+        )
+
     def offered(self):
         if self.finished or self._variant_approval():
             return ()
+        if self._anchored_variant_draft():
+            return self._saved_statblock_candidates()
         if self._anchored_discussion():
             rules = (rules_candidate(),) if self.rules is not None and not self.rules.selected else ()
             return rules + self._saved_build_sections() + self._saved_statblock_candidates()
@@ -643,8 +664,11 @@ class PlanJevDriver:
         if self._variant_approval():
             return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
                         allowed_operations=("select_candidates", "finish_retrieval"))
-        operations = (('select_candidates', 'finish_retrieval') if self.discovered or self._anchored_discussion() else
-            ('select_candidates', 'discover_more', 'finish_retrieval'))
+        operations = (
+            ('select_candidates', 'finish_retrieval')
+            if self.discovered or self._anchored_discussion() or self._anchored_variant_draft()
+            else ('select_candidates', 'discover_more', 'finish_retrieval')
+        )
         examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
         if self.rules is not None and self.rules.selected:
             examined.append(rules_candidate())
