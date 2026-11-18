@@ -1,6 +1,8 @@
 # DOCS: navigate handoffs and historical evidence
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: HISTORICAL — completed by Buddy PR #4005, merged at `1acbf62ac34bcf3f86ae22294979b02be34e1705`. The lease is closed.
+
+Originally authorized by the documentation goal. PR topology: serial.
 Base: Buddy main `7ee521ee3b2c83b3929d9d11863555082b3f104d`.
 Branch: `codex/docs-handoff-navigation`. Predecessor: merged #4004.
 

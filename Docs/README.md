@@ -23,7 +23,8 @@ describes is implemented or deployed.
 | Deploy or recover a system | [Production deployment](Runbooks/RUNBOOK-buddy-production-deployment.md) and [application-state recovery](Runbooks/RUNBOOK-application-state-authority-recovery.md) |
 
 From the repository root, run `uv run python scripts/check_docs_links.py .` to
-check the maintained entry points named in the script. It checks local targets
+check the maintained entry points, domain guides, and local Play runbook named
+in the script. It checks local targets
 and common Markdown fragments; external and root-relative URLs, shortcut
 references, non-Markdown fragments, and full GitHub anchor parity are outside
 its scope. This opt-in check does not replace the repository's review and

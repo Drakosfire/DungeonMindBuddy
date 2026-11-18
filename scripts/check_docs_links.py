@@ -19,6 +19,12 @@ ENTRYPOINTS = (
     "Docs/README.md",
     "evals/README.md",
     "apps/live-control-ui/README.md",
+    "Docs/Guides/GUIDE-local-world-storage.md",
+    "Docs/Guides/GUIDE-source-ingestion-and-evidence.md",
+    "Docs/Guides/GUIDE-surface-contributor-map.md",
+    "Docs/Guides/GUIDE-agent-context-and-runtime.md",
+    "Docs/Guides/GUIDE-handoff-and-evidence-navigation.md",
+    "Docs/Runbooks/RUNBOOK-local-play-dogfood.md",
 )
 
 
