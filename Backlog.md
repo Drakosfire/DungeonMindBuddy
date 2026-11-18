@@ -46,7 +46,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 
 | Idea | Next useful slice or decision |
 | --- | --- |
-| [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | [Home implementation #3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) is open; assess remaining acceptance after it settles. |
+| [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | [Home implementation #3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) merged; assess actual hosted sign-in and any remaining acceptance. |
 | [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Audit every surface and identify the right empty canvas and next action. |
 | [Shared page composer residuals](#idea-high-priority--shared-grid-page-constructor) | Manual foundation merged; physical print and ordinary chat-directed layout remain separate acceptance work. |
 | [Shared agent actions across surfaces](#idea-shared-agent-actions-across-surfaces) | Prove one inline text edit in Build and Plan through their native saves; then test a sourced Graph relationship. |
@@ -69,7 +69,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 ## [IDEA] Delightful Buddy landing page — captured 2026-11-16
 
 **Context:** Hosted Buddy sign-in dogfood surfaced the need for a welcoming first view.
-**Action:** [#3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) implements the first view and entry points. It is open, not a merged or deployed result. After it settles, assess first-visit and return-visit acceptance and retain any remaining gap.
+**Action:** [#3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) merged the first view and entry points, including synthetic local browser witnesses. Actual hosted sign-in and deployment remain unverified; assess those and retain any remaining first-visit or return-visit gap.
 **Surfaces when:** Revisiting Buddy Home, hosted entry, or onboarding.
 
 ## [IDEA] Inviting canvases with no graph loaded — captured 2026-11-16
@@ -83,7 +83,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 - Hosted signed-in presenter demo World: [#3837](https://github.com/Drakosfire/DungeonMindBuddy/issues/3837) owns scope and acceptance. This is not the signed-out demo or full cross-surface demo [#410](https://github.com/Drakosfire/DungeonMindBuddy/issues/410).
 - Hosted incremental ordinary reply text: [#3838](https://github.com/Drakosfire/DungeonMindBuddy/issues/3838) owns scope and acceptance. Build construction SSE and status updates are not that witness.
 - Design input: [#3683](https://github.com/Drakosfire/DungeonMindBuddy/pull/3683) captures shared themes, spatial workspace, signed-out original Elderwyld content, shared agent actions, formatting benchmarks and bug-report ideas. This is design context, not authorization to implement or a change to roadmap sequencing.
-- Maintenance: the 2026-11-17 audit was a historical snapshot. On 2026-11-18, six of the 20 Buddy issue-linked rows in [the queue](Docs/Backlog/MAINTENANCE.md) had closed with distinct dispositions; [#4012](https://github.com/Drakosfire/DungeonMindBuddy/pull/4012) proposes reconciling those rows while retaining open residuals. Broader demo [#410](https://github.com/Drakosfire/DungeonMindBuddy/issues/410) and source-anchor acceptance [#783](https://github.com/Drakosfire/DungeonMindBuddy/issues/783) remain open, not closed by nearby implementation.
+- Maintenance: the 2026-11-17 audit was a historical snapshot. On 2026-11-18, six of the 20 Buddy issue-linked rows in [the queue](Docs/Backlog/MAINTENANCE.md) had closed with distinct dispositions; [#4012](https://github.com/Drakosfire/DungeonMindBuddy/pull/4012) reconciled those rows while retaining open residuals. Broader demo [#410](https://github.com/Drakosfire/DungeonMindBuddy/issues/410) and source-anchor acceptance [#783](https://github.com/Drakosfire/DungeonMindBuddy/issues/783) remain open, not closed by nearby implementation.
 
 ## Research held for evidence or selection
 
