@@ -1,6 +1,6 @@
 # DOCS: Agent context and runtime guide
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: MERGED / HISTORICAL. Buddy PR #3986, merge `afcb748185c5983df5df9b51c6bd363ae1361629`. The lane is closed; this record does not authorize new work.
 
 Base: Buddy main `1fadf2cabff8353db3e86faf7602033372a45056`. Branch: `codex/docs-agent-context`.
 

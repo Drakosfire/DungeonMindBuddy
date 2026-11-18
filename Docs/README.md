@@ -15,9 +15,17 @@ describes is implemented or deployed.
 | Work on shared surfaces and interaction | [Surface interaction architecture](Design/ARCHITECTURE-surface-interaction-layer.md) and [frontend guide](../apps/live-control-ui/README.md) |
 | Understand Agent orchestration and context | [Agent context and runtime guide](Guides/GUIDE-agent-context-and-runtime.md), the [context compilation decision](Design/DECISION-agent-context-compilation.md), and the dated [runtime design direction](Design/DECISION-agent-runtime-and-semantic-adjudication.md) |
 | Choose verification for a change | [Agent policy: review and verification](../AGENTS.md#review-and-verification), [frontend commands](../apps/live-control-ui/README.md#commands), and the owning contract |
+| Check links in maintained entry points | [Local documentation link check](../scripts/check_docs_links.py) |
 | Find experiments, fixtures, or evaluation evidence | [Lab and evaluation guide](../evals/README.md) |
 | Find the accepted ingestion baseline and historical retrieval evidence | [Baseline and retrieval history report](Reports/REPORT-ingestion-baseline-and-retrieval-history-2026-11-07.md) |
 | Deploy or recover a system | [Production deployment](Runbooks/RUNBOOK-buddy-production-deployment.md) and [application-state recovery](Runbooks/RUNBOOK-application-state-authority-recovery.md) |
+
+From the repository root, run `uv run python scripts/check_docs_links.py .` to
+check the maintained entry points named in the script. It checks local targets
+and common Markdown fragments; external and root-relative URLs, shortcut
+references, non-Markdown fragments, and full GitHub anchor parity are outside
+its scope. This opt-in check does not replace the repository's review and
+verification standard.
 
 ## Current work and historical material
 
