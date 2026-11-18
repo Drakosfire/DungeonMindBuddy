@@ -38,3 +38,27 @@ This ordered-pacing capability does not complete configurable non-D&D profiles,
 resources, sides/spotlight, real-runtime Graph integration or final acceptance.
 Profile migration still respects open #3877 (its #3875 prerequisite has merged).
 Task evidence/designs: `/home/drakosfire/Projects/.codex/buddy-check.LPopRI`.
+
+## Verification checkpoint and owning test repair
+
+Initial candidate `4444b478c49f0234593f401b23fe414573e2c111` passed 41 focused
+tests, full TypeScript, inventory, and exact-head code review. Disposable browser
+keyboard Enter moved the active actor while preserving round, projected source
+and staged damage; Save revision11/reopen retained the new order and next actor.
+Both fixture services stopped; no shared runtime or live-record changes.
+
+Its exact hosted suite passed all 1,408 selected tests, build/parity and validator.
+Full discovered reported 7,916/161/2 versus exact base
+`5711085fd69913111db7925027ccdede1b1e694a` at 7,915/160/2. The two new cases pass
+and no occurrences are missing, but one existing owning adoption test newly fails:
+it asserted parent unlock immediately after finding a child success message.
+The lock release arrives through the child's effect. Independent audit requires
+waiting for actual control readiness, preserving all value/revision/source checks.
+The repaired case includes a second actor and verifies move controls are disabled
+during adoption and eventually enabled afterward. Product locking is unchanged.
+
+The old-head evidence remains HOLD and retained. Repaired exact-head checks and
+review are required. A Work Plans failure also reached a different statement on
+base/head; pair its unchanged owning file before classifying that cause as
+inherited. Full discovered qualification remains red. Evidence pointers use
+`order-*-evidence-path`; do not relabel the old head as repaired-source proof.
