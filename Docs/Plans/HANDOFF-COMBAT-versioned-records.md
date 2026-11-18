@@ -1,6 +1,16 @@
 # COMBAT — represent manual encounters without rewriting v1
 
-ACTIVE under the operator's full Combat implementation/review/accepted-merge
+MERGED as #3995 at `087c293812e1699e0088062484df31367343b93a`; source lease
+released to HANDOFF-COMBAT-manual-profile.md. Reviewed exact head
+`7a8f8bcc0bbef8287deffbf3404a2048ca11cde7` has independent code/evidence acceptance:
+100 pure contract cases,16 CI guards and all1,558 classified files pass in a clean
+isolated exact-SHA checkout with locked dependencies. Source/raw-copy and explicit
+anchor regressions fail before and pass after repair. Evidence is retained under
+records-exact-7a8f8bcc0bbef8287deffbf3404a2048ca11cde7 in the task evidence root;
+the managed verification checkout is confirmed archived. No persisted/UI/DB
+activation or full-goal completion is claimed by this predecessor.
+
+Original authority: under the operator's full Combat implementation/review/accepted-merge
 authority. Serial successor to #3990, merged
 `1e208b20ac64bcac7682b4f8ea7ea5919fc69e79`. Fetched base
 `fe8cdcc1e3ca6f463b99b1635217f37c3c9f4dc3`; branch
