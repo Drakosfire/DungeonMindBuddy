@@ -11,12 +11,14 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
 import pytest
+from pypdf import PdfWriter
 from fastapi import FastAPI
 
 from application_state import pdf_statblock_review
@@ -1736,10 +1738,14 @@ def test_binary_pdf_body_only_reaches_authorized_upload(hosted, monkeypatch, ses
 
     monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
     monkeypatch.setattr(sources, "_source_world_binding", lambda *_: SimpleNamespace(native_world_id="managed-native"))
-    monkeypatch.setattr(sources, "_repository", lambda: SimpleNamespace(retain_native_pdf_source=retain))
+    monkeypatch.setattr(sources, "_repository", lambda: SimpleNamespace(get_head=lambda _: object(), retain_native_pdf_source=retain))
     path = access.BUILD_PDF_SOURCES_PATH.format(world_id="managed") + suffix
     path += ("&" if "?" in path else "?") + f"admission_id={uuid4()}"
-    payload = b"%PDF-1.7\n"
+    pdf = BytesIO()
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=300)
+    writer.write(pdf)
+    payload = pdf.getvalue()
     response = hosted.client.request(
         "POST", path, session=session, origin=origin,
         headers={"Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-15T00:00:00Z"}, content=payload,
