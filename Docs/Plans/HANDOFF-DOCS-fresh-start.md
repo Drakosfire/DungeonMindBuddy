@@ -1,6 +1,8 @@
 # DOCS: clarify local first-start prerequisites
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: HISTORICAL — completed by Buddy PR #3993, merged at `250f1673870b694ae31f2a6514d40de333ccab65`. The lease is closed.
+
+Originally authorized by the documentation goal. PR topology: serial.
 
 Base: Buddy main `fe8cdcc1e3ca6f463b99b1635217f37c3c9f4dc3`. Branch: `codex/docs-fresh-start`.
 
