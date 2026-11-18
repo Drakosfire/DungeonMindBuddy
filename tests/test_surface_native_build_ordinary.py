@@ -2113,3 +2113,75 @@ def test_variant_markdown_preserves_cross_references_and_armor_profiles():
     assert "**Resources** Key: charge_pool; Maximum: 2; Name: Charge; Refresh: At dawn" in markdown
     assert "**Use** Kind: manual; Resource key: charge_pool" in markdown
     assert f"**Rule reference** `{rule['key']}`" in markdown
+
+
+def test_variant_correction_creates_a_new_review_without_saving(lane, tmp_path, monkeypatch):
+    from copy import deepcopy
+    from datetime import datetime, timezone
+    from application_state.agent_conversation.conversation_variant_save import approval_handoff
+    from application_state.unit_of_work import unit_of_work
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Draft the Meat Mind variant in this conversation for review.",
+        requested_work="draft_in_conversation", saved_statblock="associated",
+    )
+    root = f"/api/live/agent/worlds/{case.world}/conversations/{case.turn.conversation_id}"
+    draft_path = f"{root}/drafts/{case.turn.turn_id}"
+    draft = case.client.get(draft_path).json()
+    review_id, = draft["variant_review_ids"]
+    prior_path = f"{draft_path}/variant-reviews/{review_id}"
+    prior = case.client.get(prior_path).json()
+    target = prior["definition"]["rule_elements"][-1]
+    revised = target["rules_text"] + " This only happens after the warning."
+    correction = {"expected_revision": 1, "replacements": [{
+        "rule_key": target["key"], "field": "rules_text",
+        "replace_exact": target["rules_text"], "with_text": revised,
+    }]}
+    original_approval_time = datetime.now(timezone.utc)
+    result = case.client.put(prior_path, json=correction)
+    assert result.status_code == 200, result.text
+    successor = result.json()
+    assert successor["revision"] == 2
+    assert successor["review_id"] != review_id
+    assert case.client.get(prior_path).json() == prior
+    successor_path = f"{draft_path}/variant-reviews/{successor['review_id']}"
+    review = case.client.get(successor_path).json()
+    expected = deepcopy(prior)
+    expected["revision"] = 2
+    expected["definition"]["rule_elements"][-1]["rules_text"] = revised
+    assert review == expected
+    assert case.client.get(successor_path + "/saved").status_code == 404
+    assert case.client.post(prior_path + "/confirm").status_code == 409
+    assert case.client.put(prior_path, json=correction).status_code == 409
+    new_draft = case.client.get(draft_path).json()
+    assert new_draft["variant_review_ids"] == [successor["review_id"]]
+    assert revised in new_draft["markdown"]
+    primary = case.turn.provenance.primary_work
+    target_scope = dict(
+        world_id=case.world, conversation_id=case.turn.conversation_id,
+        prior_to=case.turn.sequence + 1, page_id=primary.object_id, page_kind=primary.kind,
+    )
+    with unit_of_work() as conn:
+        assert approval_handoff(conn, **target_scope, accepted_at=original_approval_time) == {"status": "stale"}
+        fresh = approval_handoff(conn, **target_scope, accepted_at=datetime.now(timezone.utc))
+    assert fresh["status"] == "ready"
+    assert str(fresh["review_id"]) == successor["review_id"]
+    edited = case.client.put(draft_path, json={
+        "expected_revision": 2, "markdown": new_draft["markdown"] + "\nUnreviewed edit.",
+    })
+    assert edited.status_code == 200, edited.text
+    with unit_of_work() as conn:
+        assert approval_handoff(conn, **target_scope, accepted_at=datetime.now(timezone.utc)) == {"status": "stale"}
+
+
+def test_variant_exact_correction_rejects_overlapping_matches():
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.conversation_variant_save import (
+        VariantTextReplacement, apply_variant_text_corrections,
+    )
+
+    definition = {"rule_elements": [{"key": "fixture", "rules_text": "aaa"}]}
+    edit = VariantTextReplacement(rule_key="fixture", field="rules_text", replace_exact="aa", with_text="b")
+    with pytest.raises(ApplicationStateConflictError, match="one exact rule passage"):
+        apply_variant_text_corrections(definition, [edit])

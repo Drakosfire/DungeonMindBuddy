@@ -1,9 +1,11 @@
 """Persist the confirmed request before calling the statblock service."""
 
+from uuid import uuid4
+
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from application_state.agent_conversation.conversation_drafts import open_draft
+from application_state.agent_conversation.conversation_drafts import edit_draft, open_draft
 from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateNotFoundError,
@@ -123,6 +125,34 @@ def open_review(conn, *, world_id, conversation_id, turn_id, review_id):
     return row
 
 
+def store_correction(conn, *, world_id, conversation_id, turn_id, review_id, expected_revision, definition, markdown):
+    scope = dict(world_id=world_id, conversation_id=conversation_id, turn_id=turn_id)
+    # This is the same lock used by the existing save claim and draft edit.
+    locked = conn.execute(
+        "SELECT turn_id FROM agent.turn WHERE world_id=%s AND conversation_id=%s AND turn_id=%s FOR UPDATE",
+        (world_id, conversation_id, turn_id),
+    ).fetchone()
+    if locked is None:
+        raise ApplicationStateNotFoundError("Conversation draft not found")
+    prior = open_review(conn, **scope, review_id=review_id)
+    draft = open_draft(conn, **scope)
+    if prior["revision"] != expected_revision or draft["revision"] != expected_revision:
+        raise ApplicationStateConflictError("The reviewed draft changed. Reopen it before editing.")
+    save = conn.execute(
+        "SELECT 1 FROM agent.conversation_variant_save WHERE turn_id=%s AND revision=%s",
+        (turn_id, expected_revision),
+    ).fetchone()
+    if save is not None:
+        raise ApplicationStateConflictError("A save for this reviewed revision has already started.")
+    updated = edit_draft(conn, **scope, expected_revision=expected_revision, markdown=markdown)
+    if updated["revision"] == expected_revision:
+        raise ApplicationStateConflictError("The correction did not change the editable mechanics.")
+    new_id = uuid4()
+    store_review(conn, **scope, revision=updated["revision"], review_id=new_id,
+                 definition=definition, base_locator=prior["base_locator"])
+    return {"revision": updated["revision"], "review_id": new_id}
+
+
 def open_saved_receipt(conn, *, world_id, conversation_id, turn_id, review_id):
     row = conn.execute(
         """
@@ -143,7 +173,7 @@ def open_saved_receipt(conn, *, world_id, conversation_id, turn_id, review_id):
     return row[0]
 
 
-def approval_handoff(conn, *, world_id, conversation_id, prior_to, page_id, page_kind):
+def approval_handoff(conn, *, world_id, conversation_id, prior_to, accepted_at, page_id, page_kind):
     """Find an exact current review on the same Build page, without choosing among reviews."""
     with conn.cursor(row_factory=dict_row) as cursor:
         candidates = cursor.execute(
@@ -165,9 +195,17 @@ def approval_handoff(conn, *, world_id, conversation_id, prior_to, page_id, page
               AND producer.surface_id = 'build'
               AND origin.reference_role = 'primary' AND origin.resolution = 'resolved'
               AND origin.object_id = %s AND origin.kind = %s
+              AND review.revision = (
+                  SELECT max(at_approval.revision)
+                  FROM agent.conversation_draft_revision AS at_approval
+                  JOIN agent.conversation_variant_review AS reviewed_at_approval
+                    ON reviewed_at_approval.turn_id = at_approval.turn_id
+                   AND reviewed_at_approval.revision = at_approval.revision
+                  WHERE at_approval.turn_id = producer.turn_id AND at_approval.created_at <= %s
+              )
             LIMIT 2
             """,
-            (world_id, conversation_id, prior_to, page_id, page_kind),
+            (world_id, conversation_id, prior_to, page_id, page_kind, accepted_at),
         ).fetchall()
     if len(candidates) > 1:
         return {"status": "ambiguous"}

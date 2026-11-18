@@ -490,7 +490,7 @@ class AgentConversationService:
                 return {"status": "not_requested"}
             return approval_handoff(
                 conn, world_id=world_id, conversation_id=conversation_id, prior_to=envelope.sequence,
-                page_id=primary.object_id, page_kind=primary.kind,
+                accepted_at=envelope.accepted_at, page_id=primary.object_id, page_kind=primary.kind,
             )
 
     def edit_conversation_draft(
@@ -516,6 +516,19 @@ class AgentConversationService:
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, revision=revision, review_id=review_id,
                 definition=definition, base_locator=base_locator,
+            )
+
+    def store_conversation_variant_correction(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        review_id: UUID, expected_revision: int, definition: dict, markdown: str,
+    ):
+        from .conversation_variant_save import store_correction
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return store_correction(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id, expected_revision=expected_revision,
+                definition=definition, markdown=markdown,
             )
 
     def open_conversation_variant_review(
