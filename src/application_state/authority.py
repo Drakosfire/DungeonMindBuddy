@@ -78,7 +78,7 @@ _DOMAIN_TABLES: tuple[tuple[str, str, str], ...] = (
     ("play.run_manifest", "play.run_manifest", "run_id"),
     ("play.run_edition", "play.run_edition", "run_id"),
     ("play.run_edition_revision", "play.run_edition_revision", "run_id, revision_n"),
-    ("play.active_run", "play.active_run", "run_id"),
+    ("play.active_run", "play.active_run", "run_id, scope_key"),
     ("ingest.run", "ingest.run", "run_id"),
     ("source.artifact", "source.artifact", "source_artifact_id"),
     ("source.revision", "source.revision", "source_revision_id"),

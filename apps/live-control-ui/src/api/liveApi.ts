@@ -557,6 +557,13 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && path === objectKindsPath + "?world_id=" + encodeURIComponent(worldId);
   }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
+  const activePlayRun = /^\/api\/live\/world-play-runs\/v2\/active\?([^#]+)$/.exec(path);
+  if (activePlayRun && method === "PUT") {
+    const query = new URLSearchParams(activePlayRun[1]);
+    const runId = requestBodyRecord(init?.body)?.run_id;
+    return query.size === 1 && Boolean(query.get("world_id"))
+      && typeof runId === "string" && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(runId);
+  }
   const playProgress = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/progress\?([^#]+)$/.exec(path);
   if (playProgress) {
     const query = new URLSearchParams(playProgress[1]);
@@ -897,7 +904,8 @@ function apiRequestTarget(
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
   const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
     || /^\/api\/live\/workspace-documents\/[^/]+\/native-world-source$/.test(normalizedPath)
-    || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/progress$/.test(normalizedPath);
+    || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/progress$/.test(normalizedPath)
+    || (normalizedPath === "/api/live/world-play-runs/v2/active" && init?.method?.toUpperCase() === "PUT");
   const manualKnowledge = /^\/api\/live\/graph-authoring\/(?:prepare|commit)$/.test(normalizedPath);
   if (isLoopbackApiDestination(url)) return { url, localGraphRequest, hostedGraphRequest: false };
   if (localGraphRequest || graphSurface || manualKnowledge) {

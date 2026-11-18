@@ -222,6 +222,7 @@ def get_world_play_active_run_v2(
         state = get_world_play_active_run(world_id=world_id)
     except PlayActiveRunError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    require_hosted_plan_world_context(request, world_id)
     return state.model_dump(mode="json")
 
 
@@ -230,14 +231,21 @@ def get_world_play_active_run_v2(
 )
 def put_world_play_active_run_v2(
     body: SetPlayActiveRunRequest,
+    request: Request,
     world_id: Annotated[str, Query(min_length=1)],
 ) -> dict[str, Any]:
+    from functools import partial
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    authorize_world = partial(require_hosted_plan_world_context, request, world_id)
+    authorize_world()
     try:
         state = set_world_play_active_run(
-            world_id=world_id, run_id=body.run_id
+            world_id=world_id, run_id=body.run_id, authorize_world=authorize_world
         )
     except PlayActiveRunError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    authorize_world()
     return state.model_dump(mode="json")
 
 
