@@ -2,8 +2,8 @@
 
 ACTIVE under the operator's Combat design/implementation/review/accepted-merge
 and local-delivery assignment. Root owns this bounded design. Serial successor
-to #4008, merged83013db27115007435b586cf657c39119a47b60a. Base is that exact fetched
-main; branch codex/combat-side-turns in the existing isolated fc67 checkout. No
+to #4008, merged83013db27115007435b586cf657c39119a47b60a. Original base is that exact fetched main; qualification rebase
+f6c4e2ac53577799c6a414961f0843f1381f0135; branch codex/combat-side-turns in the existing isolated fc67 checkout. No
 unmerged parent and no other open Combat implementation PR. Spotlight pacing and
 real-runtime delivery remain required successors; this slice is not goal completion.
 
@@ -20,7 +20,7 @@ initiative rolls, damage interpretation, profile conversion or canon mutation.
 This lane exclusively expects writes to:
 - APP combat_encounters/{manual_profiles,manual_encounters}.py;
   play/session_encounters.py for existing manual initialization; new migration
-  migrations/versions/20261118_0164_side_combat_pacing.py.
+  migrations/versions/20261118_0165_side_combat_pacing.py.
 - Client combat/{ManualCombatTypes,ManualCombatState,validateCombatRecovery}.ts;
   ManualCombatProfileForm.tsx, ManualCombatEditor.tsx, ManualCombatRosterTable.tsx;
   a new ManualCombatSides.tsx within combat; combatRoster.css; generated
@@ -77,14 +77,19 @@ from a resource label, zero, a status or source statblock.
 
 ## Migration and runtime sequencing
 
-Main's sole head after #4008 is0163. Audit of current published assignments and
-open PR metadata found no0164 reservation; PRIME was explicitly notified of the
-next reader fence and asked to flag any existing collision. Root adopts0164 after
-0163 within this bounded Combat assignment; no reply or elapsed-time approval is
-claimed. Re-anchor before editing/merging and resolve any actual overlapping lease.
-The new fence admits new pacing readers without rewriting old records or widening
-existing JSONB byte limits. Follow existing forward-recovery fences; do not
-silently downgrade to a reader that cannot decode persisted side profiles/history.
+Original Combat0164 was published/notified after #4008 with no competing lease
+found at that re-anchor. Pre-merge main subsequently merged #4020 Lore Page
+20261118_0164, making the approved13d branch a competing head. Merge was held.
+Root re-audited current mainf6c4e2ac5, published assignments and GitHub PR search:
+no0165 reservation was found. Under the existing bounded Combat design assignment,
+Root adopts Combat0165 after Lore0164, explicitly notifies PRIME and requests
+cross-owner sequencing. No reply or elapsed-time approval is claimed. Rebase,
+renumber and fresh forward0160→0161→0162→0163→Lore0164→Combat0165 proof travel
+in this same PR. The old0164 existed only in disposed task databases. Its reader
+fence semantics and JSONB constraints remain unchanged. Old13d approval/browser
+receipts keep their actual source/schema identity and are not relabeled as final
+qualification. Final exact-source verification and independent judgment must
+cover the resequenced head. Re-anchor before merge and resolve actual overlap.
 Never renumber an applied operator migration or migrate operator/live stores.
 
 Shared API8001/UI5202 and preview5218 remain untouched. Prior rehearsal8018/5219

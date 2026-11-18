@@ -1,7 +1,7 @@
 """Fence older readers before side-based Combat profiles can be retained."""
 
-revision = "20261118_0164"
-down_revision = "20261118_0163"
+revision = "20261118_0165"
+down_revision = "20261118_0164"
 branch_labels = None
 depends_on = None
 

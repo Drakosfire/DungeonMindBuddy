@@ -184,7 +184,7 @@ def test_oversized_template_profile_refuses_atomically(scene_case):
             assert conn.execute('SELECT count(*) FROM '+table).fetchone()[0]==0
 
 
-def test_serial_0160_through_0164_rehearsal_preserves_legacy_row(monkeypatch):
+def test_serial_0160_through_0165_rehearsal_preserves_legacy_row(monkeypatch):
     #0162 is forward-only. Rehearse forward on a fresh uniquely owned database;
     #never rewrite migration history or downgrade through that compatibility fence.
     import json
@@ -211,16 +211,16 @@ def test_serial_0160_through_0164_rehearsal_preserves_legacy_row(monkeypatch):
                 with psycopg.connect(dsn) as conn:
                     return conn.execute('SELECT ruleset_snapshot::text,ruleset_digest,draft::text FROM combat.encounter WHERE encounter_id=%s',(legacy.encounter_id,)).fetchone()
             before=stored()
-            for revision in ('20261117_0161','20261118_0162','20261118_0163','20261118_0164'):
+            for revision in ('20261117_0161','20261118_0162','20261118_0163','20261118_0164','20261118_0165'):
                 command.upgrade(config,revision)
                 assert stored()==before
-            assert _alembic_head()=='20261118_0164'
+            assert _alembic_head()=='20261118_0165'
             assert get_encounter(world_id=legacy.world_id,encounter_id=legacy.encounter_id)==legacy
             with pytest.raises(RuntimeError,match='forward recovery'):
-                command.downgrade(config,'20261118_0163')
+                command.downgrade(config,'20261118_0164')
             assert stored()==before
             with psycopg.connect(dsn) as conn:
-                assert conn.execute('SELECT version_num FROM application_state.schema_migrations').fetchone()[0]=='20261118_0164'
+                assert conn.execute('SELECT version_num FROM application_state.schema_migrations').fetchone()[0]=='20261118_0165'
     finally:
         _drop_database(admin,name)
 
