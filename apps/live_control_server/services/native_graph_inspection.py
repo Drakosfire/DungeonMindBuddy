@@ -16,8 +16,7 @@ from apps.live_control_server.services.build_pdf_region_render import read_regio
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
 )
-from apps.live_control_server.models.native_graph_inspection import Closed, InspectionPin
-from apps.live_control_server.models.world_graph_object_projection import WorldGraphObjectProjectionRequest
+from apps.live_control_server.models.native_graph_inspection import InspectionPin, NativeCompleteObjectRead
 from apps.live_control_server.integrations.dungeonmind.vnext_complete_object import (
     DungeonBuddyVNextReadIdentity,
     VNextCompleteObjectProjectionError,
@@ -366,11 +365,6 @@ def statblock_pdf_support(reference, regions, principal):
                     "text": read_region_text(pdf, region),
                 }
     return _response(bound, pin, support=list(support.values()))
-
-
-class NativeCompleteObjectRead(Closed):
-    scope: InspectionPin | None = None
-    request: WorldGraphObjectProjectionRequest
 
 
 def complete_object(body: NativeCompleteObjectRead, principal):

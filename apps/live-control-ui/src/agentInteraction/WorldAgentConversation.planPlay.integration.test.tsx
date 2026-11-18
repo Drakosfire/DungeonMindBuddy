@@ -1,3 +1,4 @@
+import * as hostedAuth from "../auth/HostedAuthGate";
 import nativeBuildWire from '../test/surface-native-build-http.json';
 import {WorldGuidedTour} from '../guidedTour/WorldGuidedTour';
 import {useGuidedTour} from '../guidedTour/GuidedTour';
@@ -511,6 +512,7 @@ function openConversationOptions() {
 describe("one App-level World conversation host across Plan and Play", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getNativeGraphCatalog).mockRejectedValue(new Error("Catalog unavailable in fixture"));
     Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
     selectedWorld.id = WORLD;
     window.localStorage.clear();
@@ -1679,13 +1681,15 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it.each([false, true])("opens a pinned Build Graph passage and rejects foreign source context: %s", async foreign => {
+    vi.mocked(getNativeGraphCatalog).mockRejectedValue(new Error("Catalog outside this test"));
     const context = await buildGraphContext();
     const base = turn("plan", 1, "The western gate is watched.");
     const source = context.receipt.source_basis;
     const authority = context.receipt.graph_authority;
     const ref = (kind: string, object_id: string, revision: string) => ({ resolution: "resolved" as const,
       kind, object_id, revision, content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null });
-    const historical = { ...base, knowledge_context: context,
+    const historical = { ...base, turn_id: "22222222-2222-4222-8222-222222222222",
+      idempotency_key: "11111111-1111-4111-8111-000000000001", knowledge_context: context,
       provenance: { ...base.provenance, surface_id: "build", surface_instance_id: "build-instance",
         primary_work: { ...ref("build", "source-one", "2"), content_sha256: SHA }, supporting_work: [
           ref("dmb_build_source_visibility_v1", source.visibility, "1"),
@@ -1693,8 +1697,11 @@ describe("one App-level World conversation host across Plan and Play", () => {
           ref("world_graph_revision", authority.native_world_id, authority.graph_revision),
         ] } };
     if (foreign) context.receipt.source_basis.document_id = "another-source";
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(),
-      schema: "dmb_agent_conversation_history_v2", turns: [historical] });
+    const { knowledge_context: _details, ...summary } = historical;
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async (_world, options) => ({
+      ...history(), schema: "dmb_agent_conversation_history_v3",
+      turns: [options?.limit === 1 ? historical : summary],
+    }));
     vi.mocked(postWorldGraphSourceAnchorRead).mockResolvedValue({
       schema: "dmb_world_graph_source_anchor_read_v1", outcome: "enough", anchorId: "anchor-one",
       evidenceRefId: "evidence-internal-test", sourceArtifactId: "artifact-one", sourceRevisionId: "source-rev-one",
@@ -1704,17 +1711,19 @@ describe("one App-level World conversation host across Plan and Play", () => {
     } as Awaited<ReturnType<typeof postWorldGraphSourceAnchorRead>>);
     render(<Harness initial="build" />);
     fireEvent.click(await screen.findByRole("button", {name: "Open"}));
+    const details = await screen.findByText("Details", { selector: "summary" });
+    fireEvent.click(details);
     if (foreign) {
-      await screen.findByRole("group", {name: "World history unavailable"});
+      await screen.findByText(/invalid Graph-context receipt/);
       expect(screen.queryByRole("button", {name: "Open evidence"})).not.toBeInTheDocument();
     } else {
       await screen.findAllByText("The western gate is watched.");
-      fireEvent.click(screen.getByText(/1 claim · 1 cited Graph reference/));
+      fireEvent.click(await screen.findByText(/1 claim · 1 cited Graph reference/));
       fireEvent.click(await screen.findByRole("button", {name: "Open evidence"}));
       await screen.findByText("The saved source describes the guards at the western gate.");
       expect(postWorldGraphSourceAnchorRead).toHaveBeenCalledWith(expect.objectContaining({
         worldId: authority.native_world_id, revisionPin: authority.graph_revision, anchorId: "anchor-one",
-      }));
+      }), expect.objectContaining({ worldId: WORLD, turnId: historical.turn_id }));
     }
   });
 
@@ -2469,6 +2478,29 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(composer).toHaveValue("Keep this next thought");
   });
 
+  it("keeps local session settings out of hosted Conversation options", async () => {
+    const auth = vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+      status: "authenticated", refreshWarning: false, subject: "owner", displayName: "Owner",
+    });
+    try {
+      vi.mocked(postWorldPlayAgentTurn).mockRejectedValueOnce(new LiveApiError("Unauthorized", 401));
+      render(<Harness initial="play" />);
+      fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+      const input = await screen.findByLabelText("Message DungeonBuddy");
+      await waitFor(() => expect(input).toBeEnabled());
+      fireEvent.click(screen.getByTitle("Conversation options"));
+      expect(screen.queryByRole("button", { name: "Settings", exact: true })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Connect local session" })).not.toBeInTheDocument();
+      fireEvent.change(input, { target: { value: "Help with this page" } });
+      fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+      const signIn = await screen.findByRole("link", { name: "Sign in to DungeonMind" });
+      expect(signIn.getAttribute("href")).toContain("/api/auth/login?return_to=");
+      expect(screen.queryByRole("button", { name: "Open Settings" })).not.toBeInTheDocument();
+    } finally {
+      auth.mockRestore();
+    }
+  });
+
   it("prepends a requested Play history page without moving the reader or duplicating turns", async () => {
     const latest={...history([turn("play",2,"Middle answer"),turn("play",3,"Latest answer")]),next_before_sequence:2};
     vi.mocked(getWorldAgentConversationHistory).mockImplementation(async (_world,options)=>options?.beforeSequence
@@ -2506,6 +2538,24 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(screen.getByTitle("Conversation options"));
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New conversation" })).toBeInTheDocument();
+  });
+
+  it("offers hosted sign-in when New Conversation authorization fails", async () => {
+    const auth = vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+      status: "authenticated", refreshWarning: false, subject: "owner", displayName: "Owner",
+    });
+    try {
+      vi.mocked(postWorldAgentNewConversation).mockRejectedValueOnce(new LiveApiError("Unauthorized", 401));
+      render(<Harness initial="play" />);
+      fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+      await screen.findByText("Original Plan answer");
+      fireEvent.click(screen.getByTitle("Conversation options"));
+      fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+      expect(await screen.findByRole("link", { name: "Sign in to DungeonMind" })).toBeInTheDocument();
+      expect(screen.queryByText(/Reconnect in Settings/)).not.toBeInTheDocument();
+    } finally {
+      auth.mockRestore();
+    }
   });
 
   it("starts a World conversation from Play with the same saved-command path", async () => {
