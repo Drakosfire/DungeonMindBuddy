@@ -95,7 +95,7 @@ def prepare(world_id, draft, principal, *, authorize_write):
     context, access = native.access_context(repo, space)
     authorize_write()
     context, _, evidence_ids, _ = register_pdf_regions(
-        repo, space, (draft.region,), context, access, now,
+        repo, space, (draft.region,), context, access, now, authorize_write=authorize_write,
     )
     if resolve_managed_source_identity(world_id) != identity:
         raise ApplicationStateConflictError("The World binding changed during review.")

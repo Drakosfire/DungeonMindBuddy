@@ -38,10 +38,16 @@ def reviewed_pdf_regions(resource, *, world_id):
     return tuple(NativePdfRegionV1.model_validate(region) for region in review["regions"])
 
 
-def register_pdf_regions(repo, space_id, regions, context, access, created_at):
+def register_pdf_regions(repo, space_id, regions, context, access, created_at, *, authorize_write=None):
     from application_state.errors import ApplicationStateConflictError
     from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
     from dungeonmind.application.vnext.native_pdf_access import bind_native_pdf_evidence, register_native_pdf_evidence
+
+    def load_for_registration(space, revision):
+        source = repo.get_native_pdf_source(space, revision)
+        if authorize_write is not None:
+            authorize_write()
+        return source
 
     evidence_ids = []
     reviewed_regions = []
@@ -58,8 +64,10 @@ def register_pdf_regions(repo, space_id, regions, context, access, created_at):
         existing_ref = access.parsed.get_evidence(evidence.evidence_ref_id)
         if existing_ref is None:
             parent = context["revision_id"]
+            if authorize_write is not None:
+                authorize_write()
             register_native_pdf_evidence(
-                region, **source_access, repository=repo,
+                region, **(source_access | {"load": load_for_registration}), repository=repo,
                 expected_parent_revision_id=parent,
                 publication_id=f"{evidence.evidence_ref_id}:{parent}", created_at=created_at,
             )
