@@ -631,3 +631,29 @@ def test_resolved_variant_approval_offers_no_optional_retrieval():
         "examined_candidates": (),
         "allowed_operations": ("select_candidates", "finish_retrieval"),
     }
+
+
+def test_native_approval_terminal_requires_the_current_acknowledged_decision(monkeypatch):
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from application_state.agent_conversation import types, writer_evidence_selection
+
+    monkeypatch.setattr(writer_evidence_selection, "native_build", lambda turn: True)
+    attempt = uuid4()
+    approval = types.BuildRequestedWorkResolutionV1.model_construct(
+        requested_work="review_variant_approval", controller_attempt_id=attempt,
+    )
+    auth = types.ProviderAttemptAuthorizedEventV3.model_construct(provider_attempt_id=attempt)
+    acknowledged = types.ProviderOutcomeEventV1.model_construct(
+        provider_attempt_id=attempt, outcome="response_received",
+    )
+    execution = SimpleNamespace(events=(auth, acknowledged, approval))
+    turn = SimpleNamespace(graph_context_execution=execution)
+    assert writer_evidence_selection.native_terminal(turn) == {
+        "status": "ready", "reason": "native_variant_approval_requires_no_retrieval",
+    }
+    execution.events = (auth, approval)
+    assert writer_evidence_selection.native_approval_terminal(turn) is None
+    later = types.ProviderAttemptAuthorizedEventV3.model_construct(provider_attempt_id=uuid4())
+    execution.events = (auth, acknowledged, approval, later)
+    assert writer_evidence_selection.native_approval_terminal(turn) is None
