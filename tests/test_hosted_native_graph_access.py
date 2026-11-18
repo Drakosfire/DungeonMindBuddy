@@ -2988,7 +2988,8 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
 
 
 @pytest.mark.parametrize("kind", ["pdf", "text"])
-def test_hosted_source_withdrawal_binds_exact_world_revision(hosted, monkeypatch, kind):
+@pytest.mark.parametrize("transfer", [False, True])
+def test_hosted_source_withdrawal_binds_exact_world_revision(hosted, monkeypatch, kind, transfer):
     from unittest.mock import Mock
 
     from apps.live_control_server.integrations.dungeonmind import native_world_source_admission
@@ -3016,6 +3017,21 @@ def test_hosted_source_withdrawal_binds_exact_world_revision(hosted, monkeypatch
     assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
     catalog.assert_not_called()
     assert not repo.mock_calls
+    if transfer:
+        lookup = repo.get_native_pdf_source if kind == "pdf" else catalog
+
+        def transfer_ownership(*_args):
+            hosted.records["managed"] = hosted.records["managed"].model_copy(
+                update={"owner_subject": OTHER_OWNER},
+            )
+            return lookup.return_value
+
+        lookup.side_effect = transfer_ownership
+        response = hosted.client.request("POST", path, json=body)
+        assert response.status_code == 403, response.text
+        repo.withdraw_native_source.assert_not_called()
+        return
+
     response = hosted.client.request("POST", path, json=body)
     assert response.status_code == 204, response.text
     repo.withdraw_native_source.assert_called_once_with(

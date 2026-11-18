@@ -2346,7 +2346,9 @@ def withdraw_build_source(world_id: str, body: BuildSourceWithdrawal, request: R
     from apps.live_control_server.models.native_graph_inspection import InspectionScope
     from apps.live_control_server.services.native_source_inspection import catalog
 
-    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        conversation_graph_principal, require_conversation_access,
+    )
 
     principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
@@ -2371,6 +2373,7 @@ def withdraw_build_source(world_id: str, body: BuildSourceWithdrawal, request: R
             raise HTTPException(status_code=404, detail="The document is unavailable.")
         if _source_world_binding(None, verified) != binding:
             raise ValueError("World binding changed")
+        require_conversation_access(request, verified, authorize_local=enforce_native_graph_gm)
         repository.withdraw_native_source(
             space_id=binding.native_world_id, source_artifact_id=artifact_id,
             source_revision_id=body.revision_id,
