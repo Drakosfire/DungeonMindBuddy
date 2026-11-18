@@ -190,6 +190,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): resolve_hosted_conversation_world,
     ("GET", "/api/live/media/images/capabilities"): resolve_hosted_image_world,
     ("POST", "/api/live/media/images/generate"): resolve_hosted_image_world,
+    ("POST", "/api/live/media/images/preparations/{action_id}/asset"): resolve_hosted_image_world,
     ("GET", "/api/live/connected-pages/{operation_id}"): resolve_hosted_plan_world_context,
     ("GET", "/api/live/media/images/preparations/list"): resolve_hosted_image_history,
     ("POST", "/api/live/agent/turn"): resolve_hosted_chat_turn,
