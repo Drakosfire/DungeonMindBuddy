@@ -344,7 +344,9 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
-            ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_connected_page,
+            ("POST", "/api/live/connected-pages/prepare"): access.resolve_hosted_connected_page,
+            ("POST", "/api/live/connected-pages/confirm"): access.resolve_hosted_connected_page,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_committed_plan,
@@ -3078,7 +3080,8 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     response = hosted.client.request("GET", path)
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
-    read.assert_called_once_with(tmp_path, operation, "managed")
+    assert read.call_args.args == (tmp_path, operation, "managed")
+    assert read.call_args.kwargs["principal"].subject == f"hosted_dms:{OWNER}"
 
 
 def test_hosted_creature_catalog_and_association_read_are_world_scoped(hosted, monkeypatch):
