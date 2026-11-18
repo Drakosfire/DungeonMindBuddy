@@ -293,6 +293,28 @@ def test_http_review_snapshot_and_commands_use_actual_plan_owner(completed_propo
                 "expected_revision": 1, "markdown": "## Revised approach\n\nAsk about the pond first.",
             }
             assert post(path, json=edit, origin=None).status_code == 403
+            from application_state.plan_action_dialogue import authoring_review
+            from tests.test_hosted_native_graph_access import OTHER_OWNER
+
+            owner_record = hosted.records[world]
+            read_owner = authoring_review._owner
+
+            def transfer_after_lookup(*args, **kwargs):
+                result = read_owner(*args, **kwargs)
+                hosted.records[world] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+                return result
+
+            with monkeypatch.context() as patch:
+                patch.setattr(authoring_review, "_owner", transfer_after_lookup)
+                denied = get(path)
+                assert denied.status_code == 403, denied.text
+            hosted.records[world] = owner_record
+            with monkeypatch.context() as patch:
+                patch.setattr(authoring_review, "_owner", transfer_after_lookup)
+                denied = post(path, json=edit)
+                assert denied.status_code == 403, denied.text
+            hosted.records[world] = owner_record
+            assert get(path).json()["review"] == body
             saved = post(path, json=edit)
             assert saved.status_code == 200, saved.text
             assert saved.json()["revision"] == 2
