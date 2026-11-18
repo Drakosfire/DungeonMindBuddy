@@ -221,7 +221,7 @@ def _initial_markdown(intent, source):
         f'## Origin\n\n[From {_escape(source.title)}]({source_url}) · {origin_label}\n\n{quote}\n')
 
 
-def _save_initial(root, state, intent, authorize):
+def _save_initial(root, state, intent, *, authorize=None):
     if authorize is not None:
         authorize()
     page = create_workspace_document(root, title=intent.title, campaign_id=intent.world_id,
@@ -366,7 +366,7 @@ def prepare_connected_page(root: Path, intent: ConnectedPageRequest, *, principa
             state['phase'] = 'created'
             journal.save(state)
         if state['phase'] == 'created':
-            state['saved_source'] = _save_initial(root, state, intent, authorize)
+            state['saved_source'] = _save_initial(root, state, intent, authorize=authorize)
             state['phase'] = 'saved'
             journal.save(state)
         if state['phase'] != 'complete':
