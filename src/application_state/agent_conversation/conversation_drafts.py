@@ -17,7 +17,7 @@ EXISTS (
         ON r.turn_id = d.turn_id AND r.revision = d.revision
     WHERE d.turn_id = t.turn_id AND d.world_id = t.world_id
       AND d.conversation_id = t.conversation_id
-      AND d.markdown IS DISTINCT FROM t.assistant_text
+      AND (d.revision > 1 OR d.markdown IS DISTINCT FROM t.assistant_text)
       AND NOT EXISTS (
           SELECT 1 FROM agent.conversation_draft_revision later
           WHERE later.turn_id = d.turn_id AND later.revision > d.revision

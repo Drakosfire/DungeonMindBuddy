@@ -94,7 +94,7 @@ def test_http_exact_proof_append_replay_and_reopen(prepared,monkeypatch):
     assert record['proof']['revision_operation_id'] is None
     assert record['request']['expected_draft_version']==2
     assert record['proof']['origin_acceptance_operation_id']
-    assert record['actor']=='gm-test' and p.dms.calls==1
+    assert record['actor']=='local_operator' and p.dms.calls==1
     monkeypatch.setattr(saved_revision,'get_threat_draft',lambda *a:pytest.fail('Replay read external state'))
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(p.root/'unavailable'))
     replay=post(p);assert replay.json()=={'association':record,'replayed':True}
