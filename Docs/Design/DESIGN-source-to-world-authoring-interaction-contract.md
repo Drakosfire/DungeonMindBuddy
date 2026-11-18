@@ -195,18 +195,15 @@ Completed prerequisites:
 - DungeonMind V5.4 atomic operation-result semantics;
 - WorldKeeper WK-5 consumer seam.
 
-Next, but **not authorized by this document**: reconcile PLAY-0 / PR #753 so
-its single PLAY-1 Buddy → WorldKeeper consumer-proof handoff includes the
-accepted custom-predicate contract. PLAY-1 owns implementation dispatch after
-its own activation conditions; PR #752 creates no parallel implementation
-lease. Its isolated proof uses an injected `WorldChangeService` and an
-in-memory DungeonMind repository, not a production vNext repository factory.
+The original next step, the PLAY-1 consumer proof, is complete; its
+[accepted historical report](../Reports/REPORT-CON-READY-PLAY-worldkeeper-consumer-proof-v1.md)
+records its exact scope and limits. The proof used an injected service and an
+in-memory repository; it did not itself switch production routes.
 
-Still not authorized: V2-3 derived gold, extraction/model ablation,
-Agent-assisted authoring, identity reconciliation, generic graph-editor work,
-or production write switching/runtime/bridge-genesis migration hidden inside
-#745. The latter work remains in later vNext/cutover slices, consistent with
-the V6.1 foundation boundary.
+This document describes interaction authority, not a current implementation
+lease. Re-anchor on the current repository policy and an explicitly authorized
+handoff before undertaking further work. The historical V2-3 derived-gold
+ablation remains separately parked in the transferred plan.
 
 ## Reconciliation with prior authorities
 
@@ -216,5 +213,5 @@ the V6.1 foundation boundary.
 - `HANDOFF-CON-READY-worldkeeper-sidequest-v1.md` is complete/historical.
 - `ARCHITECTURE-campaign-supergraph.md` continues to own durable World
   architecture.
-- `PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md` owns current
-  sequencing and keeps V2-3 unauthorized.
+- [`PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`](../Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md)
+  is historical execution authority; V2-3 remains separately parked.

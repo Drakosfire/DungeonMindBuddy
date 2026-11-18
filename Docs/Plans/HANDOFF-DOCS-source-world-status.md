@@ -6,7 +6,7 @@ Base: Buddy main `28a707a44ba66bde753f6a38676fd15d08b0f128`, after #3980. Branch
 
 ## Outcome and boundary
 
-Correct the source-to-World authority document's blanket pre-migration status. Cite the bounded accepted PLAY-1 proof and the current native Graph implementation, preserving the distinction between a consumer proof, a specific code path, full design delivery, and hosted deployment. Do not alter semantic ownership or represent unsupported operations as shipped.
+Correct the source-to-World authority document's blanket pre-migration status and its stale sequencing references. Cite the bounded accepted PLAY-1 proof and the current native Graph implementation, preserving the distinction between a consumer proof, a specific code path, full design delivery, and hosted deployment. Do not alter semantic ownership or represent unsupported operations as shipped.
 
 Expected write lease: `Docs/Design/DESIGN-source-to-world-authoring-interaction-contract.md` and this handoff. No services, ports, databases or external state are required. Check open PRs and path ownership before review.
 
