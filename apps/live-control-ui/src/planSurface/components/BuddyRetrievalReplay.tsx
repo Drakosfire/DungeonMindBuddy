@@ -386,8 +386,14 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       if (label !== 'Unnamed object') return label
     }
     const saved = frame.native ? nativeBySequence.get(frame.sequence) : undefined
-    return (saved?.revision_id === frame.revision_pin && saved && Object.hasOwn(saved.related_labels ?? {}, id)
-      ? saved.related_labels?.[id] : undefined) ?? namesByScope.get(replayLabelScope(frame))?.get(id)
+    const relatedLabel = saved?.revision_id === frame.revision_pin && saved && Object.hasOwn(saved.related_labels ?? {}, id)
+      ? saved.related_labels?.[id] : undefined
+    if (hasRecordedName(relatedLabel)) return relatedLabel
+    const recordedLabel = namesByScope.get(replayLabelScope(frame))?.get(id)
+    if (recordedLabel) return recordedLabel
+    const nativeRevision = saved?.revision_id ?? (frame.sequence === -1 ? trace?.native_discovery_replay?.revision_id : undefined)
+    const historicalLabel = nativeRevision === frame.revision_pin ? identities.get(id)?.label : undefined
+    return hasRecordedName(historicalLabel) ? historicalLabel : undefined
   }
   const step = steps[index]
   const last = index + 1 >= steps.length
