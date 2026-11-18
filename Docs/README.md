@@ -11,6 +11,7 @@ describes is implemented or deployed.
 | --- | --- |
 | Run Buddy locally | [Local Play runbook](Runbooks/RUNBOOK-local-play-dogfood.md) and [frontend guide](../apps/live-control-ui/README.md) |
 | Understand World knowledge and product boundaries | [Campaign and World architecture](Design/ARCHITECTURE-campaign-supergraph.md) |
+| Understand local World storage and recovery | [Local managed-World storage](Guides/GUIDE-local-world-storage.md) |
 | Understand source review and publication | [Source-to-World authoring contract](Design/DESIGN-source-to-world-authoring-interaction-contract.md) |
 | Work on shared surfaces and interaction | [Surface interaction architecture](Design/ARCHITECTURE-surface-interaction-layer.md) and [frontend guide](../apps/live-control-ui/README.md) |
 | Understand Agent orchestration and context | [Agent context and runtime guide](Guides/GUIDE-agent-context-and-runtime.md), the [context compilation decision](Design/DECISION-agent-context-compilation.md), and the dated [runtime design direction](Design/DECISION-agent-runtime-and-semantic-adjudication.md) |

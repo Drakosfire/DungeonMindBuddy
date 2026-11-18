@@ -1,6 +1,6 @@
 # DOCS: documentation link-check navigation
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: MERGED / HISTORICAL. Buddy PR #3987, merge `335d6eac27eb8f730219be7bbebf40bee86dba1b`. The lane is closed; this record does not authorize new work.
 
 Base: Buddy main `afcb748185c5983df5df9b51c6bd363ae1361629`, after #3986. Branch: `codex/docs-checker-navigation`.
 
