@@ -352,12 +352,12 @@ def confirm_native_relationship(root, request, encoded, token, principal, *, aut
         "dispositions": list(plan.dispositions),
     })
     if authorize_world is not None:
-        authorize_world()
         if native.binding(request.world_id) != bound:
             raise GraphObjectAuthoringError(
                 "The World binding changed during relationship confirmation.",
                 code="confirmation_invalid", status_code=409,
             )
+        authorize_world()
     receipt = publish_native_source_evidence_extension(
         repository=repository, request=extension, domain_contract=plan.domain_contract,
         semantic_profile=plan.semantic_profile,
