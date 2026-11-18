@@ -2351,31 +2351,50 @@ def test_hosted_statblock_picker_reads_only_owned_world(hosted, application_stat
     assert [row["world_id"] for row in hosted.client.request("GET", drafts).json()["drafts"]] == ["managed"]
 
 
-def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(hosted, monkeypatch):
-    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
-    from apps.live_control_server.routes import agent, statblock_candidates
-    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(
+    hosted, application_state_dsn, monkeypatch,
+):
+    from uuid import NAMESPACE_URL, uuid5
 
-    draft = "12345678-1234-1234-1234-123456789abc"
+    from application_state.config import load_runtime_dsn
+    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+    from application_state.pdf_statblock_review import save_review
+    from apps.live_control_server.routes import agent, statblock_candidates
+    from apps.live_control_server.services import backfill_statblock_portrait
+
+    review_id = uuid4()
+    draft_id = uuid5(NAMESPACE_URL, f"dungeonbuddy:pdf-review:managed:{review_id}")
+    draft = str(draft_id)
     revision = "rev_exact"
-    review = "87654321-1234-1234-1234-123456789abc"
-    regions = [{"page": 2}]
     calls = []
+    regions = [{"page": 2}]
+    save_review(world_id="managed", review_id=review_id, expected_revision=0,
+                definition={}, regions=regions, artwork={"jpeg_base64": "portrait"})
+    provenance = {"world_id": "managed", "review_id": str(review_id), "revision": 1, "regions": regions}
+    resource = {"provenance": {"accepted_through": {PDF_REVIEW_PROVENANCE: provenance}}}
+    monkeypatch.setattr(backfill_statblock_portrait, "open_version", lambda *args, **kwargs: {"resource": resource})
+    for _ in range(2):
+        backfill_statblock_portrait.backfill(
+            None, world_id="managed", draft_id=draft_id, revision_id=revision,
+            review_dsn=load_runtime_dsn(),
+        )
+    provenance["revision"] = 2
+    with pytest.raises(ValueError, match="does not match the exact saved revision"):
+        backfill_statblock_portrait.backfill(
+            None, world_id="managed", draft_id=draft_id, revision_id=revision,
+            review_dsn=load_runtime_dsn(),
+        )
 
     def read_exact(_root, **selectors):
         calls.append(selectors)
-        return {"resource": {"provenance": {"accepted_through": {PDF_REVIEW_PROVENANCE: {
-            "world_id": "managed", "review_id": review, "regions": regions,
-        }}}}}
+        return {"resource": {}}
 
-    def read_review(world_id, review_id, request):
-        require_build_pdf_access(request, world_id)
-        assert str(review_id) == review
-        return {"regions": regions, "artwork": {"jpeg_base64": "portrait"}}
+    def reject_review(*args):
+        pytest.fail("Opening published mechanics must not read a PDF review")
 
     monkeypatch.setattr(statblock_candidates, "statblock_data_root", lambda root: root)
     monkeypatch.setattr(statblock_candidates.saved_versions, "open_version", read_exact)
-    monkeypatch.setattr(agent, "get_pdf_statblock_review", read_review)
+    monkeypatch.setattr(agent, "get_pdf_statblock_review", reject_review)
     path = f"/api/live/threat-drafts/{draft}/mechanics-revisions/{revision}?world_id=managed"
     assert hosted.client.request("GET", path, session="other-session").status_code == 403
     assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403

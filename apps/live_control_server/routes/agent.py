@@ -2855,6 +2855,13 @@ def post_pdf_statblock_publication(
 
     call(verify_source)
     principal = recheck_review()
+    if review.get("artwork"):
+        from application_state.mechanics_revisions.portraits import retain_portrait
+
+        call(lambda _root: retain_portrait(
+            world_id=world_id, draft_id=draft_id, revision_id=locator.revision_id,
+            jpeg_base64=review["artwork"]["jpeg_base64"],
+        ))
     result = call(creature.status, draft_id, world_id, principal)
     if result is None:
         principal = recheck_review()
