@@ -244,6 +244,71 @@ async def resolve_hosted_image_history(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_image_world(request: Request) -> str:
+    world_id = request.query_params.get("world_id")
+    if not world_id or request.query_params.multi_items() != [("world_id", world_id)]:
+        raise _denied()
+    if request.method == "GET" and await request.body():
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
+async def resolve_hosted_mechanics_association(request: Request) -> str:
+    from application_state.world_mechanics.types import AssociateWorldMechanicsRequest
+
+    body = AssociateWorldMechanicsRequest.model_validate(await request.json())
+    world_id = body.target.managed_world_id
+    if request.query_params.multi_items() != [("world_id", world_id)]:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
+async def resolve_hosted_native_creature(request: Request) -> str:
+    from apps.live_control_server.models.native_threat_creation import ConfirmNativeThreat, PrepareNativeThreat
+
+    draft_id = getattr(request.state, "hosted_route_draft_id", None)
+    if not draft_id:
+        raise _denied()
+    if request.method == "GET":
+        world_id = request.query_params.get("world_id")
+        if not world_id or request.query_params.multi_items() != [("world_id", world_id)] or await request.body():
+            raise _denied()
+    else:
+        if request.query_params:
+            raise _denied()
+        if request.url.path.endswith("/confirm"):
+            review = ConfirmNativeThreat.model_validate(await request.json()).review
+            if str(review.draft_id) != draft_id:
+                raise _denied()
+            world_id = review.world_id
+        else:
+            world_id = PrepareNativeThreat.model_validate(await request.json()).world_id
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
+async def resolve_hosted_connected_page(request: Request) -> str:
+    if request.method == "GET":
+        world_id = request.query_params.get("world_id")
+        if request.query_params.multi_items() != [("world_id", world_id)] or await request.body():
+            raise _denied()
+    else:
+        if request.query_params:
+            raise _denied()
+        body = await request.json()
+        world_id = body.get("world_id") if isinstance(body, dict) else None
+    if not isinstance(world_id, str) or not world_id:
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_conversation_world(request: Request) -> str:
     world_id = getattr(request.state, "hosted_route_world_id", None)
     if not world_id or (request.method == "GET" and await request.body()):
@@ -302,13 +367,20 @@ async def resolve_hosted_build_pdf_world(request: Request) -> str:
     return world.world_id
 
 
-def require_build_pdf_access(request: Request, world_id: str) -> None:
+def require_build_pdf_access(request: Request, world_id: str) -> NativeGraphPrincipal:
     if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
-        enforce_native_graph_gm(request)
-        return
+        return enforce_native_graph_gm(request)
     if getattr(request.state, "hosted_build_pdf_world", None) != world_id:
         raise _denied()
-    _owned_world(_hosted_subject(request), world_id)
+    subject = _hosted_subject(request)
+    _owned_world(subject, world_id)
+    return HostedOwnerGraphPrincipal(
+        subject=f"hosted_dms:{subject}",
+        dms_subject=subject,
+        role="gm",
+        auth_method="hosted_owner",
+        managed_world_id=world_id,
+    )
 
 
 async def resolve_hosted_build_page_create(request: Request) -> str:
@@ -378,6 +450,14 @@ async def resolve_hosted_play_preparation(request: Request) -> str:
 async def resolve_hosted_play_read(request: Request) -> str:
     if await request.body():
         raise _denied()
+    return await _resolve_hosted_play_world(request)
+
+
+async def resolve_hosted_play_scene_proposal(request: Request) -> str:
+    return await _resolve_hosted_play_world(request)
+
+
+async def resolve_hosted_play_command(request: Request) -> str:
     return await _resolve_hosted_play_world(request)
 
 
@@ -506,11 +586,26 @@ def require_combat_encounter_access(request: Request, world_id: str) -> None:
     _owned_world(_hosted_subject(request), world_id)
 
 
+async def resolve_hosted_statblock_revision_save(request: Request) -> str:
+    from apps.live_control_server.models.statblock_saved_revision import SaveMechanicsRevisionRequest
+
+    if request.query_params:
+        raise _denied()
+    body = SaveMechanicsRevisionRequest.model_validate(await request.json())
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.world_id)
+    request.state.hosted_build_pdf_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_saved_statblock(request: Request) -> str:
     selectors = request.query_params.multi_items()
     world_id = request.query_params.get("world_id")
     keys = {key for key, _ in selectors}
     allowed = {"world_id", "limit", "offset"} if request.url.path.endswith("/mechanics-revisions") else {"world_id"}
+    if request.method == "DELETE":
+        allowed = {"world_id", "expected_version"}
+        if keys != allowed:
+            raise _denied()
     if not world_id or len(keys) != len(selectors) or not keys <= allowed or await request.body():
         raise _denied()
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
@@ -521,7 +616,13 @@ async def resolve_hosted_saved_statblock(request: Request) -> str:
 
 async def resolve_hosted_build_native_source(request: Request) -> str:
     selectors = request.query_params.multi_items()
-    if await request.body() or (selectors and (
+    if request.method == "POST":
+        from apps.live_control_server.routes.workspace_documents import NativeWorldSourceAdmissionRequest
+
+        if selectors:
+            raise _denied()
+        NativeWorldSourceAdmissionRequest.model_validate(await request.json())
+    elif await request.body() or (selectors and (
         len(selectors) != 1 or selectors[0][0] != "expected_revision"
     )):
         raise _denied()
@@ -606,7 +707,12 @@ async def resolve_hosted_saved_artwork(request: Request) -> str:
 
     subject = _hosted_subject(request)
     asset_id = getattr(request.state, "hosted_route_asset_id", None)
-    if not asset_id or request.query_params or await request.body():
+    if not asset_id or request.query_params:
+        raise _denied()
+    if request.method == "POST":
+        if request.url.path.endswith("/save") and await request.json() != {}:
+            raise _denied()
+    elif await request.body():
         raise _denied()
     try:
         if str(UUID(asset_id)) != asset_id:
