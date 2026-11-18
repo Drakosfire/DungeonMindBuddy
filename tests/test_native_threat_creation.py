@@ -418,7 +418,7 @@ def test_pdf_region_is_bound_to_signed_native_threat_review(creature, monkeypatc
 
 
 def test_hosted_native_creature_publication_and_replay(creature, hosted, monkeypatch):
-    from tests.test_hosted_native_graph_access import OWNER
+    from tests.test_hosted_native_graph_access import OTHER_OWNER, OWNER
 
     c = creature
     monkeypatch.setattr(service.native, "binding", c.binding)
@@ -429,6 +429,22 @@ def test_hosted_native_creature_publication_and_replay(creature, hosted, monkeyp
     status_path = c.url + "?world_id=managed"
     assert hosted.client.request("POST", prepare_path, json=c.request, origin=None).status_code == 403
     assert hosted.client.request("GET", status_path).json() is None
+    owner_record = hosted.records["managed"]
+    space = c.bound["native_world_id"]
+    initial_head = c.lane.repo.get_head(space)
+    original_receipt = c.lane.repo.get_native_source_admission_receipt
+
+    def revoke_after_source_lookup(*args):
+        receipt = original_receipt(*args)
+        hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+        return receipt
+
+    with monkeypatch.context() as lookup:
+        lookup.setattr(c.lane.repo, "get_native_source_admission_receipt", revoke_after_source_lookup)
+        denied = hosted.client.request("POST", prepare_path, json=c.request)
+    assert denied.status_code == 403, denied.text
+    assert c.lane.repo.get_head(space) == initial_head
+    hosted.records["managed"] = owner_record
     prepared = hosted.client.request("POST", prepare_path, json=c.request)
     assert prepared.status_code == 200, prepared.text
     packet = prepared.json()
@@ -436,6 +452,20 @@ def test_hosted_native_creature_publication_and_replay(creature, hosted, monkeyp
     assert hosted.client.request("GET", status_path).json() is None
     confirmation = {key: packet[key] for key in ("review", "prepared", "token")}
     assert hosted.client.request("POST", confirm_path, json=confirmation, session="other-session").status_code == 403
+    prepared_head = c.lane.repo.get_head(space)
+    original_descriptors = service.native.descriptors
+
+    def revoke_after_descriptors(*args):
+        descriptors = original_descriptors(*args)
+        hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+        return descriptors
+
+    with monkeypatch.context() as lookup:
+        lookup.setattr(service.native, "descriptors", revoke_after_descriptors)
+        denied = hosted.client.request("POST", confirm_path, json=confirmation)
+    assert denied.status_code == 403, denied.text
+    assert c.lane.repo.get_head(space) == prepared_head
+    hosted.records["managed"] = owner_record
     confirmed = hosted.client.request("POST", confirm_path, json=confirmation)
     assert confirmed.status_code == 200, confirmed.text
     published = confirmed.json()

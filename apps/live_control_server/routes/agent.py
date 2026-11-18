@@ -2828,7 +2828,7 @@ def post_pdf_statblock_publication(
     from apps.live_control_server.models.native_threat_creation import ConfirmNativeThreat, PrepareNativeThreat
     from apps.live_control_server.routes.native_threat_creation import call
     from apps.live_control_server.routes.world_mechanics_associations import (
-        associate_route, list_associations,
+        _associate_for_principal, list_associations,
     )
     from apps.live_control_server.services import native_threat_creation as creature, world_creature_selection
     from apps.live_control_server.services.hosted_native_graph_access import build_pdf_publication_principal
@@ -2864,19 +2864,19 @@ def post_pdf_statblock_publication(
 
     call(verify_source)
     principal = recheck_review()
-    result = call(creature.status, draft_id, world_id, principal)
+    result = call(creature.status, draft_id, world_id, principal, authorize_write=recheck_review)
     if result is None:
         principal = recheck_review()
         prepared = call(creature.prepare, draft_id, PrepareNativeThreat(
             world_id=world_id, expected_draft_version=draft.version, mechanics_locator=locator,
-        ), principal)
+        ), principal, authorize_write=recheck_review)
         if prepared["state"] == "published":
             result = prepared
         else:
             principal = recheck_review()
             result = call(creature.confirm, draft_id, ConfirmNativeThreat(
                 review=prepared["review"], prepared=prepared["prepared"], token=prepared["token"],
-            ), principal)
+            ), principal, authorize_write=recheck_review)
     prior = [
         entry for entry in list_associations(world_id, principal)
         if entry.request.target.node_id == result["node_id"] and entry.request.target.campaign_scope is None
@@ -2893,10 +2893,10 @@ def post_pdf_statblock_publication(
         if target is None:
             raise HTTPException(status_code=409, detail="Retry Publish when the creature is available for association")
         principal = recheck_review()
-        associate_route(world_id, AssociateWorldMechanicsRequest(
+        _associate_for_principal(AssociateWorldMechanicsRequest(
             request_id=uuid4(), draft_id=draft_id, expected_draft_version=draft.version,
             target=target, expected_version=0, locator=locator,
-        ), principal)
+        ), principal, authorize=recheck_review)
     recheck_review()
     return {"draft_id": draft_id, "revision_id": locator.revision_id}
 

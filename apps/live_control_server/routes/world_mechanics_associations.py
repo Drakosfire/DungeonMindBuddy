@@ -81,8 +81,13 @@ def associate_route(world_id: WorldId, body: AssociateWorldMechanicsRequest, req
     def authorize():
         require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
 
+    guard = authorize if principal.auth_method == "hosted_owner" else None
+    return _associate_for_principal(body, principal, authorize=guard)
+
+
+def _associate_for_principal(body, principal, *, authorize=None):
     try:
-        guard = {"authorize": authorize} if principal.auth_method == "hosted_owner" else {}
+        guard = {"authorize": authorize} if authorize is not None else {}
         return associate(request=body, actor=principal.subject, **guard)
     except (ApplicationStateError, WorldGraphProjectionServiceError,
             ThreatDraftStoreError, AcceptanceReconciliationError) as exc:
