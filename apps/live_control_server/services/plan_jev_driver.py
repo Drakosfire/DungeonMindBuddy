@@ -405,6 +405,11 @@ class PlanJevDriver:
         reference = self._published_statblock_reference(read.draft_id, read.locator)
         if reference is None:
             return ()
+        if read.association_anchor is None:
+            if not captures:
+                return ()
+        elif read.association_anchor != self._current_statblock_anchor(reference, read.draft_id, read.locator):
+            return ()
         if captures and not any(
             (selected.managed_world_id, selected.native_world_id, selected.binding_version, selected.node_id)
             == (reference.managed_world_id, reference.native_world_id, reference.binding_version, reference.node_id)
@@ -480,6 +485,26 @@ class PlanJevDriver:
             node_id=target.node_id, label=target.label,
         )
 
+    def _current_statblock_anchor(self, reference, draft_id, locator):
+        from application_state.agent_conversation.build_saved_statblock import SavedStatblockAssociationAnchor
+        from application_state.world_mechanics.service import list_current
+
+        if reference is None or reference.managed_world_id != self.statblock_world:
+            return None
+        matches = [
+            record for record in list_current(world_id=self.statblock_world)
+            if str(record.request.draft_id) == str(draft_id) and record.proof.locator == locator
+            and (record.request.target.managed_world_id, record.request.target.native_world_id,
+                 record.request.target.binding_version, record.request.target.node_id)
+            == (reference.managed_world_id, reference.native_world_id,
+                reference.binding_version, reference.node_id)
+        ]
+        if len(matches) != 1:
+            return None
+        return SavedStatblockAssociationAnchor(
+            association_id=matches[0].association_id, node_id=reference.node_id,
+        )
+
     def _read_saved_statblock(self, handle, selection):
         from uuid import UUID, uuid4
         from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
@@ -509,13 +534,15 @@ class PlanJevDriver:
 
         fields = dict(event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
                       handle=handle, world_id=self.statblock_world, draft_id=UUID(str(draft_id)), locator=locator)
+        reference = references[0] if references else None
+        anchor = self._current_statblock_anchor(reference, draft_id, locator) if epoch is not None else None
         prior = self.prior_statblock_read
         event = None
-        if prior is not None and prior[1].continuity_verified and epoch is not None:
+        if prior is not None and prior[1].continuity_verified and anchor is not None:
             previous, record = prior
             candidate = BuildSavedStatblockReadV1(
                 **fields, definition=record.definition, pdf_support=record.pdf_support,
-                continuity_verified=True, reused_from_turn_id=previous.turn_id,
+                continuity_verified=True, association_anchor=anchor, reused_from_turn_id=previous.turn_id,
             )
             try:
                 validate_prior_read(candidate, current, previous)
@@ -535,7 +562,9 @@ class PlanJevDriver:
             pdf_support = None
             verified = False
             if regions:
-                reference = references[0] if references else self._published_statblock_reference(draft_id, locator)
+                if reference is None:
+                    reference = self._published_statblock_reference(draft_id, locator)
+                    anchor = self._current_statblock_anchor(reference, draft_id, locator) if epoch is not None else None
                 if reference is not None:
                     if epoch is not None:
                         try:
@@ -548,16 +577,20 @@ class PlanJevDriver:
                             verified = True
                     else:
                         pdf_support = statblock_pdf_support(reference, regions, adapter.native_principal)
-            elif references and epoch is not None:
+            elif anchor is not None:
                 verified = current_epoch() == epoch
             event = BuildSavedStatblockReadV1(
                 **fields, definition=opened["resource"]["definition"], pdf_support=pdf_support,
-                continuity_verified=verified,
+                continuity_verified=verified and anchor is not None,
+                association_anchor=anchor if verified else None,
             )
 
         def materialize():
-            if event.continuity_verified and current_epoch() != epoch:
-                raise ValueError("Saved statblock source authority changed before admission")
+            if event.continuity_verified:
+                if current_epoch() != epoch:
+                    raise ValueError("Saved statblock source authority changed before admission")
+                if self._current_statblock_anchor(reference, draft_id, locator) != event.association_anchor:
+                    raise ValueError("Saved statblock World association changed before admission")
             return event
 
         adapter.turn = _require_fresh_execution_append(adapter.fence.append(

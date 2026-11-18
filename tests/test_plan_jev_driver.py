@@ -691,12 +691,14 @@ def test_anchored_variant_scope_requires_current_draft_and_bound_base(scope, inc
         assert [offer.handle for offer in driver.offered()] == ["saved-statblock:0"]
 
 
-@pytest.mark.parametrize("drift", [None, "epoch", "conversation", "status", "support", "legacy"])
+@pytest.mark.parametrize("drift", [None, "epoch", "conversation", "status", "support", "legacy", "association", "node"])
 def test_saved_statblock_continuity_requires_verified_prior_read(drift):
     from types import SimpleNamespace
     from uuid import uuid4
 
-    from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1, validate_prior_read
+    from application_state.agent_conversation.build_saved_statblock import (
+        BuildSavedStatblockReadV1, SavedStatblockAssociationAnchor, validate_prior_read,
+    )
     from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
 
     authority = NativeCorpusAuthorityV1.model_construct(acquisition_epoch=194)
@@ -704,6 +706,7 @@ def test_saved_statblock_continuity_requires_verified_prior_read(drift):
     current = SimpleNamespace(world_id="world", conversation_id=uuid4(), sequence=2, graph_context_receipt=receipt)
     old = BuildSavedStatblockReadV1.model_construct(world_id=current.world_id, draft_id=uuid4(),
         locator="exact", definition={"identity": {"name": "Creature"}}, pdf_support=None,
+        association_anchor=SavedStatblockAssociationAnchor(association_id=uuid4(), node_id="ent:fixture"),
         continuity_verified=drift != "legacy")
     previous = SimpleNamespace(turn_id=uuid4(), world_id=current.world_id, conversation_id=current.conversation_id,
         sequence=1, status="completed", graph_context_receipt=receipt,
@@ -719,6 +722,11 @@ def test_saved_statblock_continuity_requires_verified_prior_read(drift):
         previous.status = "failed"
     elif drift == "support":
         event = event.model_copy(update={"pdf_support": "different"})
+    elif drift in {"association", "node"}:
+        changed = {"association_id": uuid4()} if drift == "association" else {"node_id": "ent:other"}
+        event = event.model_copy(update={
+            "association_anchor": event.association_anchor.model_copy(update=changed),
+        })
     if drift is None:
         validate_prior_read(event, current, previous)
     else:

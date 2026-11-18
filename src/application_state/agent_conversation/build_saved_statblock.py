@@ -28,6 +28,11 @@ class SavedStatblockPdfSupport(Strict):
     support: list[SavedStatblockPdfCrop]
 
 
+class SavedStatblockAssociationAnchor(Strict):
+    association_id: UUID
+    node_id: str = Field(min_length=1)
+
+
 class BuildSavedStatblockReadV1(Strict):
     kind: Literal["build_saved_statblock_read_v1"] = "build_saved_statblock_read_v1"
     event_id: UUID
@@ -40,6 +45,9 @@ class BuildSavedStatblockReadV1(Strict):
     definition: dict[str, JsonValue]
     pdf_support: SavedStatblockPdfSupport | None = None
     continuity_verified: bool = Field(default=False, exclude_if=lambda value: not value)
+    association_anchor: SavedStatblockAssociationAnchor | None = Field(
+        default=None, exclude_if=lambda value: value is None,
+    )
     reused_from_turn_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
@@ -68,6 +76,8 @@ def validate_prior_read(event, current, previous):
     if len(matching) != 1 or not matching[0].continuity_verified:
         raise ValueError("Saved statblock reuse requires one verified source read")
     old = matching[0]
+    if event.association_anchor is None or event.association_anchor != old.association_anchor:
+        raise ValueError("Saved statblock reuse differs from its producing World association")
     if old.definition != event.definition or old.pdf_support != event.pdf_support:
         raise ValueError("Saved statblock reuse differs from its verified source evidence")
 

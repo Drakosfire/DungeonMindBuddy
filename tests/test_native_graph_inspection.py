@@ -1290,3 +1290,165 @@ def test_native_recap_pages_reauthorize_exact_span_after_withdrawal(inspection):
         "scope": request.scope.model_dump(mode="json"),
         "assertion_id": request.selection.assertion_id,
     }).status_code == 401
+
+
+def _shared_anchor_reuse_fixture(x, monkeypatch):
+    from dungeonmind.application.vnext import native_source_access
+    from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+    from apps.live_control_server.routes.world_graph_retrieval import router
+
+    monkeypatch.setenv("DMB_NATIVE_NEIGHBORHOOD_WORLD", "managed")
+    x.app.include_router(router)
+    monkeypatch.setattr(service, "_shared_parsed_cache", NativeParsedRevisionCache())
+    counts = {"parse": 0, "revision": 0, "source": 0}
+    parse = native_source_access._parse_revision
+    revision = x.lane.repo.get_revision
+    source = x.lane.repo.open_native_source_view
+
+    def counted_parse(stored):
+        counts["parse"] += 1
+        return parse(stored)
+
+    def counted_revision(*args, **kwargs):
+        counts["revision"] += 1
+        return revision(*args, **kwargs)
+
+    def counted_source(*args, **kwargs):
+        counts["source"] += 1
+        return source(*args, **kwargs)
+
+    monkeypatch.setattr(native_source_access, "_parse_revision", counted_parse)
+    monkeypatch.setattr(x.lane.repo, "get_revision", counted_revision)
+    monkeypatch.setattr(x.lane.repo, "open_native_source_view", counted_source)
+    space = x.lane.bound["native_world_id"]
+    query = {
+        "schema": "dmb_world_graph_neighborhood_request_v1",
+        "worldId": "managed", "campaignId": x.lane.run.campaign_id,
+        "revisionPin": x.lane.repo.get_head(space).head_revision_id,
+        "seedNodeIds": [x.objects["object:0"]], "maxDepth": 2,
+    }
+    return query, counts
+
+
+def _open_shared_anchor(x, query, packet, **changes):
+    anchor, = packet["sourceAnchors"]
+    return x.client.post("/api/live/world-graph/retrieval/source-anchor/read", json={
+        "schema": "dmb_world_graph_source_anchor_read_request_v1",
+        **{key: query[key] for key in ("worldId", "campaignId", "revisionPin")},
+        "anchorId": anchor["anchorId"], **changes,
+    })
+
+
+def test_neighborhood_anchor_reuses_parse_but_verifies_revision_and_source_each_time(
+    inspection, monkeypatch,
+):
+    x = inspection
+    query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    result = x.client.post("/api/live/world-graph/retrieval/neighborhood", json=query)
+    assert result.status_code == 200, result.text
+    assert counts == {"parse": 1, "revision": 1, "source": 1}
+    for calls in (2, 3):
+        opened = _open_shared_anchor(x, query, result.json())
+        assert opened.status_code == 200, opened.text
+        assert opened.json()["content"] == x.lane.text.splitlines(keepends=True)[0]
+        assert counts == {"parse": 1, "revision": calls, "source": calls}
+
+
+def test_cached_neighborhood_anchor_withholds_withdrawn_source_at_fixed_graph_pin(
+    inspection, monkeypatch,
+):
+    x = inspection
+    query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    result = x.client.post("/api/live/world-graph/retrieval/neighborhood", json=query)
+    assert result.status_code == 200
+    before = _open_shared_anchor(x, query, result.json())
+    assert before.status_code == 200 and before.json()["outcome"] == "enough"
+    repo = x.lane.repo
+    space = x.lane.bound["native_world_id"]
+    head, events = repo.get_head(space), repo.head_events(space)
+    receipt = x.lane.receipt
+    repo.withdraw_native_source(
+        space_id=space, source_artifact_id=receipt.source_artifact_id,
+        source_revision_id=receipt.source_revision_id,
+    )
+    after = _open_shared_anchor(x, query, result.json())
+    assert after.status_code == 200, after.text
+    assert after.json()["outcome"] == "empty" and after.json()["content"] is None
+    assert counts == {"parse": 1, "revision": 3, "source": 3}
+    assert repo.get_head(space) == head and repo.head_events(space) == events
+
+
+@pytest.mark.parametrize("change", [{"campaignId": "foreign"}, {"admissibility": "player"}])
+def test_cached_neighborhood_anchor_rechecks_scope(inspection, monkeypatch, change):
+    x = inspection
+    query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    result = x.client.post("/api/live/world-graph/retrieval/neighborhood", json=query)
+    assert result.status_code == 200
+    assert _open_shared_anchor(x, query, result.json()).json()["outcome"] == "enough"
+    refused = _open_shared_anchor(x, query, result.json(), **change)
+    assert refused.status_code == 200, refused.text
+    assert refused.json()["outcome"] == "empty" and refused.json()["content"] is None
+    assert counts["parse"] == 1
+
+
+def test_standalone_inspection_keeps_its_default_preparation_behavior(inspection, monkeypatch):
+    x = inspection
+    query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    result = x.client.post("/api/live/world-graph/retrieval/neighborhood", json=query)
+    assert result.status_code == 200
+    pin = {
+        "managed_world_id": "managed", **x.lane.bound,
+        "revision_id": query["revisionPin"], "scope_mode": "campaign",
+        "campaign_id": x.lane.run.campaign_id,
+    }
+    for _ in range(2):
+        response = read(x, pin, {
+            "kind": "source", "assertion_id": x.assertions["relationship"],
+            "evidence_ref_id": x.lane.support_ids["first"],
+        })
+        assert response.status_code == 200, response.text
+    assert counts == {"parse": 3, "revision": 3, "source": 3}
+
+
+def test_cached_anchor_follows_visible_revision_and_restores_historical_content(
+    inspection, monkeypatch,
+):
+    from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+
+    x = inspection
+    old_query, counts = _shared_anchor_reuse_fixture(x, monkeypatch)
+    route = "/api/live/world-graph/retrieval/neighborhood"
+    first = x.client.post(route, json=old_query)
+    assert first.status_code == 200
+    assert _open_shared_anchor(x, old_query, first.json()).json()["outcome"] == "enough"
+    space = x.lane.bound["native_world_id"]
+    runtime = transport.runtime(
+        x.lane.repo, x.lane.domain, x.lane.profile,
+        now=datetime.now(UTC), operation_id="cache-visible-change",
+    )
+    runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(
+        space, "cache-visible-change", (
+            wk.CreateObject("reachable", (
+                wk.CreateFact("new-kind", "dnd5e:classification", wk.TermRefFactValue("dnd5e:location"), x.meta),
+                wk.CreateFact("new-name", "dnd5e:name", wk.LiteralFactValue("New reachable location"), x.meta),
+            )),
+            wk.CreateRelationship("new-edge", wk.DurableObjectRef(x.objects["endpoint"]),
+                                  "dnd5e:located_in", wk.ResultOf("reachable"), x.meta),
+        ),
+    )), confirmed_by="local_operator")
+    new_query = {**old_query, "revisionPin": x.lane.repo.get_head(space).head_revision_id}
+    assert new_query["revisionPin"] != old_query["revisionPin"]
+    with monkeypatch.context() as oracle:
+        oracle.setattr(service, "_shared_parsed_cache", NativeParsedRevisionCache())
+        old_expected = x.client.post(route, json=old_query).json()
+        new_expected = x.client.post(route, json=new_query).json()
+    assert "New reachable location" not in [row["label"] for row in old_expected["nodes"]]
+    assert "New reachable location" in [row["label"] for row in new_expected["nodes"]]
+    before = counts["parse"]
+    for query, expected in ((new_query, new_expected), (old_query, old_expected)):
+        response = x.client.post(route, json=query)
+        assert response.status_code == 200 and response.json() == expected
+        opened = _open_shared_anchor(x, query, expected)
+        assert opened.status_code == 200, opened.text
+        assert opened.json()["content"] == x.lane.text.splitlines(keepends=True)[0]
+    assert counts["parse"] == before + 2

@@ -16,8 +16,7 @@ from apps.live_control_server.services.build_pdf_region_render import read_regio
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
 )
-from apps.live_control_server.models.native_graph_inspection import Closed, InspectionPin
-from apps.live_control_server.models.world_graph_object_projection import WorldGraphObjectProjectionRequest
+from apps.live_control_server.models.native_graph_inspection import InspectionPin, NativeCompleteObjectRead
 from apps.live_control_server.integrations.dungeonmind.vnext_complete_object import (
     DungeonBuddyVNextReadIdentity,
     VNextCompleteObjectProjectionError,
@@ -220,8 +219,13 @@ def read_assertion(pin: InspectionPin, principal, assertion_id: str):
     return _response(bound, checked_pin, assertion=_wire_assertion(result.assertion))
 
 
-def inspect(request, principal, *, include_source_span=False, source_classification=None):
-    bound, read, access, pin, _ = _pinned(request.scope, principal)
+def inspect(
+    request, principal, *, include_source_span=False, source_classification=None,
+    _parsed_cache=None,
+):
+    bound, read, access, pin, _ = _pinned(
+        request.scope, principal, parsed_cache=_parsed_cache
+    )
     selection = request.selection
     if selection.kind == "neighborhood":
         from graph_memory.retrieval.models import WorldGraphRetrievalBounds
@@ -380,11 +384,6 @@ def statblock_pdf_support(reference, regions, principal, *, expected_source_epoc
     return _response(bound, pin, support=list(support.values()))
 
 
-class NativeCompleteObjectRead(Closed):
-    scope: InspectionPin | None = None
-    request: WorldGraphObjectProjectionRequest
-
-
 def complete_object(body: NativeCompleteObjectRead, principal):
     scope, request = body.scope, body.request
     if request.admissibility != principal.role:
@@ -521,7 +520,7 @@ def open_neighborhood_anchor(request, principal, *, include_receipt=False, autho
         packet = inspect(InspectionRead(
             scope=pin,
             selection={"kind": "source", "assertion_id": assertion_id, "evidence_ref_id": evidence_ref_id},
-        ), principal, include_source_span=include_receipt)
+        ), principal, include_source_span=include_receipt, _parsed_cache=_shared_parsed_cache)
     except KnowledgeReadContextIntegrityError:
         if native.read_repository().get_revision(pin.native_world_id, pin.revision_id) is None:
             return empty
