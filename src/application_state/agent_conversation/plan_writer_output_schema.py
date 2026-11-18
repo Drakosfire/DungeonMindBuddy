@@ -359,10 +359,16 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                     raise ValueError("Variant passage review requires a nonempty authored draft")
                 review = _object({handle: _enum(["retain", "change", "omit"]) for handle in passages})
                 review["description"] = (
-                    "Before drafting rule edits, decide how each current_draft passage applies. "
-                    "Retain established encounter behavior, mark explicit changes, and omit "
-                    "material irrelevant to these rules. Carry exact unchanged triggers and "
-                    "cite exact authored consequences even when adding a new rule key."
+                    "Review each authored passage before drafting. Retain existing behavior needed "
+                    "by the requested variant, including all trigger exceptions and consequences. "
+                    "Change only where the GM asked for it. Omit unrelated material."
+                )
+                witnesses["description"] = (
+                    "Quote the exact authored passages that establish the retained effects of this rule."
+                )
+                fields["carried_condition"]["description"] = (
+                    "Select the exact source sentence from a retained passage for an existing trigger. "
+                    "Use null for original or explicitly changed mechanics."
                 )
                 properties = {"passage_review": review, **properties}
             if format_version >= 4:
