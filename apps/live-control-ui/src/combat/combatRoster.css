@@ -18,6 +18,8 @@
 .combat-roster-table input:not([type=checkbox]), .combat-roster-table select { box-sizing:border-box; }
 .combat-roster-team { margin-top:.5rem; }
 .combat-roster-team select { width:auto; }
+.combat-roster-order-controls { display:flex; gap:.2rem; margin-top:.3rem; }
+.combat-roster-order-controls button { min-width:2rem; min-height:2rem; padding:.2rem .4rem; }
 .combat-roster-temp { display:flex; align-items:center; gap:.3rem; margin-top:.4rem; }
 .combat-roster-temp span { color:var(--ui-text-secondary); }
 .combat-roster-notes input, .combat-roster-notes textarea { width:100%; }
