@@ -435,6 +435,9 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && body !== null && Object.keys(body).length === 1
       && Array.isArray(body.prompts) && body.prompts.length >= 1 && body.prompts.length <= 8;
   }
+  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/name$/i.test(path)) {
+    return method === "GET" && init?.body == null;
+  }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (connectedPage) {
     const query = new URLSearchParams(connectedPage[1]);
