@@ -134,3 +134,10 @@ under the shared lock passed. One existing Plan test emits an act warning, retai
 in output. No claim of exact-head qualification, browser acceptance or merge
 readiness is made. Next: final exact-source backend/frontend evidence with base
 comparison, real-route/APP browser side flow and independent cumulative review.
+
+Exact6c backend243 and hosted qualification pass; its browser15actor side journey
+proved state/recovery/Graph/source/Plan-Play isolation. Screenshot inspection found
+that the table's frozen Participant header shares the sticky rail's stacking level
+and can cover side controls during source projection. Raise only the manual rail
+above that header. Preserve6c evidence as functional diagnostics; requalify and
+repeat the visual projection check at the corrected head before acceptance.

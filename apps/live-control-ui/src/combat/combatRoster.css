@@ -57,7 +57,7 @@
 
 .manual-combat { container-type:inline-size; min-width:0; --manual-host-offset:0px; }
 .native-combat-surface .manual-combat { --manual-host-offset:var(--app-chrome-top); }
-.manual-combat > .combat-roster-turn-rail { top:var(--manual-host-offset); }
+.manual-combat > .combat-roster-turn-rail { top:var(--manual-host-offset); z-index:3; }
 .manual-combat label { display:flex; flex-direction:column; gap:.3rem; font-size:.85rem; color:var(--ui-text-secondary); }
 .manual-combat input,.manual-combat textarea,.manual-combat select { min-width:0; max-width:100%; box-sizing:border-box; }
 .manual-combat :is(input,textarea,select),.manual-combat-profile :is(input:not([type=checkbox]),select) {
