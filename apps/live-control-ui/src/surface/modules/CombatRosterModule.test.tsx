@@ -123,6 +123,56 @@ describe("CombatRosterModule", () => {
     expect(screen.getByText(/generic · manual · config rev 1/i)).toBeInTheDocument();
   });
 
+  it('saves defense and maximum overrides without healing, changing source mechanics or touching a sibling',async()=>{
+    const resource=(await import('../../../../../tests/fixtures/statblocks/v1/exact-revision-response.json')).default;
+    const snapshot={origin:'world_accepted_mechanics_v1',managed_world_id:'elderwyld',draft_id:'22222222-2222-4222-8222-222222222222',draft_version:3,
+      acceptance_operation_id:'accept-one',acceptance_request_digest:'sha256:'+'a'.repeat(64),accepted_from_draft_version:1,accepted_from_candidate_id:null,
+      locator:{provider:'dungeonmind',statblock_id:resource.statblock_id,revision_id:resource.revision_id,contract:resource.contract,contract_version:resource.contract_version,definition_digest:resource.definition_digest},
+      resource,snapshot_digest:'sha256:'+'b'.repeat(64)} as CombatMechanicsSnapshot;
+    const sibling={...entity,id:'watch',name:'Watch guard',order:2};
+    const initial=record({draft:{...record().draft,entities:[{...entity,mechanics_snapshot:snapshot},sibling]}});
+    const sourceBefore=JSON.stringify(snapshot);
+    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_world,_id,revision,draft)=>({...initial,revision:revision+1,draft}));
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    fireEvent.change(await screen.findByLabelText('AC for Geomantic Drake'),{target:{value:'21'}});
+    fireEvent.change(screen.getByLabelText('Maximum HP for Geomantic Drake'),{target:{value:'30'}});
+    expect(screen.getByLabelText('HP for Geomantic Drake')).toHaveValue('76');
+    await userEvent.click(within(screen.getByRole('row',{name:/Geomantic Drake/})).getByRole('button',{name:'Heal',exact:true}));
+    expect(screen.getByLabelText('HP for Geomantic Drake')).toHaveValue('76');
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+    await screen.findByText('Saved · rev 2');
+    expect(save.mock.calls[0][3]).toEqual({...initial.draft,entities:[{...initial.draft.entities[0],ac:21,max_hp:30},sibling]});
+    expect(JSON.stringify(snapshot)).toBe(sourceBefore);
+    fireEvent.change(screen.getByLabelText('AC for Geomantic Drake'),{target:{value:'10'}});
+    await userEvent.click(screen.getByRole('button',{name:'Revert',exact:true}));
+    expect(screen.getByLabelText('AC for Geomantic Drake')).toHaveValue('21');
+    expect(screen.getByLabelText('Maximum HP for Geomantic Drake')).toHaveValue('30');
+  });
+
+  it('preserves descriptive defenses and maxima, and saves blank fields as unset rather than zero',async()=>{
+    const initial=record();
+    vi.spyOn(combatApi,'listWorldCombatEncounters').mockResolvedValue([initial]);
+    vi.spyOn(combatApi,'getWorldCombatEncounter').mockResolvedValue(initial);
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_world,_id,revision,draft)=>({...initial,revision:revision+1,draft}));
+    mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
+    await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
+    await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    fireEvent.change(await screen.findByLabelText('AC for Geomantic Drake'),{target:{value:'Shielded'}});
+    fireEvent.change(screen.getByLabelText('Maximum HP for Geomantic Drake'),{target:{value:'Variable'}});
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+    await screen.findByText('Saved · rev 2');
+    expect(save.mock.calls[0][3].entities[0]).toMatchObject({ac:'Shielded',max_hp:'Variable',hp:76});
+    await userEvent.clear(screen.getByLabelText('AC for Geomantic Drake'));
+    await userEvent.clear(screen.getByLabelText('Maximum HP for Geomantic Drake'));
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+    await screen.findByText('Saved · rev 3');
+    expect(save.mock.calls[1][3].entities[0]).toMatchObject({ac:null,max_hp:null,hp:76});
+  });
+
   it("locks encounter edits while opening a replacement draft", async () => {
     const current = record();
     const target = record({
@@ -146,6 +196,8 @@ describe("CombatRosterModule", () => {
 
     expect(title).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "Notes for Geomantic Drake" })).toBeDisabled();
+    expect(screen.getByLabelText('AC for Geomantic Drake')).toBeDisabled();
+    expect(screen.getByLabelText('Maximum HP for Geomantic Drake')).toBeDisabled();
     await userEvent.type(title, "Edit during open");
     expect(title).toHaveValue("Mireward Gate");
 
@@ -527,14 +579,21 @@ describe("CombatRosterModule", () => {
     await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
     await userEvent.click(screen.getByRole('button',{name:'Open'}));
     const notes=await screen.findByLabelText('Notes for Geomantic Drake');await userEvent.clear(notes);await userEvent.type(notes,'Retained local notes');
+    fireEvent.change(screen.getByLabelText('AC for Geomantic Drake'),{target:{value:'19'}});
+    fireEvent.change(screen.getByLabelText('Maximum HP for Geomantic Drake'),{target:{value:'120'}});
     first.unmount();mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
     expect(screen.getByRole('combobox',{name:'Encounter'})).toHaveValue(initial.encounter_id);
     await userEvent.click(screen.getByRole('button',{name:'Open'}));
     const recover=await screen.findByRole('button',{name:'Recover local Combat draft'});
     expect(screen.getByLabelText('Notes for Geomantic Drake')).toHaveValue('Guards the pass');expect(save).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('AC for Geomantic Drake')).toHaveValue('15');
+    expect(screen.getByLabelText('Maximum HP for Geomantic Drake')).toHaveValue('76');
     await userEvent.click(recover);expect(screen.getByLabelText('Notes for Geomantic Drake')).toHaveValue('Retained local notes');
+    expect(screen.getByLabelText('AC for Geomantic Drake')).toHaveValue('19');
+    expect(screen.getByLabelText('Maximum HP for Geomantic Drake')).toHaveValue('120');
     await userEvent.click(screen.getByRole('button',{name:'Save'}));await screen.findByText('Saved · rev 2');
     expect(save.mock.calls[0][3].entities[0].notes).toBe('Retained local notes');
+    expect(save.mock.calls[0][3].entities[0]).toMatchObject({ac:19,max_hp:120,hp:76});
   });
   it("reconciles a lost Save acknowledgement without reposting or dropping later edits",async()=>{
     const initial=record();const pending=deferred<CombatEncounterRecord>();
