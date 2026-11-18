@@ -9,7 +9,8 @@ import {combatDraftEqual} from './combatRecovery';
 import {sameEncounterScope} from '../guidedTour/EncounterScope';
 import {CombatRosterModule,type PreparedCombatOwnerReading} from '../surface/modules/CombatRosterModule';
 import {assertSceneCreation,assertSceneTemplate,cancelSceneTemplateCreation,sceneCreationDigest,createSceneTemplate,getSceneTemplate,getSceneTemplateVersion,inspectSceneTemplateCreation,type PlanEncounterContext,type SceneTemplateIntent,type SceneTemplateView} from './sceneTemplatesApi';
-import type {CombatEncounterRecord} from './combatTypes';
+import type {AnyCombatRecord,ManualCombatProfile} from './ManualCombatTypes';
+import {ManualCombatProfileForm} from './ManualCombatProfileForm';
 
 function recoveryKey(context:PlanEncounterContext){return `dmb-scene-template-create-v1:${context.worldId}:${context.documentId}:${context.sceneId}`;}
 function defaultTitle(sceneTitle:string){return Array.from(`${sceneTitle} encounter`.trim()).slice(0,160).join('');}
@@ -25,7 +26,7 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
  const [busy,setBusy]=useState(false);
  const [loaded,setLoaded]=useState(false);
  const [error,setError]=useState<string|null>(null);
- const [historical,setHistorical]=useState<CombatEncounterRecord|null>(null);
+ const [historical,setHistorical]=useState<AnyCombatRecord|null>(null);
  const [title,setTitle]=useState(defaultTitle(context.sceneTitle));
  const identity=JSON.stringify([context.worldId,context.documentId,context.sceneId,context.objectRevision,context.contentSha256,context.verifiedPlan??null]);
  const [admittedIdentity,setAdmittedIdentity]=useState<string|null>(null);
@@ -52,20 +53,20 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   })();
   return()=>{epoch.current++;};
  },[identity]);
- async function create(retry=false){
+ async function create(retry=false,manual?:{title:string;profile:ManualCombatProfile}){
   const tourDispatch=guidance?.captureScope()??null;
   if(busy||(!retry&&!latest.current.canCreate))return;
   const current=epoch.current;setBusy(true);setError(null);
   try{
    let intent=pending;
    if(!intent){
-    const encounterTitle=title.trim();
+    const encounterTitle=(manual?.title??title).trim();
     if(!encounterTitle||Array.from(encounterTitle).length>160)throw new Error('Enter an encounter name of 1–160 characters before preparing it.');
     const committed=await getWorldOwnedPlanCommittedRevision(context.documentId);
     const now=latest.current;
     if(current!==epoch.current)return;
     if(!now.canCreate||committed.schema_version!=='dmb_workspace_committed_revision_v2'||committed.scope_mode!=='world'||committed.world_id!==context.worldId||committed.document_id!==context.documentId||committed.kind!=='plan'||committed.status!=='active'||committed.has_divergent_working_copy||committed.object_revision!==now.objectRevision||committed.content_sha256!==now.contentSha256)throw new Error('Save and reopen this Plan before preparing its encounter.');
-    intent={schema_version:'dmb_scene_template_create_v1',operation_id:crypto.randomUUID(),pin:{document_id:context.documentId,scene_id:context.sceneId,revision_n:committed.revision_n,work_revision_id:committed.work_revision_id,content_sha256:committed.content_sha256},encounter:{title:encounterTitle}};
+    intent={schema_version:'dmb_scene_template_create_v1',operation_id:crypto.randomUUID(),pin:{document_id:context.documentId,scene_id:context.sceneId,revision_n:committed.revision_n,work_revision_id:committed.work_revision_id,content_sha256:committed.content_sha256},encounter:manual?{schema_version:'dmb_manual_combat_create_v2',title:encounterTitle,profile:manual.profile}:{title:encounterTitle}};
     sessionStorage.setItem(recoveryKey(context),JSON.stringify(intent));setPending(intent);
    }
    const result=await createSceneTemplate(context.worldId,intent);
@@ -137,9 +138,10 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   {pending&&<section aria-label="Encounter creation recovery"><p>Creation outcome is unconfirmed. Its exact request is retained.</p><button disabled={busy} onClick={()=>void inspect()}>Check creation</button><button disabled={busy} onClick={()=>void create(true)}>Retry same creation</button><button disabled={busy} onClick={()=>void cancel()}>Cancel creation</button>{view&&view.binding.operation_id!==pending.operation_id&&<button disabled={busy} onClick={()=>{sessionStorage.removeItem(recoveryKey(context));setPending(null);}}>Open existing scene encounter</button>}</section>}
   {!loaded&&!error&&<p>Opening scene encounter…</p>}
   {loaded&&!view&&!pending&&!recoveryInvalid&&<><label>Encounter name<input aria-label="Prepared encounter name" maxLength={160} value={title} onChange={event=>setTitle(event.target.value)}/></label><button disabled={busy||!context.canCreate||!title.trim()} onClick={()=>void create()}>Prepare encounter</button>{!context.canCreate&&<p>Save the Plan before creating its encounter. Your Plan draft is retained.</p>}</>}
+  {loaded&&!view&&!pending&&!recoveryInvalid&&<ManualCombatProfileForm disabled={busy||!context.canCreate} onCreate={(title,profile)=>create(false,{title,profile})}/>}
   {view&&!pending&&<>
    {!view.scene_present&&<p role="status">This scene is absent from the saved Plan. Encounter work is retained.</p>}
-   <details><summary>Prepared versions</summary><button disabled={busy} onClick={()=>void refresh()}>Refresh prepared versions</button>{view.versions.map(version=><button key={version.revision} disabled={busy} onClick={()=>void history(version.revision)}>Inspect version {version.revision}</button>)}{historical&&<section aria-label="Saved prepared version"><h3>{historical.draft.title} · version {historical.revision}</h3><ul>{historical.draft.entities.map(actor=><li key={actor.id}>{actor.name} · AC {actor.ac??'—'} · HP {actor.hp??'—'}/{actor.max_hp??'—'}{actor.mechanics_snapshot&&<CombatMechanicsInspection snapshot={actor.mechanics_snapshot}/>}</li>)}</ul><p>Saved version · read only</p></section>}</details>
+   <details><summary>Prepared versions</summary><button disabled={busy} onClick={()=>void refresh()}>Refresh prepared versions</button>{view.versions.map(version=><button key={version.revision} disabled={busy} onClick={()=>void history(version.revision)}>Inspect version {version.revision}</button>)}{historical&&<section aria-label="Saved prepared version"><h3>{historical.draft.title} · version {historical.revision}</h3><ul>{historical.draft.entities.map(actor=><li key={actor.id}>{actor.name}{'values' in actor?<> · {actor.participation==='in_action'?'In action':'Out of action'} · {Object.values(actor.values.stats).map(value=>value??'—').join(' · ')}</>:<> · AC {actor.ac??'—'} · HP {actor.hp??'—'}/{actor.max_hp??'—'}</>}{actor.mechanics_snapshot&&<CombatMechanicsInspection snapshot={actor.mechanics_snapshot}/>}</li>)}</ul><p>Saved version · read only</p></section>}</details>
    <TourEncounterProvider scope={tourEncounter}><CombatRosterModule key={view.binding.encounter_id} scope={{worldId:context.worldId,encounterId:view.binding.encounter_id,initialRecord:view.encounter,onPreparedState:receiveRoster,label:`${context.sceneTitle} · prepared encounter`}}/></TourEncounterProvider>
   </>}
  </section>;

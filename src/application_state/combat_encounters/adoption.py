@@ -11,6 +11,7 @@ from application_state.mechanics_revisions.types import RevisionOperation,digest
 from application_state.world_mechanics.types import WorldMechanicsAssociation
 from . import repository as repo
 from .service import _require_integrity
+from .manual_encounters import ManualEncounterRecord
 from .types import CombatEncounterDraft,CombatMechanicsSnapshot,AcceptedCombatMechanicsSnapshot,SavedCombatMechanicsSnapshot
 from .adoption_types import AdoptMechanicsRequest,AdoptionReceipt,AdoptionOutcome,AdoptionTransition,AdoptionHistoryPage
 
@@ -26,7 +27,10 @@ def intent_digest(world_id,encounter_id,request):
 def _encounter(conn,world_id,encounter_id):
     record=repo.get_encounter(conn,world_id=world_id,encounter_id=UUID(str(encounter_id)))
     if record is None:raise ApplicationStateNotFoundError('Encounter not found in this World')
-    _require_integrity(record);return record
+    _require_integrity(record)
+    if isinstance(record, ManualEncounterRecord):
+        raise ApplicationStateValidationError("AC/HP adoption is unavailable for manual profiles")
+    return record
 
 
 def _validated_receipt(row):

@@ -53,3 +53,29 @@
   .combat-roster-turn-rail > div { padding:.4rem; }
   .combat-roster-turn-rail > div:nth-child(2) { min-width:8rem; }
 }
+
+.manual-combat { container-type:inline-size; min-width:0; }
+.manual-combat label { display:flex; flex-direction:column; gap:.3rem; font-size:.85rem; color:var(--ui-text-secondary); }
+.manual-combat input,.manual-combat textarea,.manual-combat select { min-width:0; max-width:100%; box-sizing:border-box; }
+.manual-combat-workspace { display:grid; gap:1rem; align-items:start; margin-top:1rem; }
+.manual-combat-roster { display:grid; gap:.75rem; min-width:0; }
+.manual-combat-row { border:1px solid var(--ui-border-subtle); border-radius:var(--ui-radius-md); padding:.8rem; background:var(--ui-background-app); }
+.manual-combat-row[hidden] { display:none; }
+.manual-combat-row.is-active { border-color:var(--ui-accent-action); box-shadow:inset 3px 0 var(--ui-accent-action); }
+.manual-combat-row > header { display:flex; flex-wrap:wrap; align-items:end; gap:.5rem; }
+.manual-combat-row > header label { flex:1; min-width:10rem; }
+.manual-combat-values { display:flex; flex-wrap:wrap; gap:.75rem; margin:.75rem 0; }
+.manual-combat-values > label { flex:1; min-width:7rem; }
+.manual-combat-values fieldset { display:flex; flex-wrap:wrap; align-items:end; gap:.4rem; margin:0; min-width:0; border:1px solid var(--ui-border-subtle); border-radius:var(--ui-radius-md); }
+.manual-combat-values fieldset label { width:5.5rem; }
+.manual-combat-row textarea { min-height:3rem; resize:vertical; }
+.manual-combat-roster > form,.manual-combat-group { display:flex; flex-wrap:wrap; align-items:end; gap:.5rem; }
+.manual-combat-profile { margin:1rem 0; padding:.75rem; border:1px solid var(--ui-border-subtle); border-radius:var(--ui-radius-md); }
+.manual-combat-profile fieldset { display:grid; gap:.75rem; }
+.manual-combat-profile fieldset > div { display:flex; flex-wrap:wrap; align-items:end; gap:.5rem; }
+.manual-combat-source { min-width:0; max-height:70dvh; overflow:auto; border:1px solid var(--ui-border-subtle); border-radius:var(--ui-radius-md); padding:1rem; }
+.manual-combat-source > header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.5rem; }
+@container (min-width:56rem) {
+  .manual-combat-workspace:has(.manual-combat-source) { grid-template-columns:minmax(0,1fr) minmax(22rem,28rem); }
+  .manual-combat-source { position:sticky; top:calc(var(--app-chrome-top,0px) + 6rem); }
+}

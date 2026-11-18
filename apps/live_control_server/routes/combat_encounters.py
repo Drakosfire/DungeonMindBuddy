@@ -16,6 +16,7 @@ from application_state.combat_encounters.types import (
     CreateCombatEncounterRequest,
     SaveCombatEncounterRequest,
 )
+from application_state.combat_encounters.manual_encounters import AnyCombatRecord, AnyCreateEncounterRequest, AnySaveEncounterRequest
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.config import managed_world_data_root, repo_root
 from apps.live_control_server.services import combat_encounters, combat_mechanics
@@ -52,7 +53,7 @@ def _raise_state_error(exc: ApplicationStateError) -> None:
     raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
-@router.get("", response_model=list[CombatEncounterRecord])
+@router.get("", response_model=list[AnyCombatRecord])
 def list_encounters(world_id: Annotated[str, Query(min_length=1, max_length=63)], request: Request) -> list[dict]:
     require_combat_encounter_access(request, world_id)
     owner = _verified_world(world_id)
@@ -62,10 +63,10 @@ def list_encounters(world_id: Annotated[str, Query(min_length=1, max_length=63)]
         _raise_state_error(exc)
 
 
-@router.post("", response_model=CombatEncounterRecord)
+@router.post("", response_model=AnyCombatRecord)
 def create_encounter_route(
     world_id: Annotated[str, Query(min_length=1, max_length=63)],
-    body: CreateCombatEncounterRequest,
+    body: AnyCreateEncounterRequest,
     request: Request,
 ) -> dict:
     require_combat_encounter_access(request, world_id)
@@ -78,7 +79,7 @@ def create_encounter_route(
         _raise_state_error(exc)
 
 
-@router.get("/{encounter_id}", response_model=CombatEncounterRecord)
+@router.get("/{encounter_id}", response_model=AnyCombatRecord)
 def get_encounter_route(
     encounter_id: str,
     world_id: Annotated[str, Query(min_length=1, max_length=63)],
@@ -94,11 +95,11 @@ def get_encounter_route(
         _raise_state_error(exc)
 
 
-@router.put("/{encounter_id}", response_model=CombatEncounterRecord)
+@router.put("/{encounter_id}", response_model=AnyCombatRecord)
 def save_encounter_route(
     encounter_id: str,
     world_id: Annotated[str, Query(min_length=1, max_length=63)],
-    body: SaveCombatEncounterRequest,
+    body: AnySaveEncounterRequest,
     request: Request,
 ) -> dict:
     require_combat_encounter_access(request, world_id)

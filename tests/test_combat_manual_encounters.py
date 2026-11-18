@@ -51,6 +51,38 @@ def identity(world=WORLD, node="creature:bridge"):
         "role": "creature", "campaign_scope": None}
 
 
+@pytest.mark.parametrize("rounds", [False, True])
+def test_manual_run_initialization_preserves_preparation_and_mints_references(rounds):
+    from application_state.play.session_encounters import initialize_draft
+    from application_state.combat_encounters.manual_encounters import ManualGroup, ManualSide
+    prepared = record(rounds)
+    actor = prepared.draft.entities[0]
+    actor.side_id = "crew-side"
+    actor.notes = "Carry this tactical note"
+    actor.statuses = ("Pinned",)
+    actor.participation = "out_of_action"
+    actor.values.resources["stress"] = actor.values.resources["stress"].model_copy(update={"current": 0})
+    prepared.draft.sides = [ManualSide(id="crew-side", label="Crew")]
+    prepared.draft.groups = [ManualGroup(id="crew-group", label="Bridge crew", member_ids=[actor.id])]
+    original = prepared.model_dump(mode="json", by_alias=True)
+    preview, preview_map, changes = initialize_draft(prepared)
+    live, actor_map, _ = initialize_draft(prepared, fresh_ids=True)
+    assert preview_map == {actor.id: actor.id}
+    assert changes[0]["values"]["resources"]["stress"]["current"] == 0
+    assert live.entities[0].id == actor_map[actor.id] != actor.id
+    assert live.entities[0].side_id == live.sides[0].id != "crew-side"
+    assert live.groups[0].id != "crew-group"
+    assert live.groups[0].member_ids == (actor_map[actor.id],)
+    assert live.entities[0].values == actor.values
+    assert live.entities[0].participation == "out_of_action"
+    assert live.entities[0].statuses == ("Pinned",)
+    assert live.entities[0].notes == actor.notes
+    assert live.turn.active_actor_id is None
+    assert prepared.model_dump(mode="json", by_alias=True) == original
+    live.entities[0].values.stats["position"] = "Covered"
+    assert actor.values.stats["position"] == "Exposed"
+
+
 def source(kind="associated", world=WORLD):
     resource = json.loads((FIXTURES / "statblocks/v1/exact-revision-response.json").read_text())
     locator = {"provider": "dungeonmind", **{key: resource[key] for key in (

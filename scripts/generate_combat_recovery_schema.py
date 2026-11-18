@@ -5,12 +5,13 @@ all semantic invariants and exact mechanics proofs. No provider IO occurs here.
 """
 from pathlib import Path
 import json
-from application_state.combat_encounters.types import CombatEncounterRecord
+from application_state.combat_encounters.manual_encounters import AnyCombatRecord
+from pydantic import TypeAdapter
 from apps.live_control_server.integrations.dungeonmind_statblocks.models import ExactRevisionResourceV1
 
 
 def build_schema():
-    schema = CombatEncounterRecord.model_json_schema(by_alias=True)
+    schema = TypeAdapter(AnyCombatRecord).json_schema(by_alias=True)
     # Recovery stores complete model_dump records, not input bodies with omitted
     # defaults. The renderer's APP DTO requires these fields to be present.
     for node in [schema, *schema['$defs'].values()]:
@@ -18,7 +19,7 @@ def build_schema():
     resource = ExactRevisionResourceV1.model_json_schema(by_alias=True)
     assert not set(schema['$defs']) & set(resource['$defs'])
     schema['$defs'].update(resource.pop('$defs'))
-    for name in ('CombatMechanicsSnapshot', 'AcceptedCombatMechanicsSnapshot', 'SavedCombatMechanicsSnapshot'):
+    for name in ('CombatMechanicsSnapshot', 'AcceptedCombatMechanicsSnapshot', 'SavedCombatMechanicsSnapshot', 'ConversationVariantCombatSnapshot'):
         schema['$defs'][name]['properties']['resource'] = {'$ref': '#/$defs/ExactRevisionResourceV1'}
     schema['$defs']['ExactRevisionResourceV1'] = resource
     annotations = {'title', 'description', 'default', 'examples', 'discriminator'}

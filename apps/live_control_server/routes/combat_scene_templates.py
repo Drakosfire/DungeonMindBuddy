@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from application_state.combat_encounters import scene_templates as service
 from application_state.combat_encounters.scene_template_types import CreateSceneTemplateRequest, SceneTemplateView
-from application_state.combat_encounters.types import CombatEncounterRecord
+from application_state.combat_encounters.manual_encounters import AnyCombatRecord
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.routes.combat_encounters import _verified_world
 from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
@@ -32,7 +32,7 @@ def inspect(operation_id:UUID,world_id:str=Query(min_length=1,max_length=63)):
 def read(document_id:UUID,scene_id:str,world_id:str=Query(min_length=1,max_length=63)):
     return call(service.read,world_id=_verified_world(world_id),document_id=document_id,scene_id=scene_id)
 
-@router.get('/{document_id}/scenes/{scene_id}/versions/{revision}',response_model=CombatEncounterRecord)
+@router.get('/{document_id}/scenes/{scene_id}/versions/{revision}',response_model=AnyCombatRecord)
 def version(document_id:UUID,scene_id:str,revision:int,world_id:str=Query(min_length=1,max_length=63)):
     if revision<1:
         raise HTTPException(status_code=422,detail='Prepared version must be positive')

@@ -1,6 +1,6 @@
 import {authenticatedApiFetch} from '../api/liveApi';
 import type {WorldPlayRunRecordV2,PlayRunReferenceManifest} from '../api/types';
-import type {CombatEncounterRecord} from './combatTypes';
+import type {AnyCombatRecord,ManualCombatActor} from './ManualCombatTypes';
 import {exactIntent} from './exactIntent';
 
 export type TemplatePin={encounter_id:string;revision:number;digest:string};
@@ -11,9 +11,12 @@ export type PreparationPreview={request:WorldSessionRequest;scenes:{scene_id:str
 export type SessionApplied={schema_version:'dmb_world_session_creation_v1';state:'applied';run:WorldPlayRunRecordV2;manifest:PlayRunReferenceManifest;receipt:{world_id:string;run_id:string;request:WorldSessionRequest;preparation_digest:string}};
 export type SessionCanceled={state:'canceled';world_id:string;run_id:string;request_digest:string;request:WorldSessionRequest};
 export type SessionOutcome=SessionApplied|SessionCanceled;
-export type EncounterPreview={world_id:string;run_id:string;scene_id:string;preparation_digest:string;template:TemplatePin;initialization_policy:'dmb_fresh_scene_encounter_v1';title:string;preview_digest:string;actors:{actor_id:string;name:string;hp_before:number|string|null;hp_after:number|string|null;typed_maximum:boolean;temp_hp_before:number;conditions_before:string[];defeated_before:boolean}[]};
-export type MaterializeRequest={schema_version:'dmb_scene_encounter_materialize_v1';operation_id:string;expected_preparation_digest:string;template:TemplatePin;initialization_policy:'dmb_fresh_scene_encounter_v1';preview_digest:string};
-export type EncounterApplied={state:'applied';encounter:CombatEncounterRecord;receipt:{encounter_id:string;intent:{world_id:string;run_id:string;scene_id:string;request:MaterializeRequest}}};
+export type LegacyEncounterPreview={world_id:string;run_id:string;scene_id:string;preparation_digest:string;template:TemplatePin;initialization_policy:'dmb_fresh_scene_encounter_v1';title:string;preview_digest:string;actors:{actor_id:string;name:string;hp_before:number|string|null;hp_after:number|string|null;typed_maximum:boolean;temp_hp_before:number;conditions_before:string[];defeated_before:boolean}[]};
+export type LegacyMaterializeRequest={schema_version:'dmb_scene_encounter_materialize_v1';operation_id:string;expected_preparation_digest:string;template:TemplatePin;initialization_policy:'dmb_fresh_scene_encounter_v1';preview_digest:string};
+export type ManualEncounterPreview=Omit<LegacyEncounterPreview,'initialization_policy'|'actors'>&{schema_version:'dmb_scene_encounter_preview_v2';initialization_policy:'dmb_preserve_manual_preparation_v2';actors:{actor_id:string;name:string;values:ManualCombatActor['values'];participation:ManualCombatActor['participation'];statuses:string[];notes:string}[]};
+export type EncounterPreview=LegacyEncounterPreview|ManualEncounterPreview;
+export type MaterializeRequest=LegacyMaterializeRequest|(Omit<LegacyMaterializeRequest,'schema_version'|'initialization_policy'>&{schema_version:'dmb_scene_encounter_materialize_v2';initialization_policy:'dmb_preserve_manual_preparation_v2'});
+export type EncounterApplied={state:'applied';encounter:AnyCombatRecord;receipt:{encounter_id:string;intent:{world_id:string;run_id:string;scene_id:string;request:MaterializeRequest}}};
 export type EncounterOutcome=EncounterApplied|{state:'canceled';world_id:string;run_id:string;scene_id:string;request:MaterializeRequest};
 
 export async function sessionFetch<T>(path:string,body?:unknown,method=body===undefined?'GET':'POST'):Promise<T>{

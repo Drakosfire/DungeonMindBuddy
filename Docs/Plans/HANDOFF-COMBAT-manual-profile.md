@@ -21,7 +21,7 @@ lose work. Review by the owner map below; each boundary has independent evidence
 ## Exclusive expected writes and review map
 
 1. APP: combat_encounters/{manual_profiles,manual_encounters,repository,service,
-   scene_template_types,scene_templates,adoption}.py; play/{session_encounter_types,
+   scene_template_types,scene_templates,adoption,access}.py; play/{session_encounter_types,
    session_encounters}.py; new migration
    migrations/versions/20261118_0162_manual_combat_profiles.py. Keep existing v1
    DTO definitions/serialization in types.py and rulesets.py unchanged.
@@ -97,3 +97,41 @@ never an in-flight hot-loaded branch presented as ready.
 The full goal remains incomplete until this integration, side/spotlight successors,
 real runtime delivery and integrated acceptance are proven. Detailed inspected
 owner map/designs/evidence: `/home/drakosfire/Projects/.codex/buddy-check.LPopRI`.
+
+Integration discovery: the existing access.validate_binding decodes the retained
+materialization request. Root expands this same vertical slice to that file only
+for explicit v1/v2 request decoding; all existing receipt, World/run/scene and
+lifecycle comparisons remain required. Reopen and mutation tests must exercise
+this owning boundary. No new authorization capability or registry is introduced.
+
+## Implementation checkpoint — not accepted or complete
+
+The working vertical now has explicit persistence/HTTP version handling, manual
+scene initialization and receipt decoding, profile creation in standalone/Plan,
+shared manual rendering in all hosts, Graph identity with optional exact source,
+stats/resources/bounds, participation, statuses/notes, groups and ordered turns.
+Recovery retains exact pending Saves and later edits; local profile replacement
+is refused against the server-pinned profile. Old AC/HP import/adoption refuses v2.
+
+Working diagnostics (not exact-source qualification): 104 owning persistence/HTTP
+checks pass using a task-local frozen uv environment; 40 editor/recovery/legacy
+module checks and a separate 33 recovery/Plan/Play checks pass; typecheck passes.
+The initial default test DB connection refusal and stale shared Python Core import
+failure remain in external logs. The isolated server is container
+`buddy-combat-manual-fc67`, loopback33073, data under external
+`manual-working/pgdata`; tests use owned template/clones only. Task-local venv uses
+the unchanged uv.lock and verified pinned Hermes tree273cf127; ignored source
+`out` points to external generated dependency storage. No shared API/UI changed.
+
+Preliminary review found two storage defects: cancellation-only v2 history was
+missing from downgrade refusal, and compact profile size did not prove JSONB text
+size. Both have code fixes and owning disposable DB regressions; final independent
+review still pending. Downgrade locks history writers through its refusal proof.
+
+Remaining before acceptance: finish editor usability/keyboard/projection focus and
+crowded wide/narrow layout; strengthen manual host/source/auth/history/CAS tests;
+run actual API/disposable DB browser journey after startup isolation audit;
+cumulative exact-head review and required exact-SHA backend and hosted/discovered
+frontend evidence with base comparison. The migration sequence rehearsal must be
+green and retained. Side/spotlight remains a later required slice. This checkpoint
+does not authorize merge, deployment of in-flight code or completion claims.

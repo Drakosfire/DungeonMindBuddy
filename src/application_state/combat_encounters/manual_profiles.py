@@ -1,7 +1,7 @@
-"""Private manual-profile validation; no persisted encounter version is activated.
+"""Pure validation and adjustments for immutable manual Combat profiles.
 
-Legacy v1 DTOs and serializers deliberately do not import this module. A later
-versioned record owner must compose these values with identity, source and turn
+Legacy v1 DTOs and serializers deliberately do not import this module. The
+versioned record owner composes these values with identity, source and turn
 state rather than inferring mechanics from human field labels.
 """
 
