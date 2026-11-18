@@ -1,5 +1,6 @@
 """Mounted APP page recovery plus actual Core/WorldKeeper native publication."""
 from tests.page_fixtures import page_text, save_page
+from tests.test_hosted_native_graph_access import hosted, recap_lane  # noqa: F401
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 import hashlib
 import json
@@ -734,3 +735,97 @@ def test_native_denied_source_cannot_publish(case,monkeypatch):
     assert response.status_code==409
     assert case.authority.publish_calls==0
     assert get(case).json()['phase']=='prepared'
+
+
+def test_hosted_operation_is_bound_to_reserving_principal(case):
+    from types import SimpleNamespace
+
+    intent = owner.parse_connected_page_intent(case.request)
+    creator = SimpleNamespace(role="gm", auth_method="hosted_owner", subject="hosted_dms:creator")
+    other = SimpleNamespace(role="gm", auth_method="hosted_owner", subject="hosted_dms:other")
+    prepared = owner.prepare_connected_page(case.root, intent, principal=creator)
+    assert prepared["phase"] == "prepared"
+    with pytest.raises(owner.ConnectedPageError, match="not found"):
+        owner.prepare_connected_page(case.root, intent, principal=other)
+    with pytest.raises(owner.ConnectedPageError, match="not found"):
+        owner.confirm_connected_page(
+            case.root, intent.operation_id, intent.world_id, prepared["prepared"]["confirm_token"], principal=other,
+        )
+    completed = owner.confirm_connected_page(
+        case.root, intent.operation_id, intent.world_id, prepared["prepared"]["confirm_token"], principal=creator,
+    )
+    assert completed["phase"] == "complete"
+
+
+def test_hosted_http_prepares_confirms_and_recovers_connected_page(case, hosted, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
+    from tests.test_hosted_native_graph_access import HOSTED_WORLD_ACCESS_ENV, OTHER_OWNER, OWNER, _record
+
+    world = case.record.world_id
+    hosted.records[world] = _record(world, OWNER, case.bound["native_world_id"])
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+    monkeypatch.setattr(native, "binding", lambda world_id: deepcopy(case.bound))
+    monkeypatch.setattr(native, "repository", lambda: case.repo)
+    monkeypatch.setattr(native, "read_repository", lambda: case.repo)
+    base = "/api/live/connected-pages"
+    from application_state.content import pages
+
+    owner_record = hosted.records[world]
+    write_page = pages.commit_page
+    load_state = pages._state
+    retained_page_ids = []
+
+    def transfer_on_lock(*args, **kwargs):
+        state = load_state(*args, **kwargs)
+        if kwargs.get("lock"):
+            hosted.records[world] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+        return state
+
+    def commit_with_transfer(document_id, *args, **kwargs):
+        retained_page_ids.append(document_id)
+        with monkeypatch.context() as locked:
+            locked.setattr(pages, "_state", transfer_on_lock)
+            return write_page(document_id, *args, **kwargs)
+
+    with monkeypatch.context() as transfer:
+        transfer.setattr(pages, "commit_page", commit_with_transfer)
+        denied = hosted.client.request("POST", f"{base}/prepare", json=case.request)
+    assert denied.status_code == 403, denied.text
+    assert len(retained_page_ids) == 1
+    assert pages.committed_page(retained_page_ids[0], world_id=world).revision is None
+    hosted.records[world] = owner_record
+    prepared = hosted.client.request("POST", f"{base}/prepare", json=case.request)
+    assert prepared.status_code == 200, prepared.text
+    operation = prepared.json()
+    assert operation["phase"] == "prepared"
+    confirm_body = {
+        "operation_id": operation["operation_id"], "world_id": world,
+        "confirm_token": operation["prepared"]["confirm_token"],
+    }
+    assert hosted.client.request("POST", f"{base}/confirm", json=confirm_body, origin=None).status_code == 403
+    owner_record = hosted.records[world]
+    space = case.bound["native_world_id"]
+    before = case.repo.get_head(space)
+    original_descriptors = native.descriptors
+
+    def transfer_during_descriptors(*args):
+        result = original_descriptors(*args)
+        hosted.records[world] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+        return result
+
+    with monkeypatch.context() as transfer:
+        transfer.setattr(native, "descriptors", transfer_during_descriptors)
+        denied = hosted.client.request("POST", f"{base}/confirm", json=confirm_body)
+    assert denied.status_code == 403, denied.text
+    assert case.repo.get_head(space) == before
+    assert case.authority.publish_calls == 0
+    hosted.records[world] = owner_record
+    confirmed = hosted.client.request("POST", f"{base}/confirm", json=confirm_body)
+    assert confirmed.status_code == 200, confirmed.text
+    completed = confirmed.json()
+    assert completed["phase"] == "complete"
+    status_path = f"{base}/{operation['operation_id']}?world_id={world}"
+    assert hosted.client.request("GET", status_path).json() == completed
+    assert hosted.client.request("GET", status_path, session="other-session").status_code == 403
+    assert hosted.client.request("POST", f"{base}/confirm", json=confirm_body).json() == completed
+    assert case.authority.publish_calls == 1

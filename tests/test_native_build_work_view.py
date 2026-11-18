@@ -230,3 +230,190 @@ def test_statblock_rule_edits_preserve_unmentioned_mechanics():
         _apply_statblock_rule_edits(base, {"add_rules": [], "replace_rules": [addition]})
     with pytest.raises(ValueError, match="key conflicts"):
         _apply_statblock_rule_edits(base, {"add_rules": [addition, addition], "replace_rules": []})
+
+
+@pytest.mark.parametrize("usage_kind", ["manual", "once"])
+def test_only_manual_single_self_reference_is_normalized_in_new_rules(usage_kind):
+    from application_state.agent_conversation.native_completion import _apply_statblock_rule_edits
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    first = base["rule_elements"][0]
+    manual = first | {
+        "key": "manual_truce", "automation_support": "manual",
+        "usage": first["usage"] | {"kind": usage_kind, "uses": 1 if usage_kind == "once" else None},
+        "mechanic": {"kind": "multiattack", "sequences": [
+            {"element_key": "manual_truce", "count": 1, "choice_group": None},
+        ]},
+    }
+    sequence = manual | {"key": "sequence", "mechanic": {
+        "kind": "multiattack", "sequences": [
+            {"element_key": first["key"], "count": 2, "choice_group": None},
+        ],
+    }}
+    result = _apply_statblock_rule_edits(base, {"add_rules": [manual, sequence], "replace_rules": []})
+    assert result == base | {"rule_elements": [
+        *base["rule_elements"],
+        manual | {"mechanic": {"kind": "human_adjudicated", "adjudication_tags": []}},
+        sequence,
+    ]}
+    assert manual["mechanic"]["kind"] == "multiattack"
+
+
+def test_variant_format_with_visible_reply_rejects_empty_segments_at_completion(monkeypatch):
+    from application_state.agent_conversation.native_completion import normalize_candidate
+
+    from application_state.agent_conversation import build_intentional_response
+
+    monkeypatch.setattr(build_intentional_response, "native_review_enabled", lambda _: True)
+    execution = SimpleNamespace(policy=SimpleNamespace(action=SimpleNamespace(surface_id="build")))
+    evidence = SimpleNamespace(
+        variant_format=True, variant_visible_reply=True, frame={"answer_policy": "fixture"},
+        work_frame={},
+    )
+    candidate = {
+        "schema": "fixture", "answer_segments": [], "limitations": [],
+        "requested_detail_gaps": [], "statblock_variant": None, "collaboration": {},
+    }
+    with pytest.raises(ValueError, match="requires a visible reply"):
+        normalize_candidate(candidate, None, execution, None, evidence)
+
+
+@pytest.mark.parametrize(
+    ("quotes", "valid"),
+    [
+        (["Only after the bell."], True),
+        ([], True),
+        (["Only before the bell."], False),
+        (["bell"], False),
+    ],
+)
+def test_variant_witness_binds_unique_authored_clause_to_containing_rule(quotes, valid):
+    from application_state.agent_conversation.native_completion import normalize_statblock_variant
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    work = {
+        "response_contract": {"requested_work": "draft_in_conversation", "operation": "answer_from_sources"},
+        "saved_statblocks": [{"event_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857", "definition": base}],
+        "working_draft_context": {"draft_markdown": "Only after the bell. The bell falls silent."},
+    }
+    added = base["rule_elements"][0] | {"key": "truce"}
+    proposal = {
+        "source": "statblock0",
+        "add_rules": [{"authored_quotes": quotes, "rule": added}],
+        "replace_rules": [],
+    }
+    if not valid:
+        with pytest.raises(ValueError, match="witness must identify exact authored text"):
+            normalize_statblock_variant({"statblock_variant": proposal}, work,
+                                        variant_edits=True, variant_witnesses=True)
+    else:
+        result = normalize_statblock_variant({"statblock_variant": proposal}, work,
+                                             variant_edits=True, variant_witnesses=True)
+        assert result.definition.model_dump()["rule_elements"][-1] == added
+
+
+def test_carried_condition_binds_identical_text_to_playable_trigger_and_display():
+    from application_state.agent_conversation.native_completion import _unwrap_witnessed_edits
+
+    clause = "The gate opens only after the second bell."
+    effect = "The guard steps aside."
+    row = {
+        "carried_condition": clause,
+        "authored_quotes": [],
+        "rule": {
+            "activation": {"trigger": {"condition_text": "After a bell."}},
+            "rules_text": effect,
+        },
+    }
+    assembled, = _unwrap_witnessed_edits([row], clause, carried_condition=True)
+    assert assembled["activation"]["trigger"]["condition_text"] == clause
+    assert assembled["rules_text"] == f"{clause}\n\n{effect}"
+    assert row["rule"]["rules_text"] == effect
+    for bad_source in ("", f"{clause}\n{clause}"):
+        with pytest.raises(ValueError, match="exact authored text"):
+            _unwrap_witnessed_edits([row], bad_source, carried_condition=True)
+    with pytest.raises(ValueError, match="requires a typed trigger"):
+        _unwrap_witnessed_edits([row | {"rule": {"rules_text": effect}}], clause, carried_condition=True)
+
+
+@pytest.mark.parametrize("review", [
+    {"p1": "retain"},
+    {"p1": "retain", "p2": "ignore"},
+    {"p1": "retain", "p2": "omit", "p3": "retain"},
+])
+def test_variant_review_requires_every_exact_draft_handle(review):
+    from application_state.agent_conversation.native_completion import normalize_statblock_variant
+
+    work = {"working_draft_context": {"draft_markdown": "One.\r\n\r\nTwo."}}
+    candidate = {"statblock_variant": {
+        "passage_review": review, "source": "statblock0", "add_rules": [], "replace_rules": [],
+    }}
+    with pytest.raises(ValueError, match="review every offered draft passage"):
+        normalize_statblock_variant(candidate, work, variant_edits=True, variant_passage_review=True)
+
+
+def test_variant_passages_keep_exact_text_order_and_ignore_blank_separators():
+    from application_state.agent_conversation.native_build_work_view import variant_draft_passages, variant_output_version
+
+    work = {"working_draft_context": {"draft_markdown": "First.\r\n\t\r\n  Second.\n\nThird.\n"}}
+    assert variant_draft_passages(work) == {"p1": "First.", "p2": "  Second.", "p3": "Third.\n"}
+    assert variant_output_version(work) == 10
+    assert variant_output_version({}) == 8
+
+
+@pytest.mark.parametrize("drift", [None, "unbound", "omitted", "timing", "dependency"])
+def test_retained_trigger_has_exact_binding_and_no_added_prerequisites(drift):
+    from application_state.agent_conversation.native_completion import _validate_retained_trigger_bindings
+
+    exact = "The gate opens only after the second bell."
+    passages = {"p1": exact, "p2": "The guards stand aside."}
+    activation = {
+        "timing_text": "After a deal." if drift == "timing" else None,
+        "trigger": {"source_element_key": "deal" if drift == "dependency" else None},
+    }
+    candidate = {
+        "passage_review": {"p1": "omit" if drift == "unbound" else "retain_trigger", "p2": "retain"},
+        "add_rules": [{"carried_condition": None if drift == "omitted" else exact,
+                       "rule": {"activation": activation}}],
+        "replace_rules": [],
+    }
+    if drift is None:
+        _validate_retained_trigger_bindings(candidate, passages)
+    else:
+        with pytest.raises(ValueError, match="[Tt]rigger"):
+            _validate_retained_trigger_bindings(candidate, passages)
+
+
+def test_retained_v9_passage_disposition_keeps_its_completion_contract():
+    from application_state.agent_conversation.native_completion import normalize_statblock_variant
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    exact = "The gate opens only after the second bell."
+    work = {
+        "response_contract": {"requested_work": "draft_in_conversation", "operation": "answer_from_sources"},
+        "saved_statblocks": [{"event_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857", "definition": base}],
+        "working_draft_context": {"draft_markdown": exact},
+    }
+    proposal = {
+        "source": "statblock0",
+        "passage_review": {"p1": "retain"},
+        "add_rules": [{
+            "authored_quotes": [], "carried_condition": None,
+            "rule": base["rule_elements"][0] | {"key": "truce"},
+        }],
+        "replace_rules": [],
+    }
+    options = dict(variant_edits=True, variant_witnesses=True,
+                   variant_carried_condition=True, variant_passage_review=True)
+    normalize_statblock_variant({"statblock_variant": proposal}, work, **options)
+
+    proposal["passage_review"]["p1"] = "retain_trigger"
+    with pytest.raises(ValueError, match="review every offered draft passage"):
+        normalize_statblock_variant({"statblock_variant": proposal}, work, **options)
+    with pytest.raises(ValueError, match="requires a carried condition"):
+        normalize_statblock_variant(
+            {"statblock_variant": proposal}, work, variant_trigger_retention=True, **options,
+        )
