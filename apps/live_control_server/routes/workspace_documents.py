@@ -708,6 +708,7 @@ def get_native_world_source_status(
 def post_native_world_source_admission(
     document_id: str,
     body: NativeWorldSourceAdmissionRequest,
+    request: Request = None,
 ) -> dict[str, Any]:
     try:
         return admit_native_world_source(
@@ -715,6 +716,7 @@ def post_native_world_source_admission(
             document_id,
             expected_revision=body.expected_revision,
             expected_body_sha256=body.expected_body_sha256,
+            authorize_world=lambda world: require_hosted_build_native_source(request, world),
         ).model_dump(mode="json")
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(

@@ -113,9 +113,11 @@ def find_saved_version(root, *, world_id, name, client=None):
 
 
 
-def _resume(record,client):
+def _resume(record,client,authorize=None):
+    if authorize is not None:authorize()
     if record.state in {'committed','refused'}:return record
     if record.state=='prepared':record=operations.settle(record,state='outcome_unknown')
+    if authorize is not None:authorize()
     try:
         result=client.append_revision(record.base.statblock_id,record.request_body)
         verify_exact_revision_mechanics_integrity(result)
@@ -162,7 +164,7 @@ def _asset_bindings(exact,asset_id,owner):
     return [binding.model_dump(mode='json') for binding in [*kept,portrait]]
 
 
-def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None):
+def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None,authorize=None):
     # No selection means the existing Save intent, not a new null-valued edit.
     intent=request.model_dump(mode='json',exclude={'portrait_asset_id'} if request.portrait_asset_id is None else set())
     if pdf_review is not None:
@@ -170,10 +172,12 @@ def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None):
     existing=operations.read(world_id=request.world_id,draft_id=draft_id,operation_id=request.operation_id)
     if existing and existing.input_digest!=digest(intent):
         raise ApplicationStateConflictError('Save key already belongs to different edits; recover its original outcome')
-    if existing and existing.state in {'committed','refused'}:return summary(existing)
+    if existing and existing.state in {'committed','refused'}:
+        if authorize is not None:authorize()
+        return summary(existing)
     owns=client is None;active=client or build_statblock_v1_client()
     try:
-        if existing:return summary(_resume(existing,active))
+        if existing:return _authorized_resume(existing,active,authorize)
         if operations.unresolved(world_id=request.world_id,draft_id=draft_id):
             raise ApplicationStateConflictError('Recover the unresolved Save before making another version')
         draft,origin,anchor,base=_selected(root,request.world_id,draft_id,request.base.revision_id)
@@ -206,14 +210,18 @@ def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None):
         record=RevisionOperation(operation_id=request.operation_id,world_id=request.world_id,draft_id=UUID(draft.draft_id),
             origin=origin,origin_acceptance_operation_id=anchor,base=base,input_digest=digest(intent),request_body=payload,
             request_digest=digest(payload),definition_digest=expected,created_at=now,updated_at=now)
-        record,_=operations.claim(record)
-        return summary(_resume(record,active))
+        if authorize is None:
+            record,_=operations.claim(record)
+        else:
+            authorize()
+            record,_=operations.claim(record,authorize=authorize)
+        return _authorized_resume(record,active,authorize)
     finally:
         if owns:active.close()
 
 
 
-def append_pdf_review(root, *, draft_id, world_id, review_id, request, load_review):
+def append_pdf_review(root, *, draft_id, world_id, review_id, request, load_review, authorize=None):
     from apps.live_control_server.models.statblock_saved_revision import SaveMechanicsRevisionRequest
 
     identity = {"world_id": world_id, "review_id": str(review_id), "revision": request.expected_revision}
@@ -225,7 +233,7 @@ def append_pdf_review(root, *, draft_id, world_id, review_id, request, load_revi
             or not same_mechanics_locator(existing.base.model_dump(), request.base)
         ):
             raise ApplicationStateConflictError("Save key already belongs to a different PDF review or base")
-        return recover(root, world_id=world_id, draft_id=draft_id, operation_id=request.operation_id)
+        return recover(root, world_id=world_id, draft_id=draft_id, operation_id=request.operation_id, authorize=authorize)
 
     review = load_review()
     if review["revision"] != request.expected_revision:
@@ -236,15 +244,25 @@ def append_pdf_review(root, *, draft_id, world_id, review_id, request, load_revi
             operation_id=request.operation_id, world_id=world_id, base=request.base,
             definition=review["definition"], change_summary="Append saved PDF statblock review",
         ),
-        pdf_review={**identity, "regions": review["regions"]},
+        pdf_review={**identity, "regions": review["regions"]}, authorize=authorize,
     )
 
-def recover(root,*,world_id,draft_id,operation_id,client=None):
-    record=operations.cancel_if_absent(world_id=world_id,draft_id=draft_id,operation_id=operation_id)
+def _authorized_resume(record, client, authorize):
+    result = _resume(record, client, authorize)
+    if authorize is not None:
+        authorize()
+    return summary(result)
+
+
+def recover(root,*,world_id,draft_id,operation_id,client=None,authorize=None):
+    if authorize is not None:authorize()
+    guard = {"authorize": authorize} if authorize is not None else {}
+    record=operations.cancel_if_absent(world_id=world_id,draft_id=draft_id,operation_id=operation_id,**guard)
+    if authorize is not None:authorize()
     if record is None:return None
     if record.state in {'committed','refused'}:return summary(record)
     owns=client is None;active=client or build_statblock_v1_client()
-    try:return summary(_resume(record,active))
+    try:return _authorized_resume(record,active,authorize)
     finally:
         if owns:active.close()
 
