@@ -230,7 +230,9 @@ def get_world_plan_inventory_page(
     limit: Annotated[int, Query(ge=1, le=100)] = 100,
     before_updated_at: datetime | None = None,
     before_document_id: UUID | None = None,
+    request: Request = None,
 ) -> WorldPlanInventoryPage:
+    require_hosted_plan_world_context(request, world_id)
     before = None
     if before_updated_at is not None or before_document_id is not None:
         if before_updated_at is None or before_document_id is None or before_updated_at.utcoffset() is None:
@@ -244,12 +246,14 @@ def get_world_plan_inventory_page(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     records = inventory.records[:limit]
     boundary = records[-1] if len(inventory.records) > limit else None
-    return WorldPlanInventoryPage(
+    page = WorldPlanInventoryPage(
         world_id=inventory.world_id,
         records=records,
         next_before_updated_at=boundary.updated_at if boundary else None,
         next_before_document_id=boundary.document_id if boundary else None,
     )
+    require_hosted_plan_world_context(request, world_id)
+    return page
 
 
 @router.post("/workspace-documents/world-plans", response_model=WorldOwnedPlanRecordV2)

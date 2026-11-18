@@ -394,6 +394,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/connected-pages/prepare"): access.resolve_hosted_connected_page,
             ("POST", "/api/live/connected-pages/confirm"): access.resolve_hosted_connected_page,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/workspace-documents/world-plans/page"): access.resolve_hosted_plan_inventory_page,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_committed_plan,
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
@@ -4703,3 +4704,36 @@ def test_hosted_frozen_source_spans_checks_owned_run_before_read(hosted, monkeyp
     denied = hosted.client.request("GET", path)
     assert denied.status_code == 403, denied.text
     assert "Private frozen source" not in denied.text
+
+
+def test_hosted_plan_inventory_page_authorizes_world_and_cursor(hosted, monkeypatch):
+    from apps.live_control_server.routes import workspace_documents
+
+    calls = []
+
+    def inventory(_root, *, world_id, limit, before):
+        calls.append((world_id, limit, before))
+        return SimpleNamespace(world_id=world_id, records=[])
+
+    monkeypatch.setattr(workspace_documents, "list_world_owned_plans_v2", inventory)
+    path = "/api/live/workspace-documents/world-plans/page?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path.replace("=managed", "=foreign")).status_code == 403
+    assert hosted.client.request("GET", path + "&before_document_id=missing-time").status_code == 403
+    assert hosted.client.request("GET", path + "&limit=2&limit=3").status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", path + "&limit=2")
+    assert result.status_code == 200, result.text
+    assert calls == [("managed", 3, None)]
+
+    def transfer_during_inventory(*args, **kwargs):
+        result = inventory(*args, **kwargs)
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return result
+
+    monkeypatch.setattr(workspace_documents, "list_world_owned_plans_v2", transfer_during_inventory)
+    denied = hosted.client.request("GET", path + "&limit=2")
+    assert denied.status_code == 403, denied.text
+    assert calls == [("managed", 3, None), ("managed", 3, None)]

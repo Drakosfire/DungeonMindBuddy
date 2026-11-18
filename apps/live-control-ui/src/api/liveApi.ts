@@ -602,6 +602,22 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && path === objectKindsPath + "?world_id=" + encodeURIComponent(worldId);
   }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
+  const planInventoryPage = "/api/live/workspace-documents/world-plans/page?";
+  if (path.startsWith(planInventoryPage)) {
+    const query = new URLSearchParams(path.slice(planInventoryPage.length));
+    const worldId = query.get("world_id");
+    const beforeUpdatedAt = query.get("before_updated_at");
+    const beforeDocumentId = query.get("before_document_id");
+    if (method !== "GET" || init?.body != null || !worldId || Boolean(beforeUpdatedAt) !== Boolean(beforeDocumentId)) return false;
+    const expected = new URLSearchParams({ world_id: worldId });
+    if (beforeUpdatedAt && beforeDocumentId) {
+      expected.set("before_updated_at", beforeUpdatedAt);
+      expected.set("before_document_id", beforeDocumentId);
+    }
+    const limit = query.get("limit");
+    if (limit) expected.set("limit", limit);
+    return path === planInventoryPage + expected;
+  }
   const activePlayRun = /^\/api\/live\/world-play-runs\/v2\/active\?([^#]+)$/.exec(path);
   if (activePlayRun && method === "PUT") {
     const query = new URLSearchParams(activePlayRun[1]);
@@ -952,6 +968,7 @@ function apiRequestTarget(
   let normalizedPath = path;
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
   const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
+    || normalizedPath === "/api/live/workspace-documents/world-plans/page"
     || normalizedPath === "/api/live/workspace-documents/world-plans"
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+(?:\/build-context)?$/.test(normalizedPath)
     || /^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:review-package|frozen-source-spans)$/.test(normalizedPath)
