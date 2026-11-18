@@ -96,13 +96,20 @@ class OrderedRoundTurn(_Model):
     round_start_actor_id: Identity | None = None
 
 
+class SideTurn(_Model):
+    kind: Literal["side"] = "side"
+    active_side_id: Identity | None = None
+    active_actor_id: Identity | None = None
+    acted_actor_ids: tuple[Identity, ...] = Field(default=(), max_length=100)
+
+
 class ManualEncounterDraft(_Model):
     schema_: Literal["dmb_combat_encounter_draft_v2"] = Field(default="dmb_combat_encounter_draft_v2", alias="schema")
     title: Name
     entities: list[ManualParticipant] = Field(default_factory=list, max_length=100)
     groups: list[ManualGroup] = Field(default_factory=list, max_length=100)
     sides: list[ManualSide] = Field(default_factory=list, max_length=32)
-    turn: Annotated[OrderedTurn | OrderedRoundTurn, Field(discriminator="kind")] = Field(default_factory=OrderedTurn)
+    turn: Annotated[OrderedTurn | OrderedRoundTurn | SideTurn, Field(discriminator="kind")] = Field(default_factory=OrderedTurn)
 
     @model_validator(mode="after")
     def coherent_references(self):
@@ -129,6 +136,20 @@ class ManualEncounterDraft(_Model):
         active = self.turn.active_actor_id
         if active is not None and (active not in actors or actors[active].participation != "in_action"):
             raise ValueError("active turn must reference an in-action participant")
+        if isinstance(self.turn, SideTurn):
+            side = self.turn.active_side_id
+            acted = self.turn.acted_actor_ids
+            if side is None:
+                if active is not None or acted:
+                    raise ValueError("unstarted side turn cannot retain actor references")
+            elif side not in side_ids:
+                raise ValueError("active side must reference this encounter")
+            if active is not None and actors[active].side_id != side:
+                raise ValueError("active actor must belong to the active side")
+            if len(set(acted)) != len(acted) or any(actor not in actors or actors[actor].side_id != side for actor in acted):
+                raise ValueError("acted markers must uniquely reference actors on the active side")
+            if active in acted:
+                raise ValueError("active actor cannot also have a finished turn marker")
         if isinstance(self.turn, OrderedRoundTurn):
             anchor = self.turn.round_start_actor_id
             if active is not None and anchor is None:
@@ -161,6 +182,8 @@ class ManualEncounterRecord(_Model):
             raise ValueError("session metadata requires a campaign")
         if self.ruleset_digest != manual_profile_digest(self.ruleset):
             raise ValueError("manual profile digest differs from its pinned snapshot")
+        if (self.ruleset.pacing.mode == "side") != isinstance(self.draft.turn, SideTurn):
+            raise ValueError("turn state must match the profile's pacing mode")
         if self.ruleset.pacing.rounds != isinstance(self.draft.turn, OrderedRoundTurn):
             raise ValueError("turn state must match the profile's round capability")
         for actor in self.draft.entities:
@@ -178,7 +201,7 @@ class ManualEncounterRecord(_Model):
 
 def empty_manual_draft(profile: ManualCombatProfile, title: str) -> ManualEncounterDraft:
     profile = ManualCombatProfile.model_validate(profile)
-    turn = OrderedRoundTurn() if profile.pacing.rounds else OrderedTurn()
+    turn = SideTurn() if profile.pacing.mode == "side" else OrderedRoundTurn() if profile.pacing.rounds else OrderedTurn()
     return ManualEncounterDraft(title=title, turn=turn)
 
 

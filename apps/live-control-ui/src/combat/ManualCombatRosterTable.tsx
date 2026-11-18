@@ -1,7 +1,7 @@
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import type {ManualCombatActor,ManualCombatDraft,ManualCombatProfile} from './ManualCombatTypes';
 import {ManualCombatValueInput} from './ManualCombatValueInput';
-import {adjustManualResource} from './ManualCombatState';
+import {actManualParticipant,adjustManualResource,finishManualParticipant} from './ManualCombatState';
 
 function StatusField({actor,disabled,onChange}:{actor:ManualCombatActor;disabled:boolean;onChange:(statuses:string[])=>boolean}) {
   const [text,setText]=useState(actor.statuses.join(', '));
@@ -15,12 +15,13 @@ function StatusField({actor,disabled,onChange}:{actor:ManualCombatActor;disabled
     onKeyDown={event=>{if(event.key==='Enter')event.currentTarget.blur();}}/>;
 }
 
-export function ManualCombatRosterTable({draft,profile,disabled,projection,sourceRegionId,onActorChange,onParticipation,onMove,onRemove,onProject,onError}:{
+export function ManualCombatRosterTable({draft,profile,disabled,projection,sourceRegionId,onActorChange,onParticipation,onMove,onRemove,onProject,onError,onTurnChange}:{
   draft:ManualCombatDraft;profile:ManualCombatProfile;disabled:boolean;projection:string|null;sourceRegionId:string;
   onActorChange:(actor:ManualCombatActor)=>boolean;
   onParticipation:(id:string,participation:ManualCombatActor['participation'])=>void;
   onMove:(id:string,direction:1|-1)=>void;onRemove:(id:string)=>void;
   onProject:(id:string,trigger:HTMLButtonElement)=>void;onError:(message:string)=>void;
+  onTurnChange?:(draft:ManualCombatDraft)=>boolean;
 }) {
   const participating=draft.entities.filter(actor=>actor.participation==='in_action');
   const activeRow=useRef<HTMLTableRowElement>(null);
@@ -37,6 +38,7 @@ export function ManualCombatRosterTable({draft,profile,disabled,projection,sourc
       </tr></thead>
       <tbody>{draft.entities.map(actor=>{
         const active=draft.turn.active_actor_id===actor.id;
+        const sideTurn=draft.turn.kind==='side'?draft.turn:null;
         const group=draft.groups.find(item=>item.member_ids.includes(actor.id));
         return <tr key={actor.id} ref={active?activeRow:undefined} aria-label={actor.name} hidden={!active&&!!group?.collapsed}
           className={`manual-combat-row${active?' is-active':''}${actor.participation==='out_of_action'?' is-out-of-action':''}`}>
@@ -50,6 +52,18 @@ export function ManualCombatRosterTable({draft,profile,disabled,projection,sourc
               {actor.mechanics_snapshot&&<button aria-label={`Project source for ${actor.name}`} aria-pressed={projection===actor.id} aria-controls={sourceRegionId}
                 onClick={event=>onProject(actor.id,event.currentTarget)}>Source</button>}
             </div>
+            {sideTurn&&<>
+              <label>Side<select aria-label={`Side for ${actor.name}`} disabled={disabled} value={actor.side_id??''}
+                onChange={event=>onActorChange({...actor,side_id:event.target.value||null})}>
+                <option value="">Unassigned</option>{draft.sides.map(side=><option key={side.id} value={side.id}>{side.label}</option>)}
+              </select></label>
+              {sideTurn.acted_actor_ids.includes(actor.id)&&<span className="manual-combat-turn-marker">Took a turn</span>}
+              <button disabled={disabled||!onTurnChange||actor.participation!=='in_action'||sideTurn.active_side_id===null||actor.side_id!==sideTurn.active_side_id}
+                aria-label={`${active?'Finish turn for':sideTurn.acted_actor_ids.includes(actor.id)?'Act again with':'Act now with'} ${actor.name}`}
+                onClick={()=>onTurnChange?.(active?finishManualParticipant(draft):actManualParticipant(draft,actor.id))}>
+                {active?'Finish turn':sideTurn.acted_actor_ids.includes(actor.id)?'Act again':'Act now'}
+              </button>
+            </>}
             {group&&<span className="manual-combat-group-label">{group.label}</span>}
             {actor.world_identity&&<span className="manual-combat-group-label">Graph: {actor.world_identity.label}</span>}
           </th>

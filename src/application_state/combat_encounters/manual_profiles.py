@@ -11,7 +11,7 @@ import hashlib
 import json
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _LIMIT = 999999
 _CANONICAL_PROFILE_BYTES = 32 * 1024
@@ -62,6 +62,18 @@ class OrderedPacing(_Immutable):
     rounds: Annotated[bool, Field(strict=True)] = False
 
 
+class SidePacing(_Immutable):
+    mode: Literal["side"] = "side"
+    rounds: Literal[False] = False
+
+    @field_validator("rounds", mode="before")
+    @classmethod
+    def strict_rounds(cls, value):
+        if type(value) is not bool:
+            raise ValueError("side pacing requires a boolean round capability")
+        return value
+
+
 class ManualCombatProfile(_Immutable):
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True, revalidate_instances="always")
 
@@ -72,7 +84,16 @@ class ManualCombatProfile(_Immutable):
     revision: Annotated[int, Field(strict=True, ge=1, le=9999)] = 1
     stats: tuple[StatDefinition, ...] = Field(default=(), max_length=32)
     resources: tuple[ResourceDefinition, ...] = Field(default=(), max_length=16)
-    pacing: OrderedPacing = Field(default_factory=OrderedPacing)
+    pacing: Annotated[OrderedPacing | SidePacing, Field(discriminator="mode")] = Field(default_factory=OrderedPacing)
+
+    @field_validator("pacing", mode="before")
+    @classmethod
+    def retain_ordered_input_default(cls, value):
+        # Previously OrderedPacing accepted an omitted mode. Retained snapshots
+        # are explicit, but existing creation callers must keep that default.
+        if isinstance(value, dict) and "mode" not in value:
+            return {"mode": "ordered", **value}
+        return value
 
     @model_validator(mode="after")
     def bounded_unique_descriptors(self):

@@ -9,3 +9,13 @@ export function manualCombatRecord():ManualCombatRecord {
     created_at:'2026-11-18T00:00:00Z',updated_at:'2026-11-18T00:00:00Z',ruleset:profile,ruleset_digest:'a'.repeat(64),
     draft:{schema:'dmb_combat_encounter_draft_v2',title:'Crossing',entities:[newManualActor(profile,'Crew')],groups:[],sides:[],turn:{kind:'ordered',active_actor_id:null}}};
 }
+
+export function sideCombatRecord():ManualCombatRecord {
+  const record=manualCombatRecord();
+  record.ruleset.pacing={mode:'side',rounds:false};
+  record.draft.sides=[{id:'crew',label:'Crew side'},{id:'river',label:'River'},{id:'watch',label:'Watch'}];
+  record.draft.entities[0].side_id='crew';
+  const watch=newManualActor(record.ruleset,'Watcher');watch.side_id='watch';record.draft.entities.push(watch);
+  record.draft.turn={kind:'side',active_side_id:null,active_actor_id:null,acted_actor_ids:[]};
+  return record;
+}

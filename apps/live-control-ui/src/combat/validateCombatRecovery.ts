@@ -61,6 +61,7 @@ export function validManualDraft(record:ManualCombatRecord, draft:ManualCombatDr
   const ids=draft.entities.map(actor=>actor.id), sides=draft.sides.map(side=>side.id);
   if (!unique(ids)||!unique(sides)||!unique(draft.groups.map(group=>group.id))) return false;
   if (record.ruleset.pacing.rounds !== (draft.turn.kind==='ordered_rounds')) return false;
+  if ((record.ruleset.pacing.mode==='side') !== (draft.turn.kind==='side')) return false;
   const fields=record.ruleset.stats.map(field=>field.field_id), resources=record.ruleset.resources.map(field=>field.field_id);
   const sameKeys=(value:object,keys:string[])=>Object.keys(value).length===keys.length&&keys.every(key=>Object.hasOwn(value,key));
   if (!unique([...fields,...resources])) return false;
@@ -87,6 +88,12 @@ export function validManualDraft(record:ManualCombatRecord, draft:ManualCombatDr
   if(!unique(memberships))return false;
   const active=draft.turn.active_actor_id;
   if(active!==null&&!draft.entities.some(actor=>actor.id===active&&actor.participation==='in_action'))return false;
+  if(draft.turn.kind==='side') {
+    const {active_side_id:side,acted_actor_ids:acted}=draft.turn;
+    if(side===null&&(active!==null||acted.length>0) || side!==null&&!sides.includes(side))return false;
+    if(active!==null&&!draft.entities.some(actor=>actor.id===active&&actor.side_id===side))return false;
+    if(!unique(acted)||acted.includes(active??'')||acted.some(id=>!draft.entities.some(actor=>actor.id===id&&actor.side_id===side)))return false;
+  }
   if(draft.turn.kind==='ordered_rounds') {
     const anchor=draft.turn.round_start_actor_id;
     if(active!==null&&anchor===null || anchor!==null&&!ids.includes(anchor))return false;

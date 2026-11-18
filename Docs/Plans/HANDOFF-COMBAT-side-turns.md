@@ -27,6 +27,7 @@ This lane exclusively expects writes to:
   combatRecoverySchema.json and its existing generator only if required.
 - Existing owning manual profile/record/persistence/HTTP/recovery/editor/Plan/Play
   tests, new focused side state/component tests, relevant cross-language fixtures,
+  ManualCombat.testSupport.ts for the shared synthetic side fixture,
   ci/contracts.json and ci/test-classification.json for actual owning coverage.
 - This handoff and truthful predecessor settlement in
   HANDOFF-COMBAT-manual-profile.md. If an owning API/access/session-preview file
@@ -111,3 +112,25 @@ explicit Act again/Finish/Pass, defeat/return without marker reset, field/status
 note changes, source projection, Save/reload/recovery and Plan/Play separation at
 wide/narrow sizes. A focused route harness is valid boundary evidence but does not
 replace the full goal's real product startup/local delivery acceptance.
+
+## Implementation checkpoint — not accepted or complete
+
+The first vertical implementation adds the side profile/turn discriminator,
+reference and mode validation, a forward reader fence, shared side selection/
+Act/Finish/Act again/Pass controls, side assignment/management and an explicit
+persistent side choice for batch additions. Existing manual initialization already
+remaps side membership and resets turn state through empty_manual_draft; its
+implementation did not need changes. Existing ordered input with an omitted mode
+retains its prior default and canonical result. Generated recovery checks include
+side state and refuse foreign/duplicate markers, wrong modes and actor/marker
+collisions. No alternate draft, provider or authorization owner was introduced.
+
+Working-tree diagnostics only:117 pure profile/record/generated-schema checks,
+41 focused client state/editor/recovery/Plan/Play cases and typecheck pass. Earlier
+owning persistence/HTTP checkpoint108 passed before the final added HTTP/source
+parameterizations and forward-fence refusal assertion. The first local typecheck
+hit read-only external node_modules storage; the approved external-storage run
+under the shared lock passed. One existing Plan test emits an act warning, retained
+in output. No claim of exact-head qualification, browser acceptance or merge
+readiness is made. Next: final exact-source backend/frontend evidence with base
+comparison, real-route/APP browser side flow and independent cumulative review.

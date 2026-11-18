@@ -1,7 +1,8 @@
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {act,cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {ManualCombatEditor} from './ManualCombatEditor';
-import {manualCombatRecord} from './ManualCombat.testSupport';
+import {ManualCombatProfileForm} from './ManualCombatProfileForm';
+import {manualCombatRecord,sideCombatRecord} from './ManualCombat.testSupport';
 import {testCombatLocks} from './combatRecovery.testSupport';
 import * as api from './combatApi';
 import {combatRecoveryKey} from './combatRecovery';
@@ -17,6 +18,62 @@ async function open(record=manualCombatRecord()) {
   await waitFor(()=>expect((screen.getByLabelText('Stress current for Crew') as HTMLInputElement).disabled).toBe(false));
   return {record,saved};
 }
+
+it('creates a side profile explicitly without carrying an ordered round counter',async()=>{
+  const create=vi.fn().mockResolvedValue(undefined);
+  render(<ManualCombatProfileForm disabled={false} onCreate={create}/>);
+  fireEvent.click(screen.getByText('Create for another system'));
+  fireEvent.click(screen.getByLabelText('Count rounds'));
+  fireEvent.change(screen.getByLabelText('Turn structure'),{target:{value:'side'}});
+  expect(screen.queryByLabelText('Count rounds')).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Create manual encounter'}));
+  await waitFor(()=>expect(create).toHaveBeenCalledTimes(1));
+  expect(create.mock.calls[0][1].pacing).toEqual({mode:'side',rounds:false});
+  expect(create.mock.calls[0][1].stats.map((field:{label:string})=>field.label)).toEqual(['Position','Resolve']);
+});
+
+it('runs side turns through the shared editor, including empty sides and retained finished markers',async()=>{
+  const record=sideCombatRecord();await open(record);
+  expect(screen.queryByRole('button',{name:'Next turn'})).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Start side turns'}));
+  fireEvent.click(screen.getByRole('button',{name:'Act now with Crew'}));
+  fireEvent.click(screen.getByRole('button',{name:'Finish turn for Crew'}));
+  expect(screen.getByText('Took a turn')).toBeTruthy();
+  const row=screen.getByRole('row',{name:'Crew'});
+  fireEvent.click(within(row).getByRole('button',{name:'Take out of action'}));
+  fireEvent.click(within(row).getByRole('button',{name:'Return to action'}));
+  expect(screen.getByRole('button',{name:'Act again with Crew'})).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:'Pass side'}));
+  expect(screen.getByText('No participants in action on this side. You can pass explicitly.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:'Pass side'}));
+  fireEvent.change(screen.getByLabelText('Acting participant'),{target:{value:record.draft.entities[1].id}});
+  expect(screen.getByRole('button',{name:'Finish turn for Watcher'})).toBeTruthy();
+  const raw=JSON.parse(localStorage.getItem(combatRecoveryKey(record.world_id,record.encounter_id))!);
+  expect(raw.draft.turn).toEqual({kind:'side',active_side_id:'watch',active_actor_id:record.draft.entities[1].id,acted_actor_ids:[]});
+});
+
+it('moves a finished actor to a different side without retaining invalid phase references',async()=>{
+  const record=sideCombatRecord();await open(record);
+  fireEvent.click(screen.getByRole('button',{name:'Start side turns'}));
+  fireEvent.click(screen.getByRole('button',{name:'Act now with Crew'}));
+  fireEvent.click(screen.getByRole('button',{name:'Finish turn for Crew'}));
+  fireEvent.change(screen.getByLabelText('Side for Crew'),{target:{value:'watch'}});
+  expect(screen.queryByText('Took a turn')).toBeNull();
+  const raw=JSON.parse(localStorage.getItem(combatRecoveryKey(record.world_id,record.encounter_id))!);
+  expect(raw.draft.turn).toMatchObject({active_side_id:'crew',active_actor_id:null,acted_actor_ids:[]});
+  expect(raw.draft.entities[0].side_id).toBe('watch');
+});
+
+it('keeps an explicit side choice while adding several participants',async()=>{
+  const record=sideCombatRecord();await open(record);
+  fireEvent.change(screen.getByLabelText('Side for new participants'),{target:{value:'watch'}});
+  for(const name of ['Guard one','Guard two']) {
+    fireEvent.change(screen.getByLabelText('Participant name'),{target:{value:name}});
+    fireEvent.click(screen.getByRole('button',{name:'Add participant',exact:true}));
+  }
+  const raw=JSON.parse(localStorage.getItem(combatRecoveryKey(record.world_id,record.encounter_id))!);
+  expect(raw.draft.entities.slice(-2).map((actor:{side_id:string})=>actor.side_id)).toEqual(['watch','watch']);
+});
 it('keeps participation independent of zero and changing resource bounds',async()=>{
   const {record}=await open();
   fireEvent.change(screen.getByLabelText('Stress current for Crew'),{target:{value:'0'}});
