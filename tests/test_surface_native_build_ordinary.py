@@ -380,7 +380,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if scope is not None:
                     assert scope['scope']['task']['text'] == ('Can I end my move in an occupied space?' if failure == 'mixed_questions' else 'Discuss where the lamp belongs.')
                     assert scope['scope']['sibling_context'][0]['selected'] is False
-            if with_draft:
+            if with_draft and "passages" in work['current_draft']:
+                from application_state.agent_conversation.native_build_work_view import variant_draft_passages
+
+                assert work['current_draft']['passages'] == variant_draft_passages({
+                    "working_draft_context": {"draft_markdown": draft.snapshot.draft_markdown},
+                })
+            elif with_draft:
                 assert work['current_draft']['markdown']==draft.snapshot.draft_markdown
                 if mode:
                     assert body['input'].count(json.dumps(draft.snapshot.draft_markdown,ensure_ascii=False)[1:-1])==1
@@ -1745,6 +1751,22 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
         assert sources["support"] == [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture"}]
     else:
         assert sources is None
+
+
+@pytest.mark.parametrize("scope", ["anchored", "source_lookup"])
+def test_draft_acquires_optional_page_only_for_source_lookup(lane, tmp_path, monkeypatch, scope):
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, False,
+        message="Draft the variant for this encounter in conversation.",
+        requested_work="draft_in_conversation", saved_statblock="associated",
+        source_need=scope, read_optional_page=True,
+    )
+    requests = [json.loads(call.content) for call in case.decisions.calls]
+    assert any(name.startswith("related_page_") for request in requests for name in request["questions"])
+    events = case.turn.graph_context_execution.events
+    assert any(isinstance(event, t.BuildDraftContextCapturedV1) for event in events)
+    assert any(event.kind == "build_related_page_read_v1" for event in events) == (scope == "source_lookup")
+    assert any(event.kind == "build_saved_statblock_read_v1" for event in events)
 
 
 def test_anchored_discussion_only_offers_current_page_and_saved_mechanics(lane, tmp_path, monkeypatch):
