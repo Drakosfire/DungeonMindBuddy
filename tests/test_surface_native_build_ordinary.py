@@ -441,9 +441,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 variant_schema = body["text"]["format"]["schema"]["properties"]["statblock_variant"]
                 fields = next(option["properties"] for option in variant_schema.get("anyOf", [variant_schema])
                               if "properties" in option)
+                rule_fields = fields["add_rules"]["items"]["properties"]
+                if "authored_quotes" in rule_fields:
+                    new_rule = {"rule": new_rule, "authored_quotes": []}
+                if "carried_condition" in rule_fields:
+                    new_rule["carried_condition"] = None
                 candidate["statblock_variant"] = {
                     "source": "statblock0",
-                    "add_rules": [{"rule": new_rule, "authored_quotes": [], "carried_condition": None}],
+                    "add_rules": [new_rule],
                     "replace_rules": [],
                 }
                 if "passage_review" in fields:
@@ -484,6 +489,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     ordered_refs=[dict(domain="base", segment_index=None),
                                   dict(domain="rules", segment_index=0)],
                 )
+            if body["text"]["format"]["name"] == "surface_native_evidence_selectors_v7":
+                candidate["answer_segments"] = [
+                    dict(kind="discussion", text="We can explore a truce for this creature.")
+                ]
             self.actual_output=json.dumps(candidate)
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
                 created_at=1, status='incomplete' if failure in {'writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'} else 'completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
@@ -1120,7 +1129,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert lane.repo.get_head(world).head_revision_id == current_revision
         return
     if saved_statblock in {"associated", "by-name"}:
-        assert context['completion']['answer_context_status'] == 'source_grounded'
+        expected_status = (
+            'discussion'
+            if json.loads(writer.calls[-1].content)["text"]["format"]["name"]
+            == "surface_native_evidence_selectors_v7"
+            else 'source_grounded'
+        )
+        assert context['completion']['answer_context_status'] == expected_status
         assert context['completion']['native_assertion_citations'] == []
         return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions)
     citations = context['completion']['native_assertion_citations']
@@ -1713,7 +1728,7 @@ def test_low_score_valid_image_selection_prepares_review_through_ordinary_http(l
     scores=dict(build_encounter=0.0,change_mechanics=0.0,clarify_creation=.07,clarify_request=.04,
         discuss=0.0,draft_in_conversation=0.0,other_creation=.27,place_map_coordinates=0.0,plan=.02,prepare_image=.40,
         publish_relationships=0.0,review_connected_page=.01,review_relationship=0.0,
-        save_page=0.0,write_current_page=.19)
+        review_variant_approval=0.0,save_page=0.0,write_current_page=.19)
     _fresh_case(lane,tmp_path,monkeypatch,None,True,False,'image',selection_probabilities=scores,
         message='Create an interior design detailed enough to generate a map from.')
 
@@ -1981,7 +1996,9 @@ def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
 
 
 @pytest.mark.parametrize("variant_validation", ["valid", "warnings", "invalid", None, "malformed", "mismatched"])
-def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_path, monkeypatch, variant_validation):
+def test_ordinary_build_attaches_variant_review_to_conversation_draft(
+    lane, tmp_path, monkeypatch, variant_validation, application_state_dsn,
+):
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Draft the Meat Mind variant in this conversation for review.",
@@ -2018,6 +2035,23 @@ def test_ordinary_build_attaches_variant_review_to_conversation_draft(lane, tmp_
     reopened = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
     assert reopened.status_code == 200, reopened.text
     assert "variant_draft_reviewed" not in reopened.json()["messages"][-1]
+
+    # When the newer revision gains its own review, the chat can present it.
+    from uuid import uuid4
+
+    import psycopg
+
+    from application_state.agent_conversation.conversation_variant_save import store_review
+
+    with psycopg.connect(application_state_dsn) as conn:
+        store_review(
+            conn, world_id=case.world, conversation_id=case.turn.conversation_id,
+            turn_id=case.turn.turn_id, revision=2, review_id=uuid4(),
+            definition=definition, base_locator=reviewed.json()["base_locator"],
+        )
+    reopened = case.client.get(f"/api/live/agent/worlds/{case.world}/conversations/active/messages")
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["messages"][-1]["variant_draft_reviewed"] is True
 
 
 def test_requested_chat_draft_is_persisted_by_ordinary_build(lane, tmp_path, monkeypatch):
