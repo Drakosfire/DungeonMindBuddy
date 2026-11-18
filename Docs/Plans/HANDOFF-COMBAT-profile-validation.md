@@ -1,6 +1,16 @@
 # COMBAT — validate system-neutral manual profiles
 
-ACTIVE under the operator's Combat implementation and review/accepted-merge
+MERGED as #3990 at `1e208b20ac64bcac7682b4f8ea7ea5919fc69e79`; source lease
+released to HANDOFF-COMBAT-versioned-records.md. Exact reviewed head
+`c61c350d4a070ca88ea841737e2971a0d1a2f3b7` has independent code/evidence acceptance:
+49 named-contract profile tests,16 CI guards and all1,557 classified files pass
+in a clean isolated exact-SHA checkout with locked dependencies. Source/hash/
+fixture/environment/Projects UUID/cleanup evidence is retained under
+profile-exact-c61c350d4a070ca88ea841737e2971a0d1a2f3b7 in the task evidence root.
+The managed verification checkout is confirmed archived. No persistence, UI,
+DB/provider/runtime activation or full-goal completion is claimed.
+
+Original authority: under the operator's Combat implementation and review/accepted-merge
 authority. Serial successor to #3984, merged
 `c67f8b8a50c5d7aab63dd983d5bf75d859710c54`. Fetched base
 `b416410d5ecc3031a2c2db56a8aa31e0e5c480f6`; branch
