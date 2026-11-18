@@ -149,6 +149,7 @@ from apps.live_control_server.services.hosted_native_graph_access import (
     resolve_hosted_build_page_create,
     resolve_hosted_build_page_inventory,
     resolve_hosted_explorer_world,
+    resolve_hosted_threat_hydration,
     resolve_hosted_first_world,
     resolve_hosted_manual_knowledge,
     resolve_hosted_native_relationship,
@@ -195,6 +196,7 @@ PDF_STATBLOCK_REVIEWS_PATH = f"{BUILD_PDF_SOURCES_PATH}/statblock-reviews"
 PDF_STATBLOCK_REVIEW_PATH = f"{PDF_STATBLOCK_REVIEWS_PATH}/{{review_id}}"
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", "/api/live/threats/query-hydration"): resolve_hosted_threat_hydration,
     ("POST", "/api/live/recap-name-review"): resolve_hosted_recap_name_review,
     ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): resolve_hosted_conversation_world,
