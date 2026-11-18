@@ -22,11 +22,6 @@ import "../../combat/combatRoster.css";
 import {CombatRecoverySession, combatDraftEqual, combatSelectionKey, type CombatRecovery} from "../../combat/combatRecovery";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
 
-function valueText(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  return String(value);
-}
-
 function asInput(value: unknown): string {
   if (value === null || value === undefined) return "";
   return String(value);
@@ -37,6 +32,12 @@ function numericValue(value: number | string | null): number | null {
   if (typeof value !== "string" || value.trim() === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function manualStatValue(value: string): number | string | null {
+  if (value.trim() === "") return null;
+  const numeric = Number(value);
+  return Number.isSafeInteger(numeric) ? numeric : value;
 }
 
 function activeActor(draft: CombatEncounterDraft | null): CombatEntity | null {
@@ -88,7 +89,8 @@ function RosterRow({
 
   function applyDelta(action: "damage" | "heal", amount: number) {
     const hp = numericValue(entity.hp);
-    const maxHp = numericValue(entity.max_hp);
+    const maximum = numericValue(entity.max_hp);
+    const maxHp = maximum !== null && Number.isSafeInteger(maximum) ? maximum : null;
     if (hp === null) {
       setError("Enter numeric HP before applying damage or healing.");
       return;
@@ -99,7 +101,7 @@ function RosterRow({
       update({ temp_hp: entity.temp_hp - absorbed, hp: Math.max(0, hp - remaining) });
       return;
     }
-    update({ hp: maxHp === null ? hp + amount : Math.min(maxHp, hp + amount) });
+    update({ hp: maxHp === null ? hp + amount : Math.max(hp, Math.min(maxHp, hp + amount)) });
   }
 
   const damageAmount = Number.parseInt(damage, 10);
@@ -141,7 +143,11 @@ function RosterRow({
           onChange={(event) => update({ init: numberOrNull(event.target.value) })}
         />
       </td>
-      <td>{valueText(entity.ac)}</td>
+      <td>
+        <input aria-label={`AC for ${entity.name}`} className="combat-roster-short-input"
+          value={asInput(entity.ac)} maxLength={64} disabled={disabled}
+          onChange={event => update({ac: manualStatValue(event.target.value)})}/>
+      </td>
       <td className="combat-roster-health">
         <input
           aria-label={`HP for ${entity.name}`}
@@ -152,7 +158,10 @@ function RosterRow({
             const parsed = numberOrNull(event.target.value);
             update({ hp: parsed === null && event.target.value.trim() !== "" ? event.target.value : parsed });
           }}
-        />{" "}/ {valueText(entity.max_hp)}
+        />{" "}/ <input aria-label={`Maximum HP for ${entity.name}`} className="combat-roster-short-input"
+          title="Whole numbers cap healing. Text values are tracked manually."
+          value={asInput(entity.max_hp)} maxLength={64} disabled={disabled}
+          onChange={event => update({max_hp: manualStatValue(event.target.value)})}/>
         <label className="combat-roster-temp"><span>Temp</span>
         <input
           aria-label={`Temp HP for ${entity.name}`}

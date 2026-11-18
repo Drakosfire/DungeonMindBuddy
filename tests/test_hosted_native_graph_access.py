@@ -356,6 +356,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): access.resolve_hosted_play_command,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/review/commands/{command_id}"): access.resolve_hosted_play_command,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/reference-manifest"): access.resolve_hosted_play_read,
@@ -2653,19 +2654,46 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
 
     evidence_path = "/api/live/world-session-evidence?world_id=managed"
     revision_path = f"/api/live/world-session-evidence/{run_id}/revisions/1?world_id=managed"
-    from application_state.play.session_review import ReviewCommand, commit_review
     from apps.live_control_server.services.play_run_edition import read_content
 
     content = read_content(run_id=run_id, world_id="managed")
+    basis = {
+        "expected_run_revision": content.observed_run_revision,
+        "expected_content_sha256": content.content_sha256,
+    }
+    end_path = f"{base}/review/commands/{uuid4()}?world_id=managed"
     reflections = "The party returned safely after scouting the gate."
-    commit_review(
-        world_id="managed", run_id=run_id, command_id=str(uuid4()),
-        request=ReviewCommand(
-            action="end", expected_revision=0,
-            expected_run_revision=content.observed_run_revision,
-            expected_content_sha256=content.content_sha256, final_thoughts=reflections,
-        ),
-    )
+    end = {**basis, "action": "end", "expected_revision": 0, "final_thoughts": reflections}
+    assert hosted.client.request("PUT", end_path, json=end, origin=None).status_code == 403
+    assert hosted.client.request("PUT", end_path, json=end, session="other-session").status_code == 403
+    from application_state.play import session_review
+
+    original_owner = hosted.records["managed"]
+    lock_review = session_review._locked_state
+
+    def revoke_review_access(*args, **kwargs):
+        state = lock_review(*args, **kwargs)
+        hosted.records["managed"] = original_owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return state
+
+    with monkeypatch.context() as patch:
+        patch.setattr(session_review, "_locked_state", revoke_review_access)
+        denied = hosted.client.request("PUT", end_path, json=end)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    hosted.records["managed"] = original_owner
+    review_path = f"{base}/review?world_id=managed"
+    assert hosted.client.request("GET", review_path).json()["review"] is None
+    ended = hosted.client.request("PUT", end_path, json=end)
+    assert ended.status_code == 200, ended.text
+    assert hosted.client.request("PUT", end_path, json=end).json() == ended.json()
+    with monkeypatch.context() as patch:
+        patch.setattr(session_review, "_locked_state", revoke_review_access)
+        denied = hosted.client.request("PUT", end_path, json=end)
+    assert denied.status_code == 403, denied.text
+    assert reflections not in denied.text
+    hosted.records["managed"] = original_owner
+
     indexed = hosted.client.request("GET", evidence_path)
     assert indexed.status_code == 200, indexed.text
     assert [item["run_id"] for item in indexed.json()["sessions"]] == [run_id]
@@ -2738,6 +2766,20 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
 
 
     hosted.records["managed"] = owner
+    save_path = f"{base}/review/commands/{uuid4()}?world_id=managed"
+    save = {**basis, "action": "save", "expected_revision": 1, "draft_markdown": "# Session notes"}
+    saved = hosted.client.request("PUT", save_path, json=save)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["draft_markdown"] == save["draft_markdown"]
+
+    reopen_path = f"{base}/review/commands/{uuid4()}?world_id=managed"
+    reopen = {**basis, "action": "reopen", "expected_revision": 2}
+    reopened = hosted.client.request("PUT", reopen_path, json=reopen)
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["status"] == "playing"
+    assert reopened.json()["draft_markdown"] == save["draft_markdown"]
+
+
     content = read_content(run_id=run_id, world_id="managed")
     from tests.integration.test_build_images_postgres import saved_image
 
