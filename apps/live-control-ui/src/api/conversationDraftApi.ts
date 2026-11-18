@@ -78,6 +78,29 @@ export async function openVariantReview(scope: ConversationDraftScope, reviewId:
   return requestDraftResource(scope, undefined, `/variant-reviews/${encodeURIComponent(reviewId)}`);
 }
 
+export type VariantRuleField = "rules_text" | "timing_text" | "condition_text";
+
+export interface VariantTextReplacement {
+  rule_key: string;
+  field: VariantRuleField;
+  replace_exact: string;
+  with_text: string;
+}
+
+export async function correctVariantReview(
+  scope: ConversationDraftScope, reviewId: string, revision: number, replacements: VariantTextReplacement[],
+): Promise<{ review_id: string; revision: number }> {
+  const body = await requestDraftResource(scope, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ expected_revision: revision, replacements }),
+  }, `/variant-reviews/${encodeURIComponent(reviewId)}`);
+  if (typeof body?.review_id !== "string" || body.revision !== revision + 1) {
+    throw new Error("The corrected review could not be verified. Reopen the draft.");
+  }
+  return body;
+}
+
 export async function confirmVariantReview(scope: ConversationDraftScope, reviewId: string): Promise<{ revision_id: string }> {
   return requestDraftResource(scope, { method: "POST" }, `/variant-reviews/${encodeURIComponent(reviewId)}/confirm`);
 }

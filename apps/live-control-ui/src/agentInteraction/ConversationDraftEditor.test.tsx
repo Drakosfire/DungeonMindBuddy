@@ -1,7 +1,7 @@
 import { readSavedConversationVariantTarget } from "../statblocks/savedStatblockLocation";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { confirmVariantReview, openConversationDraft, openConversationVariantApproval, openVariantReview, saveConversationDraft } from "../api/conversationDraftApi";
+import { confirmVariantReview, correctVariantReview, openConversationDraft, openConversationVariantApproval, openVariantReview, saveConversationDraft } from "../api/conversationDraftApi";
 import { ConversationDraftEditor, ConversationVariantApproval } from "./ConversationDraftEditor";
 
 vi.mock("../api/conversationDraftApi", () => ({
@@ -10,6 +10,7 @@ vi.mock("../api/conversationDraftApi", () => ({
   saveConversationDraft: vi.fn(),
   openVariantReview: vi.fn(),
   confirmVariantReview: vi.fn(),
+  correctVariantReview: vi.fn(),
 }));
 
 it("keeps unsaved Markdown visible when the revision changes", async () => {
@@ -141,4 +142,66 @@ it("rejects a draft edited after the approval lookup", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Find reviewed statblock" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("The reviewed draft changed.");
   expect(screen.queryByRole("button", { name: "Confirm and save as new statblock" })).not.toBeInTheDocument();
+});
+
+it("stages a bounded rule correction and confirms only the successor review", async () => {
+  const scope = { worldId: "world", conversationId: "conversation", turnId: "producer" };
+  vi.mocked(confirmVariantReview).mockClear().mockResolvedValueOnce({ revision_id: "saved" });
+  vi.mocked(openConversationDraft)
+    .mockResolvedValueOnce({ revision: 1, markdown: "Original", variant_review_ids: ["old"] })
+    .mockResolvedValueOnce({ revision: 2, markdown: "Updated", variant_review_ids: ["new"] });
+  const definition = { rule_elements: [{
+    key: "rain", name: "Rain", rules_text: "Any hostile action starts the rain.", activation: {},
+  }] } as Awaited<ReturnType<typeof openVariantReview>>["definition"];
+  vi.mocked(openVariantReview)
+    .mockResolvedValueOnce({ revision: 1, definition })
+    .mockResolvedValueOnce({ revision: 2, definition });
+  vi.mocked(correctVariantReview).mockResolvedValueOnce({ revision: 2, review_id: "new" });
+
+  render(<ConversationDraftEditor scope={scope} />);
+  fireEvent.click(screen.getByRole("button", { name: "Open draft" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review statblock variant" }));
+  fireEvent.click(await screen.findByText("Correct reviewed rules"));
+  fireEvent.change(screen.getByRole("textbox", { name: "Rule text" }), {
+    target: { value: "Qualifying violence starts the rain." },
+  });
+  expect(screen.getByRole("button", { name: "Confirm and save as new statblock" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Stage corrected review" }));
+  expect(await screen.findByDisplayValue("Updated")).toBeInTheDocument();
+  expect(correctVariantReview).toHaveBeenCalledWith(scope, "old", 1, [{
+    rule_key: "rain", field: "rules_text",
+    replace_exact: "Any hostile action starts the rain.", with_text: "Qualifying violence starts the rain.",
+  }]);
+  expect(confirmVariantReview).not.toHaveBeenCalled();
+  const confirm = await screen.findByRole("button", { name: "Confirm and save as new statblock" });
+  await waitFor(() => expect(confirm).toBeEnabled());
+  fireEvent.click(confirm);
+  expect(await screen.findByRole("status")).toHaveTextContent("Statblock variant saved.");
+  expect(confirmVariantReview).toHaveBeenCalledExactlyOnceWith(scope, "new");
+});
+
+it("recovers from a lost correction response without carrying approval to the new review", async () => {
+  const scope = { worldId: "world", conversationId: "conversation", turnId: "approval" };
+  const producer = { ...scope, turnId: "producer" };
+  const definition = { rule_elements: [{
+    key: "rain", name: "Rain", rules_text: "Any hostile action starts rain.", activation: {},
+  }] } as Awaited<ReturnType<typeof openVariantReview>>["definition"];
+  vi.mocked(confirmVariantReview).mockClear();
+  vi.mocked(openConversationVariantApproval).mockResolvedValueOnce({ scope: producer, reviewId: "old", revision: 1 });
+  vi.mocked(openConversationDraft)
+    .mockResolvedValueOnce({ revision: 1, markdown: "Old", variant_review_ids: ["old"] })
+    .mockResolvedValueOnce({ revision: 2, markdown: "Corrected", variant_review_ids: ["new"] });
+  vi.mocked(openVariantReview).mockResolvedValueOnce({ revision: 1, definition });
+  vi.mocked(correctVariantReview).mockRejectedValueOnce(new Error("Response lost."));
+
+  render(<ConversationVariantApproval scope={scope} />);
+  fireEvent.click(screen.getByRole("button", { name: "Find reviewed statblock" }));
+  fireEvent.click(await screen.findByText("Correct reviewed rules"));
+  fireEvent.change(screen.getByRole("textbox", { name: "Rule text" }), { target: { value: "Qualifying violence starts rain." } });
+  fireEvent.click(screen.getByRole("button", { name: "Stage corrected review" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Open latest draft for review" }));
+  expect(await screen.findByDisplayValue("Corrected")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Review statblock variant" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Confirm and save as new statblock" })).not.toBeInTheDocument();
+  expect(confirmVariantReview).not.toHaveBeenCalled();
 });

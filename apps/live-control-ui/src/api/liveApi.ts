@@ -673,7 +673,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/turns\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/variant-approval$/i.test(path)) return method === "GET" && init?.body == null;
   const variantReview = /^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/variant-reviews\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/(confirm|saved))?$/i.exec(path);
   if (variantReview) {
-    return init?.body == null && method === (variantReview[1] === "confirm" ? "POST" : "GET");
+    if (variantReview[1]) {
+      return init?.body == null && method === (variantReview[1] === "confirm" ? "POST" : "GET");
+    }
+    return (method === "GET" && init?.body == null)
+      || (method === "PUT" && !!requestBodyRecord(init?.body));
   }
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(path)) {
     return (method === "GET" && init?.body == null)
