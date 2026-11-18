@@ -3081,6 +3081,7 @@ def post_append_pdf_statblock_review(
     result = _revision_call(
         append_pdf_review, draft_id=str(draft_id), world_id=world_id, review_id=review_id,
         request=body, load_review=lambda: get_pdf_statblock_review(world_id, review_id, request),
+        authorize=lambda: require_build_pdf_access(request, world_id),
     )
     require_build_pdf_access(request, world_id)
     return result

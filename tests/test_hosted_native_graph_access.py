@@ -409,6 +409,9 @@ def hosted(monkeypatch, request):
             ("PUT", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_saved_statblock,
+            ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_statblock_revision_save,
+            ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}"): access.resolve_hosted_saved_statblock,
+            ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
@@ -3068,6 +3071,54 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     read.assert_called_once_with(tmp_path, operation, "managed")
+
+
+def test_hosted_portrait_revision_recovers_exact_save(revision_case, hosted, monkeypatch):
+    import json
+
+    from tests.integration.test_build_images_postgres import ready, saved_image
+
+    fixture = revision_case
+    world = "elderwyld"
+    hosted.records[world] = _record(world, OWNER, fixture.view.native_world_id)
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+    asset = ready(saved_image(f"hosted_world:{world}"))
+    body = {**fixture.request, "portrait_asset_id": str(asset["asset_id"])}
+    assert hosted.client.request("POST", fixture.url, json=body, origin=None).status_code == 403
+    fixture.manual.timeout = True
+    unknown = hosted.client.request("POST", fixture.url, json=body)
+    assert unknown.status_code == 200, unknown.text
+    assert unknown.json()["state"] == "outcome_unknown"
+    operation = fixture.url.replace("mechanics-revisions", "mechanics-revision-operations") + "/" + body["operation_id"]
+    status = hosted.client.request("GET", f"{operation}?world_id={world}")
+    assert status.status_code == 200, status.text
+    assert status.json()["operation"]["state"] == "outcome_unknown"
+    assert hosted.client.request("POST", f"{operation}:recover?world_id={world}", origin=None).status_code == 403
+    recovered = hosted.client.request("POST", f"{operation}:recover?world_id={world}")
+    assert recovered.status_code == 200, recovered.text
+    result = recovered.json()
+    assert result["state"] == "committed"
+    assert fixture.manual.appends == 1
+    revision_id = result["result"]["revision_id"]
+    opened = hosted.client.request("GET", f"{fixture.url}/{revision_id}?world_id={world}")
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["resource"]["provenance"]["accepted_through"]["buddy_portrait_asset_id"] == str(asset["asset_id"])
+
+    original_validate = fixture.manual.validate_definition
+
+    def transfer_during_validation(request):
+        result = original_validate(request)
+        hosted.records[world] = hosted.records[world].model_copy(update={"owner_subject": OTHER_OWNER})
+        return result
+
+    monkeypatch.setattr(fixture.manual, "validate_definition", transfer_during_validation)
+    from apps.live_control_server.services.statblock_saved_revision import operations
+
+    operation_id = uuid4()
+    denied = hosted.client.request("POST", fixture.url, json={**body, "operation_id": str(operation_id)})
+    assert denied.status_code == 403, denied.text
+    assert fixture.manual.appends == 1
+    assert operations.read(world_id=world, draft_id=fixture.draft.draft_id, operation_id=operation_id) is None
 
 
 @pytest.mark.parametrize("transfer", [False, True])
