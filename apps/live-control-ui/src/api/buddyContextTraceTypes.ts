@@ -1,3 +1,4 @@
+import type { NativeAssertion } from "./nativeGraphInspection";
 import type {AuthoredReferenceInput} from './types'
 /** APP-STATE context-trace consumer shape. Observations grant no evidence authority. */
 export interface WorldAgentTurnContextTraceResponse {
@@ -44,6 +45,13 @@ export interface BuddyTraceGraphResult {
   outcome: 'enough' | 'partial' | 'truncated' | 'empty' | 'denied' | 'unavailable'
   graph_revision: string; coverage_status: 'complete' | 'incomplete'; projection_status: 'complete' | 'limited'
   nodes: { node_id: string; label: string; kind: string }[]
+  relationships?: { relationship_id: string; source_node_id: string; target_node_id: string }[]
+  discovery_relationship_ids?: string[]
+  neighborhood_replay?: {
+    hops: { relationship_id: string; from_node_id: string; to_node_id: string }[]
+    object_limit_pruned_ids: string[]
+    object_limit_pruned_count: number
+  }
   relationship_ids: string[]; claim_ids: string[]; evidence_ref_ids: string[]
   returned_counts: BuddyTraceGraphCounts; total_counts: BuddyTraceGraphCounts; omission_codes: string[]
 }
@@ -75,6 +83,33 @@ export interface BuddyTurnContextTrace {
   started_at: string; closed_at: string | null; terminal_status: 'completed' | 'failed' | 'interrupted' | null
   capture_status: 'recording' | 'complete' | 'incomplete'; capture_failure_code: string | null
   observations: BuddyTraceObservation[]
+  writer_evidence_sequences?: number[] | null
+  graph_replay_order?: Record<string, number> | null
+  native_discovery_replay?: {
+    revision_id: string
+    seed_ids: string[]
+    labels: Record<string, string>
+    hops: { relationship_id: string; from_node_id: string; to_node_id: string }[]
+  } | null
+  retrieval_exclusion_steps?: {
+    sequence: number
+    candidates: { handle: string; label: string; kind: string }[]
+    total: number
+  }[] | null
+  native_assertion_steps?: {
+    sequence: number; revision_id: string; assertion_ids: string[]; subject_ids: string[]
+    assertion_ids_by_subject?: Record<string, string[]>
+    related_labels?: Record<string, string>
+    subject_labels?: Record<string, string>; subject_kinds?: Record<string, string>
+    unavailable_count: number; writer_evidence: boolean
+  }[] | null
+}
+
+export interface BuddyReplayNativeAssertionResponse {
+  schema: 'dmb_replay_native_assertion_v1'; world_id: string; turn_id: string; trace_id: string
+  sequence: number; revision_id: string
+  assertion: { assertion_id: string; subject_entity_id: string; predicate: string; value: unknown; metadata?: NativeAssertion["metadata"] }
+  excerpts: { evidence_ref_id: string; text: string }[]
 }
 
 export interface BuddyTracePromptReference extends Observation {
@@ -86,4 +121,15 @@ export interface BuddyPromptEvidence {
   schema: 'dmb_agent_prompt_evidence_v1'; world_id: string; conversation_id: string
   turn_id: string; trace_id: string; attempt: number
   reference: BuddyTracePromptReference; payload_json: string
+}
+
+
+export interface BuddyReplayAssertionResponse {
+  schema: 'dmb_replay_assertion_v1'
+  world_id: string
+  turn_id: string
+  trace_id: string
+  sequence: number
+  scope: { managed_world_id: string; revision_id: string; scope_mode: 'campaign' | 'world'; campaign_id: string | null }
+  assertion: { assertion_id: string; subject_entity_id: string; predicate: string; value: unknown }
 }

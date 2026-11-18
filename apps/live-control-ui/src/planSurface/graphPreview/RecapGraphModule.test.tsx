@@ -1,3 +1,4 @@
+import * as hostedAuth from "../../auth/HostedAuthGate";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -284,7 +285,7 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
   it("does not render preview-candidate or recap-lens metadata copy", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
     render(<RecapGraphModule context={context} />);
-    expect(await screen.findByRole("combobox", { name: "Focus session" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Focus session" })).toBeInTheDocument());
     expect(screen.queryByText(/Session focus lens/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Published World Graph · session recap/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/graph mentions projected/i)).not.toBeInTheDocument();
@@ -548,8 +549,11 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
   });
 });
 
-it("drills into a native recap object and renders only its matching excerpt", async () => {
+it.each([false, true])("drills into a native recap object and renders only its matching excerpt (hosted=%s)", async hosted => {
   vi.restoreAllMocks();
+  if (hosted) vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+    status: "authenticated", subject: "owner", displayName: "Owner", refreshWarning: false,
+  });
   window.history.replaceState({}, "", "/plan?world=elderwyld&session=session-24");
   const scope = {
     managed_world_id: "elderwyld", native_world_id: "elderwyld",
@@ -561,6 +565,10 @@ it("drills into a native recap object and renders only its matching excerpt", as
     schema_version: "dmb_world_container_registry_v1",
     records: [{ schema_version: "dmb_world_container_record_v1", world_id: "elderwyld",
       name: "Elderwyld", source_root_relpath: "", created_at: "" }],
+  });
+  vi.spyOn(liveApi, "getHostedWorldContainer").mockResolvedValue({
+    schema_version: "dmb_world_container_record_v1", world_id: "elderwyld",
+    name: "Elderwyld", source_root_relpath: "", created_at: "",
   });
   vi.spyOn(liveApi, "readPublishedNativeRecap").mockResolvedValue({
     schema: "dmb_native_published_recap_v1", scope, campaign_id: "longmont-c2", session_id: "session-24",
@@ -587,6 +595,12 @@ it("drills into a native recap object and renders only its matching excerpt", as
     sourceBindings: [{ evidenceRefId: "ev:recap", excerpt: "Exact admitted excerpt." },
       { evidenceRefId: "ev:other", excerpt: "Unrelated excerpt." }],
   });
+  const scoped = vi.spyOn(liveApi, "readPublishedRecapObjects");
+  if (hosted) {
+    scoped.mockResolvedValueOnce({ scope: pin, objects: [{ id: "ent:recap", label: "Recap Object", ambiguous: false }], partial: false });
+    const result = await read.getMockImplementation()!({} as never, pin);
+    scoped.mockResolvedValueOnce({ kind: "complete", detail: result });
+  }
   const classic = vi.spyOn(liveApi, "postWorldGraphRecapProjection");
   render(<SelectedWorldProvider locationSnapshot={window.location.href}>
     <RecapGraphModule context={context} />
@@ -595,7 +609,14 @@ it("drills into a native recap object and renders only its matching excerpt", as
   fireEvent.click(await screen.findByRole("button", { name: "Recap Object" }));
   expect(await screen.findByText("Exact admitted excerpt.")).toBeInTheDocument();
   expect(screen.queryByText("Unrelated excerpt.")).not.toBeInTheDocument();
-  expect(catalog).toHaveBeenCalledWith(pin, expect.any(AbortSignal));
-  expect(read).toHaveBeenCalledWith(expect.objectContaining({ revisionPin: pin.revision_id, nodeId: "ent:recap" }), pin);
+  if (hosted) {
+    expect(catalog).not.toHaveBeenCalled();
+    expect(read).not.toHaveBeenCalled();
+    expect(scoped).toHaveBeenLastCalledWith(expect.objectContaining({ scope, campaign_id: "longmont-c2" }), "ent:recap");
+  } else {
+    expect(catalog).toHaveBeenCalledWith(pin, expect.any(AbortSignal));
+    expect(read).toHaveBeenCalledWith(expect.objectContaining({ revisionPin: pin.revision_id, nodeId: "ent:recap" }), pin);
+    expect(scoped).not.toHaveBeenCalled();
+  }
   expect(classic).not.toHaveBeenCalled();
 });

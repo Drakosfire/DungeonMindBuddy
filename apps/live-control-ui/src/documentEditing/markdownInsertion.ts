@@ -46,6 +46,15 @@ function contentForTarget(editor:Editor,target:number | {from:number;to:number},
     ? paragraph.content??[] : content;
 }
 
+function blockInsertionAnchor(editor: Editor, target: number | {from:number;to:number}, content: JSONContent[]) {
+  if (typeof target !== 'number' || (content.length === 1 && content[0]?.type === 'paragraph')) return target;
+  const position = editor.state.doc.resolve(target);
+  // A block at the start of a heading belongs before it. Inserting into the
+  // heading would split it and leave an empty heading in the saved document.
+  return position.depth === 1 && position.parent.type.name === 'heading' && position.parentOffset === 0
+    ? position.before() : target;
+}
+
 /** An exact snapshot authorizes its original position independently of today's selection. */
 export function insertReviewedMarkdownAtAnchor(editor: Editor, caret: number | {from:number;to:number}, content: JSONContent[], expectedJson: string): void {
   const from = typeof caret === 'number' ? caret : caret.from;
@@ -56,7 +65,7 @@ export function insertReviewedMarkdownAtAnchor(editor: Editor, caret: number | {
   }
   const result = prepareReviewedMarkdownAtAnchor(editor, caret, content, expectedJson);
   editor.view.dispatch(closeHistory(editor.state.tr));
-  if (!editor.commands.insertContentAt(caret, contentForTarget(editor,caret,content))) throw new Error('The editor could not insert this proposal.');
+  if (!editor.commands.insertContentAt(blockInsertionAnchor(editor, caret, content), contentForTarget(editor,caret,content))) throw new Error('The editor could not insert this proposal.');
   if (JSON.stringify(editor.getJSON()) !== JSON.stringify(result)) throw new Error('The insertion result needs inspection before continuing.');
 }
 
@@ -69,7 +78,7 @@ export function prepareReviewedMarkdownAtAnchor(editor: Editor, caret: number | 
   }
   const simulated = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: editor.getJSON() });
   try {
-    if (!simulated.commands.insertContentAt(caret, contentForTarget(simulated,caret,content))) throw new Error('Cannot insert at this position.');
+    if (!simulated.commands.insertContentAt(blockInsertionAnchor(simulated, caret, content), contentForTarget(simulated,caret,content))) throw new Error('Cannot insert at this position.');
     const result = simulated.getJSON();
     const markdown = tiptapJsonToSemanticMarkdown(result);
     const reopened = markdownToTiptapDoc(markdown);

@@ -8,9 +8,11 @@ from uuid import UUID
 
 from dungeonmind.contracts.vnext.domain import Assertion
 from dungeonmind.contracts.vnext.source import EvidenceRefV3
+from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
 from pydantic import Field, model_validator
 
 from .native_statement_input import Strict, digest
+from .neighborhood_replay import NeighborhoodReplayHop
 from .native_plan_statements import NativePlanQueryV1, NativePlanStatementMatchV1
 
 POLICY = 'dmb_surface_evidence_answer_v8'
@@ -92,12 +94,26 @@ class NativeGraphQueryV4(NativeGraphQueryV3):
     """Object selection expands to existing, frozen record witness sets."""
     schema_: Literal['dmb_native_graph_query_v4'] = Field(default='dmb_native_graph_query_v4', alias='schema')
     object_matches: tuple[NativeObjectMatchV1, ...]
+    discovery_hops: tuple[NeighborhoodReplayHop, ...] = Field(default=(), max_length=32, exclude_if=lambda value: not value)
 
     @model_validator(mode='after')
     def object_closure(self):
         ids = tuple(m.entity_id for m in self.object_matches)
         if len(ids) != len(set(ids)) or set(ids) != set(self.discovered_entity_ids):
             raise ValueError('Native object catalog differs from exact discovered entities')
+        matches = {match.statement_id: match for match in self.matches}
+        assertions = {match.assertion_id: match for match in self.assertion_matches}
+        targets = set()
+        for hop in self.discovery_hops:
+            match = matches.get(hop.to_node_id)
+            assertion = assertions.get(hop.relationship_id)
+            statement_path = (match is not None and hop.from_node_id in match.discovered_entity_ids
+                              and hop.relationship_id in match.discovery_assertion_ids)
+            assertion_path = (assertion is not None and assertion.subject_entity_id == hop.to_node_id
+                              and hop.from_node_id in assertion.discovered_entity_ids)
+            if hop.to_node_id in targets or hop.to_node_id in ids or not (statement_path or assertion_path):
+                raise ValueError('Native replay hop differs from admitted discovery')
+            targets.add(hop.to_node_id)
         return self
 
 
@@ -211,11 +227,24 @@ class NativeAssertionSpanV1(NativeAssertionLocationV1):
         return self
 
 
+class NativeAssertionPdfRegionV1(Strict):
+    evidence_ref_id: str = Field(min_length=1)
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+    region: NativePdfRegionV1
+
+    @model_validator(mode='after')
+    def exact_revision(self):
+        if self.source_revision_id != self.region.source_revision_id:
+            raise ValueError('Native PDF region source revision differs')
+        return self
+
+
 class NativePlanAssertionReadV1(Strict):
     # Reuse Core's complete wire contracts, including every qualification.
     assertion: Assertion
     evidence: tuple[EvidenceRefV3, ...]
-    spans: tuple[NativeAssertionSpanV1, ...] = Field(min_length=1)
+    spans: tuple[NativeAssertionSpanV1 | NativeAssertionPdfRegionV1, ...] = Field(min_length=1)
 
     @model_validator(mode='after')
     def support_closure(self):
@@ -227,6 +256,15 @@ class NativePlanAssertionReadV1(Strict):
             raise ValueError('Native assertion evidence closure differs')
         for i, span in spans.items():
             ref = refs[i]
+            if isinstance(span, NativeAssertionPdfRegionV1):
+                if (not ref.can_open_source or not ref.can_highlight_span
+                        or not ref.source_locator or ref.source_span_ref_id is not None
+                        or not ref.evidence_ref_id.startswith('pdf-region:')
+                        or ref.source_artifact_id != span.source_artifact_id
+                        or ref.source_revision_id != span.source_revision_id
+                        or NativePdfRegionV1.model_validate_json(ref.source_locator) != span.region):
+                    raise ValueError('Native assertion requires an exact PDF region')
+                continue
             if (not ref.can_open_source or not ref.can_highlight_span or not ref.source_span_ref_id
                     or (ref.source_artifact_id, ref.source_revision_id) != (span.source_artifact_id, span.source_revision_id)):
                 raise ValueError('Native assertion requires exact openable supporting spans')
@@ -235,7 +273,7 @@ class NativePlanAssertionReadV1(Strict):
 
 class NativePlanAssertionReadV2(NativePlanAssertionReadV1):
     """Retain Core support identity, not another copy of its immutable bytes."""
-    spans: tuple[NativeAssertionLocationV1, ...] = Field(min_length=1)
+    spans: tuple[NativeAssertionLocationV1 | NativeAssertionPdfRegionV1, ...] = Field(min_length=1)
 
 
 def compact_assertion_read(read):
@@ -292,10 +330,12 @@ def model_frame(turn):
     return model_frame_records(turn.graph_context_receipt.native_query, turn.graph_context_execution)
 
 
-def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_frame_v1'):
+def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_frame_v1', read_records=None):
     """Project admitted facts; full source proofs stay in the read/citation owner."""
     if schema not in {'dmb_plan_native_assertion_frame_v1', 'dmb_native_assertion_frame_v2'}:
         raise ValueError('Unknown native assertion presentation')
+    if read_records is None:
+        read_records = selected_read_records(execution)
     return {'schema': schema,
         'authority': query.authority.model_dump(mode='json', by_alias=True),
         'status': 'partial' if input_partial_records(query, execution) else 'complete',
@@ -306,7 +346,7 @@ def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_f
             **({'evidence': [e.model_dump(mode='json') for e in read.evidence],
                 'supporting_sources': [s.model_dump(exclude={'text'}) for s in read.spans]}
                 if schema == 'dmb_plan_native_assertion_frame_v1' else {})}
-            for event, read in selected_read_records(execution)]}
+            for event, read in read_records]}
 
 
 def input_partial(turn):
@@ -339,7 +379,7 @@ def producing_reads(turn, authorization, raw):
         in zip(model_frame(turn)['assertions'], reads, strict=True))
 
 
-class NativeAssertionCitationV1(NativeAssertionLocationV1):
+class NativeAssertionCitationBinding(Strict):
     segment_index: int = Field(ge=0, strict=True)
     assertion_id: str = Field(min_length=1)
     read_event_id: UUID
@@ -351,6 +391,7 @@ class NativeAssertionCitationV1(NativeAssertionLocationV1):
     read_revision_id: str
     assertion_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
 
+class NativeAssertionCitationV1(NativeAssertionLocationV1, NativeAssertionCitationBinding):
     @model_validator(mode='after')
     def exact_bytes(self):
         if self.start_byte >= self.end_byte:
@@ -358,9 +399,17 @@ class NativeAssertionCitationV1(NativeAssertionLocationV1):
         return self
 
 
+class NativeAssertionPdfCitationV1(NativeAssertionPdfRegionV1, NativeAssertionCitationBinding):
+    pass
+
+
+NativeAssertionCitation = NativeAssertionCitationV1 | NativeAssertionPdfCitationV1
+
+
 def citation(receipt, authorization, event, read, span, *, index):
     authority = receipt.native_query.authority
-    return NativeAssertionCitationV1(**span.model_dump(exclude={'text'}), segment_index=index,
+    citation_type = NativeAssertionPdfCitationV1 if isinstance(span, NativeAssertionPdfRegionV1) else NativeAssertionCitationV1
+    return citation_type(**span.model_dump(exclude={'text'}), segment_index=index,
         assertion_id=read.assertion.assertion_id, read_event_id=event.event_id,
         provider_attempt_id=authorization.provider_attempt_id, envelope_sha256=authorization.envelope_sha256,
         context_receipt_sha256=receipt.context_receipt_sha256, managed_world_id=authority.managed_world_id,
@@ -407,7 +456,11 @@ def validate_citation_records(completion, receipt, authorization, reads):
             if (set(segment.assertion_ids) != cited.get(i, set())
                     or {digest(m) for m in segment.qualifications} != set(metadata)):
                 raise ValueError('Native assertion claim omitted its support or qualifications')
-            expected = {(i, event.event_id, read.assertion.assertion_id, span.evidence_ref_id)
-                for event, read in reads.values() if read.assertion.assertion_id in segment.assertion_ids for span in read.spans}
-            if {key for key in seen if key[0] == i} != expected:
+            # Each citation was checked against its exact producing read above.
+            # Reopening the same immutable evidence in another read adds no support.
+            expected = {(read.assertion.assertion_id, span.evidence_ref_id)
+                for _, read in reads.values() if read.assertion.assertion_id in segment.assertion_ids for span in read.spans}
+            observed = {(assertion_id, evidence_ref_id)
+                for index, _, assertion_id, evidence_ref_id in seen if index == i}
+            if observed != expected:
                 raise ValueError('Native assertion claim omitted a supporting span')

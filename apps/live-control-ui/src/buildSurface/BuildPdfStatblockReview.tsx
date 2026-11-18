@@ -1,3 +1,5 @@
+import { buildSavedStatblockHref } from "../statblocks/savedStatblockLocation";
+import { useHostedAuthStatus } from "../auth/HostedAuthGate";
 import { createPortal } from "react-dom";
 import { PdfPages } from "./BuildPdfPreview";
 import { BuildSourceWorkspace } from "./BuildSourceWorkspace";
@@ -21,6 +23,7 @@ type Review = {
 };
 
 export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { worldId: string; reviewId: string; toolbarHost?: HTMLElement | null }) {
+  const auth = useHostedAuthStatus();
   const sourcePath = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources`;
   const reviewPath = `${sourcePath}/statblock-reviews/${encodeURIComponent(reviewId)}`;
   const [review, setReview] = useState<Review>();
@@ -126,27 +129,30 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
   const createKey = `buddy:pdf-creature-draft:${worldId}:${reviewId}`;
   const [createInFlight, setCreateInFlight] = useState(false);
 
-  async function recoverDraft(revision: number, publishing = false) {
-    const previousDraft = publishing ? null : localStorage.getItem(createKey);
+  async function getOrCreateReviewDraft(revision: number): Promise<{ draft_id: string; version: number }> {
+    const { response } = await authenticatedApiFetch(
+      `${reviewPath}/creature-draft?expected_revision=${revision}`,
+      { method: "POST" },
+    );
+    if (!response.ok) {
+      const failure = await response.json().catch(() => null);
+      throw new Error(typeof failure?.detail === "string" ? failure.detail :
+        failure?.detail?.code === "pdf_statblock_review_conflict" ? "This review changed. Reopen it before creating a creature." :
+        "Could not create the creature draft. Check the source confirmation and try again.");
+    }
+    const result = await response.json();
+    if (typeof result.draft_id !== "string" || !result.draft_id || !Number.isSafeInteger(result.version) || result.version < 1) {
+      throw new Error("The review returned an invalid draft reference.");
+    }
+    return { draft_id: result.draft_id, version: result.version };
+  }
+
+  async function recoverDraft(revision: number) {
+    const previousDraft = localStorage.getItem(createKey);
     if (previousDraft === "pending") {
       throw new Error("Choose the previously created creature draft before continuing.");
     }
-    let id = previousDraft;
-    if (!id) {
-      const { response } = await authenticatedApiFetch(
-        `${reviewPath}/creature-draft?expected_revision=${revision}`,
-        { method: "POST" },
-      );
-      if (!response.ok) {
-        const failure = await response.json().catch(() => null);
-        throw new Error(typeof failure?.detail === "string" ? failure.detail :
-          failure?.detail?.code === "pdf_statblock_review_conflict" ? "This review changed. Reopen it before creating a creature." :
-          "Could not create the creature draft. Check the source confirmation and try again.");
-      }
-      const result = await response.json();
-      if (typeof result.draft_id !== "string" || !result.draft_id) throw new Error();
-      id = result.draft_id as string;
-    }
+    const id = previousDraft ?? (await getOrCreateReviewDraft(revision)).draft_id;
     const draft = await getThreatDraft(id);
     if (draft.schema !== "dmb_threat_draft_v2" || draft.world_id !== worldId || draft.draft_id !== id) throw new Error();
     return draft;
@@ -206,7 +212,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
     setPending(true);
     setError("");
     try {
-      const draft = publish ? await recoverDraft(review.revision, true)
+      const draft = publish ? await getOrCreateReviewDraft(review.revision)
         : drafts.find(item => item.draft_id === draftId);
       if (!draft) return;
       const key = acceptanceKey(draft.draft_id);
@@ -258,9 +264,24 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
         world: worldId, draft: draft.draft_id, revision: result.locator.revision_id,
       })}`;
       if (publish) {
-        const current = await getThreatDraft(draft.draft_id);
-        await publishPdfStatblock(worldId, draft.draft_id, current.version, result.locator);
-        setPublishedLink(link);
+        if (auth.status === "authenticated") {
+          const { response: publication } = await authenticatedApiFetch(
+            `${reviewPath}/publication?expected_revision=${review.revision}`, { method: "POST" },
+          );
+          const published = await publication.json().catch(() => null);
+          if (!publication.ok) throw new Error(typeof published?.detail === "string"
+            ? published.detail : "Publication stopped. Retry Publish to resume.");
+          if (published?.draft_id !== draft.draft_id || published?.revision_id !== result.locator.revision_id) {
+            throw new Error("Publication returned a different saved revision.");
+          }
+        } else {
+          const current = await getOrCreateReviewDraft(review.revision);
+          if (current.draft_id !== draft.draft_id) throw new Error("The review draft changed during publication.");
+          await publishPdfStatblock(worldId, draft.draft_id, current.version, result.locator);
+        }
+        setPublishedLink(auth.status === "authenticated" ? buildSavedStatblockHref({
+          worldId, draftId: draft.draft_id, revisionId: result.locator.revision_id, sourceReviewId: reviewId,
+        }) : link);
       } else {
         setAcceptedLink(link);
       }
@@ -302,14 +323,16 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
           const link = `/statblock?${new URLSearchParams({
             world: worldId, draft: result.draft_id, revision: result.revision_id,
           })}`;
-          setPublishedLink(current => current || link);
+          setPublishedLink(current => current || (auth.status === "authenticated" ? buildSavedStatblockHref({
+            worldId, draftId: result.draft_id, revisionId: result.revision_id, sourceReviewId: reviewId,
+          }) : link));
         }
       } catch {
         // Publication can still be resumed when status lookup is unavailable.
       }
     })();
     return () => abort.abort();
-  }, [reviewPath, worldId]);
+  }, [reviewPath, worldId, reviewId, auth.status]);
 
   useEffect(() => {
     if (!region || !sourceKey || source?.key === sourceKey) return;
@@ -535,11 +558,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
             ? <PdfPages key={regionSelection} file={source.file} restored={region} readOnly navigationHost={navigationHost} />
             : region && <p role="status">Opening source PDF…</p>}
       </>}>
-      {editor && !mechanicsResolved && <ul aria-label="Fields needed for combat adoption">
-        {!editor.workingCopy.movement && <li>Movement is unspecified. Enter a speed if the source supports it.</li>}
-        {editor.workingCopy.challenge.proficiency_bonus == null &&
-          <li>Proficiency bonus is unspecified. A bonus is needed for combat adoption.</li>}
-      </ul>}
       {editor && !editor.workingCopy.movement && <form onSubmit={event => {
         event.preventDefault();
         if (pending) return;
@@ -714,9 +732,9 @@ export function BuildPdfStatblockReview({ worldId, reviewId, toolbarHost }: { wo
             setValidation("");
             setIssues([]);
           }}>Mark movement unspecified</button>}
-          <button type="button" aria-expanded={developerTools}
-            onClick={() => setDeveloperTools(!developerTools)}>Developer tools</button>
-          {developerTools && <section aria-label="Developer tools">
+          {auth.status !== "authenticated" && <button type="button" aria-expanded={developerTools}
+            onClick={() => setDeveloperTools(!developerTools)}>Developer tools</button>}
+          {auth.status !== "authenticated" && developerTools && <section aria-label="Developer tools">
             <button type="button" disabled={!mechanicsResolved} onClick={() => void validate()}>Validate mechanics</button>
             {validation && <span role="status">{validation}</span>}
             <button type="button" disabled={!mechanicsResolved || createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}

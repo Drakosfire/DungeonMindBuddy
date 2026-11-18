@@ -18,6 +18,11 @@ def registered(tmp_path, monkeypatch):
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path))
     seed_binding(tmp_path, "managed-fixture-world", "world:synthetic")
+    from apps.live_control_server.services import known_character_context
+    monkeypatch.setattr(known_character_context, "read_known_character_catalog", lambda *_: {
+        "status": "no_native_head", "entities": [],
+        "native_pin": {"native_world_id": "world:synthetic", "binding_version": 1},
+    })
     original = tmp_path / "import.md"
     original.write_text("A keeper guards a gate.\n")
     artifact = create_recap_source_artifact(tmp_path, world_id="world:synthetic",

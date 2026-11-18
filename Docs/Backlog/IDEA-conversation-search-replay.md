@@ -1,7 +1,17 @@
 # [IDEA] Step through Buddy’s trace and search in Conversation Details
 
 **Captured:** 2026-11-14  
-**Status:** Unscheduled product idea. Not an implementation handoff.
+**Status:** Original design capture retained below; merged local mechanisms and remaining acceptance are distinguished here. Not an implementation handoff.
+
+## Evidence reconciliation — 2026-11-17
+
+The original “first slice” below is historical design intent, not an unbuilt assignment. Saved replay, exact evidence opening, writer-evidence labels, unified Details, directed hops/pruning, node inspection and shared node views landed in the replay series from [#3738](https://github.com/Drakosfire/DungeonMindBuddy/pull/3738) through [#3784](https://github.com/Drakosfire/DungeonMindBuddy/pull/3784) (replay-specific changes, not every PR in that numeric interval). Representative boundaries: [#3741](https://github.com/Drakosfire/DungeonMindBuddy/pull/3741), [#3745](https://github.com/Drakosfire/DungeonMindBuddy/pull/3745), [#3755](https://github.com/Drakosfire/DungeonMindBuddy/pull/3755), [#3764](https://github.com/Drakosfire/DungeonMindBuddy/pull/3764), [#3767](https://github.com/Drakosfire/DungeonMindBuddy/pull/3767), [#3772](https://github.com/Drakosfire/DungeonMindBuddy/pull/3772), [#3773](https://github.com/Drakosfire/DungeonMindBuddy/pull/3773), [#3776](https://github.com/Drakosfire/DungeonMindBuddy/pull/3776), [#3781](https://github.com/Drakosfire/DungeonMindBuddy/pull/3781) and [#3784](https://github.com/Drakosfire/DungeonMindBuddy/pull/3784).
+
+[#3773](https://github.com/Drakosfire/DungeonMindBuddy/pull/3773) has local source/browser verification in the Graph owner's lane. Later local 5202 rollouts include the replay improvements; that does not qualify the hosted route or every original ambition. Retain exact saved-attempt citations, missing-evidence disclosure, World/revision isolation and accessible controls as acceptance boundaries. Hosted access/ordinary browser acceptance must be verified on its own route; broader live trace teaching/timing and any unrecorded search paths remain separate, not inferred complete from playback. Do not reconstruct missing hops or call a model merely to replay a saved turn.
+
+[#3683](https://github.com/Drakosfire/DungeonMindBuddy/pull/3683) remains unmerged historical design input for extending this experience; its original narrative is not adopted or discarded by this status update. The product roadmap retains sequencing authority.
+
+## Original design narrative (historical)
 
 When a GM opens **Details** on a Buddy reply, show a small, read-only graph that plays back how Buddy gathered context for that turn. Let the GM pause, step backward and forward, and open an exact retained citation without leaving the conversation. Make it feel like watching the search unfold at a human pace, not watching live telemetry or reading an event log.
 

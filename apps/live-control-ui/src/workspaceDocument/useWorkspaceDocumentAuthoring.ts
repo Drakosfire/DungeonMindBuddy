@@ -1,3 +1,5 @@
+import "../tiptap/pageComposer/apiPresentation";
+import { hydratePresentation, flattenPresentation, hasPresentation, projectPresentation, presentationFingerprint, composerDisabledReason, type PagePresentation } from "../tiptap/pageComposer/presentation";
 import {useTourNavigationGuard} from '../guidedTour/Navigation';
 import {WorkspaceDraftCoordinator, type DraftPersistenceStatus} from "./workspaceDraftCoordinator";
 import { conflictCopiesKey, preserveConflictCopies, type WorkspaceConflictRecovery, type WorkspaceConflictReview } from "./workspaceConflictRecovery";
@@ -77,6 +79,8 @@ export interface WorkspaceDocumentAuthoringValue {
   dirty: boolean;
   /** True while Save must wait for re-import/discard of a sealed source projection. */
   exportedMarkdownAuthoritative: boolean;
+  pageComposerEnabled: boolean;
+  pageComposerDisabledReason: string | null;
   /** In-memory local CAS fingerprint for canvas admission (not a second storage read). */
   localAdmission: WorkspaceDocumentLocalAdmission | null;
   statusLabel: string;
@@ -138,6 +142,7 @@ function applyCommitReceiptToLocalState(args: {
   kind: WorkspaceDocumentLocalKind;
   tiptapJson: unknown;
   markdown: string;
+  presentation?: PagePresentation | null;
 }): WorkspaceDocumentLocalState {
   const now = new Date().toISOString();
   const record = args.receipt.committed_record;
@@ -154,6 +159,8 @@ function applyCommitReceiptToLocalState(args: {
       starterContent: args.tiptapJson,
       now,
     }),
+    base_page_presentation_sha256: args.receipt.page_presentation_sha256 ?? null,
+    ...(args.presentation !== undefined ? {page_presentation: args.presentation} : {}),
     tiptap_json: args.tiptapJson,
     exported_markdown: args.markdown,
     exported_markdown_authoritative: false,
@@ -173,6 +180,7 @@ function applyCommitReceiptBaseRetainingEditorContent(args: {
     ...args.current,
     base_revision: args.receipt.committed_revision,
     base_content_sha256: args.receipt.normalized_content_sha256,
+    base_page_presentation_sha256: args.receipt.page_presentation_sha256 ?? null,
     dirty: true,
     updated_at: now,
     last_local_save_at: now,
@@ -341,7 +349,14 @@ export function useWorkspaceDocumentAuthoring(
   const persistEditorState = useCallback((tiptapJson: JSONContent) => {
     const current = localStateRef.current;
     if (!current) return;
-    const serializationUnsafe = semanticMarkdownSerializationDiagnostics(tiptapJson).length > 0;
+    const composing = args.kind === "worldbuilding_source" && args.surface === "build"
+      && (current.page_presentation !== undefined || hasPresentation(tiptapJson));
+    let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
+    let projectionError: unknown;
+    try { if (composing) projected = projectPresentation(tiptapJson, current.exported_markdown, current.page_presentation_pending ? markdownToTiptapDoc(current.exported_markdown).doc : current.tiptap_json as JSONContent); }
+    catch (error) { projectionError = error; }
+    const serializationUnsafe = semanticMarkdownSerializationDiagnostics(flattenPresentation(tiptapJson)).length > 0;
+    const projectionPending = Boolean(projectionError) && !serializationUnsafe;
     const snap = snapshotRef.current;
     const sourceHasBlockingImport = snap != null && hasBlockingMarkdownImportDiagnostics(snap.markdown);
     // When editor JSON is outside the supported Markdown grammar, or the loaded
@@ -349,9 +364,9 @@ export function useWorkspaceDocumentAuthoring(
     // snapshot markdown instead of a lossy TipTap serialization. Do not call the
     // serializer in that case: playable-identity failure is a throw, not a strip.
     const preservingAuthoritativeExport = serializationUnsafe || sourceHasBlockingImport;
-    const exportedMarkdown = preservingAuthoritativeExport
+    const exportedMarkdown = preservingAuthoritativeExport || projectionPending
       ? (sourceHasBlockingImport && snap ? snap.markdown : current.exported_markdown)
-      : preserveLeadingYamlFrontmatter(
+      : projected?.markdown ?? preserveLeadingYamlFrontmatter(
         snap?.markdown ?? current.exported_markdown,
         tiptapJsonToSemanticMarkdown(tiptapJson),
       );
@@ -360,14 +375,17 @@ export function useWorkspaceDocumentAuthoring(
       && snap != null
       && exportedMarkdown === snap.markdown
       && current.base_revision === snap.loaded_revision
-      && current.base_content_sha256 === snap.content_sha256;
+      && current.base_content_sha256 === snap.content_sha256
+      && presentationFingerprint(projected ? projected.presentation : current.page_presentation ?? null) === presentationFingerprint(snap.page_presentation ?? null);
     // Unsafe sources keep authoritative exported_markdown; TipTap may still hold
     // unsaved projection edits, so do not clear dirty just because export matches.
-    const nextDirty = serializationUnsafe || sourceHasBlockingImport || !matchesSnapshot;
+    const nextDirty = serializationUnsafe || sourceHasBlockingImport || projectionPending || !matchesSnapshot;
     const wasDirty = current.dirty;
     const now = new Date().toISOString();
     const next: WorkspaceDocumentLocalState = {
       ...current,
+      page_presentation_pending: projectionPending,
+      ...(projected ? {page_presentation: projected.presentation} : {}),
       tiptap_json: tiptapJson,
       exported_markdown: exportedMarkdown,
       // Seal authority in localStorage so a future parser upgrade cannot flip the
@@ -387,7 +405,7 @@ export function useWorkspaceDocumentAuthoring(
     } else if (wasDirty) {
       dispatch({ type: "OPEN_READY", dirty: false });
     }
-  }, [dispatch, storage,queueLocalState]);
+  }, [dispatch, storage,queueLocalState,args.kind,args.surface]);
 
   const handleSetEditor = useCallback((nextEditor: Editor | null) => {
     setEditor(nextEditor);
@@ -406,6 +424,10 @@ export function useWorkspaceDocumentAuthoring(
   const reimportFromAuthoritativeMarkdown = useCallback(() => {
     const current = localStateRef.current;
     if (!current?.exported_markdown_authoritative) return;
+    if (current.page_presentation != null) {
+      dispatch({type:"SAVE_FAILED",message:"Use protected source recovery to restore this page together with its layout."});
+      return;
+    }
     if (hasBlockingMarkdownImportDiagnostics(current.exported_markdown)) {
       dispatch({
         type: "SAVE_FAILED",
@@ -481,6 +503,7 @@ export function useWorkspaceDocumentAuthoring(
     // Preserve exact local JSON and sealed-source authority; existing save gates still apply.
     const replacement = choice === "saved" ? opened.localState : { ...current,
       base_revision: fresh.loaded_revision, base_content_sha256: fresh.content_sha256,
+      base_page_presentation_sha256: fresh.page_presentation_sha256 ?? null,
       dirty: true, updated_at: new Date().toISOString() };
     const protectedReview = { ...review, local: current, saved: fresh };
     await draftWriter.run(()=>{
@@ -570,12 +593,22 @@ export function useWorkspaceDocumentAuthoring(
     const imported = markdownToTiptapDoc(current.exported_markdown);
     if (semanticMarkdownSerializationDiagnostics(imported.doc).length) throw new Error("The preserved source is still unsupported.");
     const kept = mode === "source" ? null : currentPageRecovery(mode === "normalize");
-    const normalizedDoc = kept?.doc ?? (editor?.schema ? editor.schema.nodeFromJSON(imported.doc).toJSON() : imported.doc);
-    const markdown = kept?.markdown ?? preserveLeadingYamlFrontmatter(current.exported_markdown, tiptapJsonToSemanticMarkdown(normalizedDoc));
+    let normalizedDoc = kept?.doc ?? (editor?.schema ? editor.schema.nodeFromJSON(imported.doc).toJSON() : imported.doc);
+    let markdown = kept?.markdown ?? preserveLeadingYamlFrontmatter(current.exported_markdown, tiptapJsonToSemanticMarkdown(normalizedDoc));
+    // Source recovery is explicit: restore the last valid source AND its layout,
+    // never spread stale presentation onto an unrelated plain editor document.
+    let recoveredPresentation = current.page_presentation;
+    if (current.page_presentation !== undefined) {
+      if (mode !== "source") throw new Error("Composed drafts must recover from their preserved source and layout. The protected copy is kept.");
+      markdown = current.exported_markdown;
+      normalizedDoc = current.page_presentation ? hydratePresentation(markdown, current.page_presentation) : imported.doc;
+      recoveredPresentation = current.page_presentation;
+    }
     const original = JSON.parse(JSON.stringify({ ...current, tiptap_json: editor!.getJSON() })) as WorkspaceDocumentLocalState;
     const next: WorkspaceDocumentLocalState = { ...current, tiptap_json: normalizedDoc,
-      exported_markdown: markdown, exported_markdown_authoritative: false,
-      dirty: markdown !== snapshotRef.current!.markdown,
+      ...(recoveredPresentation !== undefined ? {page_presentation: recoveredPresentation} : {}),
+      exported_markdown: markdown, exported_markdown_authoritative: false, page_presentation_pending: false,
+      dirty: markdown !== snapshotRef.current!.markdown || presentationFingerprint(recoveredPresentation ?? null) !== presentationFingerprint(snapshotRef.current!.page_presentation ?? null),
       updated_at: new Date().toISOString(), last_local_save_at: new Date().toISOString() };
     return draftWriter.run(()=>{
       if(review.fence!==recoveryFence())throw new Error("The draft changed after review. Review it again before replacing it.");
@@ -630,7 +663,7 @@ export function useWorkspaceDocumentAuthoring(
       const reviewed=JSON.parse(review.fence) as unknown[];
       const now=JSON.parse(restoreFence()) as unknown[];
       if(JSON.stringify(reviewed.slice(0,-1))!==JSON.stringify(now.slice(0,-1)))throw new Error("The page changed during recovery. All copies were kept.");
-      const next={...selected.state,title:snap.record.title,base_revision:snap.loaded_revision,base_content_sha256:snap.content_sha256,
+      const next={...selected.state,title:snap.record.title,base_revision:snap.loaded_revision,base_content_sha256:snap.content_sha256,base_page_presentation_sha256:snap.page_presentation_sha256??null,
         dirty:true,updated_at:new Date().toISOString(),last_local_save_at:new Date().toISOString()};
       writeVerifiedLocalState(storage,next);
       expectedRevisionRef.current=snap.loaded_revision;localStateRef.current=next;localDirtyRef.current=true;setLocalState(next);
@@ -665,7 +698,7 @@ export function useWorkspaceDocumentAuthoring(
     }
 
     const tiptapJson = editor.getJSON();
-    const serializationDiagnostics = semanticMarkdownSerializationDiagnostics(tiptapJson);
+    const serializationDiagnostics = semanticMarkdownSerializationDiagnostics(flattenPresentation(tiptapJson));
     if (serializationDiagnostics.length > 0) {
       dispatch({
         type: "SAVE_FAILED",
@@ -674,8 +707,19 @@ export function useWorkspaceDocumentAuthoring(
       return;
     }
 
-    const editableBody = tiptapJsonToSemanticMarkdown(tiptapJson);
-    const markdown = preserveLeadingYamlFrontmatter(snapshot.markdown, editableBody);
+    let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
+    try {
+      if (args.kind === "worldbuilding_source" && args.surface === "build"
+        && (localState.page_presentation !== undefined || hasPresentation(tiptapJson))) {
+        projected = projectPresentation(tiptapJson, localState.exported_markdown, localState.page_presentation_pending ? markdownToTiptapDoc(localState.exported_markdown).doc : localState.tiptap_json as JSONContent);
+      }
+    } catch (error) {
+      dispatch({type: "SAVE_FAILED", message: error instanceof Error ? error.message : "Layout cannot be saved safely. Your draft was kept."});
+      return;
+    }
+    const editableBody = tiptapJsonToSemanticMarkdown(flattenPresentation(tiptapJson));
+    const markdown = projected?.markdown ?? preserveLeadingYamlFrontmatter(snapshot.markdown, editableBody);
+    const presentationFields = projected ? {page_presentation: projected.presentation} : {};
     if (!editableBody.trim()) {
       dispatch({ type: "SAVE_FAILED", message: "Document is empty; add content before saving." });
       return;
@@ -691,6 +735,7 @@ export function useWorkspaceDocumentAuthoring(
       const prepared = await prepareTiptapMarkdownWrite({
         document_id: args.documentId,
         markdown,
+        ...presentationFields,
         expected_revision: expectedRevision,
       });
       if (saveGeneration !== saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
@@ -704,6 +749,7 @@ export function useWorkspaceDocumentAuthoring(
       const committed = await commitTiptapMarkdownWrite({
         document_id: args.documentId,
         markdown,
+        ...presentationFields,
         writer_confirm_token: prepared.writer_confirm_token,
         expected_revision: expectedRevision,
       });
@@ -720,7 +766,7 @@ export function useWorkspaceDocumentAuthoring(
         const current=localStateRef.current;
         const next=editedDuringSave&&current
           ? applyCommitReceiptBaseRetainingEditorContent({receipt:committed,current})
-          : {...applyCommitReceiptToLocalState({receipt:committed,surface:args.surface,kind:args.kind,tiptapJson,markdown}),dirty:editedDuringSave};
+          : {...applyCommitReceiptToLocalState({receipt:committed,surface:args.surface,kind:args.kind,tiptapJson,markdown,presentation:projected?.presentation}),dirty:editedDuringSave};
         writeVerifiedLocalState(storage,next);
         localStateRef.current=next;localDirtyRef.current=next.dirty;setLocalState(next);
       },{refusedSnapshot:localStateRef.current??undefined});
@@ -740,6 +786,8 @@ export function useWorkspaceDocumentAuthoring(
         const nextSnapshot: WorkspaceDocumentSnapshot = {
           ...current,
           record: committed.committed_record,
+          ...presentationFields,
+          page_presentation_sha256: committed.page_presentation_sha256 ?? null,
           markdown,
           content_sha256: committed.normalized_content_sha256,
           file_fingerprint: committed.file_fingerprint as string,
@@ -928,6 +976,7 @@ export function useWorkspaceDocumentAuthoring(
       ? (hasBlockingMarkdownImportDiagnostics(localState.exported_markdown)
         ? "The preserved source uses Markdown this editor cannot save yet. Review the protected copies for details."
         : "This local copy was protected after an earlier editing problem. Review it once to resume saving.")
+    : localState?.page_presentation_pending ? "Finish or remove the incomplete layout block before saving. Your draft is kept."
     : (requireDirtyToSave && !dirty) ? "No unsaved changes."
     : canSave && !canSave() ? "This document is read-only or cannot be saved here."
     : null;
@@ -948,6 +997,8 @@ export function useWorkspaceDocumentAuthoring(
     documentKey,
     dirty,
     exportedMarkdownAuthoritative: Boolean(localState?.exported_markdown_authoritative),
+    pageComposerEnabled: args.surface === "build" && args.kind === "worldbuilding_source",
+    pageComposerDisabledReason: localState ? composerDisabledReason(localState.exported_markdown) : "Load a page first.",
     localAdmission,
     statusLabel:persistenceStatus.pending?"Saving local copy…":persistenceStatus.error?"Local copy needs attention":statusLabel,
     saveDisabled: !editor
@@ -955,7 +1006,7 @@ export function useWorkspaceDocumentAuthoring(
       || isSaveDisabled(phase)
       || (requireDirtyToSave && !dirty)
       || persistenceStatus.pending || Boolean(persistenceStatus.error)
-      || Boolean(localState?.exported_markdown_authoritative)
+      || Boolean(localState?.exported_markdown_authoritative) || Boolean(localState?.page_presentation_pending)
       || (canSave ? !canSave() : false),
     conflictRecovery: { prepare: prepareConflictRecovery, resolve: resolveConflictRecovery, protectedCopies: protectedConflictCopies },
     saveDisabledReason, draftRecoveryAvailable, prepareDraftRecovery, confirmDraftRecovery, prepareDraftRestore, restoreDraftRecovery,

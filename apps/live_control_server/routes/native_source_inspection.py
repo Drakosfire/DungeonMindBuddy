@@ -4,12 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.models.native_graph_inspection import InspectionScope
-from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapRead
+from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapObjectsRead, PublishedRecapRead
 from apps.live_control_server.services import native_source_inspection as service
-from apps.live_control_server.services.agent_graph_auth import (
-    native_graph_gm_dependency,
-)
+from apps.live_control_server.services.native_graph_explorer import NativeGraphExplorerError, hosted_response_binding
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
+
+from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
 
 router = APIRouter(
     prefix="/api/live/native-source-inspection",
@@ -32,14 +32,27 @@ def _call(fn, body, principal):
 
 
 @router.post("/catalog")
-def catalog(body: InspectionScope, principal=Depends(native_graph_gm_dependency)):
+def catalog(body: InspectionScope, principal=Depends(native_graph_explorer_dependency)):
     return _call(service.catalog, body, principal)
 
 
 @router.post("/read")
-def inspect(body: NativeSourceRead, principal=Depends(native_graph_gm_dependency)):
+def inspect(body: NativeSourceRead, principal=Depends(native_graph_explorer_dependency)):
     return _call(service.inspect, body, principal)
 
 @router.post("/published-recap")
-def published_recap(body: PublishedRecapRead, principal=Depends(native_graph_gm_dependency)):
-    return _call(service.published_recap, body, principal)
+def published_recap(body: PublishedRecapRead, principal=Depends(native_graph_explorer_dependency)):
+    try:
+        with hosted_response_binding(principal, body.managed_world_id):
+            return _call(service.published_recap, body, principal)
+    except NativeGraphExplorerError as exc:
+        raise HTTPException(status_code=exc.status, detail={"code": exc.code}) from None
+
+
+@router.post("/published-recap/objects")
+def published_recap_objects(body: PublishedRecapObjectsRead, principal=Depends(native_graph_explorer_dependency)):
+    try:
+        with hosted_response_binding(principal, body.managed_world_id):
+            return _call(service.published_recap_objects, body, principal)
+    except NativeGraphExplorerError as exc:
+        raise HTTPException(status_code=exc.status, detail={"code": exc.code}) from None

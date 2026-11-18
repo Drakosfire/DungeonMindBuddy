@@ -1123,10 +1123,16 @@ class AgentConversationHistoryPlayTurnV3(AgentConversationHistoryTurnV3):
 
 
 class AgentConversationHistoryBuildTurnV2(AgentConversationHistoryTurn):
+    variant_approval_requested: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
+    variant_draft_reviewed: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
+    conversation_draft_available: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
     knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
 
 
 class AgentConversationHistoryBuildTurnV3(AgentConversationHistoryTurnV3):
+    variant_approval_requested: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
+    variant_draft_reviewed: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
+    conversation_draft_available: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
     knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
 
 
@@ -1186,6 +1192,7 @@ class AgentConversationHistoryResponseV3(AgentConversationHistoryResponse):
 
 
 class AgentConversationHistoryMixedTurnV1(AgentConversationHistoryTurnV3):
+    variant_approval_requested: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
     schema_: Literal["dmb_agent_conversation_history_mixed_turn_v1"] = Field(
         default="dmb_agent_conversation_history_mixed_turn_v1", alias="schema")
     lifecycle_status: Literal["completed"]

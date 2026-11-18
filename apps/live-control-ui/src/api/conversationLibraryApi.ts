@@ -146,7 +146,7 @@ export async function readConversationMessages(world:string,id:string,before?:nu
 export interface ActiveConversationMessages {
   schema: 'dmb_active_conversation_messages_v4'; world_id: string; conversation_state: 'active' | 'absent';
   conversation_id: string | null; active_conversation_id: string | null; pointer_revision: number;
-  messages: (ConversationMessage & { author_interaction?: import('./conversationRetryApi').AuthorInteraction; reply_object: LibraryReplyObject | null; authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview; saved_statblocks?: {name: string; world_id: string; draft_id: string; revision_id: string; pdf_sources?: SavedStatblockPdfSources | null}[] })[];
+  messages: (ConversationMessage & { author_interaction?: import('./conversationRetryApi').AuthorInteraction; reply_object: LibraryReplyObject | null; authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview; conversation_draft_available?: true; variant_draft_reviewed?: true; variant_approval_requested?: true; saved_statblocks?: {name: string; world_id: string; draft_id: string; revision_id: string; pdf_sources?: SavedStatblockPdfSources | null}[] })[];
   next_before_sequence: number | null;
 }
 export async function readActiveConversationMessages(world: string, before?: number, signal?: AbortSignal): Promise<ActiveConversationMessages> {
@@ -158,7 +158,7 @@ export async function readActiveConversationMessages(world: string, before?: num
     || (v.conversation_state === 'active' ? !uuid(v.conversation_id) || v.active_conversation_id !== v.conversation_id
       : v.conversation_id !== null || v.active_conversation_id !== null || v.messages.length !== 0 || v.next_before_sequence !== null)) throw new Error('Active message page has a different owner.');
   let last = 0; for (const t of v.messages) {
-if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_text', 'revision', 'idempotency_key', 'provenance', 'citation_preview', 'authored_references', 'reply_object', ...(Object.hasOwn(t ?? {}, 'saved_statblocks') ? ['saved_statblocks'] : []), ...(Object.hasOwn(t ?? {}, 'author_interaction') ? ['author_interaction'] : [])])
+if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_text', 'revision', 'idempotency_key', 'provenance', 'citation_preview', 'authored_references', 'reply_object', ...(Object.hasOwn(t ?? {}, 'saved_statblocks') ? ['saved_statblocks'] : []), ...(Object.hasOwn(t ?? {}, 'conversation_draft_available') ? ['conversation_draft_available'] : []), ...(Object.hasOwn(t ?? {}, 'variant_draft_reviewed') ? ['variant_draft_reviewed'] : []), ...(Object.hasOwn(t ?? {}, 'variant_approval_requested') ? ['variant_approval_requested'] : []), ...(Object.hasOwn(t ?? {}, 'author_interaction') ? ['author_interaction'] : [])])
       || !uuid(t.turn_id) || !uuid(t.idempotency_key) || !Number.isSafeInteger(t.revision) || t.revision < 1 || !Number.isSafeInteger(t.sequence) || t.sequence <= last
       || before !== undefined && t.sequence >= before || !['accepted', 'running', 'completed', 'failed', 'interrupted'].includes(t.status)
       || ('author_interaction' in t && (t.author_interaction !== 'select_passage' || t.status !== 'interrupted'
@@ -167,6 +167,19 @@ if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_te
     validateReplyObject(t.reply_object,world,v.conversation_id,t);
     if(t.reply_object&&(t.reply_object.source.surface_id!==t.provenance.surface_id||t.reply_object.source.document_id!==t.provenance.primary_work?.object_id))throw new Error('Saved review differs from its actual surface.');
     if(t.authored_references!==null&&!isAuthoredReferences(t.authored_references,world))throw new Error('Saved references have a different owner.');
+    if (Object.hasOwn(t, 'variant_draft_reviewed') &&
+      (t.variant_draft_reviewed !== true || t.conversation_draft_available !== true ||
+        t.status !== 'completed' || t.provenance.surface_id !== 'build')) {
+      throw new Error('Invalid reviewed statblock draft message.');
+    }
+    if (Object.hasOwn(t, 'variant_approval_requested') &&
+      (t.variant_approval_requested !== true || t.status !== 'completed' || t.provenance.surface_id !== 'build')) {
+      throw new Error('Invalid variant approval message.');
+    }
+    if (Object.hasOwn(t, 'conversation_draft_available') &&
+      (t.conversation_draft_available !== true || t.status !== 'completed' || t.provenance.surface_id !== 'build')) {
+      throw new Error('Invalid conversation draft marker.');
+    }
     if (t.saved_statblocks !== undefined && (!Array.isArray(t.saved_statblocks)
       || t.saved_statblocks.some((reference: unknown) => !reference || typeof reference !== 'object'
         || !('name' in reference) || !('world_id' in reference)

@@ -31,6 +31,8 @@ def header(snapshot):
 def build_frame(selection, principal):
     if principal is None or principal.role not in {"gm", "player"}:
         raise ValueError("Authenticated native principal required")
+    if getattr(principal, "managed_world_id", selection.managed_world_id) != selection.managed_world_id:
+        raise ValueError("Native statement World differs from principal World")
     bound = statements.native.binding(selection.managed_world_id)
     repo = statements.native.repository()
     space = bound["native_world_id"]

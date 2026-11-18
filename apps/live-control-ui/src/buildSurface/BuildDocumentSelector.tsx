@@ -1,10 +1,11 @@
+import { navigatePrimaryAppHref } from "../chrome/appNavigation";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { loadNativeDocuments, nativeDocumentHref } from "./buildNativeDocuments";
 import type { NativeSourceMetadata } from "../api/nativeSourceInspection";
 import { useEffect, useId, useMemo, useState, useRef } from "react";
 
 import { listRetainedPdfDocuments, retainedPdfBuildHref, type RetainedPdf } from "../api/retainedPdfRegions";
-import { listPdfStatblockReviews, listWorldMechanicsAssociations, listWorldThreatDrafts, type PdfStatblockReviewSummary, type WorldThreatDraftSummary } from "../api/liveApi";
+import { archiveBuildStatblock, listPdfStatblockReviews, listWorldMechanicsAssociations, listWorldThreatDrafts, withdrawBuildSource, type PdfStatblockReviewSummary, type WorldThreatDraftSummary } from "../api/liveApi";
 import { buildSavedStatblockHref, readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
 import type { WorkspaceDocumentRecord } from "../api/types";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
@@ -100,12 +101,18 @@ export function BuildDocumentSelector({
   const search = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const recentKey = `buddy:build:recent:${worldId ?? preferredCampaignId ?? ""}`;
+  const [deleteTarget, setDeleteTarget] = useState<PickerEntry | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [archivedDrafts, setArchivedDrafts] = useState<string[]>([]);
+  const [withdrawn, setWithdrawn] = useState<string[]>([]);
   const [recent, setRecent] = useState<string[]>([]);
   const statblocks = (currentCatalog?.drafts ?? []).flatMap(draft => {
-    if (draft.world_id !== worldId) return [];
+    if (draft.world_id !== worldId || archivedDrafts.includes(draft.draft_id)) return [];
     return Array.from(currentCatalog?.published.get(draft.draft_id) ?? [], revisionId => ({
       href: buildSavedStatblockHref({ worldId: draft.world_id, draftId: draft.draft_id, revisionId }),
       title: draft.name,
+      statblock: { draftId: draft.draft_id, version: draft.version },
       draftId: draft.draft_id,
     }));
   });
@@ -221,23 +228,25 @@ export function BuildDocumentSelector({
     ...groupedOptions.flatMap(group => group.options.map(option => ({
       ...option, category: "Pages" as const, detail: group.label,
     }))),
-    ...statblocks.map(item => ({ id: item.href, label: item.title, category: "Statblocks" as const })),
+    ...statblocks.map(item => ({ id: item.href, label: item.title, statblock: item.statblock, category: "Statblocks" as const })),
     ...(worldId ? (currentReviews?.reviews ?? []).filter(review =>
-      !statblocks.some(item => item.draftId === review.draft_id)
+      !currentCatalog?.published.has(review.draft_id)
     ).map(review => ({
       id: "/build?" + new URLSearchParams({ world: worldId, pdfReview: review.review_id }),
       label: review.name, category: "Statblock drafts" as const, detail: "PDF extraction draft",
     })) : []),
     ...(worldId ? retainedPdfs.map(entry => ({
       id: retainedPdfBuildHref(worldId, entry), label: entry.name, category: "PDFs" as const,
+      withdrawal: { kind: "pdf" as const, revision_id: entry.locator.source_revision_id },
     })) : []),
     ...(worldId ? nativeSources.map(source => ({
       id: nativeDocumentHref(worldId, source), label: source.navigation.label ?? "Unnamed document",
+      withdrawal: { kind: "text" as const, revision_id: source.source_revision.source_revision_id },
       category: source.navigation.kind === "recap" ? "Recaps" as const : "Ingested text" as const,
       detail: [source.navigation.campaign_id, source.navigation.session_id && `Session ${source.navigation.session_id}`]
         .filter(Boolean).join(" · "),
     })) : []),
-  ];
+  ].filter(entry => !withdrawn.includes(entry.id));
   useEffect(() => {
     if (!activeId) return;
     try {
@@ -265,6 +274,9 @@ export function BuildDocumentSelector({
   ].filter(Boolean);
 
   function closePicker() {
+    if (deleting) return;
+    setDeleteTarget(null);
+    setDeleteError("");
     if (dialog.current?.close) dialog.current.close();
     else dialog.current?.removeAttribute("open");
     trigger.current?.focus();
@@ -279,11 +291,35 @@ export function BuildDocumentSelector({
     search.current?.focus();
   }
 
+  async function deleteSource() {
+    if (!worldId || !deleteTarget || deleting) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      if (deleteTarget.withdrawal) await withdrawBuildSource(worldId, deleteTarget.withdrawal);
+      else if (deleteTarget.statblock) {
+        const { draftId, version } = deleteTarget.statblock;
+        await archiveBuildStatblock(worldId, draftId, version);
+        setArchivedDrafts(ids => [...ids, draftId]);
+      }
+      else return;
+      setWithdrawn(ids => [...ids, deleteTarget.id]);
+      setDeleteTarget(null);
+      if (deleteTarget.id === activeId || (deleteTarget.statblock && deleteTarget.statblock.draftId === activeStatblock?.draftId)) {
+        navigatePrimaryAppHref("/build?" + new URLSearchParams({ world: worldId }), { allowBuildTargetChange: true });
+      }
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Could not delete the document.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   function openDocument(id: string) {
     closePicker();
-    if (id.startsWith("/build?")) window.location.assign(id);
+    if (id.startsWith("/build?")) navigatePrimaryAppHref(id, { allowBuildTargetChange: true });
     else if (worldId && (activeStatblock || activeNativeId || new URLSearchParams(window.location.search).has("pdf"))) {
-      window.location.assign("/build?" + new URLSearchParams({ world: worldId, documentId: id }));
+      navigatePrimaryAppHref("/build?" + new URLSearchParams({ world: worldId, documentId: id }), { allowBuildTargetChange: true });
     } else onSelect(id);
   }
 
@@ -299,6 +335,7 @@ export function BuildDocumentSelector({
       <dialog ref={dialog} className="build-document-picker" aria-label="Open document" data-native-escape-owner
         onCancel={event => {
           if (event.target !== event.currentTarget) return;
+          if (deleteTarget && !deleting) { event.preventDefault(); setDeleteTarget(null); setDeleteError(""); return; }
           event.preventDefault();
           closePicker();
         }}>
@@ -307,7 +344,12 @@ export function BuildDocumentSelector({
             value={query} onChange={event => setQuery(event.target.value)} />
           <button type="button" aria-label="Close document picker" onClick={closePicker}>×</button>
         </header>
-        <div className="build-document-picker__body">
+        {deleteTarget ? <section className="build-document-picker__confirmation" aria-label="Confirm document deletion">
+          <p>Delete “{deleteTarget.label}” from this World? {deleteTarget.statblock ? "Existing references to saved mechanics will keep working." : "Existing links to this source will stop opening it."}</p>
+          {deleteError && <p role="alert">{deleteError}</p>}
+          <button type="button" disabled={deleting} onClick={() => { setDeleteTarget(null); setDeleteError(""); }}>Cancel</button>
+          <button type="button" disabled={deleting} onClick={() => void deleteSource()}>{deleting ? "Deleting…" : "Delete document"}</button>
+        </section> : <div className="build-document-picker__body">
           <nav aria-label="Document categories">
             {PICKER_CATEGORIES.map(item => <button key={item} type="button"
               aria-pressed={!filter && category === item} onClick={() => { setCategory(item); setQuery(""); }}>
@@ -329,6 +371,10 @@ export function BuildDocumentSelector({
                 worldId={worldId} current={{ kind: "document", id: entry.id, title: page.title, surface: "build", revision: page.revision }}
                 blocked={switching || (entry.id === activeDocumentId && activePageTrashBlocked)}
                 onTrashed={() => onPageTrashed(entry.id)} />}
+              {(entry.withdrawal || entry.statblock) && <button type="button" className="workspace-trash-delete"
+                aria-label={`Delete ${entry.label}`} title="Delete document" onClick={() => setDeleteTarget(entry)}>
+                <span aria-hidden="true">×</span>
+              </button>}
             </li>;
             })}</ul> : <p role="status">{pending ? "Loading documents…" : filter ? (loadMorePages ? "No loaded documents match your search." : "No documents match your search.")
               : category === "Recent" ? "Documents you open will appear here." : "No documents in this category."}</p>}
@@ -337,7 +383,7 @@ export function BuildDocumentSelector({
                 Load more pages
               </button>}
           </section>
-        </div>
+        </div>}
       </dialog>
     </div>
   );
@@ -345,7 +391,7 @@ export function BuildDocumentSelector({
 
 const PICKER_CATEGORIES = ["Recent", "All documents", "Pages", "Statblocks", "Statblock drafts", "PDFs", "Recaps", "Ingested text"] as const;
 type PickerCategory = typeof PICKER_CATEGORIES[number];
-type PickerEntry = { id: string; label: string; category: PickerCategory; detail?: string };
+type PickerEntry = { id: string; label: string; category: PickerCategory; detail?: string; statblock?: { draftId: string; version: number }; withdrawal?: { kind: "pdf" | "text"; revision_id: string } };
 
 function readRecent(key: string): string[] {
   try {

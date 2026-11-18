@@ -2,7 +2,13 @@
 
 **Status:** current product execution ledger; reconciled2026-10-27.
 **Last verified delivery anchor:** API `53d4bfd70`, UI `cbb1c264`, ports8000/5202, APP0079/native0017. Protected PR1824 adoption retained3640 APP rows,1096 native rows and40813 files. Revalidate ownership/data before delivery.
-**Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
+**Owner:** DungeonMindBuddy; [bounded assignment](../Plans/STEWARDS-HANDOFF-demo.md).
+
+## Current evidence pointer — 2026-11-17
+
+The October 27 delivery anchor and dated sequence below are historical evidence, not a statement of today's deployed commit or a new dispatch. Preserve their priorities and full acceptance history; this roadmap remains the sole product sequencing owner. Re-anchor current source, runtime ownership and unresolved gates before any new work.
+
+The [root backlog](../../Backlog.md#dated-evidence-pointers--2026-11-17) now retains the merged landing/empty-canvas capture [#3763](https://github.com/Drakosfire/DungeonMindBuddy/pull/3763), manual composer residuals and links to hosted presenter demo [#3837](https://github.com/Drakosfire/DungeonMindBuddy/issues/3837), incremental ordinary replies [#3838](https://github.com/Drakosfire/DungeonMindBuddy/issues/3838) and the still-deferred controller candidate [#3845](https://github.com/Drakosfire/DungeonMindBuddy/issues/3845). [Replay](../Backlog/IDEA-conversation-search-replay.md#evidence-reconciliation--2026-11-17) and [AW capabilities](../Backlog/IDEA-aw-workflow-capabilities.md#evidence-reconciliation--2026-11-17) distinguish merged mechanisms/local or scripted proof from hosted/live acceptance. These pointers do not reorder the product sequence, mark whole journeys accepted or activate older design drafts. Broad demo [#410](https://github.com/Drakosfire/DungeonMindBuddy/issues/410) and source-anchor acceptance [#783](https://github.com/Drakosfire/DungeonMindBuddy/issues/783) remain open.
 
 ## Verify the historical DEMO-J1 input
 

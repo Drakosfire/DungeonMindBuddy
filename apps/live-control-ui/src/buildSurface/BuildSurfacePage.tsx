@@ -1,3 +1,4 @@
+import { useHostedAuthStatus } from "../auth/HostedAuthGate";
 import { BuildNativeDocument } from "./BuildNativeDocument";
 import { listRetainedPdfDocuments, readRetainedPdfDocuments, type RetainedPdf } from "../api/retainedPdfRegions";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
@@ -20,6 +21,7 @@ import { useBuildWorkspaceDocumentController } from "./useBuildWorkspaceDocument
 import "./buildSurface.css";
 
 export function BuildSurfacePage() {
+  const hosted = useHostedAuthStatus().status === "authenticated";
   const selectedWorld = useSelectedWorld();
   const worldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const [droppedPdf, setDroppedPdf] = useState<{ file: File; worldId: string; version: number }>();
@@ -48,9 +50,9 @@ export function BuildSurfacePage() {
   const nativeDocumentId = params.get("world") === worldId ? params.get("nativeDocument") : null;
   const pdfId = params.get("world") === worldId ? params.get("pdf") : null;
   const [authorityPdf, setAuthorityPdf] = useState<{ worldId: string; id: string; entry?: RetainedPdf }>();
-  const localPdf = useMemo(() => worldId && pdfId
+  const localPdf = useMemo(() => !hosted && worldId && pdfId
     ? readRetainedPdfDocuments(worldId).find(entry => entry.locator.source_revision_id === pdfId)
-    : undefined, [worldId, pdfId]);
+    : undefined, [hosted, worldId, pdfId]);
   useEffect(() => {
     if (!worldId || !pdfId || localPdf) return;
     const request = new AbortController();
@@ -71,7 +73,8 @@ export function BuildSurfacePage() {
   const reviewWorldId = params.get("world");
   const [primaryActions, setPrimaryActions] = useState<HTMLDivElement | null>(null);
   const [reviewToolbar, setReviewToolbar] = useState<HTMLDivElement | null>(null);
-  const pdfReviewId = new URLSearchParams(window.location.search).get("world") === reviewWorldId
+  const pdfReviewId = (!hosted || reviewWorldId === worldId)
+    && new URLSearchParams(window.location.search).get("world") === reviewWorldId
     ? params.get("pdfReview")
     : null;
 
@@ -96,7 +99,7 @@ export function BuildSurfacePage() {
       ) : statblock && statblock.worldId === worldId ? (
         <>
           <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} />
-          <SavedStatblockFullView target={statblock} />
+          <SavedStatblockFullView target={statblock} toolbarHost={hosted ? null : primaryActions} />
         </>
       ) : graphPointer && nativeObject && nativeObject.managed_world_id === worldId ? (
         <BuildGraphObjectContext key={entrySearch} pointer={graphPointer} />
@@ -109,13 +112,13 @@ export function BuildSurfacePage() {
         <>
           <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} />
           <section className="build-pdf-workspace" aria-label="PDF workspace">
-            {retainedPdf ? <BuildPdfPreview key={entrySearch} worldId={worldId} initialRetained={retainedPdf} />
+            {retainedPdf ? <BuildPdfPreview key={entrySearch} worldId={worldId} initialRetained={retainedPdf} persistShortcuts={!hosted} />
               : <p role="status">{(!pdfId || resolvedPdf) ? "This retained PDF could not be found." : "Opening PDF…"}</p>}
           </section>
         </>
       ) : droppedPdf && droppedPdf.worldId === worldId ? (
         <section className="build-pdf-workspace" aria-label="PDF workspace">
-          <BuildPdfPreview key={droppedPdf.version} worldId={droppedPdf.worldId} initialFile={droppedPdf.file}
+          <BuildPdfPreview key={droppedPdf.version} worldId={droppedPdf.worldId} initialFile={droppedPdf.file} persistShortcuts={!hosted}
             toolbarControls={<button type="button" onClick={() => setDroppedPdf(undefined)}>Close PDF</button>} />
         </section>
       ) : controller.activeDocumentId ? (

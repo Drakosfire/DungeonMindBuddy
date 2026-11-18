@@ -38,6 +38,7 @@ export type StatblockRendererProps =
   | {
       candidate?: never;
       revision: StatblockRevisionResourceV1;
+      pdfPortrait?: string;
       mode?: StatblockRenderMode;
       chrome?: StatblockRendererChrome;
     }
@@ -135,6 +136,7 @@ export function StatblockAdvancedLedger({
   mode = "full",
 }: {
   revision: StatblockRevisionResourceV1;
+      pdfPortrait?: string;
   mode?: StatblockRenderMode;
 }) {
   const view = buildStatblockViewModel(revision, mode);
@@ -324,11 +326,10 @@ function CampaignStatblockBody({ view, portrait, draft }: {
         <h3>{view.name}</h3>
         <p className="statblock-campaign-identity">{view.identityLine}</p>
       </header>
-      {!draft && portrait}
 
       <div className="statblock-campaign-grid">
         <div className="statblock-campaign-col">
-          {draft && portrait}
+          {portrait}
           {view.flavorSummary ? (
             <p className="statblock-campaign-flavor" data-testid="statblock-campaign-flavor">
               {view.flavorSummary}
@@ -535,6 +536,13 @@ export function StatblockRenderer({
   const campaignChrome = chrome === "campaign";
   const binding=revision?.asset_bindings?.find(item=>item.role==='portrait'&&item.phase_key==null);
   const portrait=draft?.portrait ?? (binding?<SavedPortrait key={`${revision!.revision_id}:${binding.asset.asset_id}:${binding.asset.url}`} asset={binding.asset} name={view.name}/>:null);
+  const pdfPortrait = "pdfPortrait" in options && options.pdfPortrait;
+  const displayedPortrait = portrait ?? (pdfPortrait ? (
+    <figure className="statblock-renderer-portrait">
+      <img src={`data:image/jpeg;base64,${pdfPortrait}`} alt={`Source artwork for ${view.name}`} />
+    </figure>
+  ) : null);
+
 
   return (
     <article
@@ -547,7 +555,7 @@ export function StatblockRenderer({
       aria-label={`Statblock ${view.recordKind} ${view.name}`}
     >
       {campaignChrome ? (
-        <CampaignStatblockBody view={view} portrait={portrait} draft={draft} />
+        <CampaignStatblockBody view={view} portrait={displayedPortrait} draft={draft} />
       ) : (
         <>
           <header className="statblock-renderer-header">

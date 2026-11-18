@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from apps.live_control_server.routes.statblock_storage import statblock_data_root
 from apps.live_control_server.routes.native_threat_creation import router as native_creation_router
@@ -24,6 +24,7 @@ from apps.live_control_server.services.managed_world_graph_projection import res
 from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
 from apps.live_control_server.services.threat_draft_store import (
     ThreatDraftStoreError,
+    archive_saved_threat_draft,
     create_threat_draft,
     get_threat_draft,
     list_threat_drafts,
@@ -89,7 +90,11 @@ def get_threat_drafts(
     world_id: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=MAX_LIST_LIMIT)] = DEFAULT_LIST_LIMIT,
     offset: Annotated[int, Query(ge=0)] = 0,
+    request: Request = None,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    require_hosted_plan_world_context(request, world_id)
     try:
         drafts, total = list_threat_drafts(
             statblock_data_root(repo_root()),
@@ -106,6 +111,23 @@ def get_threat_drafts(
         offset=offset,
         total=total,
     ).model_dump(mode="json", by_alias=True)
+
+
+@router.delete("/{draft_id}/saved-statblock", status_code=204)
+def delete_saved_statblock(draft_id: str, world_id: str, expected_version: int, request: Request):
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
+    _admit_world_scope(world_id, None)
+    try:
+        archive_saved_threat_draft(
+            statblock_data_root(repo_root()), world_id=world_id,
+            draft_id=draft_id, expected_version=expected_version,
+            authorize_world=lambda bound_world: require_build_pdf_access(request, bound_world),
+        )
+    except ThreatDraftStoreError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return Response(status_code=204, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/{draft_id}")

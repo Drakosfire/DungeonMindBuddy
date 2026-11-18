@@ -1,5 +1,6 @@
 import "./BuildPdfPreview.css";
 import { createPortal } from "react-dom";
+import { PdfAdventureEventReview } from "./PdfAdventureEventReview";
 import { StartPdfStatblockReview } from "./StartPdfStatblockReview";
 import { completePdfTextLines, hasClippedPdfTextLine, pdfTextBoundsOverlap } from "./completePdfTextLines";
 import { hasRecognizablePdfStatblockStructure, PdfStatblockCandidate } from "./PdfStatblockCandidate";
@@ -81,6 +82,7 @@ export function CropOcr({ worldId, region, hasPdfText }: { worldId: string; regi
       {error && <p role="alert">{error}</p>}
       {imageOnly && <p role="status">OCR found an image in this region without transcribing any text.</p>}
       {text && !imageOnly && <label>{review ? `Buddy’s review · Page ${region.page}` : "OCR transcription"}<textarea readOnly rows={8} value={text} /></label>}
+      {!review && text && !imageOnly && <PdfAdventureEventReview key={pdfRegionKey(region)} worldId={worldId} locator={region} text={text} />}
       {!review && text && !imageOnly && hasRecognizablePdfStatblockStructure(text) && <PdfStatblockCandidate text={text} locator={region} />}
     </div>
   );
@@ -475,14 +477,14 @@ export function PdfPages({ file, worldId, restored, onRetained, readOnly = false
   );
 }
 
-export function BuildPdfPreview({ worldId, initialFile, initialRetained, onPdfOpen, toolbarControls }: { worldId?: string; initialFile?: File; initialRetained?: RetainedPdf; onPdfOpen?: () => void; toolbarControls?: ReactNode }) {
+export function BuildPdfPreview({ worldId, initialFile, initialRetained, onPdfOpen, toolbarControls, persistShortcuts = true }: { worldId?: string; initialFile?: File; initialRetained?: RetainedPdf; onPdfOpen?: () => void; toolbarControls?: ReactNode; persistShortcuts?: boolean }) {
   const [selection, setSelection] = useState<{ file: File; version: number; restored?: PdfLocator } | undefined>(() => initialFile ? { file: initialFile, version: 0 } : undefined);
   const [reopenError, setReopenError] = useState("");
   const [reopening, setReopening] = useState(false);
   const [retained, setRetained] = useState<RetainedPdf[]>(() =>
-    worldId ? readRetainedPdfRegions(worldId) : []);
+    persistShortcuts && worldId ? readRetainedPdfRegions(worldId) : []);
   function saveLocator(locator: PdfLocator) {
-    if (!worldId || !selection) return;
+    if (!persistShortcuts || !worldId || !selection) return;
     const entry = { name: selection.file.name, locator };
     setRetained(previous => [entry, ...previous.filter(
       saved => pdfRegionKey(saved.locator) !== pdfRegionKey(locator),

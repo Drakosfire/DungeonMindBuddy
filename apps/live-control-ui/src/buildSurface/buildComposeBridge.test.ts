@@ -484,3 +484,24 @@ it('refuses an altered or conflicting page-end offer without falling back to car
   expect(editor.getJSON()).toEqual(before);
  }finally{editor.destroy();}
 });
+
+
+it("inserts an exact saved variant link and recognizes it after Markdown reopen", async () => {
+ const {editor,bridge,changed}=setup();
+ const variant={worldId:'elderwyld',conversationId:id,turnId:id,reviewId:id};
+ const href='/statblock?world=elderwyld&conversation='+id+'&turn='+id+'&variantReview='+id;
+ try {
+  const capture=await bridge.capture();
+  await expect(bridge.prepareProposal(capture,`[Variant](${href})`)).rejects.toThrow(/unsupported markup/);
+  await bridge.placeSavedVariantLink!(capture,variant);
+  const saved=tiptapJsonToSemanticMarkdown(editor.getJSON());
+  expect(saved).toContain(`[Open saved statblock variant](${href})`);
+  expect(editor.getText()).toContain('Edge');
+  const {markdownToTiptapDoc}=await import('../tiptap/markdown/markdownToTiptap');
+  editor.commands.setContent(markdownToTiptapDoc(saved).doc);
+  const reopened=await bridge.capture();
+  await bridge.placeSavedVariantLink!(reopened,variant);
+  expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toBe(saved);
+  expect(changed).toHaveBeenCalledTimes(1);
+ } finally { editor.destroy(); }
+});

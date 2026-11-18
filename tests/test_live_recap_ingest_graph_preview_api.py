@@ -45,6 +45,11 @@ def client_env(application_state_dsn, tmp_path, monkeypatch):
         "apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path
     )
     seed_binding(tmp_path, "elderwyld", "world:elderwyld", version=3)
+    from apps.live_control_server.services import known_character_context
+    monkeypatch.setattr(known_character_context, "read_known_character_catalog", lambda *_: {
+        "status": "no_native_head", "entities": [],
+        "native_pin": {"native_world_id": "world:elderwyld", "binding_version": 3},
+    })
     _write_synthetic_session(tmp_path)
     (tmp_path / "event_log.jsonl").write_text("")
     (tmp_path / "job_queue.jsonl").write_text("")

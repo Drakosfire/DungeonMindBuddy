@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { JSONContent } from "@tiptap/core";
+import { SavedPdfCitationWorld } from "../../markdownReader/SavedPdfCitation";
 import { ReadOnlyBodyContent } from "../../markdownReader/ReadOnlyBodyContent";
 import { SceneCard, type SceneCardChoice, type SceneCardElement } from "../../shared/SceneCard";
 import {
@@ -304,7 +305,7 @@ export function WorldPlanCardProjection({ worldId, documentId, document, markdow
       {selectedEditTarget?.kind === kind && selectedEditTarget.id === id ? "Selected for Agent edit" : `Use ${kind} for Agent edit`}
     </button>;
   };
-  return <section className="world-plan-cards world-plan-cards--reader" data-testid="world-plan-scene-reader" aria-label="Focused Plan scene">
+  return <SavedPdfCitationWorld.Provider value={worldId}><section className="world-plan-cards world-plan-cards--reader" data-testid="world-plan-scene-reader" aria-label="Focused Plan scene">
     {selectionStale ? <p role="alert">The selected Ask card is stale. Select a matching saved card again before asking.</p> : null}
     <SceneCard identity={{ worldId, documentId, sceneId: scene.id,
       revision: basis.status === "verified" && !isDirty ? basis.revision : null,
@@ -324,5 +325,5 @@ export function WorldPlanCardProjection({ worldId, documentId, document, markdow
       </section> : null}
       onActivateGraphNode={onActivateGraphNode}
       unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it." />
-  </section>;
+  </section></SavedPdfCitationWorld.Provider>;
 }

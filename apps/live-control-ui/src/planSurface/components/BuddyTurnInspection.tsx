@@ -92,7 +92,6 @@ export function BuddyTurnInspection({ worldId, conversationId, turnId, lifecycle
     const explicitRetry = handledRetry.current !== retry
     handledRetry.current = retry
     if (cache.current?.key !== key || explicitRetry || phaseChanged) {
-      setFailure(null)
       read()
     } else if (running) timer = setTimeout(read, 2000)
     return () => { active = false; clearTimeout(timer); controller.abort() }

@@ -52,6 +52,8 @@ class NativeCorpusMemberV1(Strict):
     access_slice_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     proof_epoch: int = Field(ge=0, strict=True)
     campaign_scope: Literal["unestablished"] = "unestablished"
+    registered_campaign_id: str | None = Field(default=None, min_length=1,
+        exclude_if=lambda value: value is None)
     session_scope: Literal["unestablished"] | Annotated[int, Field(gt=0, strict=True)] = "unestablished"
     # Omission preserves already committed historical catalogs and SDK bytes.
     # Every current acquisition supplies a name or explicit unavailable label.
@@ -231,6 +233,31 @@ def select_native_body_excerpt(catalog, markdown, section_id):
         planning_ranges=_recap_planning_ranges(catalog, markdown, section))
 
 
+def bounded_body_section(catalog, excerpt, *, line_start: int, line_end: int):
+    """Derive a citable extent from an already validated source read."""
+    parent = excerpt.section
+    lines = excerpt.text.splitlines(keepends=True)
+    if (type(line_start) is not int or type(line_end) is not int
+            or excerpt.catalog_sha256 != catalog.catalog_sha256
+            or len(lines) != parent.line_end - parent.line_start + 1
+            or not parent.line_start <= line_start <= line_end <= parent.line_end):
+        raise ValueError("Selected lines are outside their producing source read")
+    before = "".join(lines[:line_start - parent.line_start])
+    text = "".join(lines[line_start - parent.line_start:line_end - parent.line_start + 1])
+    char_start = parent.char_start + len(before)
+    byte_start = parent.byte_start + len(before.encode("utf-8"))
+    byte_end = byte_start + len(text.encode("utf-8"))
+    if not text.strip() or (byte_start == 0 and byte_end == catalog.body_bytes):
+        raise ValueError("Writer passage must be nonblank and shorter than the full source")
+    identity = dict(catalog_sha256=catalog.catalog_sha256, line_start=line_start, line_end=line_end)
+    return NativeCorpusSectionV1(
+        section_id=sha256(canonical(identity).encode()).hexdigest(),
+        label=parent.label, line_start=line_start, line_end=line_end,
+        char_start=char_start, char_end=char_start + len(text),
+        byte_start=byte_start, byte_end=byte_end,
+    ), text
+
+
 def full_document_section(catalog):
     source, revision = catalog.source.artifact, catalog.source.revision
     identity = {"selector_policy": "native_full_document_v1",
@@ -340,6 +367,7 @@ class NativeBodySectionMatchV1(Strict):
     catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     section_id: str = Field(pattern=r"^[a-f0-9]{64}$")
     matched_terms: tuple[str, ...] = Field(min_length=1)
+    distinctiveness_rank: int | None = Field(default=None, gt=0)
 
 
 class NativeBodySearchObservedV1(NativeBodyEvent):
@@ -637,27 +665,36 @@ def acquired_body_catalogs(execution):
     return catalogs
 
 
-def selected_batch_covering_reads(execution, selection, handle, *, before_sequence=None):
+def selected_batch_covering_reads(execution, selection, handle, *, before_sequence=None, require_passage=False):
     """Exact source extent already obtained by this acknowledged read batch."""
     if (not handle.startswith('native-body:') or selection.operation != 'select_candidates'
             or handle not in selection.selected_handles):
         return ()
     events = execution.events if before_sequence is None else execution.events[:before_sequence]
     searches = [e for e in events if isinstance(e, NativeBodySearchObservedV1)]
-    if not searches:
-        return ()
-    catalog = next((c for c in searches[0].catalogs for s in c.sections
-        if handle == native_body_handle(c.catalog_sha256, s.section_id)), None)
+    from .native_execution import NativePlanActionV2
+
+    plan = type(getattr(getattr(execution, "policy", None), "action", None)) is NativePlanActionV2
+    catalogs = acquired_body_catalogs(execution)
+    candidates = searches[0].catalogs if searches else ()
+    if plan:
+        candidates = tuple(catalogs.values()) + tuple(candidates)
+    catalog = next((c for c in candidates for section in c.sections
+        if handle == native_body_handle(c.catalog_sha256, section.section_id)), None)
     if catalog is None:
         return ()
     section = next(s for s in catalog.sections if handle == native_body_handle(catalog.catalog_sha256, s.section_id))
     def identity(c):
         return (c.source.artifact.source_artifact_id,
             c.source.revision.source_revision_id, c.source.revision.content_sha256)
-    catalogs = acquired_body_catalogs(execution)
     return tuple(e.event_id for e in events if isinstance(e, (NativeBodyReadObservedV1, NativeAuthoredSourceReadV1))
-        and e.excerpt is not None and e.sequence > selection.sequence
+        and e.excerpt is not None
+        and (e.sequence > selection.sequence or (
+            plan and e.excerpt.selector_policy == 'native_full_document_v1'
+            and section.byte_end - section.byte_start < catalog.body_bytes))
         and identity(catalogs[e.excerpt.catalog_sha256]) == identity(catalog)
+        and (not require_passage or _is_writer_passage(e, catalogs[e.excerpt.catalog_sha256])
+             or (plan and section.byte_end - section.byte_start < catalog.body_bytes))
         and e.excerpt.section.byte_start <= section.byte_start
         and e.excerpt.section.byte_end >= section.byte_end)
 
@@ -694,6 +731,55 @@ def selected_body_reads(execution):
                  or body_selection_unit_id(read) in vote.expanded_unit_ids)
 
 
+def _is_writer_passage(read, catalog):
+    excerpt = read.excerpt
+    return (excerpt.selector_policy != "native_full_document_v1"
+            and (excerpt.section.byte_start, excerpt.section.byte_end) != (0, catalog.body_bytes))
+
+
+def writer_passage_reads(execution):
+    """Keep exploration-only whole recaps out of the citation catalogue."""
+    catalogs = acquired_body_catalogs(execution)
+    return tuple(
+        read for read in selected_body_reads(execution)
+        if _is_writer_passage(read, catalogs[read.excerpt.catalog_sha256])
+    )
+
+
+def writer_passage_supports(execution, selector):
+    """Bind ordinary section votes to exact acquired text, including covering reads."""
+    from .native_retrieval import native_selection_types
+
+    catalogs = acquired_body_catalogs(execution)
+    reads = {read.event_id: read for read in selected_body_reads(execution)}
+    supports = [NativeBodySupport(selector(read), read, catalogs[read.excerpt.catalog_sha256])
+                for read in writer_passage_reads(execution)]
+    exact = {support.handle for support in supports}
+    sections = {native_body_handle(catalog.catalog_sha256, section.section_id): section
+                for catalog in catalogs.values() for section in catalog.sections}
+    for selection in execution.events:
+        if not isinstance(selection, native_selection_types()):
+            continue
+        for handle in selection.selected_handles:
+            section = sections.get(handle)
+            if section is None or handle in exact:
+                continue
+            covering = selected_batch_covering_reads(execution, selection, handle)
+            read = next((reads[key] for key in covering if key in reads), None)
+            if read is None:
+                continue
+            catalog = catalogs[read.excerpt.catalog_sha256]
+            if (section.byte_start, section.byte_end) == (0, catalog.body_bytes):
+                continue
+            support = NativeBodySupport(handle, read, catalog, (section.line_start, section.line_end))
+            recovered, _ = support.passage()
+            if (recovered.byte_start, recovered.byte_end) != (section.byte_start, section.byte_end):
+                raise ValueError("Covering source read changed its selected passage extent")
+            supports.append(support)
+            exact.add(handle)
+    return tuple(supports)
+
+
 def body_selector(turn, read):
     """Current-input address only; the durable read retains source authority."""
     from .plan_source_selectors import _scope
@@ -712,19 +798,21 @@ def model_body_frame(turn):
         lambda read: body_selector(turn, read))
 
 
-def model_body_frame_records(source_authority, execution, selector):
+def model_body_frame_records(source_authority, execution, selector, *, passages_only=False):
     """Expose only selected body extents; producing-prefix admission is caller-owned."""
     searches = [event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)]
     search = searches[0] if searches else None
     catalogs = acquired_body_catalogs(execution)
     pairs = []
-    for read in selected_body_reads(execution):
+    reads = writer_passage_reads(execution) if passages_only else selected_body_reads(execution)
+    for read in reads:
         catalog = catalogs.get(read.excerpt.catalog_sha256)
         if catalog is None:
             raise ValueError('Native body writer read lacks its exact observed catalog')
         pairs.append((read, catalog))
     return model_body_frame_rows(source_authority, pairs, selector,
-        search=search, catalog_count=len(catalogs))
+        search=search, catalog_count=len(catalogs),
+        passage_supports=writer_passage_supports(execution, selector) if passages_only else None)
 
 
 def body_source_name(catalog):
@@ -733,24 +821,35 @@ def body_source_name(catalog):
     return catalog.source.presentation_name or catalog.sections[0].label
 
 
-def model_body_frame_rows(source_authority, pairs, selector, *, search=None, catalog_count=None):
+def model_body_frame_rows(source_authority, pairs, selector, *, search=None, catalog_count=None,
+                          passage_supports=None):
     """Pure shared presentation of already owner-verified reads, not a read grant.
 
     Play can prepare its first request from actual Core reads before APP accepts
     the turn. Its producing owner later reconstructs these same rows from the
     persisted human read events. No provisional ledger or model vote is needed.
     """
+    if passage_supports is None:
+        passage_supports = (NativeBodySupport(selector(read), read, catalog)
+                            for read, catalog in pairs)
     rows = []
-    for read, catalog in pairs:
-        excerpt = read.excerpt
-        rows.append(dict(excerpt_handle=selector(read), source_name=body_source_name(catalog),
-            section_title=excerpt.section.label,
-            extent_kind='full_document' if excerpt.selector_policy == 'native_full_document_v1' else 'section',
-            line_start=excerpt.section.line_start, line_end=excerpt.section.line_end,
+    for support in passage_supports:
+        excerpt, catalog = support.read.excerpt, support.catalog
+        section, passage = support.passage()
+        row = dict(excerpt_handle=support.handle, source_name=body_source_name(catalog),
+            section_title=section.label,
+            extent_kind='full_document' if support.selected_lines is None
+                and excerpt.selector_policy == 'native_full_document_v1' else 'section',
+            line_start=section.line_start, line_end=section.line_end,
             campaign_scope=catalog.source.campaign_scope, session_scope=catalog.source.session_scope,
-            text=excerpt.text))
-        if excerpt.planning_ranges and excerpt.planning_ranges.lines:
-            rows[-1]["planning_line_ranges"] = [list(pair) for pair in excerpt.planning_ranges.lines]
+            text=passage)
+        if excerpt.planning_ranges:
+            ranges = [[max(start, section.line_start), min(end, section.line_end)]
+                      for start, end in excerpt.planning_ranges.lines
+                      if start <= section.line_end and section.line_start <= end]
+            if ranges:
+                row["planning_line_ranges"] = ranges
+        rows.append(row)
     return dict(schema='dmb_native_body_writer_evidence_v1',
         scope='GM whole-World cross-campaign source inspection; not campaign fact publication',
         source_authority_status='available' if isinstance(source_authority, NativeCorpusAuthorityV1) else 'unavailable',
@@ -787,6 +886,55 @@ class NativeBodySupport:
     handle: str
     read: NativeBodyReadObservedV1 | NativeAuthoredSourceReadV1
     catalog: NativeCorpusCatalogV1
+    selected_lines: tuple[int, int] | None = None
+
+    def passage(self) -> tuple[NativeCorpusSectionV1, str]:
+        excerpt = self.read.excerpt
+        if self.selected_lines is None:
+            return excerpt.section, excerpt.text
+        start, end = self.selected_lines
+        return bounded_body_section(self.catalog, excerpt, line_start=start, line_end=end)
+
+
+def body_passage_choices(execution):
+    """Assign request-local aliases in retained read order."""
+    return {f"r{index}": read for index, read in enumerate(acquired_body_reads(execution))}
+
+
+def resolve_body_passages(execution, selections):
+    """Resolve local read aliases and line ranges against the producing prefix."""
+    catalogs = acquired_body_catalogs(execution)
+    reads = body_passage_choices(execution)
+    supports = []
+    seen = set()
+    selected_ranges = {}
+    for alias, start, end in selections:
+        read = reads.get(alias)
+        if read is None:
+            raise ValueError("Writer passage refers to an unavailable source read")
+        catalog = catalogs[read.excerpt.catalog_sha256]
+        support = NativeBodySupport(f"p{len(supports)}", read, catalog, (start, end))
+        section, _ = support.passage()
+        selected_ranges.setdefault(alias, []).append((start, end))
+        revision = catalog.source.revision
+        identity = (revision.source_artifact_id, revision.source_revision_id,
+                    revision.content_sha256, section.byte_start, section.byte_end)
+        if identity not in seen:
+            seen.add(identity)
+            supports.append(support)
+    for alias, ranges in selected_ranges.items():
+        excerpt = reads[alias].excerpt
+        catalog = catalogs[excerpt.catalog_sha256]
+        if excerpt.section.byte_start != 0 or excerpt.section.byte_end != catalog.body_bytes:
+            continue
+        material_lines = (
+            number for number, line in enumerate(
+                excerpt.text.splitlines(keepends=True), excerpt.section.line_start
+            ) if line.strip()
+        )
+        if all(any(start <= number <= end for start, end in ranges) for number in material_lines):
+            raise ValueError("Writer passage selections must omit material from a full source")
+    return tuple(supports)
 
 
 def producing_bodies(turn, authorization, raw):
@@ -817,14 +965,15 @@ def body_citation(support, *, index, text, producer, envelope_sha256):
     from . import types as t
     read, catalog = support.read, support.catalog
     excerpt = read.excerpt
+    section, passage = support.passage()
     return t.NativeBodyExcerptCitationV1(segment_index=index, text_sha256=sha256(text.encode()).hexdigest(),
         provider_attempt_id=producer, envelope_sha256=envelope_sha256, read_event_id=read.event_id,
         catalog_sha256=catalog.catalog_sha256, source_artifact_id=catalog.source.artifact.source_artifact_id,
         native_source_revision_id=catalog.source.revision.source_revision_id,
-        content_sha256=catalog.source.revision.content_sha256, excerpt_sha256=excerpt.excerpt_sha256,
-        section_id=excerpt.section.section_id, selector_policy=excerpt.selector_policy,
-        source_name=body_source_name(catalog), section_title=excerpt.section.label,
-        line_start=excerpt.section.line_start, line_end=excerpt.section.line_end)
+        content_sha256=catalog.source.revision.content_sha256, excerpt_sha256=sha256(passage.encode()).hexdigest(),
+        section_id=section.section_id, selector_policy=excerpt.selector_policy,
+        source_name=body_source_name(catalog), section_title=section.label,
+        line_start=section.line_start, line_end=section.line_end)
 
 
 def validate_body_citations(completion, receipt, execution, producer):
@@ -859,9 +1008,12 @@ def validate_body_citations(completion, receipt, execution, producer):
 
 def validate_body_support_citations(completion, supports, *, producer, envelope_sha256, before_sequence):
     """Use only exact supports verified by the actual producing-input owner."""
-    reads = {support.read.event_id: support for support in supports}
+    reads = {
+        (support.read.event_id, support.passage()[0].section_id): support
+        for support in supports
+    }
     for citation in completion.native_body_citations:
-        support = reads.get(citation.read_event_id)
+        support = reads.get((citation.read_event_id, citation.section_id))
         read = support.read if support is not None else None
         if read is None or read.sequence >= before_sequence:
             raise ValueError('Native body citation was not included in its producing writer')

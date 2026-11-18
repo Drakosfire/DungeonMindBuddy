@@ -2,6 +2,8 @@
 
 **Status:** Proposed specification, ready for design review. This does not activate implementation, change the roadmap, or authorize a storage migration.
 
+The original first-slice language below is design context. The [backlog evidence reconciliation](../../Backlog.md#idea-high-priority--shared-grid-page-constructor) distinguishes merged manual foundations from still-open print, agent-directed and broader acceptance work.
+
 ## What we want to be able to make
 
 - On an Edge page, put editable prose beside an existing illustration. Then make a section with two ordinary tables flanking the illustration. A different section can use an entirely different split.

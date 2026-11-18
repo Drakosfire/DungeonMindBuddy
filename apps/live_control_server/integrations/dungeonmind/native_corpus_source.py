@@ -62,6 +62,8 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
     """
     if principal is None or principal.role != "gm":
         raise ValueError("GM authority is required for cross-campaign source inspection")
+    if getattr(principal, 'managed_world_id', managed_world_id) != managed_world_id:
+        raise ValueError('Native source World differs from principal World')
     if resolve_identity is None:
         from ...services.managed_world_graph_projection import resolve_managed_source_identity
         resolve_identity = resolve_managed_source_identity
@@ -114,10 +116,10 @@ def open_native_corpus_member(prepared, evidence_ref_id):
     member.verify_body(opened.body_text)
     # Freeze optional naming only after Core has verified the exact source read.
     # It is not consulted again during replay or citation reconstruction.
-    name, session = prepared.source_presentation.get(
-        (pair[0], pair[1], revision.content_sha256), ('Source name unavailable', 'unestablished'))
+    name, session, campaign = prepared.source_presentation.get(
+        (pair[0], pair[1], revision.content_sha256), ('Source name unavailable', 'unestablished', None))
     member = NativeCorpusMemberV1.model_validate(member.model_dump(mode='json') | {
-        'presentation_name': name, 'session_scope': session})
+        'presentation_name': name, 'session_scope': session, 'registered_campaign_id': campaign})
     if prepared.resolve_identity(authority.managed_world_id) != prepared.binding:
         raise ValueError("Native source ownership changed during opening")
     return member, opened.body_text

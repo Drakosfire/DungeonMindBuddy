@@ -394,3 +394,85 @@ def expected_semantic_frame(host, actual):
                 if set(entry) == {"world_context"}:
                     entries[index] = {"schema": _WORLD_CONTEXT, "payload": entry["world_context"]}
     return expected
+
+
+PLAN_EVIDENCE_HEADING = "# Plan evidence\n\n"
+
+
+def render_plan_evidence(frame, work):
+    """Render the admitted evidence with the same aliases as the output schema."""
+    def words(value):
+        if isinstance(value, dict):
+            return "; ".join(f"{key.replace('_', ' ')}: {words(item)}"
+                             for key, item in sorted(value.items()) if item is not None)
+        if isinstance(value, (list, tuple)):
+            return "; ".join(words(item) for item in value)
+        return str(value)
+
+    parts = [PLAN_EVIDENCE_HEADING.rstrip()]
+    if frame["input_status"] == "partial":
+        parts.append("Some evidence was unavailable.")
+    bodies = frame["native_body_evidence"]
+    if bodies["source_access"] != "available":
+        parts.append("Recap source access was limited.")
+    sessions = {}
+    for row in bodies["excerpts"]:
+        sessions.setdefault((row["campaign_scope"], row["session_scope"]), []).append(row)
+    for (campaign, session), rows in sorted(
+        sessions.items(), key=lambda entry: (str(entry[0][0]),
+            entry[0][1] if isinstance(entry[0][1], int) else float("inf"))
+    ):
+        heading = f"Session {session}" if isinstance(session, int) else "Undated material"
+        parts.append(f"## {campaign} · {heading}")
+        for row in sorted(rows, key=lambda item: (item["source_name"], item["line_start"])):
+            label = f"[{row['excerpt_handle']}] {row['source_name']}"
+            planning = row.get("planning_line_ranges")
+            if planning:
+                ranges = ", ".join(f"{start}–{stop}" for start, stop in planning)
+                label += f" (planning on source lines {ranges}; excerpt starts at line {row['line_start']})"
+            parts.append(f"{label}\n{row['text']}")
+    statements = frame["native_statements"]["statements"]
+    if statements:
+        parts.append("## Recorded statements")
+        for row in statements:
+            parts.append(f"[{row['statement_handle']}] {words(row['payload'])}")
+    graph = frame["native_assertions"]
+    if graph and graph["assertions"]:
+        parts.append("## Graph knowledge")
+        groups = {}
+        for row in graph["assertions"]:
+            claim = row["assertion"]
+            groups.setdefault(claim["qualification"], []).append(row)
+        for qualification, rows in groups.items():
+            parts.append(words(graph["qualifications"][qualification]))
+            for row in rows:
+                claim = row["assertion"]
+                predicate = claim["predicate"].split(":")[-1].replace("_", " ")
+                value = claim["value"]
+                content = value.get("entity") if value["kind"] == "entity_ref" else words({
+                    key: item for key, item in value.items() if key != "kind"
+                })
+                parts.append(f"[{row['assertion_handle']}] {claim['subject']} · {predicate} · {content}")
+    def blocks(rows):
+        for row in rows:
+            handle = row.get("selection_id")
+            parts.append(f"[{handle}] {row['text']}" if handle else row["text"])
+
+    if work["committed_plan_blocks"]:
+        parts.append("## Saved Plan")
+        blocks(work["committed_plan_blocks"])
+    for session in work["session_evidence"]:
+        parts.append(f"## Authored session material · {session.get('title', 'Untitled session')}")
+        for source in session["sources"]:
+            parts.append(source["kind"])
+            blocks(source["text_blocks"])
+    if work["dialogue_reference"]:
+        parts.append("## Prior dialogue")
+        parts.extend(words(turn) for turn in work["dialogue_reference"])
+    for page in work.get("related_authored_pages", {}).get("pages", ()):
+        parts.append(f"## Saved reference · [{page['read_id']}] {page['title']}\n{page['markdown']}")
+    for key in ("current_page_draft", "focused_edit_target", "selected_references"):
+        if work.get(key):
+            parts.append(f"## {key.replace('_', ' ').capitalize()}\n{words(work[key])}")
+    parts.extend(("# Question", frame["user_question"]))
+    return "\n\n".join(parts)
