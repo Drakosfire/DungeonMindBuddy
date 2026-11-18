@@ -581,12 +581,21 @@ def list_session_evidence_route(
     )
     from application_state.errors import ApplicationStateError
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
     try:
         result = recent_session_evidence_index(world_id=world_id, limit=limit)
         payload = json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         if len(payload) > MAX_SESSION_EVIDENCE_INDEX_BYTES:
             raise HTTPException(status_code=422, detail={"code": "session_evidence_index_too_large"})
+        if hosted:
+            require_hosted_plan_world_context(request, world_id)
         return Response(
             content=payload,
             media_type="application/json",
@@ -601,6 +610,18 @@ def read_session_evidence_route(run_id:str,revision:int,request:Request,world_id
     from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
     from application_state.play.session_evidence import read_session_evidence
     from application_state.errors import ApplicationStateError
-    enforce_native_graph_gm(request)
-    try:return read_session_evidence(world_id=world_id,run_id=run_id,revision=revision)
-    except ApplicationStateError as exc:raise HTTPException(status_code=exc.status_code,detail=str(exc)) from exc
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_plan_world_context
+
+    hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    else:
+        enforce_native_graph_gm(request)
+    try:
+        result = read_session_evidence(world_id=world_id, run_id=run_id, revision=revision)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if hosted:
+        require_hosted_plan_world_context(request, world_id)
+    return result
