@@ -689,3 +689,38 @@ def test_anchored_variant_scope_requires_current_draft_and_bound_base(scope, inc
     assert driver._anchored_variant_draft() is matches
     if matches:
         assert [offer.handle for offer in driver.offered()] == ["saved-statblock:0"]
+
+
+@pytest.mark.parametrize("drift", [None, "epoch", "conversation", "status", "support", "legacy"])
+def test_saved_statblock_continuity_requires_verified_prior_read(drift):
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1, validate_prior_read
+    from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+
+    authority = NativeCorpusAuthorityV1.model_construct(acquisition_epoch=194)
+    receipt = SimpleNamespace(source_authority=authority, work_context=SimpleNamespace(source_basis="page"))
+    current = SimpleNamespace(world_id="world", conversation_id=uuid4(), sequence=2, graph_context_receipt=receipt)
+    old = BuildSavedStatblockReadV1.model_construct(world_id=current.world_id, draft_id=uuid4(),
+        locator="exact", definition={"identity": {"name": "Creature"}}, pdf_support=None,
+        continuity_verified=drift != "legacy")
+    previous = SimpleNamespace(turn_id=uuid4(), world_id=current.world_id, conversation_id=current.conversation_id,
+        sequence=1, status="completed", graph_context_receipt=receipt,
+        graph_context_execution=SimpleNamespace(events=(old,)))
+    event = old.model_copy(update={"continuity_verified": True, "reused_from_turn_id": previous.turn_id})
+    if drift == "epoch":
+        previous.graph_context_receipt = SimpleNamespace(
+            source_authority=authority.model_copy(update={"acquisition_epoch": 193}), work_context=receipt.work_context,
+        )
+    elif drift == "conversation":
+        previous.conversation_id = uuid4()
+    elif drift == "status":
+        previous.status = "failed"
+    elif drift == "support":
+        event = event.model_copy(update={"pdf_support": "different"})
+    if drift is None:
+        validate_prior_read(event, current, previous)
+    else:
+        with pytest.raises(ValueError, match="Saved statblock reuse"):
+            validate_prior_read(event, current, previous)

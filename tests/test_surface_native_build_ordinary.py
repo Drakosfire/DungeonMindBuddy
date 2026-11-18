@@ -100,10 +100,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                        "support": [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture",
                                     "text": "Hit Points 41"}]}
         if saved_statblock in {"associated", "by-name"}:
+            from apps.live_control_server.integrations.dungeonmind import native_registry_source
             from apps.live_control_server.services import native_graph_inspection, native_pdf_evidence
+            monkeypatch.setattr(native_registry_source, "read_repository", lambda: lane.repo)
             monkeypatch.setattr(native_pdf_evidence, "reviewed_pdf_regions", lambda *args, **kwargs: ("crop",))
             monkeypatch.setattr(native_graph_inspection, "statblock_pdf_support",
-                                lambda ref, *_: pdf_support | {"scope": pdf_support["scope"] | {"revision_id": ref.graph_revision}})
+                                lambda ref, *_, **__: pdf_support | {"scope": pdf_support["scope"] | {"revision_id": ref.graph_revision}})
 
         def open_statblock(root, *, world_id, draft_id, revision_id):
             assert world_id == world and revision_id == locator.revision_id

@@ -39,6 +39,37 @@ class BuildSavedStatblockReadV1(Strict):
     locator: MechanicsLocator
     definition: dict[str, JsonValue]
     pdf_support: SavedStatblockPdfSupport | None = None
+    continuity_verified: bool = Field(default=False, exclude_if=lambda value: not value)
+    reused_from_turn_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
+def validate_prior_read(event, current, previous):
+    """Bind reuse to one authenticated earlier read in this conversation."""
+    from .native_corpus import NativeCorpusAuthorityV1
+
+    if (previous is None or previous.turn_id != event.reused_from_turn_id
+            or previous.world_id != current.world_id
+            or previous.conversation_id != current.conversation_id
+            or previous.sequence >= current.sequence or previous.status != "completed"
+            or previous.graph_context_execution is None):
+        raise ValueError("Saved statblock reuse requires an earlier completed turn in this conversation")
+    current_receipt = current.graph_context_receipt
+    prior_receipt = previous.graph_context_receipt
+    authority = getattr(current_receipt, "source_authority", None)
+    if (not event.continuity_verified or not isinstance(authority, NativeCorpusAuthorityV1)
+            or authority != getattr(prior_receipt, "source_authority", None)
+            or current_receipt.work_context.source_basis != prior_receipt.work_context.source_basis):
+        raise ValueError("Saved statblock reuse authority differs from its producing turn")
+    matching = [
+        read for read in previous.graph_context_execution.events
+        if isinstance(read, BuildSavedStatblockReadV1) and read.world_id == current.world_id
+        and read.draft_id == event.draft_id and read.locator == event.locator
+    ]
+    if len(matching) != 1 or not matching[0].continuity_verified:
+        raise ValueError("Saved statblock reuse requires one verified source read")
+    old = matching[0]
+    if old.definition != event.definition or old.pdf_support != event.pdf_support:
+        raise ValueError("Saved statblock reuse differs from its verified source evidence")
 
 
 def validate_read(event, execution):
