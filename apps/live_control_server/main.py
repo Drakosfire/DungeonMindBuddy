@@ -230,6 +230,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/world-play-runs/v2/preparation"): resolve_hosted_play_preparation,
     ("PUT", "/api/live/world-play-runs/v2/{run_id}"): resolve_hosted_play_creation,
     ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): resolve_hosted_play_command,
+    ("PUT", "/api/live/world-play-runs/v2/{run_id}/review/commands/{command_id}"): resolve_hosted_play_command,
     ("GET", "/api/live/world-play-runs/v2"): resolve_hosted_play_read,
     ("GET", "/api/live/world-play-runs/v2/active"): resolve_hosted_play_read,
     ("GET", "/api/live/world-play-runs/v2/{run_id}"): resolve_hosted_play_read,
