@@ -16,7 +16,9 @@ from apps.live_control_server.integrations.dungeonmind.native_recap_source_admis
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import NativeWorldSourceAdmissionError
 from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest, NativeRecapConfirmRequest, NativeWorldbuildingContextRequest
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
-from apps.live_control_server.services.hosted_native_graph_access import first_world_authorizer
+from apps.live_control_server.services.hosted_native_graph_access import (
+    first_world_authorizer, worldbuilding_evidence_authorizer,
+)
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
 from apps.live_control_server.models.worldbuilding_publication_coverage import WorldbuildingPublicationCoverage
@@ -236,7 +238,17 @@ def post_exact_run_evidence_corrections(
                 code="invalid_request",
                 status_code=422,
             )
-        response = correct_exact_run_evidence(request)
+        authorize_write = worldbuilding_evidence_authorizer(request_context, request.world_id)
+        if authorize_write is None:
+            response = correct_exact_run_evidence(request)
+        else:
+            response = correct_exact_run_evidence(request, authorize_write=authorize_write)
+        result = response.model_dump(mode="json", by_alias=True)
+        if authorize_write is not None:
+            authorize_write()
+        return result
+    except HTTPException:
+        raise
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
@@ -248,7 +260,6 @@ def post_exact_run_evidence_corrections(
                 status_code=500,
             )
         )
-    return response.model_dump(mode="json", by_alias=True)
 
 
 @router.post(
