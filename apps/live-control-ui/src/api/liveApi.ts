@@ -433,6 +433,12 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  const workPlan = /^\/api\/live\/agent\/worlds\/[^/?#%]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/work-plans\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(\/continue)?$/i.exec(path);
+  if (workPlan) {
+    if (workPlan[1]) return method === "POST" && requestBodyRecord(init?.body) !== null;
+    if (method === "GET") return init?.body == null;
+    return method === "PUT" && requestBodyRecord(init?.body) !== null;
+  }
   const terminalDiagnostic = /^\/api\/live\/world-plan-edit\/actions\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/terminal-diagnostic\?([^#]+)$/i.exec(path);
   if (terminalDiagnostic) {
     const query = new URLSearchParams(terminalDiagnostic[1]);

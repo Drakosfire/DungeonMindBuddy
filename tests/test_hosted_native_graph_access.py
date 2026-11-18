@@ -296,6 +296,9 @@ def hosted(monkeypatch, request):
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
     app.include_router(extract_promote.router)
+    from apps.live_control_server.routes import conversation_work_plans
+
+    app.include_router(conversation_work_plans.router)
     from apps.live_control_server.routes.agent import get_saved_plan_action_graph_evidence, get_saved_turn_graph_evidence
 
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence", get_saved_turn_graph_evidence, methods=["GET"])
@@ -332,6 +335,7 @@ def hosted(monkeypatch, request):
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
                if "/variant-reviews/{review_id}" in key[1]
+               or "/work-plans/{source_turn_id}" in key[1]
                or key[1] == "/api/live/native-source-inspection/published-recap"
                or key[1] == "/api/live/native-source-inspection/published-recap/objects"
                or key[1] == "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"
@@ -4162,3 +4166,69 @@ def test_hosted_plan_terminal_diagnostic_reads_owned_action(hosted, monkeypatch)
     assert hosted.records["managed"].owner_subject == OTHER_OWNER
     assert denied.status_code == 403, denied.text
     assert "Private saved diagnostic" not in denied.text
+
+
+def test_hosted_saved_work_plan_reads_exact_turn(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import conversation_library, conversation_work_plans
+
+    read = Mock(return_value={"status": "review"})
+    monkeypatch.setattr(conversation_work_plans.work_plan, "read", read)
+    monkeypatch.setattr(conversation_library, "_verified_world_id", lambda world: world)
+    conversation, turn = uuid4(), uuid4()
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation}/work-plans/{turn}"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=foreign").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    read.assert_called_once_with("managed", conversation, turn)
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"status": "private work plan"}
+
+    read.side_effect = transfer_during_read
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "private work plan" not in denied.text
+
+
+def test_hosted_saved_work_plan_writes_exact_turn(hosted, monkeypatch):
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import conversation_library, conversation_work_plans
+
+    save = Mock(return_value={"status": "saved"})
+    resume = Mock(return_value={"status": "recorded"})
+    monkeypatch.setattr(conversation_work_plans.work_plan, "save", save)
+    monkeypatch.setattr(conversation_work_plans.work_plan, "continue_step", resume)
+    monkeypatch.setattr(conversation_library, "_verified_world_id", lambda world: world)
+    conversation, turn, step, command = uuid4(), uuid4(), uuid4(), uuid4()
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation}/work-plans/{turn}"
+    for method, route, body, service in (
+        ("PUT", path, {"expected_revision": 0, "steps": [{"step_id": str(step), "text": "Review", "selected": True}]}, save),
+        ("POST", path + "/continue", {"expected_revision": 1, "step_id": str(step), "command_id": str(command)}, resume),
+    ):
+        assert hosted.client.request(method, route, json=body, session="other-session").status_code == 403
+        assert hosted.client.request(method, route, json=body, origin=None).status_code == 403
+        service.assert_not_called()
+        response = hosted.client.request(method, route, json=body)
+        assert response.status_code == 200, response.text
+        assert service.call_args.args[:3] == ("managed", conversation, turn)
+        original_owner = hosted.records["managed"]
+
+        def transfer_before_write(*_args, authorize_world):
+            hosted.records["managed"] = original_owner.model_copy(
+                update={"owner_subject": OTHER_OWNER},
+            )
+            authorize_world()
+            pytest.fail("Work plan write continued after ownership changed")
+
+        service.side_effect = transfer_before_write
+        denied = hosted.client.request(method, route, json=body)
+        assert hosted.records["managed"].owner_subject == OTHER_OWNER
+        assert denied.status_code == 403, denied.text
+        hosted.records["managed"] = original_owner
