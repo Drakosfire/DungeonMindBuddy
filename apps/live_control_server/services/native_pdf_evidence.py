@@ -38,6 +38,20 @@ def reviewed_pdf_regions(resource, *, world_id):
     return tuple(NativePdfRegionV1.model_validate(region) for region in review["regions"])
 
 
+class _PdfEvidenceRegistrationRepository:
+    def __init__(self, repository, authorize_write):
+        self._repository = repository
+        self._authorize_write = authorize_write
+
+    def __getattr__(self, name):
+        return getattr(self._repository, name)
+
+    def get_revision(self, space_id, revision_id):
+        revision = self._repository.get_revision(space_id, revision_id)
+        self._authorize_write()
+        return revision
+
+
 def register_pdf_regions(repo, space_id, regions, context, access, created_at, *, authorize_write=None):
     from application_state.errors import ApplicationStateConflictError
     from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
@@ -49,6 +63,9 @@ def register_pdf_regions(repo, space_id, regions, context, access, created_at, *
             authorize_write()
         return source
 
+    registration_repository = (
+        repo if authorize_write is None else _PdfEvidenceRegistrationRepository(repo, authorize_write)
+    )
     evidence_ids = []
     reviewed_regions = []
     for region in regions:
@@ -67,7 +84,7 @@ def register_pdf_regions(repo, space_id, regions, context, access, created_at, *
             if authorize_write is not None:
                 authorize_write()
             register_native_pdf_evidence(
-                region, **(source_access | {"load": load_for_registration}), repository=repo,
+                region, **(source_access | {"load": load_for_registration}), repository=registration_repository,
                 expected_parent_revision_id=parent,
                 publication_id=f"{evidence.evidence_ref_id}:{parent}", created_at=created_at,
             )
