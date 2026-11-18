@@ -593,6 +593,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && !!worldId && !!requestBodyRecord(init?.body)
       && path === mechanicsPreview[0] + new URLSearchParams({ world_id: worldId });
   }
+  const archivedStatblock = /^\/api\/live\/threat-drafts\/[0-9a-f-]+\/saved-statblock\?([^#]+)$/.exec(path);
+  if (archivedStatblock) {
+    const query = new URLSearchParams(archivedStatblock[1]);
+    return method === "DELETE" && init?.body == null && query.size === 2 && Boolean(query.get("world_id"))
+      && /^[1-9][0-9]*$/.test(query.get("expected_version") ?? "");
+  }
   if (/^\/api\/live\/threat-drafts\/[0-9a-f-]+\/mechanics-revisions$/.test(path)) {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && typeof body?.world_id === "string" && Boolean(body.world_id);

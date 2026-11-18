@@ -821,3 +821,18 @@ it("uses hosted cookies for exact saved statblock revision operations", async ()
     .rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(3);
 });
+
+it("archives only an exact saved statblock version through the hosted session", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+  const path = "/api/live/threat-drafts/11111111-1111-4111-8111-111111111111/saved-statblock?world_id=managed";
+  const init = { method: "DELETE" };
+  await api.authenticatedApiFetch(path + "&expected_version=1", init);
+  const [, sent] = fetch.mock.calls[0];
+  expect(sent).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+  expect(new Headers(sent?.headers).has("Authorization")).toBe(false);
+  await expect(api.authenticatedApiFetch(path, init)).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

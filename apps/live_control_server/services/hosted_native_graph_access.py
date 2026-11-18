@@ -539,6 +539,10 @@ async def resolve_hosted_saved_statblock(request: Request) -> str:
     world_id = request.query_params.get("world_id")
     keys = {key for key, _ in selectors}
     allowed = {"world_id", "limit", "offset"} if request.url.path.endswith("/mechanics-revisions") else {"world_id"}
+    if request.method == "DELETE":
+        allowed = {"world_id", "expected_version"}
+        if keys != allowed:
+            raise _denied()
     if not world_id or len(keys) != len(selectors) or not keys <= allowed or await request.body():
         raise _denied()
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)

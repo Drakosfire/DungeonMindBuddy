@@ -277,6 +277,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("PUT", "/api/live/combat/encounters/{encounter_id}"): resolve_hosted_combat_encounter,
     ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): resolve_hosted_saved_statblock,
     ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): resolve_hosted_saved_statblock,
+    ("DELETE", "/api/live/threat-drafts/{draft_id}/saved-statblock"): resolve_hosted_saved_statblock,
     ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): resolve_hosted_statblock_revision_save,
     ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}"): resolve_hosted_saved_statblock,
     ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover"): resolve_hosted_saved_statblock,
