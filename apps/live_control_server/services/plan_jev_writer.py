@@ -126,7 +126,7 @@ class PlanWriterProvider(CapturedWriterProvider):
         options = super()._request_kwargs(call, streaming=streaming)
         messages = strict_json(call.user_prompt)
         if not isinstance(messages, list) or any(set(row) != {"role", "content"}
-                or row['role'] != 'user' or not isinstance(row['content'], str) for row in messages):
+                or row['role'] not in ('user', 'assistant') or not isinstance(row['content'], str) for row in messages):
             raise ValueError("Plan writer requires exact text evidence messages")
         options['input'] = messages
         options['service_tier'] = 'fast'
@@ -283,7 +283,7 @@ RELATED_PAGE_RESPONSE = (
 
 
 class PlanJevWriter:
-    def __init__(self, adapter, proof, rules):
+    def __init__(self, adapter, proof, rules, *, dialogue=()):
         self.adapter, self.proof, self.rules = adapter, proof, rules
         self.failure_stage = 'prepare'
         native_budget = getattr(adapter.fence.turn.graph_context_execution.policy,'writer_context_budget',None)
@@ -329,7 +329,7 @@ class PlanJevWriter:
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work if self.work_frame.get('schema') in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA} else self.work_frame,
                 build_local=self.work_frame.get('schema') not in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA},
-                format_version=4 if variant_format else 2)
+                format_version=5 if variant_format else 2)
             # Discussion ends with current evidence rather than prior assistant
             # prose. Keep the exact frames; authoring keeps its current draft last.
             frames=((self.provider_work,rule_frame,self.provider_frame)
@@ -352,6 +352,10 @@ class PlanJevWriter:
                 ) + [{'role': 'user', 'content': render_plan_evidence(self.provider_frame, self.provider_work)}]
         if not self.shared:
             self.messages.append({'role':'user','content':'Return JSON.'})
+        self.messages = [
+            {"role": item["role"], "content": canonical_bytes({"conversation": item["content"]}).decode()}
+            for item in dialogue
+        ] + self.messages
         self.prompt_components = None
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)

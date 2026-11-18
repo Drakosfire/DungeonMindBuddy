@@ -11,18 +11,21 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
 import pytest
+from pypdf import PdfWriter
 from fastapi import FastAPI
 
 from application_state import pdf_statblock_review
 from apps.live_control_server.routes.agent import (
     _pdf_review_creature_draft_id, get_pdf_statblock_publication, get_pdf_statblock_review,
-    get_published_pdf_statblock, post_accept_pdf_statblock_review,
+    post_extract_pdf_statblock_review,
+    get_published_pdf_statblock, post_accept_pdf_statblock_review, post_append_pdf_statblock_review,
     post_pdf_statblock_creature_draft, post_pdf_statblock_publication,
 )
 from application_state.errors import ApplicationStateUnavailableError
@@ -254,7 +257,7 @@ def hosted(monkeypatch, request):
 
     from apps.live_control_server.routes import play_prepared_tables, play_runs
 
-    from apps.live_control_server.routes import statblock_candidates, threat_drafts, world_mechanics_associations
+    from apps.live_control_server.routes import native_threat_creation, statblock_candidates, threat_drafts, world_mechanics_associations
 
     app.include_router(statblock_candidates.router)
     from apps.live_control_server.routes import combat_encounters
@@ -288,6 +291,7 @@ def hosted(monkeypatch, request):
     app.include_router(combat_encounters.router)
     app.include_router(threat_drafts.router)
     app.include_router(world_mechanics_associations.router)
+    app.include_router(native_threat_creation.router)
     app.include_router(play_runs.router)
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
@@ -295,22 +299,43 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes.agent import get_saved_plan_action_graph_evidence, get_saved_turn_graph_evidence
 
     app.add_api_route("/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence", get_saved_turn_graph_evidence, methods=["GET"])
+    from apps.live_control_server.routes import native_source_inspection
+
+    app.include_router(native_source_inspection.router)
     app.add_api_route("/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence", get_saved_plan_action_graph_evidence, methods=["GET"])
     app.include_router(live.router)
     app.include_router(graph_preview.router)
+    from apps.live_control_server.routes import pdf_adventure_events
+
+    app.include_router(pdf_adventure_events.router)
+
+    from apps.live_control_server.routes.agent import withdraw_build_source
+
+    app.add_api_route("/api/live/agent/worlds/{world_id}/build-source-withdrawals", withdraw_build_source, methods=["POST"], status_code=204)
+
+
+    from apps.live_control_server.routes.agent import put_pdf_statblock_review
+
     app.add_api_route(PDF_REVIEW, get_pdf_statblock_review, methods=["GET"])
+    app.add_api_route(f"{PDF_REVIEW}/from-regions", post_extract_pdf_statblock_review, methods=["POST"])
+    app.add_api_route(PDF_REVIEW, put_pdf_statblock_review, methods=["PUT"])
     app.add_api_route(f"{PDF_REVIEW}/publication", get_pdf_statblock_publication, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/publication", post_pdf_statblock_publication, methods=["POST"])
     app.add_api_route(f"{PDF_REVIEW}/publication/statblock", get_published_pdf_statblock, methods=["GET"])
     app.add_api_route(f"{PDF_REVIEW}/creature-draft", post_pdf_statblock_creature_draft, methods=["POST"])
     app.add_api_route(f"{PDF_REVIEW}/accept/{{draft_id}}", post_accept_pdf_statblock_review, methods=["POST"])
+    app.add_api_route(f"{PDF_REVIEW}/append/{{draft_id}}", post_append_pdf_statblock_review, methods=["POST"])
     from apps.live_control_server.main import HOSTED_WORLD_SCOPE_RESOLVERS
 
     install_hosted_request_boundary(
         app,
         world_scope_resolvers={
             **{key: resolver for key, resolver in HOSTED_WORLD_SCOPE_RESOLVERS.items()
-               if "/variant-reviews/{review_id}" in key[1] or key[1].endswith("/graph-evidence")},
+               if "/variant-reviews/{review_id}" in key[1]
+               or key[1] == "/api/live/native-source-inspection/published-recap"
+               or key[1] == "/api/live/native-source-inspection/published-recap/objects"
+               or key[1] == "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence"
+               or key[1] == "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence"},
             **{
                 (
                     "POST",
@@ -330,7 +355,9 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): access.resolve_hosted_saved_recap,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
-            ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_connected_page,
+            ("POST", "/api/live/connected-pages/prepare"): access.resolve_hosted_connected_page,
+            ("POST", "/api/live/connected-pages/confirm"): access.resolve_hosted_connected_page,
             ("GET", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision"): access.resolve_hosted_committed_plan,
             ("GET", "/api/live/workspace-documents/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_committed_plan,
@@ -338,16 +365,30 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): access.resolve_hosted_play_command,
+            ("PUT", "/api/live/world-play-runs/v2/{run_id}/review/commands/{command_id}"): access.resolve_hosted_play_command,
             ("GET", "/api/live/world-play-runs/v2/active"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/reference-manifest"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/review"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-session-evidence"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/world-session-evidence/{run_id}/revisions/{revision}"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}"): access.resolve_hosted_play_read,
+            ("POST", "/api/live/world-play-runs/v2/{run_id}/content/proposals/{proposal_id}"): access.resolve_hosted_play_scene_proposal,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables"): access.resolve_hosted_play_read,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): access.resolve_hosted_play_table_roll,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/media/images/preparations/list"): access.resolve_hosted_image_history,
+            ("GET", "/api/live/media/images/capabilities"): access.resolve_hosted_image_world,
+            ("POST", "/api/live/media/images/generate"): access.resolve_hosted_image_world,
+            ("POST", "/api/live/media/images/preparations/{action_id}/asset"): access.resolve_hosted_image_world,
             ("GET", "/api/live/media/images/{asset_id}/metadata"): access.resolve_hosted_saved_artwork,
+            ("POST", "/api/live/media/images/{asset_id}/save"): access.resolve_hosted_saved_artwork,
+            ("POST", "/api/live/media/images/{asset_id}/regenerate"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/media/images/{asset_id}/original"): access.resolve_hosted_saved_artwork,
             ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): access.resolve_hosted_build_extraction,
@@ -355,6 +396,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/workspace-documents/{document_id}"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/snapshot"): access.resolve_hosted_build_page,
             ("GET", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
+            ("POST", "/api/live/workspace-documents/{document_id}/native-world-source"): access.resolve_hosted_build_native_source,
             ("GET", "/api/live/threat-drafts"): access.resolve_hosted_statblock_inventory,
             ("POST", "/api/live/agent/turn"): access.resolve_hosted_chat_turn,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation"): access.resolve_hosted_conversation_world,
@@ -364,6 +406,11 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/{trace_id}/prompt/{provider_attempt_id}"): access.resolve_hosted_conversation_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/prompts"): access.resolve_hosted_conversation_world,
+
+
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
             ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
@@ -385,11 +432,27 @@ def hosted(monkeypatch, request):
             ("PUT", "/api/live/combat/encounters/{encounter_id}"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_saved_statblock,
+            ("GET", "/api/live/threat-drafts/{draft_id}/native-creature"): access.resolve_hosted_native_creature,
+            ("POST", "/api/live/threat-drafts/{draft_id}/native-creature/prepare"): access.resolve_hosted_native_creature,
+            ("POST", "/api/live/threat-drafts/{draft_id}/native-creature/confirm"): access.resolve_hosted_native_creature,
+            ("DELETE", "/api/live/threat-drafts/{draft_id}/saved-statblock"): access.resolve_hosted_saved_statblock,
+            ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revisions"): access.resolve_hosted_statblock_revision_save,
+            ("GET", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}"): access.resolve_hosted_saved_statblock,
+            ("POST", "/api/live/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover"): access.resolve_hosted_saved_statblock,
             ("GET", "/api/live/world-mechanics/associations"): access.resolve_hosted_statblock_inventory,
+            ("POST", "/api/live/world-mechanics/associations"): access.resolve_hosted_mechanics_association,
+            ("GET", "/api/live/world-mechanics/associations/creatures"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/world-mechanics/associations/requests/{request_id}"): access.resolve_hosted_plan_world_context,
             ("POST", "/api/live/tiptap/markdown-write/prepare"): access.resolve_hosted_build_page,
             ("POST", "/api/live/tiptap/markdown-write/commit"): access.resolve_hosted_build_page,
+            ("POST", "/api/live/worlds/{world_id}/pdf-adventure-events/prepare"): access.resolve_hosted_build_pdf_world,
+            ("POST", "/api/live/worlds/{world_id}/pdf-adventure-events/confirm"): access.resolve_hosted_build_pdf_world,
+            ("POST", "/api/live/agent/worlds/{world_id}/build-source-withdrawals"): access.resolve_hosted_conversation_world,
             ("GET", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
+            ("POST", f"{PDF_REVIEW}/from-regions"): access.resolve_hosted_build_pdf_world,
+            ("PUT", PDF_REVIEW): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/accept/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
+            ("POST", f"{PDF_REVIEW}/append/{{draft_id}}"): access.resolve_hosted_build_pdf_world,
             ("GET", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
             ("POST", f"{PDF_REVIEW}/publication"): access.resolve_hosted_build_pdf_world,
             ("GET", f"{PDF_REVIEW}/publication/statblock"): access.resolve_hosted_build_pdf_world,
@@ -1731,10 +1794,14 @@ def test_binary_pdf_body_only_reaches_authorized_upload(hosted, monkeypatch, ses
 
     monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
     monkeypatch.setattr(sources, "_source_world_binding", lambda *_: SimpleNamespace(native_world_id="managed-native"))
-    monkeypatch.setattr(sources, "_repository", lambda: SimpleNamespace(retain_native_pdf_source=retain))
+    monkeypatch.setattr(sources, "_repository", lambda: SimpleNamespace(get_head=lambda _: object(), retain_native_pdf_source=retain))
     path = access.BUILD_PDF_SOURCES_PATH.format(world_id="managed") + suffix
     path += ("&" if "?" in path else "?") + f"admission_id={uuid4()}"
-    payload = b"%PDF-1.7\n"
+    pdf = BytesIO()
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=300)
+    writer.write(pdf)
+    payload = pdf.getvalue()
     response = hosted.client.request(
         "POST", path, session=session, origin=origin,
         headers={"Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-15T00:00:00Z"}, content=payload,
@@ -1767,6 +1834,49 @@ def test_hosted_pdf_review_checks_owner_before_read(hosted, monkeypatch, session
     assert reads == ([("managed", review_id)] if expected == 200 else [])
     if expected == 200:
         assert response.headers["cache-control"] == "no-store"
+
+
+def test_hosted_pdf_extraction_checks_world_before_processing(hosted):
+    path = PDF_REVIEW.format(world_id="managed", review_id=uuid4()) + "/from-regions"
+    assert hosted.client.request("POST", path, json={}, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={}, origin=None).status_code == 403
+    response = hosted.client.request("POST", path, json={})
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]["code"] == "invalid_pdf_statblock_extraction_request"
+
+
+def test_hosted_pdf_review_save_checks_owner_and_expected_revision(hosted, monkeypatch):
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.routes import agent
+
+    review_id = uuid4()
+    path = PDF_REVIEW.format(world_id="managed", review_id=review_id)
+    body = {"definition": {}, "regions": [], "expected_revision": 1}
+    writes = []
+
+    def save_review(**fields):
+        writes.append(fields)
+        if fields["expected_revision"] != 1:
+            raise ApplicationStateConflictError("stale review")
+        return {"revision": 2}
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(agent, "_authorized_pdf_statblock", lambda *args, **kwargs: (
+        SimpleNamespace(model_dump=lambda **kwargs: {}), [],
+    ))
+    monkeypatch.setattr(pdf_statblock_review, "save_review", save_review)
+    assert hosted.client.request("PUT", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("PUT", path, json=body, origin=None).status_code == 403
+    assert writes == []
+    response = hosted.client.request("PUT", path, json=body)
+    assert response.status_code == 200, response.text
+    assert response.json() == {"revision": 2}
+    assert writes == [{
+        "world_id": "managed", "review_id": review_id, "expected_revision": 1,
+        "definition": {}, "regions": [],
+    }]
+    response = hosted.client.request("PUT", path, json={**body, "expected_revision": 0})
+    assert response.status_code == 409, response.text
 
 
 def test_hosted_pdf_review_denies_ownership_transfer_during_read(hosted, monkeypatch):
@@ -1831,6 +1941,36 @@ def test_hosted_pdf_accept_refuses_unrelated_draft_before_storage(hosted, monkey
         "validation_definition_digest": validation["definition_digest"],
     })
     assert response.status_code == expected, response.text
+
+
+@pytest.mark.parametrize(
+    "session, origin, expected",
+    [("owner-session", FRONTEND_ORIGIN, 200), ("other-session", FRONTEND_ORIGIN, 403),
+     ("owner-session", None, 403)],
+)
+def test_hosted_pdf_append_requires_world_owner_and_origin(hosted, monkeypatch, session, origin, expected):
+    from apps.live_control_server.routes import agent, statblock_candidates
+    from apps.live_control_server.services.statblock_saved_revision import append_pdf_review
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    review_id, draft_id = uuid4(), uuid4()
+    calls = []
+
+    def append(callback, **kwargs):
+        assert callback is append_pdf_review
+        calls.append((kwargs["world_id"], kwargs["review_id"], kwargs["draft_id"]))
+        return {"state": "committed"}
+
+    monkeypatch.setattr(statblock_candidates, "_revision_call", append)
+    path = PDF_REVIEW.format(world_id="managed", review_id=review_id)
+    response = hosted.client.request("POST", f"{path}/append/{draft_id}", session=session, origin=origin, json={
+        "operation_id": str(uuid4()), "expected_revision": 1,
+        "base": {"provider": "dungeonmind", "statblock_id": "sb_saved", "revision_id": "rev_published",
+                 "contract": "dungeonmind.dungeonbuddy-statblocks", "contract_version": "1.0.0",
+                 "definition_digest": "sha256:" + "a" * 64},
+    })
+    assert response.status_code == expected, response.text
+    assert calls == ([("managed", review_id, str(draft_id))] if expected == 200 else [])
 
 
 @pytest.mark.parametrize("session, expected", [("owner-session", 200), ("other-session", 403)])
@@ -2099,7 +2239,7 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert read.headers["cache-control"] == "no-store"
 
 
-def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn):
+def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn, monkeypatch):
     from io import BytesIO
 
     from PIL import Image
@@ -2121,6 +2261,77 @@ def test_hosted_saved_artwork_owner_and_original(hosted, application_state_dsn):
     for suffix in ("metadata", "original"):
         assert hosted.client.request("GET", f"{path}/{suffix}", session="other-session").status_code == 403
         assert hosted.client.request("GET", f"{path}/{suffix}?world_id={world_id}").status_code == 403
+
+    from unittest.mock import ANY, AsyncMock
+    from uuid import UUID
+
+    from apps.live_control_server.routes import media_images
+    from tests.integration.test_build_images_postgres import ready
+
+    owner = access.hosted_world_media_owner(world_id)
+    def save_with_guard(identifier, scope, *, authorize_write):
+        authorize_write()
+        return ready(media.get_asset(identifier, scope))
+
+    save = AsyncMock(side_effect=save_with_guard)
+    monkeypatch.setattr(media_images.media_storage, "save_asset", save)
+    save_path = f"{path}/save"
+    assert hosted.client.request("POST", save_path, json={}, session="other-session").status_code == 403
+    assert hosted.client.request("POST", save_path, json={}, origin=None).status_code == 403
+    assert hosted.client.request("POST", save_path, json={"unexpected": True}).status_code == 403
+    save.assert_not_called()
+    saved = hosted.client.request("POST", save_path, json={})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["state"] == "ready"
+    assert media.get_asset(asset["asset_id"], owner)["state"] == "ready"
+    save.assert_awaited_once_with(UUID(str(asset["asset_id"])), owner, authorize_write=ANY)
+
+    from types import SimpleNamespace
+
+    provider = SimpleNamespace(
+        generate_image=AsyncMock(return_value=SimpleNamespace(
+            images=[SimpleNamespace(content=payload, media_type="image/png")],
+            observation=SimpleNamespace(model_dump=lambda **kwargs: {"provider": "fixture"}),
+        )),
+        aclose=AsyncMock(),
+    )
+    monkeypatch.setattr(media_images, "_fal_key", lambda: "fixture")
+    monkeypatch.setattr(media_images, "_image_client", lambda: provider)
+    asset_id = str(asset["asset_id"])
+    parent = media.get_asset(asset_id, owner)
+    edit_path = f"/api/live/media/images/{asset_id}/regenerate"
+    edit = {"mode": "new", "instructions": "Paint the gate at dawn.", "expected_content_sha256": parent["content_sha256"]}
+    assert hosted.client.request("POST", edit_path, json=edit, session="other-session").status_code == 403
+    assert hosted.client.request("POST", edit_path, json=edit, origin=None).status_code == 403
+    assert hosted.client.request("POST", edit_path, json={**edit, "expected_content_sha256": "0" * 64}).status_code == 409
+    provider.generate_image.assert_not_called()
+    regenerated = hosted.client.request("POST", edit_path, json=edit)
+    assert regenerated.status_code == 200, regenerated.text
+    child = regenerated.json()["asset_id"]
+    assert child != asset_id
+    assert regenerated.json()["parent_asset_id"] == asset_id
+    assert media.get_asset(child, owner)["state"] == "staged"
+    assert media.get_asset(asset_id, owner) == parent
+    assert hosted.client.request("GET", f"/api/live/media/images/{child}/original").content == payload
+    provider.generate_image.assert_awaited_once()
+
+    from unittest.mock import Mock
+
+    stage = Mock(wraps=media.stage_image)
+    monkeypatch.setattr(media, "stage_image", stage)
+    generated_result = provider.generate_image.return_value
+
+    async def transfer_during_generation(*_args):
+        hosted.records[world_id] = hosted.records[world_id].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return generated_result
+
+    provider.generate_image.side_effect = transfer_during_generation
+    denied = hosted.client.request("POST", edit_path, json=edit)
+    assert denied.status_code == 403, denied.text
+    assert provider.generate_image.await_count == 2
+    stage.assert_not_called()
 
 
 def test_hosted_plan_context_requires_exact_owned_world(hosted):
@@ -2226,7 +2437,27 @@ def test_hosted_owner_creates_lists_and_reopens_plan(hosted, application_state_d
     assert snapshot.json()["record"]["title"] == body["title"]
 
 
-def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_state_dsn, tmp_path):
+def test_hosted_play_review_denies_ownership_transfer_during_read(hosted, monkeypatch):
+    from uuid import uuid4
+
+    from application_state.play import session_review
+
+    def read_review(**_scope):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"review": "private-review"}
+
+    monkeypatch.setattr(session_review, "read_review", read_review)
+    response = hosted.client.request(
+        "GET", f"/api/live/world-play-runs/v2/{uuid4()}/review?world_id=managed",
+    )
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert response.status_code == 403, response.text
+    assert "private-review" not in response.text
+
+
+def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_state_dsn, tmp_path, monkeypatch):
     from application_state.content.service import commit_plan
     from apps.live_control_server.services.workspace_document_registry import create_world_owned_plan_v2
     from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
@@ -2296,11 +2527,119 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
         assert response.status_code == 200, response.text
         assert response.headers["cache-control"] == "no-store"
         assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    review_path = f"{base}/review?world_id=managed"
+    review = hosted.client.request("GET", review_path)
+    assert review.status_code == 200, review.text
+    assert review.headers["cache-control"] == "no-store"
+    assert hosted.client.request("GET", review_path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", review_path + "&world_id=foreign").status_code == 403
     manifest = hosted.client.request("GET", manifest_path).json()
     assert manifest["playable_content_sha256"] == body["expected_playable_content_sha256"]
     pinned = hosted.client.request("GET", pinned_path).json()
     assert pinned["markdown"] == record["markdown"]
     assert pinned["work_revision_id"] == body["expected_playable_work_revision_id"]
+
+    from uuid import UUID
+
+    from application_state.play_scene_edit.service import PlaySceneEditProposalService
+    from apps.live_control_server.models.play_scene_edit_proposal import PlaySceneEditProposalRequest
+    from apps.live_control_server.services.agent_play_surface_context import resolve_world_play_session_turn_snapshot
+
+    edit = PlaySceneEditProposalRequest(
+        run_revision=opened["run_revision"], scene_id=result.json()["scenes"][0]["scene_id"],
+        instruction="Clarify what the party sees at the gate.",
+        content_basis={
+            "edition_revision": 0, "edition_revision_id": None,
+            "content_sha256": body["expected_playable_content_sha256"],
+        },
+    )
+    _, context_receipt = resolve_world_play_session_turn_snapshot(
+        root=tmp_path, world_id="managed", run_id=run_id,
+        run_revision=edit.run_revision, content_basis=edit.content_basis,
+    )
+    proposal_id = uuid4()
+    PlaySceneEditProposalService().reserve(
+        world_id="managed", run_id=UUID(run_id), proposal_id=proposal_id,
+        request=edit.model_dump(mode="json"), context_receipt=context_receipt,
+    )
+    proposals = f"{base}/content/proposals"
+    listed_proposals = hosted.client.request("GET", proposals + "?world_id=managed")
+    assert listed_proposals.status_code == 200, listed_proposals.text
+    saved_proposal = hosted.client.request("GET", proposals + f"/{proposal_id}?world_id=managed")
+    assert saved_proposal.status_code == 200, saved_proposal.text
+    assert saved_proposal.json()["proposal_id"] == str(proposal_id)
+    assert saved_proposal.json()["status"] == "pending"
+    assert listed_proposals.json()["proposals"] == [saved_proposal.json()]
+
+    assert hosted.client.request("GET", proposals + "?world_id=managed", session="other-session").status_code == 403
+    assert hosted.client.request("GET", proposals + f"/{proposal_id}?world_id=managed", session="other-session").status_code == 403
+
+    proposal_path = proposals + f"/{proposal_id}?world_id=managed"
+    proposal_body = edit.model_dump(mode="json")
+    assert hosted.client.request("POST", proposal_path, json=proposal_body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", proposal_path, json=proposal_body, origin=None).status_code == 403
+    retry = hosted.client.request("POST", proposal_path, json=proposal_body)
+    assert retry.status_code == 200, retry.text
+    assert retry.json() == saved_proposal.json()
+
+    from apps.live_control_server import config
+    from apps.live_control_server.services import play_scene_edit_proposal
+    from tests.test_play_scene_edit_proposal import Generator
+
+    markdown = V2_SOURCE_MARKDOWN + "\n\n" + source()
+    start, end = play_scene_edit_proposal.scene_body_range(markdown, edit.scene_id)
+    generator = Generator(markdown[start:end] + "\nThe party sees an open gate and a watchful guard.\n")
+    monkeypatch.setattr(config, "managed_world_data_root", lambda: tmp_path)
+    monkeypatch.setattr(play_scene_edit_proposal.GenerationClient, "from_env", lambda: generator)
+    monkeypatch.setattr(play_scene_edit_proposal, "load_dungeonmindbuddy_dotenv", lambda: None)
+    monkeypatch.setattr(
+        play_scene_edit_proposal, "load_buddy_model_policy",
+        lambda **kwargs: {"actions": {"structured_generation": "writer"}, "models": {"writer": "test-model"}},
+    )
+    fresh_path = proposals + f"/{uuid4()}?world_id=managed"
+    assert hosted.client.request("POST", fresh_path, json=proposal_body, origin=None).status_code == 403
+    assert hosted.client.request("POST", fresh_path, json=proposal_body, session="other-session").status_code == 403
+    assert generator.calls == []
+    generated = hosted.client.request("POST", fresh_path, json=proposal_body)
+    assert generated.status_code == 200, generated.text
+    assert generated.json()["status"] == "ready", generated.text
+    assert hosted.client.request("POST", fresh_path, json=proposal_body).json() == generated.json()
+    assert len(generator.calls) == 1
+    assert hosted.client.request("GET", fresh_path).json() == generated.json()
+
+    original_owner = hosted.records["managed"]
+    original_reserve = PlaySceneEditProposalService.reserve
+
+    def revoke_during_reservation(*args, **kwargs):
+        hosted.records["managed"] = original_owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return original_reserve(*args, **kwargs)
+
+    denied_id = uuid4()
+    with monkeypatch.context() as patch:
+        patch.setattr(PlaySceneEditProposalService, "reserve", revoke_during_reservation)
+        denied = hosted.client.request(
+            "POST", proposals + f"/{denied_id}?world_id=managed", json=proposal_body,
+        )
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert len(generator.calls) == 1
+    hosted.records["managed"] = original_owner
+    assert hosted.client.request("GET", proposals + f"/{denied_id}?world_id=managed").status_code == 404
+
+    original_get = PlaySceneEditProposalService.get
+
+    def revoke_during_replay(store, **scope):
+        record = original_get(store, **scope)
+        hosted.records["managed"] = original_owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return record
+
+    with monkeypatch.context() as patch:
+        patch.setattr(PlaySceneEditProposalService, "get", revoke_during_replay)
+        denied = hosted.client.request("POST", fresh_path, json=proposal_body)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert proposal_body["instruction"] not in denied.text
+    hosted.records["managed"] = original_owner
 
     tables_path = f"{base}/prepared-tables?world_id=managed"
     table_response = hosted.client.request("GET", tables_path)
@@ -2322,6 +2661,185 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     assert recorded.status_code == 200, recorded.text
     assert recorded.json()["receipt"]["outcome"] == "Dry"
     assert hosted.client.request("PUT", roll_path, json=roll).json()["receipt"] == recorded.json()["receipt"]
+
+
+    evidence_path = "/api/live/world-session-evidence?world_id=managed"
+    revision_path = f"/api/live/world-session-evidence/{run_id}/revisions/1?world_id=managed"
+    from apps.live_control_server.services.play_run_edition import read_content
+
+    content = read_content(run_id=run_id, world_id="managed")
+    basis = {
+        "expected_run_revision": content.observed_run_revision,
+        "expected_content_sha256": content.content_sha256,
+    }
+    end_path = f"{base}/review/commands/{uuid4()}?world_id=managed"
+    reflections = "The party returned safely after scouting the gate."
+    end = {**basis, "action": "end", "expected_revision": 0, "final_thoughts": reflections}
+    assert hosted.client.request("PUT", end_path, json=end, origin=None).status_code == 403
+    assert hosted.client.request("PUT", end_path, json=end, session="other-session").status_code == 403
+    from application_state.play import session_review
+
+    original_owner = hosted.records["managed"]
+    lock_review = session_review._locked_state
+
+    def revoke_review_access(*args, **kwargs):
+        state = lock_review(*args, **kwargs)
+        hosted.records["managed"] = original_owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return state
+
+    with monkeypatch.context() as patch:
+        patch.setattr(session_review, "_locked_state", revoke_review_access)
+        denied = hosted.client.request("PUT", end_path, json=end)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    hosted.records["managed"] = original_owner
+    review_path = f"{base}/review?world_id=managed"
+    assert hosted.client.request("GET", review_path).json()["review"] is None
+    ended = hosted.client.request("PUT", end_path, json=end)
+    assert ended.status_code == 200, ended.text
+    assert hosted.client.request("PUT", end_path, json=end).json() == ended.json()
+    with monkeypatch.context() as patch:
+        patch.setattr(session_review, "_locked_state", revoke_review_access)
+        denied = hosted.client.request("PUT", end_path, json=end)
+    assert denied.status_code == 403, denied.text
+    assert reflections not in denied.text
+    hosted.records["managed"] = original_owner
+
+    indexed = hosted.client.request("GET", evidence_path)
+    assert indexed.status_code == 200, indexed.text
+    assert [item["run_id"] for item in indexed.json()["sessions"]] == [run_id]
+    saved = hosted.client.request("GET", revision_path)
+    assert saved.status_code == 200, saved.text
+    assert saved.headers["cache-control"] == "no-store"
+    packet = saved.json()
+    assert (packet["world_id"], packet["run_id"], packet["review_revision"]) == ("managed", run_id, 1)
+    assert [(item["kind"], item["text"]) for item in packet["sources"]] == [
+        ("closing_reflections", reflections),
+    ]
+    denied = hosted.client.request("GET", revision_path, session="other-session")
+    assert denied.status_code == 403
+    assert reflections not in denied.text
+
+    from application_state.play import service as play_service
+
+    owner = hosted.records["managed"]
+    progress_path = f"{base}/progress?world_id=managed"
+    current = hosted.client.request("GET", run_path).json()
+    progress = {
+        **current["progress"],
+        "notes_by_element_id": {edit.scene_id: "Private Play note"},
+    }
+    progress_request = {"expected_run_revision": current["run_revision"], "progress": progress}
+    lock_run = play_service.repo.lock_run
+
+    def transfer_after_lock(*args, **kwargs):
+        record = lock_run(*args, **kwargs)
+        hosted.records["managed"] = owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return record
+
+    with monkeypatch.context() as patch:
+        patch.setattr(play_service.repo, "lock_run", transfer_after_lock)
+        denied = hosted.client.request("PUT", progress_path, json=progress_request)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    hosted.records["managed"] = owner
+    assert hosted.client.request("GET", run_path).json()["progress"] == current["progress"]
+
+    saved_progress = hosted.client.request("PUT", progress_path, json=progress_request)
+    assert saved_progress.status_code == 200, saved_progress.text
+    assert saved_progress.json()["progress"] == progress
+    assert hosted.client.request("PUT", progress_path, json=progress_request).json() == saved_progress.json()
+    with monkeypatch.context() as patch:
+        patch.setattr(play_service.repo, "lock_run", transfer_after_lock)
+        denied = hosted.client.request("PUT", progress_path, json=progress_request)
+    assert denied.status_code == 403, denied.text
+    assert "Private Play note" not in denied.text
+    hosted.records["managed"] = owner
+
+    from application_state.play import session_evidence
+
+    owner = hosted.records["managed"]
+
+    def transfer_after_read(read):
+        def lookup(**kwargs):
+            result = read(**kwargs)
+            hosted.records["managed"] = owner.model_copy(update={"owner_subject": OTHER_OWNER})
+            return result
+        return lookup
+
+    for path, name in ((evidence_path, "recent_session_evidence_index"), (revision_path, "read_session_evidence")):
+        hosted.records["managed"] = owner
+        with pytest.MonkeyPatch.context() as transfer:
+            transfer.setattr(session_evidence, name, transfer_after_read(getattr(session_evidence, name)))
+            denied = hosted.client.request("GET", path)
+        assert denied.status_code == 403, denied.text
+        assert reflections not in denied.text
+
+
+    hosted.records["managed"] = owner
+    save_path = f"{base}/review/commands/{uuid4()}?world_id=managed"
+    save = {**basis, "action": "save", "expected_revision": 1, "draft_markdown": "# Session notes"}
+    saved = hosted.client.request("PUT", save_path, json=save)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["draft_markdown"] == save["draft_markdown"]
+
+    reopen_path = f"{base}/review/commands/{uuid4()}?world_id=managed"
+    reopen = {**basis, "action": "reopen", "expected_revision": 2}
+    reopened = hosted.client.request("PUT", reopen_path, json=reopen)
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["status"] == "playing"
+    assert reopened.json()["draft_markdown"] == save["draft_markdown"]
+
+
+    content = read_content(run_id=run_id, world_id="managed")
+    from tests.integration.test_build_images_postgres import saved_image
+
+    artwork = saved_image(access.hosted_world_media_owner("managed"))
+    foreign_artwork = saved_image(access.hosted_world_media_owner("foreign"))
+    edition_path = f"{base}/content/commands/{uuid4()}?world_id=managed"
+    edition = {
+        "schema_version": "dmb_world_play_run_content_commit_v1",
+        "expected_origin": content.origin.model_dump(mode="json"),
+        "expected_edition_revision": content.edition_revision,
+        "expected_content_sha256": content.content_sha256,
+        "markdown": content.markdown + f"\n\n![Gate](dmb-media:{artwork['asset_id']})\n",
+    }
+    assert hosted.client.request("PUT", edition_path, json=edition, session="other-session").status_code == 403
+    assert hosted.client.request("PUT", edition_path, json=edition, origin=None).status_code == 403
+    foreign_edition = {
+        **edition,
+        "markdown": edition["markdown"].replace(str(artwork["asset_id"]), str(foreign_artwork["asset_id"])),
+    }
+    denied = hosted.client.request("PUT", edition_path, json=foreign_edition)
+    assert denied.status_code == 422, denied.text
+    from application_state.play import edition_service
+
+    locked_state = edition_service._locked_state
+
+    def revoke_during_edition_read(*args, **kwargs):
+        state = locked_state(*args, **kwargs)
+        hosted.records["managed"] = owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return state
+
+    with monkeypatch.context() as patch:
+        patch.setattr(edition_service, "_locked_state", revoke_during_edition_read)
+        denied = hosted.client.request("PUT", edition_path, json=edition)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    hosted.records["managed"] = owner
+    assert hosted.client.request("GET", content_path).json()["markdown"] == content.markdown
+    committed_edition = hosted.client.request("PUT", edition_path, json=edition)
+    assert committed_edition.status_code == 200, committed_edition.text
+    assert hosted.client.request("PUT", edition_path, json=edition).json() == committed_edition.json()
+    with monkeypatch.context() as patch:
+        patch.setattr(edition_service, "_locked_state", revoke_during_edition_read)
+        denied = hosted.client.request("PUT", edition_path, json=edition)
+    assert denied.status_code == 403, denied.text
+    assert str(artwork["asset_id"]) not in denied.text
+    hosted.records["managed"] = owner
+    reopened_edition = hosted.client.request("GET", content_path)
+    assert reopened_edition.status_code == 200, reopened_edition.text
+    assert reopened_edition.json()["markdown"] == edition["markdown"]
 
 
 def test_hosted_statblock_picker_reads_only_owned_world(hosted, application_state_dsn, tmp_path, monkeypatch):
@@ -2889,7 +3407,562 @@ def test_hosted_connected_page_reads_exact_world_operation(hosted, monkeypatch, 
     response = hosted.client.request("GET", path)
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
-    read.assert_called_once_with(tmp_path, operation, "managed")
+    assert read.call_args.args == (tmp_path, operation, "managed")
+    assert read.call_args.kwargs["principal"].subject == f"hosted_dms:{OWNER}"
+
+
+def test_hosted_creature_catalog_and_association_read_are_world_scoped(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import world_mechanics_associations as routes
+
+    catalog = Mock(return_value=SimpleNamespace(response=lambda: {"world_id": "managed", "items": []}))
+    find = Mock(return_value=None)
+    monkeypatch.setattr(routes.creatures, "catalog", catalog)
+    monkeypatch.setattr(routes, "resolve_managed_world_binding", lambda world: world)
+    monkeypatch.setattr(routes.state, "find_request", find)
+    request_id = uuid4()
+    base = "/api/live/world-mechanics/associations"
+    for suffix in ("creatures", f"requests/{request_id}"):
+        path = f"{base}/{suffix}?world_id=managed"
+        assert hosted.client.request("GET", path, session="other-session").status_code == 403
+        assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+        response = hosted.client.request("GET", path)
+        assert response.status_code == 200, response.text
+        assert response.headers["cache-control"] == "no-store"
+    catalog.assert_called_once_with("managed")
+    find.assert_called_once_with(world_id="managed", request_id=request_id)
+
+    owner_record = hosted.records["managed"]
+
+    def transfer_after_lookup(result):
+        def lookup(*_args, **_kwargs):
+            hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+            return result
+        return lookup
+
+    catalog.side_effect = transfer_after_lookup(catalog.return_value)
+    find.side_effect = transfer_after_lookup(find.return_value)
+    for suffix in ("creatures", f"requests/{request_id}"):
+        hosted.records["managed"] = owner_record
+        response = hosted.client.request("GET", f"{base}/{suffix}?world_id=managed")
+        assert response.status_code == 403, response.text
+
+
+def test_hosted_archives_exact_statblock_and_preserves_saved_revision(prepared, hosted):
+    from apps.live_control_server.services import threat_draft_store
+
+    fixture = prepared
+    world = "elderwyld"
+    hosted.records[world] = _record(world, OWNER, fixture.view.native_world_id)
+    from apps.live_control_server.services import hosted_auth
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setenv(hosted_auth.HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+        draft_id = fixture.draft.draft_id
+        version = fixture.draft.version
+        base = f"/api/live/threat-drafts/{draft_id}/saved-statblock?world_id={world}"
+        path = f"{base}&expected_version={version}"
+        assert hosted.client.request("DELETE", path, session="other-session").status_code == 403
+        assert hosted.client.request("DELETE", path, origin=None).status_code == 403
+        assert hosted.client.request("DELETE", f"{base}&expected_version={version + 1}").status_code == 409
+        before, _ = threat_draft_store.list_threat_drafts(fixture.root, world_id=world)
+        assert len(before) == 1
+        owner_record = hosted.records[world]
+        load_draft = threat_draft_store._load_draft_unlocked
+
+        def transfer_during_lookup(*args):
+            draft = load_draft(*args)
+            hosted.records[world] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+            return draft
+
+        with patch.context() as transfer:
+            transfer.setattr(threat_draft_store, "_load_draft_unlocked", transfer_during_lookup)
+            denied = hosted.client.request("DELETE", path)
+        assert denied.status_code == 403, denied.text
+        visible, _ = threat_draft_store.list_threat_drafts(fixture.root, world_id=world)
+        assert visible == before
+        hosted.records[world] = owner_record
+        archived = hosted.client.request("DELETE", path)
+        assert archived.status_code == 204, archived.text
+        after, _ = threat_draft_store.list_threat_drafts(fixture.root, world_id=world)
+        assert after == []
+        assert threat_draft_store.get_threat_draft(fixture.root, draft_id).accepted_mechanics_ref == fixture.draft.accepted_mechanics_ref
+        assert hosted.client.request("DELETE", path).status_code == 204
+
+
+def test_hosted_portrait_revision_recovers_exact_save(revision_case, hosted, monkeypatch):
+    import json
+
+    from tests.integration.test_build_images_postgres import ready, saved_image
+
+    fixture = revision_case
+    world = "elderwyld"
+    hosted.records[world] = _record(world, OWNER, fixture.view.native_world_id)
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+    asset = ready(saved_image(f"hosted_world:{world}"))
+    body = {**fixture.request, "portrait_asset_id": str(asset["asset_id"])}
+    assert hosted.client.request("POST", fixture.url, json=body, origin=None).status_code == 403
+    fixture.manual.timeout = True
+    unknown = hosted.client.request("POST", fixture.url, json=body)
+    assert unknown.status_code == 200, unknown.text
+    assert unknown.json()["state"] == "outcome_unknown"
+    operation = fixture.url.replace("mechanics-revisions", "mechanics-revision-operations") + "/" + body["operation_id"]
+    status = hosted.client.request("GET", f"{operation}?world_id={world}")
+    assert status.status_code == 200, status.text
+    assert status.json()["operation"]["state"] == "outcome_unknown"
+    assert hosted.client.request("POST", f"{operation}:recover?world_id={world}", origin=None).status_code == 403
+    recovered = hosted.client.request("POST", f"{operation}:recover?world_id={world}")
+    assert recovered.status_code == 200, recovered.text
+    result = recovered.json()
+    assert result["state"] == "committed"
+    assert fixture.manual.appends == 1
+    revision_id = result["result"]["revision_id"]
+    opened = hosted.client.request("GET", f"{fixture.url}/{revision_id}?world_id={world}")
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["resource"]["provenance"]["accepted_through"]["buddy_portrait_asset_id"] == str(asset["asset_id"])
+
+    original_validate = fixture.manual.validate_definition
+
+    def transfer_during_validation(request):
+        result = original_validate(request)
+        hosted.records[world] = hosted.records[world].model_copy(update={"owner_subject": OTHER_OWNER})
+        return result
+
+    monkeypatch.setattr(fixture.manual, "validate_definition", transfer_during_validation)
+    from apps.live_control_server.services.statblock_saved_revision import operations
+
+    operation_id = uuid4()
+    denied = hosted.client.request("POST", fixture.url, json={**body, "operation_id": str(operation_id)})
+    assert denied.status_code == 403, denied.text
+    assert fixture.manual.appends == 1
+    assert operations.read(world_id=world, draft_id=fixture.draft.draft_id, operation_id=operation_id) is None
+
+
+@pytest.mark.parametrize("transfer", [False, True])
+def test_hosted_generated_artwork_is_readable_in_its_world(hosted, application_state_dsn, monkeypatch, transfer):
+    from io import BytesIO
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from PIL import Image
+    from application_state import media
+    from apps.live_control_server.routes import media_images
+
+    output = BytesIO()
+    Image.new("RGB", (2, 2)).save(output, format="PNG")
+    payload = output.getvalue()
+    async def generate(*_args):
+        if transfer:
+            hosted.records["managed"] = hosted.records["managed"].model_copy(
+                update={"owner_subject": OTHER_OWNER},
+            )
+        return SimpleNamespace(
+            images=[SimpleNamespace(content=payload, media_type="image/png")],
+            observation=SimpleNamespace(model_dump=lambda **kwargs: {"provider": "fixture"}),
+        )
+
+    provider = SimpleNamespace(
+        generate_image=AsyncMock(side_effect=generate), aclose=AsyncMock(),
+    )
+    monkeypatch.setattr(media_images, "_fal_key", lambda: "fixture")
+    monkeypatch.setattr(media_images, "_image_client", lambda: provider)
+    path = "/api/live/media/images/generate?world_id=managed"
+    body = {"prompt": "A gate at dusk", "model": "flux-2-pro"}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert hosted.client.request("POST", path.replace("managed", "foreign"), json=body).status_code == 403
+    provider.generate_image.assert_not_called()
+    if transfer:
+        from unittest.mock import Mock
+
+        stage = Mock(wraps=media.stage_image)
+        monkeypatch.setattr(media, "stage_image", stage)
+        response = hosted.client.request("POST", path, json=body)
+        assert response.status_code == 403, response.text
+        provider.generate_image.assert_awaited_once()
+        stage.assert_not_called()
+        return
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    asset_id = response.json()["images"][0]["asset_id"]
+    assert media.get_asset(asset_id, access.hosted_world_media_owner("managed"))["state"] == "staged"
+    original = hosted.client.request("GET", f"/api/live/media/images/{asset_id}/original")
+    assert original.status_code == 200, original.text
+    assert original.content == payload
+    provider.generate_image.assert_awaited_once()
+
+
+def test_hosted_image_capabilities_require_owner(hosted, monkeypatch):
+    from apps.live_control_server.routes import media_images
+    monkeypatch.setattr(media_images, "assert_at_head", lambda: None)
+    path = "/api/live/media/images/capabilities?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert isinstance(response.json()["models"], list)
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_hosted_pdf_event_review_binds_both_steps_to_world_owner(hosted, monkeypatch):
+    from apps.live_control_server.routes import pdf_adventure_events
+
+    calls = []
+    revoked = False
+    owner_record = hosted.records["managed"]
+
+    def observe(world_id, body, principal, *, authorize_write):
+        if revoked:
+            hosted.records["managed"] = hosted.records["managed"].model_copy(
+                update={"owner_subject": OTHER_OWNER},
+            )
+        authorize_write()
+        calls.append((world_id, principal.subject, principal.managed_world_id))
+        return {"accepted": True}
+
+    monkeypatch.setattr(pdf_adventure_events.service, "prepare", observe)
+    monkeypatch.setattr(pdf_adventure_events.service, "confirm", observe)
+    draft = {
+        "operation_id": "00000000-0000-4000-8000-000000000002",
+        "name": "Event", "description": "Reviewed description.",
+        "region": {"source_revision_id": "rev:pdf", "content_sha256": "a" * 64, "page": 1,
+                   "left": 0, "top": 0, "right": 1, "bottom": 1},
+    }
+    for action, body in (("prepare", draft), ("confirm", {"token": "fixture", "draft": draft, "prepared": {}})):
+        path = f"/api/live/worlds/managed/pdf-adventure-events/{action}"
+        assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+        assert hosted.client.request("POST", path.replace("/managed/", "/foreign/"), json=body).status_code == 403
+        assert hosted.client.request("POST", path, json=body, origin="https://outside.invalid").status_code == 403
+        result = hosted.client.request("POST", path, json=body)
+        assert result.status_code == 200, result.text
+        revoked = True
+        result = hosted.client.request("POST", path, json=body)
+        assert result.status_code == 403, result.text
+        hosted.records["managed"] = owner_record
+        revoked = False
+    assert calls == [("managed", "hosted_dms:synthetic-owner-alpha", "managed")] * 2
+
+
+def test_hosted_build_source_admission_checks_saved_document_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import workspace_documents
+
+    async def owned_document(subject, document_id):
+        access._owned_world(subject, "managed")
+        return "managed"
+
+    calls = []
+
+    def admit(_root, document_id, *, expected_revision, expected_body_sha256, authorize_world):
+        authorize_world("foreign" if expected_revision == 2 else "managed")
+        calls.append(document_id)
+        raise workspace_documents.NativeWorldSourceAdmissionError(
+            "fixture", "fixture reached", status_code=409,
+        )
+
+    monkeypatch.setattr(access, "_owned_build_page", owned_document)
+    monkeypatch.setattr(workspace_documents, "admit_native_world_source", admit)
+    document_id = "00000000-0000-4000-8000-000000000001"
+    path = f"/api/live/workspace-documents/{document_id}/native-world-source"
+    body = {"expected_revision": 1, "expected_body_sha256": "a" * 64}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path + "?expected_revision=1", json=body).status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "expected_revision": 2}).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 409, result.text
+    assert calls == [document_id]
+
+
+@pytest.mark.parametrize("kind", ["pdf", "text"])
+@pytest.mark.parametrize("transfer", [False, True])
+def test_hosted_source_withdrawal_binds_exact_world_revision(hosted, monkeypatch, kind, transfer):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.integrations.dungeonmind import native_world_source_admission
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import native_source_inspection
+
+    repo = Mock()
+    repo.get_native_pdf_source.return_value = (SimpleNamespace(
+        source_artifact_id="artifact", status="active", visibility=SimpleNamespace(kind="public"),
+    ),)
+    catalog = Mock(return_value={
+        "scope": {"native_world_id": "space"},
+        "catalogue": {"sources": [{
+            "source_artifact": {"source_artifact_id": "artifact"},
+            "source_revision": {"source_revision_id": "revision"},
+        }]},
+    })
+    monkeypatch.setattr(native_world_source_admission, "_repository", lambda: repo)
+    monkeypatch.setattr(native_world_source_admission, "_source_world_binding", lambda root, world: SimpleNamespace(native_world_id="space"))
+    monkeypatch.setattr(native_source_inspection, "catalog", catalog)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    path = "/api/live/agent/worlds/managed/build-source-withdrawals"
+    body = {"kind": kind, "revision_id": "revision"}
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    catalog.assert_not_called()
+    assert not repo.mock_calls
+    if transfer:
+        lookup = repo.get_native_pdf_source if kind == "pdf" else catalog
+
+        def transfer_ownership(*_args):
+            hosted.records["managed"] = hosted.records["managed"].model_copy(
+                update={"owner_subject": OTHER_OWNER},
+            )
+            return lookup.return_value
+
+        lookup.side_effect = transfer_ownership
+        response = hosted.client.request("POST", path, json=body)
+        assert response.status_code == 403, response.text
+        repo.withdraw_native_source.assert_not_called()
+        return
+
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 204, response.text
+    repo.withdraw_native_source.assert_called_once_with(
+        space_id="space", source_artifact_id="artifact", source_revision_id="revision",
+    )
+    if kind == "text":
+        scope, principal = catalog.call_args.args
+        assert scope.managed_world_id == principal.managed_world_id == "managed"
+
+
+def test_hosted_prompt_reads_require_owner_and_captured_trace(hosted, monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import agent
+
+    reads = Mock(return_value=[])
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(agent, "_conversation_service", lambda _: SimpleNamespace(list_context_trace_attempts=reads))
+    turn, trace, attempt = uuid4(), uuid4(), uuid4()
+    base = f"/api/live/agent/worlds/managed/conversation/turns/{turn}/context-trace"
+    single = f"{base}/{trace}/prompt/{attempt}"
+    batch = f"{base}/prompts"
+    body = {"prompts": [{"trace_id": str(trace), "provider_attempt_id": str(attempt)}]}
+    assert hosted.client.request("GET", single, session="other-session").status_code == 403
+    assert hosted.client.request("POST", batch, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", batch, origin=None, json=body).status_code == 403
+    reads.assert_not_called()
+    response = hosted.client.request("GET", single)
+    assert response.status_code == 404, response.text
+    response = hosted.client.request("POST", batch, json=body)
+    assert response.status_code == 200, response.text
+    assert response.json()["results"] == [{"unavailable": "prompt_not_captured"}]
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_hosted_conversation_name_read_requires_world_owner(hosted, monkeypatch):
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import conversation_library
+
+    read = Mock(return_value={"title": "Saved conversation"})
+    monkeypatch.setattr(conversation_library.library, "get_name", read)
+    conversation = uuid4()
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation}/name"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    read.assert_called_once_with("managed", conversation)
+
+
+def test_hosted_prepared_image_association_uses_world_asset_owner(hosted, monkeypatch):
+    from unittest.mock import ANY, Mock
+
+    from apps.live_control_server.routes import media_images
+    from apps.live_control_server.services import build_document_proposal
+
+    service = Mock()
+    service.get.return_value.reservation.basis.world_id = "managed"
+    service.associate.return_value.model_dump.return_value = {"revision": 2}
+    monkeypatch.setattr(media_images, "BuildImageService", lambda: service)
+    monkeypatch.setattr(build_document_proposal, "_source", Mock())
+    action, asset = uuid4(), uuid4()
+    path = f"/api/live/media/images/preparations/{action}/asset?world_id=managed"
+    body = {"asset_id": str(asset), "expected_revision": 1}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    service.get.assert_not_called()
+    service.get.return_value.reservation.basis.world_id = "foreign"
+    foreign = hosted.client.request("POST", path, json=body)
+    assert foreign.status_code == 404, foreign.text
+    service.associate.assert_not_called()
+    service.get.return_value.reservation.basis.world_id = "managed"
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    _, owner = service.get.call_args.args
+    assert owner.startswith("hosted_dms:")
+    service.associate.assert_called_once_with(
+        action, asset, owner, 1, asset_owner="hosted_world:managed", authorize_world=ANY,
+    )
+
+    def transfer_during_lookup(*_args, authorize_world, **_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        authorize_world("managed")
+        pytest.fail("revoked owner passed the association check")
+
+    service.associate.side_effect = transfer_during_lookup
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 403, response.text
+
+
+@pytest.mark.parametrize("transfer", [False, True])
+def test_hosted_persists_and_reopens_exact_mechanics_association(prepared, hosted, monkeypatch, transfer):
+    from apps.live_control_server.services import statblock_saved_revision, world_creature_selection
+
+    fixture = prepared
+    world = "elderwyld"
+    hosted.records[world] = _record(world, OWNER, fixture.view.native_world_id)
+    monkeypatch.setenv(HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+    monkeypatch.setattr(world_creature_selection.native, "binding", lambda world_id: vars(fixture.binding).copy())
+    base = "/api/live/world-mechanics/associations"
+    path = f"{base}?world_id={world}"
+    assert hosted.client.request("POST", path, json=fixture.body, origin=None).status_code == 403
+    if transfer:
+        from application_state.world_mechanics import service as association_state
+
+        original_replay = association_state._replay
+        lookup_count = 0
+
+        def transfer_during_locked_lookup(conn, world_id, request):
+            nonlocal lookup_count
+            result = original_replay(conn, world_id, request)
+            lookup_count += 1
+            if lookup_count == 2:
+                hosted.records[world] = hosted.records[world].model_copy(update={"owner_subject": OTHER_OWNER})
+            return result
+
+        monkeypatch.setattr(association_state, "_replay", transfer_during_locked_lookup)
+        denied = hosted.client.request("POST", path, json=fixture.body)
+        assert denied.status_code == 403, denied.text
+        assert lookup_count == 2
+        assert association_state.find_request(world_id=world, request_id=fixture.body["request_id"]) is None
+        return
+
+    first = hosted.client.request("POST", path, json=fixture.body)
+    assert first.status_code == 200, first.text
+    record = first.json()["association"]
+    assert record["actor"] == f"hosted_dms:{OWNER}"
+    assert record["proof"]["locator"] == fixture.body["locator"]
+    assert first.json()["replayed"] is False
+    assert fixture.dms.calls == 1
+    monkeypatch.setattr(statblock_saved_revision, "get_threat_draft", lambda *args: pytest.fail("Replay read external state"))
+    retry = hosted.client.request("POST", path, json=fixture.body)
+    assert retry.json() == {"association": record, "replayed": True}
+    assert fixture.dms.calls == 1
+    status = f"{base}/requests/{fixture.body['request_id']}?world_id={world}"
+    assert hosted.client.request("GET", status).json() == record
+    assert hosted.client.request("GET", status, session="other-session").status_code == 403
+
+
+def test_hosted_play_progress_binds_world_run_and_origin(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import play_runs
+
+    write = Mock(side_effect=play_runs.PlayRunRegistryError("stale revision", status_code=409))
+    monkeypatch.setattr(play_runs, "replace_world_play_run_progress", write)
+    run_id = str(uuid4())
+    path = f"/api/live/world-play-runs/v2/{run_id}/progress?world_id=managed"
+    body = {"expected_run_revision": 2, "progress": {
+        "current_scene_id": None, "current_beat_id": None, "resolved_beat_ids": [],
+        "selections": {}, "notes_by_element_id": {},
+    }}
+    assert hosted.client.request("PUT", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("PUT", path, origin="https://outside.example", json=body).status_code == 403
+    assert hosted.client.request("PUT", path + "&world_id=foreign", json=body).status_code == 403
+    write.assert_not_called()
+
+    response = hosted.client.request("PUT", path, json=body)
+    assert response.status_code == 409, response.text
+    write.assert_called_once()
+    assert write.call_args.kwargs["world_id"] == "managed"
+    assert write.call_args.kwargs["run_id"] == run_id
+    assert write.call_args.kwargs["expected_run_revision"] == 2
+
+
+def test_hosted_published_recap_requires_owned_world(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.services import native_source_inspection
+
+    read = Mock(return_value={"source": {"status": "available"}})
+    monkeypatch.setattr(native_source_inspection, "published_recap", read)
+    path = "/api/live/native-source-inspection/published-recap"
+    body = {"managed_world_id": "managed", "campaign_id": "campaign", "session_id": "session"}
+    assert hosted.client.request("POST", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", path, origin=None, json=body).status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    selector, principal = read.call_args.args
+    assert selector.managed_world_id == principal.managed_world_id == "managed"
+    assert (selector.campaign_id, selector.session_id) == ("campaign", "session")
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"source": {"text": "Private published recap"}}
+
+    read.side_effect = transfer_during_read
+    denied = hosted.client.request("POST", path, json=body)
+    assert hosted.records["managed"].owner_subject == OTHER_OWNER
+    assert denied.status_code == 403, denied.text
+    assert "Private published recap" not in denied.text
+
+
+def test_hosted_recap_objects_checks_source_pin_and_admitted_evidence(hosted, monkeypatch):
+    from apps.live_control_server.services import native_graph_inspection as graph, native_source_inspection as source
+
+    pin = {"managed_world_id": "managed", "native_world_id": "native-managed", "binding_version": 1,
+           "revision_id": "rev-1", "scope_mode": "world", "campaign_id": None}
+    recap = {"scope": pin, "source": {"source_artifact_id": "source", "source_revision_id": "source-rev"},
+             "evidence_ref_ids": ["recap-evidence"]}
+    def assertion(identity, evidence):
+        return {"subject_entity_id": identity, "predicate": "dnd5e:name",
+                "value": {"kind": "literal", "value": identity.title()},
+                "metadata": {"evidence_ref_ids": [evidence]}}
+
+    def pinned_recap(request, principal, expected_pin):
+        assert expected_pin.model_dump(mode="json") == pin
+        return recap
+
+    monkeypatch.setattr(source, "_published_recap_at_pin", pinned_recap)
+    def catalog(scope, principal):
+        assert scope.scope_mode == "campaign" and scope.campaign_id == "campaign"
+        return {"catalogue": {"entities": [{"entity_id": "included"}, {"entity_id": "unrelated"}],
+                              "completeness": {"status": "complete"}},
+                "assertions": [assertion("included", "recap-evidence"), assertion("unrelated", "different-evidence")]}
+
+    details = []
+    def complete(body, principal):
+        details.append(body.request.node_id)
+        return {"found": True}
+
+    monkeypatch.setattr(graph, "catalog", catalog)
+    monkeypatch.setattr(graph, "complete_object", complete)
+    path = "/api/live/native-source-inspection/published-recap/objects"
+    payload = {"managed_world_id": "managed", "campaign_id": "campaign", "session_id": "session-1",
+               "scope": pin, **recap["source"]}
+    assert hosted.client.request("POST", path, json=payload, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**payload, "source_revision_id": "other"}).status_code == 409
+    assert hosted.client.request("POST", path, json={**payload, "entity_id": "unrelated"}).status_code == 409
+    assert not details
+    listing = hosted.client.request("POST", path, json=payload)
+    assert listing.status_code == 200, listing.text
+    assert listing.json()["objects"] == [{"id": "included", "label": "Included", "ambiguous": False}]
+    selected = hosted.client.request("POST", path, json={**payload, "entity_id": "included"})
+    assert selected.status_code == 200, selected.text
+    assert selected.json() == {"kind": "complete", "detail": {"found": True}}
+    assert details == ["included"]
 
 
 def test_hosted_turn_evidence_checks_owner_and_exact_selectors(hosted, monkeypatch):
