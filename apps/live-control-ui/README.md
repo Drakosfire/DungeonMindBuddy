@@ -109,10 +109,16 @@ npm run build
 
 ## Manual smoke
 
-Hosted Buddy supports signing in, choosing an assigned World, browsing its
-read-only graph, and signing out. Use the
+Hosted Buddy supports DungeonMind sign-in, assigned World selection, Graph
+inspection, and World-scoped workspaces. Open Plan, Play, Build, Ingest, Combat
+Tracker, and Statblock through links carrying the selected World. Without an
+admitted World, a workspace asks for one first. API access is admitted per method/path
+and resource ownership, so an available workspace does not imply that every
+operation is enabled. Use the
 [production deployment runbook](../../Docs/Runbooks/RUNBOOK-buddy-production-deployment.md)
-for the hosted checks. The smoke steps below use the local operator profile.
+for hosted sign-in, admission, Graph, and sign-out checks. Qualify write workflows
+with their approved disposable World/provider targets. The smoke steps below
+use the local operator profile, including legacy `/surface` Chat.
 
 
 Play first-time setup is **not** just `uvicorn` plus `npm run dev`. Configure
