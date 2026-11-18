@@ -399,9 +399,17 @@ def image_record(asset_id: UUID, request: Request, response: Response):
 
 @router.post('/{asset_id}/save')
 async def save_image(asset_id: UUID, request: Request, response: Response):
-    principal = enforce_native_graph_gm(request)
+    owner = _saved_artwork_owner(request, asset_id)
     response.headers['Cache-Control'] = 'no-store'
+    from apps.live_control_server.services import hosted_auth
+
+    def authorize_write() -> None:
+        if _saved_artwork_owner(request, asset_id) != owner:
+            raise HTTPException(403, detail="Image access denied.")
+
     try:
-        return _public_record(await media_storage.save_asset(asset_id, principal.subject))
+        if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+            return _public_record(await media_storage.save_asset(asset_id, owner, authorize_write=authorize_write))
+        return _public_record(await media_storage.save_asset(asset_id, owner))
     except ApplicationStateError as error:
         raise HTTPException(error.status_code, detail=str(error)) from error

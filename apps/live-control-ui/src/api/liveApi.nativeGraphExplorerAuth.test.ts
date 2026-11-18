@@ -116,6 +116,7 @@ const entityInspectionBody = {
   selection: { kind: "entity", entity_id: "entity-a" },
 };
 const hostedRoutes = [
+  ["Image Studio save", "/api/live/media/images/11111111-1111-4111-8111-111111111111/save", {}],
   ...routes,
   ["entity-inspection", "/api/live/native-graph-inspection/read", entityInspectionBody],
   ["chronology", "/api/live/native-graph-inspection/read", { ...entityInspectionBody, selection: { kind: "chronology" } }],
