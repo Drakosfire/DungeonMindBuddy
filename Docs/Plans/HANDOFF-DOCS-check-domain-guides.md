@@ -1,6 +1,8 @@
 # DOCS: check maintained domain guide links
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: HISTORICAL — completed by Buddy PR #4006, merged at `7eaebf0300d74e7e1ca6799c4d0b8e0957202b4b`. The lease is closed.
+
+Originally authorized by the documentation goal. PR topology: serial.
 Base: Buddy main `1acbf62ac34bcf3f86ae22294979b02be34e1705`.
 Branch: `codex/docs-check-domain-guides`. Predecessor: merged #4005.
 
