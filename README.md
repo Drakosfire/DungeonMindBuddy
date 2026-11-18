@@ -37,9 +37,19 @@ uv sync --locked
 ```
 
 Set up a local DungeonMindServer checkout beside Buddy, or point
-`DUNGEONMIND_SERVER_ROOT` at it. Configure the database and runtime prerequisites
-in the [local Play runbook](Docs/Runbooks/RUNBOOK-local-play-dogfood.md).
-Then run `./run` and open [the Buddy landing page](http://127.0.0.1:5173/).
+`DUNGEONMIND_SERVER_ROOT` at it. The server has its own dependencies and
+configuration, including authentication, trusted hosts, Firebase and enabled
+integrations; consult the [server repository](https://github.com/Drakosfire/DungeonMindServer)
+and its current configuration. Configure Buddy's separate application-state
+database and runtime prerequisites in the
+[local Play runbook](Docs/Runbooks/RUNBOOK-local-play-dogfood.md). Then run
+`./run` and open [the Buddy landing page](http://127.0.0.1:5173/).
+
+In ordinary mode the launcher leaves a service already listening on one of its
+ports in place; it does not establish that listener's checkout or revision. Use ports and
+services you own when you need to verify a particular build. A new Play database
+can be migrated successfully and still show `NOT READY` until a Runbook exists;
+the runbook explains that readiness result.
 
 On a local Linux filesystem with available inotify watches, run
 `CHOKIDAR_USEPOLLING=0 ./run` to opt into event-driven frontend reloads.

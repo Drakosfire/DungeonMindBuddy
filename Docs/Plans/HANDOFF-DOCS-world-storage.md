@@ -1,6 +1,6 @@
 # DOCS: local World storage and recovery map
 
-Status: ACTIVE. Authorized by the documentation goal. PR topology: serial.
+Status: MERGED / HISTORICAL. Buddy PR #3989, merge `29beef5ee9fc5b3ea5eab5314628e97c4b8b23e5`. The lane is closed; this record does not authorize new work.
 
 Base: Buddy main `b416410d5ecc3031a2c2db56a8aa31e0e5c480f6`. Branch: `codex/docs-world-storage`.
 

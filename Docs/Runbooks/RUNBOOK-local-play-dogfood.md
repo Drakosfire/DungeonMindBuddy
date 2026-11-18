@@ -63,7 +63,10 @@ uv run python scripts/bootstrap_local_play.py check
 ```
 
 Do not run bootstrap on every server restart. Re-run `apply` after application-state
-schema changes, or when `check` reports `NEEDS BOOTSTRAP`.
+schema changes, or when `check` reports `NEEDS BOOTSTRAP`. Both commands return
+exit code 2 when Play is not `READY`. A freshly migrated application-state
+schema with no committed Runbook reports application state `READY` and Play
+`NOT READY`; that result does not mean the schema migration failed.
 
 ## Normal runtime
 
