@@ -256,7 +256,7 @@ def _answer_schema(variants, policy, rules, prose, *, proposal_labels=("invented
 
 def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
-    if type(format_version) is not int or format_version not in {1, 2, 3, 4, 5, 6, 7, 8, 9}:
+    if type(format_version) is not int or format_version not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}:
         raise ValueError('Unknown native writer output format version')
     if (frame.get('schema') not in {SCHEMA, LEGACY_SCHEMA} or frame.get('answer_policy') != ASSERTION_POLICY
             or not isinstance(rules, (PlanRulesEvidenceFrameV1, ModelRulesFrame))):
@@ -299,7 +299,7 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
             base['required'].append('collaboration')
             if definitions:
                 schema.setdefault('$defs',{}).update(definitions)
-    if format_version in {3, 4, 5, 6, 8, 9}:
+    if format_version in {3, 4, 5, 6, 8, 9, 10}:
         from .native_build_work_view import variant_sources
         sources = variant_sources(work_frame)
         if rules.lookups or work_frame.get("schema") != BUILD_WORK_SCHEMA or not sources:
@@ -316,7 +316,7 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                 {f"Variant_{name}": entry for name, entry in definitions.items()}
             )
             properties = {"source": _enum(list(sources))}
-            if format_version in {6, 8, 9}:
+            if format_version in {6, 8, 9, 10}:
                 witnesses = _array({
                     **prose,
                     "description": "Quote the exact authored condition, including any exception.",
@@ -328,7 +328,7 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                 if "working_draft_context" not in work_frame:
                     witnesses["maxItems"] = 0
                 fields = {}
-                if format_version in {8, 9}:
+                if format_version in {8, 9, 10}:
                     fields["carried_condition"] = {
                         "type": ["string", "null"] if "working_draft_context" in work_frame else "null",
                         "description": (
@@ -346,29 +346,47 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                     "A rule governed by an ongoing situation or a scene trigger does not "
                     "consume a combat action unless its mechanics specify one."
                 )
-                if format_version in {8, 9}:
+                if format_version in {8, 9, 10}:
                     mechanics["description"] += (
                         " With carried_condition, provide a typed trigger and write only "
                         "consequences in rule.rules_text. Do not restate or add another trigger."
                     )
-            if format_version == 9:
+            if format_version in {9, 10}:
                 from .native_build_work_view import variant_draft_passages
 
                 passages = variant_draft_passages(work_frame)
                 if not passages:
                     raise ValueError("Variant passage review requires a nonempty authored draft")
-                review = _object({handle: _enum(["retain", "change", "omit"]) for handle in passages})
-                review["description"] = (
-                    "Review each authored passage before drafting. Retain existing behavior needed "
-                    "by the requested variant, including all trigger exceptions and consequences. "
-                    "Change only where the GM asked for it. Omit unrelated material."
-                )
+                if format_version == 10:
+                    review = _object({
+                        handle: _enum(["retain", "change", "omit", "retain_trigger"]) for handle in passages
+                    })
+                    review["description"] = (
+                        "Review every authored passage before drafting. Use retain_trigger for an existing "
+                        "activation condition that governs these mechanics. Every retain_trigger requires "
+                        "an exact carried_condition from that passage in its corresponding rule. "
+                        "Retain other relevant effects and qualifications. Change only where the GM explicitly "
+                        "asked to change that source behavior. Omit unrelated material."
+                    )
+                    fields["carried_condition"]["description"] = (
+                        "Select the exact activation sentence from a retain_trigger passage. Keep every exception. "
+                        "For this carried trigger, set activation.timing_text and activation.trigger.source_element_key "
+                        "to null. Put consequences only in rules_text. Null here is for an original or explicitly "
+                        "changed trigger."
+                    )
+                else:
+                    review = _object({handle: _enum(["retain", "change", "omit"]) for handle in passages})
+                    review["description"] = (
+                        "Review each authored passage before drafting. Retain existing behavior needed "
+                        "by the requested variant, including all trigger exceptions and consequences. "
+                        "Change only where the GM asked for it. Omit unrelated material."
+                    )
+                    fields["carried_condition"]["description"] = (
+                        "Select the exact source sentence from a retained passage for an existing trigger. "
+                        "Use null for original or explicitly changed mechanics."
+                    )
                 witnesses["description"] = (
                     "Quote the exact authored passages that establish the retained effects of this rule."
-                )
-                fields["carried_condition"]["description"] = (
-                    "Select the exact source sentence from a retained passage for an existing trigger. "
-                    "Use null for original or explicitly changed mechanics."
                 )
                 properties = {"passage_review": review, **properties}
             if format_version >= 4:

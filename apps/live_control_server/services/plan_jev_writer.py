@@ -336,7 +336,7 @@ class PlanJevWriter:
                     format_version = 7
                 self.provider_work=build_work_view(
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
-                    variant_passage_review=format_version == 9,
+                    variant_passage_review=format_version in {9, 10},
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work if self.work_frame.get('schema') in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA} else self.work_frame,
@@ -591,7 +591,7 @@ class PlanJevWriter:
     async def run(self, *, transport=None, api_key=None):
         from generationengine import GenerationClient, TextRequest
         from generationengine.text_dispatch import TextDispatchGate
-        from application_state.agent_conversation.native_build_work_view import VARIANT_PASSAGE_REVIEW_FORMAT
+        from application_state.agent_conversation.native_build_work_view import VARIANT_PASSAGE_FORMATS
 
         async def authorize(prepared): return self.authorize(prepared)
         async def record(event): return self.record(event)
@@ -607,7 +607,7 @@ class PlanJevWriter:
                 temperature=None,reasoning_effort=self.reasoning_effort,max_output_tokens=self.output_reserve or None,
                 json_schema=self.output_format['schema'],schema_name=self.output_format['name'],
                 # Passage review can take longer than the default writer deadline.
-                deadline_ms=120_000 if self.output_format['name'] == VARIANT_PASSAGE_REVIEW_FORMAT else None,
+                deadline_ms=120_000 if self.output_format['name'] in VARIANT_PASSAGE_FORMATS else None,
                 max_conformance_retries=0,max_transport_retries=0))
             self.observe(result.observation,status='ok')
             if self.call is not None and provider.actual_response is not None:

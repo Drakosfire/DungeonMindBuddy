@@ -359,5 +359,61 @@ def test_variant_passages_keep_exact_text_order_and_ignore_blank_separators():
 
     work = {"working_draft_context": {"draft_markdown": "First.\r\n\t\r\n  Second.\n\nThird.\n"}}
     assert variant_draft_passages(work) == {"p1": "First.", "p2": "  Second.", "p3": "Third.\n"}
-    assert variant_output_version(work) == 9
+    assert variant_output_version(work) == 10
     assert variant_output_version({}) == 8
+
+
+@pytest.mark.parametrize("drift", [None, "unbound", "omitted", "timing", "dependency"])
+def test_retained_trigger_has_exact_binding_and_no_added_prerequisites(drift):
+    from application_state.agent_conversation.native_completion import _validate_retained_trigger_bindings
+
+    exact = "The gate opens only after the second bell."
+    passages = {"p1": exact, "p2": "The guards stand aside."}
+    activation = {
+        "timing_text": "After a deal." if drift == "timing" else None,
+        "trigger": {"source_element_key": "deal" if drift == "dependency" else None},
+    }
+    candidate = {
+        "passage_review": {"p1": "omit" if drift == "unbound" else "retain_trigger", "p2": "retain"},
+        "add_rules": [{"carried_condition": None if drift == "omitted" else exact,
+                       "rule": {"activation": activation}}],
+        "replace_rules": [],
+    }
+    if drift is None:
+        _validate_retained_trigger_bindings(candidate, passages)
+    else:
+        with pytest.raises(ValueError, match="[Tt]rigger"):
+            _validate_retained_trigger_bindings(candidate, passages)
+
+
+def test_retained_v9_passage_disposition_keeps_its_completion_contract():
+    from application_state.agent_conversation.native_completion import normalize_statblock_variant
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    exact = "The gate opens only after the second bell."
+    work = {
+        "response_contract": {"requested_work": "draft_in_conversation", "operation": "answer_from_sources"},
+        "saved_statblocks": [{"event_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857", "definition": base}],
+        "working_draft_context": {"draft_markdown": exact},
+    }
+    proposal = {
+        "source": "statblock0",
+        "passage_review": {"p1": "retain"},
+        "add_rules": [{
+            "authored_quotes": [], "carried_condition": None,
+            "rule": base["rule_elements"][0] | {"key": "truce"},
+        }],
+        "replace_rules": [],
+    }
+    options = dict(variant_edits=True, variant_witnesses=True,
+                   variant_carried_condition=True, variant_passage_review=True)
+    normalize_statblock_variant({"statblock_variant": proposal}, work, **options)
+
+    proposal["passage_review"]["p1"] = "retain_trigger"
+    with pytest.raises(ValueError, match="review every offered draft passage"):
+        normalize_statblock_variant({"statblock_variant": proposal}, work, **options)
+    with pytest.raises(ValueError, match="requires a carried condition"):
+        normalize_statblock_variant(
+            {"statblock_variant": proposal}, work, variant_trigger_retention=True, **options,
+        )
