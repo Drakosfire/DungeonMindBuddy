@@ -128,6 +128,18 @@ def test_build_dispatch_operation_alone_does_not_grant_ordinary_prompt(requested
     assert _conversation_response_task(record) == ('answer' if requested == 'discuss' else 'explain_capability')
 
 
+def test_variant_approval_uses_its_own_workflow_guidance():
+    _, record = component('build', unavailable=True)
+    first = controller('build', record.policy)
+    selection = build_resolution(record.policy, first, 3, requested='review_variant_approval')
+    record = record.model_copy(update={'events': (selection,)})
+
+    task = _conversation_response_task(record)
+    assert task == 'variant_approval'
+    assert 'Open in Combat' in compose_response_prompt(task=task).instructions
+    assert 'Open in Combat' not in compose_response_prompt().instructions
+
+
 def test_frame_like_objects_cannot_select_a_product_response_contract():
     assert not _conversation_response_task(N(policy=N(action=N(surface_id='play')), events=()))
 
