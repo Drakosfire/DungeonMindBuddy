@@ -8,6 +8,24 @@ from application_state.errors import (
 )
 
 
+# Legacy initial drafts copied assistant_text verbatim. Later reviewed
+# corrections are written from their validated mechanics as new revisions.
+CANONICAL_REVIEWED_DRAFT = """
+EXISTS (
+    SELECT 1 FROM agent.conversation_draft_revision d
+    JOIN agent.conversation_variant_review r
+        ON r.turn_id = d.turn_id AND r.revision = d.revision
+    WHERE d.turn_id = t.turn_id AND d.world_id = t.world_id
+      AND d.conversation_id = t.conversation_id
+      AND (d.revision > 1 OR d.markdown IS DISTINCT FROM t.assistant_text)
+      AND NOT EXISTS (
+          SELECT 1 FROM agent.conversation_draft_revision later
+          WHERE later.turn_id = d.turn_id AND later.revision > d.revision
+      )
+)
+"""
+
+
 def open_draft(conn, *, world_id, conversation_id, turn_id):
     with conn.cursor(row_factory=dict_row) as cursor:
         row = cursor.execute(
@@ -70,8 +88,8 @@ def edit_draft(conn, *, world_id, conversation_id, turn_id, expected_revision, m
         return cursor.execute(
             """
             INSERT INTO agent.conversation_draft_revision
-                (world_id, conversation_id, turn_id, revision, markdown)
-            VALUES (%s, %s, %s, %s, %s)
+                (world_id, conversation_id, turn_id, revision, markdown, created_at)
+            VALUES (%s, %s, %s, %s, %s, clock_timestamp())
             RETURNING revision, markdown
             """,
             (*scope, expected_revision + 1, markdown),

@@ -230,3 +230,85 @@ def test_statblock_rule_edits_preserve_unmentioned_mechanics():
         _apply_statblock_rule_edits(base, {"add_rules": [], "replace_rules": [addition]})
     with pytest.raises(ValueError, match="key conflicts"):
         _apply_statblock_rule_edits(base, {"add_rules": [addition, addition], "replace_rules": []})
+
+
+@pytest.mark.parametrize("usage_kind", ["manual", "once"])
+def test_only_manual_single_self_reference_is_normalized_in_new_rules(usage_kind):
+    from application_state.agent_conversation.native_completion import _apply_statblock_rule_edits
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    first = base["rule_elements"][0]
+    manual = first | {
+        "key": "manual_truce", "automation_support": "manual",
+        "usage": first["usage"] | {"kind": usage_kind, "uses": 1 if usage_kind == "once" else None},
+        "mechanic": {"kind": "multiattack", "sequences": [
+            {"element_key": "manual_truce", "count": 1, "choice_group": None},
+        ]},
+    }
+    sequence = manual | {"key": "sequence", "mechanic": {
+        "kind": "multiattack", "sequences": [
+            {"element_key": first["key"], "count": 2, "choice_group": None},
+        ],
+    }}
+    result = _apply_statblock_rule_edits(base, {"add_rules": [manual, sequence], "replace_rules": []})
+    assert result == base | {"rule_elements": [
+        *base["rule_elements"],
+        manual | {"mechanic": {"kind": "human_adjudicated", "adjudication_tags": []}},
+        sequence,
+    ]}
+    assert manual["mechanic"]["kind"] == "multiattack"
+
+
+def test_variant_format_with_visible_reply_rejects_empty_segments_at_completion(monkeypatch):
+    from application_state.agent_conversation.native_completion import normalize_candidate
+
+    from application_state.agent_conversation import build_intentional_response
+
+    monkeypatch.setattr(build_intentional_response, "native_review_enabled", lambda _: True)
+    execution = SimpleNamespace(policy=SimpleNamespace(action=SimpleNamespace(surface_id="build")))
+    evidence = SimpleNamespace(
+        variant_format=True, variant_visible_reply=True, frame={"answer_policy": "fixture"},
+        work_frame={},
+    )
+    candidate = {
+        "schema": "fixture", "answer_segments": [], "limitations": [],
+        "requested_detail_gaps": [], "statblock_variant": None, "collaboration": {},
+    }
+    with pytest.raises(ValueError, match="requires a visible reply"):
+        normalize_candidate(candidate, None, execution, None, evidence)
+
+
+@pytest.mark.parametrize(
+    ("quotes", "valid"),
+    [
+        (["Only after the bell."], True),
+        ([], True),
+        (["Only before the bell."], False),
+        (["bell"], False),
+    ],
+)
+def test_variant_witness_binds_unique_authored_clause_to_containing_rule(quotes, valid):
+    from application_state.agent_conversation.native_completion import normalize_statblock_variant
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    work = {
+        "response_contract": {"requested_work": "draft_in_conversation", "operation": "answer_from_sources"},
+        "saved_statblocks": [{"event_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857", "definition": base}],
+        "working_draft_context": {"draft_markdown": "Only after the bell. The bell falls silent."},
+    }
+    added = base["rule_elements"][0] | {"key": "truce"}
+    proposal = {
+        "source": "statblock0",
+        "add_rules": [{"authored_quotes": quotes, "rule": added}],
+        "replace_rules": [],
+    }
+    if not valid:
+        with pytest.raises(ValueError, match="witness must identify exact authored text"):
+            normalize_statblock_variant({"statblock_variant": proposal}, work,
+                                        variant_edits=True, variant_witnesses=True)
+    else:
+        result = normalize_statblock_variant({"statblock_variant": proposal}, work,
+                                             variant_edits=True, variant_witnesses=True)
+        assert result.definition.model_dump()["rule_elements"][-1] == added

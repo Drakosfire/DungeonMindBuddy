@@ -486,7 +486,7 @@ class BuildJevHarness:
                 from .build_image_writer import prepare_image
                 return prepare_image(self,adapter,work_driver,native_rules=rules,native_proof=proof)
             self.failure_stage = "writer_prepare"
-            writer = PlanJevWriter(adapter,proof,rules)
+            writer = PlanJevWriter(adapter,proof,rules,dialogue=dialogue)
             completed = asyncio.run(writer.run(transport=self.writer_transport))
             adapter.turn = completed.envelope if isinstance(completed,MixedCompletedTurnV1) else completed
             return completed
