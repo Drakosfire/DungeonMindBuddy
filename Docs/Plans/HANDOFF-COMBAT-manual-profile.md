@@ -36,6 +36,7 @@ lose work. Review by the owner map below; each boundary has independent evidence
    components/helpers/types within src/combat. Existing legacy editors remain
    narrowed to legacy DTOs; a v2 actor must never blindly reach .hp/.ac code.
 4. Tests: affected existing Combat API/module/recovery/schema/Plan/Play tests;
+   actual-App selectedWorld/WorldOwnerApp.integration.test.tsx;
    new tests/application_state/test_manual_combat_postgres.py and relevant manual
    client tests; migration/HTTP/source/ownership guards in owning existing test
    files as needed. Add exact test paths to ci/contracts.json and classification.
@@ -223,3 +224,13 @@ consumer PR3878/3879 route overlaps. Combat widens DTO versions without editing
 their branches or authorization owners. The bounded0163 sequence correction is
 recorded above; no PRIME reply or approval is fabricated. Full qualification, independent exact-head
 review, accepted merge/local delivery and side/spotlight successors remain open.
+
+
+Final diagnostic checkpoint: exact fc874f827 backend227 and hosted frontend/build
+passed. Full discovered was red161 versus exact base b4ec540818 red160. The sole
+new failure was the actual-App Combat test spying on the retired legacy-only list
+entry point; update its reader spy to the version-aware API and assert both v1/v2
+create/Save paths remain untouched on boot. No product runtime change is needed.
+Keep all inherited failures and collection omissions visibly red; compare full
+messages/case multiplicity before acceptance. Final exact-head evidence and review
+remain required after this test correction.
