@@ -438,9 +438,20 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     source="pdf0:0", quote="Hit Points 41")]
             if saved_statblock and current_work == "draft_in_conversation":
                 new_rule = definition["rule_elements"][0] | {"key": "truce", "name": "Terms of Truce", "costs": None}
+                variant_schema = body["text"]["format"]["schema"]["properties"]["statblock_variant"]
+                fields = next(option["properties"] for option in variant_schema.get("anyOf", [variant_schema])
+                              if "properties" in option)
                 candidate["statblock_variant"] = {
-                    "source": "statblock0", "add_rules": [new_rule], "replace_rules": [],
+                    "source": "statblock0",
+                    "add_rules": [{"rule": new_rule, "authored_quotes": [], "carried_condition": None}],
+                    "replace_rules": [],
                 }
+                if "passage_review" in fields:
+                    passages = work["current_draft"]["passages"]
+                    review = fields["passage_review"]
+                    assert list(passages) == list(review["properties"]) == review["required"]
+                    assert "markdown" not in work["current_draft"]
+                    candidate["statblock_variant"]["passage_review"] = dict.fromkeys(passages, "omit")
             if native_body or authored_source:
                 from application_state.agent_conversation import native_corpus as corpus
                 acquired = corpus.acquired_body_reads(self.adapter._broker_execution())

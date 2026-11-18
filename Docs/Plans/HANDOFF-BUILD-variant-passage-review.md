@@ -13,7 +13,7 @@ Keep the current request format for requests without an applicable nonempty draf
 - Production dispatch and schema in `apps/live_control_server/services/plan_jev_writer.py` and `src/application_state/agent_conversation/plan_writer_output_schema.py`.
 - Shared deterministic authored view and both proof paths in `native_build_work_view.py`, `build_primary_context.py`, `native_writer.py`, and `rules_authority_plan_packet.py` under `src/application_state/agent_conversation`.
 - Existing normative variant completion and retained Rules rejection/decoding paths in `native_completion.py` and `native_rules_output.py` in that package.
-- Existing request, completion, and ordinary Build regression tests for these contracts. Name exact test files after matching owners. No changes to the retrieval loop, save flow, combat flow, registry, or databases in this slice.
+- Existing request, completion and ordinary Build regressions in `tests/test_native_build_work_view.py` and `tests/test_surface_native_build_ordinary.py`. No changes to the retrieval loop, save flow, combat flow, registry, or databases in this slice.
 
 ## Verification
 
