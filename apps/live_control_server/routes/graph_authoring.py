@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from functools import partial
 from uuid import UUID
 
 from fastapi.encoders import jsonable_encoder
@@ -121,8 +122,6 @@ def post_native_relationship_confirm(
 ):
     principal = _relationship_principal(request, body.review.world_id)
     try:
-        from functools import partial
-
         authorize_world = None
         if principal.auth_method == "hosted_owner":
             authorize_world = partial(_relationship_principal, request, body.review.world_id)
@@ -142,27 +141,48 @@ def post_native_relationship_confirm(
 
 @router.post("/prepare", response_model=GraphObjectAuthoringPrepareResponse)
 def post_graph_object_authoring_prepare(
-    request: GraphObjectAuthoringPrepareRequest,
+    request: GraphObjectAuthoringPrepareRequest, request_context: Request,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import manual_knowledge_actor
+
+    authorize_world = partial(
+        manual_knowledge_actor, request_context, world_id=request.world_id, run_id=request.source_run_id,
+    )
+    actor = authorize_world()
     try:
-        response = prepare_graph_object_authoring_write(request)
+        response = prepare_graph_object_authoring_write(request, authenticated_actor=actor) if actor else prepare_graph_object_authoring_write(request)
     except GraphObjectAuthoringError as exc:
         raise HTTPException(
             status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}
         ) from exc
+    if actor:
+        authorize_world()
     return response.model_dump(mode="json", by_alias=False)
 
 
 @router.post("/commit", response_model=GraphObjectAuthoringCommitResponse)
 def post_graph_object_authoring_commit(
-    request: GraphObjectAuthoringCommitRequest,
+    request: GraphObjectAuthoringCommitRequest, request_context: Request,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import manual_knowledge_actor
+
+    authorize_world = partial(
+        manual_knowledge_actor, request_context, world_id=request.world_id, run_id=request.source_run_id,
+    )
+    actor = authorize_world()
     try:
-        response = commit_graph_object_authoring_write(request)
+        if actor:
+            response = commit_graph_object_authoring_write(
+                request, authenticated_actor=actor, authorize_world=authorize_world,
+            )
+        else:
+            response = commit_graph_object_authoring_write(request)
     except GraphObjectAuthoringError as exc:
         raise HTTPException(
             status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}
         ) from exc
+    if actor:
+        authorize_world()
     return response.model_dump(mode="json", by_alias=False)
 
 

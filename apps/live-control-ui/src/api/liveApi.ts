@@ -540,6 +540,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "POST" && isRecord(review) && typeof review.world_id === "string"
       && Boolean(review.world_id);
   }
+  if (path === "/api/live/graph-authoring/prepare" || path === "/api/live/graph-authoring/commit") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.worldId === "string" && Boolean(body.worldId)
+      && body.campaignId === body.worldId && typeof body.sourceRunId === "string" && Boolean(body.sourceRunId);
+  }
   const objectKindsPath = "/api/live/graph-authoring/object-kinds";
   if (path.startsWith(objectKindsPath + "?")) {
     const worldId = new URLSearchParams(path.slice(objectKindsPath.length + 1)).get("world_id");
@@ -887,8 +892,9 @@ function apiRequestTarget(
   const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
     || /^\/api\/live\/workspace-documents\/[^/]+\/native-world-source$/.test(normalizedPath)
     || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/progress$/.test(normalizedPath);
+  const manualKnowledge = /^\/api\/live\/graph-authoring\/(?:prepare|commit)$/.test(normalizedPath);
   if (isLoopbackApiDestination(url)) return { url, localGraphRequest, hostedGraphRequest: false };
-  if (localGraphRequest || graphSurface) {
+  if (localGraphRequest || graphSurface || manualKnowledge) {
     // Exact relative paths only: explicit API bases, URL credentials, queries,
     // encoded/lookalike routes and insecure origins never enter hosted transport.
     let secureSameOrigin = false;

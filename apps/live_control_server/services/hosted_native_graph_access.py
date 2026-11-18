@@ -698,6 +698,53 @@ def require_saved_recap_access(request: Request, world_id: str) -> None:
     _owned_world(_hosted_subject(request), world_id)
 
 
+async def resolve_hosted_manual_knowledge(request: Request) -> str:
+    from apps.live_control_server.services.graph_object_authoring_prepare import (
+        GraphObjectAuthoringCommitRequest, GraphObjectAuthoringPrepareRequest,
+    )
+    from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError, get_extraction_run
+    from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, get_source_artifact
+
+    if request.query_params:
+        raise _denied()
+    model = GraphObjectAuthoringCommitRequest if request.url.path.endswith("/commit") else GraphObjectAuthoringPrepareRequest
+    body = model.model_validate(await request.json())
+    if (
+        not body.world_id or body.campaign_id != body.world_id or not body.source_run_id
+        or body.document_source is not None or body.recap_artifact_id is not None
+        or body.session_id is not None or body.campaign_rel is not None
+        or len(body.proposals) != 1 or body.proposals[0].proposal_kind not in {"object", "relationship"}
+    ):
+        raise _denied()
+    subject = _hosted_subject(request)
+    _owned_world(subject, body.world_id)
+    try:
+        run = await run_in_threadpool(get_extraction_run, body.source_run_id)
+        artifact = await run_in_threadpool(get_source_artifact, run.source_artifact_id)
+    except (GraphRunRegistryError, SourceArtifactRegistryError) as exc:
+        if exc.status_code == 404:
+            raise _denied() from None
+        raise _unavailable() from None
+    if (
+        run.source_domain != "worldbuilding" or artifact.source_domain != "worldbuilding"
+        or artifact.world_id != body.world_id
+        or await _owned_build_page(subject, artifact.workspace_document_id) != body.world_id
+    ):
+        raise _denied()
+    request.state.hosted_manual_knowledge_scope = (body.world_id, body.source_run_id)
+    return body.world_id
+
+
+def manual_knowledge_actor(request: Request, *, world_id: str | None, run_id: str | None) -> str | None:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return None
+    if not world_id or not run_id or getattr(request.state, "hosted_manual_knowledge_scope", None) != (world_id, run_id):
+        raise _denied()
+    subject = _hosted_subject(request)
+    _owned_world(subject, world_id)
+    return f"hosted_dms:{subject}"
+
+
 async def resolve_hosted_build_extraction(request: Request) -> str:
     from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError, get_extraction_run
     from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, get_source_artifact
