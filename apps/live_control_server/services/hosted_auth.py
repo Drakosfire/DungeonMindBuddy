@@ -498,7 +498,7 @@ def install_hosted_request_boundary(
     world_path_resolvers = [
         (method, path, compile_path(path)[0], resolver)
         for (method, path), resolver in route_resolvers.items()
-        if any(marker in path for marker in ("{world_id}", "{document_id}", "{run_id}", "{asset_id}", "{draft_id}", "{encounter_id}", "{operation_id}"))
+        if any(marker in path for marker in ("{world_id}", "{document_id}", "{run_id}", "{asset_id}", "{draft_id}", "{encounter_id}", "{operation_id}", "{action_id}", "{request_id}"))
     ]
     collections = dict(collection_authorizers or {})
     # Collection authorization is an explicit, code-owned read capability. It
@@ -609,6 +609,7 @@ def install_hosted_request_boundary(
                 request.state.hosted_route_world_id = params.get("world_id")
                 request.state.hosted_route_document_id = params.get("document_id")
                 request.state.hosted_route_run_id = params.get("run_id")
+                request.state.hosted_route_draft_id = params.get("draft_id")
                 request.state.hosted_route_asset_id = params.get("asset_id")
         if resolver is None:
             return JSONResponse(

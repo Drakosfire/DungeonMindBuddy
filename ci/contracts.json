@@ -1,6 +1,14 @@
 {
   "version": 1,
   "contracts": {
+    "combat-profile-validation": {
+      "cwd": ".",
+      "argv": [
+        "{python}", "-m", "pytest", "-q", "--tb=short", "--show-capture=no",
+        "tests/test_combat_manual_profiles.py",
+        "tests/test_combat_manual_encounters.py"
+      ]
+    },
     "world-and-content": {
       "cwd": ".",
       "argv": [

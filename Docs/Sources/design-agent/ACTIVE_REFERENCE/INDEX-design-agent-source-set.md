@@ -3,22 +3,23 @@
 **Status:** ACTIVE REFERENCE / process index
 **Created:** 2026-08-02
 **Repository authority refresh:** 2026-09-26 DEMO reconciliation (repository adoption; Project Sources unchanged)
+**Repository export refresh:** 2026-11-11 — process/current-pickup and governance exports synchronized from canonical files; this was not a full design/corpus audit, and user-managed Project Sources were not changed
 **Project Sources snapshot date:** 2026-08-02 — advance only after the operator actually replaces/re-observes the user-managed set
-**Repo-resident export mirror:** [`Docs/Sources/design-agent/`](..)
+**Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)
 **Document class:** curated source index — not architecture or sequencing authority
 
 ## Purpose
 
-Give a fresh design/review steward the smallest current source set that can
-answer ownership, product direction, and process questions without reviving
-completed construction scaffolds.
+Give the person or agent assigned design or review work the smallest current
+source set that can answer ownership, product direction, and process questions
+without reviving completed construction scaffolds.
 
 ## Authority rule
 
 ```text
 current GitHub main + domain authority
   > active domain reference/contracts
-  > AGENTS.md + STEWARD-CYCLE process
+  > AGENTS.md + bounded assignment process
   > source anchors
   > export mirror
   > historical/superseded/project-source/chat copies
@@ -34,20 +35,20 @@ implementation sequence. Buddy product execution is sequenced by DEMO.
 
 ### ACTIVE AUTHORITY
 
-| Role | Bundled document | Export path |
+| Role | Canonical repository path | Export copy |
 |---|---|---|
-| World-model invariants | [`ARCHITECTURE-campaign-supergraph.md`](../ACTIVE_AUTHORITY/ARCHITECTURE-campaign-supergraph.md) | `ACTIVE_AUTHORITY/ARCHITECTURE-campaign-supergraph.md` |
-| Graph/document governance | [`../Reports/graph-document-audit.md`](../ACTIVE_AUTHORITY/graph-document-audit.md) | `ACTIVE_AUTHORITY/graph-document-audit.md` |
-| Shared interaction/chrome | [`ARCHITECTURE-surface-interaction-layer.md`](../ACTIVE_AUTHORITY/ARCHITECTURE-surface-interaction-layer.md) | `ACTIVE_AUTHORITY/ARCHITECTURE-surface-interaction-layer.md` |
-| Source→World authoring ownership | [`DESIGN-source-to-world-authoring-interaction-contract.md`](../ACTIVE_AUTHORITY/DESIGN-source-to-world-authoring-interaction-contract.md) | `ACTIVE_AUTHORITY/DESIGN-source-to-world-authoring-interaction-contract.md` |
-| DEMO stewardship | [`../Plans/STEWARDS-HANDOFF-demo.md`](../ACTIVE_AUTHORITY/STEWARDS-HANDOFF-demo.md) | `ACTIVE_AUTHORITY/STEWARDS-HANDOFF-demo.md` |
-| DEMO product roadmap | [`../Roadmaps/ROADMAP-demo.md`](../ACTIVE_AUTHORITY/ROADMAP-demo.md) | `ACTIVE_AUTHORITY/ROADMAP-demo.md` |
-| Playable/runtime architecture | [`ARCHITECTURE-playable-material-and-runtime.md`](../ACTIVE_AUTHORITY/ARCHITECTURE-playable-material-and-runtime.md) | `ACTIVE_AUTHORITY/ARCHITECTURE-playable-material-and-runtime.md` |
+| World-model invariants | [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md) | `ACTIVE_AUTHORITY/ARCHITECTURE-campaign-supergraph.md` |
+| Graph/document governance | [`../Reports/graph-document-audit.md`](../Reports/graph-document-audit.md) | `ACTIVE_AUTHORITY/graph-document-audit.md` |
+| Shared interaction/chrome | [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md) | `ACTIVE_AUTHORITY/ARCHITECTURE-surface-interaction-layer.md` |
+| Source→World authoring ownership | [`DESIGN-source-to-world-authoring-interaction-contract.md`](DESIGN-source-to-world-authoring-interaction-contract.md) | `ACTIVE_AUTHORITY/DESIGN-source-to-world-authoring-interaction-contract.md` |
+| DEMO bounded assignment | [`../Plans/STEWARDS-HANDOFF-demo.md`](../Plans/STEWARDS-HANDOFF-demo.md) | `ACTIVE_AUTHORITY/STEWARDS-HANDOFF-demo.md` |
+| DEMO product roadmap | [`../Roadmaps/ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md) | `ACTIVE_AUTHORITY/ROADMAP-demo.md` |
+| Playable/runtime architecture | [`ARCHITECTURE-playable-material-and-runtime.md`](ARCHITECTURE-playable-material-and-runtime.md) | `ACTIVE_AUTHORITY/ARCHITECTURE-playable-material-and-runtime.md` |
 
 
 ### ACTIVE REFERENCE
 
-| Role | Bundled document | Export path |
+| Role | Canonical repository path | Export copy |
 |---|---|---|
 | Plan composition | [`ARCHITECTURE-plan-surface-toolbox.md`](ARCHITECTURE-plan-surface-toolbox.md) | `ACTIVE_REFERENCE/ARCHITECTURE-plan-surface-toolbox.md` |
 | Buddy graph/extraction path layout | [`GRAPH-MEMORY-PROJECT-LAYOUT.md`](GRAPH-MEMORY-PROJECT-LAYOUT.md) | `ACTIVE_REFERENCE/GRAPH-MEMORY-PROJECT-LAYOUT.md` |
@@ -58,18 +59,18 @@ implementation sequence. Buddy product execution is sequenced by DEMO.
 | Runbook compatibility | [`ANCHOR-runbook-lantern.md`](ANCHOR-runbook-lantern.md) | `ACTIVE_REFERENCE/ANCHOR-runbook-lantern.md` |
 | Agent context compilation | [`DECISION-agent-context-compilation.md`](DECISION-agent-context-compilation.md) | `ACTIVE_REFERENCE/DECISION-agent-context-compilation.md` |
 | AgentRuntime/harness direction | [`DECISION-agent-runtime-and-semantic-adjudication.md`](DECISION-agent-runtime-and-semantic-adjudication.md) | `ACTIVE_REFERENCE/DECISION-agent-runtime-and-semantic-adjudication.md` |
-| Repository overview | [`../../README.md`](../ACTIVE_REFERENCE/README.md) | `ACTIVE_REFERENCE/README.md` |
+| Repository overview | [`../../README.md`](../../README.md) | `ACTIVE_REFERENCE/README.md` |
 | This manifest | [`INDEX-design-agent-source-set.md`](INDEX-design-agent-source-set.md) | `ACTIVE_REFERENCE/INDEX-design-agent-source-set.md` |
 
 ### SOURCE ANCHOR
 
-- [`../Anchors/CORPUS-ANCHOR.md`](../SOURCE_ANCHOR/CORPUS-ANCHOR.md) → `SOURCE_ANCHOR/CORPUS-ANCHOR.md`
+- [`../Anchors/CORPUS-ANCHOR.md`](../Anchors/CORPUS-ANCHOR.md) → `SOURCE_ANCHOR/CORPUS-ANCHOR.md`
 
 ### PROCESS
 
-- [`../../AGENTS.md`](../PROCESS/AGENTS.md) → `PROCESS/AGENTS.md`
-- [`../Process/STEWARD-CYCLE.md`](../PROCESS/STEWARD-CYCLE.md) → `PROCESS/STEWARD-CYCLE.md`
-- [`../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md`](../PROCESS/HANDOFF.template.md) → `PROCESS/HANDOFF.template.md`
+- [`../../AGENTS.md`](../../AGENTS.md) → `PROCESS/AGENTS.md`
+- [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md) → `PROCESS/STEWARD-CYCLE.md`
+- [`../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md`](../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md) → `PROCESS/HANDOFF.template.md`
 
 ## Explicitly retired from the immediate source bundle
 
@@ -84,7 +85,7 @@ and must not be uploaded as current authority.
 | `STATUS-world-graph-continuity-spine.md` | **HISTORICAL / FROZEN** | August migration snapshot, not current state |
 | `PLAN-surface-interaction-hoist-build-first.md` | **SUPERSEDED** | Construction target landed; DOGFOOD-POLISH closeout owns evidence |
 | `INDEX-hermes-campaign-authoring-foundation.md` | **SUPERSEDED** | Hermes is an AgentRuntime adapter, not product architecture |
-| `JUMPSTART-docs-relevance-first.md` | **SUPERSEDED** | Use STEWARD-CYCLE |
+| `JUMPSTART-docs-relevance-first.md` | **SUPERSEDED** | Use the bounded assignment process |
 | old download-suffixed HANDOFF template | **SUPERSEDED** | Use canonical current template |
 
 These files may remain reachable for historical links. They must not be

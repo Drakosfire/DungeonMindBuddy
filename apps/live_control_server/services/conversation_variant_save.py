@@ -1,10 +1,12 @@
 """Create a distinct statblock for an explicitly confirmed conversation revision."""
 
+from copy import deepcopy
 import json
 import logging
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from application_state.errors import (
     ApplicationStateConflictError,
@@ -81,6 +83,63 @@ def variant_review_is_valid(definition, receipt):
         raise ApplicationStateIntegrityError("Statblock validation does not bind to the draft.")
     return receipt.status != ValidationStatus.invalid and not any(
         issue.severity == ValidationSeverity.error for issue in receipt.issues or []
+    )
+
+
+class VariantTextReplacement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rule_key: str = Field(min_length=1)
+    field: Literal["rules_text", "timing_text", "condition_text"]
+    replace_exact: str = Field(min_length=1)
+    with_text: str = Field(min_length=1)
+
+
+class CorrectConversationVariant(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = Field(gt=0)
+    replacements: list[VariantTextReplacement] = Field(min_length=1)
+
+
+def apply_variant_text_corrections(definition, replacements):
+    candidate = deepcopy(definition)
+    rules = {rule["key"]: rule for rule in candidate["rule_elements"]}
+    visited = set()
+    for edit in replacements:
+        rule = rules.get(edit.rule_key)
+        slot = (edit.rule_key, edit.field)
+        if rule is None or slot in visited or edit.replace_exact == edit.with_text:
+            raise ApplicationStateValidationError("Choose distinct current rule fields with actual changes.")
+        visited.add(slot)
+        if edit.field == "rules_text":
+            owner = rule
+        elif edit.field == "timing_text":
+            owner = rule["activation"]
+        else:
+            owner = rule["activation"].get("trigger") or {}
+        original = owner.get(edit.field)
+        offset = original.find(edit.replace_exact) if isinstance(original, str) else -1
+        if offset < 0 or original.find(edit.replace_exact, offset + 1) >= 0:
+            raise ApplicationStateConflictError("The correction does not match one exact rule passage.")
+        owner[edit.field] = original.replace(edit.replace_exact, edit.with_text, 1)
+    return StatblockDefinitionV1Input.model_validate(candidate)
+
+
+def correct_variant(service, world_id, conversation_id, turn_id, review_id, correction):
+    scope = (world_id, conversation_id, turn_id)
+    prior = service.open_conversation_variant_review(*scope, review_id=review_id)
+    if prior["revision"] != correction.expected_revision or prior["saved"]:
+        raise ApplicationStateConflictError("Reopen the current unsaved review before editing.")
+    candidate = apply_variant_text_corrections(prior["definition"], correction.replacements)
+    receipt = validate_variant_review(candidate)
+    if not variant_review_is_valid(candidate, receipt):
+        raise ApplicationStateValidationError("Corrected mechanics did not pass validation.")
+    from .conversation_variant_markdown import render_variant_markdown
+
+    return service.store_conversation_variant_correction(
+        *scope, review_id=review_id, expected_revision=correction.expected_revision,
+        definition=candidate.model_dump(mode="json"), markdown=render_variant_markdown(candidate),
     )
 
 

@@ -363,7 +363,7 @@ def saved_mechanics_draft_ids(root: Path, *, world_id: str) -> tuple[str, ...]:
 
 
 def archive_saved_threat_draft(
-    root: Path, *, world_id: str, draft_id: str, expected_version: int
+    root: Path, *, world_id: str, draft_id: str, expected_version: int, authorize_world=None
 ) -> None:
     """Remove a saved statblock from discovery while preserving exact references."""
     with _store_lock(root):
@@ -374,6 +374,8 @@ def archive_saved_threat_draft(
             raise ThreatDraftStoreError("Saved statblock unavailable", status_code=404)
         if draft.version != expected_version:
             raise ThreatDraftStoreError("Saved statblock changed", status_code=409)
+        if authorize_world is not None:
+            authorize_world(draft.world_id)
         if draft_id not in index.archived_draft_ids:
             index.archived_draft_ids.append(draft_id)
             _save_index(root, index)

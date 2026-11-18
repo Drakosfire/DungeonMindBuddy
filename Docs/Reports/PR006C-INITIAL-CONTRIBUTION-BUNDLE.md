@@ -4,6 +4,11 @@
 **Slice:** PR006C — Approved Initial World Supergraph Contribution Bundle  
 **Predecessor:** PR006B / GitHub #334 (merge `b234988056abebb5b2a033cf236548a7c8c472f5`)
 
+This is a historical bootstrap report. The checkout bundle copies are retired;
+use the [recovery guide](../../graph_data/README.md) for their last exact bytes
+and the separate C1/C2 historical validation pins. This report's approval and
+publication design describe the old bootstrap contract, not current World authority.
+
 ---
 
 ## Product framing
@@ -52,7 +57,7 @@ The hybrid of “claims recap/worldbuilding support while citing only the contri
 | Campaign scope | `longmont-c2` |
 | Planning focus | `mireward-planning-window` |
 | Focus sessions | `session-22`, `session-23` |
-| Bundle path | `graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1/` |
+| Historical bundle | [Validated C2 version](https://github.com/Drakosfire/DungeonMindBuddy/tree/835c781b09d261708ed13308884c4ed269d228cd/graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1) |
 
 ### Ordered contribution IDs
 
