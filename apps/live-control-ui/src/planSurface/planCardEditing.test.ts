@@ -1,3 +1,4 @@
+import {preserveLeadingYamlFrontmatter} from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
 import { Editor } from "@tiptap/core";
 import { afterEach, expect, it } from "vitest";
@@ -72,4 +73,22 @@ it("owns frontmatter once in both Cards and Document exports",()=>{
  expect(exportPlanCardMarkdown(ed,withYaml,canonical).match(/title: Retained/g)).toHaveLength(1);
  setPlanCardScope(ed,{active:false,sceneId:null});
  expect(exportPlanCardMarkdown(ed,withYaml,canonical).match(/title: Retained/g)).toHaveLength(1);
+});
+
+it("uses an explicit Cards snapshot for isolated export without changing either editor scope", () => {
+  const mounted=setup();setPlanCardScope(mounted,{active:true,sceneId:"scene:a"});
+  const isolated=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:mounted.getJSON()});
+  try {
+    isolated.commands.insertContentAt(planCardRange(isolated.state.doc,"scene:a")!.from+1,"Edited ");
+    const canonical=tiptapJsonToSemanticMarkdown(isolated.getJSON());
+    const raw="---\ntitle:  Retained\n---\n\n"+source;
+    const result=exportPlanCardMarkdown(isolated,raw,canonical,{active:true,sceneId:"scene:a"});
+    expect(result.startsWith(raw.slice(0,raw.indexOf("### Scene A")+"### Scene A".length))).toBe(true);
+    const sibling="<!-- dmb-playable-element:v2 kind=scene id=scene:b -->";
+    expect(result.slice(result.indexOf(sibling))).toBe(raw.slice(raw.indexOf(sibling)));
+    expect(result).toContain("Edited Alpha body.");
+    // An explicit isolated snapshot does not activate scope on that editor.
+    expect(exportPlanCardMarkdown(isolated,raw,canonical)).toBe(preserveLeadingYamlFrontmatter(raw,canonical));
+    expect(exportPlanCardMarkdown(mounted,raw,tiptapJsonToSemanticMarkdown(mounted.getJSON()))).not.toContain("Edited Alpha");
+  } finally {isolated.destroy();}
 });

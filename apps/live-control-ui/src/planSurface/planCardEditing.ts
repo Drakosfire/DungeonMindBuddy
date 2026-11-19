@@ -109,8 +109,10 @@ export const PlanCardEditing = Extension.create<{ onBlocked: () => void }>({
 });
 
 /** Preserve every byte outside the edited scene, including noncanonical spacing. */
-export function exportPlanCardMarkdown(editor: Editor, source: string, canonical: string): string {
-  const scope = planCardScopeKey.getState(editor.state);
+export function exportPlanCardMarkdown(
+  editor: Editor, source: string, canonical: string,
+  scope: CardScope | undefined = planCardScopeKey.getState(editor.state),
+): string {
   if (!scope?.active) return preserveLeadingYamlFrontmatter(source, canonical);
   const range = planCardRange(editor.state.doc, scope.sceneId);
   if (!range) throw new Error("The selected scene cannot be resolved. Open Document.");

@@ -1,3 +1,4 @@
+import {PlanCardEditing, exportPlanCardMarkdown, planCardRange, setPlanCardScope} from "../planCardEditing";
 import {sessionSummaryMarkdown} from '../../shared/sessionEvidenceCitation';
 import type {SessionSummarySegment} from '../../api/types';
 import {capturePlanPlacementCatalog} from './planPlacementCatalog';
@@ -1449,4 +1450,77 @@ it.each(["ordinary-link", "hard-break"] as const)("refuses %s in actual V1 playa
   expect(editor.getJSON()).toEqual(before);
   expect(editor.state.selection.toJSON()).toEqual(selection);
   expect(state.sourceMarkdown).toBe(markdown);
+});
+
+const scopedAuthoringSource = `---
+title:  Retained raw header
+---
+
+# Outside scene
+
+
+Outside spacing stays.
+
+<!-- dmb-playable-element:v2 kind=beat id=beat:road beat_kind=spine -->
+## Road
+Keep watch.
+<!-- dmb-playable-element:v2 kind=scene id=scene:a -->
+### Scene A
+Alpha body.
+<!-- dmb-playable-element:v2 kind=scene id=scene:b -->
+### Scene B
+
+
+Beta body with [the guide](dmb-node:node:guide).
+`;
+function scopedAuthoringState() {
+  const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,PlanCardEditing],content:markdownToTiptapDoc(scopedAuthoringSource).doc});
+  editors.push(editor);setPlanCardScope(editor,{active:true,sceneId:"scene:a"});
+  const state:WorldPlanEditEditorState={editor,documentId:"plan-1",worldId:"world-1",baseRevision:2,
+    baseContentSha256:BASE_SHA,sourceMarkdown:scopedAuthoringSource,draftGeneration:0,selectionGeneration:0,
+    currentSceneTarget:{kind:"scene",id:"scene:a"},canEdit:true};
+  return {editor,state};
+}
+it("seals the same scoped Markdown as mounted Cards while preserving raw outside-scene bytes",async()=>{
+  const {editor,state}=scopedAuthoringState();
+  const {target}=await captureWorldPlanAuthoringTarget(state,()=>state,authoringIdentity);
+  const before=editor.getJSON();
+  const prepared=await preparePlanAuthoringApplication(target,"Revised Alpha body.","scoped-save",()=>state,expectedAgentBinding(),matchingAgentBinding);
+  expect(editor.getJSON()).toEqual(before);
+  const prefix=scopedAuthoringSource.slice(0,scopedAuthoringSource.indexOf("### Scene A")+"### Scene A".length);
+  const sibling="<!-- dmb-playable-element:v2 kind=scene id=scene:b -->";
+  expect(prepared.afterMarkdown.startsWith(prefix)).toBe(true);
+  expect(prepared.afterMarkdown.slice(prepared.afterMarkdown.indexOf(sibling))).toBe(scopedAuthoringSource.slice(scopedAuthoringSource.indexOf(sibling)));
+  expect(prepared.afterMarkdown.match(/title:  Retained raw header/g)).toHaveLength(1);
+  expect(prepared.afterMarkdown).toContain("Revised Alpha body.");
+  expect(prepared.afterDraftSha256).toBe(await sha256Hex(prepared.afterMarkdown));
+  await applyWorldPlanEditProposal({captured:target,admitted:prepared.admitted,getCurrent:()=>state,
+    expectedAgentBinding:expectedAgentBinding(),getAgentBinding:matchingAgentBinding});
+  expect(JSON.stringify(editor.getJSON())).toBe(prepared.afterEditorJson);
+  expect(exportPlanCardMarkdown(editor,state.sourceMarkdown,tiptapJsonToSemanticMarkdown(editor.getJSON()))).toBe(prepared.afterMarkdown);
+});
+it.each(["view","scene","source","editor","draft","selection"])("refuses a %s race during scoped preparation without overwriting the live draft",async change=>{
+  const {editor,state}=scopedAuthoringState();let current=state;
+  const {target}=await captureWorldPlanAuthoringTarget(current,()=>current,authoringIdentity);
+  const before=editor.getJSON();const digest=crypto.subtle.digest.bind(crypto.subtle);let changed=false;
+  vi.spyOn(crypto.subtle,"digest").mockImplementation(async(...args)=>{
+    if(!changed){changed=true;
+      if(change==="view")setPlanCardScope(editor,{active:false,sceneId:null});
+      if(change==="scene")setPlanCardScope(editor,{active:true,sceneId:"scene:b"});
+      if(change==="source")current={...current,sourceMarkdown:scopedAuthoringSource+"\n"};
+      if(change==="editor"){
+        const replacement=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,PlanCardEditing],content:editor.getJSON()});
+        editors.push(replacement);setPlanCardScope(replacement,{active:true,sceneId:"scene:a"});current={...current,editor:replacement};
+      }
+      if(change==="draft")editor.commands.insertContent("Newer author prose ");
+      if(change==="selection")editor.commands.setTextSelection(planCardRange(editor.state.doc,"scene:a")!.from+2);
+    }
+    return digest(...args);
+  });
+  await expect(preparePlanAuthoringApplication(target,"Revised Alpha body.","scoped-race",()=>current,
+    expectedAgentBinding(),matchingAgentBinding)).rejects.toThrow(/changed|Unlock/);
+  expect(changed).toBe(true);
+  if(change==="draft")expect(editor.getText()).toContain("Newer author prose");
+  else expect(editor.getJSON()).toEqual(before);
+  if(change==="source")expect(current.sourceMarkdown).toBe(scopedAuthoringSource+"\n");
 });

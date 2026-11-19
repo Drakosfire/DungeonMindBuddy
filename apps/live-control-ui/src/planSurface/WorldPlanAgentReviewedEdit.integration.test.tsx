@@ -1129,7 +1129,7 @@ it("rejects a thread switch during deferred Apply without changing the mounted e
 
 async function currentSceneBodyRoundTrip(
   source: string, sceneId: string, replacement: string, originalBody: string,
-  verifySaved: (markdown: string) => void,
+  verifySaved: (markdown: string) => void, changeViewDuringSave = false,
 ) {
   setupWorldApi();
   const current = setupPlanAuthoringIntegration(planRecord(), source, replacement);
@@ -1178,19 +1178,42 @@ async function currentSceneBodyRoundTrip(
     expect(current.legacyProposal).not.toHaveBeenCalled();
     expect(current.ordinaryPrepare).not.toHaveBeenCalled();
     expect(current.ordinaryCommit).not.toHaveBeenCalled();
+    if (changeViewDuringSave) {
+      const dispatch = current.commands.getMockImplementation()!;
+      current.commands.mockImplementation(async (...args) => {
+        const review = await dispatch(...args);
+        if (args[2].operation === "prepare") {
+          fireEvent.click(within(screen.getByRole("group", {name: "Plan view"})).getByRole("button", {name: "Document", exact: true}));
+        }
+        return review;
+      });
+    }
     fireEvent.click(within(screen.getByRole("region", {name: "Suggestion review"})).getByRole("button", {name: "Save", exact: true}));
+    if (changeViewDuringSave) {
+      await waitFor(() => expect(screen.queryAllByRole("alert").map(element => element.textContent).join(" | ")).toMatch(/differs from its sealed copy|changed/));
+      expect(current.commands.mock.calls.some(call => call[2].operation === "prepare")).toBe(true);
+      expect(current.commands.mock.calls.filter(call => call[2].operation === "confirm")).toHaveLength(0);
+      expect(current.readSaved().markdown).toBe(source);
+      expect(current.post).toHaveBeenCalledTimes(1);
+      return;
+    }
     await waitFor(() => expect(current.readReview()?.state, JSON.stringify({alerts: screen.queryAllByRole("alert").map(element => element.textContent), confirmCount: current.commands.mock.calls.filter(call => call[2].operation === "confirm").length, persistedUnchanged: current.readSaved().markdown === source})).toBe("applied"));
     const saved = current.readSaved();
     expect(saved.record.revision).toBe(8);
     const parsed = markdownToTiptapDoc(saved.markdown);
     expect(parsed.diagnostics.filter(diagnostic => diagnostic.level === "warning")).toEqual([]);
-    expect(tiptapJsonToSemanticMarkdown(parsed.doc)).toBe(saved.markdown);
+    expect(source.indexOf(originalBody)).toBe(source.lastIndexOf(originalBody));
+    const canonicalReplacement = tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(replacement).doc);
+    // These fixtures end in the edited scene. Cards retains its two-newline
+    // scene separator at EOF; require that exact delimiter, not broad trimming.
+    expect(source.endsWith("\n") && !source.endsWith("\n\n")).toBe(true);
+    expect(saved.markdown).toBe(source.replace(originalBody, canonicalReplacement) + "\n");
     expect(playableBodyProtectedStructureMatches(before, parsed.doc, target)).toBe(true);
     expect(session29V2Markers(saved.markdown)).toEqual(session29V2Markers(source));
     expect(session29NodeLinks(saved.markdown)).toEqual(session29NodeLinks(source));
     verifySaved(saved.markdown);
     const after = editor.getJSON();
-    expect(tiptapJsonToSemanticMarkdown(after)).toBe(saved.markdown);
+    expect(tiptapJsonToSemanticMarkdown(after)).toBe(tiptapJsonToSemanticMarkdown(parsed.doc));
     const savedTarget = await resolvePlayableBodyTarget(editor, {kind: "scene", id: sceneId});
     expect(savedTarget.targetBodyMarkdown).toBe(tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(replacement).doc));
     view.unmount();
@@ -1230,6 +1253,13 @@ it("saves a reviewed focused Scene edit with a protected multi-paragraph sibling
       expect(markdown).toContain("First option paragraph with [the guide](dmb-node:node:guide).");
       expect(markdown).toContain("Second option paragraph.");
     });
+});
+
+it("refuses a Cards view change after preparation before confirming a Scene Save", async () => {
+  await currentSceneBodyRoundTrip(protectedScenePlanMarkdown, "scene:dogfood-smoke",
+    "A clearly synthetic scene used only to verify the local Plan-to-Play path. No campaign canon.\n\nOne reviewed cue.",
+    "A clearly synthetic scene used only to verify the local Plan-to-Play path. No campaign canon.\n",
+    () => {}, true);
 });
 
 it("drops a delayed card-body proposal after a new Option target is selected", async () => {
