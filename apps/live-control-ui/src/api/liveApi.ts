@@ -713,6 +713,16 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return query.size === 1 && Boolean(query.get("world_id"))
       && typeof runId === "string" && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(runId);
   }
+  const playRebase = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/rebase\?world_id=[a-z0-9][a-z0-9_-]{0,62}$/.test(path);
+  if (playRebase) {
+    const body = requestBodyRecord(init?.body);
+    return method === "PUT" && typeof body?.expected_run_revision === "number"
+      && Number.isSafeInteger(body.expected_run_revision) && body.expected_run_revision > 0
+      && typeof body.target_playable_revision === "number"
+      && Number.isSafeInteger(body.target_playable_revision) && body.target_playable_revision > 0
+      && typeof body.target_playable_content_sha256 === "string"
+      && /^[0-9a-f]{64}$/.test(body.target_playable_content_sha256);
+  }
   const playProgress = /^\/api\/live\/world-play-runs\/v2\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\/progress\?([^#]+)$/.exec(path);
   if (playProgress) {
     const query = new URLSearchParams(playProgress[1]);
@@ -1138,7 +1148,7 @@ function apiRequestTarget(
     || /^\/api\/live\/extract-promote\/runs\/[^/]+\/(?:review-package|frozen-source-spans)$/.test(normalizedPath)
     || /^\/api\/live\/extract-promote\/runs\/[^/]+\/evidence-corrections$/.test(normalizedPath)
     || /^\/api\/live\/workspace-documents\/[^/]+\/native-world-source$/.test(normalizedPath)
-    || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/progress$/.test(normalizedPath)
+    || /^\/api\/live\/world-play-runs\/v2\/[^/]+\/(?:progress|rebase)$/.test(normalizedPath)
     || (normalizedPath === "/api/live/world-play-runs/v2/active" && init?.method?.toUpperCase() === "PUT");
   const manualKnowledge = /^\/api\/live\/graph-authoring\/(?:prepare|commit)$/.test(normalizedPath);
   if (isLoopbackApiDestination(url)) return { url, localGraphRequest, hostedGraphRequest: false };
