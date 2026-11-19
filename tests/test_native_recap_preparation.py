@@ -34,6 +34,9 @@ from apps.live_control_server.integrations.worldkeeper import registry_standing_
 from application_state.source.service import get_source_markdown as read_actual_source
 from graph_memory.candidate_graph_preview import NODE_TYPES
 from graph_memory.source_span import build_source_span_index_for_text
+# Preserve real owner functions before the older synthetic lane patches them.
+from apps.live_control_server.services.native_recap_source_admission import inspect as _context_actual_inspect
+from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data as _context_actual_load
 from tests.test_con_ready_play_worldkeeper_consumer import (
     _repository, SPACE_ID, CAMPAIGN_ID,
 )
@@ -1818,3 +1821,227 @@ def test_cohort_prepare_refuses_matching_witness_from_another_campaign(lane, mon
     assert response.status_code == 409, response.text
     assert "candidate_cohort_edge_review_invalid" in response.text
     assert lane.repo.get_head(SPACE_ID).head_revision_id == parent_id
+
+
+
+
+@pytest.fixture
+def recap_context_lane(lane, application_state_dsn, monkeypatch):
+    """Real APP source/admission/extraction bytes; real in-memory Core, no providers."""
+    from application_state.ingest.components import persist_component_payload
+    from apps.live_control_server.services import graph_run_registry as registry
+    from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact
+    from apps.live_control_server.integrations.dungeonmind import native_recap_source_admission as bridge
+    from graph_memory.ingestion.native_recap_source import SourceSelection
+    from graph_memory.ingestion.extraction_run import ExtractionRunComponentRef, ExtractionRunStatus
+    from graph_memory.source_span import source_span_index_to_dict
+
+    monkeypatch.setattr(service.sources, "get_source_markdown", read_actual_source)
+    monkeypatch.setattr(service.admission, "inspect", _context_actual_inspect)
+    monkeypatch.setattr(service, "load_reviewable_extraction_data", _context_actual_load)
+    from apps.live_control_server.services import managed_world_graph_projection
+
+    monkeypatch.setattr(bridge, "resolve_managed_source_identity", lambda *a, **k: SimpleNamespace(**lane.bound))
+    monkeypatch.setattr(managed_world_graph_projection, "resolve_managed_source_identity",
+                        lambda *a, **k: SimpleNamespace(**lane.bound))
+    monkeypatch.setattr(service.native, "read_repository", lambda: lane.repo)
+    original = bridge.NativeRecapAuthority
+    monkeypatch.setattr(service.admission, "NativeRecapAuthority",
+                        lambda root, repository=None: original(root, repository=repository or lane.repo))
+    campaign = "recap-context"
+    artifact = create_recap_source_artifact(lane.tmp_path, world_id=SPACE_ID, campaign_id=campaign,
+                                          session_id="session-8", recap_text=lane.text)
+    source = read_actual_source(source_artifact_id=artifact.source_artifact_id, content_sha256=artifact.content_sha256)
+    scope = dict(managed_world_id="managed", native_world_id=SPACE_ID, binding_version=3, campaign_id=campaign)
+    # The source is genuinely saved; this public owner reserves/delivers/settles
+    # its own distinct APP operation. Context itself may never do that.
+    def admit():
+        return service.admission.admit(lane.tmp_path, context=SimpleNamespace(**scope), session=8,
+            selection=SourceSelection(source_artifact_id=source.source_artifact_id,
+                source_revision_id=source.source_revision_id, content_sha256=source.content_sha256),
+            actor="fixture-owner", authority_basis="local_gm")
+    spans = build_source_span_index_for_text(source_artifact_id=artifact.source_artifact_id,
+                                           content_sha256=artifact.content_sha256, text=lane.text)
+    payload = copy.deepcopy(lane.payload)
+    payload["source_artifact_ids"] = [artifact.source_artifact_id]
+    payload["campaign_id"] = campaign
+    # Use a real event so the publication inventory must expose placement too.
+    payload["nodes"][0]["node_type"] = "event"
+    def replace_refs(value):
+        if isinstance(value, dict):
+            if "source_artifact_id" in value:
+                value["source_artifact_id"] = artifact.source_artifact_id
+            if "source_span_ref_id" in value:
+                value["source_span_ref_id"] = spans.spans[0].source_span_id
+            for child in value.values():
+                replace_refs(child)
+        elif isinstance(value, list):
+            for child in value:
+                replace_refs(child)
+    replace_refs(payload)
+    candidate = json.dumps(payload).encode()
+    span_bytes = json.dumps(source_span_index_to_dict(spans)).encode()
+    refs = {kind: ExtractionRunComponentRef(kind=kind, uri="fixture:database-owned", sha256=sha256(raw).hexdigest())
+            for kind, raw in (("source_artifact", lane.text.encode()), ("candidate_graph", candidate), ("source_span_index", span_bytes))}
+    run = registry.create_extraction_run(lane.tmp_path, source_artifact_id=artifact.source_artifact_id,
+        source_domain="recap", campaign_id=campaign, session_id="session-8", profile_id="fixture:review",
+        status=ExtractionRunStatus.VALIDATED, components=refs, lineage={"world_campaign_ingest_context": scope})
+    for kind, raw in (("candidate_graph", candidate), ("source_span_index", span_bytes)):
+        persist_component_payload(run_id=run.run_id, expected_revision=run.revision, kind=kind, payload=raw)
+    run = registry.update_extraction_run_status(lane.tmp_path, run.run_id, status=ExtractionRunStatus.REVIEWABLE,
+                                               expected_revision=run.revision)
+    body = dict(managed_world_id="managed", campaign_id=campaign, session_id="session-8", run_id=run.run_id,
+        expected_run_revision=run.revision, candidate_sha256=sha256(candidate).hexdigest(),
+        source_artifact_id=artifact.source_artifact_id, source_revision_id=str(source.source_revision_id),
+        source_sha256=artifact.content_sha256)
+    def post(body_override=None, headers=None):
+        return lane.client.post("/api/live/extract-promote/native-recap-context", json=body_override or body,
+                                headers={"Authorization": "Bearer " + TOKEN} if headers is None else headers)
+    def snapshot():
+        import psycopg
+        from psycopg import sql
+        with psycopg.connect(application_state_dsn) as conn:
+            tables = conn.execute("SELECT table_schema,table_name FROM information_schema.tables WHERE table_schema IN ('ingest','source') AND table_type='BASE TABLE' ORDER BY 1,2").fetchall()
+            rows = {(schema, table): sorted(json.dumps(row[0], sort_keys=True, default=str) for row in conn.execute(
+                sql.SQL("SELECT to_jsonb(t) FROM {}.{} t").format(sql.Identifier(schema), sql.Identifier(table))).fetchall())
+                for schema, table in tables}
+        core = copy.deepcopy({key: value for key, value in lane.repo.__dict__.items() if key != "_lock"})
+        return rows, core, lane.repo.open_native_source_view(SPACE_ID).epoch
+    return SimpleNamespace(**locals())
+
+
+def test_recap_context_real_APP_admission_not_extraction_no_mutation(recap_context_lane):
+    case = recap_context_lane
+    admitted = case.admit()
+    assert admitted.state == "admitted" and admitted.opening.state == "verified"
+    assert str(admitted.run_id) != case.run.run_id
+    before = case.snapshot()
+    response = case.post()
+    assert response.status_code == 200, response.text
+    packet = response.json()
+    assert packet["publication"] == "not_performed"
+    assert packet["prepare_coordinates"]["source_admission_run_id"] == str(admitted.run_id)
+    assert packet["prepare_coordinates"]["run_id"] == case.run.run_id
+    assert packet["prepare_coordinates"]["expected_run_revision"] == case.run.revision
+    assert packet["prepare_coordinates"]["candidate_sha256"] == case.body["candidate_sha256"]
+    assert packet["binding"]["native_world_id"] == SPACE_ID
+    assert packet["campaign_id"] == case.campaign and packet["session_id"] == "session-8"
+    assert packet["source_revision_id"] == str(case.source.source_revision_id)
+    assert packet["native_source"] == {"admission_id":admitted.admission_id,
+        "source_artifact_id":admitted.source_artifact_id,"source_revision_id":admitted.source_revision_id,
+        "body_sha256":case.source.content_sha256}
+    assert packet["native_source"]["source_artifact_id"] != packet["source_artifact_id"]
+    assert {row["kind"] for row in packet["records"]} == {"node", "beat", "edge", "placement"}
+    event = next(row for row in packet["records"] if row["kind"] == "node" and row["record_id"] == "new")
+    assert {"field": "session_actions", "index": 0, "value": "Met Pippa"} in event["selectable_facts"]
+    assert {row["kind"] for row in packet["held_records"]} == {"ignored", "deferred"}
+    assert packet["source_support"] == []  # Real admission grants context, not claim support.
+    assert case.snapshot() == before
+
+
+def test_recap_context_missing_admission_never_reserves(recap_context_lane):
+    before = recap_context_lane.snapshot()
+    response = recap_context_lane.post()
+    assert response.status_code == 409 and response.json()["detail"]["code"] == "candidate_source_not_admitted"
+    assert recap_context_lane.snapshot() == before
+
+
+@pytest.mark.parametrize("field,value", [("managed_world_id", "foreign"), ("campaign_id", "foreign"),
+    ("session_id", "session-9"), ("source_artifact_id", "foreign"), ("source_revision_id", "00000000-0000-4000-8000-000000000001"), ("source_sha256", "f" * 64),
+    ("candidate_sha256", "f" * 64), ("expected_run_revision", 99)])
+def test_recap_context_exact_scope_refuses_without_mutation(recap_context_lane, field, value):
+    case = recap_context_lane
+    case.admit()
+    before = case.snapshot()
+    response = case.post({**case.body, field: value})
+    assert response.status_code == 409, response.text
+    assert case.snapshot() == before
+
+
+def test_recap_context_auth_before_all_source_IO(lane, monkeypatch):
+    for name in ("binding", "repository"):
+        monkeypatch.setattr(service.native, name, lambda *a, **k: pytest.fail("unauthorized Core/binding IO"))
+    monkeypatch.setattr(service, "load_reviewable_extraction_data", lambda *a: pytest.fail("unauthorized APP IO"))
+    body = dict(managed_world_id="managed", campaign_id=CAMPAIGN_ID, session_id="session-8", run_id="saved-run",
+        expected_run_revision=5, candidate_sha256="a" * 64, source_artifact_id="source", source_revision_id=str(uuid4()), source_sha256="b" * 64)
+    path = "/api/live/extract-promote/native-recap-context"
+    assert lane.client.post(path, json=body).status_code == 401
+    assert lane.client.post(path, json=body, headers={"Authorization": "Bearer invalid"}).status_code == 401
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
+
+    lane.app.dependency_overrides[native_graph_explorer_dependency] = lambda: NativeGraphPrincipal(
+        subject="player", role="player", auth_method="local_operator")
+    assert lane.client.post(path, json=body, headers={"Authorization": "Bearer " + TOKEN}).status_code == 403
+
+
+@pytest.mark.parametrize("drift,code", [("run", "candidate_run_changed"), ("candidate", "candidate_bytes_changed"),
+    ("binding", "candidate_binding_changed"), ("head", "candidate_parent_stale"),
+    ("epoch", "candidate_source_authority_stale")])
+def test_recap_context_mid_read_drift_refuses_without_mutation(recap_context_lane, monkeypatch, drift, code):
+    from dataclasses import replace
+
+    case = recap_context_lane
+    case.admit()
+    before = case.snapshot()
+    with monkeypatch.context() as patch:
+        if drift in {"run", "candidate"}:
+            original = service.load_reviewable_extraction_data
+            reads = []
+            def load(*args):
+                data = original(*args)
+                reads.append(data)
+                if len(reads) == 2:
+                    if drift == "run":
+                        return replace(data, run=data.run.model_copy(update={"revision": data.run.revision + 1}))
+                    return replace(data, candidate_bytes=data.candidate_bytes + b" ")
+                return data
+            patch.setattr(service, "load_reviewable_extraction_data", load)
+        else:
+            original = service._resolve_source
+            reads = []
+            def resolve(*args):
+                result = original(*args)
+                reads.append(result)
+                if len(reads) == 2:
+                    if drift == "binding":
+                        patch.setattr(service.native, "binding", lambda *_: {**case.lane.bound, "binding_version": 4})
+                    elif drift == "head":
+                        patch.setattr(type(case.lane.repo), "get_head", lambda *_: SimpleNamespace(head_revision_id="rev:changed"))
+                    else:
+                        patch.setattr(type(case.lane.repo), "open_native_source_view", lambda *_: SimpleNamespace(epoch=before[2] + 1))
+                return result
+            patch.setattr(service, "_resolve_source", resolve)
+        response = case.post()
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"]["code"] == code
+    assert case.snapshot() == before
+
+
+
+def test_recap_context_opens_exact_native_support_UTF8_CRLF_without_writes(recap_context_lane):
+    from dungeonmind.contracts.vnext.native_source import NativeTextEvidenceSpanRequestV1
+
+    case = recap_context_lane
+    admitted = case.admit()
+    repo = case.lane.repo
+    domain, profile = service.native.descriptors(repo, SPACE_ID, repo.get_head(SPACE_ID).head_revision_id)
+    raw = case.source.markdown.encode("utf-8")
+    end = raw.index(b"\r\n") + 2
+    extended = publish_native_source_evidence_extension(
+        repository=repo, domain_contract=domain, semantic_profile=profile,
+        audience_labels=("dungeonbuddy.visibility:gm",),
+        request=NativeSourceEvidenceExtensionV1(space_id=SPACE_ID, extension_id="recap-context-support",
+            original_admission_id=admitted.admission_id, source_artifact_id=admitted.source_artifact_id,
+            source_revision_id=admitted.source_revision_id, expected_body_sha256=case.source.content_sha256,
+            expected_parent_revision_id=repo.get_head(SPACE_ID).head_revision_id,
+            expected_source_authority_epoch=repo.open_native_source_view(SPACE_ID).epoch,
+            created_at=datetime(2026, 11, 19, tzinfo=UTC), spans=[NativeTextEvidenceSpanRequestV1(
+                client_ref="exact-prefix", evidence_role="support", start_byte=0, end_byte=end,
+                expected_slice_sha256=sha256(raw[:end]).hexdigest())]))
+    before = case.snapshot()
+    response = case.post()
+    assert response.status_code == 200, response.text
+    assert response.json()["source_support"] == [{"evidence_ref_id":extended.bindings[0].evidence_ref_id,
+        "start_byte":0,"end_byte":end,"text":raw[:end].decode("utf-8")}]
+    assert case.snapshot() == before

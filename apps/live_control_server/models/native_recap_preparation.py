@@ -2,6 +2,7 @@
 
 from typing import Annotated, Literal
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from worldkeeper.application import DomainMetadata, TemporalScope, Visibility
@@ -125,6 +126,18 @@ class NativeRecapPrepareRequest(_CandidatePrepareRequest):
     campaign_id: Text
     source_admission_run_id: Text
     cohort_edge_review: dict[str, JsonValue] | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
+class NativeRecapContextRequest(Closed):
+    managed_world_id: Text
+    campaign_id: Text
+    session_id: str = Field(pattern=r"^session-[1-9][0-9]*$")
+    run_id: Text
+    expected_run_revision: int = Field(ge=1, strict=True)
+    candidate_sha256: Digest
+    source_artifact_id: Text
+    source_revision_id: UUID
+    source_sha256: Digest
 
 
 class NativeWorldbuildingContextRequest(Closed):

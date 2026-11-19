@@ -1550,3 +1550,31 @@ async def resolve_hosted_build_recap_recovery(request: Request) -> str:
         raise _denied()
     request.state.hosted_build_page_world = world_id
     return world_id
+
+
+async def resolve_hosted_recap_review_context(request: Request) -> str:
+    from apps.live_control_server.models.native_recap_preparation import NativeRecapContextRequest
+    from apps.live_control_server.services.graph_run_registry import read_recap_source_scope
+
+    if request.query_params:
+        raise _denied()
+    subject = _hosted_subject(request)
+    body = NativeRecapContextRequest.model_validate(await request.json())
+    # Ownership is resolved before extraction/source metadata is read.
+    world = await run_in_threadpool(_owned_world, subject, body.managed_world_id)
+    run, artifact = await _saved_extraction_source(body.run_id)
+    if run.source_domain != "recap" or artifact.source_domain != "recap":
+        raise _denied()
+    scope = read_recap_source_scope(run.lineage.get("world_campaign_ingest_context"), campaign_id=run.campaign_id)
+    binding = world.native_graph_binding
+    if (scope.managed_world_id != world.world_id or binding is None
+            or (scope.native_world_id, scope.binding_version) != (binding.native_world_id, binding.binding_version)
+            or artifact.world_id != scope.native_world_id
+            or run.campaign_id != artifact.campaign_id or run.campaign_id != body.campaign_id
+            or run.session_id != artifact.session_id or run.session_id != body.session_id
+            or run.revision != body.expected_run_revision
+            or artifact.source_artifact_id != body.source_artifact_id
+            or artifact.content_sha256 != body.source_sha256):
+        raise _denied()
+    request.state.hosted_native_graph_world = world.world_id
+    return world.world_id

@@ -476,6 +476,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/extract-promote/worldbuilding/prepare"): access.resolve_hosted_worldbuilding_write_plan,
             ("POST", "/api/live/extract-promote/worldbuilding/confirm"): access.resolve_hosted_worldbuilding_write_plan,
             ("POST", "/api/live/extract-promote/native-worldbuilding-context"): access.resolve_hosted_worldbuilding_review_context,
+            ("POST", "/api/live/extract-promote/native-recap-context"): access.resolve_hosted_recap_review_context,
             ("POST", "/api/live/extract-promote/runs/{run_id}/selection-context"): access.resolve_hosted_recap_selection,
             ("POST", "/api/live/threats/query-hydration"): access.resolve_hosted_threat_hydration,
             ("POST", "/api/live/combat/scene-templates"): access.resolve_hosted_play_command,
@@ -6553,3 +6554,46 @@ def test_build_recap_launch_reauthorizes_before_reserving_run(monkeypatch, tmp_p
     assert denied.value.status_code == 403
     assert register.call_args.kwargs["authorize"] is authorize
     reserve.assert_not_called()
+
+
+@pytest.mark.parametrize("damage", [None, "world", "campaign", "session", "source", "revision", "binding"])
+def test_hosted_recap_publication_context_owner_before_source_IO(hosted, monkeypatch, damage):
+    from apps.live_control_server.services import native_recap_preparation
+
+    calls = []
+    async def saved(run_id):
+        calls.append(("source", run_id))
+        scope = dict(managed_world_id="managed", native_world_id=hosted.lane.bound["native_world_id"], binding_version=3, campaign_id="campaign")
+        if damage == "binding":
+            scope["binding_version"] = 99
+        return (SimpleNamespace(source_domain="recap", revision=2, campaign_id="campaign", session_id="session-8",
+                                lineage={"world_campaign_ingest_context":scope}),
+                SimpleNamespace(source_domain="recap", world_id=hosted.lane.bound["native_world_id"], campaign_id="campaign", session_id="session-8",
+                                source_artifact_id="saved-source", content_sha256="a" * 64))
+    monkeypatch.setattr(access, "_saved_extraction_source", saved)
+    def context(body, principal):
+        calls.append(("context", body.run_id, principal.managed_world_id))
+        return {"publication":"not_performed"}
+    monkeypatch.setattr(native_recap_preparation, "recap_review_context", context)
+    body = dict(managed_world_id="managed",campaign_id="campaign",session_id="session-8",run_id="saved-run",
+                expected_run_revision=2,candidate_sha256="b" * 64,source_artifact_id="saved-source",source_revision_id="00000000-0000-4000-8000-000000000001",source_sha256="a" * 64)
+    changed={"world":("managed_world_id","foreign"),"campaign":("campaign_id","other"),
+             "session":("session_id","session-9"),"source":("source_artifact_id","foreign"),
+             "revision":("expected_run_revision",3)}
+    if damage in changed:
+        field,value=changed[damage]
+        body[field]=value
+    path="/api/live/extract-promote/native-recap-context"
+    assert hosted.client.request("POST",path,json=body,session="outsider-session").status_code == 403
+    assert calls == []
+    assert hosted.client.request("POST",path+"?world_id=managed",json=body).status_code == 403
+    assert calls == []
+    result=hosted.client.request("POST",path,json=body)
+    if damage:
+        assert result.status_code == 403,result.text
+        assert not any(row[0]=="context" for row in calls)
+        if damage=="world":
+            assert calls==[]
+    else:
+        assert result.status_code==200,result.text
+        assert calls==[("source","saved-run"),("context","saved-run","managed")]

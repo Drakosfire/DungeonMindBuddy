@@ -67,3 +67,44 @@ installed Core99, no PYTHONPATH overlay/resync. Task TMPDIR/UV cache only. No ne
 worktree/provider/live/Node/process deployment. MIND retains task scratch/cache and
 receipts for active fullgoal. No deletions/reclaimed bytes. Cleanup follow-up needs
 approved scope and active process/mount/dirty/unique-data checks at completion.
+
+
+## Implementation checkpoint — not acceptance
+
+The additive POST /api/live/extract-promote/native-recap-context requires exact run
+revision/candidate SHA and APP source artifact/revision UUID/body SHA, plus selected
+managed World/campaign/session. Dedicated hosted resolver checks actual World owner
+before extraction metadata; route rechecks access after the read. Context verifies
+saved admission/opening, returns its actual distinct run ID, and separates verified
+native_source artifact/revision/original admission/body SHA from APP identity.
+Complete candidate inventory accompanies normalized node/indexed-action/beat/edge/
+placement records and held/source-order information. No client alias/run recipe,
+source reservation, preparation or authority mutation is performed. Support may
+legitimately be empty: context-only admission is not claim support. N2b must use the
+existing explicit evidence-extension owner, then refresh context; this slice does
+not perform that write or introduce client transport.
+
+Working diagnostic6:24PASS/0FAIL/0SKIP,564deselected,4warnings,11.77s. Real APP saved
+source/admission and separately saved extraction/component bytes are exercised
+through ordinary authenticated HTTP with unpatched inspect_saved_source/APP lookup;
+in-memory Core is injected, managed-binding lookup is fixture-owned, providers are
+tripwired. APP ingest/source row snapshots plus complete Core state/head/receipt/
+epoch stay unchanged after reads/refusals. Context-only and explicit setup-extension
+UTF8/CRLF support are both covered. Five mid-read races, wrong scope/source/revision,
+missing admission and anonymous/invalid/player-before-IO denials are tested; mounted
+hosted owner/foreign cases use normal resolver/middleware with source ports stubbed.
+This is diagnostic proof, not full qualification or actual serving proof.
+
+Retained context-diagnostic-1..6.log/xml preserve all initial failures: fixture safe
+campaign/dynamic resolver/hosted identity corrections; real Status admission UUID
+required explicit string conversion; race mock restoration and a missing test import
+were fixed. Final Ruff compares exact base by code/message/source-line:12inherited,
+12current,0added; diff check passes. No unrelated inherited lint edits.
+
+Parent exact-source command is the prepared external parent_qualify_backend.py SHA:
+installed cache/v10-native-alias-search-buddy/bin/python, no Core overlay, owning APP
+32903 clones. It runs scripts/ci_contract.py run ingestion-and-review (full native
+preparation), auth-app, then tests/test_native_corpus_source_access.py plus
+ tests/test_hosted_native_graph_access.py. Parent owns these heavy checks, review
+and merge; worker will not duplicate. No frontend run for backend-only N2a.
+Source freezes after implementation commit until parent runners terminate.
