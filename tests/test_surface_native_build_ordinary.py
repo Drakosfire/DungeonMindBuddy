@@ -1456,6 +1456,32 @@ def test_native_connected_page_review_uses_its_included_saved_origin(lane,tmp_pa
     _fresh_case(lane,tmp_path,monkeypatch,None,True,True,False,connected_review=review)
 
 
+def test_create_page_after_connected_review_stays_on_the_existing_build_route(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services import plan_source_turn
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    checked = []
+    def dispatch(client, world, body):
+        reply = client.post("/api/live/agent/turn", json=body)
+        assert reply.json()["knowledge_context"]["completion"]["collaboration"]["kind"] == "connected_page"
+
+        def stop_before_provider(*args, **kwargs):
+            checked.append(True)
+            raise AgentTurnServiceError("Existing Build route reached", code="existing_build_route", status_code=418)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(plan_source_turn, "prepare", stop_before_provider)
+            followup = client.post("/api/live/agent/turn", json={
+                **body, "turn_id": str(uuid4()), "message": "Create the page",
+            })
+        assert followup.status_code == 418, followup.text
+        return reply
+
+    _fresh_case(lane, tmp_path, monkeypatch, None, True, True, False,
+                connected_review="valid", dispatch=dispatch)
+    assert checked == [True]
+
+
 @pytest.mark.parametrize('judgment',['direct_support','qualification_or_conflict','uncertain','irrelevant'])
 def test_ordinary_build_selects_native_body_and_reopens_only_included_support(lane,tmp_path,monkeypatch,judgment):
     from application_state.agent_conversation import native_corpus as corpus, writer_evidence_selection as selection
@@ -2373,6 +2399,32 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
 
     completion = populated.completion
     assert completion.collaboration.destination.title == "Glass Regent"
+    followup = workflow.capture_case(
+        case.client, case.world, template,
+        {"question": "Create the page"},
+        tmp_path / "lore-create", build_thread_id=thread_id,
+        expected_conversation_id=str(populated.conversation_id),
+    )
+    assert followup.status_code == 200, followup.text
+    reference = followup.json()["lore_save_review"]
+    assert reference == {
+        "schema": "dmb_lore_save_review_reference_v1",
+        "conversation_id": str(populated.conversation_id),
+        "turn_id": str(populated.turn_id),
+        "review_sha256": canonical_sha256(completion),
+        "title": "Glass Regent",
+    }
+    assert followup.json()["answer"]["trace"]["model_calls"] == []
+    followup_history = case.client.get(
+        f"/api/live/agent/worlds/{case.world}/conversation", params={"include_turn_correlation": "true"},
+    ).json()
+    assert followup_history["turns"][-1]["lore_save_review"] == reference
+    import json
+    sent = json.loads((tmp_path / "lore-create" / "request.json").read_text())
+    repeated = case.client.post("/api/live/agent/turn", json=sent)
+    assert repeated.status_code == 200, repeated.text
+    assert repeated.json()["lore_save_review"] == reference
+    assert repeated.json()["answer"]["trace"]["model_calls"] == []
     request = LorePageConfirmation(conversation_id=populated.conversation_id,
         turn_id=populated.turn_id, review_sha256=canonical_sha256(completion))
     url = f"/api/live/agent/worlds/{case.world}/conversation/lore-pages/confirm"

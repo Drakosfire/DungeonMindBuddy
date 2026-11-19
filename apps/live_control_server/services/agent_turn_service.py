@@ -136,6 +136,16 @@ def _governed_build_turn(request: AgentTurnRequest) -> bool:
             and request.primary_work.kind == "build" and request.graph_request.mode == "world")
 
 
+def _lore_save_followup(request: AgentTurnRequest) -> bool:
+    from application_state.agent_conversation.lore_page_confirmation import is_lore_save_followup
+
+    return (
+        _governed_build_turn(request) and is_lore_save_followup(request.message)
+        and request.retry_of is None and request.build_write_capability is None
+        and request.build_authored_references is None and request.graph_selection is None
+    )
+
+
 def _governed_graph_turn(request: AgentTurnRequest) -> bool:
     native_play = (
         request.surface.surface_id == "play"
@@ -5302,7 +5312,7 @@ def _conversation_provenance(
 
 
 def _submitted_turn_intent(
-    request: AgentTurnRequest, *, world_id: str
+    request: AgentTurnRequest, *, world_id: str, local_lore: bool = False,
 ) -> SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | PlayGraphIntentV1:
     """Capture normalized caller semantics before resolving mutable context."""
     graph_request = request.graph_request.model_dump(mode="python")
@@ -5350,6 +5360,8 @@ def _submitted_turn_intent(
         graph_request=graph_intent,
         graph_selection=graph_selection,
     )
+    if local_lore:
+        return SubmittedTurnIntentV1(**common)
     if _governed_build_turn(request):
         from application_state.agent_conversation.work_plan import resolve_request_action
         try:
@@ -5539,7 +5551,7 @@ def _require_play_run_receipt_matches_request(
 
 
 def _stored_play_graph_binding(
-    request: AgentTurnRequest, provenance: TurnProvenance,
+    request: AgentTurnRequest, provenance: TurnProvenance, *, local_lore: bool = False,
 ) -> PlayGraphBindingReceiptV1 | BuildGraphBinding | None:
     if request.surface.surface_id == "build":
         try:
@@ -5553,7 +5565,7 @@ def _stored_play_graph_binding(
                 raise ValueError("Build source intent does not match frozen provenance")
             bindings = [r for r in provenance.supporting_work if r.kind == BUILD_GRAPH_BINDING_REFERENCE]
             graphs = [r for r in provenance.supporting_work if r.kind == "world_graph_revision"]
-            if request.graph_request.mode == "none":
+            if request.graph_request.mode == "none" or local_lore:
                 if bindings or graphs:
                     raise ValueError("Graphless Build intent contains Graph provenance")
                 return None
@@ -5640,8 +5652,13 @@ def _completed_turn_replay(
         validate_request_identity(stored_receipt,stored_context.graph_context_execution,turn_meta)
         query = stored_receipt.native_query
         native_authority = query.authority if isinstance(query,NativePlanQueryV1) else None
-    play_graph_binding = None if shared_native else _stored_play_graph_binding(request, turn_meta.provenance)
-    segment_thread_id = _provider_segment_thread_id(
+    from application_state.agent_conversation.types import LoreSaveReviewReference
+
+    lore_reference = turn.completion if not mixed and isinstance(turn.completion, LoreSaveReviewReference) else None
+    play_graph_binding = None if shared_native else _stored_play_graph_binding(
+        request, turn_meta.provenance, local_lore=lore_reference is not None,
+    )
+    segment_thread_id = request.client_thread_id if lore_reference is not None else _provider_segment_thread_id(
         turn_meta.provenance, conversation_id=turn_meta.conversation_id
     )
     trace = trace_builder or AgentTurnTraceBuilder(
@@ -5666,7 +5683,7 @@ def _completed_turn_replay(
     primary = turn_meta.provenance.primary_work
     graph_reference = _stored_graph_reference(turn_meta.provenance)
     selected_reference = turn_meta.provenance.selected_object
-    graph_requested = request.graph_request.mode != "none"
+    graph_requested = request.graph_request.mode != "none" and lore_reference is None
     if not graph_requested and graph_reference is not None:
         raise AgentTurnServiceError(
             "The completed receipt contains Graph provenance for a non-Graph intent.",
@@ -5726,6 +5743,8 @@ def _completed_turn_replay(
         if primary.kind == "plan" and primary.object_revision is not None
         else primary.revision
     )
+    if lore_reference is not None:
+        revision_used = int(primary.revision)
     if primary.kind == "run" and isinstance(turn_meta.play_context_receipt, PlayRunTurnContextReceiptV2):
         revision_used = turn_meta.play_context_receipt.run_revision
     completion = None if mixed else turn.completion
@@ -5733,7 +5752,7 @@ def _completed_turn_replay(
     graph_grounded = False
     plan_context = None
     play_context = None
-    if _governed_graph_turn(request) and not mixed:
+    if _governed_graph_turn(request) and not mixed and lore_reference is None:
         if request.surface.surface_id == "play":
             play_context = project_play_turn_context(turn, delivery_replay=True)
         else:
@@ -5754,6 +5773,7 @@ def _completed_turn_replay(
         }
     response = AgentTurnResponse(
         plan_proposal=project_plan_authoring_proposal(turn),
+        lore_save_review=lore_reference,
         client_thread_id=request.client_thread_id,
         turn_id=request.turn_id,
         surface={
@@ -5785,7 +5805,7 @@ def _completed_turn_replay(
         graph={
             "status": (
                 "not_requested"
-                if request.graph_request.mode == "none"
+                if not graph_requested
                 else "replayed"
             ),
             "world_id": None if not graph_requested else native_authority.native_world_id if native_authority is not None else None if graph_reference is None else graph_reference.object_id,
@@ -5864,7 +5884,7 @@ def _completed_turn_replay(
                 "graph_grounded": turn.accepted_binding.graph_used},
             "rules_context": project_rules_answer_context(turn, delivery_replay=True).model_dump(mode="python", by_alias=True),
         })
-    if _governed_build_turn(request):
+    if _governed_build_turn(request) and lore_reference is None:
         return AgentBuildGraphTurnResponseV1.model_validate({
             **response.model_dump(mode="json", by_alias=True),
             "knowledge_context": plan_context.model_dump(mode="json", by_alias=True),
@@ -6804,6 +6824,7 @@ def execute_agent_turn(
     durable_turn: Turn | MixedCompletedTurnV1 | None = None
     submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1 | None = None
     canonical_world_id: str | None = None
+    local_lore = False
     if request.owner_scope is not None and request.owner_scope.kind == "world":
         requested_world_id = request.owner_scope.world_id
         if (
@@ -6818,11 +6839,18 @@ def execute_agent_turn(
             )
         canonical_world_id = requested_world_id
         if conversation_service is not None:
+            idempotency_key = _turn_idempotency_key(canonical_world_id, request.turn_id)
+            if _lore_save_followup(request) and native_principal is not None and native_principal.role == "gm":
+                locator = request.primary_work
+                local_lore = conversation_service.admit_lore_save_followup(
+                    world_id=canonical_world_id, idempotency_key=idempotency_key,
+                    conversation_id=(request.build_draft_context.conversation_id
+                                     if request.build_draft_context is not None else None),
+                    surface_instance_id=request.surface.instance_id, document_id=locator.object_id,
+                    revision=locator.expected_revision, content_sha256=locator.expected_content_sha256,
+                )
             submitted_intent = _submitted_turn_intent(
-                request, world_id=canonical_world_id
-            )
-            idempotency_key = _turn_idempotency_key(
-                canonical_world_id, request.turn_id
+                request, world_id=canonical_world_id, local_lore=local_lore,
             )
             with trace.phase("durable_turn_reconciliation"):
                 try:
@@ -7162,6 +7190,47 @@ def execute_agent_turn(
                 code="turn_receipt_unverifiable",
                 status_code=409,
             )
+    if local_lore:
+        if (conversation_service is None or native_principal is None or native_principal.role != "gm"
+                or work is None or work.build_source is None or owner is None or canonical_world_id is None):
+            raise AgentTurnServiceError("The active Build page and GM conversation are required.",
+                code="lore_save_review_unavailable", status_code=409, provider_dispatched=False)
+        try:
+            local_turn = durable_turn or _accept_world_turn(
+                conversation_service, request, world_id=canonical_world_id,
+                provenance=_conversation_provenance(request, world_id=canonical_world_id, work=work),
+                submitted_intent=submitted_intent,
+                expected_conversation_id=(None if request.build_draft_context is None
+                                          else request.build_draft_context.conversation_id),
+            )
+            claim = conversation_service.claim_turn(
+                local_turn.world_id, local_turn.conversation_id, local_turn.turn_id,
+                expected_revision=local_turn.revision, lease_seconds=120,
+            )
+            if claim.disposition == "completed":
+                return _completed_turn_replay(request, owner=owner, turn=claim.turn, trace_builder=trace)
+            if claim.disposition == "pending":
+                raise ApplicationStateConflictError("This lore save request is already running")
+            current = claim.turn
+            reference = conversation_service.resolve_lore_save_followup(
+                world_id=current.world_id, conversation_id=current.conversation_id, current_turn_id=current.turn_id,
+            )
+            if reference is None:
+                conversation_service.fail_turn(TurnFailure(
+                    world_id=current.world_id, conversation_id=current.conversation_id,
+                    turn_id=current.turn_id, expected_revision=current.revision,
+                    failure_code="lore_save_review_unavailable",
+                ))
+                raise ApplicationStateConflictError("Open the intended lore draft before asking to create the page")
+            completed = conversation_service.complete_turn(TurnResult(
+                world_id=current.world_id, conversation_id=current.conversation_id, turn_id=current.turn_id,
+                expected_revision=current.revision, assistant_text=reference.reply_text, completion=reference,
+            ))
+        except ApplicationStateError as exc:
+            raise AgentTurnServiceError(str(exc), code="lore_save_review_unavailable",
+                status_code=exc.status_code, provider_dispatched=False) from exc
+        return _completed_turn_replay(request, owner=owner, turn=completed, trace_builder=trace)
+
     if request.native_statement_selection is not None:
         from .native_statement_answer_runtime import execute as execute_native_statement
         return execute_native_statement(request, service=conversation_service, principal=native_principal,
