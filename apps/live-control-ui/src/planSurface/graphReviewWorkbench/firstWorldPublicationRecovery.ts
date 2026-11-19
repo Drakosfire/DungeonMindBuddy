@@ -35,7 +35,7 @@ function retainedCandidates(plan:FirstWorldRetainedPlan):RetainedCandidate[]{
     ||plan.summary.acceptedAssertionCount!==plan.acceptedAssertionIds.length
     ||!Array.isArray(plan.diagnostics)||!plan.diagnostics.every(value=>typeof value==='string'))
     throw new Error('The creation plan does not match its exact source, World and reviewed choices.');
-  const fail=():never=>{throw new Error('The creation plan contains a foreign scope, source or materialized effect.');};
+  const fail=():never=>{throw new Error('The creation plan does not match its retained envelope; it contains a foreign scope, source or materialized effect.');};
   const semanticFail=():never=>{throw new Error('The creation plan does not match the reviewed structured meaning.');};
   const effect=plan.reviewedEffect;
   if(!record(effect))return fail();
@@ -286,35 +286,77 @@ export async function releaseFirstWorldRecovery(_review: ExactRunReviewPackage, 
   throw new Error('Submitted creation requests are retained. A request-local nonapplication result cannot release recovery.');
 }
 
-/** Inspect only the obsolete envelope, never make its plan executable. */
-export function obsoleteUnsubmittedRecovery(review: ExactRunReviewPackage): string | null {
-  try {
-    const raw = localStorage.getItem(firstWorldRecoveryKey(review));
-    if (raw === null) return null;
-    const value = JSON.parse(raw), plan = value?.plan;
-    return value?.schema === 'dmb_first_world_publication_recovery_v1'
-      && value.scope === firstWorldScope(review) && value.submitted === false
-      && Object.keys(value).every(key => ['schema','scope','plan','submitted'].includes(key))
-      && plan?.schema === 'dmb_first_world_graph_plan_v2'
-      && plan.worldId === review.worldId && plan.runId === review.runId
-      && plan.sourceArtifactId === review.sourceArtifactId && plan.sourceRevisionId === review.sourceRevisionId
-      && nonblank(plan.planId) && digest(plan.planDigest) ? raw : null;
-  } catch { return null; }
+export type ObsoleteFirstWorldRecovery={key:string;raw:string};
+
+/** Locate one obsolete unsubmitted envelope by its own exact key and bytes.
+ * This never upgrades an obsolete plan or uses today's candidate list as proof.
+ */
+export function locateObsoleteUnsubmittedRecovery(review:ExactRunReviewPackage):ObsoleteFirstWorldRecovery|null{
+  try{
+    if(!nonblank(review.worldId)||!nonblank(review.runId)||localStorage.length>2048)return null;
+    const entries:ObsoleteFirstWorldRecovery[]=[];
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(!key||(!key.startsWith('dmb.firstWorldPublication.v1:')&&!key.startsWith('dmb.nativeFirstWorldPublication.v1:')))continue;
+      let scope:unknown;
+      try{scope=JSON.parse(key.slice(key.indexOf(':')+1));}catch{continue;} // Archive suffixes are not active slots.
+      if(!Array.isArray(scope)||scope[0]!==review.worldId||scope[1]!==review.runId)continue;
+      const raw=localStorage.getItem(key);
+      if(raw!==null)entries.push({key,raw});
+      if(entries.length>1)return null; // Never select a winner, including identical duplicate records.
+    }
+    if(entries.length!==1)return null;
+    const entry=entries[0];
+    if(entry.raw.length>24*1024*1024)return null;
+    const value:unknown=JSON.parse(entry.raw);
+    if(!record(value)||value.schema!=='dmb_first_world_publication_recovery_v1'||value.submitted!==false
+      ||Object.keys(value).some(key=>!['schema','scope','plan','submitted'].includes(key))||!record(value.plan))return null;
+    const plan=value.plan;
+    if(plan.schema!=='dmb_first_world_graph_plan_v2'||plan.worldId!==review.worldId||plan.runId!==review.runId
+      ||!nonblank(plan.worldId)||!nonblank(plan.runId)||!nonblank(plan.sourceArtifactId)||!nonblank(plan.sourceRevisionId)
+      ||!digest(plan.sourceRevisionId)||!nonblank(plan.planId)||!digest(plan.planDigest))return null;
+    const ownScope=firstWorldScope({worldId:plan.worldId,runId:plan.runId,
+      sourceArtifactId:plan.sourceArtifactId,sourceRevisionId:plan.sourceRevisionId});
+    if(value.scope!==ownScope||(entry.key!==firstWorldRecoveryKey(review)&&entry.key!=='dmb.firstWorldPublication.v1:'+ownScope))return null;
+    return entry;
+  }catch{return null;}
 }
 
-export async function archiveObsoleteUnsubmittedRecovery(review: ExactRunReviewPackage, expectedRaw: string,
-  isCurrent: () => boolean) {
-  if (!navigator.locks) throw new Error('This browser cannot safely archive World creation recovery.');
-  return navigator.locks.request(firstWorldRecoveryKey(review), () => {
-    if (!isCurrent()) throw new Error('The selected source or World changed. Recovery is retained.');
-    if (obsoleteUnsubmittedRecovery(review) !== expectedRaw)
+/** Compatibility for the mounted sheet's retained raw-byte expectation. */
+export function obsoleteUnsubmittedRecovery(review:ExactRunReviewPackage):string|null{
+  return locateObsoleteUnsubmittedRecovery(review)?.raw??null;
+}
+
+export async function archiveObsoleteUnsubmittedRecovery(review:ExactRunReviewPackage,expectedRaw:string,
+  isCurrent:()=>boolean){
+  const locks=navigator.locks;
+  if(!locks)throw new Error('This browser cannot safely archive World creation recovery.');
+  const located=locateObsoleteUnsubmittedRecovery(review);
+  if(!located||located.raw!==expectedRaw)throw new Error('Another creation request owns recovery. Reopen this review.');
+  // The locator validated this scope against the stored plan. Protect the old
+  // source-scoped lock even when an obsolete envelope occupies the new slot.
+  const envelope:unknown=JSON.parse(located.raw);
+  if(!record(envelope)||typeof envelope.scope!=='string')throw new Error('Another creation request owns recovery.');
+  const currentKey=firstWorldRecoveryKey(review),legacyKey='dmb.firstWorldPublication.v1:'+envelope.scope;
+  const recheck=()=>{
+    if(!isCurrent())throw new Error('The selected source or World changed. Recovery is retained.');
+    const actual=locateObsoleteUnsubmittedRecovery(review);
+    if(!actual||actual.key!==located.key||actual.raw!==located.raw||localStorage.getItem(located.key)!==expectedRaw)
       throw new Error('Another creation request owns recovery. Reopen this review.');
-    const key = firstWorldRecoveryKey(review), archiveKey = key + ':obsolete:' + crypto.randomUUID();
-    // Persist and verify the exact old bytes before releasing the active slot.
-    localStorage.setItem(archiveKey, expectedRaw);
-    if (localStorage.getItem(archiveKey) !== expectedRaw || localStorage.getItem(key) !== expectedRaw)
-      throw new Error('Recovery could not be archived safely. The request is retained.');
-    localStorage.removeItem(key);
-    if (localStorage.getItem(key) !== null) throw new Error('Recovery could not be released. Reopen this review.');
+  };
+  const archive=()=>{
+    recheck();
+    const archiveKey=located.key+':obsolete:'+crypto.randomUUID();
+    if(localStorage.getItem(archiveKey)!==null)throw new Error('An archive already owns this key. Recovery is retained.');
+    localStorage.setItem(archiveKey,located.raw);
+    if(localStorage.getItem(archiveKey)!==located.raw)throw new Error('Recovery could not be archived safely. The request is retained.');
+    recheck(); // A conflicting/newly submitted record must survive the archive-copy step.
+    localStorage.removeItem(located.key);
+    if(localStorage.getItem(located.key)!==null)throw new Error('Recovery could not be released. Reopen this review.');
+  };
+  // One order for every new tab; an old tab may hold only the legacy lock.
+  return locks.request(currentKey,()=>{
+    recheck();
+    return legacyKey===currentKey?archive():locks.request(legacyKey,archive);
   });
 }

@@ -2,7 +2,7 @@ import {beforeEach,afterEach,expect,it,vi} from 'vitest';
 import type {ExactRunReviewPackage,FirstWorldGraphPlan} from '../../api/types';
 import {withFirstWorldEffect} from './firstWorldPublicationRecovery.testSupport';
 import {ExtractPromoteApiError} from '../../api/extractPromoteApi';
-import {obsoleteUnsubmittedRecovery,archiveObsoleteUnsubmittedRecovery,firstWorldScope,firstWorldNonapplication,releaseFirstWorldRecovery,assertFirstWorldPlan,firstWorldRecoveryKey,readFirstWorldRecovery,saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
+import {locateObsoleteUnsubmittedRecovery,obsoleteUnsubmittedRecovery,archiveObsoleteUnsubmittedRecovery,firstWorldScope,firstWorldNonapplication,releaseFirstWorldRecovery,assertFirstWorldPlan,firstWorldRecoveryKey,readFirstWorldRecovery,saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
 const review:ExactRunReviewPackage={schema:'dmb_extract_promote_exact_run_review_v1',sourceDomain:'worldbuilding',inspectionStatus:'ready',
   runId:'run-a',sourceArtifactId:'source-a',sourceRevisionId:'sha256:'+'a'.repeat(64),worldId:'world-a',sourceProse:'A keeper.',diagnostics:[],
   assertions:[{assertionId:'keeper',kind:'object', nodeType: "npc", contributionKind: "npc",label:'Keeper',summary:'A keeper',evidence:[{sourceArtifactId:'source-a',sourceSpanRefId:'span-a',paragraphText:'A keeper.',anchorQuotes:['keeper']}]}]};
@@ -123,18 +123,20 @@ it('retains recovery when storage refuses removal',async()=>{
   expect(readFirstWorldRecovery(review)?.submitted).toBe(true);
 });
 
+const legacyRecoveryKey=(selection=review)=>'dmb.firstWorldPublication.v1:'+firstWorldScope(selection);
+
 it('preserves an old submitted plan and requires explicit fresh review without reposting',()=>{
   const raw=JSON.stringify({schema:'dmb_first_world_publication_recovery_v1',scope:firstWorldScope(review),submitted:true,plan:{...plan,schema:'dmb_first_world_graph_plan_v2'}});
   // Use the actual current scope, retaining the old plan bytes verbatim.
-  localStorage.setItem(firstWorldRecoveryKey(review),raw);
+  localStorage.setItem(legacyRecoveryKey(review),raw);
   expect(()=>readFirstWorldRecovery(review)).toThrow('out of date');
-  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
+  expect(localStorage.getItem(legacyRecoveryKey(review))).toBe(raw);
 });
 
 function obsoleteRecovery(submitted=false) {
   const raw=JSON.stringify({schema:'dmb_first_world_publication_recovery_v1',scope:firstWorldScope(review),
     plan:{...plan,schema:'dmb_first_world_graph_plan_v2'},submitted});
-  localStorage.setItem(firstWorldRecoveryKey(review),raw);return raw;
+  localStorage.setItem(legacyRecoveryKey(review),raw);return raw;
 }
 it('archives exact obsolete unsubmitted bytes before freeing fresh review',async()=>{
   const raw=obsoleteRecovery();expect(obsoleteUnsubmittedRecovery(review)).toBe(raw);
@@ -147,7 +149,7 @@ it('archives exact obsolete unsubmitted bytes before freeing fresh review',async
 it('never archives a submitted obsolete request',async()=>{
   const raw=obsoleteRecovery(true);expect(obsoleteUnsubmittedRecovery(review)).toBeNull();
   await expect(archiveObsoleteUnsubmittedRecovery(review,raw,()=>true)).rejects.toThrow('Another creation');
-  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
+  expect(localStorage.getItem(legacyRecoveryKey(review))).toBe(raw);
 });
 it('rechecks submission and source after waiting for archive ownership',async()=>{
   const raw=obsoleteRecovery();let release!:()=>void;
@@ -155,20 +157,20 @@ it('rechecks submission and source after waiting for archive ownership',async()=
     release=()=>{try{resolve(action());}catch(error){reject(error);}};
   })}});
   const pending=archiveObsoleteUnsubmittedRecovery(review,raw,()=>true);
-  const changed=JSON.stringify({...JSON.parse(raw),submitted:true});localStorage.setItem(firstWorldRecoveryKey(review),changed);release();
+  const changed=JSON.stringify({...JSON.parse(raw),submitted:true});localStorage.setItem(legacyRecoveryKey(review),changed);release();
   await expect(pending).rejects.toThrow('Another creation');
-  expect(localStorage.length).toBe(1);expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(changed);
+  expect(localStorage.length).toBe(1);expect(localStorage.getItem(legacyRecoveryKey(review))).toBe(changed);
 });
 it('preserves the active request when archive storage fails',async()=>{
   const raw=obsoleteRecovery();vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('quota');});
   await expect(archiveObsoleteUnsubmittedRecovery(review,raw,()=>true)).rejects.toThrow('quota');
-  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
+  expect(localStorage.getItem(legacyRecoveryKey(review))).toBe(raw);
 });
 it('does not archive a foreign obsolete envelope or changed scope',async()=>{
   const raw=obsoleteRecovery();
   expect(obsoleteUnsubmittedRecovery({...review,worldId:'foreign'})).toBeNull();
   await expect(archiveObsoleteUnsubmittedRecovery(review,raw,()=>false)).rejects.toThrow('selected source');
-  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
+  expect(localStorage.getItem(legacyRecoveryKey(review))).toBe(raw);
 });
 
 it('validates a retained kind independently of changed current review semantics', async () => {
@@ -301,4 +303,137 @@ it('refuses contradictory saved decision/effect links without using current cand
   const raw=JSON.stringify(saved);localStorage.setItem(key,raw);
   expect(()=>readFirstWorldRecovery({worldId:review.worldId,runId:review.runId})).toThrow('materialized effect');
   expect(localStorage.getItem(key)).toBe(raw);
+});
+
+
+it('locates the actual legacy key and exact obsolete bytes, independently of the current source',()=>{
+  const raw=obsoleteRecovery();
+  expect(locateObsoleteUnsubmittedRecovery(review)).toEqual({key:legacyRecoveryKey(review),raw});
+  expect(locateObsoleteUnsubmittedRecovery({...review,sourceArtifactId:'changed-source',sourceRevisionId:'sha256:'+'f'.repeat(64)}))
+    .toEqual({key:legacyRecoveryKey(review),raw});
+  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBeNull();
+});
+
+it('takes both the current World/run and actual legacy source locks before archiving',async()=>{
+  const raw=obsoleteRecovery(),locks:string[]=[];
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(key:string,action:()=>unknown)=>{
+    locks.push(key);return Promise.resolve(action());
+  }}});
+  await archiveObsoleteUnsubmittedRecovery(review,raw,()=>true);
+  expect(locks).toEqual([firstWorldRecoveryKey(review),legacyRecoveryKey(review)]);
+  expect(localStorage.getItem(legacyRecoveryKey(review))).toBeNull();
+  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBeNull();
+  expect(localStorage.key(0)).toMatch(/^dmb\.firstWorldPublication\.v1:.*:obsolete:/);
+  expect(localStorage.getItem(localStorage.key(0)!)).toBe(raw);
+});
+
+it('rechecks submission after waiting for the legacy lock held by an old tab',async()=>{
+  const raw=obsoleteRecovery(),key=legacyRecoveryKey(review);let release!:()=>void;
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(name:string,action:()=>unknown)=>{
+    if(name!==key)return Promise.resolve(action());
+    return new Promise((resolve,reject)=>{release=()=>{try{resolve(action());}catch(error){reject(error);}};});
+  }}});
+  const pending=archiveObsoleteUnsubmittedRecovery(review,raw,()=>true);
+  const submitted=JSON.stringify({...JSON.parse(raw),submitted:true});localStorage.setItem(key,submitted);release();
+  await expect(pending).rejects.toThrow('Another creation');
+  expect(localStorage.length).toBe(1);expect(localStorage.getItem(key)).toBe(submitted);
+});
+
+it('does not follow identical bytes moved to another key while waiting for the old-tab lock',async()=>{
+  const raw=obsoleteRecovery(),key=legacyRecoveryKey(review);let release!:()=>void;
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(name:string,action:()=>unknown)=>{
+    if(name!==key)return Promise.resolve(action());
+    return new Promise((resolve,reject)=>{release=()=>{try{resolve(action());}catch(error){reject(error);}};});
+  }}});
+  const pending=archiveObsoleteUnsubmittedRecovery(review,raw,()=>true);
+  localStorage.setItem(firstWorldRecoveryKey(review),raw);localStorage.removeItem(key);release();
+  await expect(pending).rejects.toThrow('Another creation');
+  expect(localStorage.length).toBe(1);expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
+});
+
+it.each(['new_slot','other_legacy_source'] as const)('refuses ambiguous obsolete operations including %s',async conflict=>{
+  const raw=obsoleteRecovery();
+  let key=firstWorldRecoveryKey(review),other=raw;
+  if(conflict==='other_legacy_source'){
+    const source={...review,sourceArtifactId:'another-source',sourceRevisionId:'sha256:'+'f'.repeat(64)};
+    key=legacyRecoveryKey(source);
+    const value=JSON.parse(raw);Object.assign(value.plan,{sourceArtifactId:source.sourceArtifactId,sourceRevisionId:source.sourceRevisionId});
+    value.scope=firstWorldScope(source);other=JSON.stringify(value);
+  }
+  localStorage.setItem(key,other);
+  expect(locateObsoleteUnsubmittedRecovery(review)).toBeNull();expect(obsoleteUnsubmittedRecovery(review)).toBeNull();
+  await expect(archiveObsoleteUnsubmittedRecovery(review,raw,()=>true)).rejects.toThrow('Another creation');
+  expect(localStorage.length).toBe(2);expect(localStorage.getItem(legacyRecoveryKey(review))).toBe(raw);
+  expect(localStorage.getItem(key)).toBe(other);
+});
+
+it('retains both operations when a new request appears while waiting for archive ownership',async()=>{
+  const raw=obsoleteRecovery();let release!:()=>void;
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_key:string,action:()=>unknown)=>new Promise((resolve,reject)=>{
+    release=()=>{try{resolve(action());}catch(error){reject(error);}};
+  })}});
+  const pending=archiveObsoleteUnsubmittedRecovery(review,raw,()=>true);
+  const another=JSON.stringify({submitted:true});localStorage.setItem(firstWorldRecoveryKey(review),another);release();
+  await expect(pending).rejects.toThrow('Another creation');
+  expect(localStorage.getItem(legacyRecoveryKey(review))).toBe(raw);
+  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(another);
+});
+
+it('preserves the active legacy record if removal fails after an exact archive copy',async()=>{
+  const raw=obsoleteRecovery();
+  vi.spyOn(Storage.prototype,'removeItem').mockImplementation(()=>{throw new Error('removal denied');});
+  await expect(archiveObsoleteUnsubmittedRecovery(review,raw,()=>true)).rejects.toThrow('removal denied');
+  expect(localStorage.getItem(legacyRecoveryKey(review))).toBe(raw);
+  const archive=Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)!).find(key=>key.includes(':obsolete:'));
+  expect(archive).toBeDefined();expect(localStorage.getItem(archive!)).toBe(raw);
+});
+
+it('rechecks the exact legacy record after copying bytes and never removes a submitted replacement',async()=>{
+  const raw=obsoleteRecovery(),key=legacyRecoveryKey(review),submitted=JSON.stringify({...JSON.parse(raw),submitted:true});
+  const setItem=Storage.prototype.setItem;
+  vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(name,value){
+    setItem.call(this,name,value);
+    if(name.startsWith(key+':obsolete:'))setItem.call(this,key,submitted);
+  });
+  await expect(archiveObsoleteUnsubmittedRecovery(review,raw,()=>true)).rejects.toThrow('Another creation');
+  expect(localStorage.getItem(key)).toBe(submitted);
+});
+
+it('archives an obsolete envelope already in the new slot while still locking the legacy source key',async()=>{
+  const raw=obsoleteRecovery();localStorage.removeItem(legacyRecoveryKey(review));localStorage.setItem(firstWorldRecoveryKey(review),raw);
+  const locks:string[]=[];
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(key:string,action:()=>unknown)=>{
+    locks.push(key);return Promise.resolve(action());
+  }}});
+  expect(locateObsoleteUnsubmittedRecovery(review)).toEqual({key:firstWorldRecoveryKey(review),raw});
+  await archiveObsoleteUnsubmittedRecovery(review,raw,()=>true);
+  expect(locks).toEqual([firstWorldRecoveryKey(review),legacyRecoveryKey(review)]);
+  expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBeNull();expect(localStorage.getItem(localStorage.key(0)!)).toBe(raw);
+});
+
+it('keeps both mismatch and foreign-scope explanations on malformed retained effects',()=>{
+  const altered=structuredClone(plan);altered.reviewedEffect.contribution_meta={...altered.reviewedEffect.contribution_meta as Record<string,unknown>,campaign_scope:'foreign'};
+  expect(()=>assertFirstWorldPlan(altered,review)).toThrow(/does not match.*foreign scope/);
+});
+
+it('archives the original legacy record after the selected World/run source changes',async()=>{
+  const raw=obsoleteRecovery(),originalKey=legacyRecoveryKey(review);
+  const current={...review,sourceArtifactId:'changed-source',sourceRevisionId:'sha256:'+'f'.repeat(64),assertions:[]};
+  const locks:string[]=[];
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(key:string,action:()=>unknown)=>{
+    locks.push(key);return Promise.resolve(action());
+  }}});
+  expect(locateObsoleteUnsubmittedRecovery(current)).toEqual({key:originalKey,raw});
+  await archiveObsoleteUnsubmittedRecovery(current,raw,()=>true);
+  expect(locks).toEqual([firstWorldRecoveryKey(current),originalKey]);
+  expect(localStorage.getItem(originalKey)).toBeNull();expect(readFirstWorldRecovery(current)).toBeNull();
+  expect(localStorage.length).toBe(1);expect(localStorage.key(0)).toContain(originalKey+':obsolete:');
+  expect(localStorage.getItem(localStorage.key(0)!)).toBe(raw);
+});
+
+it.each(['worldId','runId'] as const)('never archives an obsolete record across selected %s',async field=>{
+  const raw=obsoleteRecovery(),current={...review,[field]:'another-selection'};
+  expect(locateObsoleteUnsubmittedRecovery(current)).toBeNull();
+  await expect(archiveObsoleteUnsubmittedRecovery(current,raw,()=>true)).rejects.toThrow('Another creation');
+  expect(localStorage.length).toBe(1);expect(localStorage.getItem(legacyRecoveryKey(review))).toBe(raw);
 });

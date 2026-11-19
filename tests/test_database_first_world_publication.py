@@ -273,7 +273,7 @@ def test_native_first_world_prepare_is_read_only_with_absent_or_admitted_source(
     assert not case.authority.initializations
 
 
-def _native_stage_case(monkeypatch, tmp_path, dsn, *, admitted=False, one_paragraph=False):
+def _native_stage_case(monkeypatch, tmp_path, dsn, *, admitted=False, one_paragraph=False, prepare=True):
     """Real prepared reservation/source in fixture-owned APP and Core databases."""
     from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresNativeSourceEvidenceRepository
     from apps.live_control_server import config
@@ -299,8 +299,8 @@ def _native_stage_case(monkeypatch, tmp_path, dsn, *, admitted=False, one_paragr
     request = NativeFirstWorldPrepareRequest.model_validate({
         "schema": "dmb_native_first_world_prepare_request_v1", "runId": case.request.run_id,
         "decisions": [d.model_dump(mode="json", by_alias=True) for d in case.request.decisions]})
-    plan = native.prepare_native_first_world(request, principal_subject="test-operator", repository=repository)
-    return SimpleNamespace(**vars(case), repository=repository, plan=plan, native=native)
+    plan = native.prepare_native_first_world(request, principal_subject="test-operator", repository=repository) if prepare else None
+    return SimpleNamespace(**vars(case), repository=repository, plan=plan, native=native, native_request=request)
 
 
 @pytest.mark.parametrize("admitted", [False, True])
@@ -849,3 +849,116 @@ def test_native_first_world_deterministic_graph_conflict_keeps_original_type_and
     assert world_snapshot() == app
     assert case.repository.get_prospective_publication(case.plan.native_target.native_world_id,
                                                        case.plan.publication_id) is None
+
+
+def test_native_first_world_all_rejected_confirm_refuses_before_any_source_stage(
+    native_first_world_core_dsn, monkeypatch, tmp_path,
+):
+    from apps.live_control_server.models.native_first_world_publication import (
+        NativeFirstWorldPrepareRequest, NativeFirstWorldConfirmRequest,
+    )
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    from tests.application_state.world_catalog_fixtures import world_snapshot
+    case = _native_stage_case(monkeypatch, tmp_path, native_first_world_core_dsn)
+    decisions = [{**row.model_dump(mode="json", by_alias=True), "decision": "reject"}
+                 for row in case.request.decisions]
+    plan = case.native.prepare_native_first_world(NativeFirstWorldPrepareRequest.model_validate({
+        "schema": "dmb_native_first_world_prepare_request_v1", "runId": case.request.run_id, "decisions": decisions}),
+        principal_subject="test-operator", repository=case.repository)
+    assert not plan.confirmable and not plan.accepted_assertion_ids
+    before, catalog = _native_core_counts(native_first_world_core_dsn), world_snapshot()
+    request = NativeFirstWorldConfirmRequest.model_validate({"schema": "dmb_native_first_world_confirm_request_v1",
+        "plan": plan.model_dump(mode="json", by_alias=True)})
+    with pytest.raises(ExtractPromoteError) as error:
+        case.native.confirm_native_first_world(request, principal_subject="test-operator", repository=case.repository)
+    assert error.value.code == "empty_first_world_contribution"
+    assert _native_core_counts(native_first_world_core_dsn) == before
+    assert world_snapshot() == catalog
+    assert case.repository.get_head(plan.native_target.native_world_id) is None
+
+
+@pytest.mark.parametrize("failure", ["signature", "expired"])
+def test_native_first_world_mounted_local_token_refusal_is_deterministic_without_mutation(
+    native_first_world_core_dsn, monkeypatch, tmp_path, failure,
+):
+    import asyncio
+    from datetime import UTC, datetime, timedelta
+    import httpx
+    from fastapi import FastAPI
+    from apps.live_control_server.routes.extract_promote import router
+    from apps.live_control_server.services import agent_graph_auth as auth
+    from tests.application_state.world_catalog_fixtures import world_snapshot
+    case = _native_stage_case(monkeypatch, tmp_path, native_first_world_core_dsn)
+    stamp = datetime.now(UTC) - case.native.PREPARE_TTL - timedelta(seconds=5) if failure == "expired" else datetime.now(UTC)
+    plan = case.native.prepare_native_first_world(case.native_request, principal_subject="local_operator",
+                                                 repository=case.repository, now=stamp)
+    if failure == "signature":
+        plan = plan.model_copy(update={"token": "malformed-local-signature"})
+    monkeypatch.setattr(case.native, "_repository", lambda: case.repository)
+    token = "native-local-refusal-test-token-0123456789"
+    monkeypatch.setenv(auth.AUTH_MODE_ENV, "local_operator")
+    monkeypatch.setenv(auth.AUTH_ENVIRONMENT_ENV, "local")
+    monkeypatch.setenv(auth.LOCAL_OPERATOR_TOKEN_ENV, token)
+    app = FastAPI()
+    app.include_router(router)
+    before, catalog = _native_core_counts(native_first_world_core_dsn), world_snapshot()
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 55000)),
+                                     base_url="http://testserver") as client:
+            return await client.post("/api/live/extract-promote/worldbuilding/first-world/confirm",
+                json={"schema": "dmb_native_first_world_confirm_request_v1", "plan": plan.model_dump(mode="json", by_alias=True)},
+                headers={"Authorization": "Bearer " + token})
+    response = asyncio.run(exercise())
+    assert response.status_code == 409, response.text
+    assert response.json()["code"] == ("confirmation_expired" if failure == "expired" else "confirmation_invalid")
+    assert _native_core_counts(native_first_world_core_dsn) == before
+    assert world_snapshot() == catalog
+
+
+@pytest.mark.parametrize("padding", [64 * 1024, 600 * 1024])
+def test_native_first_world_mounted_hosted_prepare_only_returns_submitable_size(
+    native_first_world_core_dsn, monkeypatch, tmp_path, padding,
+):
+    from fastapi import FastAPI
+    from application_state.world_catalog import service as catalog
+    from apps.live_control_server.routes.extract_promote import router
+    from apps.live_control_server.services.world_container_registry import _stored_world
+    from apps.live_control_server.services import hosted_auth, hosted_native_graph_access as access
+    from tests.test_hosted_native_graph_access import _OfflineClient, OWNER, FRONTEND_ORIGIN
+    from tests.application_state.world_catalog_fixtures import world_snapshot
+    import tests._cutover_d3a_blocker_safe_fixtures as helpers
+    save = helpers.save_page
+    monkeypatch.setattr(helpers, "save_page", lambda root, document, text:
+                        save(root, document, text + "\n\n" + "x" * padding))
+    case = _native_stage_case(monkeypatch, tmp_path, native_first_world_core_dsn, prepare=False)
+    world = case.baseline.world_id
+    stored = _stored_world(world)
+    catalog.save_world(stored.record.model_copy(update={"owner_subject": OWNER}), expected_revision=stored.revision)
+    monkeypatch.setattr(case.native, "_repository", lambda: case.repository)
+    monkeypatch.setenv(hosted_auth.DEPLOYMENT_ENVIRONMENT_ENV, "production")
+    monkeypatch.setenv(hosted_auth.AUTH_MODE_ENV, "hosted_dms")
+    monkeypatch.setenv(hosted_auth.TRUSTED_FRONTEND_ORIGINS_ENV, FRONTEND_ORIGIN)
+    monkeypatch.setenv(hosted_auth.HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+    app = FastAPI()
+    app.include_router(router)
+    hosted_auth.install_hosted_request_boundary(app, world_scope_resolvers={
+        ("POST", access.FIRST_WORLD_PREPARE_PATH): access.resolve_hosted_first_world,
+        ("POST", access.FIRST_WORLD_CONFIRM_PATH): access.resolve_hosted_first_world,
+    })
+    client = _OfflineClient(app)
+    before, snapshot = _native_core_counts(native_first_world_core_dsn), world_snapshot()
+    response = client.request("POST", access.FIRST_WORLD_PREPARE_PATH,
+                              json=case.native_request.model_dump(mode="json", by_alias=True))
+    assert _native_core_counts(native_first_world_core_dsn) == before
+    assert world_snapshot() == snapshot
+    if padding == 600 * 1024:
+        assert response.status_code == 409, response.text
+        assert response.json()["code"] == "native_first_world_confirmation_too_large"
+    else:
+        assert response.status_code == 200, response.text
+        confirm = {"schema": "dmb_native_first_world_confirm_request_v1", "plan": response.json()}
+        wire = json.dumps(confirm, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        assert len(wire) <= hosted_auth.MAX_WORLD_SCOPE_BODY_BYTES
+        published = client.request("POST", access.FIRST_WORLD_CONFIRM_PATH, json=confirm)
+        assert published.status_code == 200, published.text
+        assert published.json()["activationStatus"] == "active"

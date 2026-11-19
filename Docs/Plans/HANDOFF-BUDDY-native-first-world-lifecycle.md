@@ -289,3 +289,39 @@ profile transition, while ordinary custom-predicate fixtures exercise the needed
 transition. Both source roles and original producer metadata remain unchanged.
 Full exact-head backend/frontend/discovered qualification and cumulative independent
 review remain pending; the full optimized deployment/V10/V11 goal remains active.
+
+## Review Cycle 1 repair
+
+Independent cumulative review at964173915a is HOLD, posted as5976648873. Its four
+findings are repaired within the existing lifecycle boundary: prepare measures
+the actual UTF-8 serialized native confirm envelope, including token, against
+the unchanged hosted body budget; all-rejected confirmations refuse before any
+source stage; token-owner errors retain their deterministic code/status; obsolete
+unsubmitted recovery finds its actual original key and own source scope and
+archives exact bytes under both current and legacy locks. Current World/run
+selection remains mandatory, including after source changes. Ambiguous/submitted
+records and storage/race failures preserve active bytes. The structural validator
+retains both mismatch and foreign-scope explanations without removing checks.
+
+The unchanged964 checkpoint completed owning176, ingestion888, world-and-content464
+and auth-app298 passes. Hosted1411/build pass and exact evidence validate.
+Discovered8070 passed/132 failed/2 pending/build passed. Exact-base comparison
+returned8047 passed/130 failed/2 pending:129 shared failure IDs with matching first
+error lines,3 new owning message-expectation failures repaired here, and one
+base-only BuildRunReview locking failure that is not claimed fixed. Detailed
+comparison retained externally; shared IDs do not alone prove identical causes.
+
+Repairs were staged in a git-archive verification copy while original qualification
+remained live and clean. Five actual SQL/mounted HTTP repair cases passed there: all
+rejected no-mutation, malformed/expired local token409, and hosted64KiB successful
+submission versus600KiB source refused during read-only prepare. Only the two
+backend and two UI owner paths were promoted after frozen checks completed.
+Mirror evidence is diagnostic; exact-head repair qualification and Cycle2 remain
+pending. No global body-budget, dependency, Core, provider or serving changes.
+
+Retained task-owned verification/b2-cycle1-repair (owner MIND Elderwyld lane) holds
+the repair diagnostic source. Keep until promoted fixes and replacement evidence
+are accepted; cleanup follows active process/mount/connection, unique-data/commit
+and dirty-worktree checks plus specifically approved scope. No manual artifacts
+removed or reclaimed bytes claimed. Repository verifier reports its own temporary
+roots cleaned; all referenced result artifacts remain in task-owned scratch.

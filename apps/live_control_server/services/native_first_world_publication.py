@@ -161,7 +161,11 @@ def _reservation(world_id, target, *, require_provisioning=False):
 def decode_native_plan(plan: NativeFirstWorldPlan, *, principal_subject=None, allow_expired=True):
     """Signature/scope verification only; no run, source, receipt or database reads."""
     plan = NativeFirstWorldPlan.model_validate(plan.model_dump(mode="json", by_alias=True))
-    signed = decode_publication_intent(plan.token, allow_expired_recovery=allow_expired)
+    from apps.live_control_server.services.graph_object_authoring_prepare import GraphObjectAuthoringError
+    try:
+        signed = decode_publication_intent(plan.token, allow_expired_recovery=allow_expired)
+    except GraphObjectAuthoringError as exc:
+        raise ExtractPromoteError(str(exc), code=exc.code, status_code=exc.status_code) from exc
     body = plan.model_dump(mode="json", by_alias=True, exclude={"token"})
     _require(signed.get("schema") == NATIVE_ENVELOPE_SCHEMA and signed.get("plan") == body
              and signed.get("expires_at") == plan.expires_at,
@@ -292,7 +296,16 @@ def prepare_native_first_world(request: NativeFirstWorldPrepareRequest, *, princ
              "native_first_world_source_changed", "The source metadata changed during review preparation.")
     _require(resolve_promotable_ingest_run(request.run_id, root=config.repo_root()).data.run.revision == draft.run_revision,
              "native_first_world_run_changed", "The extraction changed during review preparation.")
-    return NativeFirstWorldPlan.model_validate({**public, "token": token})
+    plan = NativeFirstWorldPlan.model_validate({**public, "token": token})
+    from apps.live_control_server.models.native_first_world_publication import (
+        NATIVE_CONFIRM_SCHEMA, NativeFirstWorldConfirmRequest,
+    )
+    from apps.live_control_server.services.hosted_auth import MAX_WORLD_SCOPE_BODY_BYTES
+    envelope = NativeFirstWorldConfirmRequest(schema=NATIVE_CONFIRM_SCHEMA, plan=plan)
+    _require(len(envelope.model_dump_json(by_alias=True).encode("utf-8")) <= MAX_WORLD_SCOPE_BODY_BYTES,
+             "native_first_world_confirmation_too_large",
+             "This exact review exceeds the supported confirmation size. Review a smaller source group.")
+    return plan
 
 
 def _intent(plan):
@@ -825,6 +838,8 @@ def confirm_native_first_world(request, *, principal_subject, authorize_world=No
     plan = decode_native_plan(request.plan, principal_subject=principal_subject)
     _authorize(authorize_world, plan.world_id)
     _reservation(plan.world_id, plan.native_target)
+    _require(plan.confirmable and bool(plan.accepted_assertion_ids),
+             "empty_first_world_contribution", "This review has no accepted assertions to publish.")
     repo = repository if repository is not None else _repository()
     prior = get_prospective_publication(plan.native_target.native_world_id, plan.publication_id, repository=repo)
     recovered = prior is not None
