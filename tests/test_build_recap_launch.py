@@ -15,7 +15,6 @@ from apps.live_control_server.main import create_app
 from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
 from apps.live_control_server.services import build_recap_launch as service
 from apps.live_control_server.services import graph_preview_runner as wrapper
-from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
 from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError
 
 pytestmark=pytest.mark.usefixtures("application_state_dsn")
@@ -114,8 +113,12 @@ def test_authenticated_routes_recover_the_exact_build_envelope(tmp_path,request_
     monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT', 'local')
     monkeypatch.setenv('DMB_AUTH_MODE', 'local_operator')
     monkeypatch.setattr('apps.live_control_server.routes.graph_preview.repo_root',lambda:tmp_path)
-    app=create_app();app.dependency_overrides[native_graph_gm_dependency]=lambda:None
-    with TestClient(app, client=("127.0.0.1", 50000)) as client:
+    token = "test-build-recap-local-operator-token"
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", token)
+    with TestClient(create_app(), client=("127.0.0.1", 50000),
+                    headers={"Authorization": f"Bearer {token}"}) as client:
         first=client.post('/api/live/graph-preview/build-recap-launches',json=request_body.model_dump(mode='json'))
         assert first.status_code==200,first.text
         payload=first.json();assert payload['run']['status']=='reviewable'

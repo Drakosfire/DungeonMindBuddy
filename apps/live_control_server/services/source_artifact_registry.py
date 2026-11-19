@@ -7,6 +7,7 @@ import json
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Callable
 
 from application_state.errors import ApplicationStateError
 from application_state.source import service as source_service
@@ -278,6 +279,7 @@ def create_recap_source_artifact_from_workspace_document(
     native_world_id: str,
     campaign_id: str,
     session_id: str,
+    authorize: Callable[[], None] | None = None,
 ) -> GraphMemorySourceArtifact:
     """Freeze an exact Build document as a separately scoped Recap source.
 
@@ -379,7 +381,7 @@ def create_recap_source_artifact_from_workspace_document(
         created_at=now,
         updated_at=now,
     )
-    return _register_page_source(root, candidate, content)
+    return _register_page_source(root, candidate, content, authorize=authorize)
 
 
 def _resolve_repo_contained_path(root: Path, path: Path) -> tuple[Path, str]:
@@ -598,7 +600,8 @@ def load_source_input_bytes(artifact: GraphMemorySourceArtifact) -> bytes:
 
 
 def _register_page_source(
-    root: Path, candidate: GraphMemorySourceArtifact, content: str
+    root: Path, candidate: GraphMemorySourceArtifact, content: str,
+    *, authorize: Callable[[], None] | None = None,
 ) -> GraphMemorySourceArtifact:
     """Reuse exact immutable descriptors across the Page storage transition."""
     try:
@@ -623,4 +626,6 @@ def _register_page_source(
                 "retained Page source body differs", status_code=409
             )
         return existing
+    if authorize is not None:
+        authorize()
     return _register_source_input(artifact=candidate, content=content)

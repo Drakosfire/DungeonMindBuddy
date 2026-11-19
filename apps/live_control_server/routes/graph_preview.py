@@ -780,14 +780,33 @@ def get_recap_graph_presentation(
     return response.model_dump(mode="json")
 
 
-@router.post("/build-recap-launches", dependencies=[Depends(native_graph_gm_dependency)])
-def post_build_recap_launch(body: BuildRecapLaunchRequest) -> dict[str, Any]:
+@router.post("/build-recap-launches")
+def post_build_recap_launch(request: Request, body: BuildRecapLaunchRequest) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
     from apps.live_control_server.services.build_recap_launch import launch_build_recap
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
+
+    hosted = hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS
+    if hosted:
+        if request.query_params:
+            raise HTTPException(status_code=403, detail="Unexpected recap launch query")
+        require_hosted_build_native_source(request, body.managed_world_id)
+    else:
+        enforce_native_graph_gm(request)
+    def authorize() -> None:
+        require_hosted_build_native_source(request, body.managed_world_id)
+
     try:
-        run = launch_build_recap(repo_root(), body)
+        run = launch_build_recap(repo_root(), body, authorize=authorize if hosted else None)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
-    return get_extraction_run_build_context(run.run_id)
+    context = get_extraction_run_build_context(run.run_id)
+    if hosted:
+        require_hosted_build_native_source(request, body.managed_world_id)
+    return context
 
 
 @router.get("/build-recap-launches/{request_id}")

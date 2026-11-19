@@ -496,6 +496,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}/mechanics-adoptions"): access.resolve_hosted_combat_encounter,
             ("POST", "/api/live/world-graph/managed-projection"): access.resolve_hosted_managed_projection,
             ("GET", "/api/live/graph-preview/build-recap-launches/{request_id}"): access.resolve_hosted_build_recap_recovery,
+            ("POST", "/api/live/graph-preview/build-recap-launches"): access.resolve_hosted_build_extraction,
             ("GET", "/api/live/source-statements/proposals/{operation_id}"): access.resolve_hosted_source_statement_proposal,
             ("POST", "/api/live/source-statements/proposals/{operation_id}/review"): access.resolve_hosted_source_statement_review,
             ("GET", "/api/live/source-statements/{world_id}/subjects/{entity_id}"): access.resolve_hosted_source_statement_subject,
@@ -6364,3 +6365,86 @@ def test_hosted_build_recap_recovery_requires_owned_document(hosted, monkeypatch
     monkeypatch.setattr(graph_preview, "get_extraction_run_build_context",
                         lambda run_id: {"document_id": request_id, "run_id": run_id})
     assert hosted.client.request("GET", valid_path).status_code == 409
+
+
+def test_hosted_build_recap_launch_binds_world_before_dispatch_and_return(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.routes import graph_preview
+    from apps.live_control_server.services import build_recap_launch, workspace_document_registry
+
+    document_id = "00000000-0000-4000-8000-000000000001"
+    payload = {
+        "document_id": document_id,
+        "request_id": "00000000-0000-4000-8000-000000000002",
+        "managed_world_id": "managed",
+        "campaign_id": "campaign",
+        "expected_revision": 1,
+        "expected_content_sha256": "a" * 64,
+        "session": 1,
+    }
+    monkeypatch.setattr(
+        workspace_document_registry, "get_workspace_document",
+        lambda *_: SimpleNamespace(kind="worldbuilding_source", world_id="managed"),
+    )
+    launch = Mock(return_value=SimpleNamespace(run_id="saved-run"))
+    monkeypatch.setattr(build_recap_launch, "launch_build_recap", launch)
+    monkeypatch.setattr(
+        graph_preview, "get_extraction_run_build_context", lambda run_id: {"run_id": run_id},
+    )
+    path = "/api/live/graph-preview/build-recap-launches"
+    assert hosted.client.request("POST", path, json=payload, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**payload, "managed_world_id": "foreign"}).status_code == 403
+    assert hosted.client.request("POST", path + "?world_id=managed", json=payload).status_code == 403
+    launch.assert_not_called()
+
+    response = hosted.client.request("POST", path, json=payload)
+    assert response.status_code == 200, response.text
+    assert response.json() == {"run_id": "saved-run"}
+    assert str(launch.call_args.args[1].document_id) == document_id
+
+    def transfer_during_read(run_id):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"run_id": run_id}
+
+    monkeypatch.setattr(graph_preview, "get_extraction_run_build_context", transfer_during_read)
+    response = hosted.client.request("POST", path, json=payload)
+    assert response.status_code == 403, response.text
+    assert "saved-run" not in response.text
+
+
+def test_build_recap_launch_reauthorizes_before_reserving_run(monkeypatch, tmp_path):
+    from unittest.mock import Mock
+
+    from fastapi import HTTPException
+
+    from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
+    from apps.live_control_server.services import build_recap_launch as service
+
+    body = BuildRecapLaunchRequest(
+        document_id="00000000-0000-4000-8000-000000000001",
+        request_id="00000000-0000-4000-8000-000000000002",
+        managed_world_id="managed", campaign_id="campaign", expected_revision=1,
+        expected_content_sha256="a" * 64, session=1,
+    )
+    monkeypatch.setattr(service, "recover_build_recap_launch", Mock(
+        side_effect=service.GraphRunRegistryError("missing", status_code=404),
+    ))
+    monkeypatch.setattr(service, "resolve_recap_source_scope", Mock(
+        return_value=SimpleNamespace(model_dump=lambda: {}),
+    ))
+    register = Mock(return_value=SimpleNamespace(source_artifact_id="registered"))
+    monkeypatch.setattr(service, "register_build_recap_source", register)
+    monkeypatch.setattr(service, "frozen_build_recap_configuration", Mock(return_value={}))
+    reserve = Mock()
+    monkeypatch.setattr(service, "create_extraction_run", reserve)
+    authorize = Mock(side_effect=HTTPException(status_code=403))
+
+    with pytest.raises(HTTPException) as denied:
+        service.launch_build_recap(tmp_path, body, authorize=authorize)
+
+    assert denied.value.status_code == 403
+    assert register.call_args.kwargs["authorize"] is authorize
+    reserve.assert_not_called()

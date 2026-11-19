@@ -438,6 +438,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/tiptap/markdown-write/prepare"): resolve_hosted_build_page,
     ("POST", "/api/live/tiptap/markdown-write/commit"): resolve_hosted_build_page,
     ("POST", "/api/live/graph-preview/extraction-runs"): resolve_hosted_build_extraction,
+    ("POST", "/api/live/graph-preview/build-recap-launches"): resolve_hosted_build_extraction,
     ("GET", "/api/live/graph-preview/extraction-runs"): resolve_hosted_saved_recap,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-inspection"): resolve_hosted_saved_recap,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/usage"): resolve_hosted_saved_recap,
