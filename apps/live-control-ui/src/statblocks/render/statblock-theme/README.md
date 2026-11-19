@@ -49,7 +49,8 @@ existing files from public assets into this module-managed theme.
 ## Original Buddy paper
 
 `assets/buddy-paper.svg` is an original procedural texture authored for Buddy.
-It combines a cream-to-tan radial gradient with faint monochrome grain. It has
+It combines a cream-to-tan radial gradient with soft tonal variation from vector
+shapes. It uses no rasterizing noise filter. It has
 no embedded or external images, scripts, fonts, or copied upstream image bytes.
 Both the campaign statblock renderer and Home preview use this same asset.
 The SVG source and its history are the authoring record; no third-party image
