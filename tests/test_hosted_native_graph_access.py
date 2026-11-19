@@ -462,6 +462,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content/revisions/{revision_n}"): access.resolve_hosted_play_read,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): access.resolve_hosted_play_read,
+            ("GET", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/receipts"): access.resolve_hosted_play_table_receipts,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/prepared-tables/commands/{command_id}"): access.resolve_hosted_play_table_roll,
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
@@ -2793,6 +2794,17 @@ def test_hosted_owner_prepares_exact_saved_plan_for_play(hosted, application_sta
     missing_command = hosted.client.request("GET", command_path)
     assert missing_command.status_code == 404, missing_command.text
     assert hosted.client.request("PUT", roll_path, json=roll).json()["receipt"] == recorded.json()["receipt"]
+
+    receipt_path = f"{base}/prepared-tables/receipts?world_id=managed"
+    response = hosted.client.request("GET", receipt_path + "&limit=1")
+    assert response.status_code == 200, response.text
+    assert response.json() == {"receipts": [recorded.json()["receipt"]], "next_before": None}
+    assert hosted.client.request("GET", receipt_path + "&before=1").json()["receipts"] == []
+    assert hosted.client.request("GET", receipt_path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", receipt_path + "&limit=1&limit=2").status_code == 403
+    missing = receipt_path.replace(str(run_id), str(uuid4()))
+    assert missing != receipt_path
+    assert hosted.client.request("GET", missing).status_code == 404
 
 
     session_path = f"/api/live/world-workspace/sessions/{run_id}"

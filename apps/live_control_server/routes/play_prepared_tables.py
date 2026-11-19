@@ -1,6 +1,6 @@
 """Native GM admission for Play-owned prepared tables."""
 from typing import Annotated
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 from application_state.errors import ApplicationStateError
@@ -33,10 +33,14 @@ def get_tables(run_id: str, request: Request, world_id: Annotated[str, Query(min
 
 
 @router.get("/receipts")
-def get_receipts(run_id: str, request: Request, world_id: Annotated[str, Query(min_length=1)],
+def get_receipts(run_id: str, request: Request, response: Response, world_id: Annotated[str, Query(min_length=1)],
                  before: Annotated[int | None, Query(ge=1)] = None, limit: Annotated[int, Query(ge=1, le=100)] = 20):
-    enforce_native_graph_gm(request)
-    return invoke(receipts, world_id=world_id, run_id=run_id, before=before, limit=limit)
+    authorize(request, world_id)
+    result = invoke(receipts, world_id=world_id, run_id=run_id, before=before, limit=limit)
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        authorize(request, world_id)
+    response.headers["Cache-Control"] = "no-store"
+    return result
 
 
 @router.put("/commands/{command_id}")

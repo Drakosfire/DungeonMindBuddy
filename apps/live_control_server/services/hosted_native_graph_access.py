@@ -512,13 +512,26 @@ async def resolve_hosted_play_command(request: Request) -> str:
     return await _resolve_hosted_play_world(request)
 
 
+async def resolve_hosted_play_table_receipts(request: Request) -> str:
+    if await request.body():
+        raise _denied()
+    return await _resolve_hosted_play_world(request, pagination_keys={"before", "limit"})
+
+
 async def resolve_hosted_play_table_roll(request: Request) -> str:
     return await _resolve_hosted_play_world(request)
 
 
-async def _resolve_hosted_play_world(request: Request) -> str:
+async def _resolve_hosted_play_world(
+    request: Request, *, pagination_keys: frozenset[str] | set[str] = frozenset()
+) -> str:
     world_id = request.query_params.get("world_id")
-    if not world_id or request.query_params.multi_items() != [("world_id", world_id)]:
+    selectors = request.query_params.multi_items()
+    if (
+        not world_id
+        or len(selectors) != len(request.query_params)
+        or any(key != "world_id" and key not in pagination_keys for key, _ in selectors)
+    ):
         raise _denied()
     run_id = getattr(request.state, "hosted_route_run_id", None)
     if run_id is not None:
