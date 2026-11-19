@@ -1,6 +1,8 @@
 # CLEANUP: restore staged work-plan test fixtures
 
-Status: ACTIVE under the user's cleanup goal and standing review/merge authority.
+Status: SETTLED. PR #4080 merged at c54d6545563d68a3120d748287bbda75783b62b0
+from independently approved head cb815780e76057bf4b9da3e6102d68beec69315b.
+The staged-work-plan fixture lease is closed.
 Base: 59bf34efb8e703d0d208362403dd3071132262b9, fetched origin/main.
 Branch: codex/staged-work-plan-fixtures in the existing cleanup checkout.
 Topology: one serial PR after merged #3532; no unmerged behavioral dependency.
@@ -32,3 +34,8 @@ Runtime: no application, database, provider or remote host resources. Frontend
 checks honor the global resource lock and use task-owned external scratch/cache
 on the verified Projects filesystem. SSH signing and the original release/Recap
 ownership gates remain separate; this fixture repair does not complete them.
+
+Accepted evidence: all ten module cases pass; exact hosted 1,411/build/validator
+pass. Full 8,181-case inventory is preserved: nine intended failures resolve,
+8,029 cases pass, 150 remain red and two conditional inventory extras persist.
+No runtime behavior or original assertion was changed. #4074 remains open.
