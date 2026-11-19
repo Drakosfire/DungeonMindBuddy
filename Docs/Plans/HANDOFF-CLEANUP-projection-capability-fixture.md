@@ -1,6 +1,12 @@
 # CLEANUP: explicit projection-capability regression fixture
 
-Status: ACTIVE under the cleanup goal, with independent review and merge authority.
+Status: SETTLED by #4098, mergeca3101a35dbb54d7edc5b58f764365ee7729c691.
+Exacthead190971af136d9a1e003388e570cfc6186e0f065d independently approved.
+Focused76pass; hosted1411/build/validator pass; full8046pass131fail2pending.
+One explicit old/new case pair, only intended failure resolved; no other
+omissions/new failures/changed leading messages. Full qualification remains red.
+
+Historical assignment: ACTIVE under the cleanup goal, with independent review and merge authority.
 Base 6fee61800b98f6cc7ac49e00021a18f9a8db5cbc; serial after #4096,
 no unmerged dependency. Reuse isolated checkout; no ports/providers/databases.
 
