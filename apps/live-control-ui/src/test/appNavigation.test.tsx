@@ -272,29 +272,39 @@ describe("App same-document primary navigation", () => {
   });
 
   it("replays primary routes on browser back/forward", async () => {
-    render(<App />);
+    const worlds = vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1", records: [],
+    });
+    try {
+      window.history.pushState({}, "", "/build");
+      render(<App />);
+      expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
 
-    fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Ingest" }));
-    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
-    fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Plan" }));
-    expect(await screen.findByTestId("plan-canvas-title")).toBeInTheDocument();
-    fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Build" }));
-    expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
+      fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Ingest" }));
+      expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
+      fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Plan" }));
+      expect(await screen.findByRole("heading", { name: "Plan your next session" })).toBeInTheDocument();
+      fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Build" }));
+      expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
 
-    window.history.back();
-    await waitFor(() => {
-      expect(window.location.pathname).toBe("/plan");
-      expect(screen.getByTestId("plan-canvas-title")).toBeInTheDocument();
-    });
-    window.history.back();
-    await waitFor(() => {
-      expect(window.location.pathname).toBe("/ingest");
-      expect(screen.getByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
-    });
-    window.history.forward();
-    await waitFor(() => {
-      expect(window.location.pathname).toBe("/plan");
-    });
+      window.history.back();
+      await waitFor(() => {
+        expect(window.location.pathname).toBe("/plan");
+        expect(screen.getByRole("heading", { name: "Plan your next session" })).toBeInTheDocument();
+      });
+      window.history.back();
+      await waitFor(() => {
+        expect(window.location.pathname).toBe("/ingest");
+        expect(screen.getByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
+      });
+      window.history.forward();
+      await waitFor(() => {
+        expect(window.location.pathname).toBe("/plan");
+        expect(screen.getByRole("heading", { name: "Plan your next session" })).toBeInTheDocument();
+      });
+    } finally {
+      worlds.mockRestore();
+    }
   });
 
   it("keeps /play?run= across Ingest navigation and back", async () => {
