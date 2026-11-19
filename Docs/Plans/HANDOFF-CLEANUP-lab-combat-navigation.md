@@ -1,6 +1,13 @@
 # CLEANUP: remove prototype/product navigation coupling
 
-Status: ACTIVE under the standing cleanup goal with independent review/merge
+Status: SETTLED by #4099 at98d3157a09790e5a53a851b9ea24a5de51bd2aa5.
+Reviewed14ccffc887d938e1c90caf96b822f0c134282351 independently approved.
+884sourcebytes removed, non-navJS/allotherlab bytes unchanged; three DOM modes
+33targets pass. Focused16pass; hosted1411/build/validator pass; full8047pass
+130fail2pending, explicitonecasepair only intendedresolution, no other omissions/
+new failures/changed prefixes. Full qualification remains red.
+
+Historical assignment: ACTIVE under the standing cleanup goal with independent review/merge
 permission. Base ca3101a35dbb54d7edc5b58f764365ee7729c691. Serial after #4098;
 no unmerged dependency. Existing isolated checkout, no live runtime/database.
 
