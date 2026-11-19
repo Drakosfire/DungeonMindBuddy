@@ -1,111 +1,91 @@
-# HANDOFF — SETTLEMENT: retire Campaign Supergraph roadmap authority
+# SETTLEMENT: retire Campaign Supergraph roadmap authority
 
-**Created:** 2026-09-25
-**Status:** BLOCKED — design is complete; do not allocate an implementation lane
-**Flow / workstream:** SETTLEMENT
-**Handoff direction:** STEWARD → CODE after activation
-**Design-time base:** `9473244f57e7845928fc47225fd08863ea85804b`
-**PR topology:** serial after UI PR #761 releases the roadmap path
-**Activation gate:** UI PR #761 is merged/closed, this settlement authority is on main, and a fresh re-anchor confirms no open PR or ACTIVE handoff leases `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`.
+Status: ACTIVE — cleanup steward adopts the existing retirement design under the
+standing user goal's design, implementation, independent review and merge authority.
+Serial one PR; base `3836a2c74e7e5bf67e86d060e8b14cffe63bab3a`, branch
+`codex/retire-campaign-roadmap`, reused isolated checkout. No runtime resources.
+This is documentation authority retirement, not a new product/global roadmap.
 
-## §1 Mission and merge-ready invariant
+## Activation and consumer dispositions
 
-**Mission:** Retire the Campaign Supergraph roadmap's stale claim to current
-implementation authority while preserving its migration history.
+The original blocked authority already exists on the base. Its #761 prerequisite
+is resolved: CLOSED unmerged2026-10-07; closing comment explicitly retires the
+dormant decision with #760. Merged630/634/640/645/651/653/658/667 are verified
+ancestors; these close the named historical CUTOVER implementation write scopes,
+not merely old labels. The stewardship closure mission's roadmap state-sync region
+is consumed by this settlement; its separate DungeonMind critique is untouched.
+OPT01/02, kernel-correction and reconnaissance mentions are parent/read context,
+not roadmap write leases. No legacy handoff is reactivated, deleted or repurposed.
 
-**Merge-ready invariant:** The canonical roadmap path is either a historical
-forwarding record or an explicitly archived program record, no current source
-manifest classifies it as dispatch authority, and no active UI/product lane
-depends on its pre-retirement contents.
+The first audit found59openPRs/54pinned head handoffs, no read errors and no
+Campaign-roadmap lease. Fresh base3836 audit has58openPRs, identical remaining
+heads (#4152 merged), no expanded-path collision. #3824 at unchanged76c31187
+has102complete cached changed paths and no handoff/roadmap overlap. Only an
+unrelated ROADMAP-demo path appears in the open-head handoff scan. Tracked-path
+worktree scan found no roadmap dirtiness; one transient verifier was not a Git
+checkout and had no roadmap file. No other checkout or branch was removed.
+No executable/evaluation reference or inbound roadmap fragment link was found.
 
-## §2 Context, authority, and boundaries
+Explicitly adopt these consumer dispositions before implementation; their edits
+and verification remain required, not pre-marked complete:
 
-Read in order:
-
-1. `Docs/Reports/REPORT-repository-settlement-2026-09-25.md`
-2. `Docs/Reports/graph-document-audit.md`
-3. `Docs/Design/INDEX-design-agent-source-set.md`
-4. current `AGENTS.md` + `Docs/Process/STEWARD-CYCLE.md`
-5. current open PRs and exact `main`
-
-**Predecessor:** this repository-settlement authority repair.
-**Named successor:** none; future work is selected from domain workstreams.
-**What remains false until this slice lands:** the roadmap file itself still
-self-identifies as canonical.
-
-If the UI stack has not drained, the path is still leased, or a new current
-consumer is discovered, remain BLOCKED and report the consequence.
-
-## §3 Observable paths
-
-| Path | Required result |
+| Consumer | Disposition in this slice |
 |---|---|
-| Fresh contributor opens old roadmap directly | Sees historical/superseded status before any old sequence |
-| Fresh contributor follows README/source manifest | Is routed to current domain authorities, not Campaign sequence |
-| Historical link targets roadmap | Still resolves to useful history/pointer |
-| Active UI work | No in-flight design is invalidated by premature roadmap rewrite |
+| July Plan product checkpoint | Preserve all product intent as dated context; mark its old global sequencing recommendation historical and route current execution through domain contracts/active bounded handoffs. |
+| Plan Agent interaction anchor | Preserve reference content; distinguish its historical Campaign sequencing links from current shared-surface/domain ownership. |
+| Other dated design/report/handoff mentions | Keep paths useful through the historical forwarder and exact Git body. Their self-labels do not override current AGENTS, architecture and settlement classification. No current lane adopting old sequencing was found. |
+| Canonical roadmap | Historical forwarding record, not dispatch authority; full original body remains at the exact pinned Git version. |
 
-## §4 Write lease after activation
+These explicit caller dispositions resolve the discovered consumer stop condition.
+A new active assignment relying on the old sequencing or a write collision is a
+stop/split signal; do not silently dismiss it because a document is old.
+
+## Expanded exclusive write lease
+
+The steward explicitly revises the old roadmap-only lease to include the coupled
+caller/governance corrections. Splitting would leave contradictory current links
+or mirror state; deliver one independently reviewable retirement outcome.
 
 - `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`
-- `Docs/Roadmaps/archive/2026-09-25/campaign-supergraph/ROADMAP-campaign-supergraph.md` (create if explicit archive body is useful)
-- this handoff only for activation metadata if the steward performs the activation sync
+- this handoff
+- `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`
+- `Docs/Design/ANCHOR-plan-surface-agent-interaction.md`
+- `Docs/Design/INDEX-design-agent-source-set.md`
+- `Docs/Sources/design-agent/ACTIVE_REFERENCE/INDEX-design-agent-source-set.md`
+- `Docs/Reports/graph-document-audit.md`
+- `Docs/Sources/design-agent/ACTIVE_AUTHORITY/graph-document-audit.md`
+- `Docs/Sources/design-agent/README.md`
+- completed `Docs/Plans/HANDOFF-CLEANUP-export-retirement-gate.md` for removal
 
-No runtime/code/schema/source-mirror paths are leased.
+No runtime/schema, product design, unrelated historical handoff, source corpus,
+branch/worktree deletion or user-managed Project Sources change. No archive copy:
+Git is the historical archive. Keep the user-managed snapshot date unchanged.
 
-## §5 Explicit non-goals
+## Review map and verification
 
-- no UI implementation;
-- no reopening Campaign/CUTOVER slices;
-- no changes to CON-READY or Play sequencing;
-- no DungeonMind/WorldKeeper contract change;
-- no Project Sources UI mutation;
-- no branch deletion.
+The complete old roadmap is32771bytes, SHA256
+`41ff205d55ef2f67e2ea8d203450a4a9c680d2fbfa781b79612dd4247ca1f23a`, at
+base3836's exact `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` Git blob. Verify
+that pin and forwarding links; no useful history may disappear. Preserve date/
+intent in the two caller bodies while removing current sequencing claims.
 
-## §6 Implementation contract
+Update canonical index/governance first, then their mapped exports (manifest
+links retain their deliberate export-relative rewrites). Source set stays22files.
+Check source exclusion,22-export checker, maintained docs/link checks, focused
+forwarder/caller links, cumulative diffcheck and unchanged runtime/non-leased
+paths. Exact-head local hosted/build/validator and independent cumulative review
+required. Docs-only: do not duplicate the full frontend diagnostic or claim
+release qualification from the hosted safety sample.
 
-Preferred shape:
+## Evidence and predecessor
 
-```text
-old canonical roadmap body
-  → preserved in archive or Git history
+Primary states, merge ancestry, complete open-head handoff bodies and path audit:
+`/home/drakosfire/Projects/.codex/buddy-current-recap.52xnke0v/roadmap-retirement-lease-audit/`.
+The planning critique required these two consumer dispositions and expanded lease;
+it was not a formal implementation judgment or permission to skip final review.
 
-canonical roadmap path
-  → SUPERSEDED / HISTORICAL pointer
-  → current source manifest
-  → settlement report
-```
-
-Do not invent a replacement global roadmap. The settlement conclusion is that
-sequencing is workstream-specific.
-
-## §7 Evidence required to merge
-
-1. Fresh re-anchor proves #761 is merged/closed and no replacement lease exists.
-2. Search proves the canonical roadmap no longer claims current/canonical
-   implementation sequence.
-3. Source manifest still excludes it from the clean current bundle.
-4. Historical content remains accessible.
-5. Repository Markdown/link checks pass.
-6. `git diff --check` passes.
-
-A new current consumer of the roadmap is a stop condition, not a reason to
-silently keep old authority wording.
-
-## §8 Required handback
-
-Record:
-
-- exact base/head;
-- open-PR topology at activation;
-- disposition of #761;
-- exact changed paths;
-- verification commands/results;
-- whether an explicit archive copy was created;
-- confirmation that no new global roadmap was invented.
-
-## §9 Acceptance
-
-Accept only when the old roadmap is unambiguously historical, current
-workstreams remain untouched, links remain useful, and no active lane lost an
-authority it still depended on.
+#4151 reviewed11c7ae7366a6e4d2939351987b93d6df9b185261 merged
+81ac22bc0eade6c1416ff3bcdef24d8744fa9145, tree identical; hosted1406/build/
+validator0,22exports and124links passed; independent APPROVE. Its completed brief
+is retired here with Git history retained. Original247 accounting and unrelated
+UI/backend diagnostic failures are unchanged by this documentation retirement.
