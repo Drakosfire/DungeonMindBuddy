@@ -343,7 +343,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     "/api/live/graph-authoring/document-relationship/native-prepare",
     "/api/live/graph-authoring/document-relationship/native-confirm",
   ].includes(pathname)) return true;
-  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/lore-pages\/confirm$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/lore-pages\/(?:review|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/work-plans\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/continue)?$/i.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/turns\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/variant-approval$/i.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/variant-reviews\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/(?:confirm|saved))?)?$/i.test(pathname)) return true;
@@ -741,7 +741,7 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/turns\/[0-9a-f-]+\/(?:native-source-sections|source-passages|native-body-excerpts|native-assertion-sources|native-source-clauses)\/\d+$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
-  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/lore-pages\/confirm$/.test(path)) {
+  if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/lore-pages\/(?:review|confirm)$/.test(path)) {
     return method === "POST" && !!requestBodyRecord(init?.body);
   }
   if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversation\/turns\/[0-9a-f-]+\/context-trace$/.test(path)) {

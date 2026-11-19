@@ -1739,6 +1739,22 @@ def confirm_conversation_variant_review(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
+@router.post("/worlds/{world_id}/conversation/lore-pages/review")
+def prepare_world_lore_save_review(world_id: str, body: LorePageConfirmation, request: Request):
+    from apps.live_control_server.services.hosted_native_graph_access import conversation_graph_principal
+
+    principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+    if principal.role != "gm":
+        raise HTTPException(status_code=403, detail={"code": "lore_confirmation_forbidden"})
+    try:
+        _conversation_service(request).prepare_lore_save_review(
+            world_id=_verified_world_id(world_id), principal_subject=principal.subject, confirmation=body,
+        )
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return {"review_sha256": body.review_sha256}
+
+
 @router.post("/worlds/{world_id}/conversation/lore-pages/confirm")
 def confirm_world_lore_page(world_id: str, body: LorePageConfirmation, request: Request):
     from apps.live_control_server.services.agent_native_source_sections import open_native_body_excerpt

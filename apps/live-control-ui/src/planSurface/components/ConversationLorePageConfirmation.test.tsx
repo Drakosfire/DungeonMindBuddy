@@ -27,6 +27,9 @@ it('saves only on explicit confirmation and submits the displayed digest', async
   };
   const api = vi.mocked(authenticatedApiFetch);
   api.mockResolvedValueOnce({
+    response: Response.json({review_sha256: digest}),
+  } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+  api.mockResolvedValueOnce({
     response: Response.json({document_id: 'saved-page', revision_id: 'saved-revision', review_sha256: digest}),
   } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
   render(<ConversationLorePageConfirmation
@@ -34,10 +37,14 @@ it('saves only on explicit confirmation and submits the displayed digest', async
     completion={completion} digest={async () => digest} disabled={false}
   />);
   expect(api).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', {name: 'Confirm save of Rowan'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Review save of Rowan'}));
+  const confirm = await screen.findByRole('button', {name: 'Confirm save of Rowan'});
+  expect(api).toHaveBeenCalledTimes(1);
+  expect(String(api.mock.calls[0]?.[0])).toMatch(/lore-pages\/review$/);
+  fireEvent.click(confirm);
   expect(await screen.findByRole('link', {name: 'Open saved page'}))
     .toHaveAttribute('href', '/build?world=fixture-world&documentId=saved-page');
-  expect(api).toHaveBeenCalledExactlyOnceWith(
+  expect(api).toHaveBeenLastCalledWith(
     '/api/live/agent/worlds/fixture-world/conversation/lore-pages/confirm',
     expect.objectContaining({method: 'POST', body: JSON.stringify({
       conversation_id: 'fixture-conversation', turn_id: 'fixture-turn', review_sha256: digest,

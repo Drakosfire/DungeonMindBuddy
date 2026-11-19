@@ -16,6 +16,7 @@ export function ConversationLorePageConfirmation({
 }: Props) {
   const inFlight = useRef(false);
   const [saving, setSaving] = useState(false);
+  const [preparedDigest, setPreparedDigest] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const draft = completion.collaboration;
@@ -28,7 +29,12 @@ export function ConversationLorePageConfirmation({
     setError(null);
     try {
       const reviewSha256 = await digest();
-      const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/lore-pages/confirm`;
+      if (preparedDigest !== null && preparedDigest !== reviewSha256) {
+        setPreparedDigest(null);
+        throw new Error('This draft changed. Open its current review before saving.');
+      }
+      const action = preparedDigest === null ? 'review' : 'confirm';
+      const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/lore-pages/${action}`;
       const {response} = await authenticatedApiFetch(path, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -40,7 +46,14 @@ export function ConversationLorePageConfirmation({
       if (!response.ok) {
         throw new Error(typeof result.detail === 'string' ? result.detail : 'The lore page could not be saved.');
       }
-      if (result.review_sha256 !== reviewSha256 || typeof result.document_id !== 'string') {
+      if (result.review_sha256 !== reviewSha256) {
+        throw new Error('The save review did not match this draft.');
+      }
+      if (action === 'review') {
+        setPreparedDigest(reviewSha256);
+        return;
+      }
+      if (typeof result.document_id !== 'string') {
         throw new Error('The save receipt did not match this draft.');
       }
       setSavedId(result.document_id);
@@ -56,7 +69,9 @@ export function ConversationLorePageConfirmation({
     {savedId
       ? <a href={'/build?' + new URLSearchParams({world: worldId, documentId: savedId})}>Open saved page</a>
       : <button type="button" disabled={disabled || saving} onClick={() => void confirm()}>
-        {saving ? 'Saving…' : `Confirm save of ${draft.destination.title}`}
+        {saving ? 'Working…' : preparedDigest
+          ? `Confirm save of ${draft.destination.title}`
+          : `Review save of ${draft.destination.title}`}
       </button>}
     {error && <p role="alert">{error}</p>}
   </div>;

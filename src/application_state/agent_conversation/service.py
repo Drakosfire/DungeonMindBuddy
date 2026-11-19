@@ -1117,6 +1117,12 @@ class AgentConversationService:
             )
         return turn
 
+    def prepare_lore_save_review(self, *, world_id, principal_subject, confirmation):
+        from .lore_page_confirmation import prepare_lore_save_review
+
+        prepare_lore_save_review(_ready_dsn(), world_id=_world_id(world_id),
+            principal_subject=principal_subject, confirmation=confirmation)
+
     def confirm_lore_page(self, *, world_id, principal_subject, confirmation, verify_source):
         from .lore_page_confirmation import confirm_lore_page
 
@@ -3058,6 +3064,11 @@ class AgentConversationService:
         )
         from .rules_authority_types import RulesSupportRefV1
 
+        from .lore_page_review import ProposedLorePage
+
+        if isinstance(getattr(getattr(result.base_result, "completion", None), "collaboration", None),
+                      ProposedLorePage):
+            raise ApplicationStateValidationError("Confirmable lore review requires an ordinary Build completion")
         scope = result.scope
         world_id = _world_id(scope.world_id)
         if (capability_for_policy_sha256(scope.capability_policy_sha256) is not None

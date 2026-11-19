@@ -10,6 +10,14 @@ depends_on = None
 
 def upgrade():
     op.execute("""
+        CREATE TABLE agent.lore_page_save_review (
+            turn_id uuid NOT NULL REFERENCES agent.turn(turn_id) ON DELETE RESTRICT,
+            principal_subject text NOT NULL CHECK (length(principal_subject) > 0),
+            review_sha256 text NOT NULL CHECK (review_sha256 ~ '^[0-9a-f]{64}$'),
+            PRIMARY KEY (turn_id, principal_subject)
+        )
+    """)
+    op.execute("""
         CREATE TABLE agent.lore_page_confirmation (
             turn_id uuid PRIMARY KEY REFERENCES agent.turn(turn_id) ON DELETE RESTRICT,
             review_sha256 text NOT NULL CHECK (review_sha256 ~ '^[0-9a-f]{64}$'),

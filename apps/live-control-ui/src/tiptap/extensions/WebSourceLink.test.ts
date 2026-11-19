@@ -133,3 +133,42 @@ it.each(['\u0085','\u009f'])('refuses C1 title controls through actual Markdown 
  const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:element.innerHTML});
  try {expect(editor.view.dom.querySelector('a')).toBeNull()} finally {editor.destroy()}
 });
+
+it('reopens a saved lore citation from rendered Markdown through Buddy’s source client', async () => {
+  const {getAgentNativeBodyExcerpt} = await import('../../api/liveApi');
+  const api = await import('../../api/liveApi');
+  const turnId = '00000000-0000-4000-8000-000000000001';
+  const path = `/api/live/agent/worlds/fixture-world/conversation/turns/${turnId}/native-body-excerpts/0`;
+  const source = vi.spyOn(api, 'getAgentNativeBodyExcerpt').mockResolvedValue({
+    world_id: 'fixture-world', turn_id: turnId, citation_index: 0,
+    display_label: 'Campaign recap', content: 'Exact recalled words.',
+  } as Awaited<ReturnType<typeof getAgentNativeBodyExcerpt>>);
+  const showModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'showModal');
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value(this: HTMLDialogElement) { this.setAttribute('open', ''); },
+  });
+  const element = document.createElement('div');
+  document.body.append(element);
+  const markdown = `Reviewed lore\n\n[Source 1](${path})`;
+  const editor = new Editor({
+    element, editable: false, extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
+    content: markdownToTiptapDoc(markdown).doc,
+  });
+  try {
+    expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toBe(markdown + "\n");
+    const link = editor.view.dom.querySelector('a')!;
+    expect(link.getAttribute('href')).toBe('#');
+    link.click();
+    await vi.waitFor(() => expect(document.querySelector('dialog[open]')?.textContent)
+      .toContain('Exact recalled words.'));
+    expect(source).toHaveBeenCalledExactlyOnceWith('fixture-world', turnId, 0);
+  } finally {
+    editor.destroy();
+    element.remove();
+    document.querySelector('dialog[open]')?.remove();
+    if (showModal) Object.defineProperty(HTMLDialogElement.prototype, 'showModal', showModal);
+    else Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+    source.mockRestore();
+  }
+});

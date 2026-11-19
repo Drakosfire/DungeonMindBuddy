@@ -259,6 +259,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/conversation/lore-pages/review"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversation/lore-pages/confirm"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-assertion-sources/{citation_index}"): resolve_hosted_conversation_world,

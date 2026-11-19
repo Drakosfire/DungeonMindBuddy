@@ -50,20 +50,37 @@ def _body(turn: Turn) -> str:
     return "\n\n".join(paragraphs)
 
 
+def _locked_review(conn, world_id: str, confirmation: LorePageConfirmation) -> Turn:
+    pointer = repository.lock_world_state(conn, world_id)
+    conversation = repository.lock_conversation(conn, world_id, confirmation.conversation_id)
+    if conversation is None or pointer.active_conversation_id != confirmation.conversation_id:
+        raise ApplicationStateNotFoundError("Active lore review conversation not found")
+    turn = repository.get_turn(conn, world_id, confirmation.turn_id)
+    if (not isinstance(turn, Turn) or turn.conversation_id != confirmation.conversation_id
+            or turn.status != "completed" or not isinstance(turn.completion, SurfaceNativeCompletionV1)
+            or not isinstance(turn.completion.collaboration, ProposedLorePage)):
+        raise ApplicationStateNotFoundError("Completed lore review not found")
+    if canonical_sha256(turn.completion) != confirmation.review_sha256:
+        raise ApplicationStateConflictError("Confirm the exact displayed lore revision")
+    return turn
+
+
+def prepare_lore_save_review(dsn: str, *, world_id: str, principal_subject: str,
+                             confirmation: LorePageConfirmation) -> None:
+    with unit_of_work(dsn) as conn:
+        turn = _locked_review(conn, world_id, confirmation)
+        _require_current_review(conn, turn)
+        conn.execute(
+            """INSERT INTO agent.lore_page_save_review (turn_id, principal_subject, review_sha256)
+               VALUES (%s, %s, %s) ON CONFLICT (turn_id, principal_subject) DO NOTHING""",
+            (turn.turn_id, principal_subject, confirmation.review_sha256),
+        )
+
+
 def confirm_lore_page(dsn: str, *, world_id: str, principal_subject: str,
                       confirmation: LorePageConfirmation, verify_source) -> LorePageReceipt:
     with unit_of_work(dsn) as conn:
-        pointer = repository.lock_world_state(conn, world_id)
-        conversation = repository.lock_conversation(conn, world_id, confirmation.conversation_id)
-        if conversation is None or pointer.active_conversation_id != confirmation.conversation_id:
-            raise ApplicationStateNotFoundError("Active lore review conversation not found")
-        turn = repository.get_turn(conn, world_id, confirmation.turn_id)
-        if (not isinstance(turn, Turn) or turn.conversation_id != confirmation.conversation_id
-                or turn.status != "completed" or not isinstance(turn.completion, SurfaceNativeCompletionV1)
-                or not isinstance(turn.completion.collaboration, ProposedLorePage)):
-            raise ApplicationStateNotFoundError("Completed lore review not found")
-        if canonical_sha256(turn.completion) != confirmation.review_sha256:
-            raise ApplicationStateConflictError("Confirm the exact displayed lore revision")
+        turn = _locked_review(conn, world_id, confirmation)
         existing = conn.execute(
             """SELECT principal_subject, review_sha256, document_id, revision_id
                FROM agent.lore_page_confirmation WHERE turn_id = %s""",
@@ -75,18 +92,15 @@ def confirm_lore_page(dsn: str, *, world_id: str, principal_subject: str,
                 raise ApplicationStateConflictError("Lore confirmation differs from its original receipt")
             return LorePageReceipt(document_id=document_id, revision_id=revision_id, review_sha256=digest)
 
-        title = turn.completion.collaboration.destination.title
-        later = conn.execute(
-            """SELECT 1 FROM agent.turn
-               WHERE world_id = %s AND conversation_id = %s AND sequence > %s
-                 AND status = 'completed'
-                 AND completion->'collaboration'->>'kind' = 'lore_page'
-                 AND lower(completion->'collaboration'->'destination'->>'title') = lower(%s)
-               LIMIT 1""",
-            (world_id, turn.conversation_id, turn.sequence, title),
+        _require_current_review(conn, turn)
+        presented = conn.execute(
+            """SELECT review_sha256 FROM agent.lore_page_save_review
+               WHERE turn_id = %s AND principal_subject = %s""",
+            (turn.turn_id, principal_subject),
         ).fetchone()
-        if later is not None:
-            raise ApplicationStateConflictError("This lore draft has been superseded")
+        if presented != (confirmation.review_sha256,):
+            raise ApplicationStateConflictError("Open the exact lore save review before confirming")
+        title = turn.completion.collaboration.destination.title
         for ordinal, citation in enumerate(turn.completion.native_body_citations):
             if verify_source(turn.turn_id, ordinal).citation != citation:
                 raise ApplicationStateConflictError("Lore review source differs from its exact citation")
@@ -104,3 +118,18 @@ def confirm_lore_page(dsn: str, *, world_id: str, principal_subject: str,
             (turn.turn_id, receipt.review_sha256, principal_subject, receipt.document_id, receipt.revision_id),
         )
         return receipt
+
+
+def _require_current_review(conn, turn: Turn) -> None:
+    title = turn.completion.collaboration.destination.title
+    later = conn.execute(
+        """SELECT 1 FROM agent.turn
+           WHERE world_id = %s AND conversation_id = %s AND sequence > %s
+             AND status = 'completed'
+             AND completion->'collaboration'->>'kind' = 'lore_page'
+             AND lower(completion->'collaboration'->'destination'->>'title') = lower(%s)
+           LIMIT 1""",
+        (turn.world_id, turn.conversation_id, turn.sequence, title),
+    ).fetchone()
+    if later is not None:
+        raise ApplicationStateConflictError("This lore draft has been superseded")

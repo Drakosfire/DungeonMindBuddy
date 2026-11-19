@@ -2353,6 +2353,12 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     rejected = case.client.post(url, json={**body, "review_sha256": "0" * 64})
     assert rejected.status_code == 409, rejected.text
     assert len(pages.list_pages(world_id=case.world)) == before
+    unopened = case.client.post(url, json=body)
+    assert unopened.status_code == 409 and "Open the exact" in unopened.text, unopened.text
+    assert len(pages.list_pages(world_id=case.world)) == before
+    shown = case.client.post(url.removesuffix("/confirm") + "/review", json=body)
+    assert shown.status_code == 200 and shown.json() == {"review_sha256": body["review_sha256"]}, shown.text
+    assert len(pages.list_pages(world_id=case.world)) == before
     created = case.client.post(url, json=body)
     assert created.status_code == 200, created.text
     receipt = created.json()
