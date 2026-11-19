@@ -322,6 +322,10 @@ def hosted(monkeypatch, request):
         "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}",
         agent_routes.get_build_document_proposal, methods=["GET"],
     )
+    app.add_api_route(
+        "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/prompt",
+        agent_routes.get_build_document_proposal_prompt, methods=["GET"],
+    )
     app.include_router(conversation_library.router)
     app.add_api_route(
         "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}",
@@ -550,6 +554,7 @@ def hosted(monkeypatch, request):
             ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/prompt"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/inserted"): access.resolve_hosted_build_insertion_ack,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}"): access.resolve_hosted_conversation_world,
@@ -6048,3 +6053,33 @@ def test_hosted_build_proposal_record_requires_owned_world(hosted, monkeypatch):
     denied = hosted.client.request("GET", path)
     assert denied.status_code == 403, denied.text
     assert "withheld proposal" not in denied.text
+
+
+def test_hosted_build_proposal_prompt_requires_exact_owned_world(hosted, monkeypatch):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.services import build_document_proposal
+
+    read = Mock(return_value={"payload_json": {"text": "fixture"}})
+    monkeypatch.setattr(build_document_proposal, "read_prompt", read)
+    action = uuid4()
+    path = f"/api/live/agent/worlds/managed/build-proposals/{action}/prompt"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path.replace("/managed/", "/foreign/")).status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=foreign").status_code == 403
+    read.assert_not_called()
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    read.assert_called_once_with("managed", action)
+
+    def transfer_during_read(*_args):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"payload_json": {"text": "withheld prompt"}}
+
+    read.side_effect = transfer_during_read
+    denied = hosted.client.request("GET", path)
+    assert denied.status_code == 403, denied.text
+    assert "withheld prompt" not in denied.text
