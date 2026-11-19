@@ -751,6 +751,14 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "GET" && init?.body == null && !!worldId
       && path === trashInventory + "world_id=" + encodeURIComponent(worldId);
   }
+  const rules = /^\/api\/live\/rules\/(catalog|query|passages\/[a-f0-9]{64})\?([^#]+)$/.exec(path);
+  if (rules) {
+    const query = new URLSearchParams(rules[2]);
+    const keys = rules[1] === "catalog" ? ["world_id"]
+      : rules[1] === "query" ? ["world_id", "corpus", "question", "limit"] : ["world_id", "corpus"];
+    return method === "GET" && init?.body == null && query.size === keys.length
+      && keys.every(key => query.getAll(key).length === 1 && !!query.get(key));
+  }
   if (path === "/api/live/agent/turn") {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && isRecord(body?.owner_scope)
@@ -3851,15 +3859,15 @@ export function getPlanActionTerminalDiagnostic(worldId: string, actionId: strin
 }
 
 // Passive exact rules reads share only pending transport, never settled evidence.
-export function getRulesCatalog(signal?: AbortSignal) {
-  return apiFetch<import('./rulesLookupTypes').RulesCatalog>('/api/live/rules/catalog', { signal, cache: 'no-store' });
+export function getRulesCatalog(signal?: AbortSignal, worldId?: string) {
+  return apiFetch<import('./rulesLookupTypes').RulesCatalog>(worldId ? '/api/live/rules/catalog?' + new URLSearchParams({ world_id: worldId }) : '/api/live/rules/catalog', { signal, cache: 'no-store' });
 }
-export function queryRulesEvidence(corpus: string, question: string, signal?: AbortSignal) {
-  const query = new URLSearchParams({ corpus, question, limit: '4' });
+export function queryRulesEvidence(corpus: string, question: string, signal?: AbortSignal, worldId?: string) {
+  const query = new URLSearchParams({ corpus, question, limit: '4', ...(worldId ? { world_id: worldId } : {}) });
   return apiFetch<import('./rulesLookupTypes').RulesLookupPacket>(`/api/live/rules/query?${query}`, { signal, cache: 'no-store' });
 }
-export function getRulesPassage(corpus: string, citationId: string, signal?: AbortSignal) {
-  const query = new URLSearchParams({ corpus });
+export function getRulesPassage(corpus: string, citationId: string, signal?: AbortSignal, worldId?: string) {
+  const query = new URLSearchParams({ corpus, ...(worldId ? { world_id: worldId } : {}) });
   return apiFetch<import('./rulesLookupTypes').RulesPassage>(`/api/live/rules/passages/${encodeURIComponent(citationId)}?${query}`, { signal, cache: 'no-store' });
 }
 

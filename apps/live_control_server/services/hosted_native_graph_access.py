@@ -989,6 +989,21 @@ async def resolve_hosted_plan_inventory_page(request: Request) -> str:
 
 
 
+async def resolve_hosted_rules_lookup(request: Request) -> str:
+    query = request.query_params
+    world_id = query.get("world_id")
+    keys = {"world_id"}
+    if request.url.path.endswith("/query"):
+        keys |= {"corpus", "question", "limit"}
+    elif not request.url.path.endswith("/catalog"):
+        keys.add("corpus")
+    if not world_id or set(query) != keys or len(query.multi_items()) != len(keys) or await request.body():
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
+
+
 async def resolve_hosted_plan_world_context(request: Request) -> str:
     selectors = request.query_params.multi_items()
     world_id = request.query_params.get("world_id")
