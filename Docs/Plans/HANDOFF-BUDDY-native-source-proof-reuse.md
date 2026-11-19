@@ -1,12 +1,15 @@
 # BUDDY: exact-source proof reuse for native neighborhood reads
 
-Status: ACTIVE, implementation/review finalization; V8 and serving rollout unaccepted.
+Status: COMPLETE, accepted as #4013 merge8be0a02841014f1661145f8b1bcab1556d55a98d.
+Reviewed final4e8709a71ce8f02d3e3ae0dfd23c9f30d3e33e7d; V8 and serving rollout remain unaccepted.
 Owner: Elderwyld pre-cutover optimization lane. Authority: operator goal with
 implementation/review/merge authorization; accepted Core226/227 design/API.
 Author base99463c13bdc82f8eb6c5b93177eb99662d325416; runtime proof anchor
-5dcd5ffc4b5422d31326d20699799a1556d9f73c. Core pin is accepted227 merge
+5dcd5ffc4b5422d31326d20699799a1556d9f73c. This slice accepted Core227 merge
 a9e308fe5b208f7ee447bf483a252d08ed04ea0b, never an unmerged artifact dependency.
-Parallel-independent from draftCore218. This slice does not activate cutover.
+It was independent of Core218, now merged at e8b05965bb43df370a1292149c8c809aec0e7fb9.
+The successor artifact-adoption handoff owns the current dependency update.
+This completed slice did not activate cutover.
 
 ## Outcome and lease
 
@@ -35,6 +38,10 @@ missing, corrupt or unavailable source cannot hide behind a slot. Oversized
 proofs verify ordinarily and are not retained. Detached in-flight slots maylive
 until those requests finish; neither total RSS nor transient request memory is
 claimed bounded by the64MiB retained-content cap. No implicit library-global cache.
+
+Final4e qualified253 auth-app checks,1410 hosted frontend cases/build and canonical
+evidence validation, all three automatic CI jobs, and approved docs-delta review.
+Final receipt: source-proof-hosted-4e8709a-attempt1/evidence.json.
 
 ## Verified implementation evidence
 
