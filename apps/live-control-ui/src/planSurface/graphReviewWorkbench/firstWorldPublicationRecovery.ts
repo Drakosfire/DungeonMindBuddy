@@ -10,54 +10,18 @@ const digest=(value:unknown)=>typeof value==='string'&&/^sha256:[a-f0-9]{64}$/.t
 const strings=(value:unknown):value is string[]=>Array.isArray(value)&&value.every(nonblank)&&new Set(value).size===value.length;
 const stable=(value:unknown)=>JSON.stringify(value,(_key,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item);
 const same=(a:unknown,b:unknown)=>stable(a)===stable(b);
-export const firstWorldScope=(review:ExactRunReviewPackage)=>JSON.stringify([review.worldId,review.runId,review.sourceArtifactId,review.sourceRevisionId]);
+export const firstWorldScope=(review:Pick<ExactRunReviewPackage,'worldId'|'runId'|'sourceArtifactId'|'sourceRevisionId'>)=>JSON.stringify([review.worldId,review.runId,review.sourceArtifactId,review.sourceRevisionId]);
 const selectionScope=(selection:FirstWorldSelection)=>JSON.stringify([selection.worldId,selection.runId]);
 export const firstWorldRecoveryKey=(selection:FirstWorldSelection)=>'dmb.nativeFirstWorldPublication.v1:'+selectionScope(selection);
 
-function assertFirstWorldEffect(plan:FirstWorldRetainedPlan,review:ExactRunReviewPackage){
-  const effect=plan.reviewedEffect,meta=effect?.contribution_meta as Record<string,unknown>|undefined;
-  const accepted=effect?.accepted_proposals,rejected=effect?.rejected_assertions,map=effect?.candidate_effect_map;
-  const check=(rows:unknown,ids:string[],state:string)=>Array.isArray(rows)&&rows.length===ids.length
-    &&new Set(rows.map(row=>row?.assertion_id)).size===ids.length&&rows.every(row=>row&&ids.includes(row.assertion_id)
-      &&row.source_artifact_id===plan.sourceArtifactId&&row.source_revision_id===plan.sourceRevisionId
-      &&row.campaign_scope===plan.worldId&&row.acceptance_state===state);
-  if(plan.campaignScope!==plan.worldId||plan.sessionScope!==null
-    ||!meta||meta.source_kind!=='source_extraction'||meta.source_artifact_id!==plan.sourceArtifactId
-    ||meta.source_revision_id!==plan.sourceRevisionId||meta.extraction_profile!==plan.extractionProfile||meta.campaign_scope!==plan.worldId
-    ||!check(accepted,plan.acceptedAssertionIds,'accepted')||!check(rejected,plan.rejectedAssertionIds,'rejected')
-    ||!map||typeof map!=='object'||Array.isArray(map)||Object.keys(map).length!==review.assertions.length
-    ||Object.entries(map).some(([candidate,ids])=>{
-      const decision=(effect.decision_snapshot as {assertion_id:string;decision:string}[]).find(row=>row.assertion_id===candidate);
-      const allowed=decision?.decision==='reject'?plan.rejectedAssertionIds:plan.acceptedAssertionIds;
-      return !decision||!strings(ids)||ids.length===0||ids.some(id=>!allowed.includes(id));
-    })||new Set(Object.values(map).flat()).size!==plan.acceptedAssertionIds.length+plan.rejectedAssertionIds.length){
-    throw new Error('The creation plan contains a foreign scope, source or materialized effect.');
-  }
-  const proposals = [...accepted as Record<string,unknown>[], ...rejected as Record<string,unknown>[]];
-  for (const candidate of review.assertions) {
-    const ids = (map as Record<string,string[]>)[candidate.assertionId];
-    const rows = proposals.filter(row => ids.includes(row.assertion_id as string));
-    if (!hasReviewSemantics(candidate, review.assertions) || rows.length !== 1 || ids.length !== 1)
-      throw new Error('The creation plan does not match the reviewed structured meaning.');
-    const row = rows[0], value = row.value as Record<string,unknown> | undefined;
-    const endpoints = relationshipEndpoints(candidate);
-    const matches = candidate.kind === 'object'
-      ? row.assertion_kind === 'node' && row.subject_node_id === candidate.assertionId
-        && row.label === candidate.label && value?.kind === candidate.contributionKind
-      : row.assertion_kind === 'edge' && !!endpoints
-        && row.predicate === candidate.relationshipType && value?.predicate === candidate.relationshipType
-        && row.subject_node_id === endpoints[0] && row.target_node_id === endpoints[1]
-        && value?.direction === 'outbound';
-    if (!matches) throw new Error('The creation plan does not match the reviewed structured meaning.');
-  }
-}
+type RetainedCandidate={candidateId:string;kind:'node'|'edge';decision:string;row:Record<string,unknown>;value:Record<string,unknown>};
+const record=(value:unknown):value is Record<string,unknown>=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 
-export function assertFirstWorldPlan(plan:FirstWorldRetainedPlan,review:ExactRunReviewPackage,decisions?:FirstWorldDisposition[]){
-  if(plan && !['dmb_first_world_graph_plan_v3','dmb_native_first_world_plan_v1'].includes(plan.schema)) throw new Error('This saved World creation plan is out of date and has been preserved. Inspect World status, then prepare and review again.');
-  const snapshot=plan?.reviewedEffect?.decision_snapshot;
-  if(!plan||!['dmb_first_world_graph_plan_v3','dmb_native_first_world_plan_v1'].includes(plan.schema)||review.sourceDomain!=='worldbuilding'||review.inspectionStatus!=='ready'
-    ||!nonblank(review.worldId)||plan.worldId!==review.worldId||plan.runId!==review.runId
-    ||plan.sourceArtifactId!==review.sourceArtifactId||plan.sourceRevisionId!==review.sourceRevisionId||!digest(review.sourceRevisionId)
+/** Validate only saved structural facts. No current review or invented evidence. */
+function retainedCandidates(plan:FirstWorldRetainedPlan):RetainedCandidate[]{
+  if(!plan||!['dmb_first_world_graph_plan_v3','dmb_native_first_world_plan_v1'].includes(plan.schema))
+    throw new Error('This saved World creation plan is out of date and has been preserved.');
+  if(!nonblank(plan.worldId)||!nonblank(plan.runId)||!nonblank(plan.sourceArtifactId)||!digest(plan.sourceRevisionId)
     ||!plan.nativeTarget||!/^world:[a-f0-9]{32}$/.test(plan.nativeTarget.nativeWorldId)
     ||!/^provision:[a-f0-9]{32}$/.test(plan.nativeTarget.provisioningId)||plan.nativeTarget.bindingVersion!==1
     ||!digest(plan.sourceEvidenceSha256)||!nonblank(plan.planId)||!digest(plan.planDigest)||!digest(plan.decisionDigest)||!nonblank(plan.contributionId)
@@ -69,24 +33,91 @@ export function assertFirstWorldPlan(plan:FirstWorldRetainedPlan,review:ExactRun
     ||!plan.summary||!['createNewNodeCount','acceptedEdgeCount','rejectedCandidateCount','acceptedAssertionCount'].every(key=>{
       const value=plan.summary[key as keyof typeof plan.summary];return Number.isSafeInteger(value)&&value>=0;})
     ||plan.summary.acceptedAssertionCount!==plan.acceptedAssertionIds.length
-    ||!Array.isArray(plan.diagnostics)||!plan.diagnostics.every(value=>typeof value==='string')
-    ||!Array.isArray(snapshot)||snapshot.length!==review.assertions.length
-    ||new Set(snapshot.map(row=>row?.assertion_id)).size!==snapshot.length
-    ||snapshot.some(row=>{
-      const candidate=review.assertions.find(item=>item.assertionId===row?.assertion_id);
-      return !candidate||row.target_node_id!=null||row.candidate_kind!==(candidate.kind==='object'?'node':'edge')
-        ||!(candidate.kind==='object'?['create_new','reject']:['accept','reject']).includes(row.decision)
-        ||(row.decision!=='reject'&&!candidate.evidence.length)
-        ||(decisions&&!decisions.some(choice=>choice.assertionId===row.assertion_id&&choice.decision===row.decision));
-    })|| (decisions&&(decisions.length!==snapshot.length||new Set(decisions.map(row=>row.assertionId)).size!==snapshot.length))){
-    throw new Error('The creation plan does not match this exact source, World and reviewed choices.');
+    ||!Array.isArray(plan.diagnostics)||!plan.diagnostics.every(value=>typeof value==='string'))
+    throw new Error('The creation plan does not match its exact source, World and reviewed choices.');
+  const fail=():never=>{throw new Error('The creation plan contains a foreign scope, source or materialized effect.');};
+  const semanticFail=():never=>{throw new Error('The creation plan does not match the reviewed structured meaning.');};
+  const effect=plan.reviewedEffect;
+  if(!record(effect))return fail();
+  const meta=effect.contribution_meta,map=effect.candidate_effect_map,snapshot=effect.decision_snapshot;
+  if(plan.campaignScope!==plan.worldId||plan.sessionScope!==null||!record(meta)
+    ||meta.source_kind!=='source_extraction'||meta.source_artifact_id!==plan.sourceArtifactId
+    ||meta.source_revision_id!==plan.sourceRevisionId||meta.extraction_profile!==plan.extractionProfile||meta.campaign_scope!==plan.worldId
+    ||!record(map)||!Array.isArray(snapshot)||Object.keys(map).length!==snapshot.length)return fail();
+  const rows=new Map<string,Record<string,unknown>>();
+  for(const [raw,ids,state] of [[effect.accepted_proposals,plan.acceptedAssertionIds,'accepted'],
+    [effect.rejected_assertions,plan.rejectedAssertionIds,'rejected']] as const){
+    if(!Array.isArray(raw)||raw.length!==ids.length)return fail();
+    for(const row of raw){
+      if(!record(row)||!nonblank(row.assertion_id)||!ids.includes(row.assertion_id)||rows.has(row.assertion_id)
+        ||row.source_artifact_id!==plan.sourceArtifactId||row.source_revision_id!==plan.sourceRevisionId
+        ||row.campaign_scope!==plan.worldId||row.acceptance_state!==state||!record(row.value))return fail();
+      rows.set(row.assertion_id,row);
+    }
   }
-  assertFirstWorldEffect(plan,review);
+  const candidates:RetainedCandidate[]=[],seen=new Set<string>(),used=new Set<string>();
+  for(const choice of snapshot){
+    if(!record(choice)||!nonblank(choice.assertion_id)||seen.has(choice.assertion_id)||choice.target_node_id!=null
+      ||(choice.candidate_kind!=='node'&&choice.candidate_kind!=='edge')||typeof choice.decision!=='string'
+      ||!(choice.candidate_kind==='node'?['create_new','reject']:['accept','reject']).includes(choice.decision))return fail();
+    const ids=map[choice.assertion_id];
+    if(!strings(ids)||ids.length!==1||used.has(ids[0]))return fail();
+    const row=rows.get(ids[0]),allowed=choice.decision==='reject'?plan.rejectedAssertionIds:plan.acceptedAssertionIds;
+    if(!row||!allowed.includes(ids[0])||row.assertion_kind!==choice.candidate_kind||!record(row.value))return fail();
+    const value=row.value;
+    // Validate the actual retained evidence inventory, without substituting a
+    // synthetic review or claiming current source admission.
+    if(!strings(row.evidence_ref_ids)||(!row.evidence_ref_ids.length&&choice.decision!=='reject')||!Array.isArray(value.evidence)
+      ||value.evidence.length!==row.evidence_ref_ids.length)return fail();
+    const refs=new Set<string>();
+    for(const evidence of value.evidence){
+      if(!record(evidence)||!nonblank(evidence.evidence_ref_id)||refs.has(evidence.evidence_ref_id)
+        ||!row.evidence_ref_ids.includes(evidence.evidence_ref_id)||evidence.source_artifact_id!==plan.sourceArtifactId
+        ||!nonblank(evidence.source_span_ref_id))return fail();
+      refs.add(evidence.evidence_ref_id);
+    }
+    if(choice.candidate_kind==='node'){
+      if(row.subject_node_id!==choice.assertion_id||row.target_node_id!=null||row.predicate!=null||!nonblank(row.label)||!nonblank(value.kind)
+        ||(value.role!==undefined&&value.role!==value.kind)||(value.label!==undefined&&value.label!==row.label))return semanticFail();
+    }else if(!nonblank(row.subject_node_id)||!nonblank(row.target_node_id)||!nonblank(row.predicate)
+      ||value.predicate!==row.predicate||value.direction!=='outbound')return semanticFail();
+    candidates.push({candidateId:choice.assertion_id,kind:choice.candidate_kind,decision:choice.decision,row,value});
+    seen.add(choice.assertion_id);used.add(ids[0]);
+  }
+  if(used.size!==rows.size||seen.size!==Object.keys(map).length)return fail();
+  const nodes=new Map<string,RetainedCandidate>();
+  for(const candidate of candidates)if(candidate.kind==='node')nodes.set(candidate.candidateId,candidate);
+  for(const edge of candidates.filter(c=>c.kind==='edge')){
+    const subject=edge.row.subject_node_id,target=edge.row.target_node_id;
+    if(typeof subject!=='string'||typeof target!=='string'||!nodes.has(subject)||!nodes.has(target)
+      ||(edge.decision==='accept'&&(nodes.get(subject)?.decision!=='create_new'||nodes.get(target)?.decision!=='create_new')))return semanticFail();
+  }
+  return candidates;
+}
+
+export function assertFirstWorldPlan(plan:FirstWorldRetainedPlan,review:ExactRunReviewPackage,decisions?:FirstWorldDisposition[]){
+  const candidates=retainedCandidates(plan);
+  if(review.sourceDomain!=='worldbuilding'||review.inspectionStatus!=='ready'||plan.worldId!==review.worldId||plan.runId!==review.runId
+    ||plan.sourceArtifactId!==review.sourceArtifactId||plan.sourceRevisionId!==review.sourceRevisionId||candidates.length!==review.assertions.length
+    ||(decisions&&(decisions.length!==candidates.length||new Set(decisions.map(row=>row.assertionId)).size!==candidates.length)))
+    throw new Error('The creation plan does not match this exact source, World and reviewed choices.');
+  for(const candidate of review.assertions){
+    const saved=candidates.find(c=>c.candidateId===candidate.assertionId);
+    if(!saved||saved.kind!==(candidate.kind==='object'?'node':'edge')
+      ||(saved.decision!=='reject'&&!candidate.evidence.length)
+      ||(decisions&&!decisions.some(d=>d.assertionId===candidate.assertionId&&d.decision===saved.decision)))
+      throw new Error('The creation plan does not match this exact source, World and reviewed choices.');
+    const endpoints=relationshipEndpoints(candidate),row=saved.row,value=saved.value;
+    const matches=candidate.kind==='object'?row.label===candidate.label&&value.kind===candidate.contributionKind
+      :!!endpoints&&row.predicate===candidate.relationshipType&&row.subject_node_id===endpoints[0]&&row.target_node_id===endpoints[1];
+    if(!hasReviewSemantics(candidate,review.assertions)||!matches)
+      throw new Error('The creation plan does not match the reviewed structured meaning.');
+  }
   if(plan.schema==='dmb_native_first_world_plan_v1')assertNativeEnvelope(plan);
 }
 export function firstWorldDecisions(plan:FirstWorldRetainedPlan):FirstWorldDisposition[]{
-  return (plan.reviewedEffect.decision_snapshot as {assertion_id:string;decision:FirstWorldDisposition['decision']}[])
-    .map(row=>({assertionId:row.assertion_id,decision:row.decision}));
+  return retainedCandidates(plan).map<FirstWorldDisposition>(candidate=>({assertionId:candidate.candidateId,
+    decision:candidate.decision==='create_new'?'create_new':candidate.decision==='accept'?'accept':'reject'}));
 }
 /** Browser checks correlations only. The server verifies signature/current owner. */
 function assertNativeEnvelope(plan:NativeFirstWorldPlan){
@@ -113,7 +144,15 @@ function assertNativeEnvelope(plan:NativeFirstWorldPlan){
     ||stage.existingBindings.some(b=>!b||!nonblank(b.reviewedEvidenceRefId)||!['support','context'].includes(b.evidenceRole)
       ||!Number.isSafeInteger(b.proofAuthorityEpoch)||b.proofAuthorityEpoch<1||b.proofAuthorityEpoch>stage.sourceAuthorityEpoch
       ||!['admission','extension'].includes(b.originKind)||!nonblank(b.originOperationId)||!hex(b.originReceiptSha256)
-      ||!nonblank(b.introducedRevisionId)||!b.proof||!b.sourceRevision))
+      ||!nonblank(b.introducedRevisionId)||!record(b.proof)||!record(b.sourceRevision)
+      ||b.proof.schema_version!=='dm_native_utf8_span_v1'||b.sourceRevision.schema_version!=='dm_source_revision_v2'
+      ||!nonblank(b.proof.evidence_ref_id)||!nonblank(b.proof.span_id)||!hex(b.proof.slice_sha256)
+      ||!Number.isSafeInteger(b.proof.start_byte)||!Number.isSafeInteger(b.proof.end_byte)
+      ||b.proof.start_byte<0||b.proof.end_byte<=b.proof.start_byte
+      ||b.proof.source_revision_id!==stage.nativeSourceRevisionId||b.sourceRevision.source_revision_id!==b.proof.source_revision_id
+      ||b.sourceRevision.source_artifact_id!==stage.nativeSourceArtifactId||b.sourceRevision.content_sha256!==stage.bodySha256
+      ||b.sourceRevision.body_storage!=='dm_native_utf8_body_v1'||!Number.isFinite(Date.parse(b.sourceRevision.created_at))
+      ||(b.sourceRevision.locator!==null&&typeof b.sourceRevision.locator!=='string')))
     throw new Error('The retained existing source bindings are inconsistent.');
   const source=[stage.admissionReceiptSha256,stage.nativeSourceArtifactId,stage.nativeSourceRevisionId,stage.wholeDocumentEvidenceRefId];
   if(stage.admissionState==='absent'?source.some(v=>v!==null):(!source.every(nonblank)||!hex(stage.admissionReceiptSha256)||!nonblank(stage.headRevisionId)))
@@ -124,25 +163,8 @@ function assertNativeEnvelope(plan:NativeFirstWorldPlan){
 }
 
 function assertOwnEnvelope(plan:FirstWorldRetainedPlan){
-  if(!plan||!['dmb_first_world_graph_plan_v3','dmb_native_first_world_plan_v1'].includes(plan.schema))
-    throw new Error('This saved World creation plan is out of date and has been preserved.');
-  const map=plan.reviewedEffect?.candidate_effect_map as Record<string,string[]>|undefined;
-  const snapshot=plan.reviewedEffect?.decision_snapshot as {assertion_id:string;candidate_kind:string}[]|undefined;
-  const rows=[...(plan.reviewedEffect?.accepted_proposals as Record<string,unknown>[]??[]),
-    ...(plan.reviewedEffect?.rejected_assertions as Record<string,unknown>[]??[])];
-  if(!map||!Array.isArray(snapshot))throw new Error('The retained creation envelope is incomplete.');
-  // Derive structural correlations from the saved envelope, never today's candidates.
-  const assertions=snapshot.map(choice=>{
-    const row=rows.find(r=>map[choice.assertion_id]?.includes(String(r.assertion_id)));
-    if(!row)throw new Error('The retained creation envelope is incomplete.');
-    return {assertionId:choice.assertion_id,kind:choice.candidate_kind==='node'?'object':'relationship',
-      label:row.label,summary:'',nodeType:(row.value as Record<string,unknown>)?.kind,
-      contributionKind:(row.value as Record<string,unknown>)?.kind,relationshipType:row.predicate,
-      fromCandidateNodeId:row.subject_node_id,toCandidateNodeId:row.target_node_id,evidence:[{}]};
-  });
-  assertFirstWorldPlan(plan,{schema:'dmb_extract_promote_exact_run_review_v1',sourceDomain:'worldbuilding',inspectionStatus:'ready',
-    worldId:plan.worldId,runId:plan.runId,sourceArtifactId:plan.sourceArtifactId,sourceRevisionId:plan.sourceRevisionId,
-    sourceProse:'',assertions,diagnostics:[]} as ExactRunReviewPackage);
+  retainedCandidates(plan);
+  if(plan.schema==='dmb_native_first_world_plan_v1')assertNativeEnvelope(plan);
 }
 export function firstWorldRequest(plan:FirstWorldRetainedPlan):FirstWorldPublicationRequest{
   return plan.schema==='dmb_native_first_world_plan_v1'?{schema:'dmb_native_first_world_confirm_request_v1',plan}
@@ -172,7 +194,7 @@ export function readFirstWorldRecovery(selection:FirstWorldSelection):FirstWorld
       ||(value.schema==='dmb_native_first_world_recovery_v1'&&value.plan.schema!=='dmb_native_first_world_plan_v1'))
       throw new Error('This saved World creation plan is out of date and has been preserved.');
     assertOwnEnvelope(value.plan);
-    const expectedScope=value.schema==='dmb_first_world_publication_recovery_v1'?firstWorldScope(value.plan as unknown as ExactRunReviewPackage):selectionScope(value.plan);
+    const expectedScope=value.schema==='dmb_first_world_publication_recovery_v1'?firstWorldScope(value.plan):selectionScope(value.plan);
     if(value.scope!==expectedScope||!(key===firstWorldRecoveryKey(value.plan)||key==='dmb.firstWorldPublication.v1:'+expectedScope)
       ||(value.schema==='dmb_native_first_world_recovery_v1'&&(!value.request||!same(value.request,firstWorldRequest(value.plan)))))
       throw new Error('Saved World creation request does not match its retained plan.');

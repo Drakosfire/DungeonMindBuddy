@@ -12,13 +12,15 @@ export function withFirstWorldEffect(plan:FirstWorldGraphPlan,review:ExactRunRev
   const proposal = (assertion_id: string, state: string) => {
     const candidateId = Object.keys(map).find(id => map[id].includes(assertion_id))!;
     const candidate = review.assertions.find(row => row.assertionId === candidateId)!;
-    return {...source, assertion_id, acceptance_state: state,
+    const evidence=candidate.evidence.map((ref,index)=>({evidence_ref_id:`fixture-evidence:${candidateId}:${index}`,
+      source_artifact_id:ref.sourceArtifactId,source_span_ref_id:ref.sourceSpanRefId}));
+    return {...source, assertion_id, acceptance_state: state,evidence_ref_ids:evidence.map(ref=>ref.evidence_ref_id),
       assertion_kind: candidate.kind === 'object' ? 'node' : 'edge', label: candidate.label,
       subject_node_id: candidate.kind === 'object' ? candidate.assertionId : candidate.fromCandidateNodeId,
       target_node_id: candidate.kind === 'relationship' ? candidate.toCandidateNodeId : null,
       predicate: candidate.relationshipType ?? null,
-      value: candidate.kind === 'object' ? {kind: candidate.contributionKind}
-        : {predicate: candidate.relationshipType, direction: 'outbound'}};
+      value: candidate.kind === 'object' ? {kind: candidate.contributionKind,evidence}
+        : {predicate: candidate.relationshipType, direction: 'outbound',evidence}};
   };
   return {...plan,campaignScope:plan.worldId,sessionScope:null,reviewedEffect:{...plan.reviewedEffect,
     contribution_meta:{...source,source_kind:'source_extraction',extraction_profile:plan.extractionProfile,authored_by:'live_control:worldbuilding_write_plan'},
@@ -61,4 +63,21 @@ export function legacyFirstWorldPlan(plan:NativeFirstWorldPlan):FirstWorldGraphP
     'workspaceDocumentId','workspaceDocumentRevision','campaignScope','sessionScope','extractionProfile','acceptedAssertionIds','rejectedAssertionIds',
     'contributionId','contributionPayloadSha256','reviewedEffect','summary','confirmable','diagnostics'] as const;
   return {schema:'dmb_first_world_graph_plan_v3',...Object.fromEntries(keys.map(key=>[key,plan[key]]))} as FirstWorldGraphPlan;
+}
+
+
+/** Synthetic retained context proof; creation epoch intentionally predates freshness. */
+export function withExistingFirstWorldContextBinding(plan:NativeFirstWorldPlan):NativeFirstWorldPlan{
+  const rows=plan.reviewedEffect.accepted_proposals;
+  if(!Array.isArray(rows)||!Array.isArray(rows[0]?.evidence_ref_ids)||typeof rows[0].evidence_ref_ids[0]!=='string')
+    throw new Error('An existing proof fixture requires actual reviewed evidence.');
+  return {...plan,sourceStage:{...plan.sourceStage,admissionState:'admitted',admissionReceiptSha256:'d'.repeat(64),
+    nativeSourceArtifactId:'artifact:native',nativeSourceRevisionId:'revision:native',wholeDocumentEvidenceRefId:'evidence:document',
+    headRevisionId:'rev:admitted',headProfileRef:plan.targetProfileRef,sourceAuthorityEpoch:7,
+    existingBindings:[{reviewedEvidenceRefId:rows[0].evidence_ref_ids[0],evidenceRole:'context',proofAuthorityEpoch:2,
+      originKind:'extension',originOperationId:'extension:original',originReceiptSha256:'e'.repeat(64),introducedRevisionId:'rev:original',
+      proof:{schema_version:'dm_native_utf8_span_v1',span_id:'span:native',source_revision_id:'revision:native',
+        evidence_ref_id:'evidence:native',start_byte:0,end_byte:8,slice_sha256:'f'.repeat(64)},
+      sourceRevision:{schema_version:'dm_source_revision_v2',source_revision_id:'revision:native',source_artifact_id:'artifact:native',
+        content_sha256:plan.sourceStage.bodySha256,body_storage:'dm_native_utf8_body_v1',locator:null,created_at:'2026-11-19T12:00:00Z'}}]}};
 }

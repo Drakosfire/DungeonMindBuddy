@@ -171,13 +171,12 @@ it('does not archive a foreign obsolete envelope or changed scope',async()=>{
   expect(localStorage.getItem(firstWorldRecoveryKey(review))).toBe(raw);
 });
 
-it('retains but refuses recovery whose stored kind no longer matches reviewed semantics', async () => {
-  await saveFirstWorldRecovery(review, plan, false, () => true);
-  const key = firstWorldRecoveryKey(review), saved = JSON.parse(localStorage.getItem(key)!);
-  saved.plan.reviewedEffect.accepted_proposals[0].value.kind = 'faction';
-  const raw = JSON.stringify(saved); localStorage.setItem(key, raw);
-  expect(readFirstWorldRecovery(review)?.plan).toEqual(saved.plan);
-  expect(() => assertFirstWorldPlan(saved.plan,review)).toThrow('reviewed structured meaning');
+it('validates a retained kind independently of changed current review semantics', async () => {
+  await saveFirstWorldRecovery(review,plan,false,()=>true);
+  const key=firstWorldRecoveryKey(review),raw=localStorage.getItem(key);
+  const changed={...review,assertions:review.assertions.map(candidate=>({...candidate,nodeType:'faction',contributionKind:'faction'}))};
+  expect(readFirstWorldRecovery(changed)?.plan).toEqual(plan);
+  expect(()=>assertFirstWorldPlan(plan,changed)).toThrow('reviewed structured meaning');
   expect(localStorage.getItem(key)).toBe(raw);
 });
 
@@ -251,18 +250,9 @@ it('uses authenticated native URLs with exact versioned bodies and preserves err
 });
 
 it('retains existing context proofs, original proof epochs and unknown host metadata without relabeling',async()=>{
-  const {withNativeFirstWorldPlan}=await import('./firstWorldPublicationRecovery.testSupport');
+  const {withNativeFirstWorldPlan,withExistingFirstWorldContextBinding}=await import('./firstWorldPublicationRecovery.testSupport');
   const {retainFirstWorldRetry}=await import('./firstWorldPublicationRecovery');
-  const native=withNativeFirstWorldPlan(plan,review);
-  native.sourceStage={...native.sourceStage,admissionState:'admitted',admissionReceiptSha256:'d'.repeat(64),
-    nativeSourceArtifactId:'artifact:native',nativeSourceRevisionId:'revision:native',wholeDocumentEvidenceRefId:'evidence:document',
-    headRevisionId:'rev:admitted',headProfileRef:native.targetProfileRef,sourceAuthorityEpoch:7,
-    existingBindings:[{reviewedEvidenceRefId:'evidence:reviewed',evidenceRole:'context',proofAuthorityEpoch:2,
-      originKind:'extension',originOperationId:'extension:original',originReceiptSha256:'e'.repeat(64),introducedRevisionId:'rev:original',
-      proof:{schema_version:'dm_native_utf8_span_v1',span_id:'span:native',source_revision_id:'revision:native',
-        evidence_ref_id:'evidence:native',start_byte:0,end_byte:8,slice_sha256:'f'.repeat(64)},
-      sourceRevision:{schema_version:'dm_source_revision_v2',source_revision_id:'revision:native',source_artifact_id:'artifact:native',
-        content_sha256:native.sourceStage.bodySha256,body_storage:'dm_native_utf8_body_v1',locator:null,created_at:'2026-11-19T12:00:00Z'}}]};
+  const native=withExistingFirstWorldContextBinding(withNativeFirstWorldPlan(plan,review));
   Object.assign(native.sourceStage,{futureHostMetadata:{opaque:'retained exactly'}});
   await saveFirstWorldRecovery(review,native,false,()=>true);
   const request=await retainFirstWorldRetry(review,native,()=>true);
@@ -270,4 +260,45 @@ it('retains existing context proofs, original proof epochs and unknown host meta
   expect(request.plan).toMatchObject({sourceStage:{sourceAuthorityEpoch:7,existingBindings:[{evidenceRole:'context',proofAuthorityEpoch:2}],
     futureHostMetadata:{opaque:'retained exactly'}}});
   expect(readFirstWorldRecovery(review)?.request).toEqual(request);
+});
+
+
+it('refuses missing retained evidence instead of inventing evidence from a saved candidate',async()=>{
+  await saveFirstWorldRecovery(review,plan,false,()=>true);
+  const key=firstWorldRecoveryKey(review),saved=JSON.parse(localStorage.getItem(key)!);
+  delete saved.plan.reviewedEffect.accepted_proposals[0].evidence_ref_ids;
+  delete saved.plan.reviewedEffect.accepted_proposals[0].value.evidence;
+  const raw=JSON.stringify(saved);localStorage.setItem(key,raw);
+  expect(()=>readFirstWorldRecovery({worldId:review.worldId,runId:review.runId})).toThrow('materialized effect');
+  expect(localStorage.getItem(key)).toBe(raw);
+});
+
+it.each(['artifact','revision','proof_revision','digest','schema','interval','epoch'] as const)(
+  'refuses inconsistent existing native source %s without changing saved bytes',async damage=>{
+    const {withNativeFirstWorldPlan,withExistingFirstWorldContextBinding}=await import('./firstWorldPublicationRecovery.testSupport');
+    const native=withExistingFirstWorldContextBinding(withNativeFirstWorldPlan(plan,review));
+    await saveFirstWorldRecovery(review,native,false,()=>true);
+    const key=firstWorldRecoveryKey(review),saved=JSON.parse(localStorage.getItem(key)!);
+    const binding=saved.plan.sourceStage.existingBindings[0];
+    if(damage==='artifact')binding.sourceRevision.source_artifact_id='artifact:foreign';
+    if(damage==='revision')binding.sourceRevision.source_revision_id='revision:foreign';
+    if(damage==='proof_revision')binding.proof.source_revision_id='revision:foreign';
+    if(damage==='digest')binding.sourceRevision.content_sha256='0'.repeat(64);
+    if(damage==='schema')binding.sourceRevision.schema_version='dm_source_revision_v1';
+    if(damage==='interval')binding.proof.end_byte=binding.proof.start_byte;
+    if(damage==='epoch')binding.proofAuthorityEpoch=8;
+    // Keep request/plan equality intact so this exercises the nested correlation.
+    saved.request.plan=structuredClone(saved.plan);
+    const raw=JSON.stringify(saved);localStorage.setItem(key,raw);
+    expect(()=>readFirstWorldRecovery(review)).toThrow('existing source bindings');
+    expect(localStorage.getItem(key)).toBe(raw);
+});
+
+it('refuses contradictory saved decision/effect links without using current candidates',async()=>{
+  await saveFirstWorldRecovery(review,plan,false,()=>true);
+  const key=firstWorldRecoveryKey(review),saved=JSON.parse(localStorage.getItem(key)!);
+  saved.plan.reviewedEffect.decision_snapshot[0].decision='reject';
+  const raw=JSON.stringify(saved);localStorage.setItem(key,raw);
+  expect(()=>readFirstWorldRecovery({worldId:review.worldId,runId:review.runId})).toThrow('materialized effect');
+  expect(localStorage.getItem(key)).toBe(raw);
 });

@@ -647,6 +647,8 @@ from apps.live_control_server.models.native_first_world_publication import (  # 
 )
 from dungeonmind.domain.errors import DungeonMindError  # noqa: E402 - pinned first-World section split
 from apps.live_control_server.models.native_first_world_compilation import FirstWorldCompilationError  # noqa: E402 - pinned first-World section split
+from apps.live_control_server.services.promotable_ingest_run import PromotableIngestRunError  # noqa: E402 - pinned first-World section split
+from graph_memory.worldbuilding_write_plan import WorldbuildingWritePlanError  # noqa: E402 - pinned first-World section split
 
 
 @router.post(
@@ -674,6 +676,11 @@ def post_first_world_prepare(
         return _error_response(exc)
     except HTTPException:
         raise
+    except (NativeWorldSourceAdmissionError, PromotableIngestRunError, WorldbuildingWritePlanError) as exc:
+        return _error_response(ExtractPromoteError(
+            "The reviewed source or choices are no longer eligible for this publication.",
+            code=exc.code, status_code=exc.status_code,
+        ))
     except FirstWorldCompilationError as exc:
         return _error_response(ExtractPromoteError(
             "This exact reviewed effect cannot be published by the native compiler.", code=exc.code, status_code=409,
@@ -733,6 +740,11 @@ def post_first_world_confirm(
         return _error_response(exc)
     except HTTPException:
         raise
+    except (NativeWorldSourceAdmissionError, PromotableIngestRunError, WorldbuildingWritePlanError) as exc:
+        return _error_response(ExtractPromoteError(
+            "The reviewed source or choices are no longer eligible for this publication.",
+            code=exc.code, status_code=exc.status_code,
+        ))
     except FirstWorldCompilationError as exc:
         return _error_response(ExtractPromoteError(
             "This exact reviewed effect cannot be published by the native compiler.", code=exc.code, status_code=409,

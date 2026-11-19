@@ -9,7 +9,7 @@ codex/v10-native-first-world-lifecycle, existing task-owned Buddy checkout.
 ## Pinned assignment and current source
 
 Adopt ARCHITECTURE's bounded disposition at
-[b3ebc53316b70d3687a38755782444db566b69aa](https://github.com/Drakosfire/DungeonMindBuddy/blob/b3ebc53316b70d3687a38755782444db566b69aa/Docs/Plans/HANDOFF-MIND-B2-native-first-world-lifecycle.md).
+[95b6ef00463ecf9e19e7e95a010989cd2b30f8b8](https://github.com/Drakosfire/DungeonMindBuddy/blob/95b6ef00463ecf9e19e7e95a010989cd2b30f8b8/Docs/Plans/HANDOFF-MIND-B2-native-first-world-lifecycle.md).
 Its complete outcome, sealed lifecycle, failure cases and verification requirements
 are part of this assignment. The user granted lane authority; ARCHITECTURE designed
 the precise section splits. No PRIME or standing-Steward gate. No competing branch
@@ -72,7 +72,8 @@ Exclusive expected-path lease (only named sections where stated):
   GraphReviewWorldbuildingPublication.test.tsx and firstWorldPublicationRecovery.testSupport.ts.
 
 No shared models/extract_promote.py, root UI api/types.ts or extractPromoteApi.ts,
-native_world_source_admission.py, hosted-access tests, WorkbenchModule tests, CI
+native_world_source_admission.py, hosted-access tests outside the function-only
+transfer below, WorkbenchModule tests, CI
 inventory/contracts, B1 models/unrelated compiler behavior or other sequencing files. Extend
 existing classified tests. Narrow B1 transfer under c19a429a adds only
 apps/live_control_server/services/native_first_world_compilation.py source_ref_id
@@ -260,3 +261,31 @@ ARCHITECTURE before editing that previously unallocated path. Full backend
 contracts, needed/unneeded profile/partial-failure matrix, frontend hosted/build
 and discovered diagnostics, exact-head cumulative review remain pending. No
 serving/live/provider/baseline change or deployment acceptance is claimed.
+
+## Qualification repair checkpoint
+
+ARCHITECTURE95b6ef00 explicitly transfers only the existing shared hosted-test
+function test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_preparing.
+It now patches native preparation, uses its versioned schema and checks the current
+principal/authorizer; all original owner/nonowner/foreign/Origin/mid-call checks
+remain. Targeted result1 passed/372 deselected. No shared test imports or other
+functions changed. The exact pin is retained in the consuming commit history.
+
+Exact69c0c7cd0c hosted frontend selected1411 passed with collection parity and clean
+source, but build failed TS2352 in retained recovery's synthetic review cast.
+The validator now checks retained structure directly with typed local values;
+it constructs no current review/evidence. Existing proof/revision/artifact/body
+correlations are checked explicitly. This repair still awaits frontend execution.
+The failed verifier reports its temporary verification root cleaned, evidence
+retained externally; no successful build or release qualification is claimed.
+
+Additional actual SQL diagnostics:7 freshness/profile/lost-extension-response
+cases passed, then6 deterministic/refusal cases passed with one test expecting
+the wrong original lineage-error type for changed body. The corrected body case
+passed separately. Known Buddy lineage/source/compiler errors remain deterministic
+through native confirmation and mounted response mapping; arbitrary ambiguous
+stage errors remain outcome unknown. A no-custom-predicate publication proves no
+profile transition, while ordinary custom-predicate fixtures exercise the needed
+transition. Both source roles and original producer metadata remain unchanged.
+Full exact-head backend/frontend/discovered qualification and cumulative independent
+review remain pending; the full optimized deployment/V10/V11 goal remains active.

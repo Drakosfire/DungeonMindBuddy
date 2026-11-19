@@ -36,7 +36,7 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     PREPARE_TTL, sign_publication_intent, decode_publication_intent,
 )
 from apps.live_control_server.services.native_first_world_compilation import compile_first_world_native_intent
-from apps.live_control_server.services.promotable_ingest_run import resolve_promotable_ingest_run
+from apps.live_control_server.services.promotable_ingest_run import PromotableIngestRunError, resolve_promotable_ingest_run
 from apps.live_control_server.services.world_container_registry import (
     NativeGraphProvisioningRecord, get_world_container,
 )
@@ -46,7 +46,7 @@ from graph_memory.vnext.domain_runtime import (
     dungeonbuddy_dnd5e_semantic_profile, dungeonbuddy_dnd5e_custom_predicate_profile,
     resolve_dungeonbuddy_descriptors,
 )
-from graph_memory.worldbuilding_write_plan import WorldbuildingDispositionInput
+from graph_memory.worldbuilding_write_plan import WorldbuildingDispositionInput, WorldbuildingWritePlanError
 
 
 def _refuse(code, message, *, status=409):
@@ -871,7 +871,8 @@ def confirm_native_first_world(request, *, principal_subject, authorize_world=No
             publication_id=plan.publication_id, domain_contract=domain, semantic_profile=profile, repository=selected)
     except _NativeFirstWorldWriteRefused as exc:
         raise exc.failure from exc
-    except (DungeonMindError, ExtractPromoteError):
+    except (DungeonMindError, ExtractPromoteError, PromotableIngestRunError,
+            WorldbuildingWritePlanError, source_owner.NativeWorldSourceAdmissionError):
         raise
     except Exception as exc:
         from apps.live_control_server.models.native_first_world_compilation import FirstWorldCompilationError

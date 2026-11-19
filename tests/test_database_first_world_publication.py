@@ -721,3 +721,131 @@ def test_native_first_world_mounted_hosted_http_current_owner_and_signed_recover
     assert recovered.json()["nativePublication"] == published.json()["nativePublication"]
     assert _native_core_counts(native_first_world_core_dsn) == counts
     assert not case.authority.initializations
+
+
+@pytest.mark.parametrize("changed", ["run", "parent", "epoch", "reservation", "principal", "body"])
+def test_native_first_world_stale_unapplied_review_refuses_without_core_or_app_mutation(
+    native_first_world_core_dsn, monkeypatch, tmp_path, changed,
+):
+    from apps.live_control_server.models.native_first_world_publication import NativeFirstWorldConfirmRequest
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    from apps.live_control_server.services.world_container_registry import _stored_world
+    from tests.application_state.world_catalog_fixtures import world_snapshot
+    from application_state.world_catalog import service as catalog
+    from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
+
+    case = _native_stage_case(monkeypatch, tmp_path, native_first_world_core_dsn, admitted=True)
+    space = case.plan.native_target.native_world_id
+    if changed == "run":
+        data = registry.load_reviewable_extraction_data(tmp_path, case.plan.run_id)
+        _reseal_extraction_component_digest(case.plan.run_id, kind="candidate_graph",
+            digest=hashlib.sha256(data.candidate_bytes).hexdigest(), payload=data.candidate_bytes)
+    elif changed == "parent":
+        stored = case.repository.get_revision(space, case.plan.source_stage.head_revision_id)
+        case.repository.publish_revision(PublishKnowledgeRevisionCommand(
+            space_id=space, parent_revision_id=stored.revision.revision_id,
+            expected_parent_revision_id=stored.revision.revision_id, operation_ids=["unrelated-source-only-change"],
+            graph_schema=stored.revision.graph_schema, graph_payload=stored.graph_payload,
+            domain_contract_ref=stored.revision.domain_contract_ref,
+            semantic_profile_ref=stored.revision.semantic_profile_ref, migration_origin_ref=None,
+            created_at=stored.revision.created_at))
+    elif changed == "epoch":
+        stage = case.plan.source_stage
+        case.repository.withdraw_native_source(space_id=space, source_artifact_id=stage.native_source_artifact_id,
+                                              source_revision_id=stage.native_source_revision_id)
+    elif changed == "reservation":
+        stored = _stored_world(case.plan.world_id)
+        binding = stored.record.native_graph_binding.model_copy(update={"provisioning_id": "provision:" + "f" * 32})
+        catalog.save_world(stored.record.model_copy(update={"native_graph_binding": binding}), expected_revision=stored.revision)
+    elif changed == "body":
+        from tests.page_fixtures import save_page
+        save_page(tmp_path, case.plan.workspace_document_id, "Changed committed worldbuilding source.")
+    counts, app = _native_core_counts(native_first_world_core_dsn), world_snapshot()
+    request = NativeFirstWorldConfirmRequest.model_validate({"schema": "dmb_native_first_world_confirm_request_v1",
+        "plan": case.plan.model_dump(mode="json", by_alias=True)})
+    from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import NativeWorldSourceAdmissionError
+    from graph_memory.worldbuilding_write_plan import WorldbuildingWritePlanError
+    with pytest.raises((ExtractPromoteError, NativeWorldSourceAdmissionError, WorldbuildingWritePlanError)):
+        case.native.confirm_native_first_world(request, repository=case.repository,
+            principal_subject="wrong-principal" if changed == "principal" else "test-operator")
+    assert _native_core_counts(native_first_world_core_dsn) == counts
+    assert world_snapshot() == app
+    assert case.repository.get_prospective_publication(space, case.plan.publication_id) is None
+
+
+def test_native_first_world_without_custom_edge_does_not_publish_profile_transition(
+    native_first_world_core_dsn, monkeypatch, tmp_path,
+):
+    from apps.live_control_server.models.native_first_world_publication import (
+        NativeFirstWorldPrepareRequest, NativeFirstWorldConfirmRequest,
+    )
+    case = _native_stage_case(monkeypatch, tmp_path, native_first_world_core_dsn)
+    decisions = [d.model_dump(mode="json", by_alias=True) for d in case.request.decisions]
+    for row in decisions:
+        if row["decision"] == "accept":
+            row["decision"] = "reject"
+    plan = case.native.prepare_native_first_world(NativeFirstWorldPrepareRequest.model_validate({
+        "schema": "dmb_native_first_world_prepare_request_v1", "runId": case.plan.run_id, "decisions": decisions}),
+        principal_subject="test-operator", repository=case.repository)
+    assert plan.target_profile_ref.profile_revision == "1"
+    result = case.native.confirm_native_first_world(NativeFirstWorldConfirmRequest.model_validate({
+        "schema": "dmb_native_first_world_confirm_request_v1", "plan": plan.model_dump(mode="json", by_alias=True)}),
+        principal_subject="test-operator", repository=case.repository)
+    assert result.activation_status == "active"
+    assert case.repository.get_publication_receipt(plan.native_target.native_world_id,
+                                                   plan.source_stage.profile_transition_id) is None
+    parsed = case.native._parsed(case.repository, plan.native_target.native_world_id, result.committed_revision_id)
+    assert parsed.semantic_profile_ref.profile_revision == "1"
+
+
+def test_native_first_world_lost_extension_ack_is_typed_unknown_and_retry_uses_original_stage(
+    native_first_world_core_dsn, monkeypatch, tmp_path,
+):
+    from apps.live_control_server.models.native_first_world_publication import NativeFirstWorldConfirmRequest
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    import dungeonmind.application.vnext.native_source_extension as extension
+    case = _native_stage_case(monkeypatch, tmp_path, native_first_world_core_dsn)
+    request = NativeFirstWorldConfirmRequest.model_validate({"schema": "dmb_native_first_world_confirm_request_v1",
+        "plan": case.plan.model_dump(mode="json", by_alias=True)})
+    publish = extension.publish_native_source_evidence_extension
+    def lose_response(**kwargs):
+        publish(**kwargs)
+        raise ConnectionError("injected lost durable extension response")
+    monkeypatch.setattr(extension, "publish_native_source_evidence_extension", lose_response)
+    with pytest.raises(ExtractPromoteError) as error:
+        case.native.confirm_native_first_world(request, principal_subject="test-operator", repository=case.repository)
+    assert error.value.code == "native_first_world_outcome_unknown" and error.value.status_code == 503
+    prior = case.repository.get_native_source_evidence_extension_receipt(case.plan.native_target.native_world_id,
+                                                                       case.plan.source_stage.extension_id)
+    assert prior is not None
+    monkeypatch.setattr(extension, "publish_native_source_evidence_extension",
+                        lambda **kwargs: pytest.fail("committed extension was repeated"))
+    result = case.native.confirm_native_first_world(request, principal_subject="test-operator", repository=case.repository)
+    assert result.activation_status == "active"
+    assert case.repository.get_native_source_evidence_extension_receipt(case.plan.native_target.native_world_id,
+                                                                       case.plan.source_stage.extension_id) == prior
+
+
+def test_native_first_world_deterministic_graph_conflict_keeps_original_type_and_zero_graph_mutation(
+    native_first_world_core_dsn, monkeypatch, tmp_path,
+):
+    from dungeonmind.domain.errors import ImmutableRevisionConflictError
+    from apps.live_control_server.models.native_first_world_publication import NativeFirstWorldConfirmRequest
+    from tests.application_state.world_catalog_fixtures import world_snapshot
+
+    case = _native_stage_case(monkeypatch, tmp_path, native_first_world_core_dsn)
+    case.native.resolve_native_first_world_stages(case.repository, case.plan)
+    counts, app = _native_core_counts(native_first_world_core_dsn), world_snapshot()
+    conflict = ImmutableRevisionConflictError("injected deterministic zero-commit graph conflict")
+    def refuse(*args, **kwargs):
+        raise conflict
+    monkeypatch.setattr(case.repository, "publish_prospective_publication", refuse)
+    request = NativeFirstWorldConfirmRequest.model_validate({"schema": "dmb_native_first_world_confirm_request_v1",
+        "plan": case.plan.model_dump(mode="json", by_alias=True)})
+    with pytest.raises(ImmutableRevisionConflictError) as error:
+        case.native.confirm_native_first_world(request, principal_subject="test-operator", repository=case.repository)
+    assert error.value is conflict
+    assert _native_core_counts(native_first_world_core_dsn) == counts
+    assert world_snapshot() == app
+    assert case.repository.get_prospective_publication(case.plan.native_target.native_world_id,
+                                                       case.plan.publication_id) is None
