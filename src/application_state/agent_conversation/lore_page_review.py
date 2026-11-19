@@ -47,27 +47,40 @@ class LorePageTitleWitness(Closed):
             raise ValueError("Lore page witness has surrounding whitespace")
         if not self.title or not self.instruction or author_text.count(self.instruction) != 1:
             raise ValueError("Lore page instruction must occur once in the author turn")
-        requests = list(_PAGE_REQUEST.finditer(author_text))
-        if len(requests) != 1:
-            raise ValueError("Lore page requires one explicit page request")
-        request = requests[0]
+        request, title = _explicit_request(author_text)
         if not self.instruction.startswith(request["request"].rstrip()):
             raise ValueError("Lore page witness must quote the explicit page request")
-        subject = request["subject"].strip()
-        if subject.startswith(('"', "“", "'")):
-            if re.match(r"\s+(?:and|or)\s+(?!(?:populate|fill|leave|keep)\b)",
-                        author_text[request.end():], re.IGNORECASE):
-                raise ValueError("Lore page request has a compound destination. Quote one intended title.")
-        else:
-            subject = re.split(
-                r"\s+and\s+(?:populate|fill|leave|keep)\b", subject,
-                maxsplit=1, flags=re.IGNORECASE,
-            )[0]
-        if not subject.strip() or self.title != _requested_title(subject):
+        if self.title != title:
             raise ValueError("Lore page title differs from the explicit page request")
         if has_body and "blank" in request["modifiers"].lower().split():
             raise ValueError("Blank lore-page request cannot carry a populated body")
         return self.title
+
+
+def _explicit_request(author_text: str) -> tuple[re.Match[str], str]:
+    requests = list(_PAGE_REQUEST.finditer(author_text))
+    if len(requests) != 1:
+        raise ValueError("Lore page requires one explicit page request")
+    request = requests[0]
+    subject = request["subject"].strip()
+    if subject.startswith(('"', "“", "'")):
+        if re.match(r"\s+(?:and|or)\s+(?!(?:populate|fill|leave|keep)\b)",
+                    author_text[request.end():], re.IGNORECASE):
+            raise ValueError("Lore page request has a compound destination. Quote one intended title.")
+    else:
+        subject = re.split(
+            r"\s+and\s+(?:populate|fill|leave|keep)\b", subject,
+            maxsplit=1, flags=re.IGNORECASE,
+        )[0]
+    return request, _requested_title(subject)
+
+
+def explicit_lore_page_witness(author_text: str) -> LorePageTitleWitness:
+    """Derive the review destination from the author's literal instruction."""
+    request, title = _explicit_request(author_text)
+    witness = LorePageTitleWitness(instruction=request["request"].rstrip(), title=title)
+    witness.bind(author_text)
+    return witness
 
 
 class ProposedLorePage(Closed):

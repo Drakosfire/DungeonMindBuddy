@@ -1,6 +1,6 @@
 import pytest
 
-from application_state.agent_conversation.lore_page_review import LorePageTitleWitness
+from application_state.agent_conversation.lore_page_review import LorePageTitleWitness, explicit_lore_page_witness
 
 
 def test_title_is_bound_to_the_selected_instruction():
@@ -99,3 +99,46 @@ def test_two_coordinated_quoted_titles_are_not_one_destination():
     author = 'Create a page for "Rowan" and make a page for "Willow".'
     with pytest.raises(ValueError, match="compound destination"):
         LorePageTitleWitness(instruction=author, title="Rowan").bind(author)
+
+
+def test_derives_title_before_writing_from_an_explicit_pivot():
+    author = "Discuss the observatory. Create a blank page for the threat that is Rowan. Leave it empty."
+    witness = explicit_lore_page_witness(author)
+    assert witness.title == "Rowan"
+    assert witness.instruction == "Create a blank page for the threat that is Rowan"
+    assert witness.bind(author) == "Rowan"
+
+
+def test_writer_schema_offers_only_the_author_bound_title():
+    from types import SimpleNamespace
+
+    from application_state.agent_conversation.build_intentional_response import Capabilities, resolve
+    from application_state.agent_conversation.build_primary_context import NATIVE_WORK_SCHEMA
+    from application_state.agent_conversation.native_build_work_view import semantic_frame
+    from application_state.agent_conversation.native_writer import SCHEMA
+    from application_state.agent_conversation.plan_writer_output_schema import ASSERTION_POLICY, native_output_format
+    from application_state.agent_conversation.rules_authority_plan_packet import PlanRulesEvidenceFrameV1
+
+    message = "Discuss the observatory. Create a blank page for the threat that is Rowan."
+    execution = SimpleNamespace(policy=SimpleNamespace(action=SimpleNamespace(intent=SimpleNamespace(message=message))), events=())
+    capabilities = Capabilities(("answer_from_sources",), ("lore_page",), None, None)
+    host = {
+        "schema": NATIVE_WORK_SCHEMA,
+        "response_contract": resolve("review_lore_page", capabilities),
+        "artifact_under_edit": {"sections": []},
+        "source_basis": {"visibility": "gm"},
+    }
+    evidence = {
+        "schema": SCHEMA, "answer_policy": ASSERTION_POLICY,
+        "native_statements": {"statements": []}, "native_body_evidence": {"excerpts": []},
+        "native_assertions": None,
+    }
+    rules = PlanRulesEvidenceFrameV1(
+        schema="dmb_plan_rules_evidence_v1", ruleset="synthetic", lookups=(), supports=(),
+    )
+    projected = semantic_frame(host, execution, bind_lore_page=True)
+    assert projected["build_work"]["lore_page_destination"]["title"] == "Rowan"
+    schema = native_output_format(evidence, rules, host | projected, build_local=True)["schema"]
+    assert schema["$defs"]["LorePageTitleWitness"]["properties"]["title"]["enum"] == ["Rowan"]
+    historical = native_output_format(evidence, rules, host, build_local=True)["schema"]
+    assert "enum" not in historical["$defs"]["LorePageTitleWitness"]["properties"]["title"]

@@ -355,7 +355,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     variant_edits = format_name in {VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS}
     variant_format = variant_edits or format_name == VARIANT_WRITER_FORMAT
     expected_wire_work = (build_work_view(expected_work,prefix,include_variant=variant_format,
-        variant_edits=variant_edits, variant_passage_review=variant_passage_review) if build_local
+        variant_edits=variant_edits, variant_passage_review=variant_passage_review,
+        bind_lore_page="lore_page_destination" in work_frame["build_work"]) if build_local
         else play_work_view(expected_work) if play_local
         else plan_work_view(expected_work,prefix) if authored_local else expected_work)
     if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_wire_work):
@@ -398,7 +399,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         related_pages=tuple(related_records(prefix))
         if prefix.policy.action.intent.build_draft_context_sha256 is not None:
             draft_record=context_record(prefix).record
-    return NativeWriterEvidence(frame=schema_frame,work_frame=expected_work,output_work_frame=expected_work if build_local else expected_work | expected_wire_work,
+    return NativeWriterEvidence(frame=schema_frame,work_frame=expected_work,output_work_frame=expected_work | expected_wire_work,
         authored=authored,idempotency_key=idempotency_key,
         authored_local=authored_local,build_local=build_local,variant_format=variant_format,variant_edits=variant_edits,
         variant_visible_reply=format_name in {VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},

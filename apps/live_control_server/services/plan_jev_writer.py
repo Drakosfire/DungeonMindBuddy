@@ -336,10 +336,10 @@ class PlanJevWriter:
                     format_version = 7
                 self.provider_work=build_work_view(
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
-                    variant_passage_review=format_version in {9, 10},
+                    variant_passage_review=format_version in {9, 10}, bind_lore_page=True,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
-                self.work_frame | self.provider_work if self.work_frame.get('schema') in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA} else self.work_frame,
+                self.work_frame | self.provider_work,
                 build_local=self.work_frame.get('schema') not in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA},
                 format_version=format_version)
             # Discussion ends with current evidence rather than prior assistant

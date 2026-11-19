@@ -294,6 +294,9 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
         from .build_intentional_response import native_review_enabled, native_review_schema
         if native_review_enabled(work_frame):
             review,definitions=native_review_schema(work_frame,local=build_local)
+            destination = work_frame.get("build_work", {}).get("lore_page_destination")
+            if destination is not None:
+                definitions["LorePageTitleWitness"]["properties"]["title"]["enum"] = [destination["title"]]
             base=schema['$defs']['Base'] if rules.lookups else schema
             base['properties']['collaboration']=review
             base['required'].append('collaboration')
