@@ -75,8 +75,9 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   }
   return parsed as T;
 }
-export function getWorldbuildingCapabilities() {
-  return request<WorldbuildingCapabilities>("capabilities");
+export function getWorldbuildingCapabilities(worldId?: string) {
+  const path = worldId ? `capabilities?${new URLSearchParams({ world_id: worldId })}` : "capabilities";
+  return request<WorldbuildingCapabilities>(path);
 }
 export function prepareWorldbuilding(input: {runId: string; expectedParentRevisionId: string; dispositions: WorldbuildingDecision[]}) {
   return request<WorldbuildingPlan>("prepare", {schema: "dmb_worldbuilding_write_plan_prepare_request_v1", ...input});

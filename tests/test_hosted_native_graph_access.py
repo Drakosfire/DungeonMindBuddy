@@ -441,6 +441,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/rules/query"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/rules/passages/{citation_id}"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/extract-promote/worldbuilding/capabilities"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-runbooks"): access.resolve_hosted_plan_world_context,
             ("POST", "/api/live/workspace-documents/world-runbooks/{document_id}/tiptap/prepare"): access.resolve_hosted_runbook_write,
             ("POST", "/api/live/workspace-documents/world-runbooks/{document_id}/tiptap/commit"): access.resolve_hosted_runbook_write,
@@ -6126,3 +6127,14 @@ def test_hosted_managed_projection_reaches_only_owned_world(hosted, monkeypatch)
     denied = hosted.client.request("POST", path, json=body)
     assert denied.status_code == 403, denied.text
     assert "withheld projection" not in denied.text
+
+
+def test_hosted_worldbuilding_capabilities_requires_owned_world(hosted):
+    path = "/api/live/extract-promote/worldbuilding/capabilities"
+    assert hosted.client.request("GET", path).status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=managed", session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=foreign").status_code == 403
+    assert hosted.client.request("GET", path + "?world_id=managed&world_id=managed").status_code == 403
+    response = hosted.client.request("GET", path + "?world_id=managed")
+    assert response.status_code == 200, response.text
+    assert response.json()["confirmationSupported"] is True
