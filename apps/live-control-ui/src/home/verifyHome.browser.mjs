@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 const output = process.argv[2];
 if (!output) throw new Error('External evidence directory required');
 await mkdir(output, { recursive: true });
-const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/google/chrome/chrome', headless: true });
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/google/chrome/chrome', headless: true, chromiumSandbox: true });
 const results = [];
 try {
   for (const width of [1440, 768, 390, 320]) {
@@ -56,7 +56,20 @@ try {
     assert.ok(layout.scroll <= layout.client + 1, `Home overflows at ${width}: ${JSON.stringify(layout)}`);
     assert.deepEqual(errors, []);
     assert.deepEqual(privateCalls, []);
-    results.push({ width, layout, errors, privateCalls, anchorsAndSamples: 'passed' });
+    const credits = page.getByRole('link', { name: 'Font credits', exact: true });
+    const creditsHref = await credits.getAttribute('href');
+    assert.match(creditsHref, /^\/assets\/.+-[A-Za-z0-9_-]{8}\.txt$/);
+    const notice = await page.request.get(new URL(creditsHref, page.url()).href);
+    assert.equal(notice.status(), 200);
+    assert.equal(notice.headers()['content-type']?.split(';')[0], 'text/plain');
+    const noticeText = await notice.text();
+    assert.ok(noticeText.includes('Bookinsanity Remake by Solbera and Ners.'));
+    assert.ok(noticeText.includes('https://creativecommons.org/licenses/by-sa/4.0/legalcode'));
+    await credits.click();
+    await page.waitForURL(url => url.pathname === creditsHref);
+    assert.ok((await page.locator('body').innerText()).includes(noticeText.trim()));
+    results.push({ width, layout, errors, privateCalls, anchorsAndSamples: 'passed',
+      fontCredits: { href: creditsHref, status: notice.status(), readableText: true } });
     await page.close();
   }
   await writeFile(`${output}/browser-results.json`, JSON.stringify(results, null, 2));

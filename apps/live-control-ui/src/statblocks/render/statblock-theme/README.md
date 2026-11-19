@@ -1,9 +1,12 @@
 # Statblock theme asset provenance
 
 These files are used by [the campaign statblock stylesheet](../statblockCampaignTheme.css).
-Keep this notice with the source assets when copying the theme. Hosted notice delivery
-and the unresolved parchment permission are tracked in [#4062](https://github.com/Drakosfire/DungeonMindBuddy/issues/4062).
-This source notice does not establish that a deployed browser release delivers notices.
+Keep this provenance record and the [font notice](FONT-LICENSE.txt) with the source
+assets when copying the theme. Buddy Home links **Font credits** to a separately
+emitted, fingerprinted copy of that text. The production-bundle browser witness
+checks the link and readable HTTP response. Verification on a selected deployed
+release and the unresolved parchment permission remain with
+[#4062](https://github.com/Drakosfire/DungeonMindBuddy/issues/4062).
 
 ## Bookinsanity Remake fonts
 
