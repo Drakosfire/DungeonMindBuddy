@@ -9,6 +9,9 @@ Build, and Combat Tracker are first-class doors; the older `/surface` Live
 Control module board remains reachable for legacy smoke coverage but is not the
 current product composition model.
 
+Theme asset sources, font credits and the remaining parchment permission decision
+are recorded in the [statblock theme notice](src/statblocks/render/statblock-theme/README.md).
+
 ## Current surface model
 
 The shared chrome and document model are now explicit:
