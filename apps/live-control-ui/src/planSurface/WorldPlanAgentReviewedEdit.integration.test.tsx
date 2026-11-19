@@ -1029,46 +1029,68 @@ it("reuses the same action key after a network-uncertain retry of an identical i
   expect(proposal.mock.calls[1][0].idempotency_key).toBe(firstKey);
 });
 
-it("rejects a proposal response that is not correlated to the submitted action key", async () => {
+it("rejects an initial native proposal whose origin key differs from its sealed capture", async () => {
   setupWorldApi();
-  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
-    schema_version: "dmb_world_plan_document_edit_proposal_v1",
-    action_id: "00000000-0000-4000-8000-000000000032",
-    idempotency_key: "00000000-0000-4000-8000-000000000033",
-    document_id: request.document_id,
-    world_id: request.world_id,
-    base_revision: request.base_revision,
-    base_content_sha256: request.base_content_sha256,
-    draft_sha256: request.draft_sha256,
-    target_kind: request.target_kind,
-    selected_text_sha256: await sha256Hex(request.selected_text),
-    replacement_markdown: "FOREIGN-ACTION-REPLACEMENT",
-    summary: "FOREIGN-ACTION-SUMMARY",
-    assumptions: [],
-    model: "gpt-6-luna",
-    model_observed: true,
-    model_latency_ms: 1,
-    wall_latency_ms: 1,
-    usage: null,
+  const foreignKey = "00000000-0000-4000-8000-000000000033";
+  const current = setupPlanAuthoringIntegration(planRecord(), initialMarkdown, "FOREIGN-ACTION-REPLACEMENT");
+  const respond = current.post.getMockImplementation()!;
+  let returnedOrigin = "";
+  current.post.mockImplementation(async request => {
+    const response = await respond(request);
+    if (!("plan_proposal" in response) || !response.plan_proposal) throw new Error("Expected the sealed proposal fixture.");
+    // The retained history and returned response share this proposal. Keep both
+    // corrupt: a valid saved proposal must not launder an uncorrelated reply.
+    response.plan_proposal.origin.idempotency_key = foreignKey;
+    returnedOrigin = response.plan_proposal.origin.idempotency_key;
+    return response;
+  });
+  const nativeNavigator = navigator;
+  vi.stubGlobal("navigator", new Proxy(nativeNavigator, {
+    get: (target, key) => key === "locks"
+      ? { request: async (_name: string, work: () => unknown) => work() }
+      : Reflect.get(target, key, target),
   }));
-  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
-  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
   const location = `/plan?world=${worldId}&documentId=${documentId}`;
   window.history.replaceState({}, "", location);
-  render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  await screen.findByTestId("world-owned-plan-markdown-editor");
-  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
-  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
-    target: { value: "Add a distant bell." },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
-  expect(await screen.findByRole("alert")).toHaveTextContent("did not match this edit request");
-  expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
-  expect(prepare).not.toHaveBeenCalled();
-  expect(commit).not.toHaveBeenCalled();
+  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><CurrentIntegrationPage /></SelectedWorldProvider></StrictMode>);
+  try {
+    const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+    const editor = (surface.querySelector(".ProseMirror") as HTMLElement & {editor: Editor}).editor;
+    const before = editor.getJSON();
+    fireEvent.click(await screen.findByRole("button", {name: "Open", exact: true}));
+    const conversation = await screen.findByRole("region", {name: "World conversation"});
+    await waitFor(() => expect(within(conversation).getByRole("region", {name: "World conversation transcript"})).toHaveAttribute("aria-busy", "false"));
+    fireEvent.change(within(conversation).getByLabelText("Message DungeonBuddy"), {target: {value: "Add a distant bell."}});
+    fireEvent.click(within(conversation).getByText(/^(Automatic|Plan change) · Change$/));
+    fireEvent.click(within(conversation).getByRole("button", {name: "Request a Plan change"}));
+    const send = within(conversation).getByRole("button", {name: "Propose edit"});
+    await waitFor(() => expect(send).toBeEnabled());
+    fireEvent.click(send);
+    await waitFor(() => expect(current.post).toHaveBeenCalledTimes(1));
+    await screen.findByText("Reply details contained an invalid Graph-context receipt. The saved message and page suggestion were kept.");
+    expect(returnedOrigin).toBe(foreignKey);
+    const request = current.post.mock.calls[0]![0];
+    expect(request.plan_requested_operation).toBe("write_current_page");
+    expect(request.plan_authoring_capture!.idempotency_key).not.toBe(foreignKey);
+    expect(request.plan_authoring_capture).toMatchObject({world_id: worldId, document_id: documentId, base_revision: 7});
+    expect(screen.queryByRole("textbox", {name: "Suggestion text"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", {name: "Suggestion review"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Save", exact: true})).not.toBeInTheDocument();
+    expect(editor.getJSON()).toEqual(before);
+    expect(surface).not.toHaveTextContent("FOREIGN-ACTION-REPLACEMENT");
+    expect(current.readSaved().markdown).toBe(initialMarkdown);
+    expect(current.readSaved().record.revision).toBe(7);
+    expect(current.readReview()).toBeNull();
+    expect(current.commands).not.toHaveBeenCalled();
+    expect(current.ordinaryPrepare).not.toHaveBeenCalled();
+    expect(current.ordinaryCommit).not.toHaveBeenCalled();
+    expect(current.legacyProposal).not.toHaveBeenCalled();
+    expect(current.post).toHaveBeenCalledTimes(1);
+  } finally {
+    view.unmount();
+    vi.unstubAllGlobals();
+    sessionStorage.clear();
+  }
 });
 
 it("rejects a thread switch during deferred Apply without changing the mounted editor", async () => {
