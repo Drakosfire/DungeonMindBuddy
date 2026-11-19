@@ -62,3 +62,44 @@ Projects UUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8 and writable parent verified b
 scratch/v9-buddy/v10-native-profile-transition allocation. MIND retains scratch
 and fixtures/evidence for fullgoal; no deletion. Cleanup requires later approved
 scope/process/mount/dirty/unique-data checks. Manual backend/UI/deploy/V11 remain.
+
+## Implementation checkpoint
+
+Closed models/service/dedicated route/hosted registrations implemented. Full command
+SHA checked BEFORE expected child revision/envelope; timestamp-only same-child-ID
+conflict covered. Current host denial at publication is restored as typed denial,
+with Core's lost-ack probe blocked from further receipt IO after denial. Signing
+key availability checked before Core prepare reads; phase-aware typed503 retains
+an existing confirm packet but never invents prepare recovery. No source epoch or
+source read port in transition. FirstWorld original signed1->2 SQL receipt recovery
+after2->4+descendant passed WITHOUT runtime/protocol edits.
+
+Scoped owning diagnostic:38PASS (memory/SQL/hosted/FirstWorld), pending final exact
+source check after formatting/import cleanup. Failed diagnostics retained: initial
+APP provisioning->active fixture mismatch; snapshot observer deepcopy RLock; test
+corruption initially altered detached payload copy; rollback initially used inactive
+revision hook. Corrected real _payload_json corruption and actual receipt hook
+with fired flag retain integrity/rollback assertions. Early Ruff cache refusal and
+pre-format style failures retained. Public mutation/recovery behavior not relaxed.
+
+## Final worker handback
+
+Final working-source scoped cohort48PASS/4warnings/16.98s: real APP+Core/WK memory,
+SQL rollback and lostack, two hosted owner/transfer cases, original FirstWorld
+unchanged signed1->2 SQL receipt recovery after2->4+descendant. No out-of-lease
+runtime repair. Accepted target/domain digests are explicitly pinned and resolved;
+declaration drift refuses. Whole-command timestamp conflict tested with identical
+computed child IDs. Binding404/409/503 and missing-key503 preserved by phase,
+late authorization/binding denial prevents Core fallback probes; unknown flag only
+actual public publication uncertainty. Source withdrawal does not block graph-only
+transition or grant source access. Prepare/receipt recovery state guards retained.
+
+Final boundary diagnostic's preceding46pass/2fail were fixture constructor misuse
+(WorldContainerRegistryError has no code keyword), corrected without changing
+refusal assertions. All early errors/style/cache diagnostics retained alongside
+frozen-owning.xml/log. New four Python files RuffPASS; sharedmain/hostedservice
+0diagnostics, hostedtest11inherited/0added, FirstWorldtest3inherited/0added.
+Inventory one new domain-integration entry PASS; diffcheckPASS. Final source hashes
+and recipe in qualification.json. These are worker scoped diagnostics, not broader
+contracts/CI or fullgoal acceptance. Parent exact-head broad qual/Hubble/merge next.
+No active worker runners/source edits after freeze; installeda685/WKef9 unchanged.
