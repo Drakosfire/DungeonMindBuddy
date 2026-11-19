@@ -1923,6 +1923,39 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
   });
 
+  it("recovers a rejected Build message and sends it with the current saved revision", async () => {
+    vi.mocked(postWorldBuildAgentTurn).mockRejectedValueOnce(
+      new LiveApiError("Saved source unavailable", 409, {code: "build_source_unavailable"}),
+    );
+    const mounted = render(<Harness initial="build" buildSourceRevision={1} />);
+    fireEvent.click(await screen.findByRole("button", {name: "Open"}));
+    const input = await screen.findByLabelText("Message DungeonBuddy");
+    const message = "Who operates the radio?";
+    fireEvent.change(input, {target: {value: message}});
+    fireEvent.click(screen.getByRole("button", {name: "Send message"}));
+    await screen.findByText(/Reopen the current saved page/);
+
+    mounted.rerender(<Harness initial="build" buildSourceRevision={2} />);
+    fireEvent.change(input, {target: {value: "Other draft"}});
+    openConversationOptions();
+    const rejected = await screen.findByLabelText("Retained rejected requests");
+    rejected.setAttribute("open", "");
+    const restore = within(rejected).getByRole("button", {name: "Restore message to composer"});
+    expect(restore).toBeDisabled();
+    fireEvent.change(input, {target: {value: ""}});
+    fireEvent.click(restore);
+
+    expect(input).toHaveValue(message);
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", {name: "Send message"}));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(2));
+    const [original, resent] = vi.mocked(postWorldBuildAgentTurn).mock.calls.map(([request]) => request);
+    expect(original.primary_work.expected_revision).toBe(1);
+    expect(resent.primary_work.expected_revision).toBe(2);
+    expect(resent.turn_id).not.toBe(original.turn_id);
+    expect(resent).not.toHaveProperty("retry_of");
+  });
+
   it.each(["build", "play"] as const)("opens the closed %s options from the authorization recovery button", async surface => {
     vi.mocked(postWorldBuildAgentTurn).mockRejectedValue(new LiveApiError("Unauthorized", 401));
     vi.mocked(postWorldPlayAgentTurn).mockRejectedValue(new LiveApiError("Unauthorized", 401));
