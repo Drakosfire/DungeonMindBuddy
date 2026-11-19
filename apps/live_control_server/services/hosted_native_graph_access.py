@@ -800,10 +800,16 @@ async def resolve_hosted_exact_extraction_read(request: Request) -> str:
             raise _denied()
         recap_binding = (scope.native_world_id, scope.binding_version)
         world_id = world.world_id
+        if request.url.path.endswith("/build-context"):
+            document_world = await _owned_build_page(subject, artifact.workspace_document_id)
+            if document_world != world_id:
+                raise _denied()
     else:
         raise _denied()
     request.state.hosted_build_page_world = world_id
     request.state.hosted_exact_extraction_run = (run_id, run, world_id, recap_binding)
+    if request.url.path.endswith("/build-context"):
+        request.state.hosted_extraction_build_artifact = artifact
     return world_id
 
 
@@ -825,6 +831,22 @@ def _recheck_hosted_exact_extraction_world(request: Request, world_id: str, reca
         binding = world.native_graph_binding
         if binding is None or (binding.native_world_id, binding.binding_version) != recap_binding:
             raise _denied()
+
+
+async def read_hosted_extraction_build_context(request: Request, run_id: str, build_context) -> dict:
+    admitted = getattr(request.state, "hosted_exact_extraction_run", None)
+    artifact = getattr(request.state, "hosted_extraction_build_artifact", None)
+    if admitted is None or admitted[0] != run_id or artifact is None:
+        raise _denied()
+    _, run, world_id, recap_binding = admitted
+    if run.source_artifact_id != artifact.source_artifact_id:
+        raise _denied()
+    result = build_context(run, artifact)
+    document_world = await _owned_build_page(_hosted_subject(request), result["document_id"])
+    if document_world != world_id:
+        raise _denied()
+    await run_in_threadpool(_recheck_hosted_exact_extraction_world, request, world_id, recap_binding)
+    return result
 
 
 def require_hosted_exact_review_package(

@@ -357,7 +357,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/candidate-projection"): resolve_hosted_saved_recap,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/recap-projection"): resolve_hosted_saved_recap,
     ("GET", "/api/live/graph-preview/extraction-runs/{run_id}"): resolve_hosted_exact_extraction_read,
-    ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): resolve_hosted_build_extraction,
+    ("GET", "/api/live/graph-preview/extraction-runs/{run_id}/build-context"): resolve_hosted_exact_extraction_read,
     ("GET", "/api/live/extract-promote/runs/{run_id}/review-package"): resolve_hosted_exact_extraction_read,
     ("GET", "/api/live/extract-promote/runs/{run_id}/worldbuilding-publication-coverage"): resolve_hosted_build_extraction,
     ("GET", "/api/live/extract-promote/runs/{run_id}/frozen-source-spans"): resolve_hosted_build_extraction,
