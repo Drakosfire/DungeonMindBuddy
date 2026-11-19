@@ -54,16 +54,6 @@ export function PreparedRequestInspector({ payloadJson, previousPayloadJson }: {
   }) : []
   return <div className="buddy-prompt">
     <p>Input message numbers and roles belong to this model request, not separate chat turns. Readable view decodes JSON message content; Exact JSON bytes preserves the captured request.</p>
-    {previousPayloadJson && <section aria-label="Changes since previous model call" className="buddy-prompt__changes">
-      <h5>Changes since previous captured call</h5>
-      <p>Compared by request field and input-message position. Calls may use different models or formats; removed fields do not mean erased conversation or model memory. Green: added · red: removed · gold: changed.</p>
-      {!changes.length && <p>No request components changed.</p>}
-      {changes.map(change => <details key={change.pointer} className={`buddy-prompt__disclosure buddy-prompt__change buddy-prompt__change--${change.kind.toLowerCase()}`}>
-        <summary>{change.kind} · {change.after?.label ?? change.before?.label} · {change.pointer}<span className="buddy-prompt__collapse" aria-hidden="true">Collapse</span></summary>
-        {change.before && <div className="buddy-prompt__removed"><h6>Before</h6><pre>{format(change.before.value, raw)}</pre></div>}
-        {change.after && <div className="buddy-prompt__added"><h6>Now</h6><pre>{format(change.after.value, raw)}</pre></div>}
-      </details>)}
-    </section>}
     <div className="buddy-prompt__toolbar"><button type="button" onClick={() => setSelected(null)}>Show full request</button>
       <label><input type="checkbox" checked={raw} onChange={event => setRaw(event.target.checked)} /> Exact JSON bytes</label></div>
     <div className="buddy-prompt__layout">
@@ -73,5 +63,15 @@ export function PreparedRequestInspector({ payloadJson, previousPayloadJson }: {
         <pre tabIndex={0}>{part ? format(part.value, raw) : raw ? payloadJson : format(body, false)}</pre>
       </section>
     </div>
+    {previousPayloadJson && <details aria-label="Changes since previous model call" className="buddy-prompt__changes buddy-prompt__disclosure">
+      <summary>Changes since previous captured call</summary>
+      <p>Compared by request field and input-message position. Calls may use different models or formats; removed fields do not mean erased conversation or model memory. Green: added · red: removed · gold: changed.</p>
+      {!changes.length && <p>No request components changed.</p>}
+      {changes.map(change => <details key={change.pointer} className={`buddy-prompt__disclosure buddy-prompt__change buddy-prompt__change--${change.kind.toLowerCase()}`}>
+        <summary>{change.kind} · {change.after?.label ?? change.before?.label} · {change.pointer}<span className="buddy-prompt__collapse" aria-hidden="true">Collapse</span></summary>
+        {change.before && <div className="buddy-prompt__removed"><h6>Before</h6><pre>{format(change.before.value, raw)}</pre></div>}
+        {change.after && <div className="buddy-prompt__added"><h6>Now</h6><pre>{format(change.after.value, raw)}</pre></div>}
+      </details>)}
+    </details>}
   </div>
 }
