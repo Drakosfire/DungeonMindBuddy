@@ -17,9 +17,10 @@ from apps.live_control_server.services.managed_world_graph_projection import res
 from graph_memory.vnext.domain_runtime import GM_LABEL, PLAYER_LABEL, resolve_dungeonbuddy_descriptors
 
 
-def repository():
+def repository(*, verification_cache=None):
     return PostgresNativeSourceEvidenceRepository(
-        PostgresDatabase(config.world_graph_authority_database_url())
+        PostgresDatabase(config.world_graph_authority_database_url()),
+        verification_cache=verification_cache,
     )
 
 

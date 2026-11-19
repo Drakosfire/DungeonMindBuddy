@@ -12,13 +12,25 @@ from dungeonmind.application.vnext import (
     open_native_text_source_access_context,
     refresh_native_text_source_access_context,
 )
+from dungeonmind.application.vnext.errors import KnowledgeReadContextIntegrityError
+from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+from dungeonmind.infrastructure.postgres.vnext_knowledge import VerifiedKnowledgeRevisionCache
 from application_state.agent_conversation.native_statement_input import canonical
 from application_state.agent_conversation.native_corpus import (
     NativeCorpusAuthorityV1,
     NativeCorpusMemberV1,
 )
-from graph_memory.vnext.domain_runtime import GM_LABEL, PLAYER_LABEL
+from graph_memory.vnext.domain_runtime import GM_LABEL, PLAYER_LABEL, resolve_dungeonbuddy_descriptors
 from . import native_registry_source as native
+
+
+# One exact immutable proof and parsed revision per worker. The source view is request-owned.
+_turn_revision_proof = VerifiedKnowledgeRevisionCache(max_bytes=32 * 1024 * 1024)
+turn_parsed_revision_cache = NativeParsedRevisionCache()
+
+
+def turn_source_repository():
+    return native.repository(verification_cache=_turn_revision_proof)
 
 
 @dataclass(frozen=True)
@@ -52,7 +64,7 @@ def _ref(ref, family):
 
 
 def prepare_native_source_context(*, managed_world_id, principal, revision_id=None,
-                                  repository=None, resolve_identity=None):
+                                  repository=None, resolve_identity=None, parsed_cache=None):
     """Freeze membership in R and one coherent acquisition epoch, never latest IDs.
 
     Dependencies are trusted host/test seams. No request supplies a repository,
@@ -77,10 +89,18 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
         if head is None:
             raise ValueError("Native source authority has no head")
         revision_id = head.head_revision_id
-    domain, _profile = native.descriptors(repo, space, revision_id)
-    access = open_native_text_source_access_context(repository=repo, space_id=space,
-        revision_id=revision_id, domain_contract=domain,
-        audience_labels=(GM_LABEL, PLAYER_LABEL))
+    def resolve_domain(domain_ref, profile_ref):
+        domain, _ = resolve_dungeonbuddy_descriptors(domain_ref=domain_ref, profile_ref=profile_ref)
+        return domain
+
+    try:
+        access = open_native_text_source_access_context(repository=repo, space_id=space,
+            revision_id=revision_id, domain_contract=resolve_domain,
+            audience_labels=(GM_LABEL, PLAYER_LABEL), parsed_cache=parsed_cache)
+    except KnowledgeReadContextIntegrityError as exc:
+        if str(exc) != "native source context revision is missing":
+            raise
+        raise ValueError("Selected native World revision is missing") from exc
     authority = NativeCorpusAuthorityV1(managed_world_id=managed_world_id,
         native_world_id=space, binding_version=bound.binding_version,
         provisioning_id=bound.provisioning_id, revision_id=revision_id,
