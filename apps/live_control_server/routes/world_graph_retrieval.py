@@ -1,19 +1,17 @@
-"""World Graph retrieval + source-anchor admission route (PR010A)."""
+"""Current World retrieval consumes native authority; recap-context remains separate."""
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from dungeonmind.domain.errors import PersistenceIntegrityError, PersistenceUnavailableError
+from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
 
-from apps.live_control_server.services.world_graph_object_projection import (
-    WorldGraphObjectProjectionServiceError,
-    project_complete_world_object,
-)
+
 from apps.live_control_server.services.agent_graph_auth import (
     enforce_native_graph_gm,
     native_graph_gm_dependency,
@@ -36,13 +34,8 @@ from apps.live_control_server.models.world_graph_object_projection import (
 )
 from apps.live_control_server.services.world_graph_retrieval import (
     WorldGraphRetrievalServiceError,
-    get_campaign_object,
-    get_object_evidence,
-    get_object_neighborhood,
-    read_source_anchor,
     list_recap_context_v2,
     read_recap_context_v2,
-    search_campaign_graph,
 )
 from graph_memory.retrieval.models import (
     WorldGraphEvidenceRequest,
@@ -126,6 +119,28 @@ def _reject_query_params(request: Request) -> None:
         )
 
 
+def _native_failure_response(exc) -> JSONResponse:
+    if isinstance(exc, PersistenceUnavailableError):
+        status = 503
+    elif isinstance(exc, PersistenceIntegrityError):
+        status = 500
+    else:
+        status = getattr(exc, "status_code", 409)
+    return _error_response(WorldGraphRetrievalServiceError(
+        "The selected native Graph material is unavailable. Refresh and inspect again.",
+        code=getattr(exc, "code", "native_inspection_unavailable"),
+        status_code=status,
+    ))
+
+
+_NATIVE_READ_FAILURES = (
+    InspectionUnavailable,
+    WorldGraphProjectionServiceError,
+    PersistenceIntegrityError,
+    PersistenceUnavailableError,
+)
+
+
 @router.post("/search", response_model=WorldGraphRetrievalResult)
 def post_world_graph_retrieval_search(
     request_context: Request,
@@ -133,22 +148,18 @@ def post_world_graph_retrieval_search(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        if request.world_id == os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip():
-            response = shared_search(request, enforce_native_graph_gm(request_context))
-        else:
-            response = search_campaign_graph(request)
+        response = shared_search(request, enforce_native_graph_gm(request_context))
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
     except HTTPException:
         raise
+    except _NATIVE_READ_FAILURES as exc:
+        return _native_failure_response(exc)
     except Exception:
-        return _error_response(
-            WorldGraphRetrievalServiceError(
-                "World graph retrieval failed unexpectedly.",
-                code="retrieval_internal_error",
-                status_code=500,
-            )
-        )
+        return _error_response(WorldGraphRetrievalServiceError(
+            "World graph retrieval failed unexpectedly.",
+            code="retrieval_internal_error", status_code=500,
+        ))
     return response.model_dump(mode="json", by_alias=True)
 
 
@@ -159,23 +170,62 @@ def post_world_graph_retrieval_object(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        native_world = os.environ.get("DMB_NATIVE_EXACT_OBJECT_WORLD", "").strip()
-        if native_world and request.world_id == native_world:
-            response = shared_exact_object(request, enforce_native_graph_gm(request_context))
-        else:
-            response = get_campaign_object(request)
+        response = shared_exact_object(request, enforce_native_graph_gm(request_context))
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
     except HTTPException:
         raise
+    except _NATIVE_READ_FAILURES as exc:
+        return _native_failure_response(exc)
     except Exception:
-        return _error_response(
-            WorldGraphRetrievalServiceError(
-                "World graph retrieval failed unexpectedly.",
-                code="retrieval_internal_error",
-                status_code=500,
-            )
-        )
+        return _error_response(WorldGraphRetrievalServiceError(
+            "World graph retrieval failed unexpectedly.",
+            code="retrieval_internal_error", status_code=500,
+        ))
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post("/neighborhood", response_model=WorldGraphRetrievalResult)
+def post_world_graph_retrieval_neighborhood(
+    request_context: Request,
+    request: WorldGraphNeighborhoodRequest,
+) -> dict[str, Any] | JSONResponse:
+    try:
+        _reject_query_params(request_context)
+        response = shared_neighborhood(request, enforce_native_graph_gm(request_context))
+    except WorldGraphRetrievalServiceError as exc:
+        return _error_response(exc)
+    except HTTPException:
+        raise
+    except _NATIVE_READ_FAILURES as exc:
+        return _native_failure_response(exc)
+    except Exception:
+        return _error_response(WorldGraphRetrievalServiceError(
+            "World graph retrieval failed unexpectedly.",
+            code="retrieval_internal_error", status_code=500,
+        ))
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post("/evidence", response_model=WorldGraphRetrievalResult)
+def post_world_graph_retrieval_evidence(
+    request_context: Request,
+    request: WorldGraphEvidenceRequest,
+) -> dict[str, Any] | JSONResponse:
+    try:
+        _reject_query_params(request_context)
+        response = shared_evidence(request, enforce_native_graph_gm(request_context))
+    except WorldGraphRetrievalServiceError as exc:
+        return _error_response(exc)
+    except HTTPException:
+        raise
+    except _NATIVE_READ_FAILURES as exc:
+        return _native_failure_response(exc)
+    except Exception:
+        return _error_response(WorldGraphRetrievalServiceError(
+            "World graph retrieval failed unexpectedly.",
+            code="retrieval_internal_error", status_code=500,
+        ))
     return response.model_dump(mode="json", by_alias=True)
 
 
@@ -188,76 +238,8 @@ def post_world_graph_complete_object(
         _reject_query_params(request_context)
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
-    native_world = os.environ.get("DMB_NATIVE_COMPLETE_OBJECT_WORLD", "").strip()
-    if native_world and request.world_id == native_world:
-        principal = enforce_native_graph_gm(request_context)
-        return native_complete_object(NativeCompleteObjectRead(request=request), principal)
-    try:
-        response = project_complete_world_object(request)
-    except WorldGraphObjectProjectionServiceError as exc:
-        return _error_response(exc)
-    except WorldGraphRetrievalServiceError as exc:
-        return _error_response(exc)
-    except Exception:
-        return _error_response(
-            WorldGraphRetrievalServiceError(
-                "World graph object projection failed unexpectedly.",
-                code="retrieval_internal_error",
-                status_code=500,
-            )
-        )
-    return response.model_dump(mode="json", by_alias=True)
-
-
-@router.post("/neighborhood", response_model=WorldGraphRetrievalResult)
-def post_world_graph_retrieval_neighborhood(
-    request_context: Request,
-    request: WorldGraphNeighborhoodRequest,
-) -> dict[str, Any] | JSONResponse:
-    try:
-        _reject_query_params(request_context)
-        native_world = os.environ.get("DMB_NATIVE_NEIGHBORHOOD_WORLD", "").strip()
-        if native_world and request.world_id == native_world:
-            response = shared_neighborhood(request, enforce_native_graph_gm(request_context))
-        else:
-            response = get_object_neighborhood(request)
-    except WorldGraphRetrievalServiceError as exc:
-        return _error_response(exc)
-    except HTTPException:
-        raise
-    except Exception:
-        return _error_response(
-            WorldGraphRetrievalServiceError(
-                "World graph retrieval failed unexpectedly.",
-                code="retrieval_internal_error",
-                status_code=500,
-            )
-        )
-    return response.model_dump(mode="json", by_alias=True)
-
-
-@router.post("/evidence", response_model=WorldGraphRetrievalResult)
-def post_world_graph_retrieval_evidence(
-    request_context: Request,
-    request: WorldGraphEvidenceRequest,
-) -> dict[str, Any] | JSONResponse:
-    try:
-        _reject_query_params(request_context)
-        if request.world_id == os.environ.get("DMB_NATIVE_EVIDENCE_WORLD", "").strip():
-            response = shared_evidence(request, enforce_native_graph_gm(request_context))
-        else:
-            response = get_object_evidence(request)
-    except WorldGraphRetrievalServiceError as exc:
-        return _error_response(exc)
-    except Exception:
-        return _error_response(
-            WorldGraphRetrievalServiceError(
-                "World graph retrieval failed unexpectedly.",
-                code="retrieval_internal_error",
-                status_code=500,
-            )
-        )
-    return response.model_dump(mode="json", by_alias=True)
+    principal = enforce_native_graph_gm(request_context)
+    return native_complete_object(NativeCompleteObjectRead(request=request), principal)
 
 
 @router.post("/source-anchor/read", response_model=WorldGraphSourceAnchorReadResult)
@@ -267,30 +249,33 @@ def post_world_graph_retrieval_source_anchor_read(
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_query_params(request_context)
-        native_world = os.environ.get("DMB_NATIVE_NEIGHBORHOOD_WORLD", "").strip()
-        exact_world = os.environ.get("DMB_NATIVE_EXACT_OBJECT_WORLD", "").strip()
-        evidence_world = os.environ.get("DMB_NATIVE_EVIDENCE_WORLD", "").strip()
-        search_world = os.environ.get("DMB_NATIVE_SEARCH_WORLD", "").strip()
-        native_worlds = {world for world in (native_world, exact_world, evidence_world, search_world) if world}
-        if request.world_id in native_worlds and request.anchor_id.startswith("native-neighborhood:"):
-            try:
-                response = open_neighborhood_anchor(request, enforce_native_graph_gm(request_context))
-            except InspectionUnavailable:
-                response = WorldGraphSourceAnchorReadResult(outcome="empty", anchor_id=request.anchor_id)
+        principal = enforce_native_graph_gm(request_context)
+        if not request.anchor_id.startswith("native-neighborhood:"):
+            response = WorldGraphSourceAnchorReadResult(outcome="empty", anchor_id=request.anchor_id)
         else:
-            response = read_source_anchor(request)
+            try:
+                response = open_neighborhood_anchor(request, principal)
+            except InspectionUnavailable as exc:
+                # Ordinary unavailable support is withheld. Authority/infrastructure
+                # failures must remain non-success, never an empty-read fallback.
+                if exc.code not in {
+                    "native_inspection_assertion_unavailable",
+                    "native_inspection_evidence_unavailable",
+                    "native_inspection_source_unavailable",
+                }:
+                    raise
+                response = WorldGraphSourceAnchorReadResult(outcome="empty", anchor_id=request.anchor_id)
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
     except HTTPException:
         raise
+    except _NATIVE_READ_FAILURES as exc:
+        return _native_failure_response(exc)
     except Exception:
-        return _error_response(
-            WorldGraphRetrievalServiceError(
-                "World graph retrieval failed unexpectedly.",
-                code="retrieval_internal_error",
-                status_code=500,
-            )
-        )
+        return _error_response(WorldGraphRetrievalServiceError(
+            "World graph retrieval failed unexpectedly.",
+            code="retrieval_internal_error", status_code=500,
+        ))
     return response.model_dump(mode="json", by_alias=True)
 
 

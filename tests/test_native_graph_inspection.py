@@ -607,7 +607,7 @@ def test_product_complete_object_dispatches_selected_world_to_native(inspection,
 
     x = inspection
     x.app.include_router(product_router)
-    monkeypatch.setenv("DMB_NATIVE_COMPLETE_OBJECT_WORLD", "managed")
+    monkeypatch.delenv("DMB_NATIVE_COMPLETE_OBJECT_WORLD", raising=False)
     scope = catalog(x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id)["scope"]
     request = {
         "schema": "dmb_world_graph_object_projection_request_v1",
@@ -866,7 +866,7 @@ def test_shared_neighborhood_anchor_reopens_exact_citation(inspection, monkeypat
         "revisionPin": pin["revision_id"],
         "anchorId": native_anchor_id(x.assertions["relationship"], x.lane.support_ids["first"]),
     })
-    monkeypatch.setenv("DMB_NATIVE_NEIGHBORHOOD_WORLD", "managed")
+    monkeypatch.delenv("DMB_NATIVE_NEIGHBORHOOD_WORLD", raising=False)
     x.app.include_router(retrieval_router)
     neighborhood = x.client.post(
         "/api/live/world-graph/retrieval/neighborhood",
@@ -955,7 +955,7 @@ def test_shared_native_neighborhood_requires_authentication(inspection, monkeypa
     from apps.live_control_server.routes.world_graph_retrieval import router
 
     inspection.app.include_router(router)
-    monkeypatch.setenv("DMB_NATIVE_NEIGHBORHOOD_WORLD", "managed")
+    monkeypatch.delenv("DMB_NATIVE_NEIGHBORHOOD_WORLD", raising=False)
     inspection.client.headers.pop("Authorization")
     response = inspection.client.post(
         "/api/live/world-graph/retrieval/neighborhood",
@@ -974,8 +974,9 @@ def test_shared_exact_object_selects_one_native_node(inspection, monkeypatch):
     from fastapi.testclient import TestClient
 
     lane = inspection
-    monkeypatch.setenv("DMB_NATIVE_EXACT_OBJECT_WORLD", "managed")
-    monkeypatch.setattr(routes, "get_campaign_object", lambda _: pytest.fail("classic object fallback"))
+    monkeypatch.delenv("DMB_NATIVE_EXACT_OBJECT_WORLD", raising=False)
+    from apps.live_control_server.services import world_graph_retrieval as classic
+    monkeypatch.setattr(classic, "get_campaign_object", lambda _: pytest.fail("classic object fallback"))
     lane.app.include_router(routes.router)
     node_id = lane.objects["object:0"]
     response = lane.client.post(
@@ -1041,8 +1042,9 @@ def test_shared_exact_object_selects_one_native_node(inspection, monkeypatch):
 def test_shared_evidence_resolves_native_target_kinds(inspection, monkeypatch):
     from apps.live_control_server.routes import world_graph_retrieval as routes
 
-    monkeypatch.setenv("DMB_NATIVE_EVIDENCE_WORLD", "managed")
-    monkeypatch.setattr(routes, "get_object_evidence", lambda _: pytest.fail("classic evidence fallback"))
+    monkeypatch.delenv("DMB_NATIVE_EVIDENCE_WORLD", raising=False)
+    from apps.live_control_server.services import world_graph_retrieval as classic
+    monkeypatch.setattr(classic, "get_object_evidence", lambda _: pytest.fail("classic evidence fallback"))
     inspection.app.include_router(routes.router)
     base = {"worldId": "managed", "campaignId": inspection.lane.run.campaign_id}
     prefix = "/api/live/world-graph/retrieval"
@@ -1084,8 +1086,9 @@ def test_shared_evidence_resolves_native_target_kinds(inspection, monkeypatch):
 def test_shared_search_preserves_admitted_seed_under_node_bound(inspection, monkeypatch):
     from apps.live_control_server.routes import world_graph_retrieval as routes
 
-    monkeypatch.setenv("DMB_NATIVE_SEARCH_WORLD", "managed")
-    monkeypatch.setattr(routes, "search_campaign_graph", lambda _: pytest.fail("classic search fallback"))
+    monkeypatch.delenv("DMB_NATIVE_SEARCH_WORLD", raising=False)
+    from apps.live_control_server.services import world_graph_retrieval as classic
+    monkeypatch.setattr(classic, "search_campaign_graph", lambda _: pytest.fail("classic search fallback"))
     inspection.app.include_router(routes.router)
     from collections import Counter
     from dungeonmind.application.vnext import EntityReadService
@@ -1297,7 +1300,7 @@ def _shared_anchor_reuse_fixture(x, monkeypatch):
     from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
     from apps.live_control_server.routes.world_graph_retrieval import router
 
-    monkeypatch.setenv("DMB_NATIVE_NEIGHBORHOOD_WORLD", "managed")
+    monkeypatch.delenv("DMB_NATIVE_NEIGHBORHOOD_WORLD", raising=False)
     x.app.include_router(router)
     monkeypatch.setattr(service, "_shared_parsed_cache", NativeParsedRevisionCache())
     counts = {"parse": 0, "revision": 0, "source": 0}
@@ -1663,3 +1666,257 @@ def test_native_inspection_routes_preserve_admitted_display_alternatives(inspect
     assert expected <= {a["assertionId"] for a in result["assertions"]}
     assert result["sourceBindings"]
     assert "Foreign secret" not in complete.text and "Retracted secret" not in complete.text
+
+
+_ROLLOUT_SELECTORS = (
+    "DMB_NATIVE_EXACT_OBJECT_WORLD", "DMB_NATIVE_COMPLETE_OBJECT_WORLD",
+    "DMB_NATIVE_NEIGHBORHOOD_WORLD", "DMB_NATIVE_SEARCH_WORLD", "DMB_NATIVE_EVIDENCE_WORLD",
+)
+
+
+def _retired_classic_tripwires(monkeypatch):
+    from apps.live_control_server.services import world_graph_retrieval as classic
+    from apps.live_control_server.services import world_graph_object_projection as complete
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Current native retrieval attempted a classic read")
+
+    for name in ("search_campaign_graph", "get_campaign_object", "get_object_neighborhood",
+                 "get_object_evidence", "read_source_anchor"):
+        monkeypatch.setattr(classic, name, forbidden)
+    monkeypatch.setattr(complete, "project_complete_world_object", forbidden)
+    monkeypatch.setattr(direct, "direct_services_from_config", forbidden)
+
+
+def _default_retrieval_requests(x, *, world="managed", node=None, revision=None):
+    common = {"worldId": world, "campaignId": x.lane.run.campaign_id,
+              "scopeMode": "campaign"}
+    if revision is not None:
+        common["revisionPin"] = revision
+    node = node or x.objects["object:0"]
+    return {
+        "search": {**common, "schema": "dmb_world_graph_search_request_v1",
+                   "queryText": "Object", "seedNodeIds": [node]},
+        "object": {**common, "schema": "dmb_world_graph_object_request_v1", "nodeId": node},
+        "complete-object": {**common, "schema": "dmb_world_graph_object_projection_request_v1", "nodeId": node},
+        "neighborhood": {**common, "schema": "dmb_world_graph_neighborhood_request_v1", "seedNodeIds": [node]},
+        "evidence": {**common, "schema": "dmb_world_graph_evidence_request_v1", "target": {"kind": "node", "id": node}},
+    }
+
+
+@pytest.mark.parametrize("selectors", ["unset", "stale"])
+@pytest.mark.parametrize("second_world", [False, True])
+def test_current_retrieval_is_native_without_rollout_selectors(
+    inspection, monkeypatch, selectors, second_world,
+):
+    from dungeonmind.application.vnext.materialization import encode_native_graph_payload
+    from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
+    from apps.live_control_server.routes.world_graph_retrieval import router as product_router
+
+    x = inspection
+    _retired_classic_tripwires(monkeypatch)
+    for name in _ROLLOUT_SELECTORS:
+        if selectors == "unset":
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, "unrelated-retired-rollout-world")
+    world, space, node, text = "managed", x.lane.bound["native_world_id"], x.objects["object:0"], x.lane.text.splitlines(keepends=True)[0]
+    if second_world:
+        # A second real Core space/source/publication, not an alias for the first.
+        world, space, text = "second-managed", "second-native-space", "Second World support.\r\n"
+        seed = x.lane.repo.get_revision(x.lane.bound["native_world_id"],
+                                       x.lane.repo.get_head(x.lane.bound["native_world_id"]).head_revision_id)
+        x.lane.repo.publish_revision(PublishKnowledgeRevisionCommand(
+            space_id=space, operation_ids=["second-genesis"], graph_schema=seed.revision.graph_schema,
+            graph_payload=encode_native_graph_payload(entities={}, assertions={}, aliases={}, evidence={}),
+            domain_contract_ref=seed.revision.domain_contract_ref,
+            semantic_profile_ref=seed.revision.semantic_profile_ref, created_at=datetime.now(UTC),
+        ))
+        digest = sha256(text.encode()).hexdigest()
+        source = publish_native_text_source_evidence(
+            repository=x.lane.repo, domain_contract=x.lane.domain, semantic_profile=x.lane.profile,
+            request=NativeTextSourceAdmissionV1(
+                space_id=space, admission_id="second-source",
+                expected_parent_revision_id=x.lane.repo.get_head(space).head_revision_id,
+                created_at=datetime.now(UTC), body_text=text, expected_body_sha256=digest,
+                source_classification="dungeonbuddy.source:session_recap", authority="primary",
+                visibility={"kind": "labels_any", "labels": ["dungeonbuddy.visibility:gm"]},
+                spans=[dict(client_ref="support", evidence_role="support", start_byte=0,
+                            end_byte=len(text.encode()), expected_slice_sha256=digest)],
+            ),
+        )
+        runtime = transport.runtime(x.lane.repo, x.lane.domain, x.lane.profile,
+                                    now=datetime.now(UTC), operation_id="second-object")
+        published = runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(
+            space, "Second World object", (
+                wk.CreateObject("second", (
+                    wk.CreateFact("second-name", "dnd5e:name", wk.LiteralFactValue("Object Second"),
+                                  replace(x.meta, evidence_ref_ids=(source.bindings[0].evidence_ref_id,))),
+                )),
+                wk.CreateObject("second-endpoint"),
+                wk.CreateRelationship("second-edge", wk.ResultOf("second"), "dnd5e:located_in",
+                                      wk.ResultOf("second-endpoint"),
+                                      replace(x.meta, evidence_ref_ids=(source.bindings[0].evidence_ref_id,))),
+            ),
+        )), confirmed_by="local_operator")
+        node = published.object_results[0].durable_object_id
+        original_binding = service.native.binding
+
+        def binding(managed_world):
+            if managed_world == world:
+                return {"managed_world_id": world, "native_world_id": space, "binding_version": 7}
+            return original_binding(managed_world)
+
+        monkeypatch.setattr(service.native, "binding", binding)
+    historical = x.lane.repo.get_head(space).head_revision_id
+    runtime = transport.runtime(x.lane.repo, x.lane.domain, x.lane.profile,
+                                now=datetime.now(UTC), operation_id="later-head")
+    runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(
+        space, "Later independent object", (wk.CreateObject("later"),),
+    )), confirmed_by="local_operator")
+    current = x.lane.repo.get_head(space).head_revision_id
+    assert current != historical
+    before = copy.deepcopy({k: v for k, v in x.lane.repo.__dict__.items() if k != "_lock"})
+    x.app.include_router(product_router)
+    prefix = "/api/live/world-graph/retrieval/"
+    for pin, expected_revision in ((None, current), (historical, historical)):
+        requests = _default_retrieval_requests(x, world=world, node=node, revision=pin)
+        packets = {}
+        for operation, payload in requests.items():
+            response = x.client.post(prefix + operation, json=payload)
+            assert response.status_code == 200, (operation, response.text)
+            packets[operation] = response.json()
+            assert response.json()["snapshot"]["revisionId"] == expected_revision
+        anchor = packets["neighborhood"]["sourceAnchors"][0]
+        opened = x.client.post(prefix + "source-anchor/read", json={
+            "schema": "dmb_world_graph_source_anchor_read_request_v1", "worldId": world,
+            "campaignId": x.lane.run.campaign_id, "revisionPin": expected_revision,
+            "anchorId": anchor["anchorId"],
+        })
+        assert opened.status_code == 200, opened.text
+        assert opened.json()["content"].encode() == text.encode()
+    assert {k: v for k, v in x.lane.repo.__dict__.items() if k != "_lock"} == before
+
+
+@pytest.mark.parametrize("operation", ["search", "object", "complete-object", "neighborhood", "evidence", "source-anchor/read"])
+def test_current_native_retrieval_authenticates_before_authority_and_rejects_extra_selectors(
+    inspection, monkeypatch, operation,
+):
+    from apps.live_control_server.routes.world_graph_retrieval import router as product_router
+    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import native_anchor_id
+
+    x = inspection
+    _retired_classic_tripwires(monkeypatch)
+    x.app.include_router(product_router)
+    calls = []
+
+    def forbidden_binding(world):
+        calls.append(world)
+        pytest.fail("Rejected request reached native authority")
+
+    monkeypatch.setattr(service.native, "binding", forbidden_binding)
+    requests = _default_retrieval_requests(x)
+    requests["source-anchor/read"] = {
+        "schema": "dmb_world_graph_source_anchor_read_request_v1", "worldId": "managed",
+        "campaignId": x.lane.run.campaign_id, "revisionPin": "rev:fixed",
+        "anchorId": native_anchor_id(x.assertions["name:0"], x.lane.support_ids["first"]),
+    }
+    path, payload = "/api/live/world-graph/retrieval/" + operation, requests[operation]
+    x.client.headers.pop("Authorization")
+    assert x.client.post(path, json=payload).status_code == 401
+    x.client.headers["Authorization"] = "Bearer " + TOKEN
+    assert x.client.post(path + "?worldId=foreign", json=payload).status_code == 422
+    assert x.client.post(path, json={**payload, "nativeWorldId": "forged"}).status_code == 422
+    from apps.live_control_server.routes import world_graph_retrieval as product
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal, require_native_graph_gm
+
+    # Retain the real router's authenticated GM dependency; exercise the inner
+    # principal guard's denied-role response before any native/classic read.
+    def denied_role(_):
+        return require_native_graph_gm(NativeGraphPrincipal(
+            subject="synthetic-resolved-player", role="player", auth_method="local_operator",
+        ))
+
+    monkeypatch.setattr(product, "enforce_native_graph_gm", denied_role)
+    assert x.client.post(path, json=payload).status_code == 403
+    assert calls == []
+
+
+@pytest.mark.parametrize("operation", ["search", "object", "neighborhood", "evidence", "source-anchor/read"])
+@pytest.mark.parametrize("failure", ["binding", "head", "integrity", "unavailable"])
+def test_native_failure_is_not_classic_fallback_or_empty(inspection, monkeypatch, operation, failure):
+    from apps.live_control_server.routes.world_graph_retrieval import router as product_router
+    from apps.live_control_server.integrations.dungeonmind.vnext_neighborhood import native_anchor_id
+    from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
+    from dungeonmind.domain.errors import PersistenceIntegrityError, PersistenceUnavailableError
+
+    x = inspection
+    _retired_classic_tripwires(monkeypatch)
+    x.app.include_router(product_router)
+    requests = _default_retrieval_requests(x)
+    requests["source-anchor/read"] = {
+        "schema": "dmb_world_graph_source_anchor_read_request_v1", "worldId": "managed",
+        "campaignId": x.lane.run.campaign_id, "revisionPin": "rev:fixed",
+        "anchorId": native_anchor_id(x.assertions["name:0"], x.lane.support_ids["first"]),
+    }
+    if failure == "binding":
+        def missing(_):
+            raise WorldGraphProjectionServiceError("missing", code="native_graph_binding_missing", status_code=409)
+        monkeypatch.setattr(service.native, "binding", missing)
+        status, code = 409, "native_graph_binding_missing"
+    elif failure == "head":
+        # Source-anchor reopening is historical; a changed binding must fail closed
+        # rather than requiring a current head it does not otherwise consult.
+        if operation == "source-anchor/read":
+            def changed(_):
+                raise service.InspectionUnavailable("native_inspection_binding_changed")
+            monkeypatch.setattr(service.native, "binding", changed)
+            status, code = 409, "native_inspection_binding_changed"
+        else:
+            monkeypatch.setattr(x.lane.repo, "get_head", lambda _: None)
+            status, code = 409, "native_inspection_head_unavailable"
+    else:
+        error = PersistenceIntegrityError if failure == "integrity" else PersistenceUnavailableError
+        def broken_repository(**_):
+            raise error("private internal diagnostic")
+        monkeypatch.setattr(service.native, "read_repository", broken_repository)
+        status, code = (500, "persistence_integrity_error") if failure == "integrity" else (503, "persistence_unavailable")
+    response = x.client.post("/api/live/world-graph/retrieval/" + operation, json=requests[operation])
+    assert response.status_code == status, response.text
+    assert response.json()["code"] == code
+    assert "outcome" not in response.json() and "private internal diagnostic" not in response.text
+
+
+def test_retired_anchor_never_enters_classic_or_native_authority(inspection, monkeypatch):
+    from apps.live_control_server.routes.world_graph_retrieval import router as product_router
+
+    x = inspection
+    _retired_classic_tripwires(monkeypatch)
+    x.app.include_router(product_router)
+    monkeypatch.setattr(service.native, "binding", lambda _: pytest.fail("Retired anchor touched native binding"))
+    payload = {"schema": "dmb_world_graph_source_anchor_read_request_v1", "worldId": "managed",
+               "campaignId": x.lane.run.campaign_id, "revisionPin": "rev:historical",
+               "anchorId": "source-anchor:v1:retired"}
+    path = "/api/live/world-graph/retrieval/source-anchor/read"
+    assert x.client.post(path, json=payload).json()["outcome"] == "empty"
+    x.client.headers.pop("Authorization")
+    assert x.client.post(path, json=payload).status_code == 401
+
+
+def test_non_native_historical_payload_is_not_decoded_on_current_route(inspection, monkeypatch):
+    from apps.live_control_server.routes.world_graph_retrieval import router as product_router
+
+    x = inspection
+    _retired_classic_tripwires(monkeypatch)
+    x.app.include_router(product_router)
+    original = x.lane.repo.get_revision
+
+    def historical_payload(space, revision):
+        stored = original(space, revision)
+        return replace(stored, revision=stored.revision.model_copy(update={"graph_schema": "dm_union_graph_v6"}))
+
+    monkeypatch.setattr(x.lane.repo, "get_revision", historical_payload)
+    response = x.client.post("/api/live/world-graph/retrieval/object", json=_default_retrieval_requests(x)["object"])
+    assert response.status_code == 500, response.text
+    assert response.json()["code"] != "retrieval_internal_error"

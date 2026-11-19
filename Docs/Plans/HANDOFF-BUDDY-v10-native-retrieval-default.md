@@ -1,8 +1,9 @@
 # BUDDY — V10.B current retrieval uses native authority
 
 Status: ACTIVE. Owner/designer: Elderwyld completion lane, explicit operator
-implementation/review/merge authority. Serial delivery, parent Buddy main
- e36abef5d75d543b7e8c656d611b93723757b362 (V9.B4079 accepted).
+implementation/review/merge authority. Serial delivery, actual parent Buddy main
+c4a3403e8e552797e185899b7f35f4a6817047f9 (merged4081 UI fixture correction), containing
+accepted V9.B4079 e36abef5d75d543b7e8c656d611b93723757b362.
 Branch codex/v10-native-retrieval-default in existing task-owned Buddy checkout.
 Core V10.A230 accepted at merge9b4e0af51d343feb4ab5aafaab6a1026cfcfe0b8,
 reviewed74ab90a4f2e81667d58b252c91e94b571fa6872a, review5972083480, all CI green.
@@ -17,14 +18,15 @@ imports/calls. Existing managed binding and Core current head/exact revision are
 authority; absent, inactive, unconverted or corrupt authority never triggers classic
 read, conversion, bridge or file recovery. No hardcoded Elderwyld allowlist.
 
-Five-path exclusive write set:
+Six-path exclusive write set:
 - this handoff;
 - apps/live_control_server/routes/world_graph_retrieval.py;
 - tests/test_native_graph_inspection.py (existing classification);
 - Docs/Plans/HANDOFF-BUDDY-v9-live-native-activation.md;
-- Docs/Reports/V9-live-native-activation-v1.json (truthful predecessor sealing only).
+- Docs/Reports/V9-live-native-activation-v1.json (truthful predecessor sealing only);
+- Docs/Runbooks/RUNBOOK-elderwyld-native-serving.md (accepted4079 status only).
 
-Checked current open PR4081 UI-test-only,3824 hosted integration,1868 classic
+Inspected PR4081 UI-test-only (now merged in the parent),3824 hosted integration,1868 classic
 integration paths; none overlap this route/test/hand-off lease. Do not edit their
 native inspection services, hosted policies, frontend, Core/WK, DTOs, dependency
 pins, recap-context/projection/harness modules or global configuration.
@@ -49,6 +51,13 @@ World identities with selectors unset/stale, not a new static allowlist. Prove
 non-native historical payload rejection, query/extra-field rejection, current and
 historical pins, citation/withdrawal checks, and classic tripwires. Existing product
 GM/presentation policy stays Buddy-owned; no Kernel semantic change is authorized.
+
+## Bounded settlement rebrief
+
+The current serving runbook still says4079 acceptance is pending. Extend the
+predecessor sealing lease by that one runbook status update so the handoff, report
+and operational entry point agree. Commands, helpers, source pins and operational
+proof remain unchanged; no deployment or additional capability is introduced.
 
 ## Owning verification and review map
 

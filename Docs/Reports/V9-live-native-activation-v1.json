@@ -1,6 +1,6 @@
 {
   "schema": "v9_live_native_activation_v1",
-  "status": "ACTIVATION_CHECKS_PASSED_AWAITING_EXACT_HEAD_VERIFICATION_AND_REVIEW",
+  "status": "ACCEPTED",
   "owner": "Elderwyld vNext completion lane",
   "authorization": "Explicit user implementation/review/merge/launch authorization",
   "qualification": {
@@ -34,10 +34,7 @@
   "live_mutation_performed": true,
   "activation_performed": true,
   "evidence_root": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/v9b-live",
-  "pending": [
-    "Final exact-head frontend/canonical validation",
-    "Independent cumulative PR review and guarded merge"
-  ],
+  "pending": [],
   "full_goal_remaining": [
     "V10 retirement",
     "V11 deployed serving baseline"
@@ -539,7 +536,7 @@
     "No new live publication/test node or provider request; fresh-write mechanics qualified in4041 owned recovery only",
     "Historical absent locator and external CDN recovery limits remain; no blanket product/provider readiness claim",
     "Serving uses pinned immutable mirrors and private profiles; later main is not silently deployed",
-    "Final exact-head frontend/review/merge remain pending at this commit"
+    "Exact-head frontend/canonical/review and guarded4079 merge passed; V10/V11 remain open"
   ],
   "retention": {
     "owner": "Elderwyld activation lane",
@@ -578,5 +575,21 @@
     "manual_reclaimed_bytes": 0,
     "backing_filesystem_uuid": "48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8",
     "safety_checks": "Serving PIDs/listeners verified alive from host executor; caller branch clean before finalization; no linked worktree or unique commit removed, no manual cleanup or mount changes."
+  },
+  "acceptance": {
+    "pr": 4079,
+    "merge": "e36abef5d75d543b7e8c656d611b93723757b362",
+    "reviewed_head": "5b422140079b357e064176732b20918a85ba14d5",
+    "review_cycle": 1,
+    "review_id": 5971846921,
+    "verdict": "APPROVE",
+    "unmodified_frontend_selected_passes": 1411,
+    "frontend_build_and_cleanup": "passed",
+    "canonical_validation": "passed",
+    "automatic_check_runs": 0,
+    "automatic_commit_statuses": 0,
+    "automatic_scope": "Docs-only filters did not trigger; not a hosted-green claim",
+    "frontend_evidence": "/home/drakosfire/Projects/.codex/v7-elderwyld-scope/scratch/v9-buddy/live-activation-final-hosted-5b42214-attempt1/evidence.json",
+    "full_goal_complete": false
   }
 }
