@@ -14,7 +14,7 @@ from apps.live_control_server.services.world_container_registry import (
 )
 from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
 from graph_memory.worldbuilding_write_plan import WorldbuildingWritePlanError
-from tests.test_managed_world_graph_projection import _native_projection, _record_with_binding, _request
+from tests.test_managed_world_graph_projection import _native_projection_stub, _record_with_binding, _request
 
 
 def _without_corpus(root: Path, *, active: bool = False, relocated_hint: bool = False):
@@ -31,9 +31,7 @@ def test_registered_identity_and_native_projection_do_not_consult_corpus_layout(
     tmp_path, monkeypatch, relocated_hint,
 ):
     record = _without_corpus(tmp_path, active=True, relocated_hint=relocated_hint)
-    native_result = _native_projection()
-    seen = []
-    monkeypatch.setattr(projection, "project_world_graph", lambda request: seen.append(request) or native_result)
+    seen, outputs = _native_projection_stub(monkeypatch)
     with monkeypatch.context() as guard:
         guard.setattr(Path, "is_dir", lambda *_a: pytest.fail("World admission inspected a directory"))
         assert first_world.admit_managed_world(tmp_path, record.world_id) == record
@@ -41,8 +39,10 @@ def test_registered_identity_and_native_projection_do_not_consult_corpus_layout(
         source = projection.resolve_managed_source_identity(record.world_id, root=tmp_path)
         result = projection.project_managed_world_graph(_request(), root=tmp_path)
     assert binding.native_world_id == source.native_world_id == "eldyrwild"
-    assert result.projection is native_result
-    assert len(seen) == 1 and seen[0].world_id == "eldyrwild"
+    assert result.projection is outputs[0]
+    assert seen == [("eldyrwild", None)]
+    assert result.native_world_id == binding.native_world_id
+    assert result.binding_version == binding.binding_version
     assert not (tmp_path / record.source_root_relpath).exists()
 
 
