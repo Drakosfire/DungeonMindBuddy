@@ -18,7 +18,7 @@ type CatalogModel = { endpoint_id: string; metadata: Record<string, unknown>; ex
 type CatalogPage = { models: CatalogModel[]; next_cursor: string | null; has_more: boolean; fetched_at: string };
 export type ImageGenerationPort = {
   capabilities: (worldId?: string) => Promise<{ configured: boolean; library_ready: boolean; storage_configured: boolean; models: Model[]; default_model_id?: string; map_framing?: string }>;
-  catalog?: (cursor?: string) => Promise<CatalogPage>;
+  catalog?: (cursor?: string, worldId?: string) => Promise<CatalogPage>;
   list: (cursor?: string) => Promise<{ items: MediaRecord[] }>;
   get: (assetId: string) => Promise<MediaRecord>;
   save: (assetId: string) => Promise<MediaRecord>;
@@ -31,7 +31,12 @@ async function request(path: string, input?: ImageGenerationInput | Record<strin
   return body;
 }
 const livePort: ImageGenerationPort = {
-  capabilities: worldId => request('capabilities' + (worldId ? '?' + new URLSearchParams({world_id: worldId}) : '')), catalog: cursor => request('catalog' + (cursor ? `?cursor=${encodeURIComponent(cursor)}` : '')), generate: input => request('generate', input),
+  capabilities: worldId => request('capabilities' + (worldId ? '?' + new URLSearchParams({world_id: worldId}) : '')), catalog: (cursor, worldId) => {
+    const query = new URLSearchParams();
+    if (cursor) query.set('cursor', cursor);
+    if (worldId) query.set('world_id', worldId);
+    return request('catalog' + (query.size ? '?' + query : ''));
+  }, generate: input => request('generate', input),
   list: (cursor = '') => request('library' + cursor), get: id => request(id), save: id => request(id + '/save', {}),
 };
 
@@ -122,7 +127,8 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
     if (!port.catalog || catalogInFlight.current) return;
     catalogInFlight.current = true; setCatalogBusy(true); setCatalogError('');
     try {
-      const page = await port.catalog(more ? catalog?.next_cursor ?? undefined : undefined);
+      const cursor = more ? catalog?.next_cursor ?? undefined : undefined;
+      const page = worldId ? await port.catalog(cursor, worldId) : await port.catalog(cursor);
       setCatalog(old => more && old ? { ...page, models: [...new Map([...old.models, ...page.models].map(item => [item.endpoint_id, item])).values()] } : page);
     } catch (error) { setCatalogError(error instanceof Error ? error.message : 'The model catalog is unavailable.'); }
     finally { catalogInFlight.current = false; setCatalogBusy(false); }

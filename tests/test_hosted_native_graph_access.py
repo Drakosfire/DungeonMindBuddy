@@ -466,6 +466,7 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/world-play-runs/v2/{run_id}/creation"): access.resolve_hosted_play_creation,
             ("POST", "/api/live/world-play-runs/v2/{run_id}/creation:cancel"): access.resolve_hosted_play_creation,
             ("GET", "/api/live/media/images/preparations/list"): access.resolve_hosted_image_history,
+            ("GET", "/api/live/media/images/catalog"): access.resolve_hosted_image_catalog,
             ("GET", "/api/live/media/images/capabilities"): access.resolve_hosted_image_world,
             ("POST", "/api/live/media/images/generate"): access.resolve_hosted_image_world,
             ("POST", "/api/live/media/images/preparations/{action_id}/asset"): access.resolve_hosted_image_world,
@@ -5622,3 +5623,19 @@ def test_hosted_readiness_requires_the_owned_world(hosted):
         assert denied.status_code == 403, denied.text
     denied = hosted.client.request("GET", selected, session="other-session")
     assert denied.status_code == 403, denied.text
+
+
+def test_hosted_image_catalog_denies_foreign_world_before_provider_read(hosted, monkeypatch):
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import media_images
+    provider = Mock(side_effect=AssertionError("Provider must not be contacted"))
+    monkeypatch.setattr(media_images, "_image_client", provider)
+    monkeypatch.setattr(media_images, "_fal_key", lambda: "")
+    path = "/api/live/media/images/catalog?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    assert hosted.client.request("GET", path + "&unexpected=value").status_code == 403
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 503, response.text
+    assert "fal credential" in response.text
+    provider.assert_not_called()

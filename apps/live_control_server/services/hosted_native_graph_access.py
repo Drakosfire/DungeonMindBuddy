@@ -1288,3 +1288,14 @@ def require_hosted_recap_correction(request: Request, world_id: str) -> None:
     world = _owned_world(_hosted_subject(request), world_id)
     if binding is None or world.native_graph_binding != binding:
         raise _denied()
+
+
+async def resolve_hosted_image_catalog(request: Request) -> str:
+    query = request.query_params
+    world_id = query.get("world_id")
+    if (not world_id or set(query) - {"world_id", "cursor", "limit"}
+            or len(query.multi_items()) != len(query) or await request.body()):
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
+    request.state.hosted_conversation_world = world.world_id
+    return world.world_id
