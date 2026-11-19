@@ -521,16 +521,19 @@ describe("App inspector integration", () => {
       content_status: "committed",
       revision: 2,
     });
-    const page = vi.spyOn(liveApi, "getCommittedPageSnapshot").mockResolvedValue(
-      fixtureSnapshot({
+    const snapshot = fixtureSnapshot({
         record: buildRecord,
         markdown: "# Faction Notes\n",
         content_sha256: "sha-build-e7",
         loaded_revision: 2,
         file_fingerprint: "present",
         file_exists: true,
-      }),
-    );
+      });
+    const snapshotRead = vi.mocked(liveApi.getWorkspaceDocumentSnapshot);
+    const priorSnapshot = snapshotRead.getMockImplementation();
+    snapshotRead.mockResolvedValue(snapshot);
+    const priorDocument = vi.mocked(liveApi.getWorkspaceDocumentAny).getMockImplementation();
+    const page = vi.spyOn(liveApi, "getCommittedPageSnapshot").mockResolvedValue(snapshot);
     const worlds = vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
       schema_version: "dmb_world_container_registry_v1",
       records: [{ schema_version: "dmb_world_container_record_v1", world_id: "eldyrwild",
@@ -596,7 +599,11 @@ describe("App inspector integration", () => {
     } finally {
       plans.mockRestore(); context.mockRestore(); inventory.mockRestore();
       worlds.mockRestore(); page.mockRestore();
-      vi.mocked(liveApi.getWorkspaceDocumentAny).mockReset();
+      snapshotRead.mockReset();
+      if (priorSnapshot) snapshotRead.mockImplementation(priorSnapshot);
+      const documentRead = vi.mocked(liveApi.getWorkspaceDocumentAny);
+      documentRead.mockReset();
+      if (priorDocument) documentRead.mockImplementation(priorDocument);
     }
   });
 
