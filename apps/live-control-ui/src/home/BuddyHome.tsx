@@ -5,6 +5,7 @@ import { useSelectedWorld, useRetrySelectedWorld } from "../selectedWorld/Select
 import { WorldSelector } from "../selectedWorld/WorldSelector";
 import { worldScopedSurfaceHref } from "../selectedWorld/worldSelectionNavigation";
 import millImage from "./mill-at-dusk.webp";
+import fontCreditsUrl from "../statblocks/render/statblock-theme/FONT-LICENSE.txt?url&no-inline";
 import "./buddyHome.css";
 
 const samples = [
@@ -67,6 +68,6 @@ export function BuddyHome() {
         <details className="buddy-home__more"><summary>A little more about Buddy</summary><p>Buddy helps tabletop game masters connect campaign material with session preparation and play. Follow a character back to their source, revisit an unresolved lead, and keep the story's context close. The preview above is fictional; your account's Worlds stay separate.</p><p>Use the compass navigation above to find the surfaces on this deployment. Sign in to choose an existing World; availability depends on the hosted release.</p></details>
       </section>
     </main>
-    <footer className="buddy-home__footer"><span>Part of DungeonMind</span><nav aria-label="DungeonMind links"><a href="https://www.dungeonmind.net/">DungeonMind.net <span aria-hidden="true">↗</span></a><a href="#buddy-about">About Buddy</a></nav></footer>
+    <footer className="buddy-home__footer"><span>Part of DungeonMind</span><nav aria-label="DungeonMind links"><a href="https://www.dungeonmind.net/">DungeonMind.net <span aria-hidden="true">↗</span></a><a href="#buddy-about">About Buddy</a><a href={fontCreditsUrl}>Font credits</a></nav></footer>
   </div>;
 }
