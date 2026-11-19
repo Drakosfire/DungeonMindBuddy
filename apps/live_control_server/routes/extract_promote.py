@@ -58,9 +58,7 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionResponseV10,
     RecapCandidateCorrectionRequestV11,
     RecapCandidateCorrectionResponseV11,
-    FirstWorldGraphConfirmReceipt,
     FirstWorldGraphConfirmRequest,
-    FirstWorldGraphPlan,
     FirstWorldGraphPrepareRequest,
     WorldbuildingPublicationCapabilities,
     WorldbuildingWritePlanConfirmReceipt,
@@ -71,12 +69,10 @@ from apps.live_control_server.models.extract_promote import (
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
     confirm,
-    confirm_first_world,
     confirm_worldbuilding,
     decide_recap_semantic_disposition,
     get_exact_run_review_package,
     prepare,
-    prepare_first_world,
     prepare_worldbuilding,
 )
 from apps.live_control_server.services.exact_run_evidence_correction import (
@@ -644,21 +640,50 @@ def post_worldbuilding_write_plan_confirm(
     return result
 
 
+# Dedicated protocol wiring for the two first-World handlers only.
+from apps.live_control_server.models.native_first_world_publication import (  # noqa: E402 - pinned first-World section split
+    NativeFirstWorldPrepareRequest, NativeFirstWorldPlan,
+    NativeFirstWorldConfirmRequest, NativeFirstWorldConfirmReceipt, HistoricalFirstWorldReceipt,
+)
+from dungeonmind.domain.errors import DungeonMindError  # noqa: E402 - pinned first-World section split
+from apps.live_control_server.models.native_first_world_compilation import FirstWorldCompilationError  # noqa: E402 - pinned first-World section split
+
+
 @router.post(
     "/worldbuilding/first-world/prepare",
-    response_model=FirstWorldGraphPlan,
+    response_model=NativeFirstWorldPlan,
 )
 def post_first_world_prepare(
     request_context: Request,
-    request: FirstWorldGraphPrepareRequest,
+    request: NativeFirstWorldPrepareRequest | FirstWorldGraphPrepareRequest,
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_selector_query(request_context)
-        response = prepare_first_world(request, authorize_world=first_world_authorizer(request_context))
+        from apps.live_control_server.services.native_first_world_publication import prepare_native_first_world
+        from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+        from apps.live_control_server.services.hosted_native_graph_access import _hosted_subject
+
+        authorize = first_world_authorizer(request_context)
+        if not isinstance(request, NativeFirstWorldPrepareRequest):
+            raise ExtractPromoteError("This review protocol is retired. Prepare a new native review.",
+                                     code="stale_review_plan", status_code=409)
+        principal = (enforce_native_graph_gm(request_context).subject if authorize is None
+                     else "hosted_dms:" + _hosted_subject(request_context))
+        response = prepare_native_first_world(request, principal_subject=principal, authorize_world=authorize)
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except HTTPException:
         raise
+    except FirstWorldCompilationError as exc:
+        return _error_response(ExtractPromoteError(
+            "This exact reviewed effect cannot be published by the native compiler.", code=exc.code, status_code=409,
+        ))
+    except DungeonMindError as exc:
+        code = getattr(exc, "code", "native_first_world_failed")
+        return _error_response(ExtractPromoteError(
+            "The native publication could not be completed. Retain and retry the exact reviewed request.",
+            code=code, status_code=503 if "unavailable" in code or "outcome_unknown" in code else 409,
+        ))
     except Exception:
         correlation_id = uuid.uuid4().hex[:12]
         logger.exception(
@@ -684,19 +709,40 @@ def post_first_world_prepare(
 
 @router.post(
     "/worldbuilding/first-world/confirm",
-    response_model=FirstWorldGraphConfirmReceipt,
+    response_model=NativeFirstWorldConfirmReceipt | HistoricalFirstWorldReceipt,
 )
 def post_first_world_confirm(
     request_context: Request,
-    request: FirstWorldGraphConfirmRequest,
+    request: NativeFirstWorldConfirmRequest | FirstWorldGraphConfirmRequest,
 ) -> dict[str, Any] | JSONResponse:
     try:
         _reject_selector_query(request_context)
-        response = confirm_first_world(request, authorize_world=first_world_authorizer(request_context))
+        from apps.live_control_server.services.native_first_world_publication import confirm_native_first_world
+        from apps.live_control_server.services.first_world_graph_publication import recover_historical_first_world
+        from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+        from apps.live_control_server.services.hosted_native_graph_access import _hosted_subject
+
+        authorize = first_world_authorizer(request_context)
+        if isinstance(request, NativeFirstWorldConfirmRequest):
+            principal = (enforce_native_graph_gm(request_context).subject if authorize is None
+                         else "hosted_dms:" + _hosted_subject(request_context))
+            response = confirm_native_first_world(request, principal_subject=principal, authorize_world=authorize)
+        else:
+            response = recover_historical_first_world(request, authorize_world=authorize)
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except HTTPException:
         raise
+    except FirstWorldCompilationError as exc:
+        return _error_response(ExtractPromoteError(
+            "This exact reviewed effect cannot be published by the native compiler.", code=exc.code, status_code=409,
+        ))
+    except DungeonMindError as exc:
+        code = getattr(exc, "code", "native_first_world_failed")
+        return _error_response(ExtractPromoteError(
+            "The native publication could not be completed. Retain and retry the exact reviewed request.",
+            code=code, status_code=503 if "unavailable" in code or "outcome_unknown" in code else 409,
+        ))
     except Exception:
         correlation_id = uuid.uuid4().hex[:12]
         logger.exception(

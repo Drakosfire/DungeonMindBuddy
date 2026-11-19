@@ -242,9 +242,17 @@ async def resolve_hosted_first_world(request: Request) -> str:
         run_id = payload.run_id
         claimed_world = None
     elif request.url.path == FIRST_WORLD_CONFIRM_PATH:
+        from apps.live_control_server.services.first_world_graph_publication import recover_historical_first_world
+
         confirmation = FirstWorldGraphConfirmRequest.model_validate(body)
-        run_id = confirmation.plan.run_id
         claimed_world = confirmation.plan.world_id
+        await run_in_threadpool(_owned_world, subject, claimed_world)
+        # Old browser claims alone are insufficient. The actual Core receipt
+        # must match this current reservation before hosted recovery is admitted.
+        await run_in_threadpool(recover_historical_first_world, confirmation,
+            authorize_world=lambda world: _owned_world(subject, world))
+        request.state.hosted_first_world = claimed_world
+        return claimed_world
     else:
         raise _denied()
 

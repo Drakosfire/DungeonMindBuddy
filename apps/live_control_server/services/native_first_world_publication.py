@@ -16,7 +16,7 @@ from dungeonmind.contracts.semantic_profile import SemanticProfileRef
 from dungeonmind.contracts.vnext.domain import DomainContractRef
 from dungeonmind.contracts.vnext.native_source import MAX_NATIVE_TEXT_SPANS
 from dungeonmind.domain.canonical import canonical_sha256
-from dungeonmind.domain.errors import PersistenceIntegrityError
+from dungeonmind.domain.errors import DungeonMindError, PersistenceIntegrityError, PersistenceUnavailableError
 
 from apps.live_control_server import config
 from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as source_owner
@@ -434,6 +434,7 @@ def _existing_bindings(repository, parent, root, intent, view):
     """Resolve only actual source proofs; current access is checked separately."""
     required = {(r["start_byte"], r["end_byte"], r["slice_sha256"]) for r in intent.audit["source_requirements"]}
     by_interval = {}
+    introducing_rows = {}
     for evidence in parent.evidence_by_id.values():
         if (evidence.source_artifact_id, evidence.source_revision_id) != (root.source_artifact_id, root.source_revision_id):
             continue
@@ -471,7 +472,12 @@ def _existing_bindings(repository, parent, root, intent, view):
                 or raw.authority_epoch != origin.source_authority_epoch
                 or proof.source_revision_id != root.source_revision_id):
             raise PersistenceIntegrityError("native first-World proof producer identity drift")
-        _command(repository, origin.publication_receipt)
+        if introduced not in introducing_rows:
+            _command(repository, origin.publication_receipt)
+            introducing_rows[introduced] = _parsed(repository, parent.space_id, introduced).evidence_by_id
+        original = introducing_rows[introduced].get(evidence.evidence_ref_id)
+        if original is None or original != evidence:
+            raise PersistenceIntegrityError("native first-World original evidence role or metadata changed")
         data = dict(proof=proof, source_revision=raw.source_revision, evidence_role=evidence.evidence_role,
             proof_authority_epoch=raw.authority_epoch, origin_kind=kind, origin_operation_id=operation,
             origin_receipt_sha256=canonical_sha256(origin.model_dump(mode="json")), introduced_revision_id=introduced)
@@ -481,3 +487,419 @@ def _existing_bindings(repository, parent, root, intent, view):
     return [NativeFirstWorldExistingBinding(reviewed_evidence_ref_id=r["reviewed_evidence_ref_id"], **by_interval[key])
             for r in intent.audit["source_requirements"]
             if (key := (r["start_byte"], r["end_byte"], r["slice_sha256"])) in by_interval]
+
+
+def _stage_fresh(repository, plan, expected_parent, expected_epoch):
+    """Before an unapplied write only; never called by immutable recovery."""
+    space, stage = plan.native_target.native_world_id, plan.source_stage
+    head = repository.get_head(space)
+    _require((head.head_revision_id if head else None) == expected_parent,
+             "native_first_world_parent_changed", "The exact reviewed native stage parent changed.")
+    _verify_source_events(repository, space, head)
+    _require(repository.open_native_source_view(space).epoch == expected_epoch,
+             "native_first_world_source_changed", "Source authority changed before an unapplied stage.")
+    _reservation(plan.world_id, plan.native_target, require_provisioning=True)
+    snapshot, body, digest, admission_id, binding = source_owner._load_exact_snapshot(
+        config.repo_root(), stage.document_id, stage.document_revision, stage.body_sha256)
+    _source_binding_matches(binding, plan.native_target, plan.world_id, stage.source_root_relpath)
+    _require(body == _intent(plan).audit["source_text"].encode("utf-8")
+             and digest == stage.body_sha256 and admission_id == stage.admission_id
+             and snapshot.record.updated_at == stage.document_updated_at,
+             "native_first_world_source_changed", "The sealed source changed before an unapplied stage.")
+
+
+def _stage_genesis(repository, plan, recovery_only):
+    from dungeonmind.application.vnext.initialization import initialize_empty_knowledge_space
+    stage, space = plan.source_stage, plan.native_target.native_world_id
+    receipt = get_publication_receipt(space, stage.genesis_initialization_id, repository=repository)
+    if receipt is None:
+        if recovery_only or stage.head_revision_id is not None:
+            raise PersistenceIntegrityError("native first-World stage genesis receipt missing")
+        _stage_fresh(repository, plan, None, stage.source_authority_epoch)
+        receipt = initialize_empty_knowledge_space(repository=repository, space_id=space,
+            initialization_id=stage.genesis_initialization_id, created_at=_time(stage.genesis_created_at),
+            domain_contract=dungeonbuddy_world_domain_contract(), semantic_profile=dungeonbuddy_dnd5e_semantic_profile())
+    _verify_genesis(repository, stage, space, receipt.published_revision_id)
+    # A pre-existing source-only parent is an observed pin, not a refreshed head.
+    parent_id = stage.head_revision_id or receipt.published_revision_id
+    _history(repository, space, parent_id, receipt.published_revision_id, source_only=True)
+    return parent_id
+
+
+def _stage_admission(repository, plan, parent_id, recovery_only):
+    from dungeonmind.application.vnext.native_source_admission import publish_native_text_source_evidence
+    stage, space = plan.source_stage, plan.native_target.native_world_id
+    receipt = repository.get_native_source_admission_receipt(space, stage.admission_id)
+    if receipt is None:
+        if recovery_only or stage.admission_state == "admitted":
+            raise PersistenceIntegrityError("native first-World sealed admission receipt missing")
+        _stage_fresh(repository, plan, parent_id, stage.source_authority_epoch)
+        parent = _parsed(repository, space, parent_id)
+        domain, profile = _source_only(parent)
+        receipt = publish_native_text_source_evidence(repository=repository,
+            request=_admission_request(plan, parent_id), domain_contract=domain, semantic_profile=profile)
+    _verify_admission(repository, plan, receipt)
+    if stage.admission_state == "admitted":
+        _history(repository, space, parent_id, receipt.published_revision_id, source_only=True)
+        return receipt, parent_id, stage.source_authority_epoch
+    return receipt, receipt.published_revision_id, receipt.source_authority_epoch
+
+
+def _stage_missing_intervals(plan, actual_bindings):
+    """One caller reference per missing exact interval; never duplicate registration."""
+    existing = {b.reviewed_evidence_ref_id for b in actual_bindings}
+    missing = {}
+    for requirement in _intent(plan).audit["source_requirements"]:
+        if requirement["reviewed_evidence_ref_id"] not in existing:
+            key = (requirement["start_byte"], requirement["end_byte"], requirement["slice_sha256"])
+            missing.setdefault(key, requirement)
+    return tuple(missing[key] for key in sorted(missing))
+
+
+def _stage_extension_request(plan, admission, parent_id, epoch, missing):
+    from dungeonmind.contracts.vnext.native_source import NativeSourceEvidenceExtensionV1
+    return NativeSourceEvidenceExtensionV1(space_id=plan.native_target.native_world_id,
+        extension_id=plan.source_stage.extension_id, original_admission_id=admission.admission_id,
+        source_artifact_id=admission.source_artifact_id, source_revision_id=admission.source_revision_id,
+        expected_body_sha256=plan.source_stage.body_sha256, expected_parent_revision_id=parent_id,
+        expected_source_authority_epoch=epoch, created_at=_time(plan.created_at),
+        spans=[dict(client_ref=r["source_span_ref_id"], evidence_role="support", start_byte=r["start_byte"],
+                    end_byte=r["end_byte"], expected_slice_sha256=r["slice_sha256"]) for r in missing])
+
+
+def _stage_verify_extension(repository, plan, admission, request, receipt, parent):
+    """Reconstruct the exact evidence-only command from real receipt allocations.
+
+    This is immutable verification, not Core's current-access extension replay.
+    It neither allocates identifiers nor asks a planner to manufacture a proof.
+    """
+    from dungeonmind.application.vnext.materialization import encode_native_graph_payload
+    from dungeonmind.application.vnext.native_source_extension import extension_intent
+    from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
+    from dungeonmind.contracts.vnext.native_source import NativeSourceEvidenceExtensionReceiptV1
+    from dungeonmind.contracts.vnext.source import EvidenceRefV3
+
+    receipt = NativeSourceEvidenceExtensionReceiptV1.model_validate(receipt.model_dump(mode="json"))
+    domain, profile = _source_only(parent)
+    if (receipt.space_id != request.space_id or receipt.extension_id != request.extension_id
+            or receipt.original_admission_id != admission.admission_id
+            or receipt.original_admission_sha256 != canonical_sha256(admission.model_dump(mode="json"))
+            or receipt.source_artifact_id != admission.source_artifact_id
+            or receipt.source_revision_id != admission.source_revision_id or receipt.origin != admission.origin
+            or receipt.intent_sha256 != extension_intent(request, domain, profile)
+            or receipt.source_authority_epoch != request.expected_source_authority_epoch + 1
+            or len(receipt.bindings) != len(request.spans)):
+        raise PersistenceIntegrityError("native first-World extension receipt changed")
+    stored_parent = repository.get_revision(parent.space_id, parent.revision_id)
+    if stored_parent is None:
+        raise PersistenceIntegrityError("native first-World extension parent missing")
+    decoded = decode_native_graph_payload(stored_parent.graph_payload)
+    evidence = {e.evidence_ref_id: e for e in decoded.evidence}
+    for span, binding, proof in zip(request.spans, receipt.bindings, receipt.proofs, strict=True):
+        if (binding.client_ref != span.client_ref or proof.source_revision_id != request.source_revision_id
+                or (proof.start_byte, proof.end_byte, proof.slice_sha256) !=
+                   (span.start_byte, span.end_byte, span.expected_slice_sha256)
+                or proof.evidence_ref_id in evidence):
+            raise PersistenceIntegrityError("native first-World extension proof changed")
+        evidence[proof.evidence_ref_id] = EvidenceRefV3(evidence_ref_id=proof.evidence_ref_id,
+            source_artifact_id=request.source_artifact_id, source_revision_id=request.source_revision_id,
+            evidence_role=span.evidence_role, can_open_source=True, can_highlight_span=True,
+            source_span_ref_id=proof.span_id, domain_metadata=span.domain_metadata)
+    expected = PublishKnowledgeRevisionCommand(space_id=parent.space_id,
+        parent_revision_id=parent.revision_id, expected_parent_revision_id=parent.revision_id,
+        operation_ids=[request.extension_id], graph_schema=parent.graph_schema,
+        graph_payload=encode_native_graph_payload(entities={}, assertions={}, aliases={}, evidence=evidence),
+        domain_contract_ref=plan.domain_contract_ref,
+        semantic_profile_ref=SemanticProfileRef(profile_id=parent.semantic_profile_ref.profile_id,
+            profile_revision=parent.semantic_profile_ref.profile_revision,
+            descriptor_sha256=parent.semantic_profile_ref.descriptor_sha256),
+        migration_origin_ref=None, created_at=request.created_at)
+    actual = _command(repository, receipt.publication_receipt)
+    if canonical_sha256(actual.model_dump(mode="json")) != canonical_sha256(expected.model_dump(mode="json")):
+        raise PersistenceIntegrityError("native first-World extension command changed")
+    _history(repository, parent.space_id, receipt.publication_receipt.published_revision_id,
+             admission.published_revision_id, source_only=True)
+    return receipt
+
+
+def _stage_extension(repository, plan, admission, parent_id, epoch, actual_bindings, recovery_only):
+    from dungeonmind.application.vnext.native_source_extension import publish_native_source_evidence_extension
+    from graph_memory.vnext.domain_runtime import GM_LABEL
+
+    missing = _stage_missing_intervals(plan, actual_bindings)
+    receipt = repository.get_native_source_evidence_extension_receipt(
+        plan.native_target.native_world_id, plan.source_stage.extension_id)
+    if not missing:
+        if receipt is not None or get_publication_receipt(plan.native_target.native_world_id,
+                plan.source_stage.extension_id, repository=repository) is not None:
+            raise PersistenceIntegrityError("native first-World unexpected evidence extension")
+        return parent_id, epoch
+    parent = _parsed(repository, plan.native_target.native_world_id, parent_id)
+    request = _stage_extension_request(plan, admission, parent_id, epoch, missing)
+    if receipt is None:
+        if recovery_only:
+            raise PersistenceIntegrityError("native first-World extension receipt missing")
+        _stage_fresh(repository, plan, parent_id, epoch)
+        domain, profile = _source_only(parent)
+        receipt = publish_native_source_evidence_extension(repository=repository, request=request,
+            domain_contract=domain, semantic_profile=profile, audience_labels=[GM_LABEL])
+    receipt = _stage_verify_extension(repository, plan, admission, request, receipt, parent)
+    return receipt.publication_receipt.published_revision_id, receipt.source_authority_epoch
+
+
+def _stage_profile(repository, plan, parent_id, epoch, recovery_only):
+    from dungeonmind.application.vnext.profile_transition import transition_knowledge_semantic_profile
+    from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
+    from dungeonmind.contracts.vnext.profile_transition import KnowledgeProfileTransitionV1
+
+    space, stage = plan.native_target.native_world_id, plan.source_stage
+    parent = _parsed(repository, space, parent_id)
+    domain, current_profile = _source_only(parent)
+    current_ref = SemanticProfileRef(profile_id=parent.semantic_profile_ref.profile_id,
+        profile_revision=parent.semantic_profile_ref.profile_revision,
+        descriptor_sha256=parent.semantic_profile_ref.descriptor_sha256)
+    receipt = get_publication_receipt(space, stage.profile_transition_id, repository=repository)
+    if current_ref == plan.target_profile_ref:
+        if receipt is not None:
+            raise PersistenceIntegrityError("native first-World unexpected profile transition")
+        return parent_id
+    if current_ref != _profile_ref(False) or plan.target_profile_ref != _profile_ref(True):
+        raise PersistenceIntegrityError("native first-World non-additive profile stage")
+    request = KnowledgeProfileTransitionV1(space_id=space, publication_id=stage.profile_transition_id,
+        expected_parent_revision_id=parent_id, created_at=_time(plan.created_at),
+        domain_contract_ref=plan.domain_contract_ref, from_profile_ref=current_ref,
+        to_profile_ref=plan.target_profile_ref)
+    if receipt is None:
+        if recovery_only:
+            raise PersistenceIntegrityError("native first-World profile receipt missing")
+        _stage_fresh(repository, plan, parent_id, epoch)
+        receipt = transition_knowledge_semantic_profile(repository=repository, request=request,
+            domain_contract=domain, current_profile=current_profile,
+            target_profile=dungeonbuddy_dnd5e_custom_predicate_profile())
+    stored = repository.get_revision(space, parent_id)
+    if stored is None:
+        raise PersistenceIntegrityError("native first-World profile parent missing")
+    expected = PublishKnowledgeRevisionCommand(space_id=space, parent_revision_id=parent_id,
+        expected_parent_revision_id=parent_id, operation_ids=[stage.profile_transition_id],
+        graph_schema=parent.graph_schema, graph_payload=stored.graph_payload,
+        domain_contract_ref=plan.domain_contract_ref, semantic_profile_ref=plan.target_profile_ref,
+        migration_origin_ref=None, created_at=request.created_at)
+    actual = _command(repository, receipt)
+    if canonical_sha256(actual.model_dump(mode="json")) != canonical_sha256(expected.model_dump(mode="json")):
+        raise PersistenceIntegrityError("native first-World profile command changed")
+    return receipt.published_revision_id
+
+
+def resolve_native_first_world_stages(repository, plan, *, recovery_only=False):
+    """Return the exact source-only parent and real B1 proof bindings.
+
+    The caller verifies the signed plan and current principal before entering.
+    Recovery reads immutable records (including retracted records), never current
+    access helpers, run/document loaders, repository writes or fresh head selection.
+    """
+    from apps.live_control_server.models.native_first_world_compilation import FirstWorldNativeSpanBinding
+
+    plan = NativeFirstWorldPlan.model_validate(plan.model_dump(mode="json", by_alias=True))
+    intent = _intent(plan)
+    _require(plan.domain_contract_ref == _domain_ref()
+             and plan.target_profile_ref in (_profile_ref(False), _profile_ref(True))
+             and (intent.audit["required_profile_revision"] != "2" or plan.target_profile_ref == _profile_ref(True)),
+             "native_first_world_profile_unsupported", "The signed stage descriptors do not match the compiler policy.")
+    parent_id = _stage_genesis(repository, plan, recovery_only)
+    admission, parent_id, epoch = _stage_admission(repository, plan, parent_id, recovery_only)
+    parent = _parsed(repository, plan.native_target.native_world_id, parent_id)
+    actual = _existing_bindings(repository, parent, admission, intent,
+                               repository.open_native_source_view(parent.space_id))
+    if plan.source_stage.admission_state == "admitted" and actual != plan.source_stage.existing_bindings:
+        raise PersistenceIntegrityError("native first-World sealed existing proof changed")
+    parent_id, epoch = _stage_extension(repository, plan, admission, parent_id, epoch, actual, recovery_only)
+    parent_id = _stage_profile(repository, plan, parent_id, epoch, recovery_only)
+    parent = _parsed(repository, plan.native_target.native_world_id, parent_id)
+    _source_only(parent)
+    bindings = _existing_bindings(repository, parent, admission, intent,
+                                 repository.open_native_source_view(parent.space_id))
+    if {b.reviewed_evidence_ref_id for b in bindings} != {
+            r["reviewed_evidence_ref_id"] for r in intent.audit["source_requirements"]}:
+        raise PersistenceIntegrityError("native first-World source binding inventory incomplete")
+    if not recovery_only:
+        _stage_fresh(repository, plan, parent_id, epoch)
+    return parent, tuple(FirstWorldNativeSpanBinding.from_proof(b.reviewed_evidence_ref_id,
+        b.proof, source_revision=b.source_revision) for b in bindings)
+
+
+class _NativeFirstWorldWriteRefused(PersistenceIntegrityError):
+    """Preserve current authorization refusals through Core's recovery catch."""
+
+    def __init__(self, failure):
+        super().__init__("native first-World pre-write guard refused publication")
+        self.failure = failure
+
+
+class _NativeFirstWorldGuardedRepository:
+    def __init__(self, repository, before_write):
+        self._repository, self._before_write = repository, before_write
+
+    def __getattr__(self, name):
+        member = getattr(self._repository, name)
+        if not callable(member) or name.startswith(("get_", "open_")) or name == "head_events":
+            return member
+        if not name.startswith("publish"):
+            raise PersistenceIntegrityError("unexpected native first-World repository mutation")
+
+        def guarded(*args, **kwargs):
+            try:
+                self._before_write(name)
+            except Exception as exc:
+                raise _NativeFirstWorldWriteRefused(exc) from exc
+            return member(*args, **kwargs)
+        return guarded
+
+
+def _validate_unapplied_review(plan):
+    """Rebuild today's exact frozen review before any uncommitted graph work."""
+    resolved = resolve_promotable_ingest_run(plan.run_id, root=config.repo_root())
+    _require(resolved.world_id == plan.world_id and resolved.data.run.revision == plan.run_revision,
+             "native_first_world_run_changed", "The extraction changed after review.")
+    data = _load_worldbuilding_publication_input(resolved, allow_gazetteer=False)
+    lineage = cross_check_workspace_lineage(config.repo_root(), source_artifact_id=resolved.source_artifact_id,
+                                           expected_world_id=plan.world_id)
+    _require(lineage.source_artifact_id == plan.source_artifact_id
+             and lineage.source_revision_id == plan.source_revision_id
+             and lineage.workspace_document_id == plan.workspace_document_id
+             and lineage.workspace_document_revision == plan.workspace_document_revision,
+             "native_first_world_source_changed", "The source lineage changed after review.")
+    commitment = legacy._source_evidence_commitment(data.reviewed_assertions,
+        source_prose=data.source_prose, span_index=data.span_index, source_artifact_id=plan.source_artifact_id)
+    decisions = [WorldbuildingDispositionInput(assertion_id=row["assertion_id"], decision=row["decision"],
+                    target_node_id=row.get("target_node_id")) for row in plan.reviewed_effect["decision_snapshot"]]
+    materialized = materialize_first_world_plan(preview=data.preview, world_id=plan.world_id,
+        native_target=plan.native_target, run_id=plan.run_id, source_artifact_id=plan.source_artifact_id,
+        source_revision_id=plan.source_revision_id, source_uri=resolved.sealed_source_uri,
+        source_evidence_sha256=commitment, extraction_profile=data.profile_id, campaign_scope=plan.campaign_scope,
+        workspace_document_id=plan.workspace_document_id, workspace_document_revision=plan.workspace_document_revision,
+        dispositions=decisions)
+    legacy._assert_materialized_evidence_matches_review(materialized, data.reviewed_assertions)
+    intent = compile_first_world_native_intent(materialized.effect, world_id=plan.world_id,
+        source_text=data.source_prose, span_index=data.span_index)
+    _require(commitment == plan.source_evidence_sha256 and materialized.effect == plan.reviewed_effect
+             and materialized.decision_digest == plan.decision_digest
+             and materialized.contribution.contribution_id == plan.contribution_id
+             and compute_contribution_payload_sha256(materialized.contribution) == plan.contribution_payload_sha256
+             and intent == _intent(plan),
+             "native_first_world_review_changed", "The exact reviewed effects changed before publication.")
+
+
+def _native_source_status(repository, plan, revision_id, evidence_id):
+    from dungeonmind.application.vnext.native_source_access import (
+        open_native_text_source_access_context, open_admitted_native_text,
+    )
+    from graph_memory.vnext.domain_runtime import GM_LABEL
+    try:
+        context = open_native_text_source_access_context(repository=repository,
+            space_id=plan.native_target.native_world_id, revision_id=revision_id,
+            domain_contract=dungeonbuddy_world_domain_contract(), audience_labels=[GM_LABEL])
+        result = open_admitted_native_text(context, evidence_id)
+        return "available" if result.status == "available" else "unavailable"
+    except PersistenceIntegrityError:
+        raise
+    except Exception:
+        return "unknown"
+
+
+def confirm_native_first_world(request, *, principal_subject, authorize_world=None, repository=None):
+    """Receipt-first confirmation; immutable recovery never reloads current runs."""
+    from dungeonmind.application.vnext.materialization import GovernedPublicationIdentity
+    from dungeonmind.application.vnext.prospective import get_prospective_publication
+    from dungeonmind.application.vnext.prospective_aliases import publish_prospective_alias_contribution
+    from apps.live_control_server.models.native_first_world_publication import (
+        NativeFirstWorldConfirmRequest, NativeFirstWorldConfirmReceipt,
+    )
+    from apps.live_control_server.services.native_first_world_compilation import bind_first_world_native_intent
+    from apps.live_control_server.services.world_graph_binding import (
+        _NativeFirstWorldReadOnlyRepository, activate_native_first_world, WorldGraphBindingError,
+    )
+
+    _require(type(principal_subject) is str and bool(principal_subject.strip()),
+             "native_first_world_principal_missing", "A current confirming principal is required.")
+    request = NativeFirstWorldConfirmRequest.model_validate(request.model_dump(mode="json", by_alias=True))
+    plan = decode_native_plan(request.plan, principal_subject=principal_subject)
+    _authorize(authorize_world, plan.world_id)
+    _reservation(plan.world_id, plan.native_target)
+    repo = repository if repository is not None else _repository()
+    prior = get_prospective_publication(plan.native_target.native_world_id, plan.publication_id, repository=repo)
+    recovered = prior is not None
+    graph_parent = None
+    if recovered:
+        selected = _NativeFirstWorldReadOnlyRepository(repo)
+    else:
+        decode_native_plan(plan, principal_subject=principal_subject, allow_expired=False)
+        _reservation(plan.world_id, plan.native_target, require_provisioning=True)
+        _validate_unapplied_review(plan)
+
+        def before_write(operation):
+            _authorize(authorize_world, plan.world_id)
+            _reservation(plan.world_id, plan.native_target, require_provisioning=True)
+            _validate_unapplied_review(plan)
+            if operation == "publish_prospective_publication":
+                admission = repo.get_native_source_admission_receipt(
+                    plan.native_target.native_world_id, plan.source_stage.admission_id)
+                extension = repo.get_native_source_evidence_extension_receipt(
+                    plan.native_target.native_world_id, plan.source_stage.extension_id)
+                if admission is None:
+                    raise PersistenceIntegrityError("native first-World pre-graph admission missing")
+                epoch = (extension.source_authority_epoch if extension is not None else
+                         plan.source_stage.source_authority_epoch if plan.source_stage.admission_state == "admitted"
+                         else admission.source_authority_epoch)
+                if graph_parent is None:
+                    raise PersistenceIntegrityError("native first-World resolved graph parent missing")
+                _stage_fresh(repo, plan, graph_parent, epoch)
+                view = repo.open_native_source_view(plan.native_target.native_world_id)
+                records = _source_records(repo, plan, admission)
+                _require(records[0].status == "active" and view.epoch == epoch,
+                         "native_first_world_source_changed", "The source was withdrawn before graph publication.")
+        selected = _NativeFirstWorldGuardedRepository(repo, before_write)
+    try:
+        parent, bindings = resolve_native_first_world_stages(selected, plan, recovery_only=recovered)
+        graph_parent = parent.revision_id
+        compilation = bind_first_world_native_intent(_intent(plan), parent=parent,
+            native_space_id=plan.native_target.native_world_id, bindings=bindings, produced_at=_time(plan.created_at))
+        domain, profile = resolve_dungeonbuddy_descriptors(domain_ref=plan.domain_contract_ref,
+                                                          profile_ref=plan.target_profile_ref)
+        publication = publish_prospective_alias_contribution(parent=parent, request=compilation.request,
+            dispositions=compilation.dispositions, publication=GovernedPublicationIdentity(
+                (plan.publication_id,), _time(plan.created_at), parent.revision_id),
+            publication_id=plan.publication_id, domain_contract=domain, semantic_profile=profile, repository=selected)
+    except _NativeFirstWorldWriteRefused as exc:
+        raise exc.failure from exc
+    except (DungeonMindError, ExtractPromoteError):
+        raise
+    except Exception as exc:
+        from apps.live_control_server.models.native_first_world_compilation import FirstWorldCompilationError
+        if isinstance(exc, FirstWorldCompilationError):
+            raise
+        raise ExtractPromoteError(
+            "A native publication stage may have committed. Retain and retry this exact reviewed request.",
+            code="native_first_world_outcome_unknown", status_code=503,
+        ) from exc
+    receipt = publication.publication_receipt
+    _authorize(authorize_world, plan.world_id)
+    warnings = []
+    try:
+        activate_native_first_world(plan.world_id, plan=plan, repository=repo,
+            principal_subject=principal_subject, authorize_world=authorize_world)
+        activation = "active"
+    except (WorldGraphBindingError, PersistenceUnavailableError):
+        activation = "pending"
+        warnings.append("Graph publication is committed. Retry this exact request to finish World activation.")
+    source_status = _native_source_status(repo, plan, receipt.published_revision_id, bindings[0].proof.evidence_ref_id)
+    _authorize(authorize_world, plan.world_id)
+    return NativeFirstWorldConfirmReceipt(outcome="activation_pending" if activation == "pending" else
+        "already_initialized" if recovered else "initialized", world_id=plan.world_id,
+        plan_id=plan.plan_id, plan_digest=plan.plan_digest, decision_digest=plan.decision_digest,
+        source_artifact_id=plan.source_artifact_id, source_revision_id=plan.source_revision_id,
+        contribution_id=plan.contribution_id, native_contribution_id=compilation.request.contribution.contribution_id,
+        native_world_id=plan.native_target.native_world_id, publication_id=plan.publication_id,
+        committed_revision_id=receipt.published_revision_id, applied_assertion_count=len(plan.accepted_assertion_ids),
+        accepted_assertion_ids=plan.accepted_assertion_ids, rejected_assertion_ids=plan.rejected_assertion_ids,
+        native_publication=publication, activation_status=activation, source_status=source_status,
+        recovered=recovered, warnings=warnings)

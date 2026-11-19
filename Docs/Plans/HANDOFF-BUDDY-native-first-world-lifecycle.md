@@ -9,7 +9,7 @@ codex/v10-native-first-world-lifecycle, existing task-owned Buddy checkout.
 ## Pinned assignment and current source
 
 Adopt ARCHITECTURE's bounded disposition at
-[c19a429a3166ec74fc6a48992680706af04d507d](https://github.com/Drakosfire/DungeonMindBuddy/blob/c19a429a3166ec74fc6a48992680706af04d507d/Docs/Plans/HANDOFF-MIND-B2-native-first-world-lifecycle.md).
+[b3ebc53316b70d3687a38755782444db566b69aa](https://github.com/Drakosfire/DungeonMindBuddy/blob/b3ebc53316b70d3687a38755782444db566b69aa/Docs/Plans/HANDOFF-MIND-B2-native-first-world-lifecycle.md).
 Its complete outcome, sealed lifecycle, failure cases and verification requirements
 are part of this assignment. The user granted lane authority; ARCHITECTURE designed
 the precise section splits. No PRIME or standing-Steward gate. No competing branch
@@ -224,3 +224,39 @@ before decoding/reads/CAS. Four regression cases refuse missing/blank/wrong-type
 principals without APP mutation. Owning diagnostic cohort:27 passed/1 warning.
 The reviewer confirmed read-only wrapper compatibility with actual Core recovery;
 this is a focused critique, not cumulative acceptance or stage integration proof.
+
+## Mounted lifecycle checkpoint
+
+Pinned b3ebc533 narrows the shared router import exception: remove only replaced
+exclusive legacy first-World names, place dedicated native/historical protocol
+imports beside the two allocated handlers. Four now-unused names were removed;
+the two legacy request models remain because obsolete/historical requests are
+explicitly parsed. No unrelated import/auth/route changes. The pre-existing
+unused native_graph_gm_dependency import remains outside this split.
+
+Source stages, native confirmation, public Core graph recovery, APP activation,
+and both mounted handlers are implemented. Historical confirmations only read
+verified old Core receipts/current reservations; never initialize or activate.
+Current-auth guards preserve denial through Core recovery; typed deterministic
+failures remain typed. Transient Core/APP activation failure retains the known
+committed graph receipt as activation pending. Generic ambiguous stage failures
+retain the request with typed outcome-unknown response.
+
+Working-tree diagnostics (not exact-head acceptance):15 SQL prepare/stage cases;
+4 graph/APP confirmation cases;5 role-mutation/confirmation cases after correction;
+3 lost-response/pending/owner-denial cases;actual local HTTP1 and actual hosted
+middleware1 (offline synthetic DMS transport, real disposable APP/Core databases).
+The integrated owning three-module run returned165 passed/2 failures/4 warnings.
+Both failures were historical fixture unlink attempts on nonexistent object
+locators; guarding all paths while deleting only real mirrors fixed both, with
+2 targeted passes. An initial role comparison incorrectly compared wire models
+with parsed records; the retained failed log precedes its corrected5-case pass.
+Source-proof reuse now compares the original parsed introducing row, cached once
+per introducing revision, refusing role or metadata mutation.
+
+A shared hosted-auth test still patches the retired prepare symbol and fails
+AttributeError. An exact function-only test transfer has been requested from
+ARCHITECTURE before editing that previously unallocated path. Full backend
+contracts, needed/unneeded profile/partial-failure matrix, frontend hosted/build
+and discovered diagnostics, exact-head cumulative review remain pending. No
+serving/live/provider/baseline change or deployment acceptance is claimed.
