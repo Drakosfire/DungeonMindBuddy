@@ -74,6 +74,18 @@ class SidePacing(_Immutable):
         return value
 
 
+class SpotlightPacing(_Immutable):
+    mode: Literal["spotlight"] = "spotlight"
+    rounds: Literal[False] = False
+
+    @field_validator("rounds", mode="before")
+    @classmethod
+    def strict_rounds(cls, value):
+        if type(value) is not bool:
+            raise ValueError("spotlight pacing requires a boolean round capability")
+        return value
+
+
 class ManualCombatProfile(_Immutable):
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True, revalidate_instances="always")
 
@@ -84,7 +96,7 @@ class ManualCombatProfile(_Immutable):
     revision: Annotated[int, Field(strict=True, ge=1, le=9999)] = 1
     stats: tuple[StatDefinition, ...] = Field(default=(), max_length=32)
     resources: tuple[ResourceDefinition, ...] = Field(default=(), max_length=16)
-    pacing: Annotated[OrderedPacing | SidePacing, Field(discriminator="mode")] = Field(default_factory=OrderedPacing)
+    pacing: Annotated[OrderedPacing | SidePacing | SpotlightPacing, Field(discriminator="mode")] = Field(default_factory=OrderedPacing)
 
     @field_validator("pacing", mode="before")
     @classmethod

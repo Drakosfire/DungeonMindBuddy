@@ -74,7 +74,7 @@ def test_profile_and_nested_defaults_are_immutable_and_do_not_alias_actor_maps()
 
 @pytest.mark.parametrize("patch", [
     {"schema": "dmb_combat_ruleset_v1"},
-    {"pacing": {"mode": "spotlight"}},
+    {"pacing": {"mode": "unknown"}},
     {"pacing": {"mode": "sides"}},
     {"pacing": {"rounds": "false"}},
     {"revision": True},

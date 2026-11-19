@@ -6,6 +6,7 @@ import {getAnyWorldCombatEncounter,saveManualCombatEncounter} from './combatApi'
 import {isManualCombatRecord} from './ManualCombatTypes';
 import {advanceManualTurn,assignManualSide,newManualActor,removeManualActor,setManualParticipation} from './ManualCombatState';
 import {ManualCombatSides,ManualSideTurnRail} from './ManualCombatSides';
+import {ManualSpotlightRail} from './ManualCombatSpotlight';
 import {CombatSavedStatblock} from './CombatMechanicsInspection';
 import {ManualCombatSourcePicker} from './ManualCombatSourcePicker';
 import {validManualDraft} from './validateCombatRecovery';
@@ -149,7 +150,8 @@ export function ManualCombatEditor({record,scope,onSaved,onBlocked,externallyDis
     {recovery&&<aside aria-label="Retained Combat draft"><p>Local edits are available. Recover or discard them before editing.</p><button onClick={recover}>Recover local edits</button><button onClick={discard}>Discard retained draft</button></aside>}
     <label>Encounter title<ManualCombatValueInput label="Encounter title" kind="name" value={draft.title} maxLength={160} disabled={disabled} onValue={value=>update({...draft,title:String(value)})}/></label>
     <section ref={rail} className="combat-roster-turn-rail" aria-label="Turn order">
-      {draft.turn.kind==='side'?<ManualSideTurnRail draft={draft} disabled={disabled} onChange={update}/>:<>
+      {draft.turn.kind==='side'?<ManualSideTurnRail draft={draft} disabled={disabled} onChange={update}/>
+        :draft.turn.kind==='spotlight'?<ManualSpotlightRail draft={draft} disabled={disabled} onChange={update}/>:<>
       {draft.turn.kind==='ordered_rounds'&&<strong>Round {draft.turn.round}</strong>}
       <span>Current: {active?.name??'Not started'}</span><span>Next: {next?.name??'No participants'}</span>
       <button disabled={disabled||!participating.length} onClick={()=>{try{update(advanceManualTurn(draft));}catch(caught){setError(String(caught));}}}>{active?'Next turn':'Start turns'}</button>

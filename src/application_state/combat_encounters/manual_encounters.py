@@ -103,13 +103,18 @@ class SideTurn(_Model):
     acted_actor_ids: tuple[Identity, ...] = Field(default=(), max_length=100)
 
 
+class SpotlightTurn(_Model):
+    kind: Literal["spotlight"] = "spotlight"
+    active_actor_id: Identity | None = None
+
+
 class ManualEncounterDraft(_Model):
     schema_: Literal["dmb_combat_encounter_draft_v2"] = Field(default="dmb_combat_encounter_draft_v2", alias="schema")
     title: Name
     entities: list[ManualParticipant] = Field(default_factory=list, max_length=100)
     groups: list[ManualGroup] = Field(default_factory=list, max_length=100)
     sides: list[ManualSide] = Field(default_factory=list, max_length=32)
-    turn: Annotated[OrderedTurn | OrderedRoundTurn | SideTurn, Field(discriminator="kind")] = Field(default_factory=OrderedTurn)
+    turn: Annotated[OrderedTurn | OrderedRoundTurn | SideTurn | SpotlightTurn, Field(discriminator="kind")] = Field(default_factory=OrderedTurn)
 
     @model_validator(mode="after")
     def coherent_references(self):
@@ -184,6 +189,8 @@ class ManualEncounterRecord(_Model):
             raise ValueError("manual profile digest differs from its pinned snapshot")
         if (self.ruleset.pacing.mode == "side") != isinstance(self.draft.turn, SideTurn):
             raise ValueError("turn state must match the profile's pacing mode")
+        if (self.ruleset.pacing.mode == "spotlight") != isinstance(self.draft.turn, SpotlightTurn):
+            raise ValueError("turn state must match the profile's pacing mode")
         if self.ruleset.pacing.rounds != isinstance(self.draft.turn, OrderedRoundTurn):
             raise ValueError("turn state must match the profile's round capability")
         for actor in self.draft.entities:
@@ -201,7 +208,8 @@ class ManualEncounterRecord(_Model):
 
 def empty_manual_draft(profile: ManualCombatProfile, title: str) -> ManualEncounterDraft:
     profile = ManualCombatProfile.model_validate(profile)
-    turn = SideTurn() if profile.pacing.mode == "side" else OrderedRoundTurn() if profile.pacing.rounds else OrderedTurn()
+    turn = (SpotlightTurn() if profile.pacing.mode == "spotlight" else SideTurn() if profile.pacing.mode == "side"
+            else OrderedRoundTurn() if profile.pacing.rounds else OrderedTurn())
     return ManualEncounterDraft(title=title, turn=turn)
 
 

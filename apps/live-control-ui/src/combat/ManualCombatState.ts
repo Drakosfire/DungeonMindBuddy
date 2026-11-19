@@ -17,6 +17,7 @@ export function adjustManualResource(value:ManualResource,direction:1|-1,amount:
     :direction===-1&&value.minimum!==null?Math.max(candidate,value.minimum):candidate};
 }
 export function advanceManualTurn(draft:ManualCombatDraft):ManualCombatDraft {
+  if(draft.turn.kind==='spotlight')throw new Error('Choose the spotlight participant explicitly.');
   if(draft.turn.kind==='side')return passManualSide(draft);
   const actors=draft.entities.filter(actor=>actor.participation==='in_action');
   if(!actors.length)return {...draft,turn:{...draft.turn,active_actor_id:null}};
@@ -36,10 +37,17 @@ export function advanceManualTurn(draft:ManualCombatDraft):ManualCombatDraft {
 export function setManualParticipation(draft:ManualCombatDraft,id:string,participation:ManualCombatActor['participation']):ManualCombatDraft {
   const entities=draft.entities.map(actor=>actor.id===id?{...actor,participation}:actor);
   if(draft.turn.active_actor_id!==id||participation==='in_action')return {...draft,entities};
-  if(draft.turn.kind==='side')return {...draft,entities,turn:{...draft.turn,active_actor_id:null}};
+  if(draft.turn.kind==='side'||draft.turn.kind==='spotlight')return {...draft,entities,turn:{...draft.turn,active_actor_id:null}};
   const index=entities.findIndex(actor=>actor.id===id);
   const successor=entities.slice(index+1).concat(entities.slice(0,index)).find(actor=>actor.participation==='in_action');
   return {...draft,entities,turn:{...draft.turn,active_actor_id:successor?.id??null}};
+}
+
+export function selectManualSpotlight(draft:ManualCombatDraft,id:string|null):ManualCombatDraft {
+  if(draft.turn.kind!=='spotlight')throw new Error('This encounter does not use free spotlight pacing.');
+  if(id!==null&&!draft.entities.some(actor=>actor.id===id&&actor.participation==='in_action'))
+    throw new Error('Choose an in-action participant in this encounter.');
+  return draft.turn.active_actor_id===id?draft:{...draft,turn:{kind:'spotlight',active_actor_id:id}};
 }
 
 export function removeManualActor(draft:ManualCombatDraft,id:string):ManualCombatDraft {

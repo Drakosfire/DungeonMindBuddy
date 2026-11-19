@@ -1,7 +1,7 @@
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import type {ManualCombatActor,ManualCombatDraft,ManualCombatProfile} from './ManualCombatTypes';
 import {ManualCombatValueInput} from './ManualCombatValueInput';
-import {actManualParticipant,adjustManualResource,finishManualParticipant} from './ManualCombatState';
+import {actManualParticipant,adjustManualResource,finishManualParticipant,selectManualSpotlight} from './ManualCombatState';
 
 function StatusField({actor,disabled,onChange}:{actor:ManualCombatActor;disabled:boolean;onChange:(statuses:string[])=>boolean}) {
   const [text,setText]=useState(actor.statuses.join(', '));
@@ -52,6 +52,9 @@ export function ManualCombatRosterTable({draft,profile,disabled,projection,sourc
               {actor.mechanics_snapshot&&<button aria-label={`Project source for ${actor.name}`} aria-pressed={projection===actor.id} aria-controls={sourceRegionId}
                 onClick={event=>onProject(actor.id,event.currentTarget)}>Source</button>}
             </div>
+            {draft.turn.kind==='spotlight'&&<button disabled={disabled||!onTurnChange||actor.participation!=='in_action'}
+              aria-label={`${active?'Finish spotlight for':'Give spotlight to'} ${actor.name}`}
+              onClick={()=>onTurnChange?.(selectManualSpotlight(draft,active?null:actor.id))}>{active?'Finish spotlight':'Spotlight'}</button>}
             {sideTurn&&<>
               <label>Side<select aria-label={`Side for ${actor.name}`} disabled={disabled} value={actor.side_id??''}
                 onChange={event=>onActorChange({...actor,side_id:event.target.value||null})}>

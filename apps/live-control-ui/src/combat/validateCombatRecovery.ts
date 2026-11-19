@@ -62,6 +62,7 @@ export function validManualDraft(record:ManualCombatRecord, draft:ManualCombatDr
   if (!unique(ids)||!unique(sides)||!unique(draft.groups.map(group=>group.id))) return false;
   if (record.ruleset.pacing.rounds !== (draft.turn.kind==='ordered_rounds')) return false;
   if ((record.ruleset.pacing.mode==='side') !== (draft.turn.kind==='side')) return false;
+  if ((record.ruleset.pacing.mode==='spotlight') !== (draft.turn.kind==='spotlight')) return false;
   const fields=record.ruleset.stats.map(field=>field.field_id), resources=record.ruleset.resources.map(field=>field.field_id);
   const sameKeys=(value:object,keys:string[])=>Object.keys(value).length===keys.length&&keys.every(key=>Object.hasOwn(value,key));
   if (!unique([...fields,...resources])) return false;

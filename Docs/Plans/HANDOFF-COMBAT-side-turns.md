@@ -146,3 +146,18 @@ that the table's frozen Participant header shares the sticky rail's stacking lev
 and can cover side controls during source projection. Raise only the manual rail
 above that header. Preserve6c evidence as functional diagnostics; requalify and
 repeat the visual projection check at the corrected head before acceptance.
+
+## Accepted predecessor settlement
+
+#4018 merged90995af354398aede97c3a50ee53a2827dab5d03 after independent renewed
+approval of exact9a6e8a67a61206f93ae41034bb75f209b1fa734e againstf6c4e2ac5.
+Combat0165 now follows merged Lore0164. Current-head243 backend and1410 hosted
+passes, successful builds, clean source/DB cleanup and exact-newbase comparison
+prove no new failures/omissions: full discovered remains red159 inherited failures
+and two extra skipped cases, with11 additive passes. All76 changed messages retain
+causes/source frames/multiplicity. Independent review accepted original6c functional
+and13d corrected visual browser receipts through proven owning-runtime blob identity
+and fresh9a migration proof; actual execution SHAs/schema0164 remain recorded.
+This side-turn slice is accepted; its ACTIVE write lease is retired. The serial
+spotlight successor owns its newly bounded writes in HANDOFF-COMBAT-spotlight-turns.md.
+The full Combat goal and real-runtime delivery remain incomplete.

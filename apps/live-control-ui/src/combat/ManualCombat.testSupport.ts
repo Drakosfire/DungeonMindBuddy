@@ -19,3 +19,10 @@ export function sideCombatRecord():ManualCombatRecord {
   record.draft.turn={kind:'side',active_side_id:null,active_actor_id:null,acted_actor_ids:[]};
   return record;
 }
+
+export function spotlightCombatRecord():ManualCombatRecord {
+  const record=manualCombatRecord();record.ruleset.pacing={mode:'spotlight',rounds:false};
+  record.draft.entities.push(newManualActor(record.ruleset,'Guide'));
+  record.draft.turn={kind:'spotlight',active_actor_id:null};
+  return record;
+}
