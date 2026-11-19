@@ -494,7 +494,7 @@ def test_native_inventory_rejects_duplicate_deferred_accounting(duplicate):
 
 
 # B1 uses the installed public Core API. No allocator/planner or database fixture.
-def _native_compilation_case(*, custom=False, reject=False, node_type="character", source_text=None):
+def _native_compilation_case(*, custom=False, reject=False, node_type="character", source_text=None, native_role="support"):
     from datetime import UTC, datetime
     from hashlib import sha256
     from dungeonmind.application.vnext import (
@@ -540,7 +540,7 @@ def _native_compilation_case(*, custom=False, reject=False, node_type="character
             source_classification="dungeonbuddy.source:worldbuilding", authority="primary",
             visibility={"kind": "labels_any", "labels": [GM_LABEL]},
             origin={"namespace": "dungeonbuddy.source", "object_id": "source", "revision_id": "sha256:" + digest},
-            spans=[dict(client_ref=span.source_span_id, evidence_role="support", start_byte=start, end_byte=end,
+            spans=[dict(client_ref=span.source_span_id, evidence_role=native_role, start_byte=start, end_byte=end,
                         expected_slice_sha256=sha256(text.encode()[start:end]).hexdigest())],
         ),
     )
@@ -1053,3 +1053,45 @@ def test_native_compiler_invalid_binding_reference_has_a_typed_refusal():
     with pytest.raises(FirstWorldCompilationError, match="invalid_reviewed_evidence_ref"):
         bind_first_world_native_intent(intent, parent=case.parent, native_space_id=case.space,
                                       bindings=(bad,), produced_at=case.now)
+
+
+def test_native_compiler_preserves_local_source_reference_correlations_in_request_identity():
+    from copy import deepcopy
+    from apps.live_control_server.services.native_first_world_compilation import (
+        compile_first_world_native_intent, bind_first_world_native_intent,
+    )
+    case = _native_compilation_case()
+    case.effect["accepted_proposals"][0]["value"]["evidence"][0]["source_ref_id"] = "candidate-local:Alice"
+    case.effect["accepted_proposals"][1]["value"]["evidence"][0]["source_ref_id"] = "candidate-local:Bob"
+    changed = deepcopy(case.effect)
+    changed["accepted_proposals"][0]["value"]["evidence"][0]["source_ref_id"] = "candidate-local:changed"
+    packets = []
+    for raw in (case.effect, changed):
+        intent = compile_first_world_native_intent(raw, world_id="world", source_text=case.text, span_index=case.index)
+        assert intent.audit["reviewed_effect"] == raw
+        bound = bind_first_world_native_intent(intent, parent=case.parent, native_space_id=case.space,
+                                              bindings=case.bindings, produced_at=case.now)
+        assert bound.request.contribution.diagnostics[0].payload["reviewed_effect"] == raw
+        packets.append(bound)
+    assert packets[0].intent_sha256 != packets[1].intent_sha256
+    assert packets[0].request_sha256 != packets[1].request_sha256
+    _publish_compilation(case, packets[0])
+
+
+@pytest.mark.parametrize("role", ["context", "support"])
+def test_native_compiler_preserves_actual_parent_evidence_role_through_public_publication(role):
+    case = _native_compilation_case(native_role=role)
+    _, bound = _compile_and_bind(case)
+    result = _publish_compilation(case, bound)
+    payload = case.repo.get_revision(case.space, result.publication_receipt.published_revision_id).graph_payload
+    assert [row["evidence_role"] for row in payload["evidence"]] == [role]
+    assert len(payload["entities"]) == 2 and len(payload["aliases"]) == 2
+
+
+def test_native_compiler_never_uses_contradiction_as_positive_reviewed_support():
+    from apps.live_control_server.models.native_first_world_compilation import FirstWorldCompilationError
+    case = _native_compilation_case(native_role="contradiction")
+    head = case.repo.get_head(case.space)
+    with pytest.raises(FirstWorldCompilationError, match="native_evidence_mismatch"):
+        _compile_and_bind(case)
+    assert case.repo.get_head(case.space) == head

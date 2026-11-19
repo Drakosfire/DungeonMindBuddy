@@ -2265,7 +2265,7 @@ def test_hosted_build_reads_only_exact_published_statblock(hosted, monkeypatch, 
 
 
 def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_preparing(hosted, monkeypatch):
-    from apps.live_control_server.services import promotable_ingest_run
+    from apps.live_control_server.services import promotable_ingest_run, native_first_world_publication
 
     monkeypatch.setattr(
         promotable_ingest_run, "resolve_promotable_ingest_run",
@@ -2273,13 +2273,16 @@ def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_prepar
     )
     prepared = []
 
-    def prepare(payload, *, authorize_world):
+    def prepare(payload, *, principal_subject, authorize_world):
+        assert payload.schema_ == "dmb_native_first_world_prepare_request_v1"
+        assert principal_subject == HOSTED_OWNER
+        assert callable(authorize_world)
         authorize_world("foreign" if payload.run_id == "changed" else "managed")
         prepared.append(payload.run_id)
         raise extract_promote.ExtractPromoteError("probe reached", code="probe_reached", status_code=409)
 
-    monkeypatch.setattr(extract_promote, "prepare_first_world", prepare)
-    payload = {"runId": "owned", "decisions": [{"assertionId": "source-assertion", "decision": "create_new"}]}
+    monkeypatch.setattr(native_first_world_publication, "prepare_native_first_world", prepare)
+    payload = {"schema": "dmb_native_first_world_prepare_request_v1", "runId": "owned", "decisions": [{"assertionId": "source-assertion", "decision": "create_new"}]}
     route = access.FIRST_WORLD_PREPARE_PATH
 
     assert hosted.client.request("POST", route, json=payload).status_code == 409

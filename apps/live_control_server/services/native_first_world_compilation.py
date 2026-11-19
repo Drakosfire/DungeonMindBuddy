@@ -120,7 +120,6 @@ def _span_requirements(effect, source_text, span_index, world_id):
             _require(span is not None, "unknown_reviewed_span")
             _require(ref.get("source_artifact_id") == artifact
                      and ref.get("source_domain") == "worldbuilding"
-                     and ref.get("source_ref_id") == span.source_ref_id
                      and ref.get("locator") == span.source_span_id,
                      "reviewed_span_identity_mismatch")
             start = offsets[span.start_line - 1]
@@ -280,7 +279,7 @@ def bind_first_world_native_intent(intent, *, parent, native_space_id, bindings,
         evidence = parent.evidence_by_id.get(proof.evidence_ref_id)
         _require(evidence is not None and evidence.source_revision_id == proof.source_revision_id
                  and evidence.source_span_ref_id == proof.span_id and evidence.can_open_source
-                 and evidence.can_highlight_span and evidence.evidence_role == "support", "native_evidence_mismatch")
+                 and evidence.can_highlight_span and evidence.evidence_role in {"support", "context"}, "native_evidence_mismatch")
         _require(source_revision.source_artifact_id == evidence.source_artifact_id
                  and source_revision.source_revision_id == proof.source_revision_id
                  and source_revision.content_sha256 == audit["source_body_sha256"]

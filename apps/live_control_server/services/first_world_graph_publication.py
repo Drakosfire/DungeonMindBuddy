@@ -790,3 +790,55 @@ def confirm_first_world(
         rematerialized=rematerialized,
         port_receipt=port_receipt,
     )
+
+
+def recover_historical_first_world(request, *, authorize_world=None, receipt_repository=None):
+    """Read a real old receipt without initializing, activating, or reloading a run.
+
+    Browser claims only select a currently authorized reservation. Core's verified
+    immutable receipt supplies the response and must match the retained plan.
+    """
+    from apps.live_control_server.models.native_first_world_publication import HistoricalFirstWorldReceipt
+    from apps.live_control_server.services.world_container_registry import get_world_container
+
+    plan = request.plan
+    if authorize_world is not None:
+        authorize_world(plan.world_id)
+    world = get_world_container(plan.world_id)
+    binding, target = world.native_graph_binding, plan.native_target
+    if (binding is None or binding.native_world_id != target.native_world_id
+            or binding.binding_version != target.binding_version
+            or binding.provisioning_id != target.provisioning_id):
+        raise ExtractPromoteError("The historical request no longer matches this World reservation.",
+                                  code="native_graph_binding_changed", status_code=409)
+    if receipt_repository is None:
+        from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+            _open_repository_bundle, _require_database_url,
+        )
+        receipt_repository = _open_repository_bundle(_require_database_url(None)).reviewed_world_initializations
+    # Core verifies its qualified contribution and immutable source-plan digest.
+    # Its contribution hash is not Buddy's pre-adaptation payload hash.
+    receipt = receipt_repository.get_for_world(target.native_world_id)
+    if receipt is None:
+        raise ExtractPromoteError(
+            "No historical receipt exists. The saved request is retained; native review is required for new work.",
+            code="historical_first_world_receipt_missing", status_code=409,
+        )
+    if (receipt.world_id != target.native_world_id
+            or receipt.initialization_id != target.provisioning_id
+            or receipt.source_plan_schema != plan.schema_
+            or receipt.source_plan_id != plan.plan_id
+            or receipt.source_plan_sha256 != plan.plan_digest.removeprefix("sha256:")
+            or receipt.reviewed_contribution_id != plan.contribution_id
+            or receipt.campaign_id is not None):
+        raise ExtractPromoteError("The historical receipt does not match this retained request.",
+                                  code="first_world_idempotency_conflict", status_code=409)
+    if authorize_world is not None:
+        authorize_world(plan.world_id)
+    current = get_world_container(plan.world_id)
+    if current.native_graph_binding != binding:
+        raise ExtractPromoteError("The World reservation changed during receipt recovery.",
+                                  code="native_graph_binding_changed", status_code=409)
+    return HistoricalFirstWorldReceipt(world_id=plan.world_id, native_world_id=receipt.world_id,
+        plan_id=receipt.source_plan_id, plan_digest="sha256:" + receipt.source_plan_sha256,
+        historical_receipt=receipt)

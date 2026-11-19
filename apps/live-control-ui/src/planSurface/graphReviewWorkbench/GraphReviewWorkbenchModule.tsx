@@ -45,6 +45,7 @@ import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
 import { GraphReviewHistoricalRecapProjection } from "./GraphReviewHistoricalRecapProjection";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
 import { GraphReviewWorldbuildingPublication } from "./GraphReviewWorldbuildingPublication";
+import {GraphReviewFirstWorldRecovery} from "./GraphReviewFirstWorldPublishSheet";
 import {
   resolveGraphReviewWriteAuthority,
   resolvePublishedMemoryBrowseContext,
@@ -204,6 +205,13 @@ export function GraphReviewWorkbenchModule({
     () => (exactHandoff ? assertExactRunHandoff(exactHandoff) : []),
     [exactHandoff],
   );
+
+  // A retained first-World request is owned by selected World/run, not today's
+  // mutable source package. Explicit source-review-only mode still forbids retry.
+  const firstWorldRecoveryRun=exactHandoffErrors.length===0?exactHandoff?.extractionRunId:null;
+  const firstWorldRecoveryScope=JSON.stringify([managedWorldId,firstWorldRecoveryRun,sourceReviewOnly]);
+  const firstWorldRecoveryScopeRef=useRef(firstWorldRecoveryScope);
+  firstWorldRecoveryScopeRef.current=firstWorldRecoveryScope;
 
   // Keep structural registration stable across same-identity config updates.
   useEffect(() => {
@@ -920,6 +928,12 @@ export function GraphReviewWorkbenchModule({
           {exactRunStatus === "loading" ? (
             <p className="plan-projection-empty">Loading exact extraction run…</p>
           ) : null}
+
+          {!sourceReviewOnly&&managedWorldId&&firstWorldRecoveryRun
+            &&(!hasExactRunLoad||!exactRunReviewable||!exactReview||exactReviewStatus==='error')&&
+            <GraphReviewFirstWorldRecovery worldId={managedWorldId} runId={firstWorldRecoveryRun}
+              isCurrent={()=>firstWorldRecoveryScopeRef.current===firstWorldRecoveryScope}
+              onConfirmInFlightChange={setExactConfirmInFlight}/>}
 
           {showPublishedMemoryBrowse ? (
             <RecapGraphModule context={context} />
