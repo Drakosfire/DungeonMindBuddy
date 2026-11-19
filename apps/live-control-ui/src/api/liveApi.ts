@@ -441,6 +441,11 @@ const HOSTED_PDF_UPLOAD_PATH = /^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
+  if (path === "/api/live/tiptap/markdown-write/prepare" || path === "/api/live/tiptap/markdown-write/commit") {
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && typeof body?.document_id === "string" && Boolean(body.document_id)
+      && body.world_id == null && typeof body.markdown === "string" && body.markdown.includes("dmb-media:");
+  }
   if (isRecapSelectionContextPath(path)) {
     const body = requestBodyRecord(init?.body);
     return method === "POST" && typeof body?.expected_world_id === "string" && Boolean(body.expected_world_id);

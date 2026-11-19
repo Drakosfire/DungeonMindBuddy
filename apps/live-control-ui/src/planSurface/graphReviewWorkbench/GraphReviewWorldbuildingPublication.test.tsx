@@ -8,12 +8,12 @@ import * as live from "../../api/liveApi";
 import type { ExactRunReviewPackage, ManagedWorldGraphProjectionResponse } from "../../api/types";
 import type { WorldbuildingPlan } from "../../api/worldbuildingPublicationApi";
 import {readWorldbuildingPublicationRecovery, worldbuildingPublicationRecoveryKey, worldbuildingPublicationScope} from './worldbuildingPublicationRecovery';
-import {withFirstWorldEffect} from './firstWorldPublicationRecovery.testSupport';
+import {withFirstWorldEffect,withNativeFirstWorldPlan} from './firstWorldPublicationRecovery.testSupport';
 import {firstWorldRecoveryKey,firstWorldScope,saveFirstWorldRecovery} from './firstWorldPublicationRecovery';
 import { GraphReviewWorldbuildingPublication } from "./GraphReviewWorldbuildingPublication";
 const selection = vi.hoisted(() => ({kind: "managed", worldId: "world-a", name: "A", documentId: null}));
 vi.mock("../../selectedWorld/SelectedWorldContext", () => ({useSelectedWorld: () => selection}));
-vi.mock("./GraphReviewFirstWorldPublishSheet", () => ({GraphReviewFirstWorldPublishSheet: () => <p>First World review</p>}));
+vi.mock("./GraphReviewFirstWorldPublishSheet", () => ({GraphReviewFirstWorldPublishSheet: () => <p>First World review</p>, GraphReviewFirstWorldRecovery: () => <p>Saved first-World recovery</p>}));
 const review: ExactRunReviewPackage = {
   schema: "dmb_extract_promote_exact_run_review_v1", runId: "run-a", sourceDomain: "worldbuilding",
   sourceArtifactId: "source-a", sourceRevisionId: "sha256:" + "c".repeat(64), worldId: "world-a", sourceProse: "Draft lore",
@@ -489,4 +489,32 @@ it.each([false, true])("prepares selected facts and confirms the exact packet (b
   } finally {
     vi.unstubAllEnvs();
   }
+});
+
+
+it('selects retained native creation before existing-World publication despite changed current source',async()=>{
+  const bound={...review,assertions:review.assertions.map(row=>({...row,evidence:[{sourceArtifactId:review.sourceArtifactId,
+    sourceSpanRefId:'span-a',paragraphText:'A source-backed claim.',anchorQuotes:['source-backed']}]}))};
+  const nativePlan=withNativeFirstWorldPlan({schema:'dmb_first_world_graph_plan_v3',sourceEvidenceSha256:'sha256:'+'d'.repeat(64),
+    nativeTarget:{nativeWorldId:'world:'+'1'.repeat(32),provisioningId:'provision:'+'2'.repeat(32),bindingVersion:1},
+    planId:'native-first',planDigest:'sha256:'+'a'.repeat(64),decisionDigest:'sha256:'+'b'.repeat(64),worldId:'world-a',runId:review.runId,
+    sourceArtifactId:review.sourceArtifactId,sourceRevisionId:review.sourceRevisionId,workspaceDocumentId:'doc-a',workspaceDocumentRevision:'1',
+    extractionProfile:'worldbuilding_shepherds_flock_v0@0.1',acceptedAssertionIds:['a','b','c'],rejectedAssertionIds:[],
+    contributionId:'reviewed-correlation',contributionPayloadSha256:'c'.repeat(64),reviewedEffect:{decision_snapshot:bound.assertions.map(row=>({
+      assertion_id:row.assertionId,candidate_kind:row.kind==='object'?'node':'edge',decision:row.kind==='object'?'create_new':'accept',target_node_id:null}))},
+    summary:{createNewNodeCount:2,acceptedEdgeCount:1,rejectedCandidateCount:0,acceptedAssertionCount:3},confirmable:true,diagnostics:[]},bound);
+  await saveFirstWorldRecovery(bound,nativePlan,false,()=>true);await saveFirstWorldRecovery(bound,nativePlan,true,()=>true);
+  render(<GraphReviewWorldbuildingPublication review={{...bound,sourceRevisionId:'sha256:'+'f'.repeat(64),assertions:[],worldState:'initialized',firstWorldPublishEligible:false}}/>);
+  expect(await screen.findByText('First World review')).toBeInTheDocument();
+  expect(live.postManagedWorldGraphProjection).not.toHaveBeenCalled();expect(api.prepareWorldbuilding).not.toHaveBeenCalled();
+  expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
+});
+
+
+it('selects native first-World review for an eligible source-only empty head',async()=>{
+  vi.mocked(live.postManagedWorldGraphProjection).mockResolvedValue({...projection,projection:{...projection.projection,nodes:[]}});
+  render(<GraphReviewWorldbuildingPublication review={review}/>);
+  expect(await screen.findByText('First World review')).toBeInTheDocument();
+  expect(api.getWorldbuildingCapabilities).not.toHaveBeenCalled();
+  expect(api.prepareWorldbuilding).not.toHaveBeenCalled();expect(api.confirmWorldbuilding).not.toHaveBeenCalled();
 });

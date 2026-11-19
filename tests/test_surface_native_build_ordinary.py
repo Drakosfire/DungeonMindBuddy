@@ -60,7 +60,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid"):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -499,13 +499,18 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 else:
                     assert all(r.excerpt.text not in json.dumps(frame) for r in acquired)
             if requested_work == "review_lore_page":
+                from apps.live_control_server.services.plan_jev_writer import LORE_PROPOSAL_GUIDANCE
+
+                author_text = self.adapter.turn.user_text
+                assert (LORE_PROPOSAL_GUIDANCE in body["instructions"]) == ("blank page" not in author_text)
                 candidate["answer_segments"] = [
                     segment for segment in candidate["answer_segments"]
                     if segment["kind"] == "native_body_claim"
                 ]
-                author_text = self.adapter.turn.user_text
                 if "blank page" in author_text:
                     candidate["answer_segments"] = []
+                if lore_limitation and candidate["answer_segments"]:
+                    candidate["limitations"] = ["missing_requested_details"]
                 candidate["collaboration"] = {
                     "kind": "lore_page",
                     "destination": {"instruction": author_text, "title": "Glass Regent"},
@@ -1454,6 +1459,32 @@ def test_native_connected_page_review_uses_its_included_saved_origin(lane,tmp_pa
     _fresh_case(lane,tmp_path,monkeypatch,None,True,True,False,connected_review=review)
 
 
+def test_create_page_after_connected_review_stays_on_the_existing_build_route(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services import plan_source_turn
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    checked = []
+    def dispatch(client, world, body):
+        reply = client.post("/api/live/agent/turn", json=body)
+        assert reply.json()["knowledge_context"]["completion"]["collaboration"]["kind"] == "connected_page"
+
+        def stop_before_provider(*args, **kwargs):
+            checked.append(True)
+            raise AgentTurnServiceError("Existing Build route reached", code="existing_build_route", status_code=418)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(plan_source_turn, "prepare", stop_before_provider)
+            followup = client.post("/api/live/agent/turn", json={
+                **body, "turn_id": str(uuid4()), "message": "Create the page",
+            })
+        assert followup.status_code == 418, followup.text
+        return reply
+
+    _fresh_case(lane, tmp_path, monkeypatch, None, True, True, False,
+                connected_review="valid", dispatch=dispatch)
+    assert checked == [True]
+
+
 @pytest.mark.parametrize('judgment',['direct_support','qualification_or_conflict','uncertain','irrelevant'])
 def test_ordinary_build_selects_native_body_and_reopens_only_included_support(lane,tmp_path,monkeypatch,judgment):
     from application_state.agent_conversation import native_corpus as corpus, writer_evidence_selection as selection
@@ -2349,7 +2380,7 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Create a blank page for Glass Regent.",
-        requested_work="review_lore_page", native_body="direct_support", dispatch=first,
+        requested_work="review_lore_page", native_body="direct_support", dispatch=first, lore_limitation=True,
     )
     blank = case.turn
     assert not blank.completion.answer_segments
@@ -2371,6 +2402,32 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
 
     completion = populated.completion
     assert completion.collaboration.destination.title == "Glass Regent"
+    followup = workflow.capture_case(
+        case.client, case.world, template,
+        {"question": "Create the page"},
+        tmp_path / "lore-create", build_thread_id=thread_id,
+        expected_conversation_id=str(populated.conversation_id),
+    )
+    assert followup.status_code == 200, followup.text
+    reference = followup.json()["lore_save_review"]
+    assert reference == {
+        "schema": "dmb_lore_save_review_reference_v1",
+        "conversation_id": str(populated.conversation_id),
+        "turn_id": str(populated.turn_id),
+        "review_sha256": canonical_sha256(completion),
+        "title": "Glass Regent",
+    }
+    assert followup.json()["answer"]["trace"]["model_calls"] == []
+    followup_history = case.client.get(
+        f"/api/live/agent/worlds/{case.world}/conversation", params={"include_turn_correlation": "true"},
+    ).json()
+    assert followup_history["turns"][-1]["lore_save_review"] == reference
+    import json
+    sent = json.loads((tmp_path / "lore-create" / "request.json").read_text())
+    repeated = case.client.post("/api/live/agent/turn", json=sent)
+    assert repeated.status_code == 200, repeated.text
+    assert repeated.json()["lore_save_review"] == reference
+    assert repeated.json()["answer"]["trace"]["model_calls"] == []
     request = LorePageConfirmation(conversation_id=populated.conversation_id,
         turn_id=populated.turn_id, review_sha256=canonical_sha256(completion))
     url = f"/api/live/agent/worlds/{case.world}/conversation/lore-pages/confirm"
@@ -2401,9 +2458,9 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     assert str(reopened.revision.work_revision_id) == receipt["revision_id"]
     assert completion.answer_segments[0].text in reopened.revision.markdown
     assert f"/conversation/turns/{populated.turn_id}/native-body-excerpts/0" in reopened.revision.markdown
-    assert completion.answer_segments and all(
-        segment.kind == "source_passage_claim" for segment in completion.answer_segments
-    )
+    assert {segment.kind for segment in completion.answer_segments} == {"source_passage_claim", "limitation"}
+    assert all(segment.text not in reopened.revision.markdown for segment in completion.answer_segments
+               if segment.kind == "limitation")
     reads = {
         read.event_id: read.excerpt.text for read in acquired_body_reads(populated.graph_context_execution)
     }

@@ -206,7 +206,7 @@ def require_explorer_access(
 
 
 async def resolve_hosted_first_world(request: Request) -> str:
-    """Authorize only the exact World recorded on the server-owned ingest run."""
+    """Authorize current preparation or signed, owner-scoped native recovery."""
     from apps.live_control_server import config
     from apps.live_control_server.models.extract_promote import (
         FirstWorldGraphConfirmRequest, FirstWorldGraphPrepareRequest,
@@ -218,14 +218,41 @@ async def resolve_hosted_first_world(request: Request) -> str:
     subject = _hosted_subject(request)
     if request.query_params:
         raise _denied()
+    body = await request.json()
+    from apps.live_control_server.models.native_first_world_publication import (
+        NATIVE_CONFIRM_SCHEMA, NATIVE_PREPARE_SCHEMA,
+        NativeFirstWorldConfirmRequest, NativeFirstWorldPrepareRequest,
+    )
+    if request.url.path == FIRST_WORLD_CONFIRM_PATH and isinstance(body, dict) and body.get("schema") == NATIVE_CONFIRM_SCHEMA:
+        from apps.live_control_server.services.native_first_world_publication import decode_native_plan
+
+        confirmation = NativeFirstWorldConfirmRequest.model_validate(body)
+        plan = await run_in_threadpool(
+            decode_native_plan, confirmation.plan, principal_subject=f"hosted_dms:{subject}",
+        )
+        # A signed retained request owns recovery scope. Today's mutable run or
+        # document may no longer exist; current ownership is still mandatory.
+        await run_in_threadpool(_owned_world, subject, plan.world_id)
+        request.state.hosted_first_world = plan.world_id
+        return plan.world_id
     if request.url.path == FIRST_WORLD_PREPARE_PATH:
-        payload = FirstWorldGraphPrepareRequest.model_validate(await request.json())
+        payload = (NativeFirstWorldPrepareRequest.model_validate(body)
+                   if isinstance(body, dict) and body.get("schema") == NATIVE_PREPARE_SCHEMA
+                   else FirstWorldGraphPrepareRequest.model_validate(body))
         run_id = payload.run_id
         claimed_world = None
     elif request.url.path == FIRST_WORLD_CONFIRM_PATH:
-        confirmation = FirstWorldGraphConfirmRequest.model_validate(await request.json())
-        run_id = confirmation.plan.run_id
+        from apps.live_control_server.services.first_world_graph_publication import recover_historical_first_world
+
+        confirmation = FirstWorldGraphConfirmRequest.model_validate(body)
         claimed_world = confirmation.plan.world_id
+        await run_in_threadpool(_owned_world, subject, claimed_world)
+        # Old browser claims alone are insufficient. The actual Core receipt
+        # must match this current reservation before hosted recovery is admitted.
+        await run_in_threadpool(recover_historical_first_world, confirmation,
+            authorize_world=lambda world: _owned_world(subject, world))
+        request.state.hosted_first_world = claimed_world
+        return claimed_world
     else:
         raise _denied()
 
@@ -959,6 +986,12 @@ async def resolve_hosted_build_extraction(request: Request) -> str:
 
 def hosted_world_media_owner(world_id: str) -> str:
     return f"hosted_world:{world_id}"
+
+
+def require_hosted_build_page_world(request: Request, world_id: str) -> None:
+    if not world_id or getattr(request.state, "hosted_build_page_world", None) != world_id:
+        raise _denied()
+    _owned_world(_hosted_subject(request), world_id)
 
 
 async def resolve_hosted_saved_artwork(request: Request) -> str:

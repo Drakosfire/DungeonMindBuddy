@@ -25,7 +25,7 @@ from application_state.agent_conversation.build_draft_context import BuildDraftC
 from application_state.agent_conversation.rules_authority_types import RulesAcceptedBinding, canonical_sha256
 
 from application_state.agent_conversation.types import (
-    RetryTurnReference, PlayContentBasis, PlayRunTurnContextReceiptV1,
+    RetryTurnReference, PlayContentBasis, PlayRunTurnContextReceiptV1, LoreSaveReviewReference,
     GraphContextReceipt,
     SurfaceNativeContextReceiptV1,  # noqa: F401 - resolves the shared receipt alias in this model namespace
     BuildGraphCompletionV1, BuildIntentionalResponseCompletionV1, BuildIntentionalResponseCompletionV2, BuildRelationshipReviewCompletionV2, BuildIntentionalResponseCompletionV3, BuildRelationshipReviewCompletionV3,
@@ -600,6 +600,7 @@ class AgentTurnResponse(BaseModel):
     conversation: AgentTurnConversationResult
     answer: AgentTurnAnswerResult
 
+    lore_save_review: LoreSaveReviewReference | None = Field(default=None, exclude_if=lambda value: value is None)
     plan_proposal: PlanAuthoredProposalV1 | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -1032,6 +1033,7 @@ class AgentNativeStatementTurnResponseV1(AgentTurnResponse):
 
 class AgentConversationHistoryTurn(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    lore_save_review: LoreSaveReviewReference | None = Field(default=None, exclude_if=lambda value: value is None)
     plan_requested_operation: Literal["discuss", "write_current_page"] | None = Field(default=None,exclude_if=lambda value:value is None)
     authored_references: AuthoredReferenceInput | None = Field(default=None,exclude_if=lambda value:value is None)
 

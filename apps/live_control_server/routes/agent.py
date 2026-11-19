@@ -1520,6 +1520,8 @@ def get_world_conversation_history(
     ) if completed_build_turn_ids else set()
     from application_state.agent_conversation.conversation_variant_save import requested_approval
 
+    from application_state.agent_conversation.types import LoreSaveReviewReference
+
     history_turns = []
     for turn in turns:
         if isinstance(turn, MixedCompletedTurnV1):
@@ -1539,6 +1541,7 @@ def get_world_conversation_history(
             continue
         values = {
             "authored_references": reference_input(turn),
+            "lore_save_review": turn.completion if isinstance(turn.completion, LoreSaveReviewReference) else None,
             "plan_requested_operation": plan_operation_for_turn(turn),
             "plan_proposal": project_plan_authoring_proposal(turn, service=service),
             "turn_id": turn.turn_id,

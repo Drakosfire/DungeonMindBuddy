@@ -2473,7 +2473,23 @@ class SurfaceEvidenceCompletionV7(SurfaceEvidenceCompletionV6):
     native_assertion_citations: list[NativeAssertionCitation]
 
 
-GraphTurnCompletion = Union[SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1"]
+class LoreSaveReviewReference(StrictModel):
+    """A Build follow-up points to an existing review without approving it."""
+
+    schema_: Literal["dmb_lore_save_review_reference_v1"] = Field(
+        default="dmb_lore_save_review_reference_v1", alias="schema"
+    )
+    conversation_id: UUID
+    turn_id: UUID
+    review_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    title: str = Field(min_length=1, max_length=200)
+
+    @property
+    def reply_text(self) -> str:
+        return f"Review and confirm the existing draft for {self.title} to create the page."
+
+
+GraphTurnCompletion = Union[LoreSaveReviewReference | SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1"]
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -6698,6 +6714,12 @@ def validate_turn_graph_fields(
     completion: GraphTurnCompletion | None,
     assistant_text: str | None,
 ) -> None:
+    if isinstance(completion, LoreSaveReviewReference):
+        if (provenance.surface_id != "build" or provenance.primary_work.resolution != "resolved"
+                or graph_context_receipt is not None or graph_context_execution is not None
+                or submitted_intent_fingerprint_v2 is not None or assistant_text != completion.reply_text):
+            raise ValueError("Lore save reference requires a local Build result")
+        return
     if (isinstance(graph_context_receipt, SurfaceNativeContextReceiptV1)
             or isinstance(graph_context_execution, SurfaceNativeExecutionV1)):
         from .native_execution import validate_turn_fields

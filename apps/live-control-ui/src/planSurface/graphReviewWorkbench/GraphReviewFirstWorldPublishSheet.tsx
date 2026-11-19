@@ -5,21 +5,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ExtractPromoteApiError,
-  confirmFirstWorldGraph,
-  prepareFirstWorldGraph,
 } from "../../api/extractPromoteApi";
 import type {
   ExactRunReviewAssertion,
   ExactRunReviewPackage,
   FirstWorldDecision,
   FirstWorldDisposition,
-  FirstWorldGraphConfirmReceipt,
-  FirstWorldGraphPlan,
-  FirstWorldConfirmNonapplication,
 } from "../../api/types";
 
-import {assertFirstWorldPlan,assertFirstWorldReceipt,firstWorldDecisions,firstWorldScope,
-  obsoleteUnsubmittedRecovery,archiveObsoleteUnsubmittedRecovery,readFirstWorldRecovery,saveFirstWorldRecovery,firstWorldNonapplication,releaseFirstWorldRecovery,type FirstWorldRecovery} from './firstWorldPublicationRecovery';
+import {prepareNativeFirstWorld, confirmNativeFirstWorld} from '../../api/nativeFirstWorldPublicationApi';
+import type {NativeFirstWorldPlan, FirstWorldPublicationReceipt, FirstWorldRetainedPlan} from '../../api/nativeFirstWorldPublicationTypes';
+import {assertFirstWorldPlan,assertNativeFirstWorldReceipt,firstWorldDecisions,firstWorldScope,
+  obsoleteUnsubmittedRecovery,archiveObsoleteUnsubmittedRecovery,readFirstWorldRecovery,saveFirstWorldRecovery,
+  retainFirstWorldRetry,type FirstWorldRecovery,type FirstWorldSelection} from './firstWorldPublicationRecovery';
 
 export interface GraphReviewFirstWorldPublishSheetProps {
   review: ExactRunReviewPackage;
@@ -29,6 +27,7 @@ export interface GraphReviewFirstWorldPublishSheetProps {
 
 type PublishPhase =
   | "idle"
+  | "prepared"
   | "publishing"
   | "receipt"
   | "pre_commit_error"
@@ -113,17 +112,56 @@ function countKeptDecisions(
   return assertions.filter((assertion) => keepByAssertionId.get(assertion.assertionId)).length;
 }
 
-function outcomeLabel(outcome: FirstWorldGraphConfirmReceipt["outcome"]): string {
-  switch (outcome) {
-    case "initialized":
-      return "World Graph created";
-    case "already_initialized":
-      return "World Graph already exists";
-    case "published_audit_degraded":
-      return "World Graph created with degraded audit";
-    default:
-      return outcome;
-  }
+function ReceiptSummary({receipt}: {receipt: FirstWorldPublicationReceipt}) {
+  if(receipt.schema==='dmb_historical_first_world_receipt_v1')return <div data-testid="graph-review-first-world-receipt">
+    <p>Historical classic World creation receipt recovered.</p><p>This is read-only history, not native activation.</p>
+  </div>;
+  return <div className="graph-review-extract-promote-receipt" data-testid="graph-review-first-world-receipt" data-outcome={receipt.outcome}>
+    <p>{receipt.activationStatus==='pending'?'Native graph committed; World activation pending':receipt.outcome==='already_initialized'?'World Graph already exists':'World Graph created'}</p>
+    <p>{receipt.appliedAssertionCount} source-backed changes committed.</p>
+    <p>Committed revision <code>{receipt.committedRevisionId}</code></p>
+    {receipt.sourceStatus!=='available'&&<p role="status">{receipt.sourceStatus==='unavailable'?'Source evidence is unavailable. Citation access remains denied.':'Current source availability is unknown.'} The graph commit is retained.</p>}
+    {receipt.warnings.map((warning,i)=><p key={i}>{warning}</p>)}
+  </div>;
+}
+
+/** Recovery does not need today's review package or candidate/source availability. */
+export function GraphReviewFirstWorldRecovery({worldId,runId,isCurrent=()=>true,onConfirmInFlightChange}:FirstWorldSelection&{
+  isCurrent?:()=>boolean;onConfirmInFlightChange?:(busy:boolean)=>void;
+}) {
+  const scope=JSON.stringify([worldId,runId]),currentScope=useRef(scope);currentScope.current=scope;
+  return <SavedCreationEntry key={scope} worldId={worldId} runId={runId} onConfirmInFlightChange={onConfirmInFlightChange}
+    isCurrent={()=>currentScope.current===scope&&isCurrent()}/>;
+}
+function SavedCreationEntry({worldId,runId,isCurrent,onConfirmInFlightChange}:FirstWorldSelection&{
+  isCurrent:()=>boolean;onConfirmInFlightChange?: (busy:boolean)=>void;
+}){
+  const [initial]=useState(()=>{try{return {saved:readFirstWorldRecovery({worldId,runId}),error:null};}
+    catch(error){return {saved:null,error:publishErrorMessage(error)};}});
+  const [receipt,setReceipt]=useState<FirstWorldPublicationReceipt|null>(null),[error,setError]=useState<string|null>(initial.error);
+  const [busy,setBusy]=useState(false);const alive=useRef(true),lock=useRef(false);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
+  const current=()=>alive.current&&isCurrent();
+  useEffect(()=>{onConfirmInFlightChange?.(busy);return()=>onConfirmInFlightChange?.(false);},[busy,onConfirmInFlightChange]);
+  const terminal=receipt&&(receipt.schema==='dmb_historical_first_world_receipt_v1'||receipt.activationStatus==='active');
+  const retry=async()=>{
+    if(!initial.saved||lock.current||terminal||!current())return;
+    lock.current=true;setBusy(true);setError(null);
+    try{
+      const request=await retainFirstWorldRetry({worldId,runId},initial.saved.plan,current);
+      if(!current())return;
+      const result=await confirmNativeFirstWorld(request);
+      if(!current())return;
+      assertNativeFirstWorldReceipt(result,initial.saved.plan);setReceipt(result);
+    }catch(reason){if(current())setError(publishErrorMessage(reason));}
+    finally{lock.current=false;if(alive.current)setBusy(false);}
+  };
+  if(!initial.saved&&!error)return null;
+  return <section aria-label="Saved first-World creation recovery">
+    <p>The exact saved request is retained. Recovery does not prepare new changes or refresh its source.</p>
+    {receipt&&<ReceiptSummary receipt={receipt}/>}{error&&<p role="alert">{error}</p>}
+    {initial.saved&&!terminal&&<button type="button" data-testid="graph-review-first-world-retry-exact-confirm" disabled={busy} onClick={()=>void retry()}>Recover saved creation result</button>}
+  </section>;
 }
 
 function publishErrorMessage(error: unknown): string {
@@ -138,15 +176,18 @@ function publishErrorMessage(error: unknown): string {
  */
 export function GraphReviewFirstWorldPublishSheet(props:GraphReviewFirstWorldPublishSheetProps){
   const scope=firstWorldScope(props.review),currentScope=useRef(scope);currentScope.current=scope;
+  return <CreationEntry key={scope} {...props} isCurrent={()=>currentScope.current===scope&&(props.isCurrent?.()??true)}/>;
+}
+function CreationEntry(props:GraphReviewFirstWorldPublishSheetProps){
   const [epoch,setEpoch]=useState(0);
-  const isCurrent=()=>currentScope.current===scope&&(props.isCurrent?.()??true);
-  let saved:FirstWorldRecovery|null;
-  try {saved=readFirstWorldRecovery(props.review);}
-  catch(reason){return <ObsoleteCreationRecovery key={`${scope}:${epoch}`} review={props.review}
-    message={publishErrorMessage(reason)} isCurrent={isCurrent} onArchived={()=>setEpoch(n=>n+1)}/>;}
-  if(props.review.firstWorldPublishEligible!==true&&!saved)return null;
-  return <FirstWorldPublish key={`${scope}:${epoch}`} {...props} saved={saved}
-    isScopeCurrent={()=>currentScope.current===scope&&(props.isCurrent?.()??true)}/>;
+  const [initial]=useState(()=>{try{return {saved:readFirstWorldRecovery(props.review),error:null};}
+    catch(reason){return {saved:null,error:publishErrorMessage(reason)};}});
+  if(initial.error&&epoch===0)return <ObsoleteCreationRecovery review={props.review} message={initial.error}
+    isCurrent={()=>props.isCurrent?.()??true} onArchived={()=>setEpoch(1)}/>;
+  if(initial.saved)return <GraphReviewFirstWorldRecovery worldId={props.review.worldId} runId={props.review.runId}
+    isCurrent={props.isCurrent} onConfirmInFlightChange={props.onConfirmInFlightChange}/>;
+  if(props.review.firstWorldPublishEligible!==true)return null;
+  return <FirstWorldPublish {...props} saved={null} isScopeCurrent={()=>props.isCurrent?.()??true}/>;
 }
 function ObsoleteCreationRecovery({review,message,isCurrent,onArchived}: {
   review:ExactRunReviewPackage;message:string;isCurrent:()=>boolean;onArchived:()=>void;
@@ -178,37 +219,24 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
     saved?new Map(firstWorldDecisions(saved.plan).map(row=>[row.assertionId,row.decision!=='reject'])):buildInitialKeepState(review.assertions),
   );
   const [publishPhase, setPublishPhase] = useState<PublishPhase>(saved?"unknown_result":"idle");
-  const [sealedPlan, setSealedPlan] = useState<FirstWorldGraphPlan | null>(saved?.plan??null);
-  const [receipt, setReceipt] = useState<FirstWorldGraphConfirmReceipt | null>(null);
+  const [sealedPlan, setSealedPlan] = useState<NativeFirstWorldPlan | null>(null);
+  const [receipt, setReceipt] = useState<FirstWorldPublicationReceipt | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
-  const [nonapplication, setNonapplication] = useState<FirstWorldConfirmNonapplication | null>(null);
   const [failure, setFailure] = useState<Record<string, unknown> | null>(null);
-  const rememberFailure = (error: unknown, plan?: FirstWorldGraphPlan) => {
+  const rememberFailure = (error: unknown, _plan?: FirstWorldRetainedPlan) => {
     if (error instanceof ExtractPromoteApiError) {
       const payload=error.body?.failureResult;
       if (payload && ['dmb_first_world_preflight_failure_v1','dmb_first_world_confirm_not_invoked_v1'].includes(String(payload.schema))
         && payload.failure && typeof payload.failure==='object' && !Array.isArray(payload.failure))
         setFailure(payload.failure as Record<string,unknown>);
     }
-    if (plan) setNonapplication(firstWorldNonapplication(error,plan));
-  };
-  const returnToReview = async () => {
-    if (!sealedPlan || !nonapplication || lock.current || !current()) return;
-    lock.current=true;
-    try {
-      await releaseFirstWorldRecovery(review,sealedPlan,nonapplication,current);
-      if (!current()) return;
-      setSealedPlan(null);setNonapplication(null);setPublishPhase('pre_commit_error');
-      setPublishError('This confirm did not call initialization. Your choices are retained; explicitly review the invalid relationships before retrying.');
-    } catch(error) {if(current())setPublishError(publishErrorMessage(error));}
-    finally {lock.current=false;}
   };
 
   const alive=useRef(true),lock=useRef(false);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
   const current=()=>alive.current&&isScopeCurrent();
   const publishing = publishPhase === "publishing";
-  const hasTerminalReceipt = receipt != null;
+  const hasTerminalReceipt = receipt != null && (receipt.schema==='dmb_historical_first_world_receipt_v1'||receipt.activationStatus==='active');
   const selectionLocked = publishing || hasTerminalReceipt || sealedPlan!==null;
   const keptCount = useMemo(
     () => countKeptDecisions(review.assertions, keepByAssertionId),
@@ -243,35 +271,35 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
     });
   };
 
-  async function confirmRetained(plan:FirstWorldGraphPlan){
-    await saveFirstWorldRecovery(review,plan,true,current);
+  async function confirmRetained(plan:NativeFirstWorldPlan){
+    const request=await retainFirstWorldRetry(review,plan,current);
     if(!current())return;
-    const nextReceipt=await confirmFirstWorldGraph({plan});
+    const nextReceipt=await confirmNativeFirstWorld(request);
     if(!current())return;
-    assertFirstWorldReceipt(nextReceipt,plan);
-    setReceipt(nextReceipt);setPublishPhase('receipt');
+    assertNativeFirstWorldReceipt(nextReceipt,plan);
+    setReceipt(nextReceipt);setPublishPhase(nextReceipt.schema==='dmb_native_first_world_confirm_v1'&&nextReceipt.activationStatus==='pending'?'unknown_result':'receipt');
   }
-  async function runConfirmWithPlan(plan:FirstWorldGraphPlan){
+  async function runConfirmWithPlan(plan:NativeFirstWorldPlan){
     if(lock.current||hasTerminalReceipt||!current())return;
     lock.current=true;setPublishPhase('publishing');setPublishError(null);
     try {await confirmRetained(plan);}
     catch(error){if(current()){rememberFailure(error,plan);setPublishPhase('unknown_result');setPublishError(publishErrorMessage(error));}}
     finally {lock.current=false;}
   }
-  async function runPrepareAndConfirm(){
+  async function runPrepareReview(){
     if(lock.current||sealedPlan||hasTerminalReceipt||keptCount===0||!current())return;
     lock.current=true;setPublishPhase('publishing');setPublishError(null);
     let prepared=false;
-    let attemptedPlan: FirstWorldGraphPlan | undefined;
+    let attemptedPlan: NativeFirstWorldPlan | undefined;
     try {
       const decisions=buildFirstWorldDecisions(review.assertions,keepByAssertionId);
-      const plan=await prepareFirstWorldGraph({runId:review.runId,decisions});
+      const plan=await prepareNativeFirstWorld({runId:review.runId,decisions});
       if(!current())return;
       assertFirstWorldPlan(plan,review,decisions);
       await saveFirstWorldRecovery(review,plan,false,current);
       if(!current())return;
       prepared=true;attemptedPlan=plan;setSealedPlan(plan);
-      await confirmRetained(plan);
+      setPublishPhase('prepared');
     } catch(error){if(current()){rememberFailure(error,attemptedPlan);setPublishPhase(prepared?'unknown_result':'pre_commit_error');setPublishError(publishErrorMessage(error));}}
     finally {lock.current=false;}
   }
@@ -284,7 +312,7 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
   const showCreateCta =
     !hasTerminalReceipt
     && publishPhase !== "unknown_result"
-    && publishPhase !== "pre_commit_error";
+    && publishPhase !== "pre_commit_error" && sealedPlan===null;
 
   return (
     <section
@@ -308,34 +336,10 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
         </div>
       </header>
 
-      {receipt ? (
-        <div
-          className="graph-review-extract-promote-receipt"
-          data-testid="graph-review-first-world-receipt"
-          data-outcome={receipt.outcome}
-        >
-          <p className="graph-review-extract-promote-receipt-outcome">
-            {outcomeLabel(receipt.outcome)}
-          </p>
-          <p className="graph-review-extract-promote-receipt-applied">
-            {receipt.appliedAssertionCount} source-backed change
-            {receipt.appliedAssertionCount === 1 ? "" : "s"} added to {worldDisplayName}.
-          </p>
-          {receipt.committedRevisionId ? (
-            <p className="graph-review-extract-promote-receipt-revision">
-              Committed revision <code>{receipt.committedRevisionId}</code>
-            </p>
-          ) : null}
-          {receipt.warnings.length ? (
-            <ul className="graph-review-extract-promote-receipt-warnings">
-              {receipt.warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
-
+      <p role="note">Native mapping v1: accepted source-derived facts become established, inferred facts for the whole World.
+        Reviewed descriptions are preserved as summaries. Aliases keep their exact first spelling after case-insensitive deduplication.
+        Custom relationships may require the reviewed additive semantic profile transition. Existing context evidence stays context; only missing source intervals are added. Evidence and visibility remain enforced.</p>
+      {receipt&&<ReceiptSummary receipt={receipt}/>}
       {publishError ? (
         <p
           className="graph-review-extract-promote-error"
@@ -422,7 +426,7 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
           data-selected-count={keptCount}
         >
           {hasTerminalReceipt
-            ? `World Graph is initialized for ${worldDisplayName}.`
+            ? `Creation result recovered for ${worldDisplayName}.`
             : keptCount === 0
               ? "Keep at least one object or relationship to create the World Graph."
               : `${keptCount} change${keptCount === 1 ? "" : "s"} kept.`}
@@ -435,12 +439,12 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
             data-testid="graph-review-first-world-create-cta"
             disabled={keptCount === 0 || publishing}
             onClick={() => {
-              void runPrepareAndConfirm();
+              void runPrepareReview();
             }}
           >
             {publishing
-              ? "Creating World Graph…"
-              : `Create World Graph with ${keptCount} change${keptCount === 1 ? "" : "s"}`}
+              ? "Preparing World Graph review…"
+              : `Review World Graph with ${keptCount} change${keptCount === 1 ? "" : "s"}`}
           </button>
         ) : null}
 
@@ -451,16 +455,18 @@ function FirstWorldPublish({review,onConfirmInFlightChange,saved,isScopeCurrent}
             data-testid="graph-review-first-world-retry-prepare"
             disabled={publishing || keptCount === 0}
             onClick={() => {
-              void runPrepareAndConfirm();
+              void runPrepareReview();
             }}
           >
             Retry create
           </button>
         ) : null}
 
-        {nonapplication && sealedPlan && !hasTerminalReceipt ? <button type="button"
-          disabled={publishing} onClick={() => {void returnToReview();}}>Return to review</button> : null}
-        {publishPhase === "unknown_result" && !hasTerminalReceipt && !nonapplication ? (
+        {publishPhase==='prepared'&&sealedPlan&&<>
+          <p>Preparation is read-only. Confirm to publish this exact reviewed plan.</p>
+          <button type="button" className="primary" disabled={publishing} onClick={onRetryExactConfirm}>Confirm native World creation</button>
+        </>}
+        {publishPhase === "unknown_result" && !hasTerminalReceipt ? (
           <button
             type="button"
             className="primary"

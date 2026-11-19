@@ -1461,3 +1461,31 @@ it("reads recap usage through the exact hosted revision route", async () => {
   await expect(api.authenticatedApiFetch(path + "&expected_run_revision=3")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("prepares and commits a hosted Build page containing saved artwork", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-only-fixture");
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const body = {
+    document_id: "12345678-1234-1234-1234-123456789abc",
+    markdown: "![Artwork](dmb-media:23456789-1234-1234-1234-123456789abc)",
+    expected_revision: 2,
+  };
+  await api.prepareTiptapMarkdownWrite(body);
+  await api.commitTiptapMarkdownWrite({ ...body, writer_confirm_token: "fixture" });
+  for (const [index, phase] of ["prepare", "commit"].entries()) {
+    const path = "/api/live/tiptap/markdown-write/" + phase;
+    expect(fetch).toHaveBeenNthCalledWith(index + 1, path, expect.objectContaining({
+      method: "POST", credentials: "same-origin", mode: "same-origin", redirect: "error",
+    }));
+    expect(new Headers(fetch.mock.calls[index][1]?.headers).has("Authorization")).toBe(false);
+    await expect(api.authenticatedApiFetch(path + "?world_id=foreign", {
+      method: "POST", body: JSON.stringify(body),
+    })).rejects.toThrow(/exact same-origin/);
+  }
+  await expect(api.prepareTiptapMarkdownWrite({
+    ...body, world_id: "managed", scope_mode: "world", schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+  })).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});

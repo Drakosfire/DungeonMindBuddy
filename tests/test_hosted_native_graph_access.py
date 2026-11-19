@@ -2265,7 +2265,7 @@ def test_hosted_build_reads_only_exact_published_statblock(hosted, monkeypatch, 
 
 
 def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_preparing(hosted, monkeypatch):
-    from apps.live_control_server.services import promotable_ingest_run
+    from apps.live_control_server.services import promotable_ingest_run, native_first_world_publication
 
     monkeypatch.setattr(
         promotable_ingest_run, "resolve_promotable_ingest_run",
@@ -2273,13 +2273,16 @@ def test_hosted_first_world_prepare_uses_stored_world_and_rechecks_before_prepar
     )
     prepared = []
 
-    def prepare(payload, *, authorize_world):
+    def prepare(payload, *, principal_subject, authorize_world):
+        assert payload.schema_ == "dmb_native_first_world_prepare_request_v1"
+        assert principal_subject == HOSTED_OWNER
+        assert callable(authorize_world)
         authorize_world("foreign" if payload.run_id == "changed" else "managed")
         prepared.append(payload.run_id)
         raise extract_promote.ExtractPromoteError("probe reached", code="probe_reached", status_code=409)
 
-    monkeypatch.setattr(extract_promote, "prepare_first_world", prepare)
-    payload = {"runId": "owned", "decisions": [{"assertionId": "source-assertion", "decision": "create_new"}]}
+    monkeypatch.setattr(native_first_world_publication, "prepare_native_first_world", prepare)
+    payload = {"schema": "dmb_native_first_world_prepare_request_v1", "runId": "owned", "decisions": [{"assertionId": "source-assertion", "decision": "create_new"}]}
     route = access.FIRST_WORLD_PREPARE_PATH
 
     assert hosted.client.request("POST", route, json=payload).status_code == 409
@@ -2308,7 +2311,11 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert created.status_code == 200, created.text
     record = created.json()
     document = f"{documents}/{record['document_id']}"
-    markdown = "# First source\n\nThe pilot town has a well.\n"
+    from tests.integration.test_build_images_postgres import saved_image
+
+    artwork = saved_image(access.hosted_world_media_owner("managed"))
+    foreign_artwork = saved_image(access.hosted_world_media_owner("foreign"))
+    markdown = f"# First source\n\nThe pilot town has a well.\n\n![Well](dmb-media:{artwork['asset_id']})\n"
     request = {
         "document_id": record["document_id"], "markdown": markdown,
         "expected_revision": record["revision"],
@@ -2317,11 +2324,32 @@ def test_hosted_build_page_create_save_reopen_and_scope(hosted, application_stat
     assert hosted.client.request("GET", document, session="other-session").status_code == 403
     assert hosted.client.request("GET", f"{document}/snapshot?world_id=foreign").status_code == 403
     assert hosted.client.request("POST", f"{editor}/prepare", json=request, session="other-session").status_code == 403
+    foreign_request = {**request, "markdown": f"![Foreign](dmb-media:{foreign_artwork['asset_id']})"}
+    assert hosted.client.request("POST", f"{editor}/prepare", json=foreign_request).status_code == 422
     prepared = hosted.client.request("POST", f"{editor}/prepare", json=request)
     assert prepared.status_code == 200, prepared.text
     token = prepared.json()["writer_confirm_token"]
     commit = {**request, "writer_confirm_token": token}
     assert hosted.client.request("POST", f"{editor}/commit", json=commit, session="other-session").status_code == 403
+    from apps.live_control_server.services import tiptap_markdown_write
+
+    validate_media = tiptap_markdown_write.validate_saved_media_references
+    with monkeypatch.context() as patch:
+        def transfer_during_validation(markdown, owner):
+            validate_media(markdown, owner)
+            from fastapi import HTTPException
+
+            def reject_previous_owner(*_):
+                raise HTTPException(403, detail="World ownership changed")
+
+            patch.setattr(access, "_owned_world", reject_previous_owner)
+
+        patch.setattr(tiptap_markdown_write, "validate_saved_media_references", transfer_during_validation)
+        assert hosted.client.request("POST", f"{editor}/commit", json=commit).status_code == 403
+    unchanged = hosted.client.request("GET", f"{document}/snapshot")
+    assert unchanged.status_code == 200
+    assert unchanged.json()["loaded_revision"] == record["revision"]
+
     committed = hosted.client.request("POST", f"{editor}/commit", json=commit)
     assert committed.status_code == 200, committed.text
     reopened = hosted.client.request("GET", f"{document}/snapshot")

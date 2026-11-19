@@ -435,14 +435,26 @@ def test_upgrade_conserves_populated_rows_and_old_reader_fails(storage_predecess
                     "WHERE conrelid='agent.turn'::regclass AND conname<>'agent_turn_lifecycle_check'").fetchall()))
     before = snapshot()
     command.upgrade(cli.alembic_config(), 'head')
-    assert snapshot() == before
+    after = snapshot()
+    assert after[:2] == before[:2]
+    completion_check = "agent_turn_graph_completion_check"
+    assert {name: expr for name, expr in after[2].items() if name != completion_check} == {
+        name: expr for name, expr in before[2].items() if name != completion_check
+    }
+    # The later local lore-review migration admits only a separate graphless
+    # completion. Retain the original Graph predicate verbatim modulo layout.
+    old_graph_predicate = " ".join(before[2][completion_check].split())
+    new_completion_predicate = " ".join(after[2][completion_check].split())
+    assert new_completion_predicate.startswith("(")
+    assert new_completion_predicate[1:].lstrip().startswith(old_graph_predicate + " OR ")
+    assert new_completion_predicate.count("dmb_lore_save_review_reference_v1") == 1
     with monkeypatch.context() as patch:
         patch.setattr(cli, '_alembic_head', lambda: '20261108_0141')
         with pytest.raises(ApplicationStateMigrationError):
             cli.assert_at_head(dsn=storage_predecessor)
     with pytest.raises(RuntimeError, match=r'forward (migration|recovery)'):
         command.downgrade(cli.alembic_config(), '20261108_0141')
-    assert snapshot() == before
+    assert snapshot() == after
 
 
 @pytest.mark.parametrize('failure', ['changed_predicate', 'after_function'])

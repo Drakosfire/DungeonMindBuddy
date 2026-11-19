@@ -294,7 +294,22 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
         from .build_intentional_response import native_review_enabled, native_review_schema
         if native_review_enabled(work_frame):
             review,definitions=native_review_schema(work_frame,local=build_local)
+            destination = work_frame.get("build_work", {}).get("lore_page_destination")
             base=schema['$defs']['Base'] if rules.lookups else schema
+            if destination is not None:
+                from .lore_page_review import explicit_blank_lore_page
+
+                definitions["LorePageTitleWitness"]["properties"]["title"]["enum"] = [destination["title"]]
+                answer_segments = base["properties"]["answer_segments"]
+                if explicit_blank_lore_page(destination["instruction"]):
+                    answer_segments["maxItems"] = 0
+                    review = review["anyOf"][0]
+                else:
+                    items = answer_segments["items"]
+                    items["anyOf"] = [
+                        variant for variant in items["anyOf"]
+                        if variant["properties"]["kind"].get("const") in {"native_body_claim", "proposal"}
+                    ]
             base['properties']['collaboration']=review
             base['required'].append('collaboration')
             if definitions:

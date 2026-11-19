@@ -284,6 +284,87 @@ def activate_reviewed_native_graph(
         ) from exc
 
 
+
+class _NativeFirstWorldReadOnlyRepository:
+    """Permit public recovery reads and fail closed on any attempted write."""
+
+    def __init__(self, repository):
+        self._repository = repository
+
+    def __getattr__(self, name):
+        if not (name.startswith("get_") or name.startswith("open_") or name == "head_events"):
+            raise WorldGraphBindingError("Native activation attempted a non-read operation.", status_code=502)
+        return getattr(self._repository, name)
+
+
+def activate_native_first_world(managed_world_id, *, plan, repository,
+                                principal_subject, authorize_world=None):
+    """Reverify the signed native request, then CAS its exact APP reservation."""
+    from dungeonmind.application.vnext.materialization import GovernedPublicationIdentity
+    from dungeonmind.application.vnext.prospective_aliases import publish_prospective_alias_contribution
+    from apps.live_control_server.services import native_first_world_publication as native
+    from apps.live_control_server.services.native_first_world_compilation import bind_first_world_native_intent
+    from graph_memory.vnext.domain_runtime import resolve_dungeonbuddy_descriptors
+
+    if type(principal_subject) is not str or not principal_subject.strip():
+        raise WorldGraphBindingError("A current confirming principal is required.", status_code=403)
+    plan = native.decode_native_plan(plan, principal_subject=principal_subject)
+    if managed_world_id != plan.world_id:
+        raise WorldGraphBindingError("Native review belongs to a different World.")
+    native._authorize(authorize_world, managed_world_id)
+    initial, revision = _load_binding_snapshot(_validate_world_id(managed_world_id))
+    target = plan.native_target
+    binding = initial.native_graph_binding
+    if (binding is None or binding.status not in {"provisioning", "active"}
+            or binding.native_world_id != target.native_world_id
+            or binding.binding_version != target.binding_version
+            or binding.provisioning_id != target.provisioning_id):
+        raise WorldGraphBindingError("World reservation changed after native review.")
+    readonly = _NativeFirstWorldReadOnlyRepository(repository)
+    parent, bindings = native.resolve_native_first_world_stages(readonly, plan, recovery_only=True)
+    compilation = bind_first_world_native_intent(
+        native._intent(plan), parent=parent, native_space_id=target.native_world_id,
+        bindings=bindings, produced_at=native._time(plan.created_at),
+    )
+    domain, profile = resolve_dungeonbuddy_descriptors(
+        domain_ref=plan.domain_contract_ref, profile_ref=plan.target_profile_ref,
+    )
+    # Core recomputes the complete command/result; the adapter forbids a hidden
+    # publication if a receipt is missing or inconsistent during activation.
+    publication = publish_prospective_alias_contribution(
+        parent=parent, request=compilation.request, dispositions=compilation.dispositions,
+        publication=GovernedPublicationIdentity(
+            (plan.publication_id,), native._time(plan.created_at), parent.revision_id,
+        ), publication_id=plan.publication_id, domain_contract=domain,
+        semantic_profile=profile, repository=readonly,
+    )
+    receipt = publication.publication_receipt
+    if receipt.space_id != target.native_world_id or receipt.publication_id != plan.publication_id:
+        raise WorldGraphBindingError("Native publication identity changed.", status_code=502)
+    head = readonly.get_head(target.native_world_id)
+    if head is None:
+        raise WorldGraphBindingError("Native publication has no current head.", status_code=502)
+    native._history(readonly, target.native_world_id, head.head_revision_id, receipt.published_revision_id)
+    genesis = native._verify_genesis(readonly, plan.source_stage, target.native_world_id, parent.revision_id)
+    native._authorize(authorize_world, managed_world_id)
+    current, current_revision = _load_binding_snapshot(managed_world_id)
+    if current_revision != revision or current != initial:
+        raise WorldGraphBindingError("World changed while native publication was verified.")
+    if isinstance(binding, NativeGraphBindingRecord):
+        if binding.initialization_revision_id != genesis.published_revision_id:
+            raise WorldGraphBindingError("Active World has a different native genesis.")
+        return current
+    active = NativeGraphBindingRecord(
+        native_world_id=target.native_world_id, status="active",
+        binding_version=target.binding_version, provisioning_id=target.provisioning_id,
+        initialization_revision_id=genesis.published_revision_id,
+        validated_at=_utc_now_iso(), validated_head_revision_id=head.head_revision_id,
+    )
+    return _save_binding_record(initial.model_copy(update={
+        "native_graph_binding": active, "schema_version": RECORD_SCHEMA,
+    }), revision)
+
+
 def activate_native_source_graph(managed_world_id, *, identity, repository, published_revision_id):
     """Activate the exact reservation after a reviewed native publication."""
     from dungeonmind.application.vnext import get_publication_receipt
