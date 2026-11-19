@@ -546,6 +546,12 @@ class PlanJevDriver:
             )
             try:
                 validate_prior_read(candidate, current, previous)
+                from application_state.agent_conversation.native_execution import validate_context_binding
+
+                execution = adapter._broker_execution()
+                validate_context_binding(current.graph_context_receipt, execution.model_copy(
+                    update={"events": [*execution.events, candidate]},
+                ))
             except ValueError:
                 pass
             else:
