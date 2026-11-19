@@ -66,14 +66,15 @@ def test_existing_world_registry_reopens_from_two_code_checkouts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     operator = _operator_root(tmp_path)
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
     monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(operator))
     for name in ("checkout-a", "checkout-b"):
         checkout = tmp_path / name
         checkout.mkdir()
         assert not (checkout / "out/registries/world_containers.json").exists()
         assert managed_world_data_root(checkout) == operator
-        records = world_routes.get_world_containers()["records"]
-        assert [record["world_id"] for record in records] == ["elderwyld"]
+        records = world_routes.get_world_containers().records
+        assert [record.world_id for record in records] == ["elderwyld"]
         assert get_world_container("elderwyld").native_graph_binding.status == "active"
     monkeypatch.delenv(MANAGED_WORLD_DATA_ROOT_ENV)
     assert managed_world_data_root(tmp_path / "checkout-a") == tmp_path / "checkout-a"
