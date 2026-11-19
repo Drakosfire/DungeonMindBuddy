@@ -2016,9 +2016,12 @@ def get_world_historical_source_passage(world_id: str, turn_id: str, trace_id: s
         source_read_event_id: str, request: Request):
     """One exact historical capture, independent of current-turn citation authority."""
     from fastapi.responses import Response
+    from apps.live_control_server.services import hosted_auth
     from application_state.agent_conversation.context_trace import TraceHistoricalSourceReferenceV1
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     selectors = list(request.query_params.multi_items())
     expected = {"conversation_id", "attempt", "source_read_id", "content_sha256"}
@@ -2041,12 +2044,15 @@ def get_world_historical_source_passage(world_id: str, turn_id: str, trace_id: s
     try:
         passage = _conversation_service(request).read_historical_source_passage(reference)
         result = AgentHistoricalSourcePassageResponseV1(reference=reference, passage=passage)
-        return Response(content=result.model_dump_json(by_alias=True), media_type="application/json",
+        response = Response(content=result.model_dump_json(by_alias=True), media_type="application/json",
                         headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": "historical_passage_unavailable"}) from exc
     except (ValidationError, ValueError) as exc:
         raise HTTPException(status_code=409, detail={"code": "historical_passage_binding_invalid"}) from exc
+    if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    return response
 
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/rules-passages/{support_id}")
@@ -2054,12 +2060,15 @@ def get_world_historical_rules_passage(world_id: str, turn_id: str, support_id: 
         request: Request):
     """One persisted cited capsule; historical identity never resolves current rules."""
     from fastapi.responses import Response
+    from apps.live_control_server.services import hosted_auth
     from application_state.agent_conversation.rules_authority_passages import (
         RulesHistoricalPassageRequestV1, RulesHistoricalPassageV1,
     )
     from application_state.agent_conversation.rules_authority_types import canonical_bytes
 
-    enforce_native_graph_gm(request)
+    from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
+    require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
     verified = _verified_world_id(world_id)
     try:
         selectors = list(request.query_params.multi_items())
@@ -2086,12 +2095,15 @@ def get_world_historical_rules_passage(world_id: str, turn_id: str, support_id: 
             reference.world_id, reference.conversation_id, reference.turn_id,
             reference.attempt, reference.support_id, reference.support_sha256):
             raise ValueError("Rules passage differs from requested accepted identity")
-        return Response(content=canonical_bytes(passage), media_type="application/json",
+        response = Response(content=canonical_bytes(passage), media_type="application/json",
             headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": "rules_passage_unavailable"}) from exc
     except (ValidationError, ValueError) as exc:
         raise HTTPException(status_code=409, detail={"code": "rules_passage_binding_invalid"}) from exc
+    if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    return response
 
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/context-trace", response_model=AgentTurnContextTraceResponseV1)
