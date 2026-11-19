@@ -413,6 +413,7 @@ def correct_exact_run_evidence(
 
 def correct_recap_run_evidence(
     request: ExactRunEvidenceCorrectionRequest,
+    *, authorize_write: Callable[[], None] | None = None,
 ) -> RecapEvidenceCorrectionResponse:
     """Create one literal-only recap child with a canonical semantic hold."""
     from application_state.ingest.service import RecapSemanticBasisV1
@@ -528,6 +529,8 @@ def correct_recap_run_evidence(
         if exc.status_code != 404:
             raise _reject(f"derived run lookup failed: {exc}") from exc
         try:
+            if authorize_write is not None:
+                authorize_write()
             child = create_extraction_run(
                 repo,
                 run_id=child_id,
@@ -588,6 +591,8 @@ def correct_recap_run_evidence(
 
     for kind, payload_bytes in (("candidate_graph", child_bytes),
                        ("source_span_index", data.span_bytes)):
+        if authorize_write is not None:
+            authorize_write()
         persist_component_payload(run_id=child_id, expected_revision=child.revision,
                                   kind=kind, payload=payload_bytes)
     for _ in range(8):
@@ -598,6 +603,8 @@ def correct_recap_run_evidence(
             raise _reject("derived run is not in a sealable lifecycle state", status_code=409)
         next_status = _LIFECYCLE[_LIFECYCLE.index(child.status) + 1]
         try:
+            if authorize_write is not None:
+                authorize_write()
             child = update_extraction_run_status(
                 repo, child_id, status=next_status, expected_revision=child.revision
             )
