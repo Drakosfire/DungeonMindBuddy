@@ -1281,3 +1281,22 @@ it("loads a historical recap with the hosted session for the selected World", as
   await expect(api.authenticatedApiFetch(path + "&managed_world_id=foreign")).rejects.toThrow(/exact same-origin/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it.each([false, true])("routes recap evidence correction for hosted=%s", async (hosted) => {
+  const api = await setup();
+  if (hosted) hostedOrigin();
+  api.setNativeGraphAccessToken("synthetic-local-token");
+  const { correctRecapRunEvidence } = await import("./extractPromoteApi");
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+    Response.json({ message: "Fixture refusal" }, { status: 409 }),
+  );
+  await expect(correctRecapRunEvidence({
+    parentRunId: "saved-run", parentCandidateSha256: "a".repeat(64), corrections: [],
+  }, "managed")).rejects.toThrow("Fixture refusal");
+  const [url, init] = fetch.mock.calls[0]!;
+  const route = "/api/live/extract-promote/runs/saved-run/recap-evidence-corrections";
+  expect(url).toBe(hosted ? route + "?managed_world_id=managed" : route);
+  expect(new Headers(init?.headers).get("Authorization")).toBe(
+    hosted ? null : "Bearer synthetic-local-token",
+  );
+});

@@ -405,6 +405,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/workspace-documents/world-plans"): access.resolve_hosted_plan_create,
             ("POST", "/api/live/world-play-runs/v2/preparation"): access.resolve_hosted_play_preparation,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}"): access.resolve_hosted_play_creation,
+            ("POST", "/api/live/extract-promote/runs/{run_id}/recap-evidence-corrections"): access.resolve_hosted_recap_correction,
             ("POST", "/api/live/extract-promote/runs/{run_id}/recap-candidate-corrections"): access.resolve_hosted_recap_correction,
             ("POST", "/api/live/extract-promote/runs/{run_id}/semantic-disposition"): access.resolve_hosted_recap_correction,
             ("POST", "/api/live/extract-promote/native-prepare"): access.resolve_hosted_native_publication,
@@ -5200,3 +5201,51 @@ def test_hosted_recap_selection_requires_world_owner_and_origin(hosted, monkeypa
     denied = hosted.client.request("POST", path, json=body)
     assert denied.status_code == 403, denied.text
     assert run_id not in denied.text
+
+
+def test_hosted_recap_correction_checks_exact_parent_in_owned_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import extract_promote
+    from apps.live_control_server.services import exact_run_candidate_projection as projection
+
+    checks, writes = [], []
+
+    def verify(root, run_id, world_id):
+        checks.append((run_id, world_id))
+        if run_id != "owned-run":
+            raise projection.CandidateProjectionError("Wrong World.")
+
+    def correct(payload, *, authorize_write):
+        authorize_write()
+        writes.append(payload.parent_run_id)
+        raise extract_promote.ExtractPromoteError("Correction reached.", code="probe_reached", status_code=409)
+
+    monkeypatch.setattr(projection, "build_exact_run_candidate_projection", verify)
+    monkeypatch.setattr(extract_promote, "correct_recap_run_evidence", correct)
+    prefix = "/api/live/extract-promote/runs/"
+    suffix = "/recap-evidence-corrections?managed_world_id=managed"
+    body = {
+        "parentRunId": "owned-run", "parentCandidateSha256": "a" * 64,
+        "corrections": [{"assertionId": "claim", "evidenceIndex": 0, "sourceSpanRefId": "span",
+                         "quoteIndex": 0, "originalQuote": "old", "replacementQuote": "new"}],
+    }
+    path = prefix + "owned-run" + suffix
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json=body, origin=None).status_code == 403
+    assert not checks
+    denied = hosted.client.request("POST", prefix + "foreign-run" + suffix, json={**body, "parentRunId": "foreign-run"})
+    assert denied.status_code == 403, denied.text
+    accepted = hosted.client.request("POST", path, json=body)
+    assert accepted.status_code == 409, accepted.text
+    assert checks == [("foreign-run", "managed"), ("owned-run", "managed")]
+    assert writes == ["owned-run"]
+
+    def transfer_before_write(payload, *, authorize_write):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        correct(payload, authorize_write=authorize_write)
+
+    monkeypatch.setattr(extract_promote, "correct_recap_run_evidence", transfer_before_write)
+    lost_access = hosted.client.request("POST", path, json=body)
+    assert lost_access.status_code == 403, lost_access.text
+    assert writes == ["owned-run"]
