@@ -40,7 +40,10 @@ and deployed V11 latency/semantic acceptance remain required by the full goal.
 
 Compiler policy v1 must be explicitly disclosed in B2's new reviewed plan. Actual
 first-World publication is World scoped (legacy adapter clears campaign placeholder).
-Preserve reviewed name/classification, node description as dnd5e:summary, relationships
+Preserve reviewed names and kind semantics: npc/location map to dnd5e:npc/location;
+pc/item/party/faction/organization/event/threat/mystery/thread/job/encounter map
+to the same local term under dungeonbuddy:. Unknown kinds refuse. Preserve node
+description as dnd5e:summary, relationships
 and first surviving casefold-deduplicated alias spelling. Summary publication corrects
 the classic writer omission; it is not a parity claim. Preserve full raw intent.
 Map accepted canonical facts to established standing, fact claim, source-derived
@@ -60,7 +63,11 @@ an explicit validated existing commitment field, not only an adjacent audit obje
 
 Validate exact source body digest, frozen index commitment and line/UTF-8 intervals,
 raw/native artifact and revision identities, parent evidence membership and actual
-proof interval/slice bytes. Define unambiguous deduplication of reviewed references;
+proof interval/slice bytes. Bind the owner-supplied SourceRevisionV2 metadata as
+well: its artifact/revision must match parent evidence and proof, and its full body
+digest must match reviewed bytes, including uncited text. Raw-to-native document
+association and persisted origin/current authorization remain B2 source-owner
+checks; immutable parent evidence alone cannot establish those facts. Define unambiguous deduplication of reviewed references;
 refuse conflicting proofs, unused/foreign or missing bindings. Source-only means
 zero entities/assertions/aliases. A parsed payload cannot prove its ancestry; B2
 must verify no unrelated initialization history, current reservation and source
@@ -94,3 +101,21 @@ retained witness DBs. Keep output focused; preserve failures. Retain task eviden
 for active goal with cleanup follow-up after qualified replacement. No standing
 deletion permission; inventory paths/processes/mounts/dirty and unique data before
 separately approved disposal. No removed paths or reclaimed bytes at activation.
+
+## Implementation checkpoint
+
+The real two-stage compiler and sealed binding models are implemented. Actual
+producer input executes through installed Core cf197b9 public native source
+admission and prospective-alias publication, with replay, native authorized
+readback, exact citation bytes and source withdrawal. Focused diagnostic cohort:
+84 passed, one existing warning. No current-source or APP activation claim.
+The full-source digest check was added after an adversarial matching-prefix /
+changed-uncited-tail case; proof intervals alone were insufficient.
+
+Independent implementation review and clean exact-head backend/frontend/build/
+canonical/automatic checks remain required. The diagnostic smoke initially found
+a contribution status mismatch (reviewed versus required finalized), corrected
+before the passing publisher witness; do not treat earlier failures as passing.
+The parent owns service/integration; Aristotle implemented model and tests after
+an explicit disjoint write-scope split. Final independent review must cover the
+entire cumulative change, not reuse either author's review of their own code.
