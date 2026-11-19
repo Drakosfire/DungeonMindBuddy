@@ -28,3 +28,14 @@ Projects UUID48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8 and writable parent verified b
 new scratch/v9-buddy/v10-reader-fence-diagnostic-test-repair. Owner MIND retains
 logs/failed history for fullgoal; no resources removed. Cleanup later needs approved
 scope/process/mount/dirty/unique-data checks. Full native manual/transition/V11 open.
+
+## Frozen verification
+
+Actual reader-fence target1PASS; full owning module46PASS on installedCore99/WKef9,
+explicit fixture-only APP/Core databases. All other assertions retained. Scoped
+Ruff0 baseline/0current/0added, diffcheckPASS. Prior failing base/candidate evidence
+retained under capability-consumer scratch; this changes only accepted message
+word order, not downgrade refusal/reader fencing/retained-row behavior.
+Task target/owning XML/log and Ruff comparison retained. No active worker jobs
+after freeze; parent independent Hubble review/merge. Return4154 separately;
+this repair does not adoptCorea685 or satisfy its dependency qualification.
