@@ -1,6 +1,12 @@
 # CLEANUP: valid pinned-session viewer fixture
 
-Status: ACTIVE. Authorized by the standing cleanup goal with independent review
+Status: SETTLED by #4095, merged a0765314d86827a553924c2b933c5b16938dd1eb.
+Reviewed head 3f718fab4efd40da82d713309fb3d2b25f37f35d; independent review approved.
+Focused40/40, hosted1411/build/validator passed; full8044pass133fail2pending.
+Only intended failure resolved; no added/omitted IDs, new failures or changed
+remaining leading messages. Full qualification remains red.
+
+Historical assignment: Authorized by the standing cleanup goal with independent review
 and merge authority. Base: 5432c6d2d14be6422532fbbeddb0c9d1ab684f6a.
 Topology: serial after #4094; no unmerged dependency. Existing isolated cleanup
 checkout; no runtime ports, providers, databases or operator data.
