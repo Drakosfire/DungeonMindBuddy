@@ -169,12 +169,21 @@ scratch/v9-buddy/final-6fac, retaining prior receipts separately.
   APP fixture dependency ordering, and obsolete file-backed-page assumptions.
   Preserve APP-down fail-closed proof when reconciling durable-page semantics.
 
-Next serial slice is the bounded Play runtime repair with all-three-route and
-cancellation authorization-loss/zero-mutation regressions. Inspect active hosted
-leases before activation. Then settle independent fixture/contract groups and
-skipped native-source-extension PG proof. Keep this candidate's proved scope and
-failures intact; requalify the deliberately bounded repaired candidate, not later
-floating main. No provider generation or classic baseline rerun is needed.
+Play repair4067 is accepted: reviewedc8b0fe3c208825317707b109cde841fcebedbb2c,
+mergee2e6ade44e6fffcf79bf81de5beec4588ba9a972, independent review5969972489.
+All three routes forward the HTTP request; cancellation checks authority inside its
+transaction. New HTTP4 and diagnostic34 passed; named combat/session cohort115pass/
+1inherited failure: historical0160→0166 test incorrectly equates repository head
+with0166 although the base is0168. Its later readback/downgrade proof remains open.
+Exact hosted frontend/canonical validation and all four normal checks passed.
+This is bounded repair acceptance, not a green combat contract or V9 acceptance.
+
+Next serial slice fixes source-proposal fixture APP dependency ordering. Then
+settle remaining independent fixture/contract groups, the historical0166 readback
+and skipped native-source-extension PostgreSQL proof. The repaired candidate starts
+from acceptedc8b, excluding unrelated later-main runtime; final proof must qualify
+that bounded descendant. Current6fac proof remains tied to its original bytes.
+No provider generation or classic baseline rerun is needed.
 
 ## Remaining required proof and dispatch order
 

@@ -137,7 +137,7 @@
     }
   ],
   "pending": [
-    "Bounded Play runtime authority repair; independent fixture/contract groups; auth specialized-guard inventory reconciliation; skipped PostgreSQL proof",
+    "Source-proposal fixture APP ordering, other independent World/local-auth/durable-page fixture contracts; auth guard inventory; historical0166 readback; skipped extension PostgreSQL proof",
     "Requalify deliberately bounded repaired candidate, exact-head frontend, independent cumulative review and normal checks",
     "V9.B fresh live recovery/schema/artifact readiness and actual activation; V10 retirement; V11 serving baseline"
   ],
@@ -349,6 +349,18 @@
     {
       "pr": 4061,
       "merge": "5c887f0e600c0ab1d23af4b6c71d4df5b6bd2fe5"
+    },
+    {
+      "pr": 4067,
+      "merge": "e2e6ade44e6fffcf79bf81de5beec4588ba9a972",
+      "reviewed_head": "c8b0fe3c208825317707b109cde841fcebedbb2c",
+      "review": 5969972489,
+      "scope": "Play creation helper/cancellation authority repair only",
+      "http_passed": 4,
+      "combat_passed": 115,
+      "combat_inherited_failed": 1,
+      "frontend_and_normal_checks": "passed",
+      "full_v9_accepted": false
     }
   ],
   "current_proof_artifacts": [
@@ -881,5 +893,6 @@
     ],
     "live_source_mutation": false,
     "forward_verified_quiescent": true
-  }
+  },
+  "next_candidate_runtime_base": "c8b0fe3c208825317707b109cde841fcebedbb2c"
 }
