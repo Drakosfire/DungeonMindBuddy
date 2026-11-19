@@ -660,6 +660,20 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && path === runbookInventory + new URLSearchParams({ world_id: worldId });
   }
   const connectedPage = /^\/api\/live\/connected-pages\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
+  const runbookRead = /^\/api\/live\/workspace-documents\/world-runbooks\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(?:\/snapshot|\/committed-revision(?:\/([1-9][0-9]*))?)?\?/.exec(path);
+  if (runbookRead) {
+    const query = new URLSearchParams(path.slice(runbookRead[0].length));
+    const worldId = query.get("world_id");
+    if (method !== "GET" || init?.body != null || !worldId) return false;
+    const expected = new URLSearchParams({ world_id: worldId });
+    if (runbookRead[1]) {
+      const digest = query.get("expected_sha256");
+      if (!digest || !/^[a-f0-9]{64}$/.test(digest)) return false;
+      expected.set("expected_sha256", digest);
+    }
+    return path === runbookRead[0] + expected;
+  }
+
   const planInventoryPage = "/api/live/workspace-documents/world-plans/page?";
   if (path.startsWith(planInventoryPage)) {
     const query = new URLSearchParams(path.slice(planInventoryPage.length));
@@ -1100,6 +1114,7 @@ function apiRequestTarget(
   try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
   const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath)
     || normalizedPath === "/api/live/workspace-documents/world-runbooks"
+    || /^\/api\/live\/workspace-documents\/world-runbooks\/[^/]+(?:\/snapshot|\/committed-revision(?:\/[^/]+)?)?$/.test(normalizedPath)
     || normalizedPath === "/api/live/workspace-documents/world-plans/page"
     || normalizedPath === "/api/live/workspace-documents/world-plans"
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+(?:\/build-context)?$/.test(normalizedPath)

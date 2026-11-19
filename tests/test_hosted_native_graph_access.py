@@ -421,6 +421,10 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/rules/passages/{citation_id}"): access.resolve_hosted_rules_lookup,
             ("GET", "/api/live/plan-view"): access.resolve_hosted_plan_world_context,
             ("GET", "/api/live/workspace-documents/world-runbooks"): access.resolve_hosted_plan_world_context,
+            ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}"): access.resolve_hosted_runbook_read,
+            ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/snapshot"): access.resolve_hosted_runbook_read,
+            ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/committed-revision"): access.resolve_hosted_runbook_read,
+            ("GET", "/api/live/workspace-documents/world-runbooks/{document_id}/committed-revision/{revision_n}"): access.resolve_hosted_runbook_read,
             ("GET", "/api/live/connected-pages/{operation_id}"): access.resolve_hosted_connected_page,
             ("POST", "/api/live/connected-pages/prepare"): access.resolve_hosted_connected_page,
             ("POST", "/api/live/connected-pages/confirm"): access.resolve_hosted_connected_page,
@@ -5725,3 +5729,24 @@ def test_hosted_runbook_inventory_checks_world_before_listing(hosted, monkeypatc
     response = hosted.client.request("GET", path)
     assert response.status_code == 200, response.text
     assert calls == ["managed"]
+
+
+def test_hosted_runbook_read_checks_world_before_document_lookup(hosted, monkeypatch):
+    from apps.live_control_server.routes import workspace_documents
+
+    calls = []
+
+    def lookup(_root, *, world_id, document_id):
+        calls.append((world_id, document_id))
+        raise workspace_documents.WorkspaceDocumentRegistryError("fixture missing", status_code=404)
+
+    monkeypatch.setattr(workspace_documents, "get_world_owned_runbook_v2", lookup)
+    document_id = "00000000-0000-4000-8000-000000000001"
+    path = f"/api/live/workspace-documents/world-runbooks/{document_id}?world_id=managed"
+    assert hosted.client.request("GET", path, session="other-session").status_code == 403
+    assert hosted.client.request("GET", path + "&world_id=foreign").status_code == 403
+    assert hosted.client.request("GET", path.replace("=managed", "=foreign")).status_code == 403
+    assert calls == []
+    result = hosted.client.request("GET", path)
+    assert result.status_code == 404, result.text
+    assert calls == [("managed", document_id)]
