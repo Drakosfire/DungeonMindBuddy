@@ -337,6 +337,9 @@ describe("App same-document primary navigation", () => {
     const nativeRun = vi.spyOn(liveApi, "getWorldPlayRun").mockRejectedValue(
       new liveApi.LiveApiError("not found", 404),
     );
+    const planRead = vi.spyOn(liveApi, "getPlanView").mockResolvedValue({
+      ...mockPlanView, world_id: worldId, campaign_id: worldId, session: 0,
+    });
     try {
       window.history.pushState({}, "", `/play${playQuery}`);
       render(<App />);
@@ -349,7 +352,8 @@ describe("App same-document primary navigation", () => {
       const ingest = within(commandBoardNav()).getByRole("link", { name: "Ingest" });
       expect(ingest).toHaveAttribute("href", `/ingest?world=${worldId}`);
       await user.click(ingest);
-      expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "Bring a source into the story." })).toBeInTheDocument();
+      expect(planRead).toHaveBeenCalledWith(worldId, expect.any(AbortSignal));
       expect(window.location.pathname).toBe("/ingest");
       expect(window.location.search).toBe(`?world=${worldId}`);
 
@@ -361,6 +365,7 @@ describe("App same-document primary navigation", () => {
       });
       expect(liveApi.getPlayRun).not.toHaveBeenCalled();
     } finally {
+      planRead.mockRestore();
       nativeRun.mockRestore();
       worlds.mockRestore();
     }

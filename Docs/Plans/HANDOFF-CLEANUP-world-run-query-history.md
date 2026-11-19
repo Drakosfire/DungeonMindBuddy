@@ -33,6 +33,12 @@ survive Ingest navigation and Back; Ingest retains World but drops Run. Back mus
 restore the actual missing-Run screen as well as the exact query. Restore spies
 in finally. Keep all other test bytes and this case's ID unchanged.
 
+The first focused0bda25459eeaba427b109048fc7e2ce6b85679ec attempt correctly
+reached native Play but failed Ingest's World-projection mismatch guard. Preserve
+that raw failure. Supply the existing owning test's projection shape with matching
+world_id/campaign_id/session0; verify the actual World-scoped read arguments and
+managed welcome heading. Do not weaken the guard or assert an error page as ready.
+
 Bare Run-only inference remains a supported separate contract, not retired by
 this fixture change. Existing owner controls for managed inference, C2 legacy
 admission and refusal of unverifiable Runs remain untouched; all three passed
