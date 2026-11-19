@@ -5,8 +5,9 @@ from uuid import UUID
 
 from dungeonmind.application.vnext.errors import KnowledgePublicationOutcomeUnknownError
 from dungeonmind.domain.errors import DungeonMindError
+from fastapi import APIRouter, Depends, HTTPException, Request
+from apps.live_control_server.services import hosted_auth
 from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency, require_explorer_access
-from fastapi import APIRouter, Depends, HTTPException
 from worldkeeper.application.commit import (
     CommitAuthorityIntegrityFailure,
     CommittedChangeOutcomeUnknown,
@@ -104,15 +105,22 @@ router.add_api_route(
 )
 
 
+async def source_statement_subject_principal(request: Request) -> NativeGraphPrincipal:
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return authenticate_native_graph_principal(request)
+    return await native_graph_explorer_dependency(request)
+
+
 @router.get("/{managed_world_id}/subjects/{entity_id}")
 def read_subject(
     managed_world_id: str,
     entity_id: str,
     campaign_id: str,
     revision_id: str,
-    principal: NativeGraphPrincipal = Depends(authenticate_native_graph_principal),
+    principal: NativeGraphPrincipal = Depends(source_statement_subject_principal),
 ):
-    return _call(
+    require_explorer_access(principal, managed_world_id)
+    result = _call(
         service.read_subject,
         managed_world_id=managed_world_id,
         entity_id=entity_id,
@@ -120,6 +128,8 @@ def read_subject(
         revision_id=revision_id,
         principal=principal,
     )
+    require_explorer_access(principal, managed_world_id)
+    return result
 
 
 # Static proposal routes precede no conflicting dynamic POST paths.
