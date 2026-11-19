@@ -226,9 +226,12 @@ class BuildJevHarness:
         self.failure_stage = "controller_prepare"
         primary_error = False
         try:
-            driver = adapter.create_build_jev_driver(with_actions=True)
+            measure = getattr(getattr(adapter, "trace", None), "phase_before_first_jev", nullcontext)
+            with measure("build_first_jev_driver_creation"):
+                driver = adapter.create_build_jev_driver(with_actions=True)
             from application_state.agent_conversation.dialogue_projection import expand_dialogue
-            history = expand_dialogue(driver._interaction["history"])
+            with measure("build_first_jev_dialogue_expansion"):
+                history = expand_dialogue(driver._interaction["history"])
             adapter.build_frozen_history = history
             adapter.build_history_for_inclusion = tuple(
                 (UUID(item["turn_id"]), item["assistant"])

@@ -1660,7 +1660,13 @@ class _ClaimFence:
         return self.renewer.current_turn()
 
     def append(self, method_name: str, event_name: str, event: Any, **extras: Any) -> tuple[Turn, bool]:
-        with self.renewer._lock:
+        phase_name = {
+            "authorize_provider_attempt_v2": "first_jev_provider_authorization_append",
+            "record_provider_outcome": "first_jev_provider_outcome_append",
+            "record_build_draft_context": "first_jev_build_draft_context_append",
+        }.get(method_name)
+        measure = getattr(self.trace, "phase_before_first_jev", nullcontext)
+        with (measure(phase_name) if phase_name is not None else nullcontext()), self.renewer._lock:
             # Retain the existing span boundary: claim-lock queue time is not
             # relabelled as execution work by the shared source commit owner.
             with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
