@@ -469,6 +469,7 @@ def hosted(monkeypatch, request):
 
 
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): access.resolve_hosted_conversation_world,
+            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/retry-attempts"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
             ("PUT", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/drafts/{turn_id}"): access.resolve_hosted_conversation_world,
@@ -3262,6 +3263,11 @@ def test_hosted_conversation_starts_and_reopens_in_exact_world(hosted, applicati
     response = hosted.client.request("POST", base + "/new", json=body)
     assert response.status_code == 200, response.text
     created = response.json()
+    attempt_path = f"{base}s/{created['conversation_id']}/turns/{uuid4()}/retry-attempts?limit=50"
+    missing = hosted.client.request("GET", attempt_path)
+    assert missing.status_code == 404, missing.text
+    denied = hosted.client.request("GET", attempt_path, session="other-session")
+    assert denied.status_code == 403, denied.text
     retry_context = f"{base}s/{created['conversation_id']}/retry-context"
     retry_query = f"?turn_ids={uuid4()}"
     assert hosted.client.request("GET", retry_context + retry_query, session="other-session").status_code == 403
