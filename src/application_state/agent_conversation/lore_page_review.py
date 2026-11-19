@@ -52,7 +52,7 @@ class LorePageTitleWitness(Closed):
             raise ValueError("Lore page witness must quote the explicit page request")
         if self.title != title:
             raise ValueError("Lore page title differs from the explicit page request")
-        if has_body and "blank" in request["modifiers"].lower().split():
+        if has_body and _requests_blank_page(request):
             raise ValueError("Blank lore-page request cannot carry a populated body")
         return self.title
 
@@ -73,6 +73,15 @@ def _explicit_request(author_text: str) -> tuple[re.Match[str], str]:
             maxsplit=1, flags=re.IGNORECASE,
         )[0]
     return request, _requested_title(subject)
+
+
+def _requests_blank_page(request: re.Match[str]) -> bool:
+    return "blank" in request["modifiers"].lower().split()
+
+
+def explicit_blank_lore_page(author_text: str) -> bool:
+    request, _ = _explicit_request(author_text)
+    return _requests_blank_page(request)
 
 
 def explicit_lore_page_witness(author_text: str) -> LorePageTitleWitness:

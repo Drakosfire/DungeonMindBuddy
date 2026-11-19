@@ -7,7 +7,9 @@ Provider qualification uses the disposable AW evaluator on 32787.
 
 AW10 turn 7 reached standalone lore review. Its model-authored title failed
 the host's existing exact title check. Derive the explicit title from the
-author's instruction and constrain the native writer schema to that title.
+author's instruction and constrain the native writer schema to that title. The live test then reached blank
+body validation, so bind explicit blank requests to an empty body and a
+required lore review in the same schema.
 Reconstruct the same binding when verifying the serialized request. Preserve
 historical request verification, ambiguity checks and revision-bound save.
 

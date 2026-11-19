@@ -109,7 +109,8 @@ def test_derives_title_before_writing_from_an_explicit_pivot():
     assert witness.bind(author) == "Rowan"
 
 
-def test_writer_schema_offers_only_the_author_bound_title():
+@pytest.mark.parametrize("blank", [False, True])
+def test_writer_schema_offers_only_the_author_bound_title(blank):
     from types import SimpleNamespace
 
     from application_state.agent_conversation.build_intentional_response import Capabilities, resolve
@@ -119,7 +120,8 @@ def test_writer_schema_offers_only_the_author_bound_title():
     from application_state.agent_conversation.plan_writer_output_schema import ASSERTION_POLICY, native_output_format
     from application_state.agent_conversation.rules_authority_plan_packet import PlanRulesEvidenceFrameV1
 
-    message = "Discuss the observatory. Create a blank page for the threat that is Rowan."
+    modifier = "blank " if blank else ""
+    message = f"Discuss the observatory. Create a {modifier}page for the threat that is Rowan."
     execution = SimpleNamespace(policy=SimpleNamespace(action=SimpleNamespace(intent=SimpleNamespace(message=message))), events=())
     capabilities = Capabilities(("answer_from_sources",), ("lore_page",), None, None)
     host = {
@@ -140,5 +142,7 @@ def test_writer_schema_offers_only_the_author_bound_title():
     assert projected["build_work"]["lore_page_destination"]["title"] == "Rowan"
     schema = native_output_format(evidence, rules, host | projected, build_local=True)["schema"]
     assert schema["$defs"]["LorePageTitleWitness"]["properties"]["title"]["enum"] == ["Rowan"]
+    assert schema["properties"]["answer_segments"].get("maxItems") == (0 if blank else None)
+    assert "destination" in schema["properties"]["collaboration"]["required"]
     historical = native_output_format(evidence, rules, host, build_local=True)["schema"]
     assert "enum" not in historical["$defs"]["LorePageTitleWitness"]["properties"]["title"]
