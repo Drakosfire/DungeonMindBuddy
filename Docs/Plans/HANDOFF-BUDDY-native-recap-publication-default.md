@@ -90,3 +90,58 @@ no overlay/resync. No new worktree/live/provider/serving/retrieval-baseline chan
 MIND retains scratch/cache for active fullgoal; no deletion/reclaimed bytes.
 Cleanup follow-up requires approved scope and process/mount/dirty/unique-data checks.
 Full read/write retirement,39 historical cutover debt,current deployment,V11 remain.
+
+## Parent transport ownership transfer
+
+MIND explicitly transfers only api/liveApi.ts and its
+api/liveApi.nativeGraphExplorerAuth.test.ts to the parent, after worker ACK that
+both paths are untouched/released and no Node job is live. Parent owns this brief
+append; worker retains all other implementation paths. Same serial PR/outcome,
+no lease expansion. Parent adds exact context/extension authentication and
+read-only context retry guards; mutations never acquire automatic retry. Scoped
+test execution still uses the actual shared frontend lock. Parent will hand back
+these files before worker cumulative commit and frozen-source qualification.
+
+
+## Implementation checkpoint — qualification pending
+
+Parent handed both transport paths back after diagnostic2:140PASS,0FAIL; exact
+context read authentication/session retry, no extension mutation auto-retry, and
+encoded/dotsegment lookalikes are covered. parent-transport-diagnostic-1.* retains
+138PASS2newFAIL; parent-transport-diagnostic-2.{log,json,-receipt.json} retains the
+fixed proof. Worker cumulative commit includes these exact parent-owned changes.
+No other parent code was edited and there is no concurrent source writer now.
+
+Worker final working diagnostic3:120PASS in5files (native API/component/recovery,
+retained compatibility session tests, mounted BuildRunReview),0FAIL/0pending,
+1.55s; application TypeScript0. Diagnostic1 retained115PASS2FAIL: a source-display
+mapping fixture and real missing storage-error display. Diagnostic2 fixed both,
+117PASS/types0; final3 covers existing identity/indexed action/beat reuse and known
+source-admission resume with null command digest, matching the existing owner.
+All log/XML/driver/type outputs are retained in owning scratch; working diagnostics
+are not exact committed-source qualification or a full-discovered green claim.
+
+The public Build entry chooses retained native/classic before any fresh source
+reads; compatibility-session tests intentionally target RetainedRecapPublication,
+while public-entry tests prove the new default and actual retained-packet dispatch.
+Unknown admission before any returned run ID retries its exact stored target via
+existing idempotent admit. Extension and confirmation replay before fresh context/
+projection, preserving original IDs/timestamps/parents/epochs/tokens. Archives use
+bounded private SHA keys with exact raw values. No whole-body role relabeling:
+operator chooses a proper witness subrange, including one-line sources. Extension
+receipt checks use actual available Core space/source/admission/publication and
+span/proof fields; a refreshed context must expose actual support before facts.
+Metadata, indexed fields, existing IDs, beat reuse, relationships and placement
+are explicit; aliases/hints/unselected records remain visibly held, not dropped.
+Prepare does not publish; signed confirmation is retained before dispatch.
+
+UI journey proof mocks the verified source/context/API boundary, with real client
+recovery/witness/interaction logic; API tests separately exercise actual client
+read contracts/authenticated fetch. Accepted N2a905/315/409 and prior native prepare/
+confirm/evidence-extension owners supply separate backend proof, not browser or
+joint live serving evidence. No new source-only authority is fabricated.
+
+Parent owns exact full-discovered candidate comparison against retained raw base430
+(8146PASS104FAIL2skips,build0; zero missing/two known extra skips) and broaderbackend/
+independent review. Worker hosted remains HOLD until parent full terminal/explicit
+release. Source freezes at implementation commit. No fullrelease/V10/V11 claim.
