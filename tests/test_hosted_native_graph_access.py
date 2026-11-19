@@ -344,6 +344,9 @@ def hosted(monkeypatch, request):
     from apps.live_control_server.routes import combat_run_encounters
 
     app.include_router(combat_run_encounters.router)
+    from apps.live_control_server.routes import world_graph_projection
+
+    app.include_router(world_graph_projection.router)
     app.include_router(play_runs.router)
     app.include_router(play_prepared_tables.router)
     app.include_router(workspace_documents.router)
@@ -486,6 +489,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}/mechanics-adoptions:cancel"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}/mechanics-adoptions/{operation_id}"): access.resolve_hosted_combat_encounter,
             ("GET", "/api/live/combat/run-encounters/{run_id}/scenes/{scene_id}/encounters/{encounter_id}/mechanics-adoptions"): access.resolve_hosted_combat_encounter,
+            ("POST", "/api/live/world-graph/managed-projection"): access.resolve_hosted_managed_projection,
             ("GET", "/api/live/world-play-runs/v2"): access.resolve_hosted_play_read,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/rebase"): access.resolve_hosted_play_command,
             ("PUT", "/api/live/world-play-runs/v2/{run_id}/progress"): access.resolve_hosted_play_command,
@@ -6083,3 +6087,42 @@ def test_hosted_build_proposal_prompt_requires_exact_owned_world(hosted, monkeyp
     denied = hosted.client.request("GET", path)
     assert denied.status_code == 403, denied.text
     assert "withheld prompt" not in denied.text
+
+
+def test_hosted_managed_projection_reaches_only_owned_world(hosted, monkeypatch):
+    from apps.live_control_server.routes import world_graph_projection
+
+    calls = []
+
+    def project(body):
+        calls.append((body.managed_world_id, body.revision_pin))
+        raise world_graph_projection.WorldGraphProjectionServiceError(
+            "fixture reached", code="fixture", status_code=409,
+        )
+
+    monkeypatch.setattr(world_graph_projection, "project_managed_world_graph", project)
+    path = "/api/live/world-graph/managed-projection"
+    body = {"schema": "dmb_managed_world_graph_projection_request_v1",
+            "managedWorldId": "managed", "revisionPin": "rev:exact"}
+    assert hosted.client.request("POST", path, json=body, session="other-session").status_code == 403
+    assert hosted.client.request("POST", path, json={**body, "managedWorldId": "foreign"}).status_code == 403
+    assert calls == []
+    result = hosted.client.request("POST", path, json=body)
+    assert result.status_code == 409, result.text
+    assert calls == [("managed", "rev:exact")]
+
+    def transfer_during_serialization(**_kwargs):
+        hosted.records["managed"] = hosted.records["managed"].model_copy(
+            update={"owner_subject": OTHER_OWNER},
+        )
+        return {"graph": "withheld projection"}
+
+    monkeypatch.setattr(
+        world_graph_projection, "project_managed_world_graph",
+        lambda _body: SimpleNamespace(
+            managed_world_id="managed", model_dump=transfer_during_serialization,
+        ),
+    )
+    denied = hosted.client.request("POST", path, json=body)
+    assert denied.status_code == 403, denied.text
+    assert "withheld projection" not in denied.text

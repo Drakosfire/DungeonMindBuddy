@@ -1384,3 +1384,14 @@ async def resolve_hosted_media_library(request: Request) -> str:
     world = await run_in_threadpool(_owned_world, _hosted_subject(request), world_id)
     request.state.hosted_plan_context_world = world.world_id
     return world.world_id
+
+
+async def resolve_hosted_managed_projection(request: Request) -> str:
+    from apps.live_control_server.services.managed_world_graph_projection import ManagedWorldGraphProjectionRequest
+
+    if request.query_params:
+        raise _denied()
+    body = ManagedWorldGraphProjectionRequest.model_validate(await request.json())
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.managed_world_id)
+    request.state.hosted_native_graph_world = world.world_id
+    return world.world_id
